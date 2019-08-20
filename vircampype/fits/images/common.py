@@ -264,6 +264,20 @@ class FitsImages(FitsFiles):
 
         return MasterImages(file_paths=paths)
 
+    def match_masterbpm(self):
+        """
+        Get for each file in self the corresponding Masterbpm image.
+
+        Returns
+        -------
+        MasterBPM
+            MasterBPM instance holding for each file in self the corresponding Masterbpm file.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self._get_masterimages().bpm, max_lag=setup_master_maxlag)
+
     # =========================================================================== #
     # Other methods
     # =========================================================================== #
@@ -411,8 +425,9 @@ class MasterImages(FitsImages):
             Ordered list of calibration types
         """
 
-        return self.primeheaders_get_keys([setup_kwp_object])[0]
+        return self.primeheaders_get_keys([setup_kw_object])[0]
 
+    @property
     def bpm(self):
         """
         Holds all Masterbpm images.
