@@ -411,4 +411,23 @@ class MasterImages(FitsImages):
             Ordered list of calibration types
         """
 
-        return self.primeheaders_get_keys(["OBJECT"])[0]
+        return self.primeheaders_get_keys([setup_kwp_object])[0]
+
+    def bpm(self):
+        """
+        Holds all Masterbpm images.
+
+        Returns
+        -------
+        MasterBadPixelMask
+            All Masterbpm images as a MasterBPM instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.bpm import MasterBadPixelMask
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-BPM"]
+
+        return MasterBadPixelMask(file_paths=[self.file_paths[idx] for idx in index])
