@@ -18,7 +18,7 @@ dark:
   metric: "median"
 
 master:
-  master_maxlag: 7
+  max_lag: 7
 
 data:
   dim_x: 2048
