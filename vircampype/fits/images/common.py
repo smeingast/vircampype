@@ -156,7 +156,7 @@ class FitsImages(FitsFiles):
         ----------
         hdu_index : int, optional
             Iterable of hdu indices to load, default is to load all HDUs with data
-        dtype : np.dtype, optional
+        dtype : dtype, optional
             Data type (e.g. np.float32)
 
         Returns
