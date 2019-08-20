@@ -301,6 +301,10 @@ class FitsFiles:
         return self._time_obs
 
     @property
+    def time_obs_mean(self):
+        return Time(self.mjd_mean, format="mjd").fits
+
+    @property
     def mjd(self):
         """
         Property to hold all MJDs for the observations in a list.
