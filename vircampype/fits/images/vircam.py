@@ -1,14 +1,10 @@
 # =========================================================================== #
 # Import
-import time
 import shutil
-import numpy as np
 
-from vircampype.data.cube import ImageCube
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
 from vircampype.fits.images.common import FitsImages
-from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.sky import OffsetImages, ScienceImages, StdImages
 
 from vircampype.setup import *
@@ -149,46 +145,12 @@ class VircamImages(FitsImages):
         # Split into categories
         split = self.split_type()
 
-        # MasterBPM
-        # for otype, images in split.items():
-        #     if isinstance(images, VircamFlatLampCheck):
-        #         images.build_master_bpm()
+        # MasterBPM needs to build first
+        split["flat_lamp_check"].build_master_bpm()
 
-        # Masterdarks
-        for s in split:
-            if isinstance(s, VircamDarkImages):
-                s.build_master_dark()
-
-        # Gain/Read noise
-        # TODO: Possibly move this to a separate method
-        # for f in split:
-        #     if isinstance(f, VircamFlatLampGain):
-        #
-        #         # Also search for the corresponding darks
-        #         for d in split:
-        #             if isinstance(d, VircamDarkImages):
-        #
-        #                 # Call the Gain routine with the given data
-        #                 f.build_master_gain(biasimages=d)
-
-        # Master linearity
-        # for s in split:
-        #     if isinstance(s, VircamFlatLampLin):
-        #         s.build_master_linearity()
-
-        # Master Flat and Weight
-        # for s in split:
-        #     if isinstance(s, VircamFlatTwilight):
-        #         s.build_master_flat()
-
-        # Offset
-        # for s in split:
-        #     if isinstance(s, VircamOffsetImages):
-        #         s.build_master_offset()
-
-        # # Master reference catalog
-        # if split.category == "Sky,Science" or split.category == "sky,std":
-        #     split.build_master_astrometry()
+        # Next are darks
+        for ot in ["dark_science", "dark_lin", "dark_gain"]:
+            split[ot].build_master_dark()
 
 
 class VircamDarkImages(DarkImages):
@@ -224,6 +186,7 @@ class VircamFlatLampCheck(VircamFlatImages):
     def __init__(self, file_paths=None):
         super(VircamFlatLampCheck, self).__init__(file_paths=file_paths)
 
+
 class VircamOffsetImages(OffsetImages):
     def __init__(self, file_paths=None):
         super(VircamOffsetImages, self).__init__(file_paths=file_paths)
@@ -237,4 +200,3 @@ class VircamScienceImages(ScienceImages):
 class VircamStdImages(StdImages):
     def __init__(self, file_paths=None):
         super(VircamStdImages, self).__init__(file_paths=file_paths)
-
