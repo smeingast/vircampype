@@ -4,6 +4,7 @@ import re
 import os
 import time
 import warnings
+import numpy as np
 
 from astropy.io import fits
 
@@ -234,3 +235,10 @@ def make_cards(keywords, values, comments=None):
 
 def flat_list(inlist):
     return [item for sublist in inlist for item in sublist]
+
+
+def str2func(s):
+    if s.lower() == "median":
+        return np.nanmedian
+    else:
+        raise ValueError("Metric '{0}' not suppoerted".format(s))
