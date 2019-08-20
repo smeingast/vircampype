@@ -20,6 +20,9 @@ dark:
   ikappa: 1
   collapse_metric: "mean"
 
+gain:
+  max_lag: 1
+
 master:
   max_lag: 7
 
