@@ -6,3 +6,9 @@ setup_bpm_abshi = 20000
 setup_bpm_rello = 0.96
 setup_bpm_relhi = 1.04
 setup_bpm_frac = 0.2
+
+# Dark
+setup_dark_maxlag = 1
+
+# Master
+setup_master_maxlag = 7
