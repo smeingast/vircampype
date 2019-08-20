@@ -330,7 +330,7 @@ class FitsFiles:
     # =========================================================================== #
     #   Data splitter
     # =========================================================================== #
-    def _split_keywords(self, keywords):
+    def split_keywords(self, keywords):
         """
         General file-splitting method for any keywords in the primary FITS header.
 
@@ -364,7 +364,7 @@ class FitsFiles:
 
         return split_list
 
-    def _split_lag(self, max_lag):
+    def split_lag(self, max_lag):
         """
         Splitting function which splits the input files based on a given maximum time difference.
 
@@ -416,72 +416,3 @@ class FitsFiles:
 
         # Return the list which contains the separated file paths
         return split_list
-
-    def split(self, max_lag=None, filter=False, dit=False, ndit=False, sky=None):
-        """
-        Generic splitting function. The input files are split in sub-sequences based on the available options
-
-        Parameters
-        ----------
-        max_lag : float, integer, optional
-            Maximum allowed time difference between split sets in hours.
-        filter : bool, optional
-            Splits files based on unique filter entries in the FITS headers.
-        dit : bool, optional
-            Splits input files based on unique detector integration times (DIT) entries in the FITS headers.
-        ndit : bool, optional
-            Splits input files based on unique detector integration times (DIT) entries in the FITS headers.
-        sky : int, float, optional
-            Maximum distance between telescope pointings.
-
-        Returns
-        -------
-            FitsList instance containing all split FitsFiles instances.
-
-        Raises
-        ------
-        TypeError
-            When Image splitting methods are requested for non-ImageLists.
-
-        """
-
-        """ We need to first split based on data properties (like filter, or DIT) before we split based on lag or
-        interval. If not, the time splitting methods would throw e.g. files of unequal filter together.  If e.g.
-        one makes flat field sequences in a few filters consecutively then the time gaps can be filled by other filters
-        and the files would not be split. """
-
-        # Split pointing
-        if sky is not None:
-            raise NotImplementedError
-            # split = split._split_sky(max_distance=sky)
-
-        # Split filter
-        if filter:
-            split = self._split_filter()
-
-        exit()
-
-        # Split in sequences of common DIT and NDIT
-        if dit & ndit:
-            split = split._split_expsequence()
-
-        # Otherwise check individually
-        else:
-
-            # Split DIT
-            if dit:
-                split = split._split_dit()
-
-            # Split NDIT
-            if ndit:
-                split = split._split_ndit()
-
-        # Split lag
-        if max_lag is not None:
-            split = split._split_lag(max_lag=max_lag)
-
-        # Split Interval
-        if interval is not None:
-            split = split._split_interval(interval=interval, remove_duplicates=True)
-
-        return split
