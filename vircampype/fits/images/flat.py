@@ -87,11 +87,9 @@ class FlatImages(FitsImages):
             # Write to disk
             master_bpm.write_mef(path=outpaths[-1], prime_header=prime_header, data_headers=data_headers)
 
-        # Create output
-        mbpm = MasterBadPixelMask(file_paths=outpaths)
-
         # QC plot
         if setup_qc_plots:
+            mbpm = MasterBadPixelMask(file_paths=outpaths)
             mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=setup_overwrite)
 
         # Print time
