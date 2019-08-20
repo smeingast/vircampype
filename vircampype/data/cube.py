@@ -507,17 +507,36 @@ class ImageCube(object):
         with np.errstate(invalid="ignore"):
             self.cube[:][self > value] = np.nan
 
-    def apply_masks(self, bpm=None, saturate=None, mask_min=False, mask_max=False,
-                    mask_below=None, mask_above=None, kappa=None, ikappa=1):
+    def _mask_badpix(self, bpm):
         """
-        Applies the above given masking methods to instance cube
+        Applys a bad pixel mask to self
 
         Parameters
         ----------
         bpm : ImageCube, optional
             Bad pixel mask as ImageCube instance. Must have same shape as self
-        saturate : int, float, list, optional
-            Saturation levels for each plane in the cube
+
+        Returns
+        -------
+
+        """
+
+        # Shape must match
+        if self.shape != bpm.shape:
+            raise ValueError("Shapes do not match")
+
+        # Mask bad pixels with NaN
+        self.cube[bpm.cube > 0] = np.nan
+
+    def apply_masks(self, bpm=None, mask_min=False, mask_max=False,
+                    mask_below=None, mask_above=None):
+        """
+        Applies the above given masking methods to instance cube.
+
+        Parameters
+        ----------
+        bpm : ImageCube, optional
+            Bad pixel mask as ImageCube instance. Must have same shape as self
         mask_min : bool, optional
             Whether the minimum in the stack should be masked
         mask_max : bool, optional
@@ -526,23 +545,12 @@ class ImageCube(object):
             Values below are masked in the entire cube
         mask_above : float, int, optional
             Values above are masked in the entire cube
-        kappa : float, int, optional
-            kappa-factor in kappa-sigma clipping
-        ikappa : int, optional
-            Iterations of kappa-sigma clipping
-
-        Returns
-        -------
 
         """
 
         # Mask bad pixels
-        # if bpm is not None:
-        #     self._mask_badpix(bpm=bpm)
-
-        # Mask saturation levels
-        # if saturate is not None:
-        #     self._mask_saturation(saturate=saturate)
+        if bpm is not None:
+            self._mask_badpix(bpm=bpm)
 
         # Mask minimum in cube
         if mask_min:
@@ -559,10 +567,6 @@ class ImageCube(object):
         # Mask above
         if mask_above is not None:
             self._mask_above(value=mask_above)
-
-        # Sigma clipping
-        # if kappa:
-        #     self._kappa_sigma(kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
 
     # =========================================================================== #
     # Data manipulation
@@ -591,7 +595,7 @@ class ImageCube(object):
         else:
             self.cube = np.vstack((self.cube, data))
 
-    def flatten(self, metric=np.nanmedian, axis=0, weights=None, dtype=None):
+    def flatten(self, metric=np.nanmedian, axis=0, dtype=None):
         """
         Flattens the ImageCube data to a 2D numpy array based on various options.
 
@@ -601,8 +605,6 @@ class ImageCube(object):
             Metric to be used to collapse cube
         axis : int, optional
             axis along which to flatten (usually 0 if the shape of the data is not tampered with)
-        weights : ImageCube, optional
-            Optionally an ImageCube instance containing the weights for a weighted average flattening
         dtype : callable, optional
             Output data type
 
