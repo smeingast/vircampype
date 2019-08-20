@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from vircampype.utils.math import sigma_clip
 
 
 class ImageCube(object):
@@ -528,8 +529,26 @@ class ImageCube(object):
         # Mask bad pixels with NaN
         self.cube[bpm.cube > 0] = np.nan
 
-    def apply_masks(self, bpm=None, mask_min=False, mask_max=False,
-                    mask_below=None, mask_above=None):
+    def _kappa_sigma(self, kappa=3, ikappa=1, center_metric=np.nanmedian):
+        """
+        Performs Kappa-sigma clipping on cube. Replaces all rejected values with NaN.
+
+        Parameters
+        ----------
+        kappa : float, int, optional
+            kappa-factor (kappa * sigma clipping); default is 3.
+        ikappa : int, optional
+            Number of iterations; default is 1.
+        center_metric : callable, optional
+            Metric to calculate the center of the data; default is np.nanmedian.
+
+        """
+
+        # Perform sigma clipping along first axis
+        self.cube = sigma_clip(data=self.cube, kappa=kappa, ikappa=ikappa, center_metric=center_metric, axis=0)
+
+    def apply_masks(self, bpm=None, mask_min=False, mask_max=False, mask_below=None, mask_above=None,
+                    kappa=None, ikappa=1):
         """
         Applies the above given masking methods to instance cube.
 
@@ -545,6 +564,10 @@ class ImageCube(object):
             Values below are masked in the entire cube
         mask_above : float, int, optional
             Values above are masked in the entire cube
+        kappa : float, int, optional
+            kappa-factor in kappa-sigma clipping.
+        ikappa : int, optional
+            Iterations of kappa-sigma clipping.
 
         """
 
@@ -567,6 +590,10 @@ class ImageCube(object):
         # Mask above
         if mask_above is not None:
             self._mask_above(value=mask_above)
+
+        # Sigma clipping
+        if kappa:
+            self._kappa_sigma(kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
 
     # =========================================================================== #
     # Data manipulation
