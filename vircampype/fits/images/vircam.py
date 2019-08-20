@@ -2,13 +2,11 @@
 # Import
 import shutil
 
+from vircampype.utils.miscellaneous import *
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.sky import OffsetImages, ScienceImages, StdImages
-
-from vircampype.setup import *
-from vircampype.utils.miscellaneous import *
 
 
 class VircamImages(FitsImages):
@@ -39,7 +37,8 @@ class VircamImages(FitsImages):
         """
 
         # Get the type, and category from the primary header
-        types, category = self.primeheaders_get_keys([setup_kw_type, setup_kw_catg])
+        types, category = self.primeheaders_get_keys([self.setup["keywords"]["type"],
+                                                      self.setup["keywords"]["category"]])
 
         # Extract the various data types for VIRCAM
         science_index = [i for i, (c, t) in enumerate(zip(category, types)) if
@@ -147,6 +146,7 @@ class VircamImages(FitsImages):
 
         # MasterBPM needs to build first
         split["flat_lamp_check"].build_master_bpm()
+        exit()
 
         # Next are darks
         for ot in ["dark_science", "dark_lin", "dark_gain"]:

@@ -4,7 +4,6 @@ import glob
 import numpy as np
 
 from astropy.io import fits
-from vircampype.setup import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
 
@@ -45,7 +44,7 @@ class FitsImages(FitsFiles):
         if self._dit is not None:
             return self._dit
 
-        self._dit = self.primeheaders_get_keys(keywords=[setup_kw_dit])[0]
+        self._dit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["dit"]])[0]
         return self._dit
 
     # =========================================================================== #
@@ -71,7 +70,7 @@ class FitsImages(FitsFiles):
 
         # If available, read it, else set 1 for all files
         try:
-            self._ndit = self.primeheaders_get_keys(keywords=[setup_kw_ndit])[0]
+            self._ndit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["dit"]])[0]
         except KeyError:
             self._ndit = [1] * self.n_files
 
@@ -107,7 +106,7 @@ class FitsImages(FitsFiles):
         if self._filter is not None:
             return self._filter
 
-        self._filter = self.primeheaders_get_keys(keywords=[setup_kw_filter])[0]
+        self._filter = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
         return self._filter
 
     _dtypes = None
@@ -176,7 +175,7 @@ class FitsImages(FitsFiles):
             dtype = np.float32
 
         # Create empty numpy cube
-        cube = np.empty((self.n_files, setup_dim_y, setup_dim_x), dtype=dtype)
+        cube = np.empty((self.n_files, self.setup["data"]["dim_y"], self.setup["data"]["dim_x"]), dtype=dtype)
 
         # Fill cube with data
         for path, plane in zip(self.full_paths, cube):
@@ -390,7 +389,7 @@ class FitsImages(FitsFiles):
         """
 
         # Common name
-        path = self._path_master + basename
+        path = self.path_master + basename
 
         # Append options
         if dit:

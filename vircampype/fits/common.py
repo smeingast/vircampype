@@ -2,18 +2,14 @@
 # Import
 import glob
 import pickle
-import numpy as np
 
 from astropy.time import Time
 from vircampype.utils.miscellaneous import *
 
-# Setup
-from vircampype.setup import *
-
 
 class FitsFiles:
 
-    def __init__(self, file_paths=None):
+    def __init__(self, file_paths=None, path_yaml=None):
         """
         Top-level class of FITS files. Contains basic information on file structure and the headers.
 
@@ -23,6 +19,9 @@ class FitsFiles:
             Paths to FITS files
 
         """
+
+        # Read setup
+        self.setup = read_setup(path_yaml=path_yaml)
 
         if file_paths is None:
             self.file_paths = []
@@ -41,14 +40,15 @@ class FitsFiles:
         self.file_directories = [os.path.dirname(x) + "/" for x in self.full_paths]
         self.n_files = len(self.file_paths)
 
-        # Initialize folders and paths
-        self._path_temp = setup_proc_path + setup_path_temp
-        make_folder(path=self._path_temp)
-        self._path_master = setup_proc_path + setup_path_master
-        make_folder(path=self._path_master)
+        # Initialize folders and set attributes manually
+        self.path_proc = self.setup["paths"]["proc"]
+        self.path_temp = self.setup["paths"]["temp"]
+        self.path_master = self.setup["paths"]["master"]
+        for key, value in self.setup["paths"].items():
+            make_folder(path=value)
 
         # Generate paths
-        self._header_paths = [self._path_temp + f + ".header" for f in self.file_names]
+        self._header_paths = [self.path_temp + f + ".header" for f in self.file_names]
 
     # =========================================================================== #
     #   Magic methods
@@ -295,8 +295,7 @@ class FitsFiles:
             return self._time_obs
         else:
             pass
-
-        self._time_obs = Time(self.primeheaders_get_keys([setup_kw_dateut])[0], scale="utc")
+        self._time_obs = Time(self.primeheaders_get_keys([self.setup["keywords"]["date_ut"]])[0], scale="utc")
 
         return self._time_obs
 
