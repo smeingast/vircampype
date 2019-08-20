@@ -71,18 +71,19 @@ class FlatImages(FitsImages):
                 bpm = np.array(nbad_pix > setup_bpm_frac, dtype=np.uint8)
 
                 # Make header cards
-                cards = make_cards(keywords=["NBADPIX", "BADFRAC"],
+                cards = make_cards(keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
                                    values=[np.int(np.sum(bpm)), np.round(np.sum(bpm) / bpm.size, decimals=5)],
-                                   comments=["Number of bad pixels", "Fraction of bad pixels"], hierarch=True)
+                                   comments=["Number of bad pixels", "Fraction of bad pixels"])
                 data_headers.append(fits.Header(cards=cards))
 
                 # Append HDU
                 master_bpm.extend(data=bpm)
 
             # Make cards for primary headers
-            prime_cards = make_cards(keywords=[setup_kw_dit, setup_kw_ndit, setup_kw_mjd, setup_kw_object, "N_FILES"],
-                                     values=[files.dit[0], files.ndit[0], files.mjd_mean, "MASTER-BPM", len(files)],
-                                     hierarch=True)
+            prime_cards = make_cards(keywords=[setup_kw_dit, setup_kw_ndit,  setup_kw_mjd,
+                                               setup_kw_dateut, setup_kw_object, "HIERARCH PYPE N_FILES"],
+                                     values=[files.dit[0], files.ndit[0],  files.mjd_mean,
+                                             files.time_obs_mean, "MASTER-BPM", len(files)])
             prime_header = fits.Header(cards=prime_cards)
 
             # Write to disk
