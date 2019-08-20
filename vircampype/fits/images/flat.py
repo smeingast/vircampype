@@ -21,22 +21,21 @@ class FlatImages(FitsImages):
         split = self.split_lag(max_lag=self.setup["bpm"]["max_lag"])
 
         # Now loop through separated files and build Masterbpm
-        outpaths = []
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: FlatImages, int
 
             # Check sequence compatibility
             files.check_compatibility(n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3)
 
             # Create Masterbpm name
-            outpaths.append(files.create_masterpath(basename="MASTER-BPM", ndit=True, mjd=True))
+            outpath = files.create_masterpath(basename="MASTER-BPM", ndit=True, mjd=True)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Instantiate output
-            master_bpm = ImageCube()
+            master_cube = ImageCube()
 
             # Start looping over detectors
             data_headers = []
@@ -44,7 +43,7 @@ class FlatImages(FitsImages):
 
                 # Print processing info
                 if not self.setup["misc"]["silent"]:
-                    calibration_message(n_current=fidx, n_total=len(split), name=outpaths[-1],
+                    calibration_message(n_current=fidx, n_total=len(split), name=outpath,
                                         d_current=d, d_total=len(files.data_hdu[0]))
 
                 # Get data
@@ -75,7 +74,7 @@ class FlatImages(FitsImages):
                 data_headers.append(fits.Header(cards=cards))
 
                 # Append HDU
-                master_bpm.extend(data=bpm)
+                master_cube.extend(data=bpm)
 
             # Make cards for primary headers
             prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
@@ -87,12 +86,12 @@ class FlatImages(FitsImages):
             prime_header = fits.Header(cards=prime_cards)
 
             # Write to disk
-            master_bpm.write_mef(path=outpaths[-1], prime_header=prime_header, data_headers=data_headers)
+            master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
-        # QC plot
-        if self.setup["misc"]["qc_plots"]:
-            mbpm = MasterBadPixelMask(file_paths=outpaths)
-            mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                mbpm = MasterBadPixelMask(file_paths=outpath)
+                mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
         if not self.setup["misc"]["silent"]:
