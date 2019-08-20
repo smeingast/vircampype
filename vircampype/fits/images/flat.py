@@ -21,7 +21,7 @@ class FlatImages(FitsImages):
         tstart = mastercalibration_message(master_type="MASTER-BPM", silent=setup_silent)
 
         # Split files based on maximum time lag is set
-        split = self._split_lag(max_lag=setup_bpm_maxlag)
+        split = self.split_lag(max_lag=setup_bpm_maxlag)
 
         # Now loop through separated files and build Masterbpm
         outpaths = []
