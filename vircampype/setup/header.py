@@ -1,3 +1,4 @@
+# Input keywords
 setup_kw_object = "OBJECT"
 setup_kw_filter = "HIERARCH ESO INS FILT1 NAME"
 setup_kw_type = "HIERARCH ESO DPR TYPE"
