@@ -38,7 +38,7 @@ class FlatImages(FitsImages):
                 continue
 
             # Instantiate output
-            master_bpm = ImageCube(cube=None)
+            master_bpm = ImageCube()
 
             # Start looping over detectors
             data_headers = []
