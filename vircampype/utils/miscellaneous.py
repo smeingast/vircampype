@@ -147,7 +147,7 @@ def _check_card_value(value):
     return val
 
 
-def make_card(keyword, value, comment=None, hierarch=True, upper=True):
+def make_card(keyword, value, comment=None, upper=True):
     """
     Create a FITS header card based on keyword, value, and comment.
 
@@ -159,8 +159,6 @@ def make_card(keyword, value, comment=None, hierarch=True, upper=True):
         The value to write for the given keyword
     comment : optional, str
         Optionally, a comment to write.
-    hierarch : bool, optional
-        Whether to make a HIERARCH keyword.
     upper : optional, bool
         Whether to conert the keyword to upper case.
 
@@ -172,10 +170,6 @@ def make_card(keyword, value, comment=None, hierarch=True, upper=True):
 
     # Make upper case if set
     kw = keyword.upper() if upper else keyword
-
-    # Make Hierarch if set
-    if hierarch:
-        kw = keyword if keyword.startswith("HIERARCH") else "HIERARCH PYPE " + keyword.upper()
 
     # Remove double spaces
     kw = re.sub(" +", " ", kw)
@@ -193,7 +187,7 @@ def make_card(keyword, value, comment=None, hierarch=True, upper=True):
     return fits.Card(keyword=kw, value=val, comment=comment)
 
 
-def make_cards(keywords, values, comments=None, hierarch=True):
+def make_cards(keywords, values, comments=None):
     """
     Creates a list of FITS header cards from given keywords, values, and comments
 
@@ -205,10 +199,6 @@ def make_cards(keywords, values, comments=None, hierarch=True):
         List of values.
     comments : list[str], optional
         List of comments.
-    hierarch : bool, optional
-        Whether 'HIERARCH PYPE' should be added to header keyword entry. Only added when not already HIERARCH keyword.
-        Default is True.
-
     Returns
     -------
     iterable
@@ -236,7 +226,7 @@ def make_cards(keywords, values, comments=None, hierarch=True):
     cards = []
     for kw, val, cm in zip(keywords, values, comments):
 
-        cards.append(make_card(keyword=kw, value=val, comment=cm, hierarch=hierarch))
+        cards.append(make_card(keyword=kw, value=val, comment=cm))
 
     # Return
     return cards
