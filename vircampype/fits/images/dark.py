@@ -3,7 +3,6 @@
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.fits.images.common import FitsImages
-from vircampype.utils.math import estimate_background
 from vircampype.utils.plots import plot_value_detector
 
 
@@ -24,22 +23,21 @@ class DarkImages(FitsImages):
         split = flat_list([s.split_lag(max_lag=self.setup["dark"]["max_lag"]) for s in split])
 
         # Now loop through separated files and build the Masterdarks
-        outpaths = []
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
 
             # Check sequence suitability for Dark (same number of HDUs and NDIT)
             files.check_compatibility(n_hdu_max=1, n_ndit_max=1)
 
             # Create master dark name
-            outpaths.append(files.create_masterpath(basename="MASTER-DARK", idx=0, dit=True, ndit=True, mjd=True))
+            outpath = files.create_masterpath(basename="MASTER-DARK", idx=0, dit=True, ndit=True, mjd=True)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Instantiate output
-            master_dark = ImageCube()
+            master_cube = ImageCube()
 
             # Get Masterbpm if set
             master_bpm = files.match_masterbpm()
@@ -50,7 +48,7 @@ class DarkImages(FitsImages):
 
                 # Print processing info
                 if not self.setup["misc"]["silent"]:
-                    calibration_message(n_current=fidx, n_total=len(split), name=outpaths[-1],
+                    calibration_message(n_current=fidx, n_total=len(split), name=outpath,
                                         d_current=d, d_total=max(files.data_hdu[0]))
 
                 # Get data
@@ -60,15 +58,14 @@ class DarkImages(FitsImages):
                 bpm = master_bpm.hdu2cube(hdu_index=d, dtype=np.uint8)
 
                 # Masking methods
-                cube.apply_masks(mask_min=self.setup["dark"]["mask_min"],
-                                 mask_max=self.setup["dark"]["mask_max"], bpm=bpm)
+                cube.apply_masks(mask_min=self.setup["dark"]["mask_min"], mask_max=self.setup["dark"]["mask_max"],
+                                 kappa=self.setup["dark"]["kappa"], ikappa=self.setup["dark"]["ikappa"], bpm=bpm)
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=str2func(self.setup["dark"]["metric"]))
+                collapsed = cube.flatten(metric=str2func(self.setup["dark"]["collapse_metric"]))
 
-                # Determine dark current
-                dc, _ = estimate_background(collapsed, max_iter=10, force_clipping=True)
-                dc /= (files.dit[0] * files.ndit[0])  # This only works because we do not normalize
+                # Determine dark current as median
+                dc = np.nanmedian(collapsed) / (files.dit[0] * files.ndit[0])
 
                 # Write DC into data header
                 cards = make_cards(keywords=["HIERARCH PYPE DC"], values=[np.round(dc, decimals=3)],
@@ -76,7 +73,7 @@ class DarkImages(FitsImages):
                 data_headers.append(fits.Header(cards=cards))
 
                 # Append to output
-                master_dark.extend(data=collapsed.astype(np.float32))
+                master_cube.extend(data=collapsed.astype(np.float32))
 
             # Make cards for primary headers
             prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
@@ -88,12 +85,12 @@ class DarkImages(FitsImages):
             prime_header = fits.Header(cards=prime_cards)
 
             # Write to disk
-            master_dark.write_mef(path=outpaths[-1], prime_header=prime_header, data_headers=data_headers)
+            master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
-        # QC plot
-        if self.setup["misc"]["qc_plots"]:
-            mdark = MasterDark(file_paths=outpaths)
-            mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                mdark = MasterDark(file_paths=[outpath])
+                mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
         if not self.setup["misc"]["silent"]:
