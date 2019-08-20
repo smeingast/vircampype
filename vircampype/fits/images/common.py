@@ -265,17 +265,93 @@ class FitsImages(FitsFiles):
 
     def match_masterbpm(self):
         """
-        Get for each file in self the corresponding Masterbpm image.
+        Get for each file in self the corresponding MasterBadPixelMask.
 
         Returns
         -------
-        MasterBPM
-            MasterBPM instance holding for each file in self the corresponding Masterbpm file.
+        MasterBadPixelMask
+            MasterBadPixelMask instance holding for each file in self the corresponding MasterBadPixelMask file.
 
         """
 
         # Match and return
         return self.match_mjd(match_to=self._get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
+
+    def match_masterdark(self):
+        """
+        Get for each file in self the corresponding MasterDark.
+
+        Returns
+        -------
+        MasterDark
+            MasterDark instance holding for each file in self the corresponding MasterDark file.
+
+        """
+
+        # Fetch all master darks
+        mdarks = self._get_masterimages().dark
+
+        # Match DIT and NDIT and MJD
+        return self._match_exposure(match_to=mdarks, max_lag=self.setup["master"]["max_lag"])
+
+    # =========================================================================== #
+    # Matcher
+    # =========================================================================== #
+    # noinspection PyTypeChecker
+    def _match_exposure(self, match_to, max_lag=None, ignore_dit=False, ignore_ndit=False):
+        """
+        Matches all entries in the current instance with the match_to instance so that DIT and NDIT fit. In case there
+        are multiple matches, will return the closest in time!
+
+        Parameters
+        ----------
+        match_to : FitsImages
+            FitsImages (or any child) instance out of which the matches should be drawn.
+        max_lag : int, float, optional
+            Maximum allowed time difference for matching in days. Default is None.
+        ignore_dit : bool, optional
+            Whether to ignore DIT values in matching. Default is False.
+        ignore_ndit: bool, optional
+            Whether to ignore NDIT values in matching. Default is False.
+
+        """
+
+        # Check if input is indeed of FitsImages class
+        if not isinstance(match_to, FitsImages):
+            raise ValueError("Input objects are not FitsImages class")
+
+        # Fetch DIT and NDIT information for filtering options
+        dit_a = [1 for _ in self.dit] if ignore_dit else self.dit
+        ndit_a = [1 for _ in self.ndit] if ignore_ndit else self.ndit
+        dit_b = [1 for _ in match_to.dit] if ignore_dit else match_to.dit
+        ndit_b = [1 for _ in match_to.ndit] if ignore_ndit else match_to.ndit
+
+        # Construct list of tuples for easier matching
+        pair_a = [(i, k) for i, k in zip(dit_a, ndit_a)]
+        pair_b = [(i, k) for i, k in zip(dit_b, ndit_b)]
+
+        # Get matching indices (for each entry in pair_a get the indices in pair_b)
+        indices = [[i for i, j in enumerate(pair_b) if j == k] for k in pair_a]
+
+        # Create list for output
+        matched = []
+
+        # Now get the closest in time for each entry
+        for f, idx in zip(self, indices):
+
+            # Construct FitsFiles class
+            a = self.__class__([f])
+            b = match_to.__class__([match_to.file_paths[i] for i in idx])
+
+            # Raise error if nothing is found
+            if len(a) < 1 or len(b) < 1:
+                raise ValueError("No matching exposure found.")
+
+            # Get the closest in time
+            matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).full_paths)
+
+        # Return
+        return match_to.__class__(matched)
 
     # =========================================================================== #
     # Other methods
@@ -429,12 +505,12 @@ class MasterImages(FitsImages):
     @property
     def bpm(self):
         """
-        Holds all Masterbpm images.
+        Holds all MasterBadPixelMask images.
 
         Returns
         -------
         MasterBadPixelMask
-            All Masterbpm images as a MasterBPM instance.
+            All MasterBadPixelMask images as a MasterBadPixelMask instance.
 
         """
 
@@ -445,3 +521,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-BPM"]
 
         return MasterBadPixelMask(file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def dark(self):
+        """
+        Holds all MasterDark images.
+
+        Returns
+        -------
+        MasterDark
+            All MasterDark images as a MasterDark instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.dark import MasterDark
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-DARK"]
+
+        return MasterDark(file_paths=[self.file_paths[idx] for idx in index])
