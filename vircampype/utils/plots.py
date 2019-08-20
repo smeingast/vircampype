@@ -1,6 +1,5 @@
 # =========================================================================== #
 # Import
-import numpy as np
 import matplotlib.pyplot as plt
 
 from vircampype.utils.miscellaneous import *
