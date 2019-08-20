@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import glob
 import numpy as np
 
 from astropy.io import fits
@@ -234,6 +235,34 @@ class FitsImages(FitsFiles):
                 split_list.append(self.__class__([self.file_paths[idx] for idx in s_idx]))
 
             return split_list
+
+    # =========================================================================== #
+    # Master images
+    # =========================================================================== #
+    def _get_masterimages(self):
+        """
+        Gets all MasterImages for current instance
+
+        Returns
+        -------
+        MasterImages
+            MasterImages instance with all master fits files in the mastercalibration directory
+
+        Raises
+        ------
+        ValueError
+            If no files are found.
+
+        """
+
+        # Get paths in the master calibration directory
+        paths = glob.glob(self._path_master + "*.fits")
+
+        # If there is nothing, issue error
+        if len(paths) < 1:
+            raise ValueError("No master calibration images found!")
+
+        return MasterImages(file_paths=paths)
 
     # =========================================================================== #
     # Other methods
