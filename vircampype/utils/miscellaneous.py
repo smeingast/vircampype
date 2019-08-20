@@ -94,7 +94,8 @@ def check_file_exists(file_path, silent=True):
 
         # Issue warning of not silent
         if not silent:
-            warnings.warn("'{0}' already exists".format(os.path.basename(file_path)))
+            # warnings.warn("'{0}' already exists".format(os.path.basename(file_path)))
+            print("{0} already exists.".format(os.path.basename(file_path)))
 
         return True
     else:
@@ -241,6 +242,8 @@ def flat_list(inlist):
 def str2func(s):
     if s.lower() == "median":
         return np.nanmedian
+    elif s.lower() == "mean":
+        return np.nanmean
     else:
         raise ValueError("Metric '{0}' not suppoerted".format(s))
 
