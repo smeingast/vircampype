@@ -1,0 +1,40 @@
+paths:
+  proc: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
+  temp: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/temp/"
+  master: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/master/"
+
+bpm:
+  max_lag: 1
+  abs_lo: 0.1
+  abs_hi: 20000
+  rel_lo: 0.96
+  rel_hi: 1.04
+  frac: 0.2
+
+dark:
+  max_lag: 1
+  mask_min: True
+  mask_max: True
+  metric: "median"
+
+master:
+  master_maxlag: 7
+
+data:
+  dim_x: 2048
+  dim_y: 2048
+
+keywords:
+  object:  "OBJECT"
+  filter:  "HIERARCH ESO INS FILT1 NAME"
+  type:  "HIERARCH ESO DPR TYPE"
+  category:  "HIERARCH ESO DPR CATG"
+  dit:  "HIERARCH ESO DET DIT"
+  ndit:  "HIERARCH ESO DET NDIT"
+  date_mjd:  "MJD-OBS"
+  date_ut:  "DATE-OBS"
+
+misc:
+  silent:  False
+  overwrite:  False
+  qc_plots:  True
