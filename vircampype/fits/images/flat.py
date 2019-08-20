@@ -1,7 +1,5 @@
 # =========================================================================== #
 # Import
-import numpy as np
-
 from vircampype.setup import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
@@ -92,14 +90,9 @@ class FlatImages(FitsImages):
         # Create output
         mbpm = MasterBadPixelMask(file_paths=outpaths)
 
-        # QC plots
+        # QC plot
         if setup_qc_plots:
-
-            # Generate plot names
-            plot_paths = [x.replace(".fits", ".pdf") for x in mbpm.full_paths]
-
-            # Plot
-            mbpm.qc_plot_bpm(paths=plot_paths, axis_size=5, overwrite=setup_overwrite)
+            mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=setup_overwrite)
 
         # Print time
         if not setup_silent:

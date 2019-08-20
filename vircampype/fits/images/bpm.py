@@ -25,7 +25,7 @@ class MasterBadPixelMask(FitsImages):
 
         Parameters
         ----------
-        paths : list
+        paths : list, optional
             Path of the QC plot file. If None (default), use relative path
         axis_size : int, float, optional
             Axis size. Default is 5.
