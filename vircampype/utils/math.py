@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import warnings
 import numpy as np
 
 
@@ -98,3 +99,46 @@ def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
 
         # Increase loop index
         idx += 1
+
+
+def sigma_clip(data, kappa=3, ikappa=1, center_metric=np.nanmedian, axis=0):
+    """
+    Performs sigma clipping of data.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input data.
+    kappa : int, optional
+        kappa-factor (e.g. 3-sigma).
+    ikappa : int, optional
+        Number of iterations.
+    center_metric : callable, optional
+        Metric which calculates the center around which clipping occurs.
+    axis : int, optional
+        Axis along which to perform clipping.
+
+    Returns
+    -------
+    ndarray
+        Array with clipped values set to NaN.
+
+    """
+
+    # Ignore the numpy warnings upon masking
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+        for _ in range(ikappa):
+
+            # Calculate center with given metric
+            center = center_metric(data, axis=axis)
+
+            # Calculate standard deviation
+            sigma = np.nanstd(data, axis=axis)
+
+            # find values outside limits and set to NaN
+            data[(data > center + kappa * sigma) | (data < center - kappa * sigma)] = np.nan
+
+    # Return the clipped array
+    return data
