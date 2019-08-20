@@ -10,12 +10,15 @@ bpm:
   rel_lo: 0.96
   rel_hi: 1.04
   frac: 0.2
+  collapse_metric: "median"
 
 dark:
   max_lag: 1
-  mask_min: True
-  mask_max: True
-  metric: "median"
+  mask_min: False
+  mask_max: False
+  kappa: 3
+  ikappa: 1
+  collapse_metric: "mean"
 
 master:
   max_lag: 7
