@@ -3,6 +3,7 @@
 import re
 import os
 import time
+import yaml
 import warnings
 import numpy as np
 
@@ -242,3 +243,15 @@ def str2func(s):
         return np.nanmedian
     else:
         raise ValueError("Metric '{0}' not suppoerted".format(s))
+
+
+def read_setup(path_yaml=None):
+    if path_yaml is None:
+        path_yaml = "/Users/stefan/Dropbox/Projects/vircampype/vircampype/vircampype.yaml"
+
+    # Read YAML
+    with open(path_yaml, "r") as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
