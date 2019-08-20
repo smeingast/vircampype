@@ -420,3 +420,50 @@ class FitsFiles:
 
         # Return the list which contains the separated file paths
         return split_list
+
+    # =========================================================================== #
+    # Data matcher
+    # =========================================================================== #
+    def match_mjd(self, match_to, max_lag=None):
+        """
+        Matches all entries in the current instance with the match_to instance according to the closest match in time.
+
+        Parameters
+        ----------
+        match_to : FitsFiles
+            FitsFiles (or any child) instance out of which the matches should be drawn.
+        max_lag : int, float, optional
+            Maximum allowed time difference for matching in days. Default is None.
+
+        Returns
+        -------
+            Matched files
+
+        Raises
+        ------
+        ValueError
+            When the maximum time difference is exceeded.
+
+        """
+
+        # Check if input is indeed a FitsFiles class
+        # if self.__class__.__mro__[-2] != match_to.__class__.__mro__[-2]:
+        #     raise ValueError("Input objects are not FitsFiles class")
+
+        # Loop through each file
+        matched = []
+        for mjd in self.mjd:
+
+            # Calculate differences (the float here suppresses a weird warning)
+            mjd_diff = [abs(float(mjd) - x) for x in match_to.mjd]
+
+            # Raise Error when there is no file available within the maximum lag
+            if max_lag is not None:
+                if np.min(mjd_diff) > max_lag:
+                    raise ValueError("No match within allowed time frame")
+
+            # Get minimum index and append files
+            matched.append(match_to.full_paths[mjd_diff.index(min(mjd_diff))])
+
+        # Return
+        return match_to.__class__(file_paths=matched)
