@@ -54,7 +54,7 @@ class FlatImages(FitsImages):
                 cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
 
                 # Collapse cube with median
-                flat = cube.flatten(metric=np.nanmedian, axis=0)
+                flat = cube.flatten(metric=str2func(self.setup["bpm"]["collapse_metric"]), axis=0)
 
                 # Normalize cube with flattened data
                 cube.cube = cube.cube / flat
