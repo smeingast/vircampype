@@ -240,3 +240,7 @@ def make_cards(keywords, values, comments=None, hierarch=True):
 
     # Return
     return cards
+
+
+def flat_list(inlist):
+    return [item for sublist in inlist for item in sublist]
