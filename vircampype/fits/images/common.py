@@ -200,7 +200,7 @@ class FitsImages(FitsFiles):
         """
 
         # Filter keyword must be present!
-        return self.split_keywords(keywords=[setup_kw_filter])
+        return self.split_keywords(keywords=[self.setup["keywords"]["filter"]])
 
     def _split_expsequence(self):
         """
@@ -215,7 +215,7 @@ class FitsImages(FitsFiles):
 
         # When the keyword is present, we can just use the standard method
         try:
-            return self.split_keywords(keywords=[setup_kw_dit, setup_kw_ndit])
+            return self.split_keywords(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"]])
 
         # Otherwise, we set NDIT to 1
         except KeyError:
@@ -255,7 +255,7 @@ class FitsImages(FitsFiles):
         """
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self._path_master + "*.fits")
+        paths = glob.glob(self.path_master + "*.fits")
 
         # If there is nothing, issue error
         if len(paths) < 1:
@@ -275,7 +275,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self._get_masterimages().bpm, max_lag=setup_master_maxlag)
+        return self.match_mjd(match_to=self._get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
 
     # =========================================================================== #
     # Other methods
@@ -424,7 +424,7 @@ class MasterImages(FitsImages):
             Ordered list of calibration types
         """
 
-        return self.primeheaders_get_keys([setup_kw_object])[0]
+        return self.primeheaders_get_keys([self.setup["keywords"]["object"]])[0]
 
     @property
     def bpm(self):
