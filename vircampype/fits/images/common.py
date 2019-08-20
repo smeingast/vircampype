@@ -200,7 +200,7 @@ class FitsImages(FitsFiles):
         """
 
         # Filter keyword must be present!
-        return self._split_keywords(keywords=[setup_kw_filter])
+        return self.split_keywords(keywords=[setup_kw_filter])
 
     def _split_expsequence(self):
         """
@@ -215,7 +215,7 @@ class FitsImages(FitsFiles):
 
         # When the keyword is present, we can just use the standard method
         try:
-            return self._split_keywords(keywords=[setup_kw_dit, setup_kw_ndit])
+            return self.split_keywords(keywords=[setup_kw_dit, setup_kw_ndit])
 
         # Otherwise, we set NDIT to 1
         except KeyError:
