@@ -25,7 +25,7 @@ class FlatImages(FitsImages):
 
         # Now loop through separated files and build Masterbpm
         outpaths = []
-        for files, fidx in zip(split, range(1, len(split) + 1)):
+        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: FlatImages, int
 
             # Check sequence compatibility
             files.check_compatibility(n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3)
