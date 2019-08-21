@@ -1,7 +1,6 @@
 paths:
-  proc: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
-  temp: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/temp/"
-  master: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/master/"
+  data: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/calibration/"
+  pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
 
 bpm:
   max_lag: 1
