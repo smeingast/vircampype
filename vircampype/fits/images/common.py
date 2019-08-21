@@ -230,7 +230,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Splitter
     # =========================================================================== #
-    def _split_filter(self):
+    def split_filter(self):
         """
         Splits self files based on unique filter entries in the FITS headers.
 
