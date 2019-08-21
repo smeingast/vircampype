@@ -487,6 +487,7 @@ class FitsFiles:
     # =========================================================================== #
     # Master finder
     # =========================================================================== #
+    # TODO: Rename to get_master_images
     def get_masterimages(self):
         """
         Gets all MasterImages for current instance
