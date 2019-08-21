@@ -35,28 +35,29 @@ class MasterGain(MasterTables):
         self._rdnoise = self.get_column(column_name="rdnoise")
         return self._rdnoise
 
-    def qc_plot_gain(self, paths=None, axis_size=5):
+    def qc_plot_gain(self, paths=None, axis_size=5, overwrite=False):
 
         # Generate path for plots
-        paths = self._make_plot_paths(paths=paths)
+        paths = self._make_plot_paths(paths=paths, prefix="gain")
 
         # Loop over files and create plots
         for gain, path in zip(self.gain, paths):
             plot_value_detector(values=gain, path=path, ylabel="Gain (e-/ADU)",
-                                axis_size=axis_size, overwrite=self.setup["misc"]["overwrite"])
+                                axis_size=axis_size, overwrite=overwrite)
 
-    def qc_plot_rdnoise(self, paths=None, axis_size=5):
+    def qc_plot_rdnoise(self, paths=None, axis_size=5, overwrite=False):
 
         # Generate path for plots
-        paths = self._make_plot_paths(paths=paths)
+        paths = self._make_plot_paths(paths=paths, prefix="rdnoise")
 
         # Loop over files and create plots
         for rdn, path in zip(self.rdnoise, paths):
-            plot_value_detector(values=rdn, path=path, ylabel="Gain (e-/ADU)",
-                                axis_size=axis_size, overwrite=self.setup["misc"]["overwrite"])
+            plot_value_detector(values=rdn, path=path, ylabel="Read Noise (e-)",
+                                axis_size=axis_size, overwrite=overwrite)
 
-    def _make_plot_paths(self, paths):
+    def _make_plot_paths(self, paths, prefix=""):
+
         if paths is None:
-            return [x.replace(".tab", ".pdf") for x in self.full_paths]
+            return [x.replace(".tab", ".{0}.pdf".format(prefix)) for x in self.full_paths]
         else:
             return paths
