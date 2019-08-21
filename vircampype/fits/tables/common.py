@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import numpy as np
 from astropy.table import Table
 from vircampype.fits.common import FitsFiles
 
@@ -82,7 +83,7 @@ class FitsTables(FitsFiles):
 
     def get_column(self, hdu_index, column_name):
         """
-        Extracts a single column (indentified by name) across all given tables in the current instance.
+        Extracts a single column for a given HDU across all given tables in the current instance.
 
         Parameters
         ----------
@@ -98,6 +99,27 @@ class FitsTables(FitsFiles):
 
         """
         return [Table.read(f, hdu=hdu_index)[column_name] for f in self.full_paths]
+
+    def get_columns(self, column_name):
+        """
+        Column reader cross all files and HDUs.
+
+        Parameters
+        ----------
+        column_name : str
+            name of the column to extract
+
+        Returns
+        -------
+        iterable
+
+        """
+
+        temp = np.array([self.get_column(column_name=column_name, hdu_index=h) for h in self.data_hdu[0]])
+
+        # Rearrange
+        temp = np.rollaxis(np.array(temp), axis=1)
+        return [t.tolist() for t in temp]
 
 
 class MasterTables(FitsTables):
