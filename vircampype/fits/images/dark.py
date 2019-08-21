@@ -19,7 +19,7 @@ class DarkImages(FitsImages):
 
         """ This does not work with Dark normalisation. There has to be a set for each DIT/NDIT combination! """
         # Split files first on DIT and NDIT, then on lag
-        split = self.split_expsequence()
+        split = self.split_exposure()
         split = flat_list([s.split_lag(max_lag=self.setup["dark"]["max_lag"]) for s in split])
 
         # Now loop through separated files and build the Masterdarks
