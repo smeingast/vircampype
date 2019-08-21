@@ -30,16 +30,16 @@ data:
   dim_y: 2048
 
 keywords:
-  object:  "OBJECT"
-  filter:  "HIERARCH ESO INS FILT1 NAME"
-  type:  "HIERARCH ESO DPR TYPE"
-  category:  "HIERARCH ESO DPR CATG"
-  dit:  "HIERARCH ESO DET DIT"
-  ndit:  "HIERARCH ESO DET NDIT"
-  date_mjd:  "MJD-OBS"
-  date_ut:  "DATE-OBS"
+  object: "OBJECT"
+  filter: "HIERARCH ESO INS FILT1 NAME"
+  type: "HIERARCH ESO DPR TYPE"
+  category: "HIERARCH ESO DPR CATG"
+  dit: "HIERARCH ESO DET DIT"
+  ndit: "HIERARCH ESO DET NDIT"
+  date_mjd: "MJD-OBS"
+  date_ut: "DATE-OBS"
 
 misc:
   silent:  False
-  overwrite:  True
+  overwrite:  False
   qc_plots:  True
