@@ -71,7 +71,7 @@ class FitsImages(FitsFiles):
 
         # If available, read it, else set 1 for all files
         try:
-            self._ndit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["dit"]])[0]
+            self._ndit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["ndit"]])[0]
         except KeyError:
             self._ndit = [1] * self.n_files
 
