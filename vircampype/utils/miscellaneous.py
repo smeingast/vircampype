@@ -247,10 +247,7 @@ def str2func(s):
         raise ValueError("Metric '{0}' not suppoerted".format(s))
 
 
-def read_setup(path_yaml=None):
-
-    if path_yaml is None:
-        path_yaml = "/Users/stefan/Dropbox/Projects/vircampype/vircampype.yml"
+def read_setup(path_yaml):
 
     # Read YAML
     with open(path_yaml, "r") as stream:
