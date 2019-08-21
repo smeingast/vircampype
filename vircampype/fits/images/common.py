@@ -11,21 +11,21 @@ from vircampype.fits.common import FitsFiles
 
 class FitsImages(FitsFiles):
 
-    def __init__(self, file_paths=None):
+    def __init__(self, setup, file_paths=None):
         """
         Class for Fits images based on FitsFiles. Contains specific methods and functions applicable only to images
 
         Parameters
         ----------
-        file_paths : iterable
-            List of input file paths pointing to the Fits images
+        setup : str, dict
+            YML setup. Can be either path to setup, or a dictionary.
 
         Returns
         -------
 
         """
 
-        super(FitsImages, self).__init__(file_paths=file_paths)
+        super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
     _dit = None
 
@@ -304,7 +304,7 @@ class FitsImages(FitsFiles):
         if len(paths) < 1:
             raise ValueError("No master calibration images found!")
 
-        return MasterImages(file_paths=paths)
+        return MasterImages(setup=self.setup, file_paths=paths)
 
     # TODO: Rename this to get_*
     def match_masterbpm(self):
@@ -535,8 +535,8 @@ class FitsImages(FitsFiles):
 
 class MasterImages(FitsImages):
 
-    def __init__(self, file_paths=None):
-        super(MasterImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(MasterImages, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
     def types(self):
@@ -569,7 +569,7 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-BPM"]
 
-        return MasterBadPixelMask(file_paths=[self.file_paths[idx] for idx in index])
+        return MasterBadPixelMask(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
 
     @property
     def dark(self):
@@ -589,4 +589,4 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-DARK"]
 
-        return MasterDark(file_paths=[self.file_paths[idx] for idx in index])
+        return MasterDark(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])

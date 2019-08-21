@@ -8,8 +8,8 @@ from vircampype.fits.images.bpm import MasterBadPixelMask
 
 class FlatImages(FitsImages):
 
-    def __init__(self, file_paths=None):
-        super(FlatImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(FlatImages, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_master_bpm(self):
         """ Builds a Bad pixel mask from image data. """
@@ -90,7 +90,7 @@ class FlatImages(FitsImages):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                mbpm = MasterBadPixelMask(file_paths=outpath)
+                mbpm = MasterBadPixelMask(setup=self.setup, file_paths=outpath)
                 mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time

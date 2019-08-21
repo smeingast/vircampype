@@ -6,7 +6,7 @@ from vircampype.fits.common import FitsFiles
 
 class FitsTables(FitsFiles):
 
-    def __init__(self, file_paths):
+    def __init__(self, setup, file_paths=None):
         """
         Class for Fits tables based on FitsFiles. Contains specific methods and functions applicable only to tables
 
@@ -20,7 +20,7 @@ class FitsTables(FitsFiles):
 
         """
 
-        super(FitsTables, self).__init__(file_paths=file_paths)
+        super(FitsTables, self).__init__(setup=setup, file_paths=file_paths)
 
     _types = None
 
@@ -83,5 +83,5 @@ class FitsTables(FitsFiles):
 
 class MasterTables(FitsTables):
 
-    def __init__(self, file_paths):
-        super(MasterTables, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(MasterTables, self).__init__(setup=setup, file_paths=file_paths)

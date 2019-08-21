@@ -8,8 +8,8 @@ from vircampype.utils.plots import plot_value_detector
 
 class DarkImages(FitsImages):
 
-    def __init__(self, file_paths=None):
-        super(DarkImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(DarkImages, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_master_dark(self):
         """ Create master darks. """
@@ -89,7 +89,7 @@ class DarkImages(FitsImages):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                mdark = MasterDark(file_paths=outpath)
+                mdark = MasterDark(setup=self.setup, file_paths=outpath)
                 mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
@@ -99,8 +99,8 @@ class DarkImages(FitsImages):
 
 class MasterDark(FitsImages):
 
-    def __init__(self, file_paths=None):
-        super(MasterDark, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(MasterDark, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
     def darkcurrent(self):

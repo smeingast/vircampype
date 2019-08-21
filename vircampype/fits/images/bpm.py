@@ -6,8 +6,8 @@ from vircampype.utils.plots import plot_value_detector
 
 class MasterBadPixelMask(FitsImages):
 
-    def __init__(self, file_paths=None):
-        super(FitsImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
     def bpmfracs(self):

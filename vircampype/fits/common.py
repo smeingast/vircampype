@@ -9,23 +9,25 @@ from vircampype.utils.miscellaneous import *
 
 class FitsFiles:
 
-    def __init__(self, file_paths=None, path_yaml=None):
+    def __init__(self, setup, file_paths=None):
         """
         Top-level class of FITS files. Contains basic information on file structure and the headers.
 
         Parameters
         ----------
+        setup : str, dict
+            YML setup. Can be either path to setup, or a dictionary.
         file_paths : iterable, optional.
-            Paths to FITS files
-
+            Paths to FITS files.
         """
 
-        # TODO: Remove later
-        if path_yaml is None:
-            path_yaml = "/Users/stefan/Dropbox/Projects/vircampype/vircampype.yml"
-
-        # Read setup
-        self.setup = read_setup(path_yaml=path_yaml)
+        # Setup
+        if isinstance(setup, str):
+            self.setup = read_setup(path_yaml=setup)
+        elif isinstance(setup, dict):
+            self.setup = setup
+        elif setup is None:
+            self.setup = read_setup(path_yaml="/Users/stefan/Dropbox/Projects/vircampype/vircampype.yml")
 
         if file_paths is None:
             self.file_paths = []
@@ -91,7 +93,7 @@ class FitsFiles:
     #   I/O
     # =========================================================================== #
     @classmethod
-    def from_folder(cls, path, substring=None):
+    def from_folder(cls, path, setup, substring=None):
         """
         Loads all files from the given folder into a FitsFiles (or child) instance.
 
@@ -99,6 +101,8 @@ class FitsFiles:
         ----------
         path : str
             Path to folder.
+        setup : str, dict
+            YML setup. Can be either path to setup, or a dictionary.
         substring : str, optional
             Substring to identify FITS files. Default is None, which loads all files in the folder.
 
@@ -114,10 +118,10 @@ class FitsFiles:
 
         # Return new instance
         if substring is not None:
-            return cls(file_paths=glob.glob(path + substring))
+            return cls(setup=setup, file_paths=glob.glob(path + substring))
         # In case no substring is given, just return all files
         else:
-            return cls(file_paths=glob.glob(path + "*"))
+            return cls(setup=setup, file_paths=glob.glob(path + "*"))
 
     # =========================================================================== #
     #   Headers
@@ -369,7 +373,7 @@ class FitsFiles:
 
         split_list = []
         for s_idx in split_indices:
-            split_list.append(self.__class__([self.file_paths[idx] for idx in s_idx]))
+            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[idx] for idx in s_idx]))
 
         return split_list
 
@@ -419,7 +423,7 @@ class FitsFiles:
                 upper = split_indices[idx + 1]
 
                 # Append files
-                split_list.append(self.__class__(sorted_paths[lower:upper]))
+                split_list.append(self.__class__(setup=self.setup, file_paths=sorted_paths[lower:upper]))
 
             # On the last iteration we get an Index error since there is no idx + 1
             except IndexError:
@@ -478,4 +482,4 @@ class FitsFiles:
             matched.append(match_to.full_paths[mjd_diff.index(min(mjd_diff))])
 
         # Return
-        return match_to.__class__(file_paths=matched)
+        return match_to.__class__(setup=self.setup, file_paths=matched)

@@ -12,19 +12,19 @@ from vircampype.fits.images.sky import OffsetImages, ScienceImages, StdImages
 
 class VircamImages(FitsImages):
 
-    def __init__(self, file_paths):
+    def __init__(self, setup, file_paths=None):
         """
         Class for Vircam images.
 
         Parameters
         ----------
-        file_paths : list
-            List of file paths.
+        setup : str, dict
+            YML setup. Can be either path to setup, or a dictionary.
 
         """
 
         # Initialize files
-        super(VircamImages, self).__init__(file_paths=file_paths)
+        super(VircamImages, self).__init__(setup=setup, file_paths=file_paths)
 
     def split_type(self):
         """
@@ -45,52 +45,52 @@ class VircamImages(FitsImages):
         science_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                          c == "SCIENCE" and "OBJECT" in t]
         science = None if len(science_index) < 1 else \
-            VircamScienceImages([self.full_paths[i] for i in science_index])
+            VircamScienceImages(setup=self.setup, file_paths=[self.full_paths[i] for i in science_index])
 
         offset_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                         c == "SCIENCE" and "SKY" in t]
         offset = None if len(offset_index) < 1 else \
-            VircamOffsetImages([self.full_paths[i] for i in offset_index])
+            VircamOffsetImages(setup=self.setup, file_paths=[self.full_paths[i] for i in offset_index])
 
         dark_science_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                               c == "CALIB" and t == "DARK"]
         dark_science = None if len(dark_science_index) < 1 else \
-            VircamDarkImages([self.full_paths[i] for i in dark_science_index])
+            VircamDarkImages(setup=self.setup, file_paths=[self.full_paths[i] for i in dark_science_index])
 
         flat_twilight_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                                c == "CALIB" and t == "FLAT,TWILIGHT"]
         flat_twilight = None if len(flat_twilight_index) < 1 else \
-            VircamFlatTwilight([self.full_paths[i] for i in flat_twilight_index])
+            VircamFlatTwilight(setup=self.setup, file_paths=[self.full_paths[i] for i in flat_twilight_index])
 
         dark_lin_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                           c == "CALIB" and t == "DARK,LINEARITY"]
         dark_lin = None if len(dark_lin_index) < 1 else \
-            VircamDarkImages([self.full_paths[i] for i in dark_lin_index])
+            VircamDarkImages(setup=self.setup, file_paths=[self.full_paths[i] for i in dark_lin_index])
 
         flat_lamp_lin_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                                c == "CALIB" and t == "FLAT,LAMP,LINEARITY"]
         flat_lamp_lin = None if len(flat_lamp_lin_index) < 1 else \
-            VircamFlatLampLin([self.full_paths[i] for i in flat_lamp_lin_index])
+            VircamFlatLampLin(setup=self.setup, file_paths=[self.full_paths[i] for i in flat_lamp_lin_index])
 
         flat_lamp_check_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                                  c == "CALIB" and t == "FLAT,LAMP,CHECK"]
         flat_lamp_check = None if len(flat_lamp_check_index) < 1 else \
-            VircamFlatLampCheck([self.full_paths[i] for i in flat_lamp_check_index])
+            VircamFlatLampCheck(setup=self.setup, file_paths=[self.full_paths[i] for i in flat_lamp_check_index])
 
         dark_gain_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                            c == "CALIB" and t == "DARK,GAIN"]
         dark_gain = None if len(dark_gain_index) < 1 else \
-            VircamDarkImages([self.full_paths[i] for i in dark_gain_index])
+            VircamDarkImages(setup=self.setup, file_paths=[self.full_paths[i] for i in dark_gain_index])
 
         flat_lamp_gain_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                                 c == "CALIB" and t == "FLAT,LAMP,GAIN"]
         flat_lamp_gain = None if len(flat_lamp_gain_index) < 1 else \
-            VircamFlatLampGain([self.full_paths[i] for i in flat_lamp_gain_index])
+            VircamFlatLampGain(setup=self.setup, file_paths=[self.full_paths[i] for i in flat_lamp_gain_index])
 
         std_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                      c == "CALIB" and t == "STD,FLUX"]
         std = None if len(std_index) < 1 else \
-            VircamStdImages([self.full_paths[i] for i in std_index])
+            VircamStdImages(setup=self.setup, file_paths=[self.full_paths[i] for i in std_index])
 
         return {"science": science, "offset": offset, "std": std,
                 "dark_science": dark_science, "dark_lin": dark_lin, "dark_gain": dark_gain,
@@ -149,8 +149,8 @@ class VircamImages(FitsImages):
         split["flat_lamp_check"].build_master_bpm()
 
         # MasterDarks
-        # for ot in ["dark_science", "dark_lin", "dark_gain"]:
-        #     split[ot].build_master_dark()
+        for ot in ["dark_science", "dark_lin", "dark_gain"]:
+            split[ot].build_master_dark()
 
         # Gain
         split["flat_lamp_gain"].build_master_gain(darks=split["dark_gain"])
@@ -158,14 +158,14 @@ class VircamImages(FitsImages):
 
 class VircamDarkImages(DarkImages):
 
-    def __init__(self, file_paths=None):
-        super(VircamDarkImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamDarkImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamFlatImages(FlatImages):
 
-    def __init__(self, file_paths=None):
-        super(VircamFlatImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamFlatImages, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_master_gain(self, darks):
         """
@@ -257,7 +257,7 @@ class VircamFlatImages(FlatImages):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                mgain = MasterGain(file_paths=outpath)
+                mgain = MasterGain(setup=self.setup, file_paths=outpath)
                 mgain.qc_plot_gain(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
                 mgain.qc_plot_rdnoise(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
@@ -268,36 +268,36 @@ class VircamFlatImages(FlatImages):
 
 class VircamFlatTwilight(VircamFlatImages):
 
-    def __init__(self, file_paths=None):
-        super(VircamFlatTwilight, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamFlatTwilight, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamFlatLampLin(VircamFlatImages):
-    def __init__(self, file_paths=None):
-        super(VircamFlatLampLin, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamFlatLampLin, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamFlatLampGain(VircamFlatImages):
-    def __init__(self, file_paths=None):
-        super(VircamFlatLampGain, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamFlatLampGain, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamFlatLampCheck(VircamFlatImages):
 
-    def __init__(self, file_paths=None):
-        super(VircamFlatLampCheck, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamFlatLampCheck, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamOffsetImages(OffsetImages):
-    def __init__(self, file_paths=None):
-        super(VircamOffsetImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamScienceImages(ScienceImages):
-    def __init__(self, file_paths=None):
-        super(VircamScienceImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamScienceImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamStdImages(StdImages):
-    def __init__(self, file_paths=None):
-        super(VircamStdImages, self).__init__(file_paths=file_paths)
+    def __init__(self, setup, file_paths=None):
+        super(VircamStdImages, self).__init__(setup=setup, file_paths=file_paths)
