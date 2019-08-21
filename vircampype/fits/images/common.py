@@ -214,26 +214,27 @@ class FitsImages(FitsFiles):
         """
 
         # When the keyword is present, we can just use the standard method
-        try:
-            return self.split_keywords(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"]])
+        """ Removing this break compatibility with non-ESO data. """
+        # try:
+        return self.split_keywords(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"]])
 
         # Otherwise, we set NDIT to 1
-        except KeyError:
-
-            # Construct list of tuples for DIT and NDIT
-            tup = [(i, k) for i, k in zip(self.dit, self.ndit)]
-
-            # Find unique entries
-            utup = set(tup)
-
-            # Get the split indices
-            split_indices = [[i for i, j in enumerate(tup) if j == k] for k in utup]
-
-            split_list = []
-            for s_idx in split_indices:
-                split_list.append(self.__class__([self.file_paths[idx] for idx in s_idx]))
-
-            return split_list
+        # except KeyError:
+        #
+        #     # Construct list of tuples for DIT and NDIT
+        #     tup = [(i, k) for i, k in zip(self.dit, self.ndit)]
+        #
+        #     # Find unique entries
+        #     utup = set(tup)
+        #
+        #     # Get the split indices
+        #     split_indices = [[i for i, j in enumerate(tup) if j == k] for k in utup]
+        #
+        #     split_list = []
+        #     for s_idx in split_indices:
+        #         split_list.append(self.__class__([self.file_paths[idx] for idx in s_idx]))
+        #
+        #     return split_list
 
     # =========================================================================== #
     # Master images
