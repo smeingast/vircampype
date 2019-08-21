@@ -41,5 +41,5 @@ keywords:
 
 misc:
   silent:  False
-  overwrite:  False
+  overwrite:  True
   qc_plots:  True
