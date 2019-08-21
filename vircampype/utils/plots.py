@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import warnings
 import matplotlib.pyplot as plt
 
 from vircampype.utils.miscellaneous import *
