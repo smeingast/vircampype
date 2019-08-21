@@ -65,3 +65,32 @@ def plot_value_detector(values, path, ylabel=None, yrange=None, axis_size=5, ove
         warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
         fig.savefig(path, bbox_inches="tight")
     plt.close("all")
+
+
+def get_plotgrid(layout, xsize=4, ysize=4):
+    """
+    Generates a matplotlib grid for the focal plane array
+
+    Parameters
+    ----------
+    layout : iterable
+        Layout of detectors. e.g. for Vircam [4, 4].
+    xsize : float, int, optional
+        X size of subplots in cm (default is 4)
+    ysize : float, int, optional
+        Y size of subplots in cm (default is 4)
+
+    Returns
+    -------
+    tuple
+        Tuple containing (Figure object, grid object, and focal plane layout)
+
+    """
+
+    # Create figure
+    fig = plt.figure(figsize=(layout[0] * xsize, layout[1] * ysize))
+    grid = plt.GridSpec(ncols=layout[0], nrows=layout[1], hspace=0, wspace=0,
+                        left=0, right=1, bottom=0, top=1)
+
+    # Return figure, grid, and focal plane array layout
+    return fig, grid

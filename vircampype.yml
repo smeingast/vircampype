@@ -1,6 +1,9 @@
 paths:
   pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
 
+instrument:
+  layout: [4, 4]
+
 bpm:
   max_lag: 1
   abs_lo: 0.1
