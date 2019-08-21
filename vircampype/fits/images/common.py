@@ -1,6 +1,7 @@
 # =========================================================================== #
 # Import
 import glob
+import warnings
 import numpy as np
 
 from astropy.io import fits
@@ -181,6 +182,47 @@ class FitsImages(FitsFiles):
         for path, plane in zip(self.full_paths, cube):
             with fits.open(path) as f:
                 plane[:] = f[hdu_index].data
+
+        # Return
+        return ImageCube(cube=cube)
+
+    def file2cube(self, file_index=0, hdu_index=None, dtype=None):
+        """
+        Reads all extensions of a given file into a numpy array.
+
+        Parameters
+        ----------
+        file_index : int
+            Integer index of the file in the current FitsFiles instance.
+        hdu_index : iterable
+            Iterable of hdu indices to load, default is to load all HDUs with data.
+        dtype : optional, dtype
+            Data type (e.g. np.float32).
+
+        Returns
+        -------
+        ImageCube
+            ImageCube instance containing data of the requested file.
+
+        """
+
+        if hdu_index is None:
+            hdu_index = self.data_hdu[file_index]
+
+        # Data type
+        if dtype is None:
+            dtype = set([self.dtypes[file_index][idx] for idx in hdu_index])
+            if len(dtype) > 1:
+                warnings.warn("Mixed data types in file", Warning)
+            dtype = list(dtype)[0]
+
+        # Create empty cube
+        cube = np.empty((len(hdu_index), self.setup["data"]["dim_y"], self.setup["data"]["dim_x"]), dtype=dtype)
+
+        # Fill cube with data
+        with fits.open(name=self[file_index]) as f:
+            for plane, idx in zip(cube, hdu_index):
+                plane[:] = f[idx].data
 
         # Return
         return ImageCube(cube=cube)
