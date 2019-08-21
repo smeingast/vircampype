@@ -1,11 +1,9 @@
-# ----------------------------------------------------------------------
-# Import stuff
+# =========================================================================== #
+# Import
 from vircampype.fits.tables.common import MasterTables
 from vircampype.utils.plots import plot_value_detector
 
 
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
 class MasterGain(MasterTables):
 
     def __init__(self, setup, file_paths=None):
