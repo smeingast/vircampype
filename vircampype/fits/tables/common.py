@@ -21,6 +21,26 @@ class FitsTables(FitsFiles):
 
         super(FitsTables, self).__init__(file_paths=file_paths)
 
+    _types = None
+
+    @property
+    def types(self):
+        """
+        Property which holds the table types.
+
+        Returns
+        -------
+        iterable
+            Ordered list of table types.
+        """
+
+        # Check if already determined
+        if self._types is not None:
+            return self._types
+
+        self._types = self.primeheaders_get_keys(["OBJECT"])[0]
+        return self._types
+
 
 class MasterTables(FitsTables):
 
