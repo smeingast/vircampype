@@ -3,6 +3,7 @@
 import shutil
 
 from vircampype.utils.miscellaneous import *
+from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
 from vircampype.fits.images.common import FitsImages
@@ -144,13 +145,15 @@ class VircamImages(FitsImages):
         # Split into categories
         split = self.split_type()
 
-        # MasterBPM needs to build first
+        # MasterBPMs
         split["flat_lamp_check"].build_master_bpm()
-        exit()
 
-        # Next are darks
-        for ot in ["dark_science", "dark_lin", "dark_gain"]:
-            split[ot].build_master_dark()
+        # MasterDarks
+        # for ot in ["dark_science", "dark_lin", "dark_gain"]:
+        #     split[ot].build_master_dark()
+
+        # Gain
+        split["flat_lamp_gain"].build_master_gain(darks=split["dark_gain"])
 
 
 class VircamDarkImages(DarkImages):
@@ -163,6 +166,104 @@ class VircamFlatImages(FlatImages):
 
     def __init__(self, file_paths=None):
         super(VircamFlatImages, self).__init__(file_paths=file_paths)
+
+    def build_master_gain(self, darks):
+        """
+        Preliminary (not universal) routine to calculate gain and Flat tables. For the moment only works with VIRCAM and
+        maybe not even under all circumstance. The gain and read noise are calculated using Janesick's method.
+
+        See e.g. Hand book of CCD astronomy.
+
+        Parameters
+        ----------
+        darks : VircamDarkImages
+            Corresponding dark images for the method.
+
+
+        """
+
+        # Processing info
+        tstart = mastercalibration_message(master_type="MASTER-GAIN", silent=self.setup["misc"]["silent"])
+
+        # Split based on lag
+        split_flats = self.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
+        split_darks = darks.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
+
+        # Now loop through separated files and build the Gain Table
+        for flats, darks in zip(split_flats, split_darks):  # type: FlatImages, DarkImages
+
+            # Check sequence suitability for Dark (same number of HDUs and NDIT)
+            flats.check_compatibility(n_hdu_max=1, n_ndit_max=1, n_filter_max=1)
+            if len(flats) != len(flats):
+                raise ValueError("Gain sequence not compatible!")
+
+            # Also DITs must match
+            if (np.sum(np.abs(np.array(flats.dit) - np.array(darks.dit)) < 0.001)) != len(flats):
+                raise ValueError("Gain sequence not compatible!")
+
+            # Create master dark name
+            outpath = flats.create_masterpath(basename="MASTER-GAIN", idx=0, dit=True, ndit=True, mjd=True, table=True)
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Print processing info
+            if not self.setup["misc"]["silent"]:
+                print(os.path.basename(outpath))
+
+            # Get BPM
+            mbpms = flats.match_masterbpm()
+
+            # Read data
+            f0 = flats.file2cube(file_index=0, dtype=np.float32)
+            f1 = flats.file2cube(file_index=1, dtype=np.float32)
+            d0 = darks.file2cube(file_index=0, dtype=np.float32)
+            d1 = darks.file2cube(file_index=1, dtype=np.float32)
+            m0 = mbpms.file2cube(file_index=0, dtype=np.uint8)
+            m1 = mbpms.file2cube(file_index=1, dtype=np.uint8)
+
+            # Mask bad pixels
+            f0.apply_masks(bpm=m0), f1.apply_masks(bpm=m1)
+            d0.apply_masks(bpm=m0), d1.apply_masks(bpm=m1)
+
+            # Get variance in difference images
+            fvar, dvar = (f0 - f1).var(axis=(1, 2)), (d0 - d1).var(axis=(1, 2))
+
+            # Calculate gain
+            gain = ((f0.mean(axis=(1, 2)) + f1.mean(axis=(1, 2))) -
+                    (d0.mean(axis=(1, 2)) + d1.mean(axis=(1, 2)))) / (fvar - dvar)
+
+            # Calculate readout noise
+            rdnoise = gain * np.sqrt(dvar) / np.sqrt(2)
+
+            # Make header cards
+            prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
+                                               self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
+                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
+                                     values=[flats.dit[0], flats.ndit[0],
+                                             flats.mjd_mean, flats.time_obs_mean,
+                                             "MASTER-GAIN", len(flats)])
+            prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
+
+            # Create table HDU for output
+            tbhdu = fits.TableHDU.from_columns([fits.Column(name="gain", format="D", array=gain),
+                                                fits.Column(name="rdnoise", format="D", array=rdnoise)])
+            thdulist = fits.HDUList([prhdu, tbhdu])
+
+            # Write
+            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                mgain = MasterGain(file_paths=outpath)
+                mgain.qc_plot_gain(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+                mgain.qc_plot_rdnoise(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+
+        # Print time
+        if not self.setup["misc"]["silent"]:
+            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
 
 
 class VircamFlatTwilight(VircamFlatImages):
