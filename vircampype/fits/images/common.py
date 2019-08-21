@@ -281,7 +281,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Master images
     # =========================================================================== #
-    # TODO: Rename this to get_master_*
+    # TODO: Rename this to get_master_bpm
     def match_masterbpm(self):
         """
         Get for each file in self the corresponding MasterBadPixelMask.
@@ -296,6 +296,7 @@ class FitsImages(FitsFiles):
         # Match and return
         return self.match_mjd(match_to=self.get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
 
+    # TODO: Rename this to get_master_dark
     def match_masterdark(self):
         """
         Get for each file in self the corresponding MasterDark.
