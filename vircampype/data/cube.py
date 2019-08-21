@@ -697,3 +697,38 @@ class ImageCube(object):
             warnings.filterwarnings("ignore", message="All-NaN slice encountered")
             # Identify bad columns
             return ~np.isfinite(np.nanmax(self.cube, axis=0))
+
+    def var(self, axis=None):
+        """
+        Variance of the cube.
+
+        Parameters
+        ----------
+        axis : int, tuple, optional
+            Axis along which to calculate the standard deviation. Default is None.
+
+        Returns
+        -------
+        float, np.ndarray
+            Variance.
+
+        """
+
+        return np.nanvar(self.cube, axis=axis)
+
+    def mean(self, axis=None):
+        """
+        Returns the mean of the cube
+
+        Parameters
+        ----------
+        axis : int, tuple, optional
+            Axis along which to calculate the mean. Default is None.
+
+        Returns
+        -------
+        float, np.ndarray
+
+        """
+
+        return np.nanmean(self.cube, axis=axis)
