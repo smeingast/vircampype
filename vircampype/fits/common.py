@@ -20,6 +20,10 @@ class FitsFiles:
 
         """
 
+        # TODO: Remove later
+        if path_yaml is None:
+            path_yaml = "/Users/stefan/Dropbox/Projects/vircampype/vircampype.yml"
+
         # Read setup
         self.setup = read_setup(path_yaml=path_yaml)
 
