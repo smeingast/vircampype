@@ -41,9 +41,9 @@ class FitsFiles:
         self.n_files = len(self.file_paths)
 
         # Initialize folders and set attributes manually
-        self.path_proc = self.setup["paths"]["proc"]
-        self.path_temp = self.setup["paths"]["temp"]
-        self.path_master = self.setup["paths"]["master"]
+        self.path_proc = self.setup["paths"]["pype"]
+        self.path_temp = self.path_proc + "temp/"
+        self.path_master = self.path_proc + "master/"
         for key, value in self.setup["paths"].items():
             make_folder(path=value)
 
