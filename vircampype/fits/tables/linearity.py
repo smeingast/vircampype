@@ -136,7 +136,7 @@ class MasterLinearity(MasterTables):
 
         Parameters
         ----------
-        paths : list
+        paths : List, optional
             Paths of the QC plot files. If None (default), use relative path
         axis_size : int, float, optional
             Axis size. Default is 5.
