@@ -281,32 +281,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Master images
     # =========================================================================== #
-    def _get_masterimages(self):
-        """
-        Gets all MasterImages for current instance
-
-        Returns
-        -------
-        MasterImages
-            MasterImages instance with all master fits files in the mastercalibration directory
-
-        Raises
-        ------
-        ValueError
-            If no files are found.
-
-        """
-
-        # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master + "*.fits")
-
-        # If there is nothing, issue error
-        if len(paths) < 1:
-            raise ValueError("No master calibration images found!")
-
-        return MasterImages(setup=self.setup, file_paths=paths)
-
-    # TODO: Rename this to get_*
+    # TODO: Rename this to get_master_*
     def match_masterbpm(self):
         """
         Get for each file in self the corresponding MasterBadPixelMask.
@@ -319,7 +294,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self._get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
+        return self.match_mjd(match_to=self.get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
 
     def match_masterdark(self):
         """
@@ -332,11 +307,25 @@ class FitsImages(FitsFiles):
 
         """
 
-        # Fetch all master darks
-        mdarks = self._get_masterimages().dark
-
         # Match DIT and NDIT and MJD
-        return self._match_exposure(match_to=mdarks, max_lag=self.setup["master"]["max_lag"])
+        return self._match_exposure(match_to=self.get_masterimages().dark, max_lag=self.setup["master"]["max_lag"])
+
+    # =========================================================================== #
+    # Master tables
+    # =========================================================================== #
+    def get_master_linearity(self):
+        """
+        Get for each file in self the corresponding Masterlinearity table.
+
+        Returns
+        -------
+        MasterLinearity
+            MasterLinearity instance holding for each file in self the corresponding Masterlinearity table.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self.get_master_tables().linearity, max_lag=self.setup["master"]["max_lag"])
 
     # =========================================================================== #
     # Matcher
