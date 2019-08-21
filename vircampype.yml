@@ -21,12 +21,21 @@ dark:
 gain:
   max_lag: 1
 
+linearity:
+  order: 3
+  max_lag: 1
+
 master:
   max_lag: 7
 
 data:
   dim_x: 2048
   dim_y: 2048
+  n_detectors: 16
+  saturate: [33000, 32000, 33000, 32000,
+             24000, 24000, 35000, 33000,
+             35000, 35000, 37000, 34000,
+             33000, 35000, 34000, 34000]
 
 keywords:
   object: "OBJECT"
