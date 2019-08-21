@@ -824,3 +824,57 @@ class ImageCube(object):
         """
 
         return np.nanmean(self.cube, axis=axis)
+
+    def median(self, axis=None):
+        """
+        Returns the median of the cube
+
+        Parameters
+        ----------
+        axis : int, tuple, optional
+            Axis along which to calculate the median. Default is None.
+
+        Returns
+        -------
+        float, np.ndarray
+
+        """
+
+        return np.nanmedian(self.cube, axis=axis)
+
+    def mad(self, axis=None):
+        """
+        Median absolute deviation
+
+        Parameters
+        ----------
+        axis : int, tuple, optional
+            Axis along which to calculate the standard deviation. Default is None.
+
+        Returns
+        -------
+        float, np.ndarray
+            Median absolute deviation along specified axes.
+
+        """
+
+        # If no axes are specified, just return with the standard formula.
+        if axis is None:
+            return np.nanmedian(np.abs(self.cube - np.nanmedian(self.cube)))
+
+        # Otherwise we need to expand the dimensions
+        else:
+            med = np.nanmedian(self.cube, axis)
+
+            if isinstance(axis, tuple):
+                for a in axis:
+                    med = np.expand_dims(med, axis=a)
+
+            elif isinstance(axis, int):
+                med = np.expand_dims(med, axis=axis)
+
+            else:
+                raise ValueError("Supplied axis format incorrect")
+
+            # Return
+            return np.nanmedian(np.abs(self.cube - med), axis)
