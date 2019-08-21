@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+from astropy.table import Table
 from vircampype.fits.common import FitsFiles
 
 
@@ -40,6 +41,44 @@ class FitsTables(FitsFiles):
 
         self._types = self.primeheaders_get_keys(["OBJECT"])[0]
         return self._types
+
+    # =========================================================================== #
+    # I/O
+    # =========================================================================== #
+    def file2table(self, file_index):
+        """
+        Extracts columns from a FITS table in and FitsTables instance.
+
+        Parameters
+        ----------
+        file_index : int
+            The index of the table in the FitsTables instance.
+
+        Returns
+        -------
+        Table
+            Astropy Table instance.
+
+        """
+
+        return Table.read(self.full_paths[file_index])
+
+    def get_column(self, column_name):
+        """
+        Extracts a single column (indentified by name) across all given tables in the current instance.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of column.
+
+        Returns
+        -------
+        iterable
+            List of Columns for all files in instance.
+
+        """
+        return [Table.read(f)[column_name] for f in self.full_paths]
 
 
 class MasterTables(FitsTables):
