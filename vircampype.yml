@@ -22,7 +22,7 @@ gain:
   max_lag: 1
 
 linearity:
-  order: 3
+  order: 2
   max_lag: 1
 
 master:
