@@ -25,6 +25,8 @@ class FitsFiles:
 
         if file_paths is None:
             self.file_paths = []
+        elif isinstance(file_paths, str):
+            self.file_paths = [file_paths]
         else:
             self.file_paths = file_paths
 

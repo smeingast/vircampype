@@ -89,7 +89,7 @@ class DarkImages(FitsImages):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                mdark = MasterDark(file_paths=[outpath])
+                mdark = MasterDark(file_paths=outpath)
                 mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
