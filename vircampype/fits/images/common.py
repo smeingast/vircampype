@@ -482,7 +482,7 @@ class FitsImages(FitsFiles):
                 raise ValueError("Found {0:0g} different filters; "
                                  "max = {1:0g}".format(len(set(self.filter)), n_filter_min))
 
-    def create_masterpath(self, basename, idx=0, dit=False, ndit=False, mjd=False, filt=False):
+    def create_masterpath(self, basename, idx=0, dit=False, ndit=False, mjd=False, filt=False, table=False):
         """
         Build the path for master calibration files based on information in the FITS header
 
@@ -493,13 +493,15 @@ class FitsImages(FitsFiles):
         idx : int
             Index of entry in fits headers of self (default = 0).
         dit : bool, optional
-            Whether the DIT should be mentioned in the file name.
+            Whether the DIT should be mentioned in the filename.
         ndit : bool, optional
-            Whether the NDIT should be mentioned in the file name.
+            Whether the NDIT should be mentioned in the filename.
         mjd : bool, optional
-            Whether the MJD should be mentioned in the file name.
+            Whether the MJD should be mentioned in the filename.
         filt : bool, optional
-            Whether the Filter should be mentioned in the file name.
+            Whether the Filter should be mentioned in the filename.
+        table : bool, optional
+            If set, append '.tab' to the end of the filename.
 
         Returns
         -------
@@ -523,6 +525,9 @@ class FitsImages(FitsFiles):
 
         # File extensions
         path += ".fits"
+
+        if table:
+            path += ".tab"
 
         # Return
         return path
