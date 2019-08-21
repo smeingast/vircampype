@@ -244,7 +244,7 @@ class FitsImages(FitsFiles):
         # Filter keyword must be present!
         return self.split_keywords(keywords=[self.setup["keywords"]["filter"]])
 
-    def _split_expsequence(self):
+    def split_expsequence(self):
         """
         Splits input files based on unique exposure sequences (DIT and NDIT) entries in the FITS headers.
 
