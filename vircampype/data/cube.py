@@ -664,6 +664,98 @@ class ImageCube(object):
             warnings.filterwarnings("ignore", r"Mean of empty slice")
             return metric(self.cube, axis=axis).astype(dtype=dtype, copy=False)
 
+    def normalize(self, norm):
+        """
+        Normalizes the ImageCube.
+
+        Parameters
+        ----------
+        norm : int, float, np.ndarray
+            Data by which to normalize the cube. In case of an integer, or float, we divide everything. In case of a
+            1D array, we normalize each plane.
+
+        Raises
+        -------
+        ValueError
+            If normalization shape not supported.
+
+        """
+
+        # If we have a float or integer
+        # noinspection PyUnresolvedReferences
+        if (isinstance(norm, (int, np.int))) | (isinstance(norm, (int, np.float))):
+            self.cube /= norm
+
+        # If we have an array...
+        elif isinstance(norm, np.ndarray):
+
+            # ...with one dimension
+            if norm.ndim == 1:
+
+                # Dimensions must match!
+                if len(self) != len(norm):
+                    raise ValueError("Normalization shape incorrect")
+
+                # Norm
+                self.cube /= norm[:, np.newaxis, np.newaxis]
+
+            # ...with more dimensions...
+            else:
+
+                # ...the norm-shape must match the cube shape
+                if self.shape != norm.shape:
+                    raise ValueError("Normalization cube shape incorrect")
+
+                # Norm
+                self.cube /= norm
+
+        # If we have something else, raise Error
+        else:
+            raise ValueError("Normalization not supported")
+
+    def calibrate(self, dark=None, norm_before=None, norm_after=None, mask=None):
+        """
+        Applies calibration steps to the ImageCube.
+        (0) normalization
+        (1) Dark
+        # (2) Linearity
+        (3) flat-field
+        (4) normalization
+
+        Parameters
+        ----------
+        dark : ImageCube, optional
+            The dark cube that should be subtracted.
+        norm_before : int, float, np.ndarray, optional
+            The normalization data applied before processing.
+        norm_after : int, float, np.ndarray, optional
+            The normalization data applied after processing.
+        mask : ImageCube, optional
+            Cube containing the mask.
+
+        """
+
+        # Normalize
+        if norm_before is not None:
+            self.normalize(norm=norm_before)
+
+        # Subtract dark
+        if dark is not None:
+
+            # Shape must match
+            if self.shape != dark.shape:
+                raise ValueError("Shapes do not match")
+
+            # Subtract dark
+            self.cube -= dark.cube
+
+        # Normalize
+        if norm_after is not None:
+            self.normalize(norm=norm_after)
+
+        if mask:
+            self.apply_masks(bpm=mask)
+
     # =========================================================================== #
     # Properties
     # =========================================================================== #
