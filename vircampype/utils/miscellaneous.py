@@ -250,7 +250,7 @@ def str2func(s):
 def read_setup(path_yaml=None):
 
     if path_yaml is None:
-        path_yaml = "/Users/stefan/Dropbox/Projects/vircampype/vircampype/vircampype.yml"
+        path_yaml = "/Users/stefan/Dropbox/Projects/vircampype/vircampype.yml"
 
     # Read YAML
     with open(path_yaml, "r") as stream:
