@@ -264,6 +264,7 @@ class FitsImages(FitsFiles):
 
         return MasterImages(file_paths=paths)
 
+    # TODO: Rename this to get_*
     def match_masterbpm(self):
         """
         Get for each file in self the corresponding MasterBadPixelMask.
