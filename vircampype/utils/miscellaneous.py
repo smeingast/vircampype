@@ -45,7 +45,7 @@ def mastercalibration_message(master_type, silent=True, left="File", right="Exte
     return time.time()
 
 
-def calibration_message(n_current, n_total, name, d_current, d_total):
+def calibration_message(n_current, n_total, name, d_current, d_total, silent=False):
     """
     Prints the calibration message for image processing.
 
@@ -61,13 +61,16 @@ def calibration_message(n_current, n_total, name, d_current, d_total):
         Current detector index in the loop.
     d_total : int
         Total number of detectors to process.
+    silent : bool, optional
+        If set, nothing will be printed
 
     """
 
-    # TODO: end="\r" not working in PyCharm, but it does in the console on Mac...check how to solve this
-    fmt = "{0:<55s}{1:>25s}"
-    print(fmt.format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
-                     str(d_current) + "/" + str(d_total), end="\n"))
+    if not silent:
+        # TODO: end="\r" not working in PyCharm, but it does in the console on Mac...check how to solve this
+        fmt = "{0:<55s}{1:>25s}"
+        print(fmt.format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
+                         str(d_current) + "/" + str(d_total), end="\n"))
 
 
 def check_file_exists(file_path, silent=True):
