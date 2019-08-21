@@ -532,6 +532,24 @@ class FitsImages(FitsFiles):
         # Return
         return path
 
+    def get_saturation_hdu(self, hdu_index):
+        """
+
+        Parameters
+        ----------
+        hdu_index : int
+            Integer index of HDU for which the saturation should be returned
+
+        Returns
+        -------
+        float
+            Saturation of requested hdu from self.setup
+
+        """
+
+        # Return HDU saturation limit
+        return self.setup["data"]["saturate"][hdu_index]
+
 
 class MasterImages(FitsImages):
 
