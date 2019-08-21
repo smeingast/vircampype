@@ -88,9 +88,8 @@ def get_plotgrid(layout, xsize=4, ysize=4):
     """
 
     # Create figure
-    fig = plt.figure(figsize=(layout[0] * xsize, layout[1] * ysize))
-    grid = plt.GridSpec(ncols=layout[0], nrows=layout[1], hspace=0, wspace=0,
-                        left=0, right=1, bottom=0, top=1)
+    fig, axes = plt.subplots(ncols=layout[0], nrows=layout[1],
+                             **{"figsize": (layout[0] * xsize, layout[1] * ysize)})
 
     # Return figure, grid, and focal plane array layout
-    return fig, grid
+    return fig, axes
