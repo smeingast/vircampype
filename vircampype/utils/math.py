@@ -142,3 +142,121 @@ def sigma_clip(data, kappa=3, ikappa=1, center_metric=np.nanmedian, axis=0):
 
     # Return the clipped array
     return data
+
+
+def cuberoot(a, b, c, d, return_real=False):
+    """
+    Function to return the roots of a cubic polynomial ax^3 + bx^2 + cx + d = 0
+    Uses the general formula listed in Wikipedia.
+
+    Parameters
+    ----------
+    a : float, int
+        Cubic coefficient.
+    b : float, int
+        Square coefficient.
+    c : float, int
+        Linear coefficient.
+    d : np.ndarray, float, int
+        Intercept.
+    return_real : bool, optional
+        If set, only return the real part of the solutions.
+
+    Returns
+    -------
+    np.ndarray
+        Roots of polynomial.
+
+    """
+
+    # Transform to complex numbers
+    a, b, c = complex(a), complex(b), complex(c)
+
+    # Calculate stuff to get the roots
+    delta0, delta1 = b ** 2. - 3. * a * c, 2. * b ** 3. - 9. * a * b * c + 27. * a ** 2. * d
+    z = ((delta1 + np.sqrt(delta1 ** 2. - 4. * delta0 ** 3.)) / 2.) ** (1. / 3.)
+
+    u1, u2, u3 = 1., (- 1. + 1J * np.sqrt(3)) / 2., (- 1. - 1J * np.sqrt(3)) / 2.
+
+    # Just return real part
+    if return_real:
+        return [(-(1. / (3. * a)) * (b + u * z + (delta0 / (u * z)))).real for u in [u1, u2, u3]]
+
+    # Return all solutions
+    else:
+        return [-(1. / (3. * a)) * (b + u * z + (delta0 / (u * z))) for u in [u1, u2, u3]]
+
+
+def squareroot(a, b, c, return_real=False):
+    """
+    Function to return the roots of a quadratic polynomial ax^2 + bx + c = 0
+
+    Parameters
+    ----------
+    a : float, int
+        Square coefficient.
+    b : float, int
+        Linear coefficient.
+    c : np.ndarray, float, int
+        Intercept.
+    return_real : bool, optional
+        If set, only return the real part of the solutions.
+
+    Returns
+    -------
+    np.ndarray
+        Roots of polynomial
+
+    """
+
+    # Transform to complex numbers
+    a, b = complex(a), complex(b)
+
+    # Calculate stuff to get the roots
+    delta = np.sqrt(b ** 2. - 4 * a * c)
+    x1, x2 = (-b + delta) / (2 * a), (-b - delta) / (2 * a)
+
+    # Just return real part
+    if return_real:
+        return [x1.real, x2.real]
+
+    # Return all solutions
+    else:
+        return [x1, x2]
+
+
+def linearize_data(data, coeff):
+    """
+    General single-threaded linearization for arbitrary input data.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input data to be linearized.
+    coeff : list[floats]
+        List of coefficients.
+
+    Returns
+    -------
+    np.ndarray
+        Linearized data
+
+    """
+
+    # Determine order of fit
+    order = len(coeff) - 1
+
+    # Prepare data
+    coeff_copy = coeff.copy()
+    coeff_copy[-1] -= data.ravel()
+
+    # Get the roots of all data points
+    if order == 2:
+        roots = squareroot(*coeff_copy, return_real=True)
+    elif order == 3:
+        roots = cuberoot(*coeff_copy, return_real=True)
+    else:
+        raise ValueError("Order '{0}' not supported".format(order))
+
+    # Select closest value from the real roots, and return
+    return (np.min(np.abs([r - coeff[-1] + coeff_copy[-1] for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
