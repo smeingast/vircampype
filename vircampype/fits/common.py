@@ -367,7 +367,7 @@ class FitsFiles:
 
         return split_list
 
-    def split_lag(self, max_lag):
+    def split_lag(self, max_lag, sort_mjd=False):
         """
         Splitting function which splits the input files based on a given maximum time difference.
 
@@ -375,6 +375,8 @@ class FitsFiles:
         ----------
         max_lag : float, integer
             Maximum allowed time difference between split sets in hours
+        sort_mjd : bool, optional
+            If set, sort the output list by increasing mjd.
 
         Returns
         -------
@@ -416,6 +418,11 @@ class FitsFiles:
             # On the last iteration we get an Index error since there is no idx + 1
             except IndexError:
                 pass
+
+        # Sort by MJD
+        if sort_mjd:
+            sidx = np.argsort([s.mjd_mean for s in split_list])
+            split_list = [split_list[i] for i in sidx]
 
         # Return the list which contains the separated file paths
         return split_list
