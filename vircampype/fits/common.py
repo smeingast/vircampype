@@ -124,7 +124,7 @@ class FitsFiles:
             return cls(setup=setup, file_paths=glob.glob(path + "*"))
 
     # =========================================================================== #
-    #   Headers
+    # Headers
     # =========================================================================== #
     _headers = None
 
@@ -258,7 +258,7 @@ class FitsFiles:
         return [[[e[k] for e in h] for h in self.headers_data] for k in keywords]
 
     # =========================================================================== #
-    #   Data properties
+    # Data properties
     # =========================================================================== #
     _n_hdu = None
 
@@ -341,7 +341,7 @@ class FitsFiles:
         return np.mean(self.mjd)
 
     # =========================================================================== #
-    #   Data splitter
+    # Data splitter
     # =========================================================================== #
     def split_keywords(self, keywords):
         """
@@ -483,3 +483,58 @@ class FitsFiles:
 
         # Return
         return match_to.__class__(setup=self.setup, file_paths=matched)
+
+    # =========================================================================== #
+    # Master finder
+    # =========================================================================== #
+    def get_masterimages(self):
+        """
+        Gets all MasterImages for current instance
+
+        Returns
+        -------
+        MasterImages
+            MasterImages instance with all master fits files in the mastercalibration directory
+
+        Raises
+        ------
+        ValueError
+            If no files are found.
+
+        """
+        from vircampype.fits.images.common import MasterImages
+
+        # Get paths in the master calibration directory
+        paths = glob.glob(self.path_master + "*.fits")
+
+        # If there is nothing, issue error
+        if len(paths) < 1:
+            raise ValueError("No master calibration images found!")
+
+        return MasterImages(setup=self.setup, file_paths=paths)
+
+    def get_master_tables(self):
+        """
+        Gets all MasterTables for current instance
+
+        Returns
+        -------
+        MasterTables
+            MasterTables instance with all master fits tables in the mastercalibration directory
+
+        Raises
+        ------
+        ValueError
+            If no files are found.
+
+        """
+        from vircampype.fits.tables.common import MasterTables
+
+        # Get paths in the master calibration directory
+        paths = glob.glob(self.path_master + "*.fits.tab")
+
+        # If there is nothing, issue error
+        if len(paths) < 1:
+            raise ValueError("No master calibration tables found!")
+
+        return MasterTables(setup=self.setup, file_paths=paths)
