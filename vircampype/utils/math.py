@@ -260,3 +260,39 @@ def linearize_data(data, coeff):
 
     # Select closest value from the real roots, and return
     return (np.min(np.abs([r - coeff[-1] + coeff_copy[-1] for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
+
+
+def ceil_value(data, value):
+    """
+    Round data to a given value.
+
+    Parameters
+    ----------
+    data : int, float, np.ndarray
+    value : in, float
+
+    Returns
+    -------
+    int, float, np.ndarray
+        Rounded data.
+    """
+
+    return np.ceil(data / value) * value
+
+
+def floor_value(data, value):
+    """
+    Round data to a given value.
+
+    Parameters
+    ----------
+    data : int, float, np.ndarray
+    value : in, float
+
+    Returns
+    -------
+    int, float, np.ndarray
+        Rounded data.
+    """
+
+    return np.floor(data / value) * value
