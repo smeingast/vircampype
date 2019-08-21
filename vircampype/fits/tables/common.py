@@ -126,3 +126,23 @@ class MasterTables(FitsTables):
 
     def __init__(self, setup, file_paths=None):
         super(MasterTables, self).__init__(setup=setup, file_paths=file_paths)
+
+    @property
+    def linearity(self):
+        """
+        Holds all MasterLinearity tables.
+
+        Returns
+        -------
+        MasterLinearity
+            All MasterLinearity tables as a MasterLinearity instance.
+
+        """
+
+        # Import
+        from vircampype.fits.tables.linearity import MasterLinearity
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-LINEARITY"]
+
+        return MasterLinearity(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
