@@ -56,19 +56,38 @@ class FitsTables(FitsFiles):
 
         Returns
         -------
-        Table
-            Astropy Table instance.
+        list[Table]
+            List of astropy Table instances.
 
         """
 
-        return Table.read(self.full_paths[file_index])
+        return [Table.read(self.full_paths[file_index], hdu=h) for h in self.data_hdu[file_index]]
 
-    def get_column(self, column_name):
+    def hdu2table(self, hdu_index):
+        """
+        Reads all tables in current instance in a given HDU.
+
+        Parameters
+        ----------
+        hdu_index : int
+            Index of HDU.
+
+        Returns
+        -------
+        list[Table]
+            List of astropy Table instances.
+
+        """
+        return [Table.read(f, hdu=hdu_index) for f in self.full_paths]
+
+    def get_column(self, hdu_index, column_name):
         """
         Extracts a single column (indentified by name) across all given tables in the current instance.
 
         Parameters
         ----------
+        hdu_index : int
+            Index of HDU from where to extract column.
         column_name : str
             Name of column.
 
@@ -78,7 +97,7 @@ class FitsTables(FitsFiles):
             List of Columns for all files in instance.
 
         """
-        return [Table.read(f)[column_name] for f in self.full_paths]
+        return [Table.read(f, hdu=hdu_index)[column_name] for f in self.full_paths]
 
 
 class MasterTables(FitsTables):
