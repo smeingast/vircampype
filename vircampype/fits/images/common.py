@@ -384,8 +384,8 @@ class FitsImages(FitsFiles):
         for f, idx in zip(self, indices):
 
             # Construct FitsFiles class
-            a = self.__class__([f])
-            b = match_to.__class__([match_to.file_paths[i] for i in idx])
+            a = self.__class__(setup=self.setup, file_paths=[f])
+            b = match_to.__class__(setup=self.setup, file_paths=[match_to.file_paths[i] for i in idx])
 
             # Raise error if nothing is found
             if len(a) < 1 or len(b) < 1:
@@ -395,7 +395,7 @@ class FitsImages(FitsFiles):
             matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).full_paths)
 
         # Return
-        return match_to.__class__(matched)
+        return match_to.__class__(setup=self.setup, file_paths=matched)
 
     # =========================================================================== #
     # Other methods
