@@ -3,6 +3,7 @@
 import warnings
 import numpy as np
 
+from typing import List
 from vircampype.utils.plots import get_plotgrid
 from vircampype.fits.tables.common import MasterTables
 from vircampype.utils.math import linearize_data, ceil_value
@@ -40,6 +41,15 @@ class MasterLinearity(MasterTables):
 
     @property
     def coeff_poly(self):
+        """
+        Extracts the linearity coefficients stored in the header for plotting.
+
+        Returns
+        -------
+        List
+            List of coefficients
+
+        """
 
         # Check if already determined
         if self._coeff_poly is not None:
@@ -56,6 +66,15 @@ class MasterLinearity(MasterTables):
 
     @property
     def coeff_linear(self):
+        """
+        Extracts the linearity coefficients stored in the header for linearizing.
+
+        Returns
+        -------
+        List
+            List of coefficients
+
+        """
 
         # Check if already determined
         if self._coeff_linear is not None:
@@ -72,6 +91,15 @@ class MasterLinearity(MasterTables):
 
     @property
     def linearity_dit(self):
+        """
+        Extracts all DIT values measured in the linearity sequence.
+
+        Returns
+        -------
+        List
+            List of DITs.
+
+        """
 
         # Check if already determined
         if self._linearity_dit is not None:
@@ -84,6 +112,15 @@ class MasterLinearity(MasterTables):
 
     @property
     def linearity_flux(self):
+        """
+        Extracts all Flux values measured in the linearity sequence.
+
+        Returns
+        -------
+        List
+            List of Flux.
+
+        """
 
         # Check if already determined
         if self._linearity_flux is not None:
