@@ -136,6 +136,19 @@ class MasterLinearity(MasterTables):
     # I/O
     # =========================================================================== #
     def hdu2coeff(self, hdu_index):
+        """
+
+        Parameters
+        ----------
+        hdu_index : int, optional
+            Which HDU to load.
+
+        Returns
+        -------
+        List
+            List of coefficients.
+
+        """
 
         # Need -1 here since the coefficients do not take an empty primary header into account
         if hdu_index-1 < 0:
