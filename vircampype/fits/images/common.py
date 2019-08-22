@@ -611,6 +611,10 @@ class MasterImages(FitsImages):
         super(MasterImages, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
+    def paths_qc_plots(self):
+        return [x.replace(".fits", ".pdf") for x in self.full_paths]
+
+    @property
     def types(self):
         """
         Property which holds the calibration types
