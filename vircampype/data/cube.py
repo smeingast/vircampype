@@ -782,12 +782,12 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def calibrate(self, dark=None, linearize=None, norm_before=None, norm_after=None, mask=None):
+    def calibrate(self, dark=None, flat=None, linearize=None, norm_before=None, norm_after=None, mask=None):
         """
         Applies calibration steps to the ImageCube.
         (0) normalization
         (1) Dark
-        # (2) Linearity
+        (2) Linearity
         (3) flat-field
         (4) normalization
 
@@ -795,6 +795,8 @@ class ImageCube(object):
         ----------
         dark : ImageCube, optional
             The dark cube that should be subtracted.
+        flat : ImageCube, optional
+            The flat cube by which the data should be divided.
         linearize : iterable, optional
             The linearity coefficients when the cube should be linearized.
         norm_before : int, float, np.ndarray, optional
@@ -823,6 +825,16 @@ class ImageCube(object):
         # Linearize cube
         if linearize:
             self.linearize(coeff=linearize)
+
+        # Apply flat-field
+        if flat is not None:
+
+            # Shape must match
+            if self.shape != flat.shape:
+                raise ValueError("Shapes do not match")
+
+            # Apply flat
+            self.cube /= flat.cube
 
         # Normalize
         if norm_after is not None:
