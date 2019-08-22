@@ -58,12 +58,7 @@ class MasterLinearity(MasterTables):
         if self._coeff_poly is not None:
             return self._coeff_poly
 
-        temp = []
-        for idx in range(self.setup["linearity"]["order"] + 1):
-            temp.append(self.dataheaders_get_keys(keywords=["HIERARCH PYPE COEFF POLY {0}".format(idx)])[0])
-
-        temp = np.rollaxis(np.array(temp), axis=1)
-        self._coeff_poly = [t.T.tolist() for t in temp]
+        self._coeff_poly = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF POLY")
         return self._coeff_poly
 
     _coeff_linear = None
@@ -84,12 +79,7 @@ class MasterLinearity(MasterTables):
         if self._coeff_linear is not None:
             return self._coeff_linear
 
-        temp = []
-        for idx in range(self.setup["linearity"]["order"] + 1):
-            temp.append(self.dataheaders_get_keys(keywords=["HIERARCH PYPE COEFF LINEAR {0}".format(idx)])[0])
-
-        temp = np.rollaxis(np.array(temp), axis=1)
-        self._coeff_linear = [t.T.tolist() for t in temp]
+        self._coeff_linear = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF LINEAR")
         return self._coeff_linear
 
     _linearity_dit = None
