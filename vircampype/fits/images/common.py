@@ -1,6 +1,5 @@
 # =========================================================================== #
 # Import
-import glob
 import warnings
 import numpy as np
 
@@ -184,7 +183,7 @@ class FitsImages(FitsFiles):
                 plane[:] = f[hdu_index].data
 
         # Return
-        return ImageCube(cube=cube)
+        return ImageCube(setup=self.setup, cube=cube)
 
     def file2cube(self, file_index=0, hdu_index=None, dtype=None):
         """
@@ -225,7 +224,7 @@ class FitsImages(FitsFiles):
                 plane[:] = f[idx].data
 
         # Return
-        return ImageCube(cube=cube)
+        return ImageCube(setup=self.setup, cube=cube)
 
     # =========================================================================== #
     # Splitter
