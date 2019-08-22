@@ -21,13 +21,6 @@ dark:
   ikappa: 1
   collapse_metric: "mean"
 
-gain:
-  max_lag: 1
-
-linearity:
-  order: 2
-  max_lag: 1
-
 flat:
   max_lag: 1
   mask_min: False
@@ -37,6 +30,13 @@ flat:
   kappa: 3
   ikappa: 1
   collapse_metric: "weighted"
+
+gain:
+  max_lag: 1
+
+linearity:
+  order: 2
+  max_lag: 1
 
 master:
   max_lag: 7
