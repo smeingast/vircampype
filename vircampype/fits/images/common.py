@@ -280,8 +280,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Master images
     # =========================================================================== #
-    # TODO: Rename this to get_master_bpm
-    def match_masterbpm(self):
+    def get_master_bpm(self):
         """
         Get for each file in self the corresponding MasterBadPixelMask.
 
@@ -295,8 +294,7 @@ class FitsImages(FitsFiles):
         # Match and return
         return self.match_mjd(match_to=self.get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
 
-    # TODO: Rename this to get_master_dark
-    def match_masterdark(self):
+    def get_master_dark(self):
         """
         Get for each file in self the corresponding MasterDark.
 
@@ -601,3 +599,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-DARK"]
 
         return MasterDark(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def flat(self):
+        """
+        Holds all MasterFlat images.
+
+        Returns
+        -------
+        MasterFlat
+            All MasterFlat images as a MasterFlat instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterFlat
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-FLAT"]
+
+        return MasterFlat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])

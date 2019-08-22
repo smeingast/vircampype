@@ -40,7 +40,7 @@ class DarkImages(FitsImages):
             master_cube = ImageCube()
 
             # Get Masterbpm if set
-            master_bpm = files.match_masterbpm()
+            master_bpm = files.get_master_bpm()
 
             # Start looping over detectors
             data_headers = []

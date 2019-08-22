@@ -133,8 +133,8 @@ class FlatImages(FitsImages):
                 continue
 
             # Fetch the Masterfiles
-            master_bpms = files.match_masterbpm()  # type: MasterBadPixelMask
-            master_darks = files.match_masterdark()  # type: MasterDark
+            master_bpms = files.get_master_bpm()  # type: MasterBadPixelMask
+            master_darks = files.get_master_dark()  # type: MasterDark
 
             # initialize empty lists
             table_hdus = []
@@ -257,8 +257,8 @@ class FlatImages(FitsImages):
                 continue
 
             # Fetch the Masterfiles
-            master_bpms = files.match_masterbpm()  # type: MasterBadPixelMask
-            master_darks = files.match_masterdark()  # type: MasterDark
+            master_bpms = files.get_master_bpm()  # type: MasterBadPixelMask
+            master_darks = files.get_master_dark()  # type: MasterDark
             master_linearity = files.get_master_linearity()  # type: MasterLinearity
 
             # initialize empty lists and data structures
