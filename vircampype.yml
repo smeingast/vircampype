@@ -30,6 +30,10 @@ linearity:
 
 flat:
   max_lag: 1
+  mask_min: False
+  mask_max: False
+  kappa: 3
+  ikappa: 1
 
 master:
   max_lag: 7
@@ -57,3 +61,4 @@ misc:
   silent:  False
   overwrite:  False
   qc_plots:  True
+  n_threads: 4
