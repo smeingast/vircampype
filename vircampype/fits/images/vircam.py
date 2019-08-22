@@ -32,8 +32,8 @@ class VircamImages(FitsImages):
 
         Returns
         -------
-        ImageList
-            ImageList of FitsImages for the various data types
+        dict
+            Dictionary with subtypes.
 
         """
 
@@ -116,7 +116,7 @@ class VircamImages(FitsImages):
                     mdir += sname + "/"
                 # TODO: Check how this sorts offset images. Perhaps easiest when they go into the science path
                 elif otype == "offset":
-                    continue
+                    raise ValueError("Check this sorting mechanic!")
                 else:
                     mdir = images.file_directories[idx] + "calibration/"
 
@@ -146,21 +146,30 @@ class VircamImages(FitsImages):
         split = self.split_type()
 
         # MasterBPMs
-        split["flat_lamp_check"].build_master_bpm()
+        if split["flat_lamp_check"] is not None:
+            split["flat_lamp_check"].build_master_bpm()
 
         # MasterDarks
         for ot in ["dark_science", "dark_lin", "dark_gain"]:
-            split[ot].build_master_dark()
+            if split[ot] is not None:
+                split[ot].build_master_dark()
 
         # Gain
-        split["flat_lamp_gain"].build_master_gain(darks=split["dark_gain"])
+        if split["flat_lamp_gain"] is not None:
+            split["flat_lamp_gain"].build_master_gain(darks=split["dark_gain"])
 
         # Master linearity
-        split["flat_lamp_lin"].build_master_linearity()
+        if split["flat_lamp_lin"] is not None:
+            split["flat_lamp_lin"].build_master_linearity()
 
         # Master flat and weight
-        split["flat_twilight"].build_master_flat()
-        split["flat_twilight"].build_master_weight()
+        if split["flat_twilight"] is not None:
+            split["flat_twilight"].build_master_flat()
+            split["flat_twilight"].build_master_weight()
+
+        # Master offset
+        # TODO: Add mixing with offset images
+        split["science"].build_master_sky()
 
 
 class VircamDarkImages(DarkImages):
