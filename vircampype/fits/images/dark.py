@@ -2,8 +2,8 @@
 # Import
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
-from vircampype.fits.images.common import FitsImages
 from vircampype.utils.plots import plot_value_detector
+from vircampype.fits.images.common import FitsImages, MasterImages
 
 
 class DarkImages(FitsImages):
@@ -37,7 +37,7 @@ class DarkImages(FitsImages):
                 continue
 
             # Instantiate output
-            master_cube = ImageCube()
+            master_cube = ImageCube(setup=self.setup)
 
             # Get Masterbpm if set
             master_bpm = files.get_master_bpm()
@@ -97,7 +97,7 @@ class DarkImages(FitsImages):
             print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
 
 
-class MasterDark(FitsImages):
+class MasterDark(MasterImages):
 
     def __init__(self, setup, file_paths=None):
         super(MasterDark, self).__init__(setup=setup, file_paths=file_paths)
