@@ -257,6 +257,33 @@ class FitsFiles:
         # Return values
         return [[[e[k] for e in h] for h in self.headers_data] for k in keywords]
 
+    def _get_dataheaders_sequence(self, keyword):
+        """
+        Retrieves values from dataheaders that are atored in a sequence like 'keyword 0' - 'keyword 1' - ...
+
+        Parameters
+        ----------
+        keyword : str
+            Keyword in header
+
+        Returns
+        -------
+        List
+            List of values
+
+        """
+
+        idx, temp = 0, []
+        while True:
+            try:
+                temp.append(self.dataheaders_get_keys(keywords=["{0} {1}".format(keyword, idx)])[0])
+                idx += 1
+            except KeyError:
+                break
+
+        temp = np.rollaxis(np.array(temp), axis=1)
+        return [t.T.tolist() for t in temp]
+
     # =========================================================================== #
     # Data properties
     # =========================================================================== #
