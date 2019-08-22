@@ -32,8 +32,11 @@ flat:
   max_lag: 1
   mask_min: False
   mask_max: False
+  rel_lo: 0.5
+  rel_hi: 1.5
   kappa: 3
   ikappa: 1
+  collapse_metric: "weighted"
 
 master:
   max_lag: 7
