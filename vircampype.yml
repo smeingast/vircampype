@@ -39,7 +39,7 @@ weight:
 
 sky:
   mix_science: True                 # This is not yet used
-  interval: 0.333                   # Interval in minutes where offset images should be created
+  interval: 0.333                   # Interval in hours where offset images should be created
   n_min: 3                          # Minimum number of images to merge to an offset image
   mask_min: False
   mask_max: False
