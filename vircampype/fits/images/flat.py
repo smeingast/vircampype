@@ -18,6 +18,9 @@ class FlatImages(FitsImages):
     def __init__(self, setup, file_paths=None):
         super(FlatImages, self).__init__(setup=setup, file_paths=file_paths)
 
+    # =========================================================================== #
+    # Master Bad Pixel Mask
+    # =========================================================================== #
     def build_master_bpm(self):
         """ Builds a Bad pixel mask from image data. """
 
@@ -104,6 +107,9 @@ class FlatImages(FitsImages):
         if not self.setup["misc"]["silent"]:
             print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
 
+    # =========================================================================== #
+    # Master Linearity
+    # =========================================================================== #
     # noinspection DuplicatedCode
     def build_master_linearity(self):
         """ Calculates the non-linearity coefficients based on a series of dome flats. """
@@ -226,6 +232,9 @@ class FlatImages(FitsImages):
         if not self.setup["misc"]["silent"]:
             print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
 
+    # =========================================================================== #
+    # Master Flat
+    # =========================================================================== #
     # noinspection DuplicatedCode
     def build_master_flat(self):
         """
@@ -359,6 +368,75 @@ class FlatImages(FitsImages):
             if self.setup["misc"]["qc_plots"]:
                 mflat = MasterFlat(setup=self.setup, file_paths=outpath)
                 mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+
+        # Print time
+        if not self.setup["misc"]["silent"]:
+            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+
+    # =========================================================================== #
+    # Master Weight
+    # =========================================================================== #
+    def build_master_weight(self):
+        """
+        Creates master weights from master flats. The difference between them is that NaNs are replaced with 0s and
+        there is an additional option to mask relative and absolute values.
+
+        """
+
+        # Processing info
+        tstart = mastercalibration_message(master_type="MASTER-WEIGHT", silent=self.setup["misc"]["silent"])
+
+        # Get unique Master flats
+        master_flats = self.get_unique_master_flats()
+
+        # Loop over files and apply calibration
+        for idx in range(len(master_flats)):
+
+            outpath = master_flats.full_paths[idx].replace("MASTER-FLAT", "MASTER-WEIGHT")
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Print processing info
+            if not self.setup["misc"]["silent"]:
+                calibration_message(n_current=idx+1, n_total=len(master_flats), name=outpath, d_current=0, d_total=0)
+
+            # Read file into cube
+            cube = master_flats.file2cube(file_index=idx, hdu_index=None, dtype=None)
+
+            # Apply absolute masks
+            cube.apply_masks(mask_below=self.setup["weight"]["mask_abs_min"],
+                             mask_above=self.setup["weight"]["mask_abs_max"])
+
+            # Get median for each plane
+            median = cube.median(axis=(1, 2))[:, np.newaxis, np.newaxis]
+
+            # Norm each plane by its median
+            cube /= median
+
+            # Mask relative values
+            cube.apply_masks(mask_below=self.setup["weight"]["mask_rel_min"],
+                             mask_above=self.setup["weight"]["mask_rel_max"])
+
+            # Scale back to original
+            cube *= median
+
+            # Interpolate NaNs if set (cosmetic function can't be used since this would also apply e.g. de-striping)
+            if self.setup["cosmetics"]["interpolate_bad"]:
+                cube.interpolate_nan()
+
+            # Replace remaining NaNs with 0 weight
+            cube.replace_nan(value=0)
+
+            # Modify type in primary header
+            prime_header = master_flats.headers_primary[idx]
+            prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT"
+
+            # Write to file
+            cube.write_mef(path=outpath, prime_header=master_flats.headers_primary[idx],
+                           data_headers=master_flats.headers_data[idx])
 
         # Print time
         if not self.setup["misc"]["silent"]:
