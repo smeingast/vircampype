@@ -145,7 +145,7 @@ def _check_card_value(value):
     val = _function_to_string(value) if hasattr(value, "__call__") else value
 
     # Convert to string if necessary
-    if not (isinstance(val, str)) | (isinstance(val, float)) | (isinstance(val, int)):
+    if not (isinstance(val, str)) | (isinstance(val, (np.floating, float))) | (isinstance(val, (np.integer, int))):
         val = str(val)
 
     # Return
