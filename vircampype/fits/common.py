@@ -380,6 +380,18 @@ class FitsFiles:
 
         return self.mjd.max() - self.mjd.min()
 
+    def sort_by_mjd(self):
+        """
+        Sorts input by MJD and returns new instance.
+
+        Returns
+        -------
+            Same class as input, but sorted by MJD.
+
+        """
+        sorted_paths = [x for _, x in sorted(zip(self.mjd, self.full_paths))]
+        return self.__class__(setup=self.setup, file_paths=sorted_paths)
+
     # =========================================================================== #
     # Data splitter
     # =========================================================================== #
