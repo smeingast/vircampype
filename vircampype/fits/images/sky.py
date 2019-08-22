@@ -31,11 +31,11 @@ class SkyImages(FitsImages):
 
         # Split based on filter and interval
         split = self.split_filter()
-        split = flat_list([s.split_interval(interval=self.setup["offset"]["interval"], remove_duplicates=True)
+        split = flat_list([s.split_interval(interval=self.setup["sky"]["interval"], remove_duplicates=True)
                            for s in split])
 
         # Remove too short entries
-        split = prune_list(split, n_min=self.setup["offset"]["n_min"])
+        split = prune_list(split, n_min=self.setup["sky"]["n_min"])
 
         if len(split) == 0:
             raise ValueError("No suitable sequence found for offset images.")
@@ -44,7 +44,7 @@ class SkyImages(FitsImages):
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
 
             # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
-            files.check_compatibility(n_files_min=self.setup["offset"]["n_min"], n_hdu_max=1, n_filter_max=1)
+            files.check_compatibility(n_files_min=self.setup["sky"]["n_min"], n_hdu_max=1, n_filter_max=1)
 
             # Create master name
             outpath = files.create_masterpath(basename="MASTER-SKY", idx=0, mjd=True, filt=True, table=False)
@@ -85,12 +85,12 @@ class SkyImages(FitsImages):
                 cube.calibrate(dark=dark, flat=flat, linearize=lin, norm_before=norm_before)
 
                 # Apply source masks if set
-                if self.setup["offset"]["mask_sources"]:
-                    cube.mask_sources(threshold=self.setup["offset"]["mask_sources_thresh"],
-                                      minarea=self.setup["offset"]["mask_sources_min_area"],
-                                      maxarea=self.setup["offset"]["mask_sources_max_area"],
-                                      mesh_size=self.setup["offset"]["background_mesh_size"],
-                                      mesh_filtersize=self.setup["offset"]["background_mesh_filter_size"])
+                if self.setup["sky"]["mask_sources"]:
+                    cube.mask_sources(threshold=self.setup["sky"]["mask_sources_thresh"],
+                                      minarea=self.setup["sky"]["mask_sources_min_area"],
+                                      maxarea=self.setup["sky"]["mask_sources_max_area"],
+                                      mesh_size=self.setup["sky"]["background_mesh_size"],
+                                      mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"])
 
                 # Determine the sky levels for each plane
                 s, n = cube.background_planes()
@@ -101,12 +101,12 @@ class SkyImages(FitsImages):
                 cube.cube -= sky[-1][:, np.newaxis, np.newaxis]
 
                 # Apply masks to the normalized cube
-                cube.apply_masks(bpm=bpm, mask_min=self.setup["offset"]["mask_min"],
-                                 mask_max=self.setup["offset"]["mask_max"],
-                                 kappa=self.setup["offset"]["kappa"], ikappa=self.setup["offset"]["ikappa"])
+                cube.apply_masks(bpm=bpm, mask_min=self.setup["sky"]["mask_min"],
+                                 mask_max=self.setup["sky"]["mask_max"],
+                                 kappa=self.setup["sky"]["kappa"], ikappa=self.setup["sky"]["ikappa"])
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=str2func(self.setup["offset"]["collapse_metric"]))
+                collapsed = cube.flatten(metric=str2func(self.setup["sky"]["collapse_metric"]))
 
                 # Create header with sky measurements
                 cards_sky = []
