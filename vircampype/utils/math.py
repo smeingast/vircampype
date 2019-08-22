@@ -574,7 +574,7 @@ def meshgrid(array, size=128):
         raise ValueError("{0:d}-dimensional data not supported".format(array.ndim))
 
 
-def background_cube(cube, mesh_size=128, mesh_filtersize=3, n_threads=None):
+def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threads=None):
     """
     Generates a background mesh for the cube based on a robust background estimation (similar to SExtractor).
     In addition to the background estimate also the 1-sigma standard deviation in the clipped data is computed.
@@ -587,6 +587,8 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, n_threads=None):
         Requested mesh size in pixels. Actual mesh size will vary depending on input shape (default = 128 pix).
     mesh_filtersize : int, optional
         2D median filter size for meshes (default = 3).
+    max_iter : int, optional
+        Maximum iterations. If convergence is not reached, return an estimate of the background.
     n_threads : int, optional
         Number of threads to use.
 
@@ -621,7 +623,7 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, n_threads=None):
     # For each sub-region estimate the background and noise
     with multiprocessing.Pool(processes=n_threads) as pool:
         # TODO: Added a repeat(10) here for max_iter; check if ok!
-        mp = pool.starmap(estimate_background, zip(sub, repeat(10), repeat(False), repeat((1, 2))))
+        mp = pool.starmap(estimate_background, zip(sub, repeat(10), repeat(max_iter), repeat((1, 2))))
 
     # Unpack results
     background, noise = np.array(list(zip(*mp)))

@@ -1104,5 +1104,5 @@ class ImageCube(object):
 
         """
 
-        return background_cube(cube=self.cube, mesh_size=mesh_size,
+        return background_cube(cube=self.cube, mesh_size=mesh_size, max_iter=10,
                                mesh_filtersize=mesh_filtersize, n_threads=n_threads)
