@@ -417,7 +417,7 @@ class FitsFiles:
 
         Returns
         -------
-        iterable
+        List
             List holding individual FitsFiles instance based on determined splits.
 
         """
@@ -462,6 +462,40 @@ class FitsFiles:
             split_list = [split_list[i] for i in sidx]
 
         # Return the list which contains the separated file paths
+        return split_list
+
+    def split_interval(self, interval, remove_duplicates=True):
+        """
+        Splits input files based on time intervals
+
+        Parameters
+        ----------
+        interval : float, int
+            Time interval for which to create FitsList entries
+        remove_duplicates : bool, optional
+            When set, list duplicates will be removed (default = True)
+
+        Returns
+        -------
+        List
+            List holding individual FitsFiles instance based on determined splits.
+
+        """
+
+        # Keep everything within interval
+        split_indices = [[i for i, t in enumerate([abs(60 * (mjd - m)) for m in self.mjd]) if t < interval] for
+                         mjd in self.mjd]
+
+        # Remove duplicates
+        if remove_duplicates:
+            split_indices = [list(x) for x in set(tuple(x) for x in split_indices)]
+
+        # Create FitsFiles entries for list
+        split_list = []
+        for s_idx in split_indices:
+            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[idx] for idx in s_idx]))
+
+        # Return List
         return split_list
 
     # =========================================================================== #
