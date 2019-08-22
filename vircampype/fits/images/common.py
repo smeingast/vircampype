@@ -308,6 +308,20 @@ class FitsImages(FitsFiles):
         # Match DIT and NDIT and MJD
         return self._match_exposure(match_to=self.get_masterimages().dark, max_lag=self.setup["master"]["max_lag"])
 
+    def get_master_flat(self):
+        """
+        Get for each file in self the corresponding MasterFlat.
+
+        Returns
+        -------
+        MasterFlat
+            MasterFlat instance holding for each file in self the corresponding Masterflat file.
+
+        """
+
+        # Match and return
+        return self.match_filter(match_to=self.get_masterimages().flat, max_lag=self.setup["master"]["max_lag"])
+
     # =========================================================================== #
     # Master tables
     # =========================================================================== #
@@ -383,6 +397,54 @@ class FitsImages(FitsFiles):
 
         # Return
         return match_to.__class__(setup=self.setup, file_paths=matched)
+
+    # noinspection PyTypeChecker
+    def match_filter(self, match_to, max_lag=None):
+        """
+        Matches all entries in the current instance with the match_to instance so that the filters match. In case there
+        are multiple matches, will return the closest in time!
+
+        Parameters
+        ----------
+        match_to : FitsImages
+            FitsImages (or any child) instance out of which the matches should be drawn.
+        max_lag : int, float, optional
+            Maximum allowed time difference for matching in days. Default is None.
+
+        Returns
+        -------
+
+        """
+
+        # Check if input is indeed of FitsImages class
+        if not isinstance(match_to, FitsImages):
+            raise ValueError("Input objects are not FitsImages class")
+
+        # Get matching indices (for each entry in pair_a get the indices in pair_b)
+        indices = [[i for i, j in enumerate(match_to.filter) if j == k] for k in self.filter]
+
+        # Create list for output
+        matched = []
+
+        # Now get the closest in time for each entry
+        for f, idx in zip(self, indices):
+
+            # Issue error if no files can be found
+            if len(idx) < 1:
+                raise ValueError("Could not find matching filter")
+
+            # Otherwise append closest in time
+            else:
+
+                # Construct FitsFiles class
+                a = self.__class__(setup=self.setup, file_paths=[f])
+                b = match_to.__class__(setup=match_to.setup, file_paths=[match_to.file_paths[i] for i in idx])
+
+                # Get the closest in time
+                matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).full_paths)
+
+        # Return
+        return match_to.__class__(setup=match_to.setup, file_paths=matched)
 
     # =========================================================================== #
     # Other methods
