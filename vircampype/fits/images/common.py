@@ -1,6 +1,5 @@
 # =========================================================================== #
 # Import
-import warnings
 import numpy as np
 
 from astropy.io import fits
@@ -124,9 +123,8 @@ class FitsImages(FitsFiles):
         """
 
         # Get data types from fits info
-        # dtypes = [[info[idx][6] for idx in range(it)] for info, it in zip(self.fitsinfo, self.n_hdu)]
         # Get bitpix keyword
-        bitpix = self.primeheaders_get_keys(keywords=["BITPIX"])[0]
+        bitpix = [x[0][0] for x in self.dataheaders_get_keys(keywords=["BITPIX"])]
 
         # Loop through everything and set types
         dtypes = []
@@ -135,6 +133,8 @@ class FitsImages(FitsFiles):
                 app = np.uint8
             elif bp == 16:
                 app = np.uint16
+            elif bp in (-32, 32):
+                app = np.float32
             # elif "float32" in dtype:
             #     dtypes[tidx][bidx] = np.float32
             else:
@@ -210,10 +210,7 @@ class FitsImages(FitsFiles):
 
         # Data type
         if dtype is None:
-            dtype = set([self.dtypes[file_index][idx] for idx in hdu_index])
-            if len(dtype) > 1:
-                warnings.warn("Mixed data types in file", Warning)
-            dtype = list(dtype)[0]
+            dtype = self.dtypes[file_index]
 
         # Create empty cube
         cube = np.empty((len(hdu_index), self.setup["data"]["dim_y"], self.setup["data"]["dim_x"]), dtype=dtype)
@@ -321,6 +318,11 @@ class FitsImages(FitsFiles):
 
         # Match and return
         return self.match_filter(match_to=self.get_masterimages().flat, max_lag=self.setup["master"]["max_lag"])
+
+    def get_unique_master_flats(self):
+        """ Returns unique Master Flats as MasterFlat instance. """
+        from vircampype.fits.images.flat import MasterFlat
+        return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
 
     # =========================================================================== #
     # Master tables
