@@ -7,10 +7,10 @@ from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
 from vircampype.utils.math import linearize_data
 from vircampype.fits.images.dark import MasterDark
-from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.utils.math import floor_value, ceil_value
 from vircampype.fits.tables.linearity import MasterLinearity
+from vircampype.fits.images.common import FitsImages, MasterImages
 
 
 class FlatImages(FitsImages):
@@ -443,7 +443,7 @@ class FlatImages(FitsImages):
             print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
 
 
-class MasterFlat(FitsImages):
+class MasterFlat(MasterImages):
 
     def __init__(self, setup, file_paths=None):
         super(MasterFlat, self).__init__(setup=setup, file_paths=file_paths)
