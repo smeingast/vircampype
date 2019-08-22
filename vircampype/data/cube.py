@@ -6,8 +6,9 @@ import multiprocessing
 
 from itertools import repeat
 from astropy.io import fits
+from astropy.convolution import Gaussian2DKernel
 from vircampype.utils.miscellaneous import read_setup
-from vircampype.utils.math import sigma_clip, linearize_data
+from vircampype.utils.math import sigma_clip, linearize_data, chop_image, merge_chopped, interpolate_image
 
 
 class ImageCube(object):
@@ -829,6 +830,42 @@ class ImageCube(object):
 
         if mask:
             self.apply_masks(bpm=mask)
+
+    def interpolate_nan(self):
+        """
+        Interpolates NaNs for each plane in the cube. Interpolation is (for performance reasons) kept very simple,
+        where the original image is convolved with a given kernel and the NaNs are then replace with the convolved
+        pixel values.
+
+        """
+
+        # Hardcoded Kernel
+        kernel = Gaussian2DKernel(1)
+
+        # Overlap is half the kernel size
+        overlap = int(np.ceil(np.max(kernel.shape) / 2))
+
+        # Also the overlap must be even
+        # if overlap % 2 != 0:
+        #     overlap = np.int(np.ceil(overlap / 2.) * 2)
+
+        # Always chop along the longer axis
+        chop_ax = 0 if self.shape[1] > self.shape[2] else 1
+
+        # Loop through planes and interpolate
+        for plane, _ in self:
+
+            # Chop in smaller sub-regions for better performance
+            chopped, loc = chop_image(array=plane, npieces=self.setup["misc"]["n_threads"] * 2,
+                                      axis=chop_ax, overlap=overlap)
+
+            # Do interpolation
+            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+                ichopped = pool.starmap(interpolate_image, zip(chopped, repeat(kernel),
+                                                               repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+
+            # Merge back into plane and put into cube
+            plane[:] = merge_chopped(arrays=ichopped, locations=loc, axis=chop_ax, overlap=overlap)
 
     # =========================================================================== #
     # Properties
