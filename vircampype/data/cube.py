@@ -604,7 +604,7 @@ class ImageCube(object):
             self._mask_above(value=mask_above)
 
         # Sigma clipping
-        if kappa:
+        if kappa is not None:
             self._kappa_sigma(kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
 
     # =========================================================================== #
@@ -1071,6 +1071,19 @@ class ImageCube(object):
 
             # Return
             return np.nanmedian(np.abs(self.cube - med), axis)
+
+    def background_planes(self):
+        """
+        Calculates sky level and noise estimates for each plane in the cube.
+
+        Returns
+        -------
+        ndarray, ndarray
+
+        """
+
+        # Calculate the sky values for each plane in the cube
+        return estimate_background(array=self.cube[:], axis=(1, 2))
 
     def background(self, mesh_size=128, mesh_filtersize=3, n_threads=None):
         """
