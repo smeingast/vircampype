@@ -15,6 +15,9 @@ class MasterLinearity(MasterTables):
     def __init__(self, file_paths, setup=None):
         super(MasterLinearity, self).__init__(file_paths=file_paths, setup=setup)
 
+    # =========================================================================== #
+    # Properties
+    # =========================================================================== #
     _nl10000 = None
 
     @property
@@ -129,6 +132,9 @@ class MasterLinearity(MasterTables):
         self._linearity_flux = self.get_columns(column_name="flux")
         return self._linearity_flux
 
+    # =========================================================================== #
+    # Plots
+    # =========================================================================== #
     def qc_plot_linearity(self, paths=None, axis_size=4, overwrite=False):
 
         """
