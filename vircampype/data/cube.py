@@ -2,20 +2,33 @@
 # Import
 import warnings
 import numpy as np
+import multiprocessing
 
+from itertools import repeat
 from astropy.io import fits
-from vircampype.utils.math import sigma_clip
+from vircampype.utils.miscellaneous import read_setup
+from vircampype.utils.math import sigma_clip, linearize_data
 
 
 class ImageCube(object):
 
-    def __init__(self, cube=None):
+    def __init__(self, setup, cube=None):
         """
         Parameters
         ----------
+        setup : str, dict
+            YML setup. Can be either path to setup, or a dictionary.
         cube : np.ndarray, optional
 
         """
+
+        # Setup
+        if isinstance(setup, str):
+            self.setup = read_setup(path_yaml=setup)
+        elif isinstance(setup, dict):
+            self.setup = setup
+        else:
+            raise ValueError("Need to supply setup")
 
         # Check supplied data and load into attribute
         if cube is not None:
@@ -622,7 +635,7 @@ class ImageCube(object):
         else:
             self.cube = np.vstack((self.cube, data))
 
-    def flatten(self, metric=np.nanmedian, axis=0, dtype=None):
+    def flatten(self, metric=np.nanmedian, weights=None, axis=0, dtype=None):
         """
         Flattens the ImageCube data to a 2D numpy array based on various options.
 
@@ -632,6 +645,8 @@ class ImageCube(object):
             Metric to be used to collapse cube
         axis : int, optional
             axis along which to flatten (usually 0 if the shape of the data is not tampered with)
+        weights : ImageCube, optional
+            Optionally an ImageCube instance containing the weights for a weighted average flattening
         dtype : callable, optional
             Output data type
 
@@ -657,6 +672,23 @@ class ImageCube(object):
         #     with warnings.catch_warnings():
         #         warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
         #         return flat.filled(fill_value=np.nan).astype(dtype=dtype, copy=False)
+
+        # In case a weighted average should be calculated (only possible with a masked array)
+        if (weights is not None) and (metric == "weighted"):
+
+            # Weights must match input data
+            if self.shape != weights.shape:
+                raise ValueError("Weights don't match input")
+
+            # Calculate weighted average
+            # noinspection PyTypeChecker
+            flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis, weights=weights)
+            """:type : np.ma.MaskedArray"""
+
+            # Fill NaNs back in and return
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
+                return flat.filled(fill_value=np.nan).astype(dtype=dtype, copy=False)
 
         # Just flatten
         with warnings.catch_warnings():
@@ -713,7 +745,43 @@ class ImageCube(object):
         else:
             raise ValueError("Normalization not supported")
 
-    def calibrate(self, dark=None, norm_before=None, norm_after=None, mask=None):
+    def linearize(self, coeff):
+        """
+        Linearizes the data cube based on non-linearity coefficients. Will created multiple parallel processes (up to 4)
+        for better performance.
+
+        Parameters
+        ----------
+        coeff : iterable
+            If a list of coefficients (floats), the same non-linear inversion will be applied to all planes of the cube
+            If a list of lists with coefficients, it must have the length of the cube and each plane will be linearized
+            with the corresponding coefficients.
+
+        Returns
+        -------
+
+        """
+
+        # Check if it's list of lists
+        if isinstance(coeff[0], list):
+            cff = coeff
+
+            # Provided number of coefficient lists must match the cube
+            if len(coeff) != len(self):
+                raise ValueError("Coefficient list does not match data")
+
+        # If there is just one list of coefficients, we apply it to the entire cube
+        else:
+            cff = repeat(coeff)
+
+        # Start threaded processing of linearization
+        with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+            mp = pool.starmap(linearize_data, zip(self.cube, cff))
+
+        # Concatenate results and overwrite cube
+        self.cube = np.stack(mp, axis=0)
+
+    def calibrate(self, dark=None, linearize=None, norm_before=None, norm_after=None, mask=None):
         """
         Applies calibration steps to the ImageCube.
         (0) normalization
@@ -726,6 +794,8 @@ class ImageCube(object):
         ----------
         dark : ImageCube, optional
             The dark cube that should be subtracted.
+        linearize : iterable, optional
+            The linearity coefficients when the cube should be linearized.
         norm_before : int, float, np.ndarray, optional
             The normalization data applied before processing.
         norm_after : int, float, np.ndarray, optional
@@ -748,6 +818,10 @@ class ImageCube(object):
 
             # Subtract dark
             self.cube -= dark.cube
+
+        # Linearize cube
+        if linearize:
+            self.linearize(coeff=linearize)
 
         # Normalize
         if norm_after is not None:
