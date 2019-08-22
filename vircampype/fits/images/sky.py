@@ -27,7 +27,7 @@ class SkyImages(FitsImages):
         """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-OFFSET", silent=self.setup["misc"]["silent"])
+        tstart = mastercalibration_message(master_type="MASTER-SKY", silent=self.setup["misc"]["silent"])
 
         # Split based on filter and interval
         split = self.split_filter()
