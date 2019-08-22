@@ -155,6 +155,13 @@ class VircamImages(FitsImages):
         # Gain
         split["flat_lamp_gain"].build_master_gain(darks=split["dark_gain"])
 
+        # Master linearity
+        split["flat_lamp_lin"].build_master_linearity()
+
+        # Master flat and weight
+        split["flat_twilight"].build_master_flat()
+        split["flat_twilight"].build_master_weight()
+
 
 class VircamDarkImages(DarkImages):
 
@@ -214,7 +221,7 @@ class VircamFlatImages(FlatImages):
                 print(os.path.basename(outpath))
 
             # Get BPM
-            mbpms = flats.match_masterbpm()
+            mbpms = flats.get_master_bpm()
 
             # Read data
             f0 = flats.file2cube(file_index=0, dtype=np.float32)
