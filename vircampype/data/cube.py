@@ -853,7 +853,7 @@ class ImageCube(object):
         chop_ax = 0 if self.shape[1] > self.shape[2] else 1
 
         # Loop through planes and interpolate
-        for plane, _ in self:
+        for plane in self:
 
             # Chop in smaller sub-regions for better performance
             chopped, loc = chop_image(array=plane, npieces=self.setup["misc"]["n_threads"] * 2,
