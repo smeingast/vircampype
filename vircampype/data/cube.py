@@ -867,6 +867,20 @@ class ImageCube(object):
             # Merge back into plane and put into cube
             plane[:] = merge_chopped(arrays=ichopped, locations=loc, axis=chop_ax, overlap=overlap)
 
+    def replace_nan(self, value):
+        """
+        Replaces NaNs in the cube with a given finite value.
+
+        Parameters
+        ----------
+        value : int, float
+            Value which will replace NaNs
+
+        """
+
+        # Replace values
+        self.cube[np.isnan(self.cube)] = value
+
     # =========================================================================== #
     # Properties
     # =========================================================================== #
