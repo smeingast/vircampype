@@ -151,6 +151,7 @@ class MasterLinearity(MasterTables):
     # =========================================================================== #
     # Plots
     # =========================================================================== #
+    # noinspection DuplicatedCode
     def qc_plot_linearity(self, paths=None, axis_size=4, overwrite=False):
 
         """
