@@ -39,7 +39,7 @@ weight:
 
 sky:
   mix_science: True                 # This is not yet used
-  window: 20                        # Window in minutes around which sky images are created
+  window: 30                        # Window in minutes around which sky images are created
   n_min: 3                          # Minimum number of images to merge to an offset image
   mask_min: False
   mask_max: False
