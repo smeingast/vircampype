@@ -169,7 +169,8 @@ class VircamImages(FitsImages):
 
         # Master offset
         # TODO: Add mixing with offset images
-        split["science"].build_master_sky()
+        if split["science"] is not None:
+            split["science"].build_master_sky()
 
 
 class VircamDarkImages(DarkImages):
