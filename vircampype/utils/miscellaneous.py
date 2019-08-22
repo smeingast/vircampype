@@ -257,3 +257,31 @@ def read_setup(path_yaml):
             return yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
+
+
+def prune_list(ll, n_min):
+    """
+    Removes all FitsList entries which contain fewer items than 'n_min'.
+
+    Parameters
+    ----------
+    ll : List
+        Input list to prune.
+    n_min : int
+        Minimum length in list entries.
+
+    Returns
+    -------
+    List
+        Cleaned list.
+
+    """
+
+    # Loop over entries and get good indices
+    popidx = [idx for idx in range(len(ll)) if len(ll[idx]) < n_min]
+
+    # Remove the bad ones
+    for idx in sorted(popidx, reverse=True):
+        ll.pop(idx)
+
+    return ll
