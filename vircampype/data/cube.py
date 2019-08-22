@@ -184,9 +184,9 @@ class ImageCube(object):
         """
 
         if isinstance(other, ImageCube):
-            return ImageCube(self.cube + other.cube)
+            return ImageCube(setup=self.setup, cube=self.cube + other.cube)
         elif isinstance(other, np.ndarray):
-            return ImageCube(self.cube + other)
+            return ImageCube(setup=self.setup, cube=self.cube + other)
         else:
             raise TypeError("Addition for {0:s} not implemented".format(str(type(other))))
 
@@ -243,9 +243,9 @@ class ImageCube(object):
         """
 
         if isinstance(other, ImageCube):
-            return ImageCube(self.cube - other.cube)
+            return ImageCube(setup=self.setup, cube=self.cube - other.cube)
         elif isinstance(other, np.ndarray):
-            return ImageCube(self.cube - other)
+            return ImageCube(setup=self.setup, cube=self.cube - other)
         else:
             raise TypeError("Subtraction for {0:s} not implemented".format(str(type(other))))
 
@@ -302,9 +302,9 @@ class ImageCube(object):
         """
 
         if isinstance(other, ImageCube):
-            return ImageCube(self.cube * other.cube)
+            return ImageCube(setup=self.setup, cube=self.cube * other.cube)
         elif isinstance(other, np.ndarray):
-            return ImageCube(self.cube * other)
+            return ImageCube(setup=self.setup, cube=self.cube * other)
         else:
             raise TypeError("Multiplication for {0:s} not implemented".format(str(type(other))))
 
@@ -361,9 +361,9 @@ class ImageCube(object):
         """
 
         if isinstance(other, ImageCube):
-            return ImageCube(self.cube / other.cube)
+            return ImageCube(setup=self.setup, cube=self.cube / other.cube)
         elif isinstance(other, np.ndarray):
-            return ImageCube(self.cube / other)
+            return ImageCube(setup=self.setup, cube=self.cube / other)
         else:
             raise TypeError("Division for {0:s} not implemented".format(str(type(other))))
 
