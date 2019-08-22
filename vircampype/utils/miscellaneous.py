@@ -71,6 +71,12 @@ def calibration_message(n_current, n_total, name, d_current, d_total, silent=Fal
                                           str(d_current) + "/" + str(d_total)), end="")
 
 
+def finished_message(tstart, silent=False):
+    """ Processing finisher message printer. """
+    if not silent:
+        print("\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+
+
 def check_file_exists(file_path, silent=True):
     """
     Helper method to check if a file already exists.

@@ -93,8 +93,7 @@ class DarkImages(FitsImages):
                 mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        if not self.setup["misc"]["silent"]:
-            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class MasterDark(MasterImages):

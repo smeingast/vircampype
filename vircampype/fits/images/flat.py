@@ -104,8 +104,7 @@ class FlatImages(FitsImages):
                 mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        if not self.setup["misc"]["silent"]:
-            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Master Linearity
@@ -229,8 +228,7 @@ class FlatImages(FitsImages):
                 mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        if not self.setup["misc"]["silent"]:
-            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Master Flat
@@ -370,8 +368,7 @@ class FlatImages(FitsImages):
                 mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        if not self.setup["misc"]["silent"]:
-            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Master Weight
@@ -439,8 +436,7 @@ class FlatImages(FitsImages):
                            data_headers=master_flats.headers_data[idx])
 
         # Print time
-        if not self.setup["misc"]["silent"]:
-            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class MasterFlat(MasterImages):
