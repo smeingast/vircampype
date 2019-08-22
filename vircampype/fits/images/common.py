@@ -288,7 +288,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self.get_masterimages().bpm, max_lag=self.setup["master"]["max_lag"])
+        return self.match_mjd(match_to=self.get_master_images().bpm, max_lag=self.setup["master"]["max_lag"])
 
     def get_master_dark(self):
         """
@@ -302,7 +302,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match DIT and NDIT and MJD
-        return self._match_exposure(match_to=self.get_masterimages().dark, max_lag=self.setup["master"]["max_lag"])
+        return self._match_exposure(match_to=self.get_master_images().dark, max_lag=self.setup["master"]["max_lag"])
 
     def get_master_flat(self):
         """
@@ -316,7 +316,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_filter(match_to=self.get_masterimages().flat, max_lag=self.setup["master"]["max_lag"])
+        return self.match_filter(match_to=self.get_master_images().flat, max_lag=self.setup["master"]["max_lag"])
 
     def get_unique_master_flats(self):
         """ Returns unique Master Flats as MasterFlat instance. """
