@@ -569,7 +569,7 @@ class FitsImages(FitsFiles):
         if ndit:
             path += ".NDIT_" + str(self.ndit[idx])
         if mjd:
-            path += ".MJD_" + str(np.round(self.mjd_mean, decimals=3))
+            path += ".MJD_" + str(np.round(self.mjd_mean, decimals=4))
         if filt:
             path += ".FIL_" + self.filter[idx]
 
