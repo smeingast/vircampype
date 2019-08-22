@@ -122,9 +122,8 @@ class FitsImages(FitsFiles):
 
         """
 
-        # Get data types from fits info
         # Get bitpix keyword
-        bitpix = [x[0][0] for x in self.dataheaders_get_keys(keywords=["BITPIX"])]
+        bitpix = [x[0] for x in self.dataheaders_get_keys(keywords=["BITPIX"])[0]]
 
         # Loop through everything and set types
         dtypes = []
