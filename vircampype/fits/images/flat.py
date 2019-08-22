@@ -1,11 +1,15 @@
 # =========================================================================== #
 # Import
+import warnings
+
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
+from vircampype.utils.plots import get_plotgrid
 from vircampype.utils.math import linearize_data
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.bpm import MasterBadPixelMask
+from vircampype.utils.math import floor_value, ceil_value
 from vircampype.fits.tables.linearity import MasterLinearity
 
 
@@ -38,7 +42,7 @@ class FlatImages(FitsImages):
                 continue
 
             # Instantiate output
-            master_cube = ImageCube()
+            master_cube = ImageCube(setup=self.setup)
 
             # Start looping over detectors
             data_headers = []
@@ -100,6 +104,7 @@ class FlatImages(FitsImages):
         if not self.setup["misc"]["silent"]:
             print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
 
+    # noinspection DuplicatedCode
     def build_master_linearity(self):
         """ Calculates the non-linearity coefficients based on a series of dome flats. """
 
@@ -124,8 +129,7 @@ class FlatImages(FitsImages):
             outpath = files.create_masterpath(basename="MASTER-LINEARITY", idx=0, mjd=True, table=True)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
-                    and not self.setup["misc"]["overwrite"]:
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
                 continue
 
             # Fetch the Masterfiles
@@ -148,10 +152,11 @@ class FlatImages(FitsImages):
                 # Get master calibration
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
-                sat = self.get_saturation_hdu(hdu_index=d-1)
+                sat = self.get_saturation_hdu(hdu_index=d)
                 norm_before = files.ndit_norm
 
                 # Do calibration
+                # TODO: Move masking back outside of calibrate
                 cube.calibrate(dark=dark, norm_before=norm_before, mask=bpm)
 
                 # Estimate flux for each plane as the median
@@ -220,3 +225,291 @@ class FlatImages(FitsImages):
         # Print time
         if not self.setup["misc"]["silent"]:
             print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+
+    # noinspection DuplicatedCode
+    def build_master_flat(self):
+        """
+        Builds a masterflat from the given flat fields. Also calculates a global gain harmonization which is applied
+        to all detectors. Different filters (as reported in the fits header) will be split into different masterflats.
+        In addition, if masterweights should be created, this method will also create them after building all
+        masterflats.
+
+        """
+
+        # Processing info
+        tstart = mastercalibration_message(master_type="MASTER-FLAT", silent=self.setup["misc"]["silent"])
+
+        # Split based on lag and filter
+        split = self.split_filter()
+        split = flat_list([s.split_lag(max_lag=self.setup["flat"]["max_lag"]) for s in split])
+
+        # Now loop through separated files and build the Masterdarks
+        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: FlatImages, int
+
+            # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
+            files.check_compatibility(n_files_min=3, n_hdu_max=1, n_ndit_max=1, n_filter_max=1)
+
+            # Create master name
+            outpath = files.create_masterpath(basename="MASTER-FLAT", idx=0, mjd=True, filt=True, table=False)
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Fetch the Masterfiles
+            master_bpms = files.match_masterbpm()  # type: MasterBadPixelMask
+            master_darks = files.match_masterdark()  # type: MasterDark
+            master_linearity = files.get_master_linearity()  # type: MasterLinearity
+
+            # initialize empty lists and data structures
+            master_flat, flux = ImageCube(setup=self.setup, cube=None), []
+
+            # Start looping over detectors
+            data_headers = []
+            for d in files.data_hdu[0]:
+
+                # Print processing info
+                calibration_message(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
+                                    d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
+
+                # Get data
+                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
+
+                # Get master calibration
+                bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
+                dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
+                lin = master_linearity.hdu2coeff(hdu_index=d)
+                sat = files.get_saturation_hdu(hdu_index=d)
+                norm_before = files.ndit_norm
+
+                # Do calibration
+                cube.calibrate(dark=dark, linearize=lin, norm_before=norm_before)
+
+                # Apply masks (only BPM and saturation before scaling)
+                cube.apply_masks(bpm=bpm, mask_above=sat)
+
+                # Determine flux for each plane of the cube
+                flux.append(cube.median(axis=(1, 2)))
+
+                # Scale the cube with the fluxes
+                cube.cube /= flux[-1][:, np.newaxis, np.newaxis]
+
+                # After flux scaling we can also safely apply the remaining masks
+                cube.apply_masks(mask_min=self.setup["flat"]["mask_min"], mask_max=self.setup["flat"]["mask_min"],
+                                 mask_below=self.setup["flat"]["rel_lo"], mask_above=self.setup["flat"]["rel_hi"],
+                                 kappa=self.setup["flat"]["kappa"], ikappa=self.setup["flat"]["ikappa"])
+
+                # Create weights if needed
+                if self.setup["flat"]["collapse_metric"] == "weighted":
+                    weights = np.empty_like(cube.cube)
+                    weights[:] = flux[-1][:, np.newaxis, np.newaxis]
+                else:
+                    weights = None
+
+                # Flatten data
+                flat = cube.flatten(metric=self.setup["flat"]["collapse_metric"], axis=0, weights=weights, dtype=None)
+
+                # Create header with flux measurements
+                cards_flux = []
+                for cidx in range(len(flux[-1])):
+                    cards_flux.append(make_cards(keywords=["HIERARCH PYPE FLAT FLUX {0}".format(cidx),
+                                                           "HIERARCH PYPE FLAT MJD {0}".format(cidx)],
+                                                 values=[np.round(flux[-1][cidx], 3), np.round(files.mjd[cidx], 5)],
+                                                 comments=["Measured flux (ADU)", "MJD of measured flux"]))
+                data_headers.append(fits.Header(cards=flat_list(cards_flux)))
+
+                # Flatten cube
+                master_flat.extend(data=flat.astype(np.float32))
+
+            """The current masterflat contains for each detector the flattened data after scaling each plane with the
+            flux. Now we calculate a first order gain harmonization across the focal plane by calculating the relative
+            fluxes between the detectors"""
+
+            # Calculate an average exposure scale (scale for each image in the sequence preserving the relative flux)
+            exposure_scale = [sum(f) / len(f) for f in zip(*flux)]
+
+            # Now scale all measurements with the exposure scale
+            flux_scaled = [[x / s for x, s in zip(f, exposure_scale)] for f in flux]
+
+            # The gain harmonization factor is then the mean of all scaled exposures
+            gainscale = [sum(f) / len(f) for f in flux_scaled]
+
+            # Apply the gain harmonization
+            master_flat.cube *= np.array(gainscale)[:, np.newaxis, np.newaxis]
+
+            # Make cards for primary headers
+            prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
+                                               self.setup["keywords"]["filter"],
+                                               self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
+                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
+                                     values=[files.dit[0], files.ndit[0],
+                                             files.filter[0],
+                                             files.mjd_mean, files.time_obs_mean,
+                                             "MASTER-FLAT", len(files)])
+            prime_header = fits.Header(cards=prime_cards)
+
+            # Add gainscale to data headers
+            for dh, gs in zip(data_headers, gainscale):
+                dh["HIERARCH PYPE FLAT SCALE"] = np.round(gs, decimals=4)
+
+            # Write to disk
+            master_flat.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                mflat = MasterFlat(setup=self.setup, file_paths=outpath)
+                mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+
+        # Print time
+        if not self.setup["misc"]["silent"]:
+            print("-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+
+
+class MasterFlat(FitsImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterFlat, self).__init__(setup=setup, file_paths=file_paths)
+
+    # =========================================================================== #
+    # Properties
+    # =========================================================================== #
+    _flux = None
+
+    @property
+    def flux(self):
+        """
+        Reads flux measurements of used flats into list.
+
+        Returns
+        -------
+        List
+            List of fluxes.
+
+        """
+
+        # Check if already determined
+        if self._flux is not None:
+            return self._flux
+
+        self._flux = self._get_dataheaders_sequence(keyword="HIERARCH PYPE FLAT FLUX")
+        return self._flux
+
+    _flux_mjd = None
+
+    @property
+    def flux_mjd(self):
+        """
+        Reads MJDs of flux measurements of used flats into list.
+
+        Returns
+        -------
+        List
+            List of MJDs.
+
+        """
+
+        # Check if already determined
+        if self._flux_mjd is not None:
+            return self._flux_mjd
+
+        self._flux_mjd = self._get_dataheaders_sequence(keyword="HIERARCH PYPE FLAT MJD")
+        return self._flux_mjd
+
+    @property
+    def gainscale(self):
+        """
+        Read used gainscale from data headers.
+
+        Returns
+        -------
+        List
+            List of gainscales.
+
+        """
+        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE FLAT SCALE"])[0]
+
+    # noinspection DuplicatedCode
+    def qc_plot_flat(self, paths=None, axis_size=4, overwrite=False):
+        """
+        Creates the QC plot for the flat fields. Should only be used together with the above method.
+
+        Parameters
+        ----------
+        paths : List, optional
+            Paths of the QC plot files. If None (default), use relative path
+        axis_size : int, float, optional
+            Axis size. Default is 4.
+        overwrite : optional, bool
+            Whether an exisiting plot should be overwritten. Default is False.
+
+        """
+
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Generate path for plots
+        if paths is None:
+            paths = [x.replace(".fits", ".pdf") for x in self.full_paths]
+
+        for flux, mjd, gs, path in zip(self.flux, self.flux_mjd, self.gainscale, paths):
+
+            # Check if plot already exits
+            if check_file_exists(file_path=path, silent=True) and not overwrite:
+                continue
+
+            # Get plot grid
+            fig, axes = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            axes = axes.ravel()
+
+            # Helpers
+            mjd_floor = np.floor(np.min(mjd))
+            xmin, xmax = 0.9999 * np.min(24 * (mjd - mjd_floor)), 1.0001 * np.max(24 * (mjd - mjd_floor))
+            allflux = flat_list(flux)
+            ymin, ymax = 0.98 * np.min(allflux), 1.02 * np.max(allflux)
+
+            # Loop and plot
+            for idx in range(len(flux)):
+
+                # Grab axes
+                ax = axes[idx]
+
+                # Plot flux
+                ax.scatter(24 * (mjd[idx] - mjd_floor), flux[idx], c="#DC143C", lw=0, s=40, alpha=0.7, zorder=0)
+
+                # Annotate detector ID and gain scale
+                ax.annotate("Scale={0:.3f}".format(gs[idx]),
+                            xy=(0.96, 0.96), xycoords="axes fraction", ha="right", va="top")
+                ax.annotate("Det.ID: {0:0d}".format(idx + 1),
+                            xy=(0.04, 0.04), xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx >= len(flux) - self.setup["instrument"]["layout"][0]:
+                    ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx % self.setup["instrument"]["layout"][0] == 0:
+                    ax.set_ylabel("ADU")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Set ranges
+                ax.set_xlim(xmin=floor_value(data=xmin, value=0.02), xmax=ceil_value(data=xmax, value=0.02))
+                ax.set_ylim(ymin=floor_value(data=ymin, value=1000), ymax=ceil_value(data=ymax, value=1000))
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Hide first tick label
+                xticks, yticks = ax.xaxis.get_major_ticks(), ax.yaxis.get_major_ticks()
+                xticks[0].set_visible(False)
+                yticks[0].set_visible(False)
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(path, bbox_inches="tight")
+            plt.close("all")
