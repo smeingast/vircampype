@@ -25,7 +25,7 @@ class FlatImages(FitsImages):
         """ Builds a Bad pixel mask from image data. """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-BPM", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-BPM", silent=self.setup["misc"]["silent"])
 
         # Split files based on maximum time lag is set
         split = self.split_lag(max_lag=self.setup["bpm"]["max_lag"])
@@ -53,7 +53,7 @@ class FlatImages(FitsImages):
 
                 # Print processing info
                 if not self.setup["misc"]["silent"]:
-                    calibration_message(n_current=fidx, n_total=len(split), name=outpath,
+                    message_calibration(n_current=fidx, n_total=len(split), name=outpath,
                                         d_current=d, d_total=len(files.data_hdu[0]))
 
                 # Get data
@@ -104,7 +104,7 @@ class FlatImages(FitsImages):
                 mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Master Linearity
@@ -118,7 +118,7 @@ class FlatImages(FitsImages):
             raise NotImplementedError("Order not supported")
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-LINEARITY", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-LINEARITY", silent=self.setup["misc"]["silent"])
 
         # Split based on lag and filter
         split = self.split_filter()
@@ -148,7 +148,7 @@ class FlatImages(FitsImages):
             for d in files.data_hdu[0]:
 
                 # Print processing info
-                calibration_message(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
+                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
                                     d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
 
                 # Get data
@@ -228,7 +228,7 @@ class FlatImages(FitsImages):
                 mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Master Flat
@@ -244,7 +244,7 @@ class FlatImages(FitsImages):
         """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-FLAT", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-FLAT", silent=self.setup["misc"]["silent"])
 
         # Split based on lag and filter
         split = self.split_filter()
@@ -276,7 +276,7 @@ class FlatImages(FitsImages):
             for d in files.data_hdu[0]:
 
                 # Print processing info
-                calibration_message(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
+                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
                                     d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
 
                 # Get data
@@ -368,7 +368,7 @@ class FlatImages(FitsImages):
                 mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Master Weight
@@ -381,7 +381,7 @@ class FlatImages(FitsImages):
         """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-WEIGHT", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-WEIGHT", silent=self.setup["misc"]["silent"])
 
         # Get unique Master flats
         master_flats = self.get_unique_master_flats()
@@ -398,7 +398,7 @@ class FlatImages(FitsImages):
 
             # Print processing info
             if not self.setup["misc"]["silent"]:
-                calibration_message(n_current=idx+1, n_total=len(master_flats), name=outpath, d_current=0, d_total=0)
+                message_calibration(n_current=idx + 1, n_total=len(master_flats), name=outpath, d_current=0, d_total=0)
 
             # Read file into cube
             cube = master_flats.file2cube(file_index=idx, hdu_index=None, dtype=None)
@@ -436,7 +436,7 @@ class FlatImages(FitsImages):
                            data_headers=master_flats.headers_data[idx])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class MasterFlat(MasterImages):

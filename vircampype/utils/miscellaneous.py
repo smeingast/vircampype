@@ -14,7 +14,7 @@ def make_folder(path):
         os.makedirs(path)
 
 
-def mastercalibration_message(master_type, silent=True, left="File", right="Extension"):
+def message_mastercalibration(master_type, silent=True, left="File", right="Extension"):
     """
     Prints a helper message when processing calibration files
 
@@ -45,7 +45,7 @@ def mastercalibration_message(master_type, silent=True, left="File", right="Exte
     return time.time()
 
 
-def calibration_message(n_current, n_total, name, d_current, d_total, silent=False):
+def message_calibration(n_current, n_total, name, d_current, d_total, silent=False):
     """
     Prints the calibration message for image processing.
 
@@ -71,7 +71,7 @@ def calibration_message(n_current, n_total, name, d_current, d_total, silent=Fal
                                           str(d_current) + "/" + str(d_total)), end="")
 
 
-def finished_message(tstart, silent=False):
+def message_finished(tstart, silent=False):
     """ Processing finisher message printer. """
     if not silent:
         print("\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart))

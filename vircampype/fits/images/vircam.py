@@ -199,7 +199,7 @@ class VircamFlatImages(FlatImages):
         """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-GAIN", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-GAIN", silent=self.setup["misc"]["silent"])
 
         # Split based on lag
         split_flats = self.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
@@ -278,7 +278,7 @@ class VircamFlatImages(FlatImages):
                 mgain.qc_plot_rdnoise(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class VircamFlatTwilight(VircamFlatImages):

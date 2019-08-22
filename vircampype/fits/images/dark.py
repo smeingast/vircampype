@@ -15,7 +15,7 @@ class DarkImages(FitsImages):
         """ Create master darks. """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-DARK", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-DARK", silent=self.setup["misc"]["silent"])
 
         """ This does not work with Dark normalisation. There has to be a set for each DIT/NDIT combination! """
         # Split files first on DIT and NDIT, then on lag
@@ -48,7 +48,7 @@ class DarkImages(FitsImages):
 
                 # Print processing info
                 if not self.setup["misc"]["silent"]:
-                    calibration_message(n_current=fidx, n_total=len(split), name=outpath,
+                    message_calibration(n_current=fidx, n_total=len(split), name=outpath,
                                         d_current=d, d_total=max(files.data_hdu[0]))
 
                 # Get data
@@ -93,7 +93,7 @@ class DarkImages(FitsImages):
                 mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class MasterDark(MasterImages):

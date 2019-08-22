@@ -27,7 +27,7 @@ class SkyImages(FitsImages):
         """
 
         # Processing info
-        tstart = mastercalibration_message(master_type="MASTER-SKY", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-SKY", silent=self.setup["misc"]["silent"])
 
         # Split based on filter and interval
         split = self.split_filter()
@@ -68,7 +68,7 @@ class SkyImages(FitsImages):
             for d in files.data_hdu[0]:
 
                 # Print processing info
-                calibration_message(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
+                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
                                     d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
 
                 # Get data
@@ -148,7 +148,7 @@ class SkyImages(FitsImages):
                 msky.qc_plot_sky(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        finished_message(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class ScienceImages(SkyImages):
