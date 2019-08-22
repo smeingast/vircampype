@@ -230,7 +230,6 @@ def make_cards(keywords, values, comments=None):
     # Create FITS header cards
     cards = []
     for kw, val, cm in zip(keywords, values, comments):
-
         cards.append(make_card(keyword=kw, value=val, comment=cm))
 
     # Return
