@@ -537,8 +537,12 @@ class FitsImages(FitsFiles):
 
         """
 
+        # Need -1 here since the coefficients do not take an empty primary header into account
+        if hdu_index-1 < 0:
+            raise ValueError("HDU with index {0} does not exits".format(hdu_index-1))
+
         # Return HDU saturation limit
-        return self.setup["data"]["saturate"][hdu_index]
+        return self.setup["data"]["saturate"][hdu_index-1]
 
 
 class MasterImages(FitsImages):
