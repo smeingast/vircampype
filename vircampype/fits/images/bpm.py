@@ -1,13 +1,13 @@
 # =========================================================================== #
 # Import
-from vircampype.fits.images.common import FitsImages
+from vircampype.fits.images.common import MasterImages
 from vircampype.utils.plots import plot_value_detector
 
 
-class MasterBadPixelMask(FitsImages):
+class MasterBadPixelMask(MasterImages):
 
     def __init__(self, setup, file_paths=None):
-        super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(MasterImages, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
     def bpmfracs(self):
