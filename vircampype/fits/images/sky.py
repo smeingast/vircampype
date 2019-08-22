@@ -33,6 +33,7 @@ class SkyImages(FitsImages):
         split = self.split_filter()
         split = flat_list([s.split_window(window=self.setup["sky"]["window"], remove_duplicates=True)
                            for s in split])
+
         # Remove too short entries
         split = prune_list(split, n_min=self.setup["sky"]["n_min"])
 
