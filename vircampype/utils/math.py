@@ -3,6 +3,11 @@
 import astropy
 import warnings
 import numpy as np
+from PIL import Image
+import multiprocessing
+
+from itertools import repeat
+from scipy.ndimage import median_filter
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
 
 
@@ -520,3 +525,140 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
                 merged[:, locations[i]:locations[i+1]] = arrays[i][:, overlap:-overlap]
 
     return merged
+
+
+def meshgrid(array, size=128):
+    """
+    Generates a pixel coordinate grid from an array with given mesh sizes. The mesh size is approximated when the
+    data shape is not a multiple of the mesh size (almost always the case). For smaller mesh sizes, the output mesh
+    will match the input more closely.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        Input data for which the pixel grid should be generated
+    size : int, float, tuple, optional
+        Size of the grid. The larger this value rel to the image dimensions, the less the requested grid size will match
+        to the output grid size.
+
+    Returns
+    -------
+    tuple
+        Tuple for grid coordinates in each axis. Pixel coordinates start with index 0!
+
+    Raises
+    ------
+    ValueError
+        In case the data has more than 3 dimensions (can be extended easily)
+
+    """
+
+    if isinstance(size, int):
+        size = [size, ] * array.ndim
+
+    # Get number of cells per axis
+    n = [np.ceil(sh / si) for sh, si in zip(array.shape, size)]
+
+    """In contrast to meshgrid, this has the advantage that the edges are always included!"""
+    # Return
+    if array.ndim == 1:
+        return np.uint32((np.mgrid[0:array.shape[0] - 1:complex(n[0])]))
+    if array.ndim == 2:
+        return np.uint32((np.mgrid[0:array.shape[0] - 1:complex(n[0]),
+                                   0:array.shape[1] - 1:complex(n[1])]))
+    if array.ndim == 3:
+        return np.uint32((np.mgrid[0:array.shape[0] - 1:complex(n[0]),
+                                   0:array.shape[1] - 1:complex(n[1]),
+                                   0:array.shape[2] - 1:complex(n[2])]))
+    else:
+        raise ValueError("{0:d}-dimensional data not supported".format(array.ndim))
+
+
+def background_cube(cube, mesh_size=128, mesh_filtersize=3, n_threads=None):
+    """
+    Generates a background mesh for the cube based on a robust background estimation (similar to SExtractor).
+    In addition to the background estimate also the 1-sigma standard deviation in the clipped data is computed.
+
+    Parameters
+    ----------
+    cube : ndarray
+        input cube
+    mesh_size : int, optional
+        Requested mesh size in pixels. Actual mesh size will vary depending on input shape (default = 128 pix).
+    mesh_filtersize : int, optional
+        2D median filter size for meshes (default = 3).
+    n_threads : int, optional
+        Number of threads to use.
+
+    Returns
+    -------
+    tuple[ndarray, ndarray]
+        Tuple holding (background, noise).
+         If return_grid is set (background, noise, x grid coordinates, y grid coordinates).
+
+    """
+
+    # Generate the pixel coordinate grid
+    ygrid, xgrid = meshgrid(array=cube[0], size=mesh_size)
+    ygrid_flat, xgrid_flat = ygrid.ravel(), xgrid.ravel()
+
+    # Determine actual grid half-size
+    y2size, x2size = ygrid[1][0] // 2, xgrid[0][1] // 2
+
+    # For each of these grid points create the appropriate sub-region
+    sub = []
+    for y, x in zip(ygrid_flat, xgrid_flat):
+
+        if (x > 0) & (y > 0):
+            sub.append(cube[:, y - y2size:y + y2size, x - x2size:x + x2size])
+        elif (x > 0) & (y == 0):
+            sub.append(cube[:, y:y + y2size, x - x2size:x + x2size])
+        elif (x == 0) & (y > 0):
+            sub.append(cube[:, y - y2size:y + y2size, x:x + x2size])
+        else:
+            sub.append(cube[:, y:y + y2size, x:x + x2size])
+
+    # For each sub-region estimate the background and noise
+    with multiprocessing.Pool(processes=n_threads) as pool:
+        # TODO: Added a repeat(10) here for max_iter; check if ok!
+        mp = pool.starmap(estimate_background, zip(sub, repeat(10), repeat(False), repeat((1, 2))))
+
+    # Unpack results
+    background, noise = np.array(list(zip(*mp)))
+
+    # Reshape for cube
+    background = background.T.reshape((len(cube),) + xgrid.shape)
+    noise = noise.T.reshape((len(cube),) + xgrid.shape)
+
+    # Interpolate NaNs if any
+    if np.sum(~np.isfinite(background)) > 0:
+        background = interpolate_image(array=background, kernel=np.ones((3, 3)), max_bad_neighbors=None)
+        noise = interpolate_image(array=noise, kernel=np.ones((3, 3)), max_bad_neighbors=None)
+
+    # Median-filter low-res images if set and reshape into image
+    if mesh_filtersize > 1:
+        for idx in range(len(cube)):
+            background[idx, :, :] = median_filter(input=background[idx, :, :], size=mesh_filtersize)
+            noise[idx, :, :] = median_filter(input=noise[idx, :, :], size=mesh_filtersize)
+
+    # Scale back to original size
+    cube_background, cube_noise = [], []
+    for bg, nn in zip(background, noise):
+        cube_background.append(np.array(Image.fromarray(bg).resize(size=cube.shape[1:], resample=Image.BICUBIC)))
+        cube_noise.append(np.array(Image.fromarray(nn).resize(size=cube.shape[1:], resample=Image.BICUBIC)))
+
+        """
+        This is how it works with griddata.
+        Imresize is MUCH faster than griddata, but the results are different and it only works for 32bit float data!
+    
+        from scipy.interpolate import griddata
+        xgrid, ygrid = grid_like(array=array)
+        back_map = griddata(np.stack([ygrid_flat, xgrid_flat], axis=1), back_map.ravel(), (ygrid, xgrid),
+                            method=method)
+        noise_map = griddata(np.stack([ygrid_flat, xgrid_flat], axis=1), noise_map.ravel(), (ygrid, xgrid),
+                             method=method)
+    
+        """
+
+    # Return scaled cubes
+    return np.array(cube_background), np.array(cube_noise)
