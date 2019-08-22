@@ -367,6 +367,19 @@ class FitsFiles:
 
         return np.mean(self.mjd)
 
+    @property
+    def mjd_range(self):
+        """
+        MJD range of instance (max - min)
+
+        Returns
+        -------
+        float
+            MJD difference.
+        """
+
+        return self.mjd.max() - self.mjd.min()
+
     # =========================================================================== #
     # Data splitter
     # =========================================================================== #
@@ -464,14 +477,14 @@ class FitsFiles:
         # Return the list which contains the separated file paths
         return split_list
 
-    def split_interval(self, interval, remove_duplicates=True):
+    def split_window(self, window, remove_duplicates=True):
         """
         Splits input files based on time intervals
 
         Parameters
         ----------
-        interval : float, int
-            Time interval for which to create FitsList entries
+        window : float, int
+            Time window in minutes for which to create FitsList entries (+/- around self.mjd).
         remove_duplicates : bool, optional
             When set, list duplicates will be removed (default = True)
 
@@ -483,7 +496,7 @@ class FitsFiles:
         """
 
         # Keep everything within interval
-        split_indices = [[i for i, t in enumerate([abs(60 * (mjd - m)) for m in self.mjd]) if t < interval] for
+        split_indices = [[i for i, t in enumerate([abs(1440 * (mjd - m)) for m in self.mjd]) if t < window / 2] for
                          mjd in self.mjd]
 
         # Remove duplicates
