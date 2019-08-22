@@ -45,6 +45,7 @@ linearity:
   max_lag: 1
 
 cosmetics:
+  interpolate_bad: True
   max_bad_neighbors: 3
 
 master:
