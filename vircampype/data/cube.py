@@ -1,14 +1,12 @@
 # =========================================================================== #
 # Import
-import warnings
 import numpy as np
-import multiprocessing
+import scipy.ndimage.measurements
 
-from itertools import repeat
 from astropy.io import fits
+from vircampype.utils.math import *
 from astropy.convolution import Gaussian2DKernel
 from vircampype.utils.miscellaneous import read_setup
-from vircampype.utils.math import sigma_clip, linearize_data, chop_image, merge_chopped, interpolate_image
 
 
 class ImageCube(object):
@@ -893,6 +891,64 @@ class ImageCube(object):
         # Replace values
         self.cube[np.isnan(self.cube)] = value
 
+    def mask_sources(self, threshold=1.5, minarea=5, maxarea=None, mesh_size=128, mesh_filtersize=3, n_threads=None):
+        """
+        Masks sources in the cube. Sources are detected with an adaptive threshold technique
+
+        Parameters
+        ----------
+        threshold : int, float, optional
+            Threshold in background sigmas (default = 1.5)
+        minarea : int, optional
+            Minimum area of detected sources (default = 5)
+        maxarea : int, optional
+            Maximum area of detected sources (default = None)
+        mesh_size : int, optional
+            Background mesh size (default = 128)
+        mesh_filtersize : int, optional
+            2D median filter size for meshes (default = 3)
+        n_threads : int, optional
+            Number of threads to use.
+
+        """
+
+        # Get background and noise map
+        background, noise = self.background(mesh_size=mesh_size, mesh_filtersize=mesh_filtersize, n_threads=n_threads)
+
+        # Make the threshold cube (to avoid an editor warning I use np.add here)
+        thresh_map = np.add(background, threshold * noise)
+
+        # Loop over cube planes and
+        for idx in range(len(self)):
+
+            # Resize threshold map to image size and get pixels above threshold
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="invalid value encountered in greater")
+                sources = self.cube[idx] > thresh_map[idx]
+
+            # Label regions
+            labels, n_labels = scipy.ndimage.measurements.label(input=sources, structure=np.ones(shape=(3, 3)))
+
+            # If there are no sources, continue
+            if n_labels < 1:
+                continue
+
+            # Measure region sizes
+            sizes = scipy.ndimage.measurements.sum(input=sources, labels=labels, index=range(1, n_labels + 1))
+
+            # Find those sources outside the given thresholds and set to 0
+            bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
+            # Only if there are bad sources
+            if np.sum(bad_sources) > 0:
+                labels[bad_sources[labels-1]] = 0  # labels starts with 1
+
+            # Set background to 0, sources to 1 and convert to 8bit unsigned integer
+            labels[labels > 0], labels[labels < 0] = 1, 0
+            labels = labels.astype(np.bool)
+
+            # Apply mask
+            self.cube[:][idx][labels] = np.nan
+
     # =========================================================================== #
     # Properties
     # =========================================================================== #
@@ -1015,3 +1071,25 @@ class ImageCube(object):
 
             # Return
             return np.nanmedian(np.abs(self.cube - med), axis)
+
+    def background(self, mesh_size=128, mesh_filtersize=3, n_threads=None):
+        """
+        Creates background and noise cubes.
+
+        Parameters
+        ----------
+        mesh_size : int, optional
+            Requested mesh size in pixels. Actual mesh size will vary depending on input shape (default = 128 pix).
+        mesh_filtersize : int, optional
+            2D median filter size for meshes (default = 3).
+        n_threads : int, optional
+            Number of threads to use.
+
+        Returns
+        -------
+        ndarray, ndarray
+
+        """
+
+        return background_cube(cube=self.cube, mesh_size=mesh_size,
+                               mesh_filtersize=mesh_filtersize, n_threads=n_threads)
