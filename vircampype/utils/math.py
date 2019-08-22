@@ -1,7 +1,9 @@
 # =========================================================================== #
 # Import
+import astropy
 import warnings
 import numpy as np
+from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
@@ -296,3 +298,223 @@ def floor_value(data, value):
     """
 
     return np.floor(data / value) * value
+
+
+def interpolate_image(array, kernel=None, max_bad_neighbors=None):
+    """
+    Interpolates NaNs in an image. NaNs are replaced by convolving the original image with a kernel from which
+    the pixel values are copied. This technique is much faster than other aporaches involving spline fitting
+    (e.g. griddata or scipy inteprolation methods.)
+
+    Parameters
+    ----------
+    array : np.ndarray
+        2D numpy array to interpolate.
+    kernel : Kernel2D, np.ndarray, optional
+        Kernel used for interpolation.
+    max_bad_neighbors : int, optional
+        Maximum bad neighbors a pixel can have to be interpolated. Default is None.
+
+    Returns
+    -------
+    np.ndarray
+        Interpolated image
+
+    """
+
+    # Determine NaNs
+    nans = ~np.isfinite(array)
+
+    # If there are no NaNs, we return
+    if np.sum(nans) == 0:
+        return array
+
+    # In case we want to exclude pixels surrounded by other bad pixels
+    if max_bad_neighbors is not None:
+
+        # Make kernel for neighbor counts
+        nan_kernel = np.ones(shape=(3, 3))
+
+        # Convolve NaN data
+        nans_conv = astropy.convolution.convolve(nans, kernel=nan_kernel, boundary="extend")
+
+        # Get the ones with a maximum of 'max_bad_neighbors' bad neighbors
+        # noinspection PyTypeChecker
+        nans_fil = (nans_conv <= max_bad_neighbors) & (nans > 0)
+
+        # If there are no NaNs at the stage, we return
+        if np.sum(nans_fil) == 0:
+            return array
+
+        # Get the NaNs which where skipped
+        nans_skipped = (nans_fil == 0) & (nans == 1)
+
+        # Set those to the median
+        array[nans_skipped] = np.nanmedian(array)
+
+        # Assign new NaNs
+        nans = nans_fil
+
+    # Just for editor warnings
+    else:
+        nans_skipped = None
+
+    # Set kernel
+    if kernel is None:
+        kernel = Gaussian2DKernel(1)
+    elif isinstance(kernel, np.ndarray):
+        # noinspection PyTypeChecker
+        kernel = CustomKernel(kernel)
+    else:
+        if not isinstance(kernel, Kernel2D):
+            raise ValueError("Supplied kernel not supported")
+
+    # Convolve
+    conv = astropy.convolution.convolve(array=array, kernel=kernel, boundary="extend")
+
+    # Fill interpolated NaNs in
+    array[nans] = conv[nans]
+
+    # Fill skipped NaNs back in
+    array[nans_skipped] = np.nan
+
+    # Return
+    return array
+
+
+def chop_image(array, npieces, axis=0, overlap=None):
+    """
+    Chops a numpy 2D (image) array into subarrays.
+
+    Parameters
+    ----------
+    array : np.array
+        The array to chop.
+    npieces : int
+        Number of pieces in the chopped output.
+    axis : int, optional
+        The axis along which to chop.
+    overlap : int, optional
+        The overlap in the output split output arrays. Default is None.
+
+    Returns
+    -------
+    list
+        List of sub-arrays constructed from the input
+
+    """
+
+    # Axis must be 0 or 1
+    if axis not in [0, 1]:
+        raise ValueError("Axis={0:0d} not supported".format(axis))
+
+    # If there is no overlap, we can just u se the numpy function
+    if overlap is None:
+        return np.array_split(ary=array, indices_or_sections=npieces, axis=axis)
+
+    # Determine where to chop
+    cut = list(np.int32(np.round(np.linspace(0, array.shape[axis], npieces + 1), decimals=0)))
+
+    # Force the first and last cut location just to be safe from any integer conversion issues
+    cut[0], cut[-1] = 0, array.shape[axis]
+
+    chopped = []
+    for i in range(npieces):
+
+        if axis == 0:
+
+            # First slice
+            if i == 0:
+                chopped.append(array[cut[i]:cut[i+1] + overlap, :])
+
+            # Last slice
+            elif i == npieces - 1:
+                chopped.append(array[cut[i] - overlap:cut[i+1], :])
+
+            # Everything else
+            else:
+                chopped.append(array[cut[i] - overlap:cut[i+1] + overlap, :])
+
+        elif axis == 1:
+
+            # First slice
+            if i == 0:
+                chopped.append(array[:, cut[i]:cut[i+1] + overlap])
+
+            # Last slice
+            elif i == npieces - 1:
+                chopped.append(array[:, cut[i] - overlap:cut[i+1]])
+
+            # Everything else
+            else:
+                chopped.append(array[:, cut[i] - overlap:cut[i+1] + overlap])
+
+    # Return list of chopped arrays
+    return chopped, cut
+
+
+# ----------------------------------------------------------------------
+def merge_chopped(arrays, locations, axis=0, overlap=0):
+    """
+    Complementary to the above function, this one merges the chopped array back into the original.
+
+    Parameters
+    ----------
+    arrays : iterable
+        List of arrays to merge.
+    locations : iterable
+        List of locations where the cut occured (returned by chop_image)
+    axis : int, optional
+        Axis along which the cop occured. Default is 0.
+    overlap : int, optional
+        Overlap used in chopping.
+
+    Returns
+    -------
+    np.ndarray
+        Merged array.
+
+    """
+
+    # Axis must be 0 or 1
+    if axis not in [0, 1]:
+        raise ValueError("Axis={0:0d} not supported".format(axis))
+
+    # Get other axis
+    otheraxis = 1 if axis == 0 else 0
+
+    # Determine size of output
+    shape = (locations[-1], arrays[0].shape[otheraxis]) if axis == 0 else (arrays[0].shape[otheraxis], locations[-1])
+
+    merged = np.empty(shape=shape, dtype=arrays[0].dtype)
+    for i in range(len(arrays)):
+
+        if axis == 0:
+
+            # First slice
+            if i == 0:
+                merged[0:locations[i + 1], :] = arrays[i][:arrays[i].shape[0] - overlap, :]
+
+            # Last slice
+            elif i == len(arrays) - 1:
+                merged[locations[i]:, :] = arrays[i][overlap:, :]
+
+            # In between
+            else:
+                merged[locations[i]:locations[i+1], :] = arrays[i][overlap:-overlap, :]
+
+        elif axis == 1:
+
+            # First slice
+            if i == 0:
+                merged[:, 0:locations[i + 1]] = arrays[i][:, :arrays[i].shape[1] - overlap]
+
+            # Last slice
+            elif i == len(arrays) - 1:
+                merged[:, locations[i]:] = arrays[i][:, overlap:]
+
+            # In between
+            else:
+                merged[:, locations[i]:locations[i+1]] = arrays[i][:, overlap:-overlap]
+
+    return merged
