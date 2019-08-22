@@ -370,7 +370,9 @@ def interpolate_image(array, kernel=None, max_bad_neighbors=None):
             raise ValueError("Supplied kernel not supported")
 
     # Convolve
-    conv = astropy.convolution.convolve(array=array, kernel=kernel, boundary="extend")
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        conv = astropy.convolution.convolve(array=array, kernel=kernel, boundary="extend")
 
     # Fill interpolated NaNs in
     array[nans] = conv[nans]
