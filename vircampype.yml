@@ -100,3 +100,4 @@ misc:
   overwrite:  False
   qc_plots:  True
   n_threads: 4
+  fix_vircam_header: True

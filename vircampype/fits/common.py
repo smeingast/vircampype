@@ -159,6 +159,12 @@ class FitsFiles:
                         # Load header
                         hdr = hdu.header
 
+                        if self.setup["misc"]["fix_vircam_header"]:
+                            try:
+                                hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
+                            except KeyError:
+                                pass
+
                         # Save cleaned header
                         fileheaders.append(hdr)
 
