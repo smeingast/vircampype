@@ -854,3 +854,55 @@ def connected_components(xarr, yarr, max_distance, metric="euclidean", units="de
 
     # Return groups for each object
     return list(groups)
+
+
+def centroid_sphere(lon, lat, units="radian"):
+    """
+    Calcualte the centroid on a sphere. Strictly valid only for a unit sphere and for a coordinate system with latitudes
+    from -90 to 90 degrees and longitudes from 0 to 360 degrees.
+
+    Parameters
+    ----------
+    lon : list, np.array
+        Input longitudes
+    lat : list, np.array
+        Input latitudes
+    units : str, optional
+        Input units. Either 'radian' or 'degree'. Default is 'radian'.
+
+    Returns
+    -------
+    tuple
+        Tuple with (lon, lat) of centroid
+
+    """
+
+    # Convert to radians if degrees
+    if "deg" in units.lower():
+        mlon, mlat = np.radians(lon), np.radians(lat)
+    else:
+        mlon, mlat = lon, lat
+
+    # Convert to cartesian coordinates
+    x, y, z = np.cos(mlat) * np.cos(mlon), np.cos(mlat) * np.sin(mlon), np.sin(mlat)
+
+    # 3D centroid
+    xcen, ycen, zcen = np.sum(x) / len(x), np.sum(y) / len(y), np.sum(z) / len(z)
+
+    # Push centroid to triangle surface
+    cenlen = np.sqrt(xcen**2 + ycen**2 + zcen**2)
+    xsur, ysur, zsur = xcen / cenlen, ycen / cenlen, zcen / cenlen
+
+    # Convert back to spherical coordinates and return
+    outlon = np.arctan2(ysur, xsur)
+
+    # Convert back to 0-2pi range if necessary
+    if outlon < 0:
+        outlon += 2 * np.pi
+    outlat = np.arcsin(zsur)
+
+    # Return
+    if "deg" in units.lower():
+        return np.degrees(outlon), np.degrees(outlat)
+    else:
+        return outlon, outlat
