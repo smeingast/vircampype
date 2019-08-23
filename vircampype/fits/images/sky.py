@@ -42,6 +42,84 @@ class SkyImages(FitsImages):
         self._wcs = [[header2wcs(header=hdr) for hdr in h] for h in self.headers_data]
         return self._wcs
 
+    @property
+    def centers_detectors_world(self):
+        """
+        Computes the centers for each detector.
+
+        Returns
+        -------
+        List
+            List with WCS centers.
+
+        """
+
+        centers = []
+        for ww in self.wcs:
+            temp = []
+            for w in ww:
+                temp.append([x.tolist() for x in
+                             w.wcs_pix2world(self.setup["data"]["dim_x"] / 2, self.setup["data"]["dim_y"] / 2, 0)])
+            centers.append(temp)
+
+        return centers
+
+    @property
+    def centers_detectors_lon(self):
+        """ Returns longitudes of centers. """
+        return [[x[0] for x in y] for y in self.centers_detectors_world]
+
+    @property
+    def centers_detectors_lat(self):
+        """ Returns longitudes of centers. """
+        return [[x[1] for x in y] for y in self.centers_detectors_world]
+
+    @property
+    def centers_world(self):
+        """ Returns latitudes of centers. """
+        return [centroid_sphere(lon=ll, lat=bb, units="degree") for ll, bb in
+                zip(self.centers_detectors_lon, self.centers_detectors_lat)]
+
+    @property
+    def centers_lon(self):
+        return [x[0] for x in self.centers_world]
+
+    @property
+    def centers_lat(self):
+        return [x[1] for x in self.centers_world]
+
+    # =========================================================================== #
+    # Splitter
+    # =========================================================================== #
+    def split_sky(self):
+        """
+        Splits images based on pointings. The algorithm searches for clusters of observations within a maximum distance
+        defined by 'max_distance'. A cluster-cutoff will only occur if no further observation is within this distance
+        limit of any of the cluster components.
+
+        Returns
+        -------
+        List
+            List with split instances.
+
+        """
+
+        # Split into clusters
+        groups = connected_components(xarr=self.centers_lon, yarr=self.centers_lat, metric="haversine", units="degrees",
+                                      max_distance=self.setup["astrometry"]["distance_groups"])
+
+        # Load files into separate instances
+        split_list = []
+        for g in set(groups):
+
+            # Get indices of files in current group
+            idx = [i for i, j in enumerate(groups) if g == j]
+
+            # Load files into new instance
+            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[i] for i in idx]))
+
+        return split_list
+
     # =========================================================================== #
     # Master
     # =========================================================================== #
