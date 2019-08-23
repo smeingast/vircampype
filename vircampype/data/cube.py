@@ -780,6 +780,13 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
+    def destripe(self):
+        """ Destripes the cube along a given axis (e.g. for VIRCAM axis=2) """
+
+        # Apply metric along given axis
+        self.cube = apply_along_axes(self.cube, method=self.setup["cosmetics"]["destripe_method"],
+                                     axis=self.setup["cosmetics"]["destripe_axis"], norm=True, copy=False)
+
     def calibrate(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None, mask=None):
         """
         Applies calibration steps to the ImageCube.
