@@ -38,7 +38,7 @@ class SkyImages(FitsImages):
         split = prune_list(split, n_min=self.setup["sky"]["n_min"])
 
         if len(split) == 0:
-            raise ValueError("No suitable sequence found for offset images.")
+            raise ValueError("No suitable sequence found for sky images.")
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
@@ -305,7 +305,7 @@ class MasterSky(MasterImages):
 
                 # Set ranges
                 ax.set_xlim(xmin=floor_value(data=xmin, value=0.02), xmax=ceil_value(data=xmax, value=0.02))
-                ax.set_ylim(ymin=floor_value(data=ymin, value=200), ymax=ceil_value(data=ymax, value=100))
+                ax.set_ylim(ymin=floor_value(data=ymin, value=50), ymax=ceil_value(data=ymax, value=50))
 
                 # Set ticks
                 ax.xaxis.set_major_locator(MaxNLocator(5))
