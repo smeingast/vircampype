@@ -1,7 +1,7 @@
 # =========================================================================== #
 # Import
-import warnings
-
+from vircampype.utils.wcs import *
+from vircampype.utils.math import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
@@ -10,13 +10,37 @@ from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
 from vircampype.fits.images.common import FitsImages, MasterImages
-from vircampype.utils.math import ceil_value, floor_value
 
 
 class SkyImages(FitsImages):
 
     def __init__(self, setup, file_paths=None):
         super(SkyImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    # =========================================================================== #
+    # Properties
+    # =========================================================================== #
+    _wcs = None
+
+    @property
+    def wcs(self):
+        """
+        Extracts WCS instances for all headers
+
+        Returns
+        -------
+        List
+            Nested list with WCS instances
+
+        """
+
+        # Check if already determined
+        if self._wcs is not None:
+            return self._wcs
+
+        # Otherwise extract and return
+        self._wcs = [[header2wcs(header=hdr) for hdr in h] for h in self.headers_data]
+        return self._wcs
 
     # noinspection DuplicatedCode
     def build_master_sky(self):
