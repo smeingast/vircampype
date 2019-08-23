@@ -133,11 +133,13 @@ class SkyImages(FitsImages):
 
             # Make cards for primary headers
             prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
-                                               self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES",
-                                               "HIERARCH PYPE SKY FLATERR"],
-                                     values=[files.dit[0], files.ndit[0], files.mjd_mean, files.time_obs_mean,
-                                             "MASTER-SKY", len(files), flat_err])
+                                               self.setup["keywords"]["filter"], self.setup["keywords"]["date_mjd"],
+                                               self.setup["keywords"]["date_ut"], self.setup["keywords"]["object"],
+                                               "HIERARCH PYPE N_FILES", "HIERARCH PYPE SKY FLATERR"],
+                                     values=[files.dit[0], files.ndit[0],
+                                             files.filter[0], files.mjd_mean,
+                                             files.time_obs_mean, "MASTER-SKY",
+                                             len(files), flat_err])
 
             # Write to disk
             master_cube.write_mef(path=outpath, prime_header=fits.Header(cards=prime_cards), data_headers=data_headers)
