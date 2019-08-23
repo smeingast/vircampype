@@ -65,6 +65,9 @@ linearity:
 cosmetics:
   interpolate_bad: True
   max_bad_neighbors: 3
+  destripe: True
+  destripe_axis: 2
+  destripe_method: "median"
 
 master:
   max_lag_bpm: 7                    # Maximum time difference to MasterBPM in days
