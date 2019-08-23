@@ -664,3 +664,51 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
 
     # Return scaled cubes
     return np.array(cube_background), np.array(cube_noise)
+
+
+def apply_along_axes(array, func=np.nanmedian, axis=None, norm=True, copy=True):
+    """
+    Destripes arbitrary input arrays.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        Array to destripe.
+    func : callable
+        Method to apply along given axes. Default is np.nanmedian.
+    axis : int, tuple[int]
+        Axes along which to destripe.
+    norm : bool, optional
+        Whether to normalize the data.
+    copy : bool, optional
+        Whether the data should be copied. If false, the original array will be overwritten.
+
+    Returns
+    -------
+    ndarray
+        Modified array.
+
+    """
+
+    # Create copy if set
+    if copy:
+        array = array.copy()
+
+    # Calculate median along axis
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
+        med = func(array, axis=axis)
+
+    # Expand dimensions in case of tuple for array broadcasting
+    if axis is not None:
+        if isinstance(axis, tuple):
+            for ax in axis:
+                med = np.expand_dims(med, ax)
+        else:
+            med = np.expand_dims(med, axis=axis)
+
+    # Normalize if set
+    if norm:
+        return array - med + func(array)
+    else:
+        return array - med
