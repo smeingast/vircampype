@@ -789,7 +789,7 @@ class ImageCube(object):
         self.cube = apply_along_axes(self.cube, method=self.setup["cosmetics"]["destripe_method"],
                                      axis=self.setup["cosmetics"]["destripe_axis"], norm=True, copy=False)
 
-    def calibrate(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None, mask=None):
+    def calibrate(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None):
         """
         Applies calibration steps to the ImageCube.
         (0) normalization
@@ -812,8 +812,6 @@ class ImageCube(object):
             The normalization data applied before processing.
         norm_after : int, float, np.ndarray, optional
             The normalization data applied after processing.
-        mask : ImageCube, optional
-            Cube containing the mask.
 
         """
 
@@ -866,9 +864,6 @@ class ImageCube(object):
         # Normalize
         if norm_after is not None:
             self.normalize(norm=norm_after)
-
-        if mask:
-            self.apply_masks(bpm=mask)
 
     def interpolate_nan(self):
         """

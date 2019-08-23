@@ -161,8 +161,10 @@ class FlatImages(FitsImages):
                 norm_before = files.ndit_norm
 
                 # Do calibration
-                # TODO: Move masking back outside of calibrate
-                cube.calibrate(dark=dark, norm_before=norm_before, mask=bpm)
+                cube.calibrate(dark=dark, norm_before=norm_before)
+
+                # Apply BPM
+                cube.apply_masks(bpm=bpm)
 
                 # Estimate flux for each plane as the median
                 flux = cube.median(axis=(1, 2))
