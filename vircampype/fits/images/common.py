@@ -289,7 +289,8 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self.get_master_images().bpm, max_lag=self.setup["master"]["max_lag"])
+        return self.match_mjd(match_to=self.get_master_images().bpm,
+                              max_lag=self.setup["master"]["max_lag_bpm"])
 
     def get_master_dark(self):
         """
@@ -303,7 +304,8 @@ class FitsImages(FitsFiles):
         """
 
         # Match DIT and NDIT and MJD
-        return self._match_exposure(match_to=self.get_master_images().dark, max_lag=self.setup["master"]["max_lag"])
+        return self._match_exposure(match_to=self.get_master_images().dark,
+                                    max_lag=self.setup["master"]["max_lag_dark"])
 
     def get_master_flat(self):
         """
@@ -317,7 +319,8 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_filter(match_to=self.get_master_images().flat, max_lag=self.setup["master"]["max_lag"])
+        return self.match_filter(match_to=self.get_master_images().flat,
+                                 max_lag=self.setup["master"]["max_lag_flat"])
 
     def get_unique_master_flats(self):
         """ Returns unique Master Flats as MasterFlat instance. """
@@ -336,7 +339,8 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_filter(match_to=self.get_master_images().sky, max_lag=self.setup["master"]["max_lag"])
+        return self.match_filter(match_to=self.get_master_images().sky,
+                                 max_lag=self.setup["master"]["max_lag_sky"] / 24.)
 
     # =========================================================================== #
     # Master tables
@@ -353,7 +357,8 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().linearity, max_lag=self.setup["master"]["max_lag"])
+        return self.match_mjd(match_to=self.get_master_tables().linearity,
+                              max_lag=self.setup["master"]["max_lag_linearity"])
 
     # =========================================================================== #
     # Matcher
