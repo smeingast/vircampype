@@ -21,10 +21,10 @@ class FitsImages(FitsFiles):
 
         """
 
+        super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
+
         # Add calibration paths
         self.path_calibrated = self.setup["paths"]["calibrated"]
-
-        super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
     _dit = None
 
