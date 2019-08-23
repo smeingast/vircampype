@@ -69,7 +69,7 @@ master:
   max_lag_bpm: 7                    # Maximum time difference to MasterBPM in days
   max_lag_dark: 7                   # Maximum time difference to MasterDark in days
   max_lag_flat: 7                   # Maximum time difference to MasterFlat in days
-  max_lag_sky: 1                    # Maximum time difference to MasterSky in hours (!)
+  max_lag_sky: 0.5                  # Maximum time difference to MasterSky in hours (!)
   max_lag_linearity: 7              # Maximum time difference to MasterLinearity in days
 
 data:
