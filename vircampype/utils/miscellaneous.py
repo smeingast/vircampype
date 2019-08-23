@@ -45,7 +45,7 @@ def message_mastercalibration(master_type, silent=True, left="File", right="Exte
     return time.time()
 
 
-def message_calibration(n_current, n_total, name, d_current, d_total, silent=False):
+def message_calibration(n_current, n_total, name, d_current=None, d_total=None, silent=False):
     """
     Prints the calibration message for image processing.
 
@@ -57,9 +57,9 @@ def message_calibration(n_current, n_total, name, d_current, d_total, silent=Fal
         Total number of files to process.
     name : str
         Output filename.
-    d_current : int
+    d_current : int, optional
         Current detector index in the loop.
-    d_total : int
+    d_total : int, optional
         Total number of detectors to process.
     silent : bool, optional
         If set, nothing will be printed
@@ -67,8 +67,12 @@ def message_calibration(n_current, n_total, name, d_current, d_total, silent=Fal
     """
 
     if not silent:
-        print("\r{0:<55s}{1:>25s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
-                                          str(d_current) + "/" + str(d_total)), end="")
+
+        if (d_current is not None) and (d_total is not None):
+            print("\r{0:<55s}{1:>25s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
+                                              str(d_current) + "/" + str(d_total)), end="")
+        else:
+            print("\r{0:<55s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name)), end="")
 
 
 def message_finished(tstart, silent=False):
