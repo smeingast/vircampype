@@ -8,6 +8,7 @@ import multiprocessing
 
 from itertools import repeat
 from scipy.ndimage import median_filter
+from vircampype.utils.miscellaneous import str2func
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
 
 
@@ -666,7 +667,7 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
     return np.array(cube_background), np.array(cube_noise)
 
 
-def apply_along_axes(array, func=np.nanmedian, axis=None, norm=True, copy=True):
+def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
     """
     Destripes arbitrary input arrays.
 
@@ -674,7 +675,7 @@ def apply_along_axes(array, func=np.nanmedian, axis=None, norm=True, copy=True):
     ----------
     array : np.ndarray
         Array to destripe.
-    func : callable
+    method : callable
         Method to apply along given axes. Default is np.nanmedian.
     axis : int, tuple[int]
         Axes along which to destripe.
@@ -693,6 +694,9 @@ def apply_along_axes(array, func=np.nanmedian, axis=None, norm=True, copy=True):
     # Create copy if set
     if copy:
         array = array.copy()
+
+    # Fetch function
+    func = str2func(method)
 
     # Calculate median along axis
     with warnings.catch_warnings():
