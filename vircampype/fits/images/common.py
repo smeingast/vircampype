@@ -1,10 +1,8 @@
 # =========================================================================== #
 # Import
-import numpy as np
-
-from astropy.io import fits
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
+from vircampype.utils.miscellaneous import *
 
 
 class FitsImages(FitsFiles):
@@ -22,6 +20,9 @@ class FitsImages(FitsFiles):
         -------
 
         """
+
+        # Add calibration paths
+        self.path_calibrated = self.setup["paths"]["calibrated"]
 
         super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -323,6 +324,20 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.flat import MasterFlat
         return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
 
+    def get_master_sky(self):
+        """
+        Get for each file in self the corresponding Mastersky.
+
+        Returns
+        -------
+        MasterSky
+            MasterSky instance holding for each file in self the corresponding MasterSky file.
+
+        """
+
+        # Match and return
+        return self.match_filter(match_to=self.get_master_images().sky, max_lag=self.setup["master"]["max_lag"])
+
     # =========================================================================== #
     # Master tables
     # =========================================================================== #
@@ -532,6 +547,7 @@ class FitsImages(FitsFiles):
                 raise ValueError("Found {0:0g} different filters; "
                                  "max = {1:0g}".format(len(set(self.filter)), n_filter_min))
 
+    # TODO: Rename to get_master_path
     def create_masterpath(self, basename, idx=0, dit=False, ndit=False, mjd=False, filt=False, table=False):
         """
         Build the path for master calibration files based on information in the FITS header
@@ -581,6 +597,18 @@ class FitsImages(FitsFiles):
 
         # Return
         return path
+
+    def get_calibration_paths(self):
+        """
+        Generates paths for calibrated images.
+
+        Returns
+        -------
+        List
+            List with paths for each file.
+
+        """
+        return [self.path_calibrated + b + ".cal" + e for b, e in zip(self.file_names, self.file_extensions)]
 
     def get_saturation_hdu(self, hdu_index):
         """
@@ -686,3 +714,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-FLAT"]
 
         return MasterFlat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def sky(self):
+        """
+        Retrieves all MasterSky images.
+
+        Returns
+        -------
+        MasterSky
+            All MasterSky images as a MasterSky instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.sky import MasterSky
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"]
+
+        return MasterSky(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
