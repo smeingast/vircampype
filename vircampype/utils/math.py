@@ -843,7 +843,7 @@ def connected_components(xarr, yarr, max_distance, metric="euclidean", units="de
         if len(idx) == 0:
             continue
 
-        # Set common group for all cities within the limits
+        # Set common group for all within the limits
         for i in idx:
             groups[groups == groups[i]] = min(groups[idx])
 
