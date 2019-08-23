@@ -714,7 +714,7 @@ class ImageCube(object):
 
         # If we have a float or integer
         # noinspection PyUnresolvedReferences
-        if (isinstance(norm, (int, np.int))) | (isinstance(norm, (int, np.float))):
+        if (isinstance(norm, (int, np.integer))) | (isinstance(norm, (int, np.floating))):
             self.cube /= norm
 
         # If we have an array...
@@ -780,7 +780,7 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def calibrate(self, dark=None, flat=None, linearize=None, norm_before=None, norm_after=None, mask=None):
+    def calibrate(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None, mask=None):
         """
         Applies calibration steps to the ImageCube.
         (0) normalization
@@ -797,6 +797,8 @@ class ImageCube(object):
             The flat cube by which the data should be divided.
         linearize : iterable, optional
             The linearity coefficients when the cube should be linearized.
+        sky : ImageCube, optional
+            Sky data when a background correction should be applied.
         norm_before : int, float, np.ndarray, optional
             The normalization data applied before processing.
         norm_after : int, float, np.ndarray, optional
@@ -833,6 +835,24 @@ class ImageCube(object):
 
             # Apply flat
             self.cube /= flat.cube
+
+        # Apply background correction
+        if sky is not None:
+
+            # Shape must match
+            if self.shape != flat.shape:
+                raise ValueError("Shapes do not match")
+
+            # Apply as background model
+            if self.setup["sky"]["mode"] == "background":
+                self.cube -= sky.cube
+
+            # Apply as superflat
+            elif self.setup["sky"]["mode"] == "superflat":
+                raise NotImplementedError("Superflat not implemented")
+
+            else:
+                raise ValueError("Background mode '{0}' not implemented".format(self.setup["sky"]["mode"]))
 
         # Normalize
         if norm_after is not None:
