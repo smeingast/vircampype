@@ -42,6 +42,9 @@ class SkyImages(FitsImages):
         self._wcs = [[header2wcs(header=hdr) for hdr in h] for h in self.headers_data]
         return self._wcs
 
+    # =========================================================================== #
+    # Master
+    # =========================================================================== #
     # noinspection DuplicatedCode
     def build_master_sky(self):
         """
