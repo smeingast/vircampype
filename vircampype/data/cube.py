@@ -401,7 +401,7 @@ class ImageCube(object):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
-    def write_mef(self, path, prime_header, data_headers, overwrite=True):
+    def write_mef(self, path, prime_header=None, data_headers=None, overwrite=True):
         """
         Write MEF Fits file to disk
 
@@ -411,12 +411,16 @@ class ImageCube(object):
             Output file path
         overwrite : bool
             Whether to overwrite already existing files
-        prime_header : fits.Header
+        prime_header : fits.Header, optional
             Primary header.
-        data_headers : sized
+        data_headers : sized, optional
             Data headers.
 
         """
+
+        # Create List of nothing
+        if data_headers is None:
+            data_headers = [None] * len(self)
 
         # Dummy check
         if len(self) != len(data_headers):
