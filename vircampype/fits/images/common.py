@@ -228,7 +228,7 @@ class FitsImages(FitsFiles):
         cube = np.empty((len(hdu_index), self.setup["data"]["dim_y"], self.setup["data"]["dim_x"]), dtype=dtype)
 
         # Fill cube with data
-        with fits.open(name=self[file_index]) as f:
+        with fits.open(name=self.full_paths[file_index]) as f:
             for plane, idx in zip(cube, hdu_index):
                 plane[:] = f[idx].data
 
