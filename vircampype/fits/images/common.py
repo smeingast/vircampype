@@ -144,7 +144,7 @@ class FitsImages(FitsFiles):
         return self._dtypes
 
     @property
-    def calibration_paths(self):
+    def paths_calibrated(self):
         """
         Generates paths for calibrated images.
 
@@ -478,6 +478,64 @@ class FitsImages(FitsFiles):
 
         # Return
         return match_to.__class__(setup=match_to.setup, file_paths=matched)
+
+    # =========================================================================== #
+    # Main data calibration
+    # =========================================================================== #
+    def calibrate(self):
+        """ Main science calibration method. All options are set in the setup. """
+        # TODO: Write better docstring
+
+        # import
+        from vircampype.fits.images.sky import MasterSky
+        from vircampype.fits.images.dark import MasterDark
+        from vircampype.fits.images.flat import MasterFlat
+        from vircampype.fits.tables.linearity import MasterLinearity
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="CALIBRATION", silent=self.setup["misc"]["silent"], right="")
+
+        # Fetch the Masterfiles
+        master_dark = self.get_master_dark()  # type: MasterDark
+        master_flat = self.get_master_flat()  # type: MasterFlat
+        master_sky = self.get_master_sky()  # type: MasterSky
+        master_linearity = self.get_master_linearity()  # type: MasterLinearity
+
+        # Loop over files and apply calibration
+        for idx in range(self.n_files):
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=self.paths_calibrated[idx], silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx + 1, n_total=self.n_files, name=self.paths_calibrated[idx],
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Read file into cube
+            calib_cube = self.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
+
+            # Get master calibration
+            dark = master_dark.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
+            flat = master_flat.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
+            sky = master_sky.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
+            lin = master_linearity.file2coeff(file_index=idx, hdu_index=None)
+            norm_before = self.ndit_norm[idx]
+
+            # Do calibration
+            calib_cube.calibrate(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=norm_before)
+
+            # Apply cosmetics
+            if self.setup["cosmetics"]["interpolate_bad"]:
+                calib_cube.interpolate_nan()
+            if self.setup["cosmetics"]["destripe"]:
+                calib_cube.destripe()
+
+            # Write to disk
+            calib_cube.write_mef(path=self.paths_calibrated[idx], prime_header=self.headers_primary[idx],
+                                 data_headers=self.headers_data[idx])
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Other methods
