@@ -5,6 +5,8 @@ import pickle
 
 from astropy.time import Time
 from vircampype.utils.miscellaneous import *
+from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
+from vircampype.utils.wcs import header_reset_wcs
 
 
 class FitsFiles:
@@ -164,6 +166,9 @@ class FitsFiles:
                                 hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
                             except KeyError:
                                 pass
+
+                        if isinstance(hdu, ImageHDU):
+                            hdr = header_reset_wcs(hdr)
 
                         # Save cleaned header
                         fileheaders.append(hdr)
