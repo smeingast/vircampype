@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+from itertools import repeat
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
 from vircampype.utils.miscellaneous import *
@@ -24,7 +25,10 @@ class FitsImages(FitsFiles):
         super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
         # Add calibration paths
-        self.path_calibrated = self.setup["paths"]["calibrated"]
+        self.path_calibrated = ["{0}{1}.cal{2}".format(d, n, e) for
+                                d, n, e in zip(repeat(self.setup["paths"]["calibrated"]),
+                                               self.file_names,
+                                               self.file_extensions)]
 
     _dit = None
 
