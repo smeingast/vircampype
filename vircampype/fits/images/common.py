@@ -24,12 +24,6 @@ class FitsImages(FitsFiles):
 
         super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
-        # Add calibration paths
-        self.path_calibrated = ["{0}{1}.cal{2}".format(d, n, e) for
-                                d, n, e in zip(repeat(self.setup["paths"]["calibrated"]),
-                                               self.file_names,
-                                               self.file_extensions)]
-
     _dit = None
 
     @property
@@ -148,6 +142,20 @@ class FitsImages(FitsFiles):
 
         self._dtypes = dtypes
         return self._dtypes
+
+    @property
+    def calibration_paths(self):
+        """
+        Generates paths for calibrated images.
+
+        Returns
+        -------
+        List
+            List with paths for each file.
+
+        """
+        return ["{0}{1}.cal{2}".format(d, n, e) for d, n, e in
+                zip(repeat(self.setup["paths"]["calibrated"]), self.file_names, self.file_extensions)]
 
     # =========================================================================== #
     # I/O
@@ -606,18 +614,6 @@ class FitsImages(FitsFiles):
 
         # Return
         return path
-
-    def get_calibration_paths(self):
-        """
-        Generates paths for calibrated images.
-
-        Returns
-        -------
-        List
-            List with paths for each file.
-
-        """
-        return [self.path_calibrated + b + ".cal" + e for b, e in zip(self.file_names, self.file_extensions)]
 
     def get_saturation_hdu(self, hdu_index):
         """
