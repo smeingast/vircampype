@@ -352,7 +352,7 @@ class FitsImages(FitsFiles):
 
         # Match and return
         return self.match_filter(match_to=self.get_master_images().sky,
-                                 max_lag=self.setup["master"]["max_lag_sky"] / 24.)
+                                 max_lag=self.setup["master"]["max_lag_sky"] / 1440.)
 
     # =========================================================================== #
     # Master tables
