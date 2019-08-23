@@ -78,7 +78,7 @@ class FitsFiles:
             raise FileNotFoundError("The specified file '{0}' does not exist.".format(item))
 
     def __getitem__(self, key):
-        return self.full_paths[key]
+        return self.__class__(setup=self.setup, file_paths=self.full_paths[key])
 
     def __len__(self):
         return self.n_files
