@@ -716,3 +716,141 @@ def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
         return array - med + func(array)
     else:
         return array - med
+
+
+def distance_sky(lon1, lat1, lon2, lat2, unit="radians"):
+    """
+    Returns the distance between two objects on a sphere. Also works with arrays.
+
+    Parameters
+    ----------
+    lon1 : int, float, np.ndarray
+        Longitude (e.g. Right Ascension) of first object
+    lat1 : int, float, np.ndarray
+        Latitude (e.g. Declination) of first object
+    lon2 : int, float, np.ndarray
+        Longitude of object to calculate the distance to.
+    lat2 : int, float, np.ndarray
+        Longitude of object to calculate the distance to.
+    unit : str, optional
+        The unit in which the coordinates are given. Either 'radians' or 'degrees'. Default is 'radians'. Output will
+        be in the same units.
+
+    Returns
+    -------
+    float, np.ndarray
+        On-sky distances between given objects.
+
+    """
+
+    # Calculate distance on sphere
+    if "rad" in unit:
+
+        # Spherical law of cosines (not so suitable for very small numbers)
+        # dis = np.arccos(np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(lon1 - lon2))
+
+        # Haversine distance (better for small numbers)
+        dis = 2 * np.arcsin(np.sqrt(np.sin((lat1 - lat2) / 2.) ** 2 +
+                                    np.cos(lat1) * np.cos(lat2) * np.sin((lon1 - lon2) / 2.) ** 2))
+
+    elif "deg" in unit:
+
+        # Spherical law of cosines (not so suitable for very small numbers)
+        # dis = np.degrees(np.arccos(np.sin(np.radians(lat1)) * np.sin(np.radians(lat2)) +
+        #                            np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) *
+        #                            np.cos(np.radians(lon1 - lon2))))
+
+        # Haversine distance (better for small numbers)
+        dis = 2 * np.degrees(np.arcsin(np.sqrt(np.sin((np.radians(lat1) - np.radians(lat2)) / 2.) ** 2 +
+                                               np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) *
+                                               np.sin((np.radians(lon1) - np.radians(lon2)) / 2.) ** 2)))
+
+    # If given unit is not supported.
+    else:
+        raise ValueError("Unit {0:s} not supported".format(unit))
+
+    # Return distance
+    return dis
+
+
+def distance_euclid2d(x1, y1, x2, y2):
+    """
+    For the very lazy ones a convenience function to calculate the euclidean distance between points.
+
+    Parameters
+    ----------
+    x1 : int, float
+        X coordinate of first object
+    y1 : int, float
+        Y coordinate of first object
+    x2 : int, float, np.ndarray
+        X coordinate of second object
+    y2 : int, float, np.ndarray
+        Y coordinate of second object
+
+    Returns
+    -------
+    float, np.ndarray
+        Distances between the data points.
+
+    """
+
+    return np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+
+def connected_components(xarr, yarr, max_distance, metric="euclidean", units="degrees"):
+    """
+    Calculate connected groups separated by a maximum distance. Available metrics are euclidean and haversine.
+
+    Parameters
+    ----------
+    xarr : np.array
+        X coordinates of data.
+    yarr : np.array
+        Y coordinates of data.
+    max_distance : float
+        Maximum allowed distance within a group.
+    metric : str, optional
+        Distance metric. Either 'euclidean' or 'haversine'. Default is 'metric'.
+    units : str, optional
+        Units of input in case of haversine metric.
+
+    Returns
+    -------
+    list
+        List with the same length as input. Contains for each object the group it was assigned to.
+
+    """
+
+    # Start with as many groups as object
+    groups = np.arange(len(xarr))
+
+    # Loop over all coordinates
+    for x, y in zip(xarr, yarr):
+
+        # Calculate distance to all other data points
+        if "euclid" in metric:
+            dis = distance_euclid2d(x1=x, y1=y, x2=xarr, y2=yarr)
+        elif metric == "haversine":
+            dis = distance_sky(lon1=x, lat1=y, lon2=xarr, lat2=yarr, unit=units)
+        else:
+            raise ValueError("Metric {0:s} not suppoerted".format(metric))
+
+        # Get index of those which are within the given limits
+        idx = np.where(dis <= max_distance)[0]
+
+        # If there is no other object, we continue
+        if len(idx) == 0:
+            continue
+
+        # Set common group for all cities within the limits
+        for i in idx:
+            groups[groups == groups[i]] = min(groups[idx])
+
+    # Rewrite labels starting with 0
+    for old, new in zip(set(groups), range(len(set(groups)))):
+        idx = [i for i, j in enumerate(groups) if j == old]
+        groups[idx] = new
+
+    # Return groups for each object
+    return list(groups)
