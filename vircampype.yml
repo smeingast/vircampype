@@ -29,6 +29,7 @@ keywords:
   ndit: "HIERARCH ESO DET NDIT"
   date_mjd: "MJD-OBS"
   date_ut: "DATE-OBS"
+  reset_wcs: True
 
 # =========================================================================== #
 # Calibration
