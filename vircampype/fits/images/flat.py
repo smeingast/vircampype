@@ -37,7 +37,7 @@ class FlatImages(FitsImages):
             files.check_compatibility(n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3)
 
             # Create Masterbpm name
-            outpath = files.create_masterpath(basename="MASTER-BPM", ndit=True, mjd=True)
+            outpath = files.build_master_path(basename="MASTER-BPM", ndit=True, mjd=True)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
@@ -131,7 +131,7 @@ class FlatImages(FitsImages):
             files.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
 
             # Create master name
-            outpath = files.create_masterpath(basename="MASTER-LINEARITY", idx=0, mjd=True, table=True)
+            outpath = files.build_master_path(basename="MASTER-LINEARITY", idx=0, mjd=True, table=True)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
@@ -257,7 +257,7 @@ class FlatImages(FitsImages):
             files.check_compatibility(n_files_min=3, n_hdu_max=1, n_ndit_max=1, n_filter_max=1)
 
             # Create master name
-            outpath = files.create_masterpath(basename="MASTER-FLAT", idx=0, mjd=True, filt=True, table=False)
+            outpath = files.build_master_path(basename="MASTER-FLAT", idx=0, mjd=True, filt=True, table=False)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):

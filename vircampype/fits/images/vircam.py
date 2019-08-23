@@ -219,7 +219,7 @@ class VircamFlatImages(FlatImages):
                 raise ValueError("Gain sequence not compatible!")
 
             # Create master dark name
-            outpath = flats.create_masterpath(basename="MASTER-GAIN", idx=0, dit=True, ndit=True, mjd=True, table=True)
+            outpath = flats.build_master_path(basename="MASTER-GAIN", idx=0, dit=True, ndit=True, mjd=True, table=True)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \

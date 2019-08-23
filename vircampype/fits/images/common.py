@@ -622,8 +622,7 @@ class FitsImages(FitsFiles):
                 raise ValueError("Found {0:0g} different filters; "
                                  "max = {1:0g}".format(len(set(self.filter)), n_filter_min))
 
-    # TODO: Rename to get_master_path
-    def create_masterpath(self, basename, idx=0, dit=False, ndit=False, mjd=False, filt=False, table=False):
+    def build_master_path(self, basename, idx=0, dit=False, ndit=False, mjd=False, filt=False, table=False):
         """
         Build the path for master calibration files based on information in the FITS header
 

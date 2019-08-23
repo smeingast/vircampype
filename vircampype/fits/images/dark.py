@@ -29,7 +29,7 @@ class DarkImages(FitsImages):
             files.check_compatibility(n_hdu_max=1, n_ndit_max=1)
 
             # Create master dark name
-            outpath = files.create_masterpath(basename="MASTER-DARK", idx=0, dit=True, ndit=True, mjd=True)
+            outpath = files.build_master_path(basename="MASTER-DARK", idx=0, dit=True, ndit=True, mjd=True)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
