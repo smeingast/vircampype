@@ -1,10 +1,38 @@
+# =========================================================================== #
+# Pipeline
+# =========================================================================== #
 paths:
   pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
   calibrated: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/calibrated/"
 
+# =========================================================================== #
+# Data and instrument
+# =========================================================================== #
 instrument:
   layout: [4, 4]
 
+data:
+  dim_x: 2048
+  dim_y: 2048
+  n_detectors: 16
+  saturate: [33000, 32000, 33000, 32000,
+             24000, 24000, 35000, 33000,
+             35000, 35000, 37000, 34000,
+             33000, 35000, 34000, 34000]
+
+keywords:
+  object: "OBJECT"
+  filter: "HIERARCH ESO INS FILT1 NAME"
+  type: "HIERARCH ESO DPR TYPE"
+  category: "HIERARCH ESO DPR CATG"
+  dit: "HIERARCH ESO DET DIT"
+  ndit: "HIERARCH ESO DET NDIT"
+  date_mjd: "MJD-OBS"
+  date_ut: "DATE-OBS"
+
+# =========================================================================== #
+# Calibration
+# =========================================================================== #
 bpm:
   max_lag: 1
   abs_lo: 0.1
@@ -76,28 +104,15 @@ master:
   max_lag_sky: 30                   # Maximum time difference to MasterSky in minutes (!)
   max_lag_linearity: 7              # Maximum time difference to MasterLinearity in days
 
-data:
-  dim_x: 2048
-  dim_y: 2048
-  n_detectors: 16
-  saturate: [33000, 32000, 33000, 32000,
-             24000, 24000, 35000, 33000,
-             35000, 35000, 37000, 34000,
-             33000, 35000, 34000, 34000]
-
-keywords:
-  object: "OBJECT"
-  filter: "HIERARCH ESO INS FILT1 NAME"
-  type: "HIERARCH ESO DPR TYPE"
-  category: "HIERARCH ESO DPR CATG"
-  dit: "HIERARCH ESO DET DIT"
-  ndit: "HIERARCH ESO DET NDIT"
-  date_mjd: "MJD-OBS"
-  date_ut: "DATE-OBS"
-
 misc:
   silent:  False
   overwrite:  False
   qc_plots:  True
   n_threads: 4
   fix_vircam_header: True
+
+# =========================================================================== #
+# Astrometry
+# =========================================================================== #
+astrometry:
+  distance_groups: 1
