@@ -53,6 +53,7 @@ sky:
   background_mesh_size: 100
   background_mesh_filter_size: 3
   collapse_metric: "median"
+  mode: "background"
 
 gain:
   max_lag: 1
