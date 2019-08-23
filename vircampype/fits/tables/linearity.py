@@ -148,6 +148,29 @@ class MasterLinearity(MasterTables):
 
         return [f[hdu_index-1] for f in self.coeff_linear]
 
+    def file2coeff(self, file_index, hdu_index=None):
+        """
+
+        Parameters
+        ----------
+        file_index : int
+            Integer index of the file in the current FitsFiles instance.
+        hdu_index : iterable, optional
+            Iterable of hdu indices to load, default is to load all HDUs with data.
+
+        Returns
+        -------
+        List
+            List of coefficients.
+
+        """
+
+        if hdu_index is None:
+            hdu_index = self.data_hdu[file_index]
+
+        # Need -1 here since the coefficients do not take an empty primary header into account
+        return [self.coeff_linear[file_index][idx-1] for idx in hdu_index]
+
     # =========================================================================== #
     # Plots
     # =========================================================================== #
