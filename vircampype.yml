@@ -1,5 +1,6 @@
 paths:
   pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
+  calibrated: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/calibrated/"
 
 instrument:
   layout: [4, 4]
