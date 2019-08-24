@@ -126,7 +126,7 @@ class VircamImages(FitsImages):
                 # Move current file into this directory
                 shutil.move(images.full_paths[idx], mdir)
 
-    def build_mastercalibration(self):
+    def build_master_calibration(self):
         """
         Builds masterdarks, masterbpms, masterlinearity tables, masterflats/weights, and mastersky images from all given
         input files. The setup must be modified before calling this method.
@@ -171,6 +171,7 @@ class VircamImages(FitsImages):
         # TODO: Add mixing with offset images
         if split["science"] is not None:
             split["science"].build_master_sky()
+            split["science"].build_master_astrometry()
 
 
 class VircamDarkImages(DarkImages):
