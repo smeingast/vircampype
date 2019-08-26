@@ -36,6 +36,12 @@ def message_mastercalibration(master_type, silent=True, left="File", right="Exte
 
     """
 
+    if left is None:
+        left = ""
+
+    if right is None:
+        right = ""
+
     if not silent:
         print()
         print(master_type)
