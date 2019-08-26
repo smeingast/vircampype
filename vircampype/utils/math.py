@@ -906,3 +906,25 @@ def centroid_sphere(lon, lat, units="radian"):
         return np.degrees(outlon), np.degrees(outlat)
     else:
         return outlon, outlat
+
+
+def haversine(theta, units="radian"):
+    """
+    Haversine function.
+
+    Parameters
+    ----------
+    theta : int, float, np.ndarray
+        Angle(s)
+    units : stro, optional
+        Either 'radian' or 'degree'. Default is 'radian'.
+
+    Returns
+    -------
+
+    """
+
+    if "rad" in units.lower():
+        return np.sin(theta / 2.)**2
+    elif "deg" in units.lower():
+        return np.degrees(np.sin(np.radians(theta) / 2.)**2)
