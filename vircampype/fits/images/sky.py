@@ -90,14 +90,23 @@ class SkyImages(FitsImages):
         """ Center latitudes for all detectors. """
         return [x[1] for x in self.centers_world]
 
+    @property
+    def centroids(self):
+        return centroid_sphere(lon=self.centers_lon, lat=self.centers_lat, units="degree")
+
     # =========================================================================== #
     # Splitter
     # =========================================================================== #
-    def split_sky(self):
+    def split_sky(self, max_distance):
         """
         Splits images based on pointings. The algorithm searches for clusters of observations within a maximum distance
         defined by 'max_distance'. A cluster-cutoff will only occur if no further observation is within this distance
         limit of any of the cluster components.
+
+        Parameters
+        ----------
+        max_distance : int, float
+            Maximum distance in degrees between connected components.
 
         Returns
         -------
@@ -108,7 +117,7 @@ class SkyImages(FitsImages):
 
         # Split into clusters
         groups = connected_components(xarr=self.centers_lon, yarr=self.centers_lat, metric="haversine", units="degrees",
-                                      max_distance=self.setup["astrometry"]["distance_groups"])
+                                      max_distance=max_distance)
 
         # Load files into separate instances
         split_list = []
