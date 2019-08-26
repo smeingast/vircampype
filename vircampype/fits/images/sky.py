@@ -106,6 +106,20 @@ class SkyImages(FitsImages):
         """ Return footprints for all detectors of all files in instance. """
         return [[w.calc_footprint() for w in ww] for ww in self.wcs]
 
+    @property
+    def extent_total(self):
+
+        # Get corners for everything
+        corners_lon, corners_lat = np.array([np.array(flat_list(f)) for f in self.footprints]).T
+        corners_lon, corners_lat = corners_lon.ravel(), corners_lat.ravel()
+
+        # Compute distance from centroid
+        dis = distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
+                           lon2=corners_lon, lat2=corners_lat, unit="degree")
+
+        # Return maximum distance
+        return max(dis)
+
     # =========================================================================== #
     # Splitter
     # =========================================================================== #
