@@ -92,7 +92,13 @@ class SkyImages(FitsImages):
 
     @property
     def centroids(self):
-        """ Return centroid positions for all files in instance. """
+        """ Return centroid positions for all files in instance individually. """
+        return [centroid_sphere(lon=ll, lat=bb, units="degree") for ll, bb in zip(self.centers_detectors_lon,
+                                                                                  self.centers_detectors_lat)]
+
+    @property
+    def centroid_total(self):
+        """ Return centroid positions for all files in instance together. """
         return centroid_sphere(lon=self.centers_lon, lat=self.centers_lat, units="degree")
 
     @property
