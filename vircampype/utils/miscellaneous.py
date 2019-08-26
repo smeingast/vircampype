@@ -301,31 +301,44 @@ def prune_list(ll, n_min):
     return ll
 
 
-def table2hdu(table, table_type=fits.BinTableHDU, header=None, name=None):
+def which(program):
     """
-    Convert astropy table to an astropy TableHDU.
+    Returns the path for an arbitrary executable shell program defined in the PAHT environment variable.
 
     Parameters
     ----------
-    table : astropy.table.Table
-        Table to convert.
-    table_type : optional
-        Table Type to construct. Either astropy.io.fits.BinTableHDU or astropy.io.fits.TabelHDU
-    header : astropy.io.fits.Header, optional
-        Optional additional header to construct the HDU. Table structure keywords will be overwritten.
-    name : str, optional
-        Optional name of the table extension.
+    program : str
+        Shell binary name
 
     Returns
     -------
-    astropy.fits.HDUList
-        HDUList with minimal primary HDU.
 
     """
+    import os
 
-    # Create column definitions
-    cols = fits.ColDefs([fits.Column(name=key, array=table[key].data, format=table[key].dtype,
-                                     unit=str(table[key].unit)) for key in table.keys()])
+    # Check if path contains file and is executable
+    def is_exe(f_path):
+        return os.path.isfile(f_path) and os.access(f_path, os.X_OK)
 
-    # Return
-    return table_type.from_columns(cols, header=header, name=name)
+    # Get path and name
+    fpath, fname = os.path.split(program)
+
+    if fpath:
+        # If a path is given, and the file is executable, we just return the path
+        if is_exe(program):
+            return program
+
+    # If no path is given (as usual) we loop through $PATH
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+
+            # Create executable names at current path
+            exe_file = os.path.join(path, program)
+
+            # Test is we have a match and return if so
+            if is_exe(exe_file):
+                return exe_file
+
+    # If we don't find anything, we return None
+    return None
