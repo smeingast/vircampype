@@ -92,7 +92,13 @@ class SkyImages(FitsImages):
 
     @property
     def centroids(self):
+        """ Return centroid positions for all files in instance. """
         return centroid_sphere(lon=self.centers_lon, lat=self.centers_lat, units="degree")
+
+    @property
+    def footprints(self):
+        """ Return footprints for all detectors of all files in instance. """
+        return [[w.calc_footprint() for w in ww] for ww in self.wcs]
 
     # =========================================================================== #
     # Splitter
