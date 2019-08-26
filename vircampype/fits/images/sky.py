@@ -108,17 +108,24 @@ class SkyImages(FitsImages):
 
     @property
     def extent_total(self):
+        """ Returns a tuple of the extent of all data in instance containing the extent in (lon, lat). """
 
         # Get corners for everything
         corners_lon, corners_lat = np.array([np.array(flat_list(f)) for f in self.footprints]).T
         corners_lon, corners_lat = corners_lon.ravel(), corners_lat.ravel()
 
         # Compute distance from centroid
-        dis = distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
-                           lon2=corners_lon, lat2=corners_lat, unit="degree")
+        # dis = distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
+        #                    lon2=corners_lon, lat2=corners_lat, unit="degree")
+
+        # Get the coordinates of the maximum distance for longitude/latitude
+        s = (np.max(np.rad2deg(4. *
+                               np.arcsin(np.sqrt(haversine(theta=np.deg2rad(corners_lon - self.centroid_total[0])))) *
+                               np.cos(np.deg2rad(corners_lat)))),
+             2 * np.max(np.abs(corners_lat - self.centroid_total[1])))
 
         # Return maximum distance
-        return max(dis)
+        return s
 
     # =========================================================================== #
     # Splitter
