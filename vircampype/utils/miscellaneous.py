@@ -2,8 +2,10 @@
 # Import
 import re
 import os
+import sys
 import time
 import yaml
+import importlib
 import numpy as np
 
 from astropy.io import fits
@@ -342,3 +344,28 @@ def which(program):
 
     # If we don't find anything, we return None
     return None
+
+
+def get_resource_path(package, resource):
+    """
+    Returns the path to an included resource.
+
+    Parameters
+    ----------
+    package : str
+        package name (e.g. vircampype.resources.sextractor).
+    resource : str
+        Name of the resource (e.g. default.conv)
+
+    Returns
+    -------
+    str
+        Path to resource.
+
+    """
+
+    # Import package
+    importlib.import_module(name=package)
+
+    # Return path to resource
+    return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
