@@ -82,10 +82,12 @@ class SkyImages(FitsImages):
 
     @property
     def centers_lon(self):
+        """ Center longitudes for all detectors. """
         return [x[0] for x in self.centers_world]
 
     @property
     def centers_lat(self):
+        """ Center latitudes for all detectors. """
         return [x[1] for x in self.centers_world]
 
     # =========================================================================== #
