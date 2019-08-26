@@ -116,4 +116,9 @@ misc:
 # Astrometry
 # =========================================================================== #
 astrometry:
+  catalog: 2mass
+
+photometry:
+  catalog: 2mass
   distance_groups: 1
+  margin: 0.1
