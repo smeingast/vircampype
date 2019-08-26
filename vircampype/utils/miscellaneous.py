@@ -299,3 +299,33 @@ def prune_list(ll, n_min):
         ll.pop(idx)
 
     return ll
+
+
+def table2hdu(table, table_type=fits.BinTableHDU, header=None, name=None):
+    """
+    Convert astropy table to an astropy TableHDU.
+
+    Parameters
+    ----------
+    table : astropy.table.Table
+        Table to convert.
+    table_type : optional
+        Table Type to construct. Either astropy.io.fits.BinTableHDU or astropy.io.fits.TabelHDU
+    header : astropy.io.fits.Header, optional
+        Optional additional header to construct the HDU. Table structure keywords will be overwritten.
+    name : str, optional
+        Optional name of the table extension.
+
+    Returns
+    -------
+    astropy.fits.HDUList
+        HDUList with minimal primary HDU.
+
+    """
+
+    # Create column definitions
+    cols = fits.ColDefs([fits.Column(name=key, array=table[key].data, format=table[key].dtype,
+                                     unit=str(table[key].unit)) for key in table.keys()])
+
+    # Return
+    return table_type.from_columns(cols, header=header, name=name)
