@@ -1,15 +1,18 @@
 # =========================================================================== #
 import subprocess
+from itertools import zip_longest
 
 
-def run_cmds(cmds, silent=True):
+def run_cmds(cmds, n_processes=1, silent=True):
     """
     Runs a list of shell commands
 
     Parameters
     ----------
     cmds : list
-        List of shell commands
+        List of shell commands#
+    n_processes : int, optional
+        Number of parallel processes.
     silent : bool, optional
         Whether or not to print information about the process. Default is True.
 
@@ -18,27 +21,13 @@ def run_cmds(cmds, silent=True):
 
     """
 
-    for cmd in cmds:
+    if silent:
+        groups = [(subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                   for cmd in cmds)] * n_processes
+    else:
+        groups = [(subprocess.Popen(cmd.split(" ")) for cmd in cmds)] * n_processes
 
-        if silent:
-
-            # Run
-            p = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-            # Check for error
-            for line in p.stdout.readlines():
-                if b"error" in line.lower():
-                    print(line)
-                    raise Exception("Error detected")
-
-            p.stdout.close()
-
-        else:
-
-            # Run
-            p = subprocess.Popen(cmd.split(" "))
-
-        # Wait for completion
-        p.wait()
-
-    # TODO: Return something
+    # Run processes
+    for processes in zip_longest(*groups):  # run len(processes) == limit at a time
+        for p in filter(None, processes):
+            p.wait()
