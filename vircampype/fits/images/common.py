@@ -2,8 +2,11 @@
 # Import
 from itertools import repeat
 from vircampype.data.cube import ImageCube
+from vircampype.utils.system import run_cmds
 from vircampype.fits.common import FitsFiles
 from vircampype.utils.miscellaneous import *
+from vircampype.utils.astromatic import yml2config
+from vircampype.fits.tables.sextractor import SextractorTable
 
 
 class FitsImages(FitsFiles):
@@ -539,6 +542,68 @@ class FitsImages(FitsFiles):
 
         # Return new instance of calibrated images
         return self.__class__(setup=self.setup, file_paths=self.full_paths)
+
+    # =========================================================================== #
+    # Astromatic
+    # =========================================================================== #
+    def sextractor(self, preset="scamp", executable="sex"):
+        """
+        Runs sextractor based on given presets.
+
+        Parameters
+        ----------
+        preset : str
+            Preset name.
+        executable: str, optional
+            Sextractor executable. Default is 'sex'.
+
+        Returns
+        -------
+        SextractorTable
+            SextractorTable instance with the generated catalogs.
+
+        """
+
+        # Shortcut for resources
+        package = "vircampype.resources.astromatic.sextractor"
+
+        # Find executable
+        path_exe = which(executable)
+
+        # Find setup file
+        path_filter = get_resource_path(package=package, resource="gauss_2.5_5x5.conv")
+        # path_default_config = get_resource_path(package=package, resource="default.config")
+
+        # Construct output catalog paths
+        path_tables = [x.replace(end, "{0}.sex.tab".format(end)) for x, end
+                       in zip(self.full_paths, self.file_extensions)]
+
+        # Check for existing files
+        path_tables_clean = []
+        if not self.setup["misc"]["overwrite"]:
+            for pt in path_tables:
+                if not os.path.isfile(pt):
+                    path_tables_clean.append(pt)
+
+        # Fetch param file
+        if preset.lower() == "scamp":
+            path_param = get_resource_path(package=package, resource="presets/sextractor_scamp.param")
+            ss = yml2config(path=get_resource_path(package=package, resource="presets/sextractor_scamp.yml"),
+                            filter_name=path_filter, parameters_name=path_param, weight_type=None,
+                            skip="catalog_name")
+
+        else:
+            raise ValueError("Preset '{0}' not supported".format(preset))
+
+        # Construct commands for source extraction
+        cmds = ["{0} {1} -CATALOG_NAME {2} {3}".format(path_exe, image, catalog, ss)
+                for image, catalog in zip(self.full_paths, path_tables_clean)]
+
+        # Run Sextractor
+        run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
+
+        # Return Table instance
+        return SextractorTable(setup=self.setup, file_paths=path_tables)
 
     # =========================================================================== #
     # Other methods
