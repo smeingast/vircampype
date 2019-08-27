@@ -587,6 +587,7 @@ class FitsImages(FitsFiles):
 
         # Fetch param file
         if preset.lower() == "scamp":
+            # TODO: Weight is missing
             path_param = get_resource_path(package=package, resource="presets/sextractor_scamp.param")
             ss = yml2config(path=get_resource_path(package=package, resource="presets/sextractor_scamp.yml"),
                             filter_name=path_filter, parameters_name=path_param, weight_type=None,
