@@ -1,5 +1,5 @@
 CATALOG_NAME:     test.cat       # name of the output catalog
-CATALOG_TYPE:     ASCII_HEAD     # NONE,ASCII,ASCII_HEAD, ASCII_SKYCAT,
+CATALOG_TYPE:     FITS_LDAC     # NONE,ASCII,ASCII_HEAD, ASCII_SKYCAT,
                                 # ASCII_VOTABLE, FITS_1.0 or FITS_LDAC
 PARAMETERS_NAME:  default.param  # name of the file containing catalog contents
 
@@ -115,7 +115,7 @@ WRITE_XML:        N              # Write XML file (Y/N)?
 XML_NAME:         sex.xml        # Filename for XML output
 XSL_URL:          file:///Users/stefan/Dropbox/Software/Astromatic/Sextractor/share/sextractor/sextractor.xsl
                                 # Filename for XSL style-sheet
-NTHREADS:         4              # 1 single thread
+NTHREADS:         1              # 1 single thread
 
 FITS_UNSIGNED:    N              # Treat FITS integer values as unsigned (Y/N)?
 INTERP_MAXXLAG:   16             # Max. lag along X for 0-weight interpolation
