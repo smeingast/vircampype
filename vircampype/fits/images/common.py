@@ -541,7 +541,7 @@ class FitsImages(FitsFiles):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return new instance of calibrated images
-        return self.__class__(setup=self.setup, file_paths=self.full_paths)
+        return self.__class__(setup=self.setup, file_paths=self.paths_calibrated)
 
     # =========================================================================== #
     # Astromatic
