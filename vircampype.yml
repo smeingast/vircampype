@@ -103,6 +103,7 @@ master:
   max_lag_dark: 7                   # Maximum time difference to MasterDark in days
   max_lag_flat: 7                   # Maximum time difference to MasterFlat in days
   max_lag_sky: 30                   # Maximum time difference to MasterSky in minutes (!)
+  max_lag_weight: 7                 # Maximum time difference to MasterWright in days
   max_lag_linearity: 7              # Maximum time difference to MasterLinearity in days
 
 misc:
