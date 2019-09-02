@@ -590,7 +590,7 @@ class FitsImages(FitsFiles):
         # path_default_config = get_resource_path(package=package, resource="default.config")
 
         # Construct output catalog paths
-        path_tables = [x.replace(end, "{0}.sex.tab".format(end)) for x, end
+        path_tables = [x.replace(end, "{0}.{1}tab".format(end, preset)) for x, end
                        in zip(self.full_paths, self.file_extensions)]
 
         # Check for existing files
@@ -604,7 +604,7 @@ class FitsImages(FitsFiles):
         master_weight = self.get_master_weight()
 
         # Fetch param file
-        if preset.lower() == "scamp":
+        if preset == "scamp":
             path_param = get_resource_path(package=package, resource="presets/sextractor_scamp.param")
             ss = yml2config(path=get_resource_path(package=package, resource="presets/sextractor_scamp.yml"),
                             filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
