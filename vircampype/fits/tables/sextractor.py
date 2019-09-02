@@ -29,7 +29,7 @@ class SextractorTable(FitsTables):
         qc_types = ",".join(qc_types)
 
         # Header names
-        hdr_names = ",".join(["{0}.head".format(x) for x in self.file_names])
+        hdr_names = ",".join(["{0}.head".format(x) for x in self.full_paths])
 
         # Load preset
         options = yml2config(path=get_resource_path(package=package, resource="presets/scamp.yml"),
@@ -45,3 +45,6 @@ class SextractorTable(FitsTables):
         # Run Scamp
         # cp = subprocess.run([cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         subprocess.run(cmd, shell=True, executable='/bin/bash')
+
+        # Return header paths
+        return hdr_names.split(",")
