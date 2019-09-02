@@ -2,6 +2,7 @@
 # Import
 from vircampype.utils.wcs import *
 from vircampype.utils.math import *
+from vircampype.utils.astromatic import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
@@ -9,6 +10,7 @@ from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
+from vircampype.fits.tables.sextractor import SextractorTable
 from vircampype.fits.images.common import FitsImages, MasterImages
 
 
@@ -300,6 +302,60 @@ class SkyImages(FitsImages):
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+    # =========================================================================== #
+    # Astrometry
+    # =========================================================================== #
+    def calibrate_astrometry(self):
+        # TODO: Implement more status messaging for sextractor and scamp
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
+
+        # Run Sextractor
+        catalogs = self.sextractor(preset="scamp")  # type: SextractorTable
+
+        # Check if Scamp has already been run. If not, run it
+        path_hdr = []
+        for f in self.full_paths:
+
+            phdr = f.replace(".fits", ".fits.scamptab.head")
+
+            # Check if header file exists and if any is not there, run scamp and break check loop
+            if not os.path.isfile(phdr):
+                path_hdr = catalogs.scamp()
+                break
+            else:
+                path_hdr.append(phdr)
+
+        if len(path_hdr) != len(self):
+            raise ValueError("Something wrong with Scamp")
+
+        # Replace astrometry in header for calibrated files
+        for idx in range(len(self)):
+
+            # Make outpath
+            outpath = self.paths_calibrated_astrometry[idx]
+
+            # Skip if file exists already
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            if not self.setup["misc"]["silent"]:
+                message_calibration(n_current=idx+1, n_total=len(self), name=outpath, d_current=None, d_total=None)
+
+            # Get updated data headers
+            headers = replace_astrometry(headers=self.headers_data[idx], path_scamp_hdr=path_hdr[idx])
+
+            # Read data and write with new headers
+            cube = self.file2cube(file_index=idx)
+            cube.write_mef(path=outpath, prime_header=self.headers_primary[idx], data_headers=headers)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return new instace with calibrated images
+        return self.__class__(setup=self.setup, file_paths=self.paths_calibrated_astrometry)
 
 
 class ScienceImages(SkyImages):
