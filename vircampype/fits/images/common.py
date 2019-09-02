@@ -337,6 +337,21 @@ class FitsImages(FitsFiles):
         return self.match_filter(match_to=self.get_master_images().flat,
                                  max_lag=self.setup["master"]["max_lag_flat"])
 
+    def get_master_weight(self):
+        """
+        Get for each file in self the corresponding MasterWeight.
+
+        Returns
+        -------
+        MasterWeight
+            MasterWeight instance holding for each file in self the corresponding MasterWeight file.
+
+        """
+
+        # Match and return
+        return self.match_filter(match_to=self.get_master_images().weight,
+                                 max_lag=self.setup["master"]["max_lag_flat"])
+
     def get_unique_master_flats(self):
         """ Returns unique Master Flats as MasterFlat instance. """
         from vircampype.fits.images.flat import MasterFlat
@@ -585,20 +600,21 @@ class FitsImages(FitsFiles):
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
+        # Fetch masterweights
+        master_weight = self.get_master_weight()
+
         # Fetch param file
         if preset.lower() == "scamp":
-            # TODO: Weight is missing
             path_param = get_resource_path(package=package, resource="presets/sextractor_scamp.param")
             ss = yml2config(path=get_resource_path(package=package, resource="presets/sextractor_scamp.yml"),
-                            filter_name=path_filter, parameters_name=path_param, weight_type=None,
-                            skip="catalog_name")
+                            filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
 
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
 
         # Construct commands for source extraction
-        cmds = ["{0} {1} -CATALOG_NAME {2} {3}".format(path_exe, image, catalog, ss)
-                for image, catalog in zip(self.full_paths, path_tables_clean)]
+        cmds = ["{0} {1} -CATALOG_NAME {2} -WEIGHT_IMAGE {3} {4}".format(path_exe, image, catalog, weight, ss)
+                for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight.full_paths)]
 
         # Run Sextractor
         run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
@@ -865,3 +881,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"]
 
         return MasterSky(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def weight(self):
+        """
+        Retrieves all MasterWeight images.
+
+        Returns
+        -------
+        MasterWeight
+            All MasterWeight images as a MasterSky instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterWeight
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT"]
+
+        return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
