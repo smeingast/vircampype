@@ -167,7 +167,31 @@ class FitsFiles:
                             except KeyError:
                                 pass
 
+                        # Save Target coordinate
+                        if isinstance(hdu, PrimaryHDU):
+
+                            try:
+                                tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
+                                tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
+
+                                field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
+
+                                if tde[0].startswith("-"):
+                                    field_de = float(tde[:3]) - float(tde[3:5]) / 60 - float(tde[5:]) / 3600
+                                else:
+                                    field_de = float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600
+
+                            except KeyError:
+                                field_ra, field_de = None, None
+
                         if isinstance(hdu, ImageHDU):
+
+                            # Overwrite with consitently working keyword
+                            try:
+                                hdr["CRVAL1"] = field_ra if field_ra is not None else hdr["CRVAL1"]
+                                hdr["CRVAL2"] = field_de if field_ra is not None else hdr["CRVAL2"]
+                            except KeyError:
+                                pass
                             hdr = header_reset_wcs(hdr)
 
                         # Save cleaned header
