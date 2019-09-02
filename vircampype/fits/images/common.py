@@ -590,15 +590,17 @@ class FitsImages(FitsFiles):
 
         """
 
-        # Shortcut for resources
-        package = "vircampype.resources.astromatic.sextractor"
+        # Shortcut for preset package
+        package_presets = "vircampype.resources.astromatic.presets"
 
         # Find executable
         path_exe = which(self.setup["astromatic"]["bin_sex"])
 
         # Find setup file
-        path_filter = get_resource_path(package=package, resource="gauss_2.5_5x5.conv")
-        # path_default_config = get_resource_path(package=package, resource="default.config")
+        path_filter = get_resource_path(package="vircampype.resources.astromatic.sextractor",
+                                        resource="gauss_2.5_5x5.conv")
+        path_default_config = get_resource_path(package="vircampype.resources.astromatic.sextractor",
+                                                resource="default.config")
 
         # Construct output catalog paths
         path_tables = [x.replace(end, "{0}.{1}tab".format(end, preset)) for x, end
@@ -616,15 +618,15 @@ class FitsImages(FitsFiles):
 
         # Fetch param file
         if preset == "scamp":
-            path_param = get_resource_path(package=package, resource="presets/sextractor_scamp.param")
-            ss = yml2config(path=get_resource_path(package=package, resource="presets/sextractor_scamp.yml"),
+            path_param = get_resource_path(package=package_presets, resource="sextractor_scamp.param")
+            ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_scamp.yml"),
                             filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
-
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
 
         # Construct commands for source extraction
-        cmds = ["{0} {1} -CATALOG_NAME {2} -WEIGHT_IMAGE {3} {4}".format(path_exe, image, catalog, weight, ss)
+        cmds = ["{0} -c {1} {2} -CATALOG_NAME {3} -WEIGHT_IMAGE {4} {5}"
+                "".format(path_exe, path_default_config, image, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight.full_paths)]
 
         # Run Sextractor

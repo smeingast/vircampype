@@ -313,6 +313,7 @@ class SkyImages(FitsImages):
         tstart = message_mastercalibration(master_type="ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
 
         # Run Sextractor
+        print("Running Sextractor with preset 'scamp' on {0} files".format(len(self)))
         catalogs = self.sextractor(preset="scamp")  # type: SextractorTable
 
         # Check if Scamp has already been run. If not, run it
