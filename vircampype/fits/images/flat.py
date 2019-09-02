@@ -589,3 +589,9 @@ class MasterFlat(MasterImages):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(path, bbox_inches="tight")
             plt.close("all")
+
+
+class MasterWeight(MasterImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterWeight, self).__init__(setup=setup, file_paths=file_paths)
