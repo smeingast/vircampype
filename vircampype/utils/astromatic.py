@@ -9,8 +9,8 @@ def yml2config(path, skip=None, **kwargs):
     ----------
     path : str
         Path to YML file.
-    skip : str, optional
-        If set, ignore this specific option in the setup.
+    skip : list, optional
+        If set, ignore the given keywords in the list
     kwargs
         Any available setup parameter can be overwritten (e.g. catalog_name="catalog.fits")
 
@@ -29,7 +29,7 @@ def yml2config(path, skip=None, **kwargs):
 
         # Skip if set
         if skip is not None:
-            if skip.lower() == key.lower():
+            if key.lower() in [s.lower() for s in skip]:
                 continue
 
         # Convert key to lower case
