@@ -561,7 +561,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Astromatic
     # =========================================================================== #
-    def sextractor(self, preset="scamp", executable="sex"):
+    def sextractor(self, preset="scamp"):
         """
         Runs sextractor based on given presets.
 
@@ -569,8 +569,6 @@ class FitsImages(FitsFiles):
         ----------
         preset : str
             Preset name.
-        executable: str, optional
-            Sextractor executable. Default is 'sex'.
 
         Returns
         -------
@@ -583,7 +581,7 @@ class FitsImages(FitsFiles):
         package = "vircampype.resources.astromatic.sextractor"
 
         # Find executable
-        path_exe = which(executable)
+        path_exe = which(self.setup["astromatic"]["bin_sex"])
 
         # Find setup file
         path_filter = get_resource_path(package=package, resource="gauss_2.5_5x5.conv")

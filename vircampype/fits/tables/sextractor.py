@@ -11,13 +11,13 @@ class SextractorTable(FitsTables):
     def __init__(self, setup, file_paths=None):
         super(SextractorTable, self).__init__(file_paths=file_paths, setup=setup)
 
-    def scamp(self, executable="scamp"):
+    def scamp(self):
 
         # Shortcut for resources
         package = "vircampype.resources.astromatic.scamp"
 
         # Find executable
-        path_exe = which(executable)
+        path_exe = which(self.setup["astromatic"]["bin_scamp"])
 
         # Find default config
         path_default_config = get_resource_path(package=package, resource="default.config")
