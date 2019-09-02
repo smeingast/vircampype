@@ -171,7 +171,7 @@ class FitsImages(FitsFiles):
             List with paths for each file.
 
         """
-        return [p.replace(".cal", ".cal.astr") for p in self.paths_calibrated]
+        return [p.replace(".fits", ".astr.fits") for p in self.full_paths]
 
     # =========================================================================== #
     # I/O
