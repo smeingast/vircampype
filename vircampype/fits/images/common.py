@@ -601,6 +601,8 @@ class FitsImages(FitsFiles):
                                         resource="gauss_2.5_5x5.conv")
         path_default_config = get_resource_path(package="vircampype.resources.astromatic.sextractor",
                                                 resource="default.config")
+        # path_default_nnw = get_resource_path(package="vircampype.resources.astromatic.sextractor",
+        #                                      resource="default.nnw")
 
         # Construct output catalog paths
         path_tables = [x.replace(end, "{0}.{1}tab".format(end, preset)) for x, end
@@ -620,6 +622,10 @@ class FitsImages(FitsFiles):
         if preset == "scamp":
             path_param = get_resource_path(package=package_presets, resource="sextractor_scamp.param")
             ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_scamp.yml"),
+                            filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
+        elif preset == "photcal":
+            path_param = get_resource_path(package=package_presets, resource="sextractor_photcal.param")
+            ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_photcal.yml"),
                             filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))

@@ -4,7 +4,6 @@
 NUMBER
 FLAGS
 FLAGS_WEIGHT
-CLASS_STAR
 BACKGROUND
 THRESHOLD
 EXT_NUMBER
@@ -78,8 +77,8 @@ ELONGATION
 # =========================================================================== #
 # Flux
 # =========================================================================== #
-FLUX_APER
-FLUXERR_APER
+FLUX_APER[15]
+FLUXERR_APER[15]
 FLUX_MAX
 FLUX_RADIUS
 FLUX_AUTO
@@ -93,8 +92,8 @@ FLUXERR_PETRO
 # =========================================================================== #
 # Magnitudes
 # =========================================================================== #
-MAG_APER
-MAGERR_APER
+MAG_APER[15]
+MAGERR_APER[15]
 KRON_RADIUS
 MAG_AUTO
 MAGERR_AUTO
