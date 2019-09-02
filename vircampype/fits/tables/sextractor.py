@@ -28,18 +28,20 @@ class SextractorTable(FitsTables):
         qc_names = ",".join(["{0}{1}".format(self.file_directories[0], qt.lower()) for qt in qc_types])
         qc_types = ",".join(qc_types)
 
+        # Header names
+        hdr_names = ",".join(["{0}.head".format(x) for x in self.file_names])
+
         # Load preset
-        ss = yml2config(path=get_resource_path(package=package, resource="presets/scamp.yml"),
-                        checkplot_type=qc_types, checkplot_name=qc_names)
+        options = yml2config(path=get_resource_path(package=package, resource="presets/scamp.yml"),
+                             checkplot_type=qc_types, checkplot_name=qc_names, skip=["HEADER_NAME"])
 
         # Get string for catalog paths
-        ss_paths = " ".join(self.full_paths)
+        paths_catalogs = " ".join(self.full_paths)
 
         # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} {3}".format(path_exe, ss_paths, path_default_config, ss)
+        cmd = "{0} {1} -c {2} -HEADER_NAME {3} {4}".format(path_exe, paths_catalogs, path_default_config,
+                                                           hdr_names, options)
 
-        print(cmd)
-        exit()
-
+        # Run Scamp
         # cp = subprocess.run([cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         subprocess.run(cmd, shell=True, executable='/bin/bash')
