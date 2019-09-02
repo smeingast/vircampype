@@ -83,4 +83,7 @@ def replace_astrometry(headers, path_scamp_hdr):
         for card in hs.cards:
             hi[card.keyword] = (card.value, card.comment)
 
+        # Set scamped to TRUE
+        hi["HIERARCH PYPE ASTROM SCAMP"] = True
+
     return headers

@@ -29,7 +29,6 @@ keywords:
   ndit: "HIERARCH ESO DET NDIT"
   date_mjd: "MJD-OBS"
   date_ut: "DATE-OBS"
-  reset_wcs: True
 
 # =========================================================================== #
 # Calibration
@@ -112,6 +111,7 @@ misc:
   qc_plots:  True
   n_threads: 4
   fix_vircam_header: True
+  reset_wcs: True
 
 # =========================================================================== #
 # Astrometry

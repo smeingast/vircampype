@@ -348,6 +348,9 @@ class SkyImages(FitsImages):
             # Get updated data headers
             headers = replace_astrometry(headers=self.headers_data[idx], path_scamp_hdr=path_hdr[idx])
 
+            # Modify primary header
+            self.headers_primary[idx]["HIERARCH PYPE ASTROM SCAMP"] = True
+
             # Read data and write with new headers
             cube = self.file2cube(file_index=idx)
             cube.write_mef(path=outpath, prime_header=self.headers_primary[idx], data_headers=headers)

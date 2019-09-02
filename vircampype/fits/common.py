@@ -167,32 +167,41 @@ class FitsFiles:
                             except KeyError:
                                 pass
 
-                        # Save Target coordinate
-                        if isinstance(hdu, PrimaryHDU):
+                        # Check if header has been replaced by scamped solution
+                        try:
+                            scamped = hdr["HIERARCH PYPE ASTROM SCAMP"]
+                        except KeyError:
+                            scamped = False
 
-                            try:
-                                tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
-                                tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
+                        # Reset WCS if set
+                        if self.setup["misc"]["reset_wcs"] and not scamped:
 
-                                field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
+                            # Save Target coordinate
+                            if isinstance(hdu, PrimaryHDU):
 
-                                if tde[0].startswith("-"):
-                                    field_de = float(tde[:3]) - float(tde[3:5]) / 60 - float(tde[5:]) / 3600
-                                else:
-                                    field_de = float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600
+                                try:
+                                    tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
+                                    tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
 
-                            except KeyError:
-                                field_ra, field_de = None, None
+                                    field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
 
-                        if isinstance(hdu, ImageHDU):
+                                    if tde[0].startswith("-"):
+                                        field_de = float(tde[:3]) - float(tde[3:5]) / 60 - float(tde[5:]) / 3600
+                                    else:
+                                        field_de = float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600
 
-                            # Overwrite with consitently working keyword
-                            try:
-                                hdr["CRVAL1"] = field_ra if field_ra is not None else hdr["CRVAL1"]
-                                hdr["CRVAL2"] = field_de if field_ra is not None else hdr["CRVAL2"]
-                            except KeyError:
-                                pass
-                            hdr = header_reset_wcs(hdr)
+                                except KeyError:
+                                    field_ra, field_de = None, None
+
+                            if isinstance(hdu, ImageHDU):
+
+                                # Overwrite with consitently working keyword
+                                try:
+                                    hdr["CRVAL1"] = field_ra if field_ra is not None else hdr["CRVAL1"]
+                                    hdr["CRVAL2"] = field_de if field_ra is not None else hdr["CRVAL2"]
+                                except KeyError:
+                                    pass
+                                hdr = header_reset_wcs(hdr)
 
                         # Save cleaned header
                         fileheaders.append(hdr)
