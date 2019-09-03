@@ -2,7 +2,7 @@
 # Import
 from vircampype.utils.wcs import *
 from vircampype.utils.math import *
-from vircampype.utils.astromatic import *
+from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
@@ -333,33 +333,30 @@ class SkyImages(FitsImages):
             raise ValueError("Something wrong with Scamp")
 
         # Replace astrometry in header for calibrated files
-        for idx in range(len(self)):
-
-            # Make outpath
-            outpath = self.paths_calibrated_astrometry[idx]
-
-            # Skip if file exists already
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-                continue
-
-            if not self.setup["misc"]["silent"]:
-                message_calibration(n_current=idx+1, n_total=len(self), name=outpath, d_current=None, d_total=None)
-
-            # Get updated data headers
-            headers = replace_astrometry(headers=self.headers_data[idx], path_scamp_hdr=path_hdr[idx])
-
-            # Modify primary header
-            self.headers_primary[idx]["HIERARCH PYPE ASTROM SCAMP"] = True
-
-            # Read data and write with new headers
-            cube = self.file2cube(file_index=idx)
-            cube.write_mef(path=outpath, prime_header=self.headers_primary[idx], data_headers=headers)
+        # for idx in range(len(self)):
+        #
+        #     # Make outpath
+        #     outpath = self.paths_calibrated_astrometry[idx]
+        #
+        #     # Skip if file exists already
+        #     if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+        #         continue
+        #
+        #     if not self.setup["misc"]["silent"]:
+        #         message_calibration(n_current=idx+1, n_total=len(self), name=outpath, d_current=None, d_total=None)
+        #
+        #     # Get updated data headers
+        #     headers = replace_astrometry(headers=self.headers_data[idx], path_scamp_hdr=path_hdr[idx])
+        #
+        #     # Modify primary header
+        #     self.headers_primary[idx]["HIERARCH PYPE ASTROM SCAMP"] = True
+        #
+        #     # Read data and write with new headers
+        #     cube = self.file2cube(file_index=idx)
+        #     cube.write_mef(path=outpath, prime_header=self.headers_primary[idx], data_headers=headers)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return new instace with calibrated images
-        return self.__class__(setup=self.setup, file_paths=self.paths_calibrated_astrometry)
 
 
 class ScienceImages(SkyImages):
