@@ -358,6 +358,43 @@ class SkyImages(FitsImages):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
+    # =========================================================================== #
+    # Resample
+    # =========================================================================== #
+    @property
+    def header_coadd(self):
+        """
+        CD1_1 = CDELT1 * cos(CROTA2)
+        CD1_2 = -CDELT2 * sin(CROTA2)
+        CD2_1 = CDELT1 * sin(CROTA2)
+        CD2_2 = CDELT2 * cos(CROTA2)
+        """
+
+        # Get rotation from input headers (I do this in a loop down below)
+        # cd11, cd21 = self.dataheaders_get_keys(keywords=["CD1_1", "CD2_1"])
+        # cd11, cd21 = np.median(cd11), np.median(cd21)
+        # rotation = np.arctan(cd21 / cd11)
+
+        # Obtain footprints from header
+        footprints = np.array(self.footprints)
+
+        # Get all edges in skycoord object
+        sc = SkyCoord(ra=footprints[:, :, :, 0].ravel(), dec=footprints[:, :, :, 1].ravel(),
+                      frame="icrs", unit="degree")
+
+        # Get optimal rotation of frame
+        rotation_test = np.linspace(0, np.pi / 2, 360)
+        area = []
+        for rot in rotation_test:
+            hdr = skycoord2header(skycoord=sc, proj_code="CEA", rotation=rot, bla=100,
+                                  cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
+            area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+
+        # Return final header with optimized rotation
+        rotation = rotation_test[np.argmin(area)]
+        return skycoord2header(skycoord=sc, proj_code="CEA", rotation=rotation,
+                               cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
+
 
 class ScienceImages(SkyImages):
 
