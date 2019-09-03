@@ -167,14 +167,14 @@ class FitsFiles:
                             except KeyError:
                                 pass
 
-                        # Check if header has been replaced by scamped solution
+                        # Check if header has been fixed already
                         try:
-                            scamped = hdr["HIERARCH PYPE ASTROM SCAMP"]
+                            fixed = hdr["HIERARCH PYPE WCS RESET"]
                         except KeyError:
-                            scamped = False
+                            fixed = False
 
                         # Reset WCS if set
-                        if self.setup["misc"]["reset_wcs"] and not scamped:
+                        if self.setup["misc"]["reset_wcs"] and not fixed:
 
                             # Save Target coordinate
                             if isinstance(hdu, PrimaryHDU):
@@ -202,6 +202,7 @@ class FitsFiles:
                                 except KeyError:
                                     pass
                                 hdr = header_reset_wcs(hdr)
+                                hdr["HIERARCH PYPE WCS RESET"] = True
 
                         # Save cleaned header
                         fileheaders.append(hdr)
