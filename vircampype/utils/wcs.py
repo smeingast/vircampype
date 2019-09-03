@@ -156,12 +156,10 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
     xdelta = (x.min() + x.max()) / 2
     ydelta = (y.min() + y.max()) / 2
 
-    # Add size to header
+    # Add size to header (CRPIXa are rounded to 0.5, this should not shift the image off the frame)
     header["NAXIS1"], header["NAXIS2"] = naxis1, naxis2
-    header["CRPIX1"], header["CRPIX2"] = naxis1 / 2 - xdelta, naxis2 / 2 - ydelta
-
-    # Add allky keyword
-    # header["ALLSKY"] = allsky
+    header["CRPIX1"] = ceil_value(naxis1 / 2 - xdelta, 0.5)
+    header["CRPIX2"] = ceil_value(naxis2 / 2 - ydelta, 0.5)
 
     # Return Header
     return header
