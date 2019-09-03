@@ -130,10 +130,12 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
 
     # Create cards for header
     cards = []
-    keywords = ["NAXIS", "CTYPE1", "CTYPE2", "CRVAL1", "CRVAL2",
-                "CUNIT1", "CUNIT2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"]
-    values = [2, ctype1, ctype2, skycoord_centroid.spherical.lon.deg, skycoord_centroid.spherical.lat.deg,
-              "deg", "deg", cd11, cd12, cd21, cd22]
+    keywords = ["NAXIS", "CTYPE1", "CTYPE2", "CRVAL1",
+                "CRVAL2", "CUNIT1", "CUNIT2", "CD1_1",
+                "CD1_2", "CD2_1", "CD2_2", "RADESYS"]
+    values = [2, ctype1, ctype2, skycoord_centroid.spherical.lon.deg,
+              skycoord_centroid.spherical.lat.deg, "deg", "deg", cd11,
+              cd12, cd21, cd22, "icrs"]
     for key, val in zip(keywords, values):
         cards.append(fits.Card(keyword=key, value=val))
 
