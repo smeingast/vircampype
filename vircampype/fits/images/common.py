@@ -160,19 +160,6 @@ class FitsImages(FitsFiles):
         return ["{0}{1}.cal{2}".format(d, n, e) for d, n, e in
                 zip(repeat(self.setup["paths"]["calibrated"]), self.file_names, self.file_extensions)]
 
-    @property
-    def paths_calibrated_astrometry(self):
-        """
-        Generates paths for calibrated images that contain an astrometric solution.
-
-        Returns
-        -------
-        List
-            List with paths for each file.
-
-        """
-        return [p.replace(".fits", ".astr.fits") for p in self.full_paths]
-
     # =========================================================================== #
     # I/O
     # =========================================================================== #
