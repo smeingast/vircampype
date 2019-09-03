@@ -109,7 +109,7 @@ misc:
   silent:  False
   overwrite:  False
   qc_plots:  True
-  n_threads: 4
+  n_threads: 10
   fix_vircam_header: True
   reset_wcs: True
 
@@ -119,10 +119,16 @@ misc:
 astrometry:
   catalog: 2mass
 
+
+# =========================================================================== #
+# Photometry
+# =========================================================================== #
 photometry:
   catalog: 2mass
   distance_groups: 1
   margin: 0.1
+  apcor_radii: 0.3,0.4,0.5,0.6,0.8,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,7,8,9,10,12,14,16,18,20
+  apcor_func: Moffat                # Function for aperture correction fitting
 
 
 # =========================================================================== #
