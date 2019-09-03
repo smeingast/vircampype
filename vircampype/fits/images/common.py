@@ -601,8 +601,8 @@ class FitsImages(FitsFiles):
                                         resource="gauss_2.5_5x5.conv")
         path_default_config = get_resource_path(package="vircampype.resources.astromatic.sextractor",
                                                 resource="default.config")
-        # path_default_nnw = get_resource_path(package="vircampype.resources.astromatic.sextractor",
-        #                                      resource="default.nnw")
+        path_default_nnw = get_resource_path(package="vircampype.resources.astromatic.sextractor",
+                                             resource="default.nnw")
 
         # Construct output catalog paths
         path_tables = [x.replace(end, "{0}.{1}tab".format(end, preset)) for x, end
@@ -626,13 +626,14 @@ class FitsImages(FitsFiles):
         elif preset == "photcal":
             path_param = get_resource_path(package=package_presets, resource="sextractor_photcal.param")
             ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_photcal.yml"),
-                            filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
+                            filter_name=path_filter, parameters_name=path_param,
+                            skip=["catalog_name", "weight_image", "starnnw_name"])
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
 
         # Construct commands for source extraction
-        cmds = ["{0} -c {1} {2} -CATALOG_NAME {3} -WEIGHT_IMAGE {4} {5}"
-                "".format(path_exe, path_default_config, image, catalog, weight, ss)
+        cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
+                "".format(path_exe, path_default_config, image, path_default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight.full_paths)]
 
         # Run Sextractor
