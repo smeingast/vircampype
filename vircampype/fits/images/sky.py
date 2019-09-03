@@ -386,7 +386,7 @@ class SkyImages(FitsImages):
         rotation_test = np.linspace(0, np.pi / 2, 360)
         area = []
         for rot in rotation_test:
-            hdr = skycoord2header(skycoord=sc, proj_code="CEA", rotation=rot, bla=100,
+            hdr = skycoord2header(skycoord=sc, proj_code="CEA", rotation=rot,
                                   cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
             area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
 
