@@ -138,4 +138,5 @@ photometry:
 astromatic:
   bin_sex: sex
   bin_scamp: scamp
+  bin_swarp: swarp
   pixel_scale: 0.33333333333333
