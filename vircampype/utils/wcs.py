@@ -1,10 +1,9 @@
 # =========================================================================== #
 # Import
-import numpy as np
-
 from astropy import wcs
 from astropy.io import fits
-from vircampype.utils.math import centroid_sphere
+from vircampype.utils.math import *
+from astropy.coordinates import SkyCoord, ICRS, Galactic
 
 
 def header2wcs(header):
@@ -68,7 +67,7 @@ def header_reset_wcs(header):
     return oheader
 
 
-def data2header(lon, lat, frame="icrs", proj_code="CAR", pixsize=1/3600, **kwargs):
+def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enlarge=1.02, silent=True, **kwargs):
     """
     Create an astropy Header instance from a given dataset (longitude/latitude). The world coordinate system can be
     chosen between galactic and equatorial; all WCS projections are supported. Very useful for creating a quick WCS
@@ -76,16 +75,18 @@ def data2header(lon, lat, frame="icrs", proj_code="CAR", pixsize=1/3600, **kwarg
 
     Parameters
     ----------
-    lon : list, np.array
-        Input list or array of longitude coordinates in degrees.
-    lat : list, np.array
-        Input list or array of latitude coordinates in degrees.
-    frame : str, optional
-        World coordinate system frame of input data ('icrs' or 'galactic')
+    skycoord : SkyCoord
+        SkyCoord instance containg the coordinates.
     proj_code : str, optional
-        Projection code. (e.g. 'TAN', 'AIT', 'CAR', etc)
-    pixsize : int, float, optional
-        Pixel size of generated header in degrees. Not so important for plots, but still required.
+        Projection code. (e.g. 'TAN', 'AIT', 'CAR', etc). Default is 'TAN'
+    cdelt : int, float, optional
+        Pixel size of generated header in degrees.
+    rotation : float, optional
+        Rotation of frame in radian.
+    enlarge : float, optional
+        Optional enlargement factor for calculated field size. Default is 1.05. Set to 1 if no enlargement is wanted.
+    silent : bool, optional
+        If False, print some messages when applicable.
     kwargs
         Additional projection parameters (e.g. pv2_1=-30)
 
@@ -97,46 +98,68 @@ def data2header(lon, lat, frame="icrs", proj_code="CAR", pixsize=1/3600, **kwarg
     """
 
     # Define projection
-    crval1, crval2 = centroid_sphere(lon=lon, lat=lat, units="degree")
+    skycoord_centroid = centroid_sphere_skycoord(skycoord)
+
+    # Determine if allsky should be forced
+    sep = skycoord.separation(skycoord_centroid)
+    allsky = True if np.max(sep.degree) > 100 else False
+
+    # Issue warning
+    if silent is False:
+        if allsky:
+            print("Warning. Using allsky projection!")
+
+    # Override projection with allsky data
+    if allsky:
+        if proj_code not in ["AIT", "MOL", "CAR"]:
+            proj_code = "AIT"
 
     # Projection code
-    if frame.lower() == "icrs":
+    if isinstance(skycoord.frame, ICRS):
         ctype1 = "RA{:->6}".format(proj_code)
         ctype2 = "DEC{:->5}".format(proj_code)
-        frame = "equ"
-    elif frame.lower() == "galactic":
+    elif isinstance(skycoord.frame, Galactic):
         ctype1 = "GLON{:->4}".format(proj_code)
         ctype2 = "GLAT{:->4}".format(proj_code)
-        frame = "gal"
     else:
-        raise ValueError("Projection system {0:s} not supported".format(frame))
+        raise ValueError("Frame {0:s} not supported".format(skycoord.frame))
 
-    # Build additional string
-    additional = ""
-    for key, value in kwargs.items():
-        additional += ("{0: <8}= {1}\n".format(key.upper(), value))
+    # Compute CD matrix
+    cd11, cd12 = cdelt * np.cos(rotation), -cdelt * np.sin(rotation)
+    cd21, cd22 = cdelt * np.sin(rotation), cdelt * np.cos(rotation)
 
-    # Create preliminary header without size information
-    header = fits.Header.fromstring("NAXIS   = 2" + "\n"
-                                    "CTYPE1  = '" + ctype1 + "'\n"
-                                    "CTYPE2  = '" + ctype2 + "'\n"
-                                    "CRVAL1  = " + str(crval1) + "\n"
-                                    "CRVAL2  = " + str(crval2) + "\n"
-                                    "CUNIT1  = 'deg'" + "\n"
-                                    "CUNIT2  = 'deg'" + "\n"
-                                    "CDELT1  = -" + str(pixsize) + "\n"
-                                    "CDELT2  = " + str(pixsize) + "\n"
-                                    "COORDSYS= '" + frame + "'" + "\n" +
-                                    additional,
-                                    sep="\n")
+    # Create cards for header
+    cards = []
+    keywords = ["NAXIS", "CTYPE1", "CTYPE2", "CRVAL1", "CRVAL2",
+                "CUNIT1", "CUNIT2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"]
+    values = [2, ctype1, ctype2, skycoord_centroid.spherical.lon.deg, skycoord_centroid.spherical.lat.deg,
+              "deg", "deg", cd11, cd12, cd21, cd22]
+    for key, val in zip(keywords, values):
+        cards.append(fits.Card(keyword=key, value=val))
+
+    # Add additional cards
+    for key, val in kwargs.items():
+        cards.append(fits.Card(keyword=key, value=val))
+
+    # Construct header from cards
+    header = fits.Header(cards=cards)
 
     # Determine extent of data for this projection
-    x, y = wcs.WCS(header).all_world2pix(lon, lat, 1)
-    naxis1, naxis2 = np.ceil((x.max() - x.min())).astype(int), np.ceil(y.max() - y.min()).astype(int)
+    x, y = wcs.WCS(header).wcs_world2pix(skycoord.spherical.lon, skycoord.spherical.lat, 1)
+
+    naxis1 = (np.ceil((x.max()) - np.floor(x.min())) * enlarge).astype(int)
+    naxis2 = (np.ceil((y.max()) - np.floor(y.min())) * enlarge).astype(int)
+
+    # Calculate pixel shift relative to centroid (caused by anisotropic distribution of sources)
+    xdelta = (x.min() + x.max()) / 2
+    ydelta = (y.min() + y.max()) / 2
 
     # Add size to header
     header["NAXIS1"], header["NAXIS2"] = naxis1, naxis2
-    header["CRPIX1"], header["CRPIX2"] = naxis1 / 2, naxis2 / 2
+    header["CRPIX1"], header["CRPIX2"] = naxis1 / 2 - xdelta, naxis2 / 2 - ydelta
+
+    # Add allky keyword
+    # header["ALLSKY"] = allsky
 
     # Return Header
     return header
