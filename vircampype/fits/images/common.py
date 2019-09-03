@@ -590,6 +590,8 @@ class FitsImages(FitsFiles):
 
         """
 
+        # TODO: Print status message here.
+
         # Shortcut for preset package
         package_presets = "vircampype.resources.astromatic.presets"
 
