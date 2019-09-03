@@ -627,13 +627,14 @@ class FitsImages(FitsFiles):
             path_param = get_resource_path(package=package_presets, resource="sextractor_photcal.param")
             ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_photcal.yml"),
                             filter_name=path_filter, parameters_name=path_param,
-                            skip=["catalog_name", "weight_image", "starnnw_name"])
+                            skip=["catalog_name", "weight_image", "starnnw_name", "phot_apertures"])
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
 
         # Construct commands for source extraction
-        cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
-                "".format(path_exe, path_default_config, image, path_default_nnw, catalog, weight, ss)
+        cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} -PHOT_APERTURES {6} {7}"
+                "".format(path_exe, path_default_config, image, path_default_nnw, catalog, weight,
+                          self.setup["photometry"]["apcor_radii"], ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight.full_paths)]
 
         # Run Sextractor
