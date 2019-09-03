@@ -3,11 +3,13 @@
 import astropy
 import warnings
 import numpy as np
-from PIL import Image
 import multiprocessing
 
+from PIL import Image
 from itertools import repeat
+from astropy.units import Unit
 from scipy.ndimage import median_filter
+from astropy.coordinates import SkyCoord
 from vircampype.utils.miscellaneous import str2func
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
 
@@ -906,6 +908,47 @@ def centroid_sphere(lon, lat, units="radian"):
         return np.degrees(outlon), np.degrees(outlat)
     else:
         return outlon, outlat
+
+
+# TODO: Centroiding methods should be unified
+def centroid_sphere_skycoord(skycoord):
+    """
+    Calculate the centroid on a sphere. Strictly valid only for a unit sphere and for a coordinate system with latitudes
+    from -90 to 90 degrees and longitudes from 0 to 360 degrees.
+
+    Parameters
+    ----------
+    skycoord : SkyCoord
+        SkyCoord instance
+
+    Returns
+    -------
+    SkyCoord
+        Centroid as SkyCoord instance.
+
+    """
+
+    # Filter finite entries in arrays
+    good = np.isfinite(skycoord.spherical.lon) & np.isfinite(skycoord.spherical.lat)
+
+    # 3D mean
+    mean_x = np.mean(skycoord[good].cartesian.x)
+    mean_y = np.mean(skycoord[good].cartesian.y)
+    mean_z = np.mean(skycoord[good].cartesian.z)
+
+    # Push mean to triangle surface
+    cenlen = np.sqrt(mean_x ** 2 + mean_y ** 2 + mean_z ** 2)
+    xsur, ysur, zsur = mean_x / cenlen, mean_y / cenlen, mean_z / cenlen
+
+    # Convert back to spherical coordinates and return
+    outlon = np.arctan2(ysur, xsur)
+
+    # Convert back to 0-2pi range if necessary
+    if outlon < 0:
+        outlon += 2 * np.pi * Unit("rad")
+    outlat = np.arcsin(zsur)
+
+    return SkyCoord(outlon, outlat, frame=skycoord.frame)
 
 
 def haversine(theta, units="radian"):
