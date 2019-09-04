@@ -1,5 +1,5 @@
+from astropy.io import fits
 from itertools import groupby
-from astropy.table import Table
 from astropy.io.fits.header import Header
 from vircampype.utils.miscellaneous import read_setup
 
@@ -105,12 +105,10 @@ def sextractor2imagehdr(path):
         List of image headers found in file.
 
     """
-    from astropy.io import fits
 
     # Read image headers into tables
     with fits.open(path) as hdulist:
-        tables = [Table.read(path, hdu=h) for h in range(1, len(hdulist), 2)]
+        tables = [fits.getdata(path, hdu=h) for h in range(1, len(hdulist), 2)]
 
     # Convert to headers and return
-    return [fits.Header.fromstring(",".join([x.decode("UTF-8") for x in t["Field Header Card"][0]]), sep=",")
-            for t in tables]
+    return [fits.Header.fromstring("\n".join(t["Field Header Card"][0]), sep="\n") for t in tables]
