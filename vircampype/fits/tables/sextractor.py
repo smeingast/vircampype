@@ -42,7 +42,7 @@ class SextractorTable(FitsTables):
         # QC plots
         qc_types = ["FGROUPS", "DISTORTION", "ASTR_INTERROR2D", "ASTR_INTERROR1D",
                     "ASTR_REFERROR2D", "ASTR_REFERROR1D"]
-        qc_names = ",".join(["{0}{1}".format(self.file_directories[0], qt.lower()) for qt in qc_types])
+        qc_names = ",".join(["{0}scamp_{1}".format(self.file_directories[0], qt.lower()) for qt in qc_types])
         qc_types = ",".join(qc_types)
 
         # Header names
