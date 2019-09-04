@@ -9,7 +9,7 @@ from astropy.modeling import models, fitting
 def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
     # Subtract last aperture from mag to obtain aperture correction for each source
-    mag_diff = magnitudes - magnitudes[:, -1][:, np.newaxis]
+    mag_diff = magnitudes[:, -1][:, np.newaxis] - magnitudes
 
     # The aperture correction is now the median across all remaining sources
     mag_apcor = np.nanmedian(mag_diff, axis=0)
