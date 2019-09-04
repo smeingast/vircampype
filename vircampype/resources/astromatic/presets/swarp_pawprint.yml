@@ -40,7 +40,7 @@ BLANK_BADPIXELS:        N               # Set to 0 pixels having a weight of 0
 CELESTIAL_TYPE:         NATIVE          # NATIVE, PIXEL, EQUATORIAL,
                                        # GALACTIC,ECLIPTIC, or SUPERGALACTIC
 PROJECTION_TYPE:        TAN             # Any WCS projection code or NONE
-PROJECTION_ERR:         0           # Maximum projection error (in output
+PROJECTION_ERR:         0.001           # Maximum projection error (in output
                                        # pixels), or 0 for no approximation
 CENTER_TYPE:            ALL             # MANUAL, ALL or MOST
 CENTER:         00:00:00.0, +00:00:00.0 # Coordinates of the image center
@@ -52,13 +52,13 @@ IMAGE_SIZE:             0               # Image size (0 = AUTOMATIC)
 
 RESAMPLE:               Y               # Resample input images (Y/N)?
 RESAMPLE_DIR:           .               # Directory path for resampled images
-RESAMPLE_SUFFIX:        .swarp.fits    # filename extension for resampled images
+RESAMPLE_SUFFIX:        .astr.fits    # filename extension for resampled images
 
 RESAMPLING_TYPE:        LANCZOS3        # NEAREST,BILINEAR,LANCZOS2,LANCZOS3
                                        # LANCZOS4 (1 per axis) or FLAGS
 OVERSAMPLING:           0               # Oversampling in each dimension
                                        # (0 = automatic)
-INTERPOLATE:            Y               # Interpolate bad input pixels (Y/N)?
+INTERPOLATE:            N               # Interpolate bad input pixels (Y/N)?
                                        # (all or for each image)
 
 FSCALASTRO_TYPE:        VARIABLE           # NONE,FIXED, or VARIABLE
