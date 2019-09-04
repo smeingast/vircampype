@@ -27,6 +27,44 @@ class SextractorTable(FitsTables):
         """
         return [range(2, len(hdrs), 2) for hdrs in self.headers]
 
+    @property
+    def image_hdu(self):
+        """
+        Contains iterators to obtain Image headers saved in the sextractor tables.
+
+        Returns
+        -------
+        iterable
+            List of iterators for each file
+
+        """
+        return [range(1, len(hdrs), 2) for hdrs in self.headers]
+
+    _image_headers = None
+
+    @property
+    def image_headers(self):
+        """
+        Obtains image headers from sextractor catalogs
+
+        Returns
+        -------
+        iterable
+            List of lists containing the image headers for each table and each extension.
+
+        """
+
+        if self._image_headers is not None:
+            return self._image_headers
+
+        import multiprocessing
+        from vircampype.utils.astromatic import sextractor2imagehdr
+
+        with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+            self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
+
+        return self._image_headers
+
     def scamp(self):
 
         # Find executable
