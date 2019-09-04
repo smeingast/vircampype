@@ -865,6 +865,18 @@ class ImageCube(object):
         if norm_after is not None:
             self.normalize(norm=norm_after)
 
+    # def mask_cosmics(self, bpm=None):
+    #
+    #     # noinspection PyUnresolvedReferences
+    #     # from astroscrappy.astroscrappy import detect_cosmics
+    #     kwargs = {"readnoise": 20., "gain": 4.0, "objlim": 4, "sigclip": 5, "sigfrac": 0.3, "niter": 4}
+    #
+    #     for idx in range(len(self)):
+    #
+    #         # Get input mask
+    #         inmask = bpm[idx] if bpm is not None else None
+    #         self.cube[idx] = mask_cosmics(self.cube[idx], inmask=inmask, **kwargs)
+
     def interpolate_nan(self):
         """
         Interpolates NaNs for each plane in the cube. Interpolation is (for performance reasons) kept very simple,

@@ -91,7 +91,8 @@ linearity:
   max_lag: 1
 
 cosmetics:
-  interpolate_bad: True
+  interpolate_nan: True
+#  mask_cosmics: True
   max_bad_neighbors: 3
   destripe: True
   destripe_axis: 2

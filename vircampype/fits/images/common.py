@@ -508,12 +508,14 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.sky import MasterSky
         from vircampype.fits.images.dark import MasterDark
         from vircampype.fits.images.flat import MasterFlat
+        # from vircampype.fits.images.bpm import MasterBadPixelMask
         from vircampype.fits.tables.linearity import MasterLinearity
 
         # Processing info
         tstart = message_mastercalibration(master_type="CALIBRATION", silent=self.setup["misc"]["silent"], right="")
 
         # Fetch the Masterfiles
+        # master_bpm = self.get_master_bpm()  # type: MasterBadPixelMask
         master_dark = self.get_master_dark()  # type: MasterDark
         master_flat = self.get_master_flat()  # type: MasterFlat
         master_sky = self.get_master_sky()  # type: MasterSky
@@ -534,6 +536,7 @@ class FitsImages(FitsFiles):
             calib_cube = self.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
 
             # Get master calibration
+            # bpm = master_bpm.file2cube(file_index=idx, hdu_index=None, dtype=np.uint8)
             dark = master_dark.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
             flat = master_flat.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
             sky = master_sky.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
@@ -544,7 +547,9 @@ class FitsImages(FitsFiles):
             calib_cube.calibrate(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=norm_before)
 
             # Apply cosmetics
-            if self.setup["cosmetics"]["interpolate_bad"]:
+            # if self.setup["cosmetics"]["mask_cosmics"]:
+            #     calib_cube.mask_cosmics(bpm=bpm)
+            if self.setup["cosmetics"]["interpolate_nan"]:
                 calib_cube.interpolate_nan()
             if self.setup["cosmetics"]["destripe"]:
                 calib_cube.destripe()
@@ -552,6 +557,7 @@ class FitsImages(FitsFiles):
             # Write to disk
             calib_cube.write_mef(path=self.paths_calibrated[idx], prime_header=self.headers_primary[idx],
                                  data_headers=self.headers_data[idx])
+
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 

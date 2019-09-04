@@ -5,6 +5,9 @@ import warnings
 import numpy as np
 import multiprocessing
 
+# noinspection PyUnresolvedReferences
+from astroscrappy.astroscrappy import detect_cosmics
+
 from PIL import Image
 from itertools import repeat
 from astropy.units import Unit
@@ -971,3 +974,9 @@ def haversine(theta, units="radian"):
         return np.sin(theta / 2.)**2
     elif "deg" in units.lower():
         return np.degrees(np.sin(np.radians(theta) / 2.)**2)
+
+
+def mask_cosmics(array, **kwargs):
+    _, clean = detect_cosmics(array.copy(), **kwargs)
+    # array[mask] = np.nan
+    return clean
