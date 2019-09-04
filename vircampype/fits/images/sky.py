@@ -426,7 +426,9 @@ class SkyImages(FitsImages):
                                           self.primeheaders_get_keys(keywords=["HIERARCH ESO OBS NAME"])[0][0])
 
         # Write coadd header
-        self.header_coadd.totextfile(path_coadd.replace(".fits", ".ahead"), overwrite=True, endcard=True)
+        path_header_coadd = path_coadd.replace(".fits", ".ahead")
+        if not check_file_exists(file_path=path_header_coadd, silent=True):
+            self.header_coadd.totextfile(path_header_coadd, overwrite=True, endcard=True)
 
         # Fetch masterweights
         master_weight = self.get_master_weight()
@@ -461,13 +463,14 @@ class SkyImages(FitsImages):
             # Append path to output
             paths_swarped.append(path_mef)
 
+            # Check if plot already exits
+            if check_file_exists(file_path=path_mef, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
             # Print processing info
             message_calibration(n_current=idx+1, n_total=len(self), name=path_mef, d_current=None,
                                 d_total=None, silent=self.setup["misc"]["silent"])
-
-            # Check if plot already exits
-            if check_file_exists(file_path=path_mef, silent=True) and not self.setup["misc"]["overwrite"]:
-                continue
 
             # Run Swarp
             subprocess.run(cmds[idx], shell=True, executable="/bin/bash",
