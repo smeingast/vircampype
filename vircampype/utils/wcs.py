@@ -135,7 +135,7 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
                 "CD1_2", "CD2_1", "CD2_2", "RADESYS"]
     values = [2, ctype1, ctype2, skycoord_centroid.spherical.lon.deg,
               skycoord_centroid.spherical.lat.deg, "deg", "deg", cd11,
-              cd12, cd21, cd22, "icrs"]
+              cd12, cd21, cd22, "ICRS"]
     for key, val in zip(keywords, values):
         cards.append(fits.Card(keyword=key, value=val))
 
