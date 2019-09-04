@@ -32,6 +32,9 @@ class SextractorTable(FitsTables):
         # Find executable
         path_exe = which(self.setup["astromatic"]["bin_scamp"])
 
+        # Shortcut for preset package
+        package_presets = "vircampype.resources.astromatic.presets"
+
         # Find default config
         path_default_config = get_resource_path(package="vircampype.resources.astromatic.scamp",
                                                 resource="default.config")
@@ -46,9 +49,9 @@ class SextractorTable(FitsTables):
         hdr_names = ",".join(["{0}.head".format(x) for x in self.full_paths])
 
         # Load preset
-        options = yml2config(path=get_resource_path(package="vircampype.resources.astromatic.presets",
-                                                    resource="scamp.yml"),
-                             checkplot_type=qc_types, checkplot_name=qc_names, skip=["HEADER_NAME"])
+        options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=qc_types,
+                             checkplot_name=qc_names, skip=["HEADER_NAME"],
+                             path=get_resource_path(package=package_presets, resource="scamp.yml"))
 
         # Get string for catalog paths
         paths_catalogs = " ".join(self.full_paths)
