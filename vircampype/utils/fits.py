@@ -5,6 +5,9 @@ from astropy.io import fits
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
 
+    if len(paths_input) == 0:
+        raise ValueError("No images to combine")
+
     # Create empty HDUlist
     hdulist = fits.HDUList()
 
