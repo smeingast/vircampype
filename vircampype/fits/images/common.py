@@ -610,8 +610,10 @@ class FitsImages(FitsFiles):
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
-        # Fetch masterweights
-        master_weight = self.get_master_weight()
+        # Look for local weights
+        master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
+        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
+            master_weight_paths = self.get_master_weight().full_paths
 
         # Fetch param file
         if preset == "scamp":
@@ -630,7 +632,7 @@ class FitsImages(FitsFiles):
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
                 "".format(path_exe, path_default_config, image, path_default_nnw, catalog, weight, ss)
-                for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight.full_paths)]
+                for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
 
         # Run Sextractor
         run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
