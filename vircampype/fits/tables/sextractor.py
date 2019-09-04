@@ -69,6 +69,10 @@ class SextractorTable(FitsTables):
 
     def build_aperture_correction(self):
 
+        # Processing info
+        tstart = message_mastercalibration(master_type="APERTURE CORRECTION", silent=self.setup["misc"]["silent"],
+                                           right=None)
+
         # Obtain diameters from setup and put the in list
         diameters_eval = [float(x) for x in self.setup["photometry"]["apcor_diam_eval"].split(",")]
         # diameters_save = [float(x) for x in self.setup["photometry"]["apcor_diam_save"].split(",")]
@@ -76,11 +80,16 @@ class SextractorTable(FitsTables):
         # Loop over catalogs and build aperture correction
         for idx in range(len(self)):
 
-            # Read currect catalog
-            tab = self.file2table(file_index=idx)
-
             # Generate output names
             path_qc_plot = "{0}{1}.pdf".format(self.file_directories[idx], self.file_names[idx])
+
+            # Print processing info
+            # TODO: Replace path
+            message_calibration(n_current=idx+1, n_total=len(self), name=path_qc_plot, d_current=None,
+                                d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Read currect catalog
+            tab = self.file2table(file_index=idx)
 
             # Lists to save results for this image
             mag_apcor, magerr_apcor, models_apcor = [], [], []
@@ -122,6 +131,9 @@ class SextractorTable(FitsTables):
                 self.qc_plot_apcor(path=path_qc_plot, diameters=diameters_eval, mag_apcor=mag_apcor,
                                    magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4,
                                    overwrite=self.setup["misc"]["overwrite"])
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4, overwrite=False):
 
