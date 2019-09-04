@@ -17,20 +17,28 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
     # Choose model based on option
     if func.lower() == "moffat":
-        model_init = models.Moffat1D()
-    elif func.lower() == "gaussian":
-        model_init = models.Gaussian1D()
-    elif func.lower() == "lorentz":
-        model_init = models.Lorentz1D()
+        model_init = models.Moffat1D(amplitude=-100, x_0=-1.75, gamma=0.5, alpha=1.0,
+                                     bounds={"amplitude": (-300, -20), "x_0": (-3., 0),
+                                             "gamma": (0.1, 0.9), "alpha": (0.5, 1.5)})
+    # TODO: Write initial guess and bounds that make sense before allowing these options
+    # elif func.lower() == "gaussian":
+    #     model_init = models.Gaussian1D()
+    # elif func.lower() == "lorentz":
+    #     model_init = models.Lorentz1D()
     else:
         raise ValueError("Requested fit function '{0}' not available.".format(func))
 
     # Fit profile
-    fit_m = fitting.LevMarLSQFitter()
+    fit_m = fitting.SimplexLSQFitter()
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="The fit may be unsuccessful")
         # noinspection PyTypeChecker
         model = fit_m(model_init, diameters, mag_apcor)
+
+    # Dummy check sums of squares
+    ss = np.sum((mag_apcor - model(diameters))**2)
+    if ss > 0.3:
+        raise ValueError("Fit did not converge")
 
     # Return aperture correction and model
     return mag_apcor, magerr_apcor, model
