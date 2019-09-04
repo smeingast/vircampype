@@ -577,7 +577,8 @@ class FitsImages(FitsFiles):
 
         """
 
-        # TODO: Print status message here.
+        # Print status message
+        print("Running Sextractor with preset 'scamp' on {0} files".format(len(self)))
 
         # Shortcut for preset package
         package_presets = "vircampype.resources.astromatic.presets"
@@ -594,7 +595,7 @@ class FitsImages(FitsFiles):
                                              resource="default.nnw")
 
         # Construct output catalog paths
-        path_tables = ["{0}.tab".format(x) for x in self.full_paths]
+        path_tables = [x.replace(".fits", ".sources") for x in self.full_paths]
 
         # Check for existing files
         path_tables_clean = []
