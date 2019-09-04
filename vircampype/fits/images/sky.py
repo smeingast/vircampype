@@ -1,8 +1,13 @@
 # =========================================================================== #
 # Import
+import glob
+import subprocess
+
 from vircampype.utils.wcs import *
+from vircampype.utils.fits import *
 from vircampype.utils.math import *
 from astropy.coordinates import SkyCoord
+from vircampype.utils.astromatic import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
@@ -313,14 +318,14 @@ class SkyImages(FitsImages):
         tstart = message_mastercalibration(master_type="ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
 
         # Run Sextractor
-        print("Running Sextractor with preset 'scamp' on {0} files".format(len(self)))
         catalogs = self.sextractor(preset="scamp")  # type: SextractorTable
 
         # Check if Scamp has already been run. If not, run it
         path_hdr = []
         for f in self.full_paths:
 
-            phdr = f.replace(".fits", ".fits.scamptab.head")
+            # Check if headers are already there
+            phdr = f.replace(".fits", ".ahead")
 
             # Check if header file exists and if any is not there, run scamp and break check loop
             if not os.path.isfile(phdr):
@@ -368,6 +373,12 @@ class SkyImages(FitsImages):
         CD1_2 = -CDELT2 * sin(CROTA2)
         CD2_1 = CDELT1 * sin(CROTA2)
         CD2_2 = CDELT2 * cos(CROTA2)
+
+        Returns
+        -------
+        Header
+            Astropy fits header.
+
         """
 
         # Get rotation from input headers (I do this in a loop down below)
@@ -386,14 +397,101 @@ class SkyImages(FitsImages):
         rotation_test = np.linspace(0, np.pi / 2, 360)
         area = []
         for rot in rotation_test:
-            hdr = skycoord2header(skycoord=sc, proj_code="CEA", rotation=rot,
+            hdr = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rot,
                                   cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
             area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
 
         # Return final header with optimized rotation
         rotation = rotation_test[np.argmin(area)]
-        return skycoord2header(skycoord=sc, proj_code="CEA", rotation=rotation,
+        return skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation,
                                cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
+
+    def swarp(self, preset="pawprint"):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="RESAMPLING", silent=self.setup["misc"]["silent"])
+
+        # Shortcut for preset package
+        package_presets = "vircampype.resources.astromatic.presets"
+
+        # Find executable
+        path_bin = which(self.setup["astromatic"]["bin_swarp"])
+
+        # Find default config
+        path_default_config = get_resource_path(package="vircampype.resources.astromatic.swarp",
+                                                resource="default.config")
+
+        # Get path of coadd
+        path_coadd = "{0}{1}.fits".format(self.file_directories[0],
+                                          self.primeheaders_get_keys(keywords=["HIERARCH ESO OBS NAME"])[0][0])
+
+        # Write coadd header
+        self.header_coadd.totextfile(path_coadd.replace(".fits", ".ahead"), overwrite=True, endcard=True)
+
+        # Fetch masterweights
+        master_weight = self.get_master_weight()
+
+        # Resample suffix
+        resample_suffix = ".astr.fits"
+
+        # TODO: Add all header keywords via COPY_KEYWORDS
+        if preset == "pawprint":
+            ss = yml2config(path=get_resource_path(package=package_presets, resource="swarp_pawprint.yml"),
+                            imageout_name=path_coadd, weightout_name=path_coadd.replace(".fits", ".weight.fits"),
+                            nthreads=self.setup["misc"]["n_threads"], resample_suffix=resample_suffix,
+                            skip=["weight_image", "weight_thresh", "resample_dir"])
+
+            # Construct commands for source extraction
+            cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
+                    "".format(path_bin, path_default_config, path_image, weight, path, ss)
+                    for path_image, weight, path in
+                    zip(self.full_paths, master_weight.full_paths, self.file_directories)]
+        else:
+            """ Swarp should be run in one command on multiple images for a coadd. """
+            raise ValueError("Preset '{0}' not supported".format(preset))
+
+        # Run for each individual image and make MEF
+        paths_swarped = []
+        for idx in range(len(self)):
+
+            # Construct path of output MEF
+            path_mef = self.full_paths[idx].replace(".fits", resample_suffix)
+            path_mef_weight = path_mef.replace(".fits", ".weight.fits")
+
+            # Append path to output
+            paths_swarped.append(path_mef)
+
+            # Print processing info
+            message_calibration(n_current=idx+1, n_total=len(self), name=path_mef, d_current=None,
+                                d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Check if plot already exits
+            if check_file_exists(file_path=path_mef, silent=True) and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Run Swarp
+            subprocess.run(cmds[idx], shell=True, executable="/bin/bash",
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+            paths_images = glob.glob("{0}{1}*{2}".format(self.file_directories[idx], self.file_names[idx],
+                                                         resample_suffix))
+            paths_weights = [p.replace(".fits", ".weight.fits") for p in paths_images]
+
+            # Construct MEF from resampled detectors
+            make_image_mef(paths_input=sorted(paths_images), overwrite=self.setup["misc"]["overwrite"],
+                           path_output=path_mef, primeheader=self.headers_primary[idx])
+            make_image_mef(paths_input=sorted(paths_weights), overwrite=self.setup["misc"]["overwrite"],
+                           path_output=path_mef_weight, primeheader=self.headers_primary[idx])
+
+            # Remove intermediate files
+            [os.remove(x) for x in paths_images]
+            [os.remove(x) for x in paths_weights]
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return new instance of calibrated images
+        return self.__class__(setup=self.setup, file_paths=paths_swarped)
 
 
 class ScienceImages(SkyImages):
