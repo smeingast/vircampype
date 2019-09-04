@@ -79,6 +79,9 @@ class SextractorTable(FitsTables):
             # Read currect catalog
             tab = self.file2table(file_index=idx)
 
+            # Generate output names
+            path_qc_plot = "{0}{1}.pdf".format(self.file_directories[idx], self.file_names[idx])
+
             # Lists to save results for this image
             mag_apcor, magerr_apcor, models_apcor = [], [], []
 
@@ -115,11 +118,10 @@ class SextractorTable(FitsTables):
                 # exit()
 
             # QC plot
-            # TODO: Replace path
             if self.setup["misc"]["qc_plots"]:
-                self.qc_plot_apcor(path="/Users/stefan/Desktop/apcor.pdf",
-                                   diameters=diameters_eval, mag_apcor=mag_apcor, magerr_apcor=magerr_apcor,
-                                   models=models_apcor, axis_size=4, overwrite=self.setup["misc"]["overwrite"])
+                self.qc_plot_apcor(path=path_qc_plot, diameters=diameters_eval, mag_apcor=mag_apcor,
+                                   magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4,
+                                   overwrite=self.setup["misc"]["overwrite"])
 
     def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4, overwrite=False):
 
@@ -136,7 +138,7 @@ class SextractorTable(FitsTables):
         axes = axes.ravel()
 
         # Helper
-        ymax = np.ceil(np.max(mag_apcor + magerr_apcor)) + 1
+        ymin = np.floor(np.min(np.array(mag_apcor) - np.array(magerr_apcor))) - 1
 
         # Loop over detectors
         for idx in range(len(mag_apcor)):
@@ -145,7 +147,7 @@ class SextractorTable(FitsTables):
             ax = axes[idx]
 
             # Plot model
-            rad_model = np.linspace(0, 100, 1000)
+            rad_model = np.linspace(0.1, 30, 2000)
             kwargs = {"lw": 0.8, "ls": "solid", "zorder": 10, "c": "black"}
             ax.plot(rad_model, models[idx](rad_model), label=models[idx].name, **kwargs)
 
@@ -156,9 +158,12 @@ class SextractorTable(FitsTables):
                        facecolor="white", edgecolor="#08519c", lw=1.0, s=25, marker="o", zorder=2)
 
             # Limits
-            ax.set_ylim(-0.5, ymax)
-            ax.set_xlim(min(diameters) - 1.0, max(diameters) + 1.0)
+            ax.set_ylim(ymin, 0.5)
+            ax.set_xlim(min(diameters) - 0.1, max(diameters) + 5.0)
             # ax.legend()
+
+            # Logscale
+            ax.set_xscale("log")
 
             # Labels
             if idx >= len(mag_apcor) - self.setup["instrument"]["layout"][0]:
@@ -176,14 +181,14 @@ class SextractorTable(FitsTables):
             ax.axhline(y=0, **kwargs)
 
             # Set ticks
-            ax.xaxis.set_major_locator(MaxNLocator(5))
-            ax.xaxis.set_minor_locator(AutoMinorLocator())
+            # ax.xaxis.set_major_locator(MaxNLocator(5))
+            # ax.xaxis.set_minor_locator(AutoMinorLocator())
             ax.yaxis.set_major_locator(MaxNLocator(5))
             ax.yaxis.set_minor_locator(AutoMinorLocator())
 
             # Annotate detector ID
-            ax.annotate("Det.ID: {0:0d}".format(idx + 1), xy=(0.98, 0.98), xycoords="axes fraction",
-                        ha="right", va="top")
+            ax.annotate("Det.ID: {0:0d}".format(idx + 1), xy=(0.98, 0.02), xycoords="axes fraction",
+                        ha="right", va="bottom")
 
         # Save plot
         with warnings.catch_warnings():
