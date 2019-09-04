@@ -448,6 +448,7 @@ class SkyImages(FitsImages):
                     "".format(path_bin, path_default_config, path_image, weight, path, ss)
                     for path_image, weight, path in
                     zip(self.full_paths, master_weight.full_paths, self.file_directories)]
+
         else:
             """ Swarp should be run in one command on multiple images for a coadd. """
             raise ValueError("Preset '{0}' not supported".format(preset))
@@ -489,6 +490,9 @@ class SkyImages(FitsImages):
             # Remove intermediate files
             [os.remove(x) for x in paths_images]
             [os.remove(x) for x in paths_weights]
+
+            # Copy header entries from original file
+            merge_headers(path_1=path_mef, path_2=self.full_paths[idx])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
