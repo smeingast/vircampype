@@ -2,11 +2,13 @@
 # Import
 import warnings
 import subprocess
+import multiprocessing
 
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
 from vircampype.utils.astromatic import yml2config
 from vircampype.fits.tables.common import FitsTables
+from vircampype.utils.astromatic import sextractor2imagehdr
 from vircampype.utils.photometry import get_aperture_correction
 
 
@@ -56,9 +58,6 @@ class SextractorTable(FitsTables):
 
         if self._image_headers is not None:
             return self._image_headers
-
-        import multiprocessing
-        from vircampype.utils.astromatic import sextractor2imagehdr
 
         with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
             self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
