@@ -409,7 +409,7 @@ class SkyImages(FitsImages):
     def swarp(self, preset="pawprint"):
 
         # Processing info
-        tstart = message_mastercalibration(master_type="RESAMPLING", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="RESAMPLING", silent=self.setup["misc"]["silent"], right=None)
 
         # Shortcut for preset package
         package_presets = "vircampype.resources.astromatic.presets"
