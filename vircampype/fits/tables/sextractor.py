@@ -62,7 +62,7 @@ class SextractorTable(FitsTables):
 
         # Run Scamp
         # cp = subprocess.run([cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        subprocess.run(cmd, shell=True, executable='/bin/bash')
+        subprocess.run(cmd, shell=True, executable="/bin/bash")
 
         # Return header paths
         return hdr_names.split(",")
