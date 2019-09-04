@@ -46,7 +46,7 @@ class SextractorTable(FitsTables):
         qc_types = ",".join(qc_types)
 
         # Header names
-        hdr_names = ",".join(["{0}.head".format(x) for x in self.full_paths])
+        hdr_names = ",".join([x.replace(".sources", ".ahead") for x in self.full_paths])
 
         # Load preset
         options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=qc_types,
