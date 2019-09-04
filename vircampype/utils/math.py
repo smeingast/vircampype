@@ -6,7 +6,7 @@ import numpy as np
 import multiprocessing
 
 # noinspection PyUnresolvedReferences
-from astroscrappy.astroscrappy import detect_cosmics
+# from astroscrappy.astroscrappy import detect_cosmics
 
 from PIL import Image
 from itertools import repeat
