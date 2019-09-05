@@ -538,7 +538,11 @@ class VircamScienceImages(ScienceImages):
 
         # Construct commands for source extraction
         cmd = "{0} {1} -c {2} {3}".format(self.bin_swarp, " ".join(self.full_paths), self._swarp_default_config, ss)
-        print(cmd)
+
+        # Run Swarp
+        if not check_file_exists(file_path=self._swarp_path_coadd, silent=self.setup["misc"]["silent"]) \
+                and not self.setup["misc"]["overwrite"]:
+            run_command_bash(cmd=cmd, silent=False)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
