@@ -64,7 +64,7 @@ def merge_headers(path_1, path_2, primary_only=False):
     """
 
     # Get HDUlists for both files
-    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="update") as hdulist_2:
+    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
 
         # Iterate over HDUs
         for hdu1, hdu2 in zip(hdulist_1, hdulist_2):
