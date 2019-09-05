@@ -31,3 +31,10 @@ def run_cmds(cmds, n_processes=1, silent=True):
     for processes in zip_longest(*groups):  # run len(processes) == limit at a time
         for p in filter(None, processes):
             p.wait()
+
+
+def run_command_bash(cmd, silent=False):
+    if silent:
+        subprocess.run(cmd, shell=True, executable="/bin/bash", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    else:
+        subprocess.run(cmd, shell=True, executable="/bin/bash")
