@@ -17,66 +17,9 @@ class SextractorTable(FitsTables):
     def __init__(self, setup, file_paths=None):
         super(SextractorTable, self).__init__(file_paths=file_paths, setup=setup)
 
-    @property
-    def filters(self):
-        """
-        Grabs filter keyword from header and puts in into list
-
-        Returns
-        -------
-        iterable
-            List of filters for all tables in instance.
-
-        """
-        return self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
-
-    @property
-    def data_hdu(self):
-        """
-        Overrides the normal table data_hdu property because Sextractor is special...
-
-        Returns
-        -------
-        iterable
-            List of iterators for header indices of HDUs which hold data.
-        """
-        return [range(2, len(hdrs), 2) for hdrs in self.headers]
-
-    @property
-    def image_hdu(self):
-        """
-        Contains iterators to obtain Image headers saved in the sextractor tables.
-
-        Returns
-        -------
-        iterable
-            List of iterators for each file
-
-        """
-        return [range(1, len(hdrs), 2) for hdrs in self.headers]
-
-    _image_headers = None
-
-    @property
-    def image_headers(self):
-        """
-        Obtains image headers from sextractor catalogs
-
-        Returns
-        -------
-        iterable
-            List of lists containing the image headers for each table and each extension.
-
-        """
-
-        if self._image_headers is not None:
-            return self._image_headers
-
-        with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
-            self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
-
-        return self._image_headers
-
+    # =========================================================================== #
+    # Scamp
+    # =========================================================================== #
     def scamp(self):
 
         # Find executable
@@ -117,6 +60,9 @@ class SextractorTable(FitsTables):
         # Return header paths
         return hdr_names.split(",")
 
+    # =========================================================================== #
+    # Aperture correction
+    # =========================================================================== #
     def build_aperture_correction(self):
 
         # Processing info
@@ -288,3 +234,66 @@ class SextractorTable(FitsTables):
             warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
             fig.savefig(path, bbox_inches="tight")
         plt.close("all")
+
+    # =========================================================================== #
+    # Properties
+    # =========================================================================== #
+    @property
+    def filters(self):
+        """
+        Grabs filter keyword from header and puts in into list
+
+        Returns
+        -------
+        iterable
+            List of filters for all tables in instance.
+
+        """
+        return self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
+
+    @property
+    def data_hdu(self):
+        """
+        Overrides the normal table data_hdu property because Sextractor is special...
+
+        Returns
+        -------
+        iterable
+            List of iterators for header indices of HDUs which hold data.
+        """
+        return [range(2, len(hdrs), 2) for hdrs in self.headers]
+
+    @property
+    def image_hdu(self):
+        """
+        Contains iterators to obtain Image headers saved in the sextractor tables.
+
+        Returns
+        -------
+        iterable
+            List of iterators for each file
+
+        """
+        return [range(1, len(hdrs), 2) for hdrs in self.headers]
+
+    _image_headers = None
+
+    @property
+    def image_headers(self):
+        """
+        Obtains image headers from sextractor catalogs
+
+        Returns
+        -------
+        iterable
+            List of lists containing the image headers for each table and each extension.
+
+        """
+
+        if self._image_headers is not None:
+            return self._image_headers
+
+        with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+            self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
+
+        return self._image_headers
