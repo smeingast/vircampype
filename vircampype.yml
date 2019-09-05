@@ -131,6 +131,7 @@ photometry:
   apcor_diam_eval: 0.3,0.4,0.5,0.6,0.8,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,7,8,9,10,12,14,16,18,20
   apcor_diam_save: 1.5,3.0,4.5,6.0,7.5,9.0
   apcor_func: moffat                # Function for aperture correction fitting
+  apcor_image_scale: 0.2            # Scale factor for aperture correction output image
 
 
 # =========================================================================== #
