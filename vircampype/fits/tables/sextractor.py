@@ -139,6 +139,10 @@ class SextractorTable(FitsTables):
                     hdr_temp = ohdr
                     hdr_temp["MAPCOR"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
                     hdr_temp["DAPCOR"] = (mag_apcor_save[aidx], "Aperture diameter (pix)")
+                    hdr_temp["MODEL"] = (mo_apcor.name, "Model name")
+                    for i in range(len(mo_apcor.parameters)):
+                        hdr_temp["PMODEL{0}".format(i+1)] = (mo_apcor.parameters[i], "Model parameter {0}".format(i+1))
+
                     hdulist_save[aidx].append(hdr2imagehdu(header=hdr_temp, fill_value=mag_apcor_save[aidx],
                                                            dtype=np.float32))
 
