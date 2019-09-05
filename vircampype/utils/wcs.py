@@ -163,3 +163,47 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
 
     # Return Header
     return header
+
+
+def resize_header(header, factor):
+    """
+    Resizes WCS projection parameters to reduced (or increase) the image size.
+
+    CD1_1 = CDELT1 * cos(CROTA2)
+    CD1_2 = -CDELT2 * sin(CROTA2)
+    CD2_1 = CDELT1 * sin(CROTA2)
+    CD2_2 = CDELT2 * cos(CROTA2)
+
+    Parameters
+    ----------
+    header : fits.Header
+        Input Image header to resize.
+    factor : int, float
+        Resizing factor (0.5 is half, 2 is twice the input size)
+
+    Returns
+    -------
+    fits.Header
+        Same as input, but WCS projection parameters rewritten to match new size.
+
+    """
+
+    # Copy input header
+    header_out = header.copy()
+
+    # Start by scaling NAXIS
+    header_out["NAXIS1"] = int(np.ceil(header["NAXIS1"] * factor))
+    header_out["NAXIS2"] = int(np.ceil(header["NAXIS2"] * factor))
+
+    # Get true scaling factors in both axes
+    tfactor1, tfactor2 = header_out["NAXIS1"] / header["NAXIS1"], header_out["NAXIS2"] / header["NAXIS2"]
+
+    # Scale CD matrix
+    header_out["CD1_1"], header_out["CD1_2"] = header["CD1_1"] / tfactor1, header["CD1_2"] / tfactor2
+    header_out["CD2_1"], header_out["CD2_2"] = header["CD2_1"] / tfactor1, header["CD2_2"] / tfactor2
+
+    # Scale CRPIX
+    header_out["CRPIX1"], header_out["CRPIX2"] = header["CRPIX1"] * tfactor1, header["CRPIX2"] * tfactor2
+
+    # Return new header
+    return header_out
