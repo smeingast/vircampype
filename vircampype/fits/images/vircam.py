@@ -328,6 +328,9 @@ class VircamScienceImages(ScienceImages):
         # for s in split:
         #     s.coadd(header=self.header_coadd)
 
+    # =========================================================================== #
+    # Swarping
+    # =========================================================================== #
     def resample_pawprints(self, preset="pawprint", header_coadd=None):
 
         # Processing info
