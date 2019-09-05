@@ -480,7 +480,7 @@ class SkyImages(FitsImages):
         return skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation,
                                cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
 
-    def swarp(self, preset="pawprint"):
+    def swarp(self, preset="pawprint", header_coadd=None):
 
         # Processing info
         tstart = message_mastercalibration(master_type="RESAMPLING", silent=self.setup["misc"]["silent"], right=None)
@@ -496,10 +496,14 @@ class SkyImages(FitsImages):
         path_coadd = "{0}{1}.fits".format(self.file_directories[0],
                                           self.primeheaders_get_keys(keywords=["HIERARCH ESO OBS NAME"])[0][0])
 
+        # Determine coadd header
+        if header_coadd is None:
+            header_coadd = self.header_coadd
+
         # Write coadd header
         path_header_coadd = path_coadd.replace(".fits", ".ahead")
         if not check_file_exists(file_path=path_header_coadd, silent=True):
-            self.header_coadd.totextfile(path_header_coadd, overwrite=True, endcard=True)
+            header_coadd.totextfile(path_header_coadd, overwrite=True, endcard=True)
 
         # Fetch masterweights
         master_weight = self.get_master_weight()
