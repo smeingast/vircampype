@@ -54,8 +54,11 @@ class FitsFiles:
         self.path_proc = self.setup["paths"]["pype"]
         self.path_temp = self.path_proc + "temp/"
         self.path_master = self.path_proc + "master/"
+        self.path_obspar = self.path_proc + "obspar/"
         for key, value in self.setup["paths"].items():
             make_folder(path=value)
+        for path in [self.path_temp, self.path_master, self.path_obspar]:
+            make_folder(path)
 
         # Generate paths
         self._header_paths = [self.path_temp + f + ".header" for f in self.file_names]
