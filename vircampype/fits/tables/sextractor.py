@@ -156,10 +156,6 @@ class SextractorTable(FitsTables):
                 # Read magnitudes
                 mag = tab["MAG_APER"]
 
-                # Remove bad sources
-                # bad = (class_star < 0.7) | (flags > 0) | (np.sum(mag > 0, axis=1) > 0) | \
-                #       (np.sum(magdiff > 0, axis=1) > 0) | (fwhm < 1.0) | (fwhm > 6.0)
-
                 # Remove bad sources (class, flags, bad mags, bad mag diffs, bad fwhm, bad mag errs)
                 good = (tab["CLASS_STAR"] > 0.7) & (tab["FLAGS"] == 0) & \
                        (np.sum(mag > 0, axis=1) == 0) & (np.sum(np.diff(mag, axis=1) > 0, axis=1) == 0) & \
