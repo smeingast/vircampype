@@ -108,7 +108,8 @@ def sextractor2imagehdr(path):
 
     # Read image headers into tables
     with fits.open(path) as hdulist:
-        tables = [fits.getdata(path, hdu=h) for h in range(1, len(hdulist), 2)]
+        headers = [fits.Header.fromstring("\n".join(hdulist[i].data["Field Header Card"][0]), sep="\n")
+                   for i in range(1, len(hdulist), 2)]
 
     # Convert to headers and return
-    return [fits.Header.fromstring("\n".join(t["Field Header Card"][0]), sep="\n") for t in tables]
+    return headers
