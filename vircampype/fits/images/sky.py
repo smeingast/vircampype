@@ -65,8 +65,9 @@ class SkyImages(FitsImages):
         for ww in self.wcs:
             temp = []
             for w in ww:
+                # noinspection PyProtectedMember
                 temp.append([x.tolist() for x in
-                             w.wcs_pix2world(self.setup["data"]["dim_x"] / 2, self.setup["data"]["dim_y"] / 2, 0)])
+                             w.wcs_pix2world(w._naxis[0] / 2, w._naxis[1] / 2, 0)])
             centers.append(temp)
 
         return centers
