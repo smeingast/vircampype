@@ -19,7 +19,7 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
     # Choose model based on option
     if func.lower() == "moffat":
-        model_init = models.Moffat1D(amplitude=-100, x_0=-1.75, gamma=0.5, alpha=1.0,
+        model_init = models.Moffat1D(amplitude=-100, x_0=-1.75, gamma=0.5, alpha=1.0, name="moffat1d",
                                      bounds={"amplitude": (-300, -20), "x_0": (-3., 0),
                                              "gamma": (0.1, 0.9), "alpha": (0.5, 1.5)})
     # TODO: Write initial guess and bounds that make sense before allowing these options
