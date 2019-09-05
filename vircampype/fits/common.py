@@ -55,9 +55,10 @@ class FitsFiles:
         self.path_temp = self.path_proc + "temp/"
         self.path_master = self.path_proc + "master/"
         self.path_obspar = self.path_proc + "obspar/"
+        self.path_qc = self.path_proc + "qc/"
         for key, value in self.setup["paths"].items():
             make_folder(path=value)
-        for path in [self.path_temp, self.path_master, self.path_obspar]:
+        for path in [self.path_temp, self.path_master, self.path_obspar, self.path_qc]:
             make_folder(path)
 
         # Generate paths
