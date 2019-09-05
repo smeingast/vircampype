@@ -3,7 +3,7 @@
 from vircampype.fits.tables.common import FitsTables
 
 
-class PhotometryCatalog(FitsTables):
+class SourceCatalog(FitsTables):
 
     def __init__(self, setup, file_paths=None):
-        super(PhotometryCatalog, self).__init__(file_paths=file_paths, setup=setup)
+        super(SourceCatalog, self).__init__(file_paths=file_paths, setup=setup)

@@ -16,7 +16,7 @@ from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
-from vircampype.fits.tables.catalogs import PhotometryCatalog
+from vircampype.fits.tables.catalogs import SourceCatalog
 from vircampype.fits.tables.sextractor import SextractorTable
 from vircampype.fits.images.common import FitsImages, MasterImages
 
@@ -428,7 +428,7 @@ class SkyImages(FitsImages):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return photometry catalog
-        return PhotometryCatalog(setup=self.setup, file_paths=[outpath])
+        return SourceCatalog(setup=self.setup, file_paths=[outpath])
 
     # =========================================================================== #
     # Resample
