@@ -1,15 +1,7 @@
 # =========================================================================== #
 # Import
-import subprocess
-
-from vircampype.utils.wcs import *
-from vircampype.utils.fits import *
-from vircampype.utils.miscellaneous import *
-from vircampype.utils.plots import get_plotgrid
-from vircampype.utils.astromatic import yml2config
+from vircampype.utils import *
 from vircampype.fits.tables.common import FitsTables
-from vircampype.utils.astromatic import sextractor2imagehdr
-from vircampype.utils.photometry import get_aperture_correction
 
 
 class SextractorTable(FitsTables):
@@ -266,7 +258,6 @@ class SextractorTable(FitsTables):
             return
 
         # Import locally
-        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Get plot grid

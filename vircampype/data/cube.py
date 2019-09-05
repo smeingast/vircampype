@@ -3,11 +3,8 @@
 import numpy as np
 import scipy.ndimage.measurements
 
-from astropy.io import fits
-from vircampype.utils.math import *
+from vircampype.utils import *
 from astropy.convolution import Gaussian2DKernel
-from vircampype.utils.miscellaneous import read_setup
-
 
 class ImageCube(object):
 

@@ -1,12 +1,8 @@
 # =========================================================================== #
 # Import
-import warnings
-import numpy as np
-
 from typing import List
-from vircampype.utils.plots import get_plotgrid
+from vircampype.utils import *
 from vircampype.fits.tables.common import MasterTables
-from vircampype.utils.math import linearize_data, ceil_value
 from vircampype.utils.miscellaneous import check_file_exists
 
 
@@ -192,7 +188,6 @@ class MasterLinearity(MasterTables):
         """
 
         # Import matplotlib
-        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots

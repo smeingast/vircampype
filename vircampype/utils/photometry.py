@@ -2,10 +2,10 @@
 # Import
 import warnings
 import numpy as np
+
+from astropy import modeling
 from astropy.units import Unit
 from astropy.stats import sigma_clip
-
-from astropy.modeling import models, fitting
 
 
 def get_aperture_correction(diameters, magnitudes, func="Moffat"):
@@ -19,9 +19,9 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
     # Choose model based on option
     if func.lower() == "moffat":
-        model_init = models.Moffat1D(amplitude=-100, x_0=-1.75, gamma=0.5, alpha=1.0, name="moffat1d",
-                                     bounds={"amplitude": (-300, -20), "x_0": (-3., 0),
-                                             "gamma": (0.1, 0.9), "alpha": (0.5, 1.5)})
+        model_init = modeling.models.Moffat1D(amplitude=-100, x_0=-1.75, gamma=0.5, alpha=1.0, name="moffat1d",
+                                              bounds={"amplitude": (-300, -20), "x_0": (-3., 0),
+                                                      "gamma": (0.1, 0.9), "alpha": (0.5, 1.5)})
     # TODO: Write initial guess and bounds that make sense before allowing these options
     # elif func.lower() == "gaussian":
     #     model_init = models.Gaussian1D()
@@ -31,7 +31,7 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
         raise ValueError("Requested fit function '{0}' not available.".format(func))
 
     # Fit profile
-    fit_m = fitting.SimplexLSQFitter()
+    fit_m = modeling.fitting.SimplexLSQFitter()
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="The fit may be unsuccessful")
         # noinspection PyTypeChecker

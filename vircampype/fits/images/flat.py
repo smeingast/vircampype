@@ -1,14 +1,9 @@
 # =========================================================================== #
 # Import
-import warnings
-
+from vircampype.utils import *
 from vircampype.data.cube import ImageCube
-from vircampype.utils.miscellaneous import *
-from vircampype.utils.plots import get_plotgrid
-from vircampype.utils.math import linearize_data
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
-from vircampype.utils.math import floor_value, ceil_value
 from vircampype.fits.tables.linearity import MasterLinearity
 from vircampype.fits.images.common import FitsImages, MasterImages
 
@@ -521,7 +516,6 @@ class MasterFlat(MasterImages):
         """
 
         # Import matplotlib
-        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots

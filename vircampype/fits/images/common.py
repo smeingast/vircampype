@@ -1,12 +1,8 @@
 # =========================================================================== #
 # Import
-from itertools import repeat
-from vircampype.utils.fits import *
+from vircampype.utils import *
 from vircampype.data.cube import ImageCube
-from vircampype.utils.system import run_cmds
 from vircampype.fits.common import FitsFiles
-from vircampype.utils.miscellaneous import *
-from vircampype.utils.astromatic import yml2config
 from vircampype.fits.tables.sextractor import SextractorTable
 
 

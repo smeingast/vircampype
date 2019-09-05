@@ -3,14 +3,11 @@
 import glob
 import shutil
 
-from vircampype.utils.fits import *
-from vircampype.utils.astromatic import *
-from vircampype.utils.miscellaneous import *
+from vircampype.utils import *
 from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
 from vircampype.fits.images.common import FitsImages
-from vircampype.utils.system import run_command_bash
 from vircampype.fits.images.sky import OffsetImages, ScienceImages
 
 

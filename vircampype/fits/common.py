@@ -4,9 +4,8 @@ import glob
 import pickle
 
 from astropy.time import Time
-from vircampype.utils.miscellaneous import *
+from vircampype.utils import *
 from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
-from vircampype.utils.wcs import header_reset_wcs
 
 
 class FitsFiles:

@@ -1,13 +1,8 @@
 # =========================================================================== #
 # Import
-from vircampype.utils.wcs import *
-from vircampype.utils.fits import *
-from vircampype.utils.math import *
-from vircampype.utils.vizier import *
+from vircampype.utils import *
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
-from vircampype.utils.miscellaneous import *
-from vircampype.utils.plots import get_plotgrid
 from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
@@ -608,7 +603,6 @@ class MasterSky(MasterImages):
         """
 
         # Import matplotlib
-        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Plot paths
