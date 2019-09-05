@@ -673,3 +673,19 @@ class FitsFiles:
             raise ValueError("No master calibration tables found!")
 
         return MasterTables(setup=self.setup, file_paths=paths)
+
+    # =========================================================================== #
+    # Master tables
+    # =========================================================================== #
+    def get_master_photometry(self):
+        """
+        Get for each file in self the corresponding MasterPhotometry table.
+
+        Returns
+        -------
+        MasterPhotometry
+            MasterPhotometry instance holding for each file in self the corresponding MasterPhotometry table.
+
+        """
+        return self.get_master_tables().photometry
+
