@@ -92,4 +92,4 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_ref_limits=None)
     zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True).filled(fill_value=np.nan)
 
     # Return ZP and standard deviation
-    print(np.nanmedian(zp_cal), np.nanstd(zp_cal))
+    return np.nanmedian(zp_cal), np.nanstd(zp_cal)
