@@ -1,6 +1,8 @@
 # =========================================================================== #
 # Import
 import warnings
+import numpy as np
+
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 
@@ -78,3 +80,27 @@ def merge_headers(path_1, path_2):
 
         # Flush changes to first file
         hdulist_1.flush()
+
+
+# noinspection PyTypeChecker
+def hdr2imagehdu(header, fill_value, dtype=None):
+    """
+    Takes a header and creates an image HDU based on naxis1/2 and a constant fill value.
+
+    Parameters
+    ----------
+    header : fits.Header
+        Astropy fits header.
+    fill_value : int, float
+        Value to fill array with.
+    dtype
+        data type of output.
+
+    Returns
+    -------
+    fits.ImageHDU
+        Astropy ImageHDU instance.
+
+    """
+    return fits.ImageHDU(header=header, data=np.full(shape=(header["NAXIS2"], header["NAXIS1"]),
+                                                     fill_value=fill_value, dtype=dtype))
