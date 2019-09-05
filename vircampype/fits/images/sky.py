@@ -1,14 +1,10 @@
 # =========================================================================== #
 # Import
-import glob
-import subprocess
-
 from vircampype.utils.wcs import *
 from vircampype.utils.fits import *
 from vircampype.utils.math import *
 from vircampype.utils.vizier import *
 from astropy.coordinates import SkyCoord
-from vircampype.utils.astromatic import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
@@ -162,11 +158,37 @@ class SkyImages(FitsImages):
         return s
 
     # =========================================================================== #
-    # Executables
+    # Swarping
     # =========================================================================== #
     @property
     def bin_swarp(self):
         return which(self.setup["astromatic"]["bin_swarp"])
+
+    @property
+    def _swarp_preset_package(self):
+        """
+        Internal package preset path for swarp.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return "vircampype.resources.astromatic.presets"
+
+    @property
+    def _swarp_default_config(self):
+        """
+        Searches for default config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config.
+
+        """
+        return get_resource_path(package="vircampype.resources.astromatic.swarp", resource="default.config")
 
     # =========================================================================== #
     # Splitter
