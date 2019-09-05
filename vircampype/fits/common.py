@@ -679,13 +679,12 @@ class FitsFiles:
     # =========================================================================== #
     def get_master_photometry(self):
         """
-        Get for each file in self the corresponding MasterPhotometry table.
+        Get for all files in self the corresponding MasterPhotometry table.
 
         Returns
         -------
         MasterPhotometry
-            MasterPhotometry instance holding for each file in self the corresponding MasterPhotometry table.
+            MasterPhotometry instance holding for all files in self the corresponding MasterPhotometry table.
 
         """
         return self.get_master_tables().photometry
-
