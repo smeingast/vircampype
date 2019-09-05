@@ -422,7 +422,6 @@ class SkyImages(FitsImages):
 
             # Download catalog
             if self.setup["photometry"]["reference"] == "2mass":
-
                 table = download_2mass(lon=self.centroid_total[0], lat=self.centroid_total[1], radius=2 * size)
 
             else:
@@ -430,6 +429,9 @@ class SkyImages(FitsImages):
 
             # Save catalog
             table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])

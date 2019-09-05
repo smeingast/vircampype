@@ -111,3 +111,12 @@ def hdr2imagehdu(header, fill_value, dtype=None):
     """
     return fits.ImageHDU(header=header, data=np.full(shape=(header["NAXIS2"], header["NAXIS1"]),
                                                      fill_value=fill_value, dtype=dtype))
+
+
+def add_key_primaryhdu(path, key, value, comment=None):
+
+    with fits.open(path, "update") as file:
+        if comment is not None:
+            file[0].header[key] = (value, comment)
+        else:
+            file[0].header[key] = value
