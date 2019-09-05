@@ -2,6 +2,8 @@
 # Import
 import warnings
 import numpy as np
+from astropy.units import Unit
+from astropy.stats import sigma_clip
 
 from astropy.modeling import models, fitting
 
@@ -42,3 +44,52 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
     # Return aperture correction and model
     return mag_apcor, magerr_apcor, model
+
+
+def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_ref_limits=None):
+    """
+    Calculate zero point
+
+    Parameters
+    ----------
+    skycoo_cal : SkyCoord
+        Astropy SkyCoord object with all coordinates of catalog to be calibrated.
+    mag_cal : iterable, ndarray
+        Magnitudes of sources to be calibrated.
+    skycoo_ref : SkyCoord
+        Astropy SkyCoord instance for reference catalog sources.
+    mag_ref : iterable, ndarray
+        Magnitudes of reference sources
+    mag_ref_limits : tuple, optional
+        Tuple of magnitude limits to be applied. e.g. (10, 15)
+
+    Returns
+    -------
+    (float, float)
+        Tuple holding zero point and error in zero point.
+
+    """
+
+    # Restrict reference catalog
+    if mag_ref_limits is not None:
+        keep = (mag_ref >= mag_ref_limits[0]) & (mag_ref <= mag_ref_limits[1])
+        mag_ref = mag_ref[keep]
+        skycoo_ref = skycoo_ref[keep]
+
+    # Xmatch science with reference
+    zp_idx, zp_d2d, _ = skycoo_cal.match_to_catalog_sky(skycoo_ref)
+
+    # Get good indices in reference catalog and in current field
+    idx_ref = zp_idx[zp_d2d < 1 * Unit("arcsec")]
+    idx_sci = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
+
+    # Apply indices filter
+    mag_ref = mag_ref[idx_ref]
+    mag_cal = mag_cal[idx_sci]
+
+    # Apply sigma clipping
+    zp_cal = mag_ref - mag_cal
+    zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True).filled(fill_value=np.nan)
+
+    # Return ZP and standard deviation
+    print(np.nanmedian(zp_cal), np.nanstd(zp_cal))
