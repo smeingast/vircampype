@@ -20,45 +20,138 @@ class SextractorTable(FitsTables):
     # =========================================================================== #
     # Scamp
     # =========================================================================== #
+    @property
+    def _bin_scamp(self):
+        """
+        Searches for scamp executable and returns path.
+
+        Returns
+        -------
+        str
+            Path to scamp executable.
+
+        """
+        return which(self.setup["astromatic"]["bin_scamp"])
+
+    @property
+    def _scamp_default_config(self):
+        """
+        Searches for default config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        return get_resource_path(package="vircampype.resources.astromatic.scamp", resource="default.config")
+
+    @property
+    def _scamp_preset_package(self):
+        """
+        Internal package preset path for scamp.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return "vircampype.resources.astromatic.presets"
+
+    @staticmethod
+    def _scamp_qc_types(joined=False):
+        """
+        QC check plot types for scamp.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for scamp.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkplot types.
+
+        """
+        types = ["FGROUPS", "DISTORTION", "ASTR_INTERROR2D", "ASTR_INTERROR1D", "ASTR_REFERROR2D", "ASTR_REFERROR1D"]
+        if joined:
+            return ",".join(types)
+        else:
+            return types
+
+    def _scamp_qc_names(self, joined=False):
+        """
+        List or str containing scamp QC plot names.
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for scamp.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkplot types.
+
+        """
+        names = ["{0}scamp_{1}".format(self.file_directories[0], qt.lower()) for qt in
+                 self._scamp_qc_types(joined=False)]
+        if joined:
+            return ",".join(names)
+        else:
+            return names
+
+    def _scamp_header_names(self, joined=False):
+        """
+        List or str containing scamp header names.
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for scamp.
+
+        Returns
+        -------
+        iterable, str
+            List or str with header names.
+
+        """
+        names = [x.replace(".sources", ".ahead") for x in self.full_paths]
+        if joined:
+            return ",".join(names)
+        else:
+            return names
+
+    @property
+    def _scamp_catalog_paths(self):
+        """
+        Concatenates full paths to make them readable for scamp.
+
+        Returns
+        -------
+        str
+            Joined string with full paths of self.
+        """
+        return " ".join(self.full_paths)
+
     def scamp(self):
 
-        # Find executable
-        path_exe = which(self.setup["astromatic"]["bin_scamp"])
-
-        # Shortcut for preset package
-        package_presets = "vircampype.resources.astromatic.presets"
-
-        # Find default config
-        path_default_config = get_resource_path(package="vircampype.resources.astromatic.scamp",
-                                                resource="default.config")
-
-        # QC plots
-        qc_types = ["FGROUPS", "DISTORTION", "ASTR_INTERROR2D", "ASTR_INTERROR1D",
-                    "ASTR_REFERROR2D", "ASTR_REFERROR1D"]
-        qc_names = ",".join(["{0}scamp_{1}".format(self.file_directories[0], qt.lower()) for qt in qc_types])
-        qc_types = ",".join(qc_types)
-
-        # Header names
-        hdr_names = ",".join([x.replace(".sources", ".ahead") for x in self.full_paths])
-
         # Load preset
-        options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=qc_types,
-                             checkplot_name=qc_names, skip=["HEADER_NAME"],
-                             path=get_resource_path(package=package_presets, resource="scamp.yml"))
-
-        # Get string for catalog paths
-        paths_catalogs = " ".join(self.full_paths)
+        options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=self._scamp_qc_types(joined=True),
+                             checkplot_name=self._scamp_qc_names(), skip=["HEADER_NAME"],
+                             path=get_resource_path(package=self._scamp_preset_package, resource="scamp.yml"))
 
         # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} -HEADER_NAME {3} {4}".format(path_exe, paths_catalogs, path_default_config,
-                                                           hdr_names, options)
+        cmd = "{0} {1} -c {2} -HEADER_NAME {3} {4}" \
+              "".format(self._bin_scamp, self._scamp_catalog_paths, self._scamp_default_config,
+                        self._scamp_header_names(joined=True), options)
 
         # Run Scamp
         # cp = subprocess.run([cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         subprocess.run(cmd, shell=True, executable="/bin/bash")
 
         # Return header paths
-        return hdr_names.split(",")
+        return self._scamp_header_names(joined=False)
 
     # =========================================================================== #
     # Aperture correction
