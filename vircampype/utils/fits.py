@@ -47,7 +47,7 @@ def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
     hdulist.writeto(path_output, overwrite=overwrite)
 
 
-def merge_headers(path_1, path_2):
+def merge_headers(path_1, path_2, primary_only=False):
     """
     Merges header entries of file 2 into file 1, in the sense that every new item in header 2 that is not present in
     header 1, is copied to file 1. Forces a new write of the fits file in the end (flush).
@@ -58,6 +58,8 @@ def merge_headers(path_1, path_2):
         Path of file 1. Where keywords are copied to.
     path_2 : str
         Path of file 2. Where keywords are taken from.
+    primary_only : bool, optional
+        If only primary header should be merged.
 
     """
 
@@ -66,6 +68,11 @@ def merge_headers(path_1, path_2):
 
         # Iterate over HDUs
         for hdu1, hdu2 in zip(hdulist_1, hdulist_2):
+
+            # Check for Primary HDU
+            if primary_only:
+                if not isinstance(hdu1, fits.PrimaryHDU):
+                    continue
 
             keys1 = list(hdu1.header.keys())
 
