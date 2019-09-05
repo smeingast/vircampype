@@ -7,7 +7,7 @@ from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
 from vircampype.fits.images.common import FitsImages
-from vircampype.fits.images.sky import OffsetImages, ScienceImages, StdImages
+from vircampype.fits.images.sky import OffsetImages, ScienceImages
 
 
 class VircamImages(FitsImages):
@@ -290,11 +290,13 @@ class VircamFlatTwilight(VircamFlatImages):
 
 
 class VircamFlatLampLin(VircamFlatImages):
+
     def __init__(self, setup, file_paths=None):
         super(VircamFlatLampLin, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class VircamFlatLampGain(VircamFlatImages):
+
     def __init__(self, setup, file_paths=None):
         super(VircamFlatLampGain, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -314,7 +316,16 @@ class VircamScienceImages(ScienceImages):
     def __init__(self, setup, file_paths=None):
         super(VircamScienceImages, self).__init__(setup=setup, file_paths=file_paths)
 
+    def stack_jitter(self):
+        # print(self.primeheaders_get_keys(keywords=["NJITTER", "JITTER_I", "NOFFSETS", "OFFSET_I"]))
+        self.split_keywords(keywords=["OFFSET_I"])
 
-class VircamStdImages(StdImages):
+        raise NotImplementedError
+        # for s in split:
+        #     s.coadd(header=self.header_coadd)
+
+
+class VircamStdImages(VircamScienceImages):
+
     def __init__(self, setup, file_paths=None):
-        super(VircamStdImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(VircamScienceImages, self).__init__(setup=setup, file_paths=file_paths)
