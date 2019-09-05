@@ -16,6 +16,7 @@ from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
+from vircampype.fits.tables.catalogs import PhotometryCatalog
 from vircampype.fits.tables.sextractor import SextractorTable
 from vircampype.fits.images.common import FitsImages, MasterImages
 
@@ -398,10 +399,6 @@ class SkyImages(FitsImages):
         tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
                                            silent=self.setup["misc"]["silent"])
 
-        # Obtain field size
-        size = np.max(distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
-                                   lon2=self.corners_all_lon, lat2=self.corners_all_lat, unit="deg")) * 1.01
-
         # Construct outpath
         outpath = self.build_master_path(basename="MASTER-PHOTOMETRY", idx=0, table=True)
 
@@ -411,6 +408,10 @@ class SkyImages(FitsImages):
 
         # Check if the file is already there and skip if it is
         if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+
+            # Obtain field size
+            size = np.max(distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
+                                       lon2=self.corners_all_lon, lat2=self.corners_all_lat, unit="deg")) * 1.01
 
             # Download catalog
             if self.setup["photometry"]["reference"] == "2mass":
@@ -425,6 +426,9 @@ class SkyImages(FitsImages):
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return photometry catalog
+        return PhotometryCatalog(setup=self.setup, file_paths=[outpath])
 
     # =========================================================================== #
     # Resample
