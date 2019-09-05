@@ -162,6 +162,13 @@ class FitsImages(FitsFiles):
                 zip(repeat(self.setup["paths"]["calibrated"]), self.file_names, self.file_extensions)]
 
     # =========================================================================== #
+    # Executables
+    # =========================================================================== #
+    @property
+    def bin_sex(self):
+        return which(self.setup["astromatic"]["bin_sex"])
+
+    # =========================================================================== #
     # I/O
     # =========================================================================== #
     def hdu2cube(self, hdu_index=0, dtype=None):
@@ -590,9 +597,6 @@ class FitsImages(FitsFiles):
         # Shortcut for preset package
         package_presets = "vircampype.resources.astromatic.presets"
 
-        # Find executable
-        path_exe = which(self.setup["astromatic"]["bin_sex"])
-
         # Find setup file
         path_filter = get_resource_path(package="vircampype.resources.astromatic.sextractor",
                                         resource="gauss_2.5_5x5.conv")
@@ -632,7 +636,7 @@ class FitsImages(FitsFiles):
 
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
-                "".format(path_exe, path_default_config, image, path_default_nnw, catalog, weight, ss)
+                "".format(self.bin_sex, path_default_config, image, path_default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
 
         # Run Sextractor
