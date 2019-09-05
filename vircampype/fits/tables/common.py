@@ -146,3 +146,23 @@ class MasterTables(FitsTables):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-LINEARITY"]
 
         return MasterLinearity(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def photometry(self):
+        """
+        Holds all MasterPhotometry tables.
+
+        Returns
+        -------
+        MasterPhotometry
+            All MasterPhotometry tables as a MasterLinearity instance.
+
+        """
+
+        # Import
+        from vircampype.fits.tables.catalogs import MasterPhotometry
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
+
+        return MasterPhotometry(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
