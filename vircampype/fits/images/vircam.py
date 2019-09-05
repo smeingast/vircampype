@@ -404,6 +404,18 @@ class VircamScienceImages(ScienceImages):
         return get_resource_path(package=self._swarp_preset_package, resource="swarp_pawprint.yml")
 
     @property
+    def _swarp_preset_coadd_path(self):
+        """
+        Obtains path to coadd preset for swarp.
+
+        Returns
+        -------
+        str
+            Path to preset.
+        """
+        return get_resource_path(package=self._swarp_preset_package, resource="swarp_coadd.yml")
+
+    @property
     def _swarp_paths_resampled(self):
         """
         Constructs a list of paths for the resampled images.
@@ -514,24 +526,18 @@ class VircamScienceImages(ScienceImages):
         # Processing info
         tstart = message_mastercalibration(master_type="COADDING", silent=self.setup["misc"]["silent"], right=None)
 
-        # Shortcut for preset package
-        package_presets = "vircampype.resources.astromatic.presets"
-        path_coadd = "/Users/stefan/Desktop/test.fits"
-        path_default_config = get_resource_path(package="vircampype.resources.astromatic.swarp",
-                                                resource="default.config")
-
         # Write header to disk
-        if header is None:
-            header = self.header_coadd
-        header.totextfile(path_coadd.replace(".fits", ".ahead"), overwrite=True, endcard=True)
+        if not check_file_exists(file_path=self._swarp_path_coadd_header, silent=True):
+            if header is None:
+                header = self.header_coadd
+            self._write_header(header=header, path=self._swarp_path_coadd_header)
 
-        ss = yml2config(path=get_resource_path(package=package_presets, resource="swarp_coadd.yml"),
-                        imageout_name=path_coadd, weightout_name=path_coadd.replace(".fits", ".weight.fits"),
-                        nthreads=self.setup["misc"]["n_threads"], weight_image="",
-                        skip=["weight_thresh", "weight_image"])
+        ss = yml2config(path=self._swarp_preset_coadd_path,
+                        imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
+                        nthreads=self.setup["misc"]["n_threads"], skip=["weight_thresh", "weight_image"])
 
         # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} {3}".format(self.bin_swarp, " ".join(self.full_paths), path_default_config, ss)
+        cmd = "{0} {1} -c {2} {3}".format(self.bin_swarp, " ".join(self.full_paths), self._swarp_default_config, ss)
         print(cmd)
 
         # Print time
