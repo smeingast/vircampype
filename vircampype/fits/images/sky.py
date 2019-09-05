@@ -50,6 +50,30 @@ class SkyImages(FitsImages):
         return self._wcs
 
     @property
+    def corners_all_lon(self):
+        """
+        Contains longitudes of all corners across all detectors
+
+        Returns
+        -------
+        array
+
+        """
+        return np.array(self.footprints)[:, :, :, 0].ravel()
+
+    @property
+    def corners_all_lat(self):
+        """
+        Contains latitudes of all corners across all detectors
+
+        Returns
+        -------
+        array
+
+        """
+        return np.array(self.footprints)[:, :, :, 1].ravel()
+
+    @property
     def centers_detectors_world(self):
         """
         Computes the centers for each detector.
