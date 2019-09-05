@@ -577,6 +577,34 @@ class SkyImages(FitsImages):
         # Return new instance of calibrated images
         return self.__class__(setup=self.setup, file_paths=paths_swarped)
 
+    def coadd(self, header=None):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="COADDING", silent=self.setup["misc"]["silent"], right=None)
+
+        # Shortcut for preset package
+        package_presets = "vircampype.resources.astromatic.presets"
+        path_coadd = "/Users/stefan/Desktop/test.fits"
+        path_default_config = get_resource_path(package="vircampype.resources.astromatic.swarp",
+                                                resource="default.config")
+
+        # Write header to disk
+        if header is None:
+            header = self.header_coadd
+        header.totextfile(path_coadd.replace(".fits", ".ahead"), overwrite=True, endcard=True)
+
+        ss = yml2config(path=get_resource_path(package=package_presets, resource="swarp_coadd.yml"),
+                        imageout_name=path_coadd, weightout_name=path_coadd.replace(".fits", ".weight.fits"),
+                        nthreads=self.setup["misc"]["n_threads"], weight_image="",
+                        skip=["weight_thresh", "weight_image"])
+
+        # Construct commands for source extraction
+        cmd = "{0} {1} -c {2} {3}".format(self.bin_swarp, " ".join(self.full_paths), path_default_config, ss)
+        print(cmd)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
 
 class ScienceImages(SkyImages):
 
