@@ -62,7 +62,7 @@ class FitsFiles:
             make_folder(path)
 
         # Generate paths
-        self._header_paths = [self.path_temp + f + ".header" for f in self.file_names]
+        self._header_paths = ["{0}{1}.header".format(self.path_temp, x) for x in self.base_names]
 
     # =========================================================================== #
     #   Magic methods
