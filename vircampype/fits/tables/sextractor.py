@@ -18,6 +18,19 @@ class SextractorTable(FitsTables):
         super(SextractorTable, self).__init__(file_paths=file_paths, setup=setup)
 
     @property
+    def filters(self):
+        """
+        Grabs filter keyword from header and puts in into list
+
+        Returns
+        -------
+        iterable
+            List of filters for all tables in instance.
+
+        """
+        return self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
+
+    @property
     def data_hdu(self):
         """
         Overrides the normal table data_hdu property because Sextractor is special...
