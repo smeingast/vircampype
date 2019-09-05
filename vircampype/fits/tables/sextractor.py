@@ -1,9 +1,9 @@
 # =========================================================================== #
 # Import
-import warnings
 import subprocess
-import multiprocessing
 
+from vircampype.utils.wcs import *
+from vircampype.utils.fits import *
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import get_plotgrid
 from vircampype.utils.astromatic import yml2config
@@ -112,39 +112,59 @@ class SextractorTable(FitsTables):
 
         # Obtain diameters from setup and put the in list
         diameters_eval = [float(x) for x in self.setup["photometry"]["apcor_diam_eval"].split(",")]
-        # diameters_save = [float(x) for x in self.setup["photometry"]["apcor_diam_save"].split(",")]
+        diameters_save = [float(x) for x in self.setup["photometry"]["apcor_diam_save"].split(",")]
 
         # Loop over catalogs and build aperture correction
         for idx in range(len(self)):
 
             # Generate output names
-            path_qc_plot = "{0}{1}.pdf".format(self.file_directories[idx], self.file_names[idx])
+            path_file = "{0}{1}.apcor.fits".format(self.path_obspar, self.file_names[idx])
+            path_plot = path_file.replace(".fits", ".pdf")
+
+            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(diameters_save[0])),
+                                 silent=self.setup["misc"]["silent"]):
+                continue
 
             # Print processing info
-            # TODO: Replace path
-            message_calibration(n_current=idx+1, n_total=len(self), name=path_qc_plot, d_current=None,
+            message_calibration(n_current=idx+1, n_total=len(self), name=path_file, d_current=None,
                                 d_total=None, silent=self.setup["misc"]["silent"])
 
             # Read currect catalog
-            tab = self.file2table(file_index=idx)
+            tables = self.file2table(file_index=idx)
+
+            # Get current image header
+            headers = self.image_headers[idx]
+
+            # Make output Apcor Image HDUlist
+            hdulist_base = fits.HDUList(hdus=[fits.PrimaryHDU(header=self.headers_primary[idx])])
+            hdulist_save = [hdulist_base.copy() for _ in range(len(diameters_save))]
+
+            # Write aperture correction diameter into header
+            for hdus, diams in zip(hdulist_save, diameters_save):
+                hdus[0].header["D"] = (diams, "Aperture diameter (pix)")
+
+            # Dummy check
+            if len(tables) != len(headers):
+                raise ValueError("Number of tables and headers no matching")
 
             # Lists to save results for this image
             mag_apcor, magerr_apcor, models_apcor = [], [], []
 
             # Loop over extensions and get aperture correction after filtering
-            for t in tab:
+            for tab, hdr in zip(tables, headers):
 
                 # Read magnitudes
-                mag = t["MAG_APER"]
+                mag = tab["MAG_APER"]
 
                 # Remove bad sources
                 # bad = (class_star < 0.7) | (flags > 0) | (np.sum(mag > 0, axis=1) > 0) | \
                 #       (np.sum(magdiff > 0, axis=1) > 0) | (fwhm < 1.0) | (fwhm > 6.0)
 
                 # Remove bad sources (class, flags, bad mags, bad mag diffs, bad fwhm, bad mag errs)
-                good = (t["CLASS_STAR"] > 0.7) & (t["FLAGS"] == 0) & \
+                good = (tab["CLASS_STAR"] > 0.7) & (tab["FLAGS"] == 0) & \
                        (np.sum(mag > 0, axis=1) == 0) & (np.sum(np.diff(mag, axis=1) > 0, axis=1) == 0) & \
-                       (t["FWHM_IMAGE"] > 1.0) & (t["FWHM_IMAGE"] < 6.0) & (np.nanmean(t["MAGERR_APER"], axis=1) < 0.1)
+                       (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 6.0) & \
+                       (np.nanmean(tab["MAGERR_APER"], axis=1) < 0.1)
 
                 # Only keep good sources
                 mag = mag[good, :]
@@ -153,19 +173,33 @@ class SextractorTable(FitsTables):
                 ma_apcor, me_apcor, mo_apcor = get_aperture_correction(diameters=diameters_eval, magnitudes=mag,
                                                                        func=self.setup["photometry"]["apcor_func"])
 
+                # Obtain aperture correction values for output
+                mag_apcor_save = mo_apcor(diameters_save)
+
+                # Shrink image header
+                ohdr = resize_header(header=hdr, factor=self.setup["photometry"]["apcor_image_scale"])
+
+                # Loop over apertures and make HDUs
+                for aidx in range(len(diameters_save)):
+                    hdr_temp = ohdr
+                    hdr_temp["MAPCOR"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
+                    hdr_temp["DAPCOR"] = (mag_apcor_save[aidx], "Aperture diameter (pix)")
+                    hdulist_save[aidx].append(hdr2imagehdu(header=hdr_temp, fill_value=mag_apcor_save[aidx],
+                                                           dtype=np.float32))
+
                 # Append to lists for QC plot
                 mag_apcor.append(ma_apcor)
                 magerr_apcor.append(me_apcor)
                 models_apcor.append(mo_apcor)
 
-                # Obtain aperture correction values for output
-                # mag_apcor_save = mo_apcor(diameters_save)
-                # print(mag_apcor_save)
-                # exit()
+            # Save aperture correction as MEF
+            for hdul, diams in zip(hdulist_save, diameters_save):
+                hdul.writeto(path_file.replace(".apcor.", ".apcor{0}.".format(diams)),
+                             overwrite=self.setup["misc"]["overwrite"])
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                self.qc_plot_apcor(path=path_qc_plot, diameters=diameters_eval, mag_apcor=mag_apcor,
+                self.qc_plot_apcor(path=path_plot, diameters=diameters_eval, mag_apcor=mag_apcor,
                                    magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4,
                                    overwrite=self.setup["misc"]["overwrite"])
 
@@ -173,6 +207,7 @@ class SextractorTable(FitsTables):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4, overwrite=False):
+        # TODO: This should be moved so some sort of MASTER-APCOR class perhaps
 
         # Check if plot already exits
         if check_file_exists(file_path=path, silent=True) and not overwrite:
