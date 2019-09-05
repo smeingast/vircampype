@@ -162,6 +162,13 @@ class SkyImages(FitsImages):
         return s
 
     # =========================================================================== #
+    # Executables
+    # =========================================================================== #
+    @property
+    def bin_swarp(self):
+        return which(self.setup["astromatic"]["bin_swarp"])
+
+    # =========================================================================== #
     # Splitter
     # =========================================================================== #
     def split_sky(self, max_distance):
@@ -481,9 +488,6 @@ class SkyImages(FitsImages):
         # Shortcut for preset package
         package_presets = "vircampype.resources.astromatic.presets"
 
-        # Find executable
-        path_bin = which(self.setup["astromatic"]["bin_swarp"])
-
         # Find default config
         path_default_config = get_resource_path(package="vircampype.resources.astromatic.swarp",
                                                 resource="default.config")
@@ -512,7 +516,7 @@ class SkyImages(FitsImages):
 
             # Construct commands for source extraction
             cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
-                    "".format(path_bin, path_default_config, path_image, weight, path, ss)
+                    "".format(self.bin_swarp, path_default_config, path_image, weight, path, ss)
                     for path_image, weight, path in
                     zip(self.full_paths, master_weight.full_paths, self.file_directories)]
 
