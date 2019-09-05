@@ -639,7 +639,7 @@ class FitsImages(FitsFiles):
         run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
 
         # Add primary header of file to sextractor table
-        for cat, img in zip(path_tables, self.full_paths):
+        for cat, img in zip(path_tables_clean, self.full_paths):
             merge_headers(path_1=cat, path_2=img, primary_only=True)
 
         # Return Table instance
