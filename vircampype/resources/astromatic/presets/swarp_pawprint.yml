@@ -81,7 +81,7 @@ BACK_TYPE:              AUTO            # AUTO or MANUAL
                                        # (all or for each image)
 BACK_DEFAULT:           0.0             # Default background value in MANUAL
                                        # (all or for each image)
-BACK_SIZE:              256             # Background mesh size (pixels)
+BACK_SIZE:              128             # Background mesh size (pixels)
                                        # (all or for each image)
 BACK_FILTERSIZE:        3               # Background map filter range (meshes)
                                        # (all or for each image)
@@ -114,5 +114,5 @@ NODE_INDEX:             0               # Node index (for clusters)
 NTHREADS:               0               # Number of simultaneous threads for
                                        # the SMP version of SWarp
                                        # 0 = automatic
-NOPENFILES_MAX:         512             # Maximum number of files opened by SWarp
+NOPENFILES_MAX:         8192             # Maximum number of files opened by SWarp
 TILE_COMPRESS:          N               # Write tile compressed output image (Y/N)?
