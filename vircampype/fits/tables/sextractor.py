@@ -186,12 +186,8 @@ class SextractorCatalogs(SourceCatalogs):
             headers = self.image_headers[idx]
 
             # Make output Apcor Image HDUlist
-            hdulist_base = fits.HDUList(hdus=[fits.PrimaryHDU(header=self.headers_primary[idx])])
+            hdulist_base = fits.HDUList(hdus=[fits.PrimaryHDU(header=self.headers_primary[idx].copy())])
             hdulist_save = [hdulist_base.copy() for _ in range(len(diameters_save))]
-
-            # Write aperture correction diameter into header
-            for hdus, diams in zip(hdulist_save, diameters_save):
-                hdus[0].header["D"] = (diams, "Aperture diameter (pix)")
 
             # Dummy check
             if len(tables) != len(headers):
@@ -227,7 +223,9 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Loop over apertures and make HDUs
                 for aidx in range(len(diameters_save)):
-                    hdr_temp = ohdr
+
+                    # Construct header to append
+                    hdr_temp = ohdr.copy()
                     hdr_temp["APCMAG"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
                     hdr_temp["APCDIAM"] = (diameters_save[aidx], "Aperture diameter (pix)")
                     hdr_temp["APCMODEL"] = (mo_apcor.name, "Aperture correction model name")
@@ -244,6 +242,11 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Save aperture correction as MEF
             for hdul, diams in zip(hdulist_save, diameters_save):
+
+                # Write aperture correction diameter into primary header too
+                hdul[0].header["APCDIAM"] = (diams, "Aperture diameter (pix)")
+
+                # Save to disk
                 hdul.writeto(path_file.replace(".apcor.", ".apcor{0}.".format(diams)),
                              overwrite=self.setup["misc"]["overwrite"])
 
