@@ -1,8 +1,11 @@
 # =========================================================================== #
 # Import
+import os
 import glob
 import shutil
+import numpy as np
 
+from astropy.io import fits
 from vircampype.utils import *
 from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.dark import DarkImages

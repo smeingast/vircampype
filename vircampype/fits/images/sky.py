@@ -1,5 +1,10 @@
 # =========================================================================== #
 # Import
+import os
+import warnings
+import numpy as np
+
+from astropy.io import fits
 from vircampype.utils import *
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
@@ -603,6 +608,7 @@ class MasterSky(MasterImages):
         """
 
         # Import matplotlib
+        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Plot paths

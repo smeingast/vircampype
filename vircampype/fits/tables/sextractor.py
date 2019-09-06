@@ -1,5 +1,11 @@
 # =========================================================================== #
 # Import
+import warnings
+import subprocess
+import numpy as np
+import multiprocessing
+
+from astropy.io import fits
 from vircampype.utils import *
 from vircampype.fits.tables.common import FitsTables
 
@@ -258,6 +264,7 @@ class SextractorTable(FitsTables):
             return
 
         # Import locally
+        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Get plot grid

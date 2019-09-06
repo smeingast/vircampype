@@ -1,5 +1,8 @@
 # =========================================================================== #
 # Import
+import numpy as np
+
+from astropy.io import fits
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from vircampype.utils.plots import plot_value_detector

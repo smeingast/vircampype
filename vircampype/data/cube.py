@@ -1,10 +1,15 @@
 # =========================================================================== #
 # Import
+import warnings
 import numpy as np
+import multiprocessing
 import scipy.ndimage.measurements
 
+from astropy.io import fits
+from itertools import repeat
 from vircampype.utils import *
 from astropy.convolution import Gaussian2DKernel
+
 
 class ImageCube(object):
 

@@ -1,5 +1,10 @@
 # =========================================================================== #
 # Import
+import os
+import numpy as np
+
+from astropy.io import fits
+from itertools import repeat
 from vircampype.utils import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles

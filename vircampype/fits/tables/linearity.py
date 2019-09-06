@@ -1,5 +1,8 @@
 # =========================================================================== #
 # Import
+import warnings
+import numpy as np
+
 from typing import List
 from vircampype.utils import *
 from vircampype.fits.tables.common import MasterTables
@@ -188,6 +191,7 @@ class MasterLinearity(MasterTables):
         """
 
         # Import matplotlib
+        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots

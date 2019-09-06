@@ -1,5 +1,9 @@
 # =========================================================================== #
 # Import
+import warnings
+import numpy as np
+
+from astropy.io import fits
 from vircampype.utils import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.images.dark import MasterDark
@@ -516,6 +520,7 @@ class MasterFlat(MasterImages):
         """
 
         # Import matplotlib
+        import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots
