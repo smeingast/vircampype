@@ -163,13 +163,6 @@ class FitsImages(FitsFiles):
                 zip(repeat(self.setup["paths"]["calibrated"]), self.file_names, self.file_extensions)]
 
     # =========================================================================== #
-    # Executables
-    # =========================================================================== #
-    @property
-    def bin_sex(self):
-        return which(self.setup["astromatic"]["bin_sex"])
-
-    # =========================================================================== #
     # I/O
     # =========================================================================== #
     def hdu2cube(self, hdu_index=0, dtype=None):
@@ -574,8 +567,97 @@ class FitsImages(FitsFiles):
         return self.__class__(setup=self.setup, file_paths=self.paths_calibrated)
 
     # =========================================================================== #
-    # Astromatic
+    # Sextractor
     # =========================================================================== #
+    @property
+    def _bin_sex(self):
+        return which(self.setup["astromatic"]["bin_sex"])
+
+    @property
+    def _sex_default_config(self):
+        """
+        Searches for default config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="default.config")
+
+    @property
+    def _sex_preset_package(self):
+        """
+        Internal package preset path for sextractor.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return "vircampype.resources.astromatic.presets"
+
+    @property
+    def _sex_default_filter(self):
+        """
+        Path for default convolution filter.
+
+        Returns
+        -------
+        str
+            Path to file.
+        """
+
+        return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="gauss_2.5_5x5.conv")
+
+    @property
+    def _sex_default_nnw(self):
+        """
+        Path for default nnw file.
+
+        Returns
+        -------
+        str
+            Path to file.
+        """
+
+        return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="default.nnw")
+
+    @property
+    def _sex_paths_tables(self):
+        """
+        Path to sextractor tables for files in instance.
+
+        Returns
+        -------
+        iterable
+            List with table names.
+        """
+
+        return [x.replace(".fits", ".sources.fits") for x in self.full_paths]
+
+    def _sex_path_param(self, preset):
+        """
+        Returns path to sextractor param file, given preset.
+
+        Parameters
+        ----------
+        preset : str
+            Which preset to use
+
+        Returns
+        -------
+        str
+            Path to preset param.
+        """
+
+        if preset == "scamp":
+            return get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.param")
+        elif preset == "photcal":
+            return get_resource_path(package=self._sex_preset_package, resource="sextractor_photcal.param")
+
     def sextractor(self, preset="scamp"):
         """
         Runs sextractor based on given presets.
@@ -592,27 +674,15 @@ class FitsImages(FitsFiles):
 
         """
 
-        # Print status message
-        print("Running Sextractor with preset 'scamp' on {0} files".format(len(self)))
-
-        # Shortcut for preset package
-        package_presets = "vircampype.resources.astromatic.presets"
-
-        # Find setup file
-        path_filter = get_resource_path(package="vircampype.resources.astromatic.sextractor",
-                                        resource="gauss_2.5_5x5.conv")
-        path_default_config = get_resource_path(package="vircampype.resources.astromatic.sextractor",
-                                                resource="default.config")
-        path_default_nnw = get_resource_path(package="vircampype.resources.astromatic.sextractor",
-                                             resource="default.nnw")
-
-        # Construct output catalog paths
-        path_tables = [x.replace(".fits", ".sources") for x in self.full_paths]
+        # Processing info
+        tstart = message_mastercalibration(master_type="SOURCE DETECTION", silent=self.setup["misc"]["silent"],
+                                           left="Running Sextractor with preset '{0}' on {1} files"
+                                                "".format(preset, len(self)), right=None)
 
         # Check for existing files
         path_tables_clean = []
         if not self.setup["misc"]["overwrite"]:
-            for pt in path_tables:
+            for pt in self._sex_paths_tables:
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
@@ -623,13 +693,12 @@ class FitsImages(FitsFiles):
 
         # Fetch param file
         if preset == "scamp":
-            path_param = get_resource_path(package=package_presets, resource="sextractor_scamp.param")
-            ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_scamp.yml"),
-                            filter_name=path_filter, parameters_name=path_param, skip=["catalog_name", "weight_image"])
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.yml"),
+                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
+                            skip=["catalog_name", "weight_image"])
         elif preset == "photcal":
-            path_param = get_resource_path(package=package_presets, resource="sextractor_photcal.param")
-            ss = yml2config(path=get_resource_path(package=package_presets, resource="sextractor_photcal.yml"),
-                            filter_name=path_filter, parameters_name=path_param,
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_photcal.yml"),
+                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             phot_apertures=self.setup["photometry"]["apcor_diam_eval"],
                             skip=["catalog_name", "weight_image", "starnnw_name"])
         else:
@@ -637,7 +706,7 @@ class FitsImages(FitsFiles):
 
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
-                "".format(self.bin_sex, path_default_config, image, path_default_nnw, catalog, weight, ss)
+                "".format(self._bin_sex, self._sex_default_config, image, self._sex_default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
 
         # Run Sextractor
@@ -647,8 +716,11 @@ class FitsImages(FitsFiles):
         for cat, img in zip(path_tables_clean, self.full_paths):
             merge_headers(path_1=cat, path_2=img, primary_only=True)
 
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
         # Return Table instance
-        return SextractorTable(setup=self.setup, file_paths=path_tables)
+        return SextractorTable(setup=self.setup, file_paths=self._sex_paths_tables)
 
     # =========================================================================== #
     # Other methods
