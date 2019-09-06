@@ -7,13 +7,13 @@ import multiprocessing
 
 from astropy.io import fits
 from vircampype.utils import *
-from vircampype.fits.tables.common import FitsTables
+from vircampype.fits.tables.sources import SourceCatalog
 
 
-class SextractorTable(FitsTables):
+class SextractorCatalog(SourceCatalog):
 
     def __init__(self, setup, file_paths=None):
-        super(SextractorTable, self).__init__(file_paths=file_paths, setup=setup)
+        super(SextractorCatalog, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
     # Scamp
@@ -333,19 +333,6 @@ class SextractorTable(FitsTables):
     # =========================================================================== #
     # Properties
     # =========================================================================== #
-    @property
-    def filters(self):
-        """
-        Grabs filter keyword from header and puts in into list
-
-        Returns
-        -------
-        iterable
-            List of filters for all tables in instance.
-
-        """
-        return self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
-
     @property
     def data_hdu(self):
         """

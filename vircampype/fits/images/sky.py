@@ -13,7 +13,7 @@ from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
 from vircampype.fits.tables.sources import SourceCatalog
-from vircampype.fits.tables.sextractor import SextractorTable
+from vircampype.fits.tables.sextractor import SextractorCatalog
 from vircampype.fits.images.common import FitsImages, MasterImages
 
 
@@ -374,7 +374,7 @@ class SkyImages(FitsImages):
         tstart = message_mastercalibration(master_type="ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
 
         # Run Sextractor
-        catalogs = self.sextractor(preset="scamp")  # type: SextractorTable
+        catalogs = self.sextractor(preset="scamp")  # type: SextractorCatalog
 
         # Check if Scamp has already been run. If not, run it
         path_hdr = []
