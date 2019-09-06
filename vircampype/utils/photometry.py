@@ -6,9 +6,10 @@ import numpy as np
 from astropy import modeling
 from astropy.units import Unit
 from astropy.stats import sigma_clip
+from astropy.coordinates import SkyCoord
 
 # Define objects in this module
-__all__ = ["get_aperture_correction", "get_zeropoint"]
+__all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec"]
 
 
 def get_aperture_correction(diameters, magnitudes, func="Moffat"):
@@ -96,3 +97,10 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_ref_limits=None)
 
     # Return ZP and standard deviation
     return np.nanmedian(zp_cal), np.nanstd(zp_cal)
+
+
+def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):
+    """ Convenience method """
+    sc = SkyCoord(ra=ra_cal, dec=dec_cal, frame="icrs", unit="degree")
+    sc_ref = SkyCoord(ra=ra_ref, dec=dec_ref, frame="icrs", unit="degree")
+    return get_zeropoint(skycoo_cal=sc, skycoo_ref=sc_ref, **kwargs)
