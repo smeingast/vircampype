@@ -1,5 +1,5 @@
 from .astromatic import *
-from .fits import *
+from .fitstools import *
 from .math import *
 from .miscellaneous import *
 from .photometry import *
