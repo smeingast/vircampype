@@ -165,7 +165,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
-    def hdu2array(self, hdu_index=0):
+    def hdu2arrays(self, hdu_index=0):
         """
         Reads data from a given HDU from all files in self into a list of arrays.
 
