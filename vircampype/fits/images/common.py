@@ -50,9 +50,6 @@ class FitsImages(FitsFiles):
         self._dit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["dit"]])[0]
         return self._dit
 
-    # =========================================================================== #
-    # Data properties
-    # =========================================================================== #
     _ndit = None
 
     @property
@@ -165,6 +162,32 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
+    def get_pixel_value(self, skycoo, file_index, hdu_index):
+        """
+        Fetches the pixel value directly from image based on coordinates.
+
+        Parameters
+        ----------
+        skycoo : SkyCoord
+            Input astropy SkyCoord object for which the aperture correction should be obtained.
+        file_index : int
+            Index of file in self.
+        hdu_index : int
+            Index of HDU
+
+        Returns
+        -------
+        ndarray
+            Array with pixel values
+
+        """
+
+        # Get data and header for given file and HDU
+        data, header = fits.getdata(filename=self.full_paths[file_index], header=True, ext=hdu_index)
+
+        # Read pixel coordinate
+        return get_value_image(ra=skycoo.icrs.ra.deg, dec=skycoo.icrs.dec.deg, data=data, header=header)
+
     def hdu2arrays(self, hdu_index=0):
         """
         Reads data from a given HDU from all files in self into a list of arrays.

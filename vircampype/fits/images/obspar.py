@@ -1,7 +1,5 @@
 # =========================================================================== #
 # Import
-from astropy.io import fits
-from vircampype.utils import *
 from vircampype.fits.images.common import FitsImages
 
 
@@ -29,9 +27,4 @@ class ApcorImages(FitsImages):
             Array with aperture corrections.
 
         """
-
-        # Get data and header for given file and HDU
-        apc_data, apc_header = fits.getdata(filename=self.full_paths[file_index], header=True, ext=hdu_index)
-
-        # Read pixel coordinate
-        return get_value_image(ra=skycoo.icrs.ra.deg, dec=skycoo.icrs.dec.deg, data=apc_data, header=apc_header)
+        return self.get_pixel_value(skycoo=skycoo, file_index=file_index, hdu_index=hdu_index)
