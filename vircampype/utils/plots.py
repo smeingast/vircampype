@@ -11,7 +11,7 @@ from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
 __all__ = ["plot_value_detector", "get_plotgrid"]
 
 
-def plot_value_detector(values, path, ylabel=None, yrange=None, axis_size=5, overwrite=True):
+def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axis_size=5, overwrite=True):
     """
     Generates a plot to display a single statistical value (e.g. dark current or gain) for each detector.
 
@@ -21,6 +21,8 @@ def plot_value_detector(values, path, ylabel=None, yrange=None, axis_size=5, ove
         Values for each detector.
     path : str
         Path of output plot.
+    errors : list, ndarray
+        Errors associated with each value
     ylabel : optional, str
         Label for Y axis.
     yrange : optional, tuple
@@ -40,6 +42,9 @@ def plot_value_detector(values, path, ylabel=None, yrange=None, axis_size=5, ove
     if yrange is None:
         yrange = [np.min(values) - np.std(values), np.max(values) + np.std(values)]
 
+    if errors is not None:
+        yrange[0], yrange[1] = yrange[0] - np.max(errors) / 2, yrange[1] + np.max(errors) / 2
+
     # Create figure
     fig, ax = plt.subplots(nrows=1, ncols=1, **{"figsize": [axis_size, axis_size * 0.6]})
 
@@ -48,7 +53,12 @@ def plot_value_detector(values, path, ylabel=None, yrange=None, axis_size=5, ove
               linestyles="dashed", lw=0.5, colors="grey", zorder=0, alpha=0.8)
 
     # Draw data
-    ax.scatter(np.arange(len(values)) + 1, values, zorder=1, edgecolor="#1f77b4", facecolor="none")
+    if errors is not None:
+        ax.errorbar(np.arange(len(values)) + 1, values, yerr=errors, fmt="none",
+                    ecolor="#08519c", capsize=3, zorder=1, lw=1.0)
+
+    ax.scatter(np.arange(len(values)) + 1, values, facecolor="white",
+               edgecolor="#08519c", lw=1.0, s=25, marker="o", zorder=2)
 
     # Adjust axes
     ax.set_ylabel(ylabel)
