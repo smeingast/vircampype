@@ -3,11 +3,12 @@
 import warnings
 import numpy as np
 
+from astropy import wcs
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
-__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu"]
+__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -123,3 +124,15 @@ def add_key_primaryhdu(path, key, value, comment=None):
             file[0].header[key] = (value, comment)
         else:
             file[0].header[key] = value
+
+
+def get_value_image(ra, dec, data, header):
+
+    # Obtain wcs from header
+    cwcs = wcs.WCS(header=header)
+
+    # Convert to X/Y
+    xx, yy = cwcs.wcs_world2pix(ra, dec, 0)
+
+    # Get value from data array
+    return data[yy.astype(int), xx.astype(int)]
