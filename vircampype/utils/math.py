@@ -17,6 +17,13 @@ from vircampype.utils.miscellaneous import str2func
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
 
 
+# Define objects in this module
+__all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
+           "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
+           "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
+           "haversine"]
+
+
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
     """
     Estimates the background sky level based on an iterative 3-sigma clipping algorithm. In principle the data are
@@ -466,7 +473,6 @@ def chop_image(array, npieces, axis=0, overlap=None):
     return chopped, cut
 
 
-# ----------------------------------------------------------------------
 def merge_chopped(arrays, locations, axis=0, overlap=0):
     """
     Complementary to the above function, this one merges the chopped array back into the original.
@@ -976,7 +982,7 @@ def haversine(theta, units="radian"):
         return np.degrees(np.sin(np.radians(theta) / 2.)**2)
 
 
-def mask_cosmics(array, **kwargs):
-    _, clean = detect_cosmics(array.copy(), **kwargs)
-    # array[mask] = np.nan
-    return clean
+# def mask_cosmics(array, **kwargs):
+#     _, clean = detect_cosmics(array.copy(), **kwargs)
+    array[mask] = np.nan
+    # return clean

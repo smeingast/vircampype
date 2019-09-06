@@ -4,6 +4,9 @@ from astropy.units import Unit
 from astroquery.vizier import Vizier
 from astropy.coordinates import SkyCoord
 
+# Define objects in this module
+__all__ = ["download_2mass"]
+
 
 def download_2mass(lon, lat, radius):
 

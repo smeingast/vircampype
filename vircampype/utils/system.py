@@ -3,6 +3,10 @@ import subprocess
 from itertools import zip_longest
 
 
+# Define objects in this module
+__all__ = ["run_cmds", "run_command_bash"]
+
+
 def run_cmds(cmds, n_processes=1, silent=True):
     """
     Runs a list of shell commands

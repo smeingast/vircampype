@@ -1,9 +1,14 @@
 # =========================================================================== #
 # Import
+import numpy as np
+
 from astropy import wcs
 from astropy.io import fits
 from vircampype.utils.math import *
 from astropy.coordinates import SkyCoord, ICRS, Galactic
+
+# Define objects in this module
+__all__ = ["header2wcs", "header_reset_wcs", "skycoord2header", "resize_header"]
 
 
 def header2wcs(header):

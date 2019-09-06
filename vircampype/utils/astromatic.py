@@ -3,6 +3,9 @@ from itertools import groupby
 from astropy.io.fits.header import Header
 from vircampype.utils.miscellaneous import read_setup
 
+# Define objects in this module
+__all__ = ["yml2config", "read_scamp_header", "replace_astrometry", "sextractor2imagehdr"]
+
 
 def yml2config(path, skip=None, **kwargs):
     """

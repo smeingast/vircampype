@@ -7,6 +7,9 @@ from astropy import modeling
 from astropy.units import Unit
 from astropy.stats import sigma_clip
 
+# Define objects in this module
+__all__ = ["get_aperture_correction", "get_zeropoint"]
+
 
 def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 

@@ -11,6 +11,12 @@ import numpy as np
 from astropy.io import fits
 
 
+# Define objects in this module
+__all__ = ["make_folder", "message_mastercalibration", "message_finished", "message_calibration", "make_cards",
+           "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
+           "function_to_string", "flat_list", "read_setup", "prune_list"]
+
+
 def make_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -120,7 +126,7 @@ def check_file_exists(file_path, silent=True):
         return False
 
 
-def _function_to_string(func):
+def function_to_string(func):
     """
     Simple helper function to return a string for fits header card construction.
 
@@ -142,7 +148,7 @@ def _function_to_string(func):
         return "mean"
 
 
-def _check_card_value(value):
+def check_card_value(value):
     """
     Checks if the given value for a FITS header entry is valid and transforms it to a writeable parameter.
 
@@ -158,7 +164,7 @@ def _check_card_value(value):
     """
 
     # If the value is a callable:
-    val = _function_to_string(value) if hasattr(value, "__call__") else value
+    val = function_to_string(value) if hasattr(value, "__call__") else value
 
     # Convert to string if necessary
     if not (isinstance(val, str)) | (isinstance(val, (np.floating, float))) | (isinstance(val, (np.integer, int))):
@@ -196,7 +202,7 @@ def make_card(keyword, value, comment=None, upper=True):
     kw = re.sub(" +", " ", kw)
 
     # Check value
-    val = _check_card_value(value=value)
+    val = check_card_value(value=value)
 
     # TODO: Try to return nothing if line is too long (>80 chars)
     # Return nothing if too long

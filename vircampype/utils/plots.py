@@ -1,10 +1,14 @@
 # =========================================================================== #
 # Import
+import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 
 from vircampype.utils.miscellaneous import *
 from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
+
+# Define objects in this module
+__all__ = ["plot_value_detector", "get_plotgrid"]
 
 
 def plot_value_detector(values, path, ylabel=None, yrange=None, axis_size=5, overwrite=True):

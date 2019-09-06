@@ -6,6 +6,9 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 
+# Define objects in this module
+__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu"]
+
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
     """
