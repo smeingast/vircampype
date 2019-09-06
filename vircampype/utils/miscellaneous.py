@@ -14,7 +14,7 @@ from astropy.io import fits
 # Define objects in this module
 __all__ = ["make_folder", "message_mastercalibration", "message_finished", "message_calibration", "make_cards",
            "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
-           "function_to_string", "flat_list", "read_setup", "prune_list"]
+           "function_to_string", "flat_list", "read_setup", "prune_list", "str2list"]
 
 
 def make_folder(path):
@@ -375,3 +375,25 @@ def get_resource_path(package, resource):
 
     # Return path to resource
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
+
+
+def str2list(s, sep=",", dtype=float):
+    """
+    Separates a string into list elements
+
+    Parameters
+    ----------
+    s : str
+        String to separate.
+    sep : str
+        Separator in string.
+    dtype
+        Data dtype
+
+    Returns
+    -------
+    iterable
+        Split list.
+    """
+
+    return [dtype(x) for x in s.split(sep)]
