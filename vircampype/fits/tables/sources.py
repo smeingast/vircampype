@@ -3,10 +3,10 @@
 from vircampype.fits.tables.common import FitsTables
 
 
-class SourceCatalog(FitsTables):
+class SourceCatalogs(FitsTables):
 
     def __init__(self, setup, file_paths=None):
-        super(SourceCatalog, self).__init__(file_paths=file_paths, setup=setup)
+        super(SourceCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
     # Other methods
@@ -25,13 +25,13 @@ class SourceCatalog(FitsTables):
         return self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
 
 
-class ESOSourceCatalog(SourceCatalog):
+class ESOSourceCatalogs(SourceCatalogs):
 
     def __init__(self, setup, file_paths=None):
-        super(ESOSourceCatalog, self).__init__(file_paths=file_paths, setup=setup)
+        super(ESOSourceCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
 
-class MasterPhotometry(SourceCatalog):
+class MasterPhotometry(SourceCatalogs):
 
     def __init__(self, setup, file_paths=None):
         super(MasterPhotometry, self).__init__(file_paths=file_paths, setup=setup)

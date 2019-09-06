@@ -7,13 +7,13 @@ import multiprocessing
 
 from astropy.io import fits
 from vircampype.utils import *
-from vircampype.fits.tables.sources import SourceCatalog
+from vircampype.fits.tables.sources import SourceCatalogs
 
 
-class SextractorCatalog(SourceCatalog):
+class SextractorCatalogs(SourceCatalogs):
 
     def __init__(self, setup, file_paths=None):
-        super(SextractorCatalog, self).__init__(file_paths=file_paths, setup=setup)
+        super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
     # Scamp

@@ -8,7 +8,7 @@ from itertools import repeat
 from vircampype.utils import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
-from vircampype.fits.tables.sextractor import SextractorCatalog
+from vircampype.fits.tables.sextractor import SextractorCatalogs
 
 
 class FitsImages(FitsFiles):
@@ -669,7 +669,7 @@ class FitsImages(FitsFiles):
 
         Returns
         -------
-        SextractorCatalog
+        SextractorCatalogs
             SextractorCatalog instance with the generated catalogs.
 
         """
@@ -720,7 +720,7 @@ class FitsImages(FitsFiles):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return Table instance
-        return SextractorCatalog(setup=self.setup, file_paths=self._sex_paths_tables)
+        return SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables)
 
     # =========================================================================== #
     # Other methods
