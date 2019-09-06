@@ -12,7 +12,7 @@ from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
-from vircampype.fits.tables.catalogs import SourceCatalog
+from vircampype.fits.tables.sources import SourceCatalog
 from vircampype.fits.tables.sextractor import SextractorTable
 from vircampype.fits.images.common import FitsImages, MasterImages
 

@@ -160,7 +160,7 @@ class MasterTables(FitsTables):
         """
 
         # Import
-        from vircampype.fits.tables.catalogs import MasterPhotometry
+        from vircampype.fits.tables.sources import MasterPhotometry
 
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
