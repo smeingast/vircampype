@@ -165,6 +165,27 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
+    def hdu2array(self, hdu_index=0):
+        """
+        Reads data from a given HDU from all files in self into a list of arrays.
+
+        Parameters
+        ----------
+        hdu_index : int, optional
+            HDU index to read
+
+        Returns
+        -------
+        iterable
+            List of arrays
+
+        """
+        arraylist = []
+        for path in self:
+            with fits.open(path) as hdulist:
+                arraylist.append(hdulist[hdu_index].data)
+        return arraylist
+
     def hdu2cube(self, hdu_index=0, dtype=None):
         """
         Reads a given extension from all files in the given instance into a numpy array
