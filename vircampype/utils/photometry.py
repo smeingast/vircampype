@@ -42,7 +42,7 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
     # Dummy check sums of squares
     ss = np.sum((mag_apcor - model(diameters))**2)
-    if ss > 0.3:
+    if ss > 0.5:
         raise ValueError("Fit did not converge")
 
     # Return aperture correction and model
