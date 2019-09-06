@@ -50,7 +50,7 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
     return mag_apcor, magerr_apcor, model
 
 
-def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_ref_limits=None):
+def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None):
     """
     Calculate zero point
 
@@ -64,7 +64,7 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_ref_limits=None)
         Astropy SkyCoord instance for reference catalog sources.
     mag_ref : iterable, ndarray
         Magnitudes of reference sources
-    mag_ref_limits : tuple, optional
+    mag_limits_ref : tuple, optional
         Tuple of magnitude limits to be applied. e.g. (10, 15)
 
     Returns
@@ -75,8 +75,8 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_ref_limits=None)
     """
 
     # Restrict reference catalog
-    if mag_ref_limits is not None:
-        keep = (mag_ref >= mag_ref_limits[0]) & (mag_ref <= mag_ref_limits[1])
+    if mag_limits_ref is not None:
+        keep = (mag_ref >= mag_limits_ref[0]) & (mag_ref <= mag_limits_ref[1])
         mag_ref = mag_ref[keep]
         skycoo_ref = skycoo_ref[keep]
 
