@@ -9,7 +9,7 @@ class SourceCatalogs(FitsTables):
         super(SourceCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
-    # Coordinates
+    # Properties
     # =========================================================================== #
     @property
     def _key_ra(self):
@@ -93,9 +93,6 @@ class SourceCatalogs(FitsTables):
         self._dec = [[y.data for y in x] for x in self.get_columns(column_name=kdec)]
         return self._dec
 
-    # =========================================================================== #
-    # Other
-    # =========================================================================== #
     @property
     def filters(self):
         """
@@ -108,6 +105,10 @@ class SourceCatalogs(FitsTables):
 
         """
         return self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
+
+    # =========================================================================== #
+    # Plots
+    # =========================================================================== #
 
 
 class ESOSourceCatalogs(SourceCatalogs):
