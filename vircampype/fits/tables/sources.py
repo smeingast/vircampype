@@ -61,7 +61,7 @@ class SourceCatalogs(FitsTables):
         kra = key if key is not None else self._key_ra
 
         # Retun columns
-        self._ra = self.get_columns(column_name=kra)
+        self._ra = [[y.data for y in x] for x in self.get_columns(column_name=kra)]
         return self._ra
 
     _dec = None
@@ -89,8 +89,8 @@ class SourceCatalogs(FitsTables):
         # Override DEC key
         kdec = key if key is not None else self._key_dec
 
-        # Retun columns
-        self._dec = self.get_columns(column_name=kdec)
+        # Get data from columns
+        self._dec = [[y.data for y in x] for x in self.get_columns(column_name=kdec)]
         return self._dec
 
     # =========================================================================== #
