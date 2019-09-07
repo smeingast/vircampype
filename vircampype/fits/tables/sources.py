@@ -9,7 +9,92 @@ class SourceCatalogs(FitsTables):
         super(SourceCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
-    # Other methods
+    # Coordinates
+    # =========================================================================== #
+    @property
+    def _key_ra(self):
+        """
+        Keyword for right ascension in tables.
+
+        Returns
+        -------
+        str
+
+        """
+        return "RA"
+
+    @property
+    def _key_dec(self):
+        """
+        Keyword for Declination in tables.
+
+        Returns
+        -------
+        str
+
+        """
+        return "DEC"
+
+    _ra = None
+
+    def ra(self, key=None):
+        """
+        Extracts all RA entries in tables.
+
+        Parameters
+        ----------
+        key : str, optional
+            Used to override default key for RA
+
+        Returns
+        -------
+        iterable
+            List of lists containing RAs
+
+        """
+
+        # Check if already determined
+        if self._ra is not None:
+            return self._ra
+
+        # Override RA key
+        kra = key if key is not None else self._key_ra
+
+        # Retun columns
+        self._ra = self.get_columns(column_name=kra)
+        return self._ra
+
+    _dec = None
+
+    def dec(self, key=None):
+        """
+        Extracts all RA entries in tables.
+
+        Parameters
+        ----------
+        key : str, optional
+            Used to override default key for RA
+
+        Returns
+        -------
+        iterable
+            List of lists containing RAs
+
+        """
+
+        # Check if already determined
+        if self._dec is not None:
+            return self._dec
+
+        # Override DEC key
+        kdec = key if key is not None else self._key_dec
+
+        # Retun columns
+        self._dec = self.get_columns(column_name=kdec)
+        return self._dec
+
+    # =========================================================================== #
+    # Other
     # =========================================================================== #
     @property
     def filters(self):
