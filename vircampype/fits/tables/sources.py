@@ -121,3 +121,20 @@ class MasterPhotometry(SourceCatalogs):
 
     def __init__(self, setup, file_paths=None):
         super(MasterPhotometry, self).__init__(file_paths=file_paths, setup=setup)
+
+
+class MasterPhotometry2Mass(MasterPhotometry):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterPhotometry2Mass, self).__init__(file_paths=file_paths, setup=setup)
+
+    # =========================================================================== #
+    # Coordinates
+    # =========================================================================== #
+    @property
+    def _key_ra(self):
+        return "RAJ2000"
+
+    @property
+    def _key_dec(self):
+        return "DEJ2000"
