@@ -160,9 +160,13 @@ class MasterTables(FitsTables):
         """
 
         # Import
-        from vircampype.fits.tables.sources import MasterPhotometry
+        from vircampype.fits.tables.sources import MasterPhotometry, MasterPhotometry2Mass
 
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
 
-        return MasterPhotometry(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        # Return photometry catalog
+        if self.setup["photometry"]["reference"] == "2mass":
+            return MasterPhotometry2Mass(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        else:
+            return MasterPhotometry(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
