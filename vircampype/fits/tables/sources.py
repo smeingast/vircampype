@@ -61,7 +61,7 @@ class SourceCatalogs(FitsTables):
         kra = key if key is not None else self._key_ra
 
         # Retun columns
-        self._ra = [[y.data for y in x] for x in self.get_columns(column_name=kra)]
+        self._ra = [[y for y in x] for x in self.get_columns(column_name=kra)]
         return self._ra
 
     _dec = None
@@ -90,8 +90,36 @@ class SourceCatalogs(FitsTables):
         kdec = key if key is not None else self._key_dec
 
         # Get data from columns
-        self._dec = [[y.data for y in x] for x in self.get_columns(column_name=kdec)]
+        self._dec = [[y for y in x] for x in self.get_columns(column_name=kdec)]
         return self._dec
+
+    def skycoord(self, key_ra=None, key_dec=None):
+        """
+        Constructs SkyCoord object from ra/dec
+        Parameters
+        ----------
+        key_ra : str, optional
+            Key for RA in table.
+        key_dec : str, optional
+            Key for DEC in table.
+
+        Returns
+        -------
+        iterable
+            List of lists holding SkyCoord objects
+
+        """
+
+        from astropy.coordinates import SkyCoord
+
+        skycoord_files = []
+        for fra, fdec in zip(self.ra(key=key_ra), self.dec(key=key_dec)):
+            skycoord_ext = []
+            for ra, dec in zip(fra, fdec):
+                skycoord_ext.append(SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg"))
+            skycoord_files.append(skycoord_ext)
+
+        return skycoord_files
 
     @property
     def filters(self):
