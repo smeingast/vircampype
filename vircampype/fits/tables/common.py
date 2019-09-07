@@ -115,11 +115,14 @@ class FitsTables(FitsFiles):
 
         """
 
-        temp = np.array([self.get_column(column_name=column_name, hdu_index=h) for h in self.data_hdu[0]])
+        try:
+            t = [[Table.read(file, hdu=hdu)[column_name].filled(fill_value=np.nan).data
+                  for hdu in dhdu] for file, dhdu in zip(self.full_paths, self.data_hdu)]
+        except AttributeError:
+            t = [[Table.read(file, hdu=hdu)[column_name].data
+                  for hdu in dhdu] for file, dhdu in zip(self.full_paths, self.data_hdu)]
 
-        # Rearrange
-        temp = np.rollaxis(np.array(temp), axis=1)
-        return [t.tolist() for t in temp]
+        return t
 
 
 class MasterTables(FitsTables):
