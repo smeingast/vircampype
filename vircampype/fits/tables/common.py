@@ -1,6 +1,6 @@
 # =========================================================================== #
 # Import
-import numpy as np
+from astropy.io import fits
 from astropy.table import Table
 from vircampype.fits.common import FitsFiles
 
@@ -112,17 +112,17 @@ class FitsTables(FitsFiles):
         Returns
         -------
         iterable
-
         """
 
-        try:
-            t = [[Table.read(file, hdu=hdu)[column_name].filled(fill_value=np.nan).data
-                  for hdu in dhdu] for file, dhdu in zip(self.full_paths, self.data_hdu)]
-        except AttributeError:
-            t = [[Table.read(file, hdu=hdu)[column_name].data
-                  for hdu in dhdu] for file, dhdu in zip(self.full_paths, self.data_hdu)]
+        data_files = []
+        for file, dhus in zip(self.full_paths, self.data_hdu):
+            data_hdus = []
+            with fits.open(file) as f:
+                for hdu in dhus:
+                    data_hdus.append(f[hdu].data[column_name])
+            data_files.append(data_hdus)
 
-        return t
+        return data_files
 
 
 class MasterTables(FitsTables):
