@@ -16,6 +16,17 @@ class SextractorCatalogs(SourceCatalogs):
         super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
+    # Coordinates
+    # =========================================================================== #
+    @property
+    def _key_ra(self):
+        return "ALPHA_J2000"
+
+    @property
+    def _key_dec(self):
+        return "DELTA_J2000"
+
+    # =========================================================================== #
     # Scamp
     # =========================================================================== #
     @property
