@@ -1,5 +1,9 @@
 # =========================================================================== #
 # Import
+import warnings
+import numpy as np
+
+from vircampype.utils.plots import get_plotgrid
 from vircampype.fits.tables.common import FitsTables
 
 
@@ -137,6 +141,83 @@ class SourceCatalogs(FitsTables):
     # =========================================================================== #
     # Plots
     # =========================================================================== #
+    def plot_qc_astrometry(self, axis_size=5, key_ra=None, key_dec=None):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Obtain master coordinates
+        sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
+
+        # Loop over files
+        for sc_files, x_files, y_files, name in zip(self.skycoord(key_ra=key_ra, key_dec=key_dec),
+                                                    self.get_columns(column_name="XWIN_IMAGE"),
+                                                    self.get_columns(column_name="YWIN_IMAGE"), self.file_names):
+
+            fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            ax_all = ax_all.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Loop over extensions
+            im = None
+            for idx in range(len(sc_files)):
+
+                # Get separations between master and current table
+                i1, sep, _ = sc_files[idx].match_to_catalog_sky(sc_master_astrometry)
+
+                # Extract position angles between master catalog and input
+                # sc1 = sc_master_astrometry[i1]
+                # ang = sc1.position_angle(sc_hdu)
+
+                # Keep only those with a maximum of 0.5 arcsec
+                keep = sep.arcsec < 0.5
+                sep, x_hdu, y_hdu = sep[keep], x_files[idx][keep], y_files[idx][keep]
+                # ang = ang[keep]
+
+                hist_num, xedges, yedges = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=None, normed=False)
+                hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=sep.arcsec, normed=False)
+                extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+
+                im = ax_all[idx].imshow(hist_sep / hist_num, vmin=0, vmax=0.5, extent=extent, cmap="Spectral_r")
+
+                # Show average offset angle
+                # hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=ang.degree, normed=False)
+                # im = ax.imshow(hist_sep / hist_num, vmin=0, vmax=360, cmap="jet")
+
+                # Annotate detector ID
+                ax_all[idx].annotate("Det.ID: {0:0d}".format(idx + 1), xy=(0.02, 1.01),
+                                     xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx >= len(sc_files) - self.setup["instrument"]["layout"][0]:
+                    ax_all[idx].set_xlabel("X (pix)")
+                else:
+                    ax_all[idx].axes.xaxis.set_ticklabels([])
+                if idx % self.setup["instrument"]["layout"][0] == 0:
+                    ax_all[idx].set_ylabel("Y(pix)")
+                else:
+                    ax_all[idx].axes.yaxis.set_ticklabels([])
+
+                ax_all[idx].set_aspect("equal")
+
+                # Set ticks
+                ax_all[idx].xaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_all[idx].yaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx].yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Add colorbar
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
+            cbar.ax.xaxis.set_ticks_position("top")
+            cbar.ax.xaxis.set_label_position("top")
+
+            # Save plot
+            with warnings.catch_warnings():
+                path = "{0}{1}_astrometry.pdf".format(self.path_qc, name)
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(path, bbox_inches="tight")
+            plt.close("all")
 
 
 class ESOSourceCatalogs(SourceCatalogs):
