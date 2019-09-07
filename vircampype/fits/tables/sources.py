@@ -141,7 +141,7 @@ class SourceCatalogs(FitsTables):
     # =========================================================================== #
     # Plots
     # =========================================================================== #
-    def plot_qc_astrometry(self, axis_size=5, key_ra=None, key_dec=None):
+    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE", key_ra=None, key_dec=None):
 
         # Import
         import matplotlib.pyplot as plt
@@ -152,8 +152,8 @@ class SourceCatalogs(FitsTables):
 
         # Loop over files
         for sc_files, x_files, y_files, name in zip(self.skycoord(key_ra=key_ra, key_dec=key_dec),
-                                                    self.get_columns(column_name="XWIN_IMAGE"),
-                                                    self.get_columns(column_name="YWIN_IMAGE"), self.file_names):
+                                                    self.get_columns(column_name=key_x),
+                                                    self.get_columns(column_name=key_y), self.file_names):
 
             fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
             ax_all = ax_all.ravel()
