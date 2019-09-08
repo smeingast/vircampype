@@ -301,3 +301,28 @@ class MasterPhotometry2Mass(MasterPhotometry):
             return "Kmag"
         else:
             raise ValueError("Filter '{0}' not defined".format(key))
+
+    __qflag = None
+
+    @property
+    def _qflags(self):
+
+        if self.__qflag is not None:
+            return self.__qflag
+
+        self.__qflag = self.get_columns(column_name="Qflg")
+        return self.__qflag
+
+    def qflags(self, key):
+
+        if "j" in key.lower():
+            idx = 0
+        elif "h" in key.lower():
+            idx = 1
+        elif "k" in key.lower():
+            idx = 2
+        else:
+            raise ValueError("Filter '{0}' not defined".format(key))
+
+        # Return Quality flag for given filter
+        return [[[x[idx] for x in y] for y in z] for z in self._qflags]
