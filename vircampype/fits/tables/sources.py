@@ -3,7 +3,7 @@
 import warnings
 import numpy as np
 
-from vircampype.utils.plots import get_plotgrid
+from vircampype.utils import *
 from vircampype.fits.tables.common import FitsTables
 
 
@@ -247,6 +247,18 @@ class MasterPhotometry(SourceCatalogs):
 
     def __init__(self, setup, file_paths=None):
         super(MasterPhotometry, self).__init__(file_paths=file_paths, setup=setup)
+
+    @property
+    def mag_lim(self):
+        """
+        Fetches magnitude limits in setup.
+
+        Returns
+        -------
+        iterable
+            List with magnitude limits.
+        """
+        return str2list(s=self.setup["photometry"]["mag_limits_ref"], sep=",", dtype=float)
 
 
 class MasterPhotometry2Mass(MasterPhotometry):
