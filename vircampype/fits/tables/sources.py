@@ -125,6 +125,23 @@ class SourceCatalogs(FitsTables):
 
         return skycoord_files
 
+    def mag(self, key):
+        """
+        Returns magnitude in catalog based on keyword.
+
+        Parameters
+        ----------
+        key : str
+            Key in catalog for magnitude.
+
+        Returns
+        -------
+        iterable
+            List of lists for each catalog and extension in self.
+
+        """
+        return [[y for y in x] for x in self.get_columns(column_name=key)]
+
     @property
     def filters(self):
         """
@@ -247,3 +264,28 @@ class MasterPhotometry2Mass(MasterPhotometry):
     @property
     def _key_dec(self):
         return "DEJ2000"
+
+    @staticmethod
+    def translate_filter(key):
+        """
+        Translates input filter from e.g. VISTA to 2MASS names.
+
+        Parameters
+        ----------
+        key : str
+            The input magnitude name. e.g. 'J'.
+
+        Returns
+        -------
+        str
+            Translated magnitude key. e.g. 'Ks' will be translated to 'Kmag'.
+        """
+
+        if "j" in key.lower():
+            return "Jmag"
+        elif "h" in key.lower():
+            return "Hmag"
+        elif "k" in key.lower():
+            return "Kmag"
+        else:
+            raise ValueError("Filter '{0}' not defined".format(key))
