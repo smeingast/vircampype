@@ -288,6 +288,8 @@ class FitsFiles:
         ----------
         keywords : list[str]
             List of FITS header keys in the primary header
+        file_index : int, optional
+            If set, only retrieve values from given file.
 
         Returns
         -------
