@@ -611,6 +611,21 @@ class ImageCube(object):
         if kappa is not None:
             self._kappa_sigma(kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
 
+    def apply_masks_plane(self, kappa, ikappa):
+        """
+        Applys masks on per-plane basis.
+
+        Parameters
+        ----------
+        kappa : int, float
+            Kappa value.
+        ikappa : int
+            Number of iterations on kappa-sigma clipping
+        """
+
+        for plane in self:
+            plane[:] = sigma_clip(data=plane[:], kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
+
     # =========================================================================== #
     # Data manipulation
     # =========================================================================== #
