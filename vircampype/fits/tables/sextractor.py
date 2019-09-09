@@ -475,6 +475,7 @@ class SextractorCatalogs(SourceCatalogs):
                 mags = [self.mag_aper[idx_catalog][idx_hdu][:, idx_apc] for idx_apc in apertures_idx]
 
                 # Apply aperture correction to magnitudes
+                # TODO: Write this directly into a new column of the current catalog?
                 mags = [m + a for m, a in zip(mags, c)]
 
                 # Get zeropoints for each aperture
@@ -486,24 +487,15 @@ class SextractorCatalogs(SourceCatalogs):
                     zp_values.append(float(str(np.round(zp, decimals=4))))      # This forces only 4 decimals to appear
                     zperr_values.append(float(str(np.round(zperr, decimals=4))))  # in headers
 
-                # Add zero points to header
-                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, keys=self._zp_keys,
-                             values=zp_values, comments=self._zp_comments)
+                # Get averages across apertures
+                zp_avg.append(float(str(np.round(np.mean(zp_values), decimals=4))))
+                zperr_avg.append(float(str(np.round(np.std(zp_values), decimals=4))))
 
-                # Add zero point errors to header
-                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, keys=self._zperr_keys,
-                             values=zperr_values, comments=self._zperr_comments)
-
-                # Add average aperture-corrected ZP
-                zp_avg_vals = [float(str(np.round(np.mean(zp_values), decimals=4))),
-                               float(str(np.round(np.std(zp_values), decimals=4)))]
-                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, values=zp_avg_vals,
-                             keys=[self._zp_avg_key, self._zperr_avg_key],
-                             comments=[self._zp_avg_comment, self._zperr_avg_comment])
-
-                # Append to lists for plotting
-                zp_avg.append(zp_avg_vals[0])
-                zperr_avg.append(zp_avg_vals[1])
+                # Add ZP data to header
+                k = self._zp_keys + self._zperr_keys + [self._zp_avg_key, self._zperr_avg_key]
+                v = zp_values + zperr_values + [zp_avg[-1], zperr_avg[-1]]
+                c = self._zp_comments + self._zperr_comments + [self._zp_avg_comment, self._zperr_avg_comment]
+                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, keys=k, values=v, comments=c)
 
                 # Force reloading header after this temporary header
                 self.delete_headers_temp(file_index=idx_catalog)
