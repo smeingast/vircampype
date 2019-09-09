@@ -624,7 +624,7 @@ class ImageCube(object):
         """
 
         for plane in self:
-            plane[:] = sigma_clip(data=plane[:], kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
+            plane[:] = sigma_clip(data=plane, kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
 
     # =========================================================================== #
     # Data manipulation
