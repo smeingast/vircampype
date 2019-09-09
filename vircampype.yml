@@ -70,15 +70,15 @@ sky:
   mix_science: True                 # This is not yet used
   window: 30                        # Window in minutes around which sky images are created
   n_min: 5                          # Minimum number of images to merge to an offset image
-  mask_min: False
-  mask_max: False
+  mask_min: True
+  mask_max: True
   kappa:
   ikappa: 1
   mask_sources: True
   mask_sources_thresh: 5
   mask_sources_min_area: 3
   mask_sources_max_area: 100000
-  background_mesh_size: 100
+  background_mesh_size: 256
   background_mesh_filter_size: 3
   collapse_metric: "median"
   mode: "background"
