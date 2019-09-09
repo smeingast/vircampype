@@ -62,6 +62,7 @@ class FlatImages(FitsImages):
                 cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
 
                 # Kappa-sigma clipping per plane
+                # TODO: Kappa should be named sigma across all methods...
                 cube.apply_masks_plane(kappa=self.setup["bpm"]["kappa"], ikappa=self.setup["bpm"]["ikappa"])
 
                 # Collapse cube with median
