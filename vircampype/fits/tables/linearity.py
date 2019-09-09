@@ -174,6 +174,14 @@ class MasterLinearity(MasterTables):
     # Plots
     # =========================================================================== #
     # noinspection DuplicatedCode
+    def paths_qc_plots(self, paths):
+
+        if paths is None:
+            return ["{0}{1}.pdf".format(self.path_qc_linearity, fp) for fp in self.file_names]
+        else:
+            return paths
+
+    # noinspection DuplicatedCode
     def qc_plot_linearity(self, paths=None, axis_size=4, overwrite=False):
 
         """
@@ -195,8 +203,7 @@ class MasterLinearity(MasterTables):
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots
-        if paths is None:
-            paths = [x.replace(".tab", ".pdf") for x in self.full_paths]
+        paths = self.paths_qc_plots(paths=paths)
 
         # Loop over files and create plots
         for dit, flux, path, pcff, lcff, nl10k in zip(self.linearity_dit, self.linearity_flux, paths,
