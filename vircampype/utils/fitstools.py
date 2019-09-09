@@ -8,7 +8,8 @@ from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
-__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu"]
+__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
+           "delete_keys_hdu"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -118,6 +119,21 @@ def hdr2imagehdu(header, fill_value, dtype=None):
 
 
 def add_key_primaryhdu(path, key, value, comment=None):
+    """
+    Add key/value/comment to primary HDU.
+
+    Parameters
+    ----------
+    path : str
+        Path to file.
+    key : str
+        Key to be added/modified.
+    value : str, int, float
+        Value of card to be added.
+    comment : str, optional
+        If set, also write a comment
+
+    """
 
     with fits.open(path, "update") as file:
         if comment is not None:
@@ -127,16 +143,78 @@ def add_key_primaryhdu(path, key, value, comment=None):
 
 
 def add_keys_hdu(path, hdu, keys, values, comments=None):
+    """
+    Add multiple keys/values/comments to a given HDU.
+
+    Parameters
+    ----------
+    path : str
+        Path to file.
+    hdu : int
+        Which HDU to edit.
+    keys : iterable
+        List of keys.
+    values : iterable
+        List of values.
+    comments : iterable, optional
+        List of comments
+
+    """
 
     if comments is None:
         comments = ["" for _ in keys]
+
+    if len(keys) != len(values):
+        raise ValueError("Length of keys and values must be the same")
 
     with fits.open(path, "update") as file:
         for k, v, c in zip(keys, values, comments):
             file[hdu].header[k] = v, c
 
 
+def delete_keys_hdu(path, hdu, keys):
+    """
+    Delete specific keywords in specific HDU.
+
+    Parameters
+    ----------
+    path : str
+        Path to file.
+    hdu : int
+        In which HDU the entry should be deleted.
+    keys : iterable
+        List of keys to be deleted.
+
+    """
+    with fits.open(path, "update") as file:
+        for k in keys:
+            try:
+                del file[hdu].header[k]
+            except KeyError:
+                pass
+
+
 def get_value_image(ra, dec, data, header):
+    """
+    Obtains data value given a set of coordinates.
+
+    Parameters
+    ----------
+    ra : int, float, ndarray
+        Input right ascension.
+    dec : int, float, ndarray
+        Input declination.
+    data : ndarray
+        Data array.
+    header : fits.Header
+        Fits header (must contain WCS)
+
+    Returns
+    -------
+    ndarray
+        Array with data values for given coordinates.
+
+    """
 
     # Obtain wcs from header
     cwcs = wcs.WCS(header=header)
