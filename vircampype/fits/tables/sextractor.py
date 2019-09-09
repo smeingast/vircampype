@@ -514,6 +514,7 @@ class SextractorCatalogs(SourceCatalogs):
         """
 
         # Convert ZPs to dummy flux
+        # TODO: Check if this is +2.5 or -2.5 in this case
         df = 10**(np.array(self.get_zeropoints()[0]) / -2.5)
 
         # Scale to mean flux (not to mean magnitude)
