@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
-__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image"]
+__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -124,6 +124,16 @@ def add_key_primaryhdu(path, key, value, comment=None):
             file[0].header[key] = (value, comment)
         else:
             file[0].header[key] = value
+
+
+def add_keys_hdu(path, hdu, keys, values, comments=None):
+
+    if comments is None:
+        comments = ["" for _ in keys]
+
+    with fits.open(path, "update") as file:
+        for k, v, c in zip(keys, values, comments):
+            file[hdu].header[k] = v, c
 
 
 def get_value_image(ra, dec, data, header):
