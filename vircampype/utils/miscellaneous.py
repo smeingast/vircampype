@@ -12,9 +12,16 @@ from astropy.io import fits
 
 
 # Define objects in this module
-__all__ = ["make_folder", "message_mastercalibration", "message_finished", "message_calibration", "make_cards",
-           "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
+__all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
+           "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list"]
+
+
+def remove_file(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
 
 
 def make_folder(path):
