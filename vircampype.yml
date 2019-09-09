@@ -39,6 +39,8 @@ bpm:
   abs_hi: 20000
   rel_lo: 0.96
   rel_hi: 1.04
+  kappa: 3
+  ikappa: 2
   frac: 0.2
   collapse_metric: "median"
 
@@ -70,14 +72,14 @@ sky:
   mix_science: True                 # This is not yet used
   window: 30                        # Window in minutes around which sky images are created
   n_min: 5                          # Minimum number of images to merge to an offset image
-  mask_min: True
+  mask_min: False
   mask_max: True
-  kappa:
+  kappa: 3
   ikappa: 1
   mask_sources: True
   mask_sources_thresh: 5
   mask_sources_min_area: 3
-  mask_sources_max_area: 100000
+  mask_sources_max_area: 250000     # 500 x 500 pix
   background_mesh_size: 256
   background_mesh_filter_size: 3
   collapse_metric: "median"

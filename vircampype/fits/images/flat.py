@@ -61,6 +61,9 @@ class FlatImages(FitsImages):
                 # Mask low and high absolute values
                 cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
 
+                # Kappa-sigma clipping per plane
+                cube.apply_masks_plane(kappa=self.setup["bpm"]["kappa"], ikappa=self.setup["bpm"]["ikappa"])
+
                 # Collapse cube with median
                 flat = cube.flatten(metric=str2func(self.setup["bpm"]["collapse_metric"]), axis=0)
 
