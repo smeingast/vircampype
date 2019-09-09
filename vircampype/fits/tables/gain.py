@@ -36,7 +36,7 @@ class MasterGain(MasterTables):
     def qc_plot_gain(self, paths=None, axis_size=5, overwrite=False):
 
         # Generate path for plots
-        paths = self._make_plot_paths(paths=paths, prefix="gain")
+        paths = self.paths_qc_plots(paths=paths, prefix="gain")
 
         # Loop over files and create plots
         for gain, path in zip(self.gain, paths):
@@ -46,14 +46,14 @@ class MasterGain(MasterTables):
     def qc_plot_rdnoise(self, paths=None, axis_size=5, overwrite=False):
 
         # Generate path for plots
-        paths = self._make_plot_paths(paths=paths, prefix="rdnoise")
+        paths = self.paths_qc_plots(paths=paths, prefix="rdnoise")
 
         # Loop over files and create plots
         for rdn, path in zip(self.rdnoise, paths):
             plot_value_detector(values=rdn, path=path, ylabel="Read Noise (e-)",
                                 axis_size=axis_size, overwrite=overwrite)
 
-    def _make_plot_paths(self, paths, prefix=""):
+    def paths_qc_plots(self, paths, prefix=""):
 
         if paths is None:
             return ["{0}{1}.{2}.pdf".format(self.path_qc_gain, fp, prefix) for fp in self.file_names]
