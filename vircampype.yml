@@ -39,8 +39,8 @@ bpm:
   abs_hi: 20000
   rel_lo: 0.96
   rel_hi: 1.04
-  kappa: 3
-  ikappa: 2
+  kappa: 4
+  ikappa: 1
   frac: 0.2
   collapse_metric: "median"
 
