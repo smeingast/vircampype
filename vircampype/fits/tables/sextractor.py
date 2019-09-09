@@ -344,9 +344,207 @@ class SextractorCatalogs(SourceCatalogs):
             fig.savefig(path, bbox_inches="tight")
         plt.close("all")
 
+    _mag_aper = None
+
+    @property
+    def mag_aper(self):
+        """
+        Reads fixed aperture magnitudes from all tables.
+
+        Returns
+        -------
+        iterable
+            List of lists containing MAG_APER from the Sextractor catalog.
+
+        """
+        if self._mag_aper is not None:
+            return self._mag_aper
+
+        self._mag_aper = self.get_columns(column_name="MAG_APER")
+        return self._mag_aper
+
+    # =========================================================================== #
+    # Zero points
+    # =========================================================================== #
+    @property
+    def _zp_keys(self):
+        return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(self._apertures_save))]
+
+    @property
+    def _zp_comments(self):
+        return ["ZP for {0} pix aperture".format(d) for d in self._apertures_save]
+
+    @property
+    def _zperr_keys(self):
+        return ["HIERARCH PYPE MAGZPERR {0}".format(i + 1) for i in range(len(self._apertures_save))]
+
+    @property
+    def _zperr_comments(self):
+        return ["ZP error for {0} pix aperture".format(d) for d in self._apertures_save]
+
+    @property
+    def _zp_avg_key(self):
+        return "HIERARCH PYPE MAGZP AVG"
+
+    @property
+    def _zp_avg_comment(self):
+        return "Average ZP across apertures"
+
+    @property
+    def _zperr_avg_key(self):
+        return "HIERARCH PYPE MAGZPERR AVG"
+
+    @property
+    def _zperr_avg_comment(self):
+        return "Average ZP error across apertures"
+
+    def delete_zeropoints(self):
+
+        keys = self._zp_keys + self._zperr_keys + [self._zp_avg_key] + [self._zperr_avg_key]
+
+        for idx in range(len(self)):
+            for hdu in self.data_hdu[idx]:
+                delete_keys_hdu(path=self.full_paths[idx], hdu=hdu, keys=keys)
+
+            # Force reloading header
+            self.delete_headers_temp(file_index=idx)
+
+    def get_zeropoints(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="ZERO POINTS", silent=self.setup["misc"]["silent"])
+
+        # Get master photometry catalog
+        master_photometry = self.get_master_photometry()
+
+        # Get indices of apertures to save
+        apertures_idx = [[i for i, x in enumerate(self._apertrure_eval) if x == b][0] for b in self._apertures_save]
+
+        # Construct aperture corrections dict
+        apcors = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
+
+        # Loop over catalogs
+        zp_avg_catalogs, zperr_avg_catalogs = [], []
+        for idx_catalog in range(len(self)):
+
+            # Check if zeropoints have been determined already
+            try:
+
+                # Try reading ZPs from headers
+                a = self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key], file_index=idx_catalog)
+                zp_avg, zperr_avg = a[0][0], a[1][0]
+
+                # If already there, append, and continue with next file
+                zp_avg_catalogs.append(zp_avg)
+                zperr_avg_catalogs.append(zperr_avg)
+                continue
+
+            except KeyError:
+                # Make empty list to fill up later
+                zp_avg, zperr_avg = [], []
+
+            # Construct outpath of qc plot
+            path_plot = "{0}{1}.zp.pdf".format(self.path_qc, self.file_names[idx_catalog])
+
+            # Fetch filter of current catalog
+            filter_catalog = self.filters[idx_catalog]
+
+            # Filter master catalog for good data
+            mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
+
+            # Fetch magnitude and coordinates for master catalog
+            mmag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
+            msc = master_photometry.skycoord()[0][0][mkeep]
+
+            # Current aperture corrections
+            apcors_catalog = [x[idx_catalog] for x in apcors]
+
+            # Loop over extensions
+            for idx_hdu, fidx_hdu in zip(range(len(self.data_hdu[idx_catalog])), self.data_hdu[idx_catalog]):
+
+                # Message
+                message_calibration(n_current=idx_catalog+1, n_total=len(self), name=self.full_paths[idx_catalog],
+                                    d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_catalog]),
+                                    silent=self.setup["misc"]["silent"])
+
+                # Fetch aperture corrections for all sources
+                c = [s.get_apcor(skycoo=self.skycoord()[idx_catalog][idx_hdu], file_index=0,
+                                 hdu_index=idx_hdu+1) for s in apcors_catalog]
+
+                # Fetch magnitudes
+                mags = [self.mag_aper[idx_catalog][idx_hdu][:, idx_apc] for idx_apc in apertures_idx]
+
+                # Apply aperture correction to magnitudes
+                mags = [m + a for m, a in zip(mags, c)]
+
+                # Get zeropoints for each aperture
+                zp_values, zperr_values = [], []
+                for m in mags:
+                    zp, zperr = get_zeropoint(skycoo_cal=self.skycoord()[idx_catalog][idx_hdu], mag_cal=m,
+                                              mag_limits_ref=master_photometry.mag_lim,
+                                              skycoo_ref=msc, mag_ref=mmag)
+                    zp_values.append(float(str(np.round(zp, decimals=4))))      # This forces only 4 decimals to appear
+                    zperr_values.append(float(str(np.round(zperr, decimals=4))))  # in headers
+
+                # Add zero points to header
+                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, keys=self._zp_keys,
+                             values=zp_values, comments=self._zp_comments)
+
+                # Add zero point errors to header
+                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, keys=self._zperr_keys,
+                             values=zperr_values, comments=self._zperr_comments)
+
+                # Add average aperture-corrected ZP
+                zp_avg_vals = [float(str(np.round(np.mean(zp_values), decimals=4))),
+                               float(str(np.round(np.std(zp_values), decimals=4)))]
+                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, values=zp_avg_vals,
+                             keys=[self._zp_avg_key, self._zperr_avg_key],
+                             comments=[self._zp_avg_comment, self._zperr_avg_comment])
+
+                # Append to lists for plotting
+                zp_avg.append(zp_avg_vals[0])
+                zperr_avg.append(zp_avg_vals[1])
+
+                # Force reloading header after this temporary header
+                self.delete_headers_temp(file_index=idx_catalog)
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                plot_value_detector(values=zp_avg, errors=zperr_avg, path=path_plot)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return ZPs
+        return zp_avg_catalogs, zperr_avg_catalogs
+
     # =========================================================================== #
     # Properties
     # =========================================================================== #
+    @property
+    def _apertrure_eval(self):
+        """
+        Constructs list of apertures from setup.
+
+        Returns
+        -------
+        iterable
+            List of apertures.
+        """
+        return str2list(s=self.setup["photometry"]["apcor_diam_eval"], sep=",", dtype=float)
+
+    @property
+    def _apertures_save(self):
+        """
+        Constructs list of apertures from setup.
+
+        Returns
+        -------
+        iterable
+            List of apertures.
+        """
+        return str2list(s=self.setup["photometry"]["apcor_diam_save"], sep=",", dtype=float)
+
     @property
     def data_hdu(self):
         """
