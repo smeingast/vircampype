@@ -351,6 +351,39 @@ class FitsFiles:
             for p in self._header_paths:
                 remove_file(path=p)
 
+    def add_dataheader_key(self, key, values, comments=None):
+        """
+        Add key/values to dataheaders. Values lists must match the data format exactly. i.e. top list must match length
+        of self. Nested lists must correspond to data hdus.
+
+        Parameters
+        ----------
+        key : str
+            Which keyword to add.
+        values : iterable
+            Values to add to each data HDU.
+        comments : iterable, optional
+            If set, comments to add
+
+        """
+
+        # Dummy check
+        if len(self) != len(values):
+            raise ValueError("Values must be provided for each image")
+
+        # Values must also match for all extensions
+        for d, v in zip(self.data_hdu, values):
+            if len(d) != len(v):
+                raise ValueError("Values must be provided for each extension")
+
+        # Loop over files and add values
+        for idx in range(len(self)):
+            add_key_file(path=self.full_paths[idx], key=key, values=values[idx], comments=comments,
+                         hdu_data=self.data_hdu[idx])
+
+            # Force removing temp header
+            self.delete_headers_temp(file_index=idx)
+
     # =========================================================================== #
     # Data properties
     # =========================================================================== #

@@ -9,7 +9,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu"]
+           "delete_keys_hdu", "add_key_file"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -170,6 +170,49 @@ def add_keys_hdu(path, hdu, keys, values, comments=None):
     with fits.open(path, "update") as file:
         for k, v, c in zip(keys, values, comments):
             file[hdu].header[k] = v, c
+
+
+def add_key_file(path, key, values, comments=None, hdu_data=None):
+    """
+    Adds key to all (or a given set) of HDUs and updates fits file.
+
+    Parameters
+    ----------
+    path : str
+        Path to file.
+    key : str
+        Key to add.
+    values : iterable
+        values to add. Must match data format exactly.
+    comments : iterable, optional
+        If set, comments to add.
+    hdu_data : iterable
+        If set, an iterable of HDUs where to add the values.
+
+    """
+
+    with fits.open(path, mode="update") as hdulist:
+
+        if hdu_data is not None:
+            hdulist = [hdulist[idx] for idx in hdu_data]
+
+        if len(hdulist) == 1:
+            if len(values) != 1:
+                raise ValueError("For only primary hdu, provide one value in list!")
+        else:
+            if len(hdulist) != len(values):
+                raise ValueError("Must provide values for each extension")
+
+        # Make dummy comments if not set
+        if comments is None:
+            comments = ["" for _ in values]
+        else:
+            if len(values) != len(comments):
+                raise ValueError("Must provide comments for each value")
+
+        # Loop over HDUs
+        for h, v, c in zip(hdulist, values, comments):
+            h.header[key] = (v, c)
 
 
 def delete_keys_hdu(path, hdu, keys):
