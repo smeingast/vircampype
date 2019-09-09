@@ -36,7 +36,7 @@ class MasterBadPixelMask(MasterImages):
 
         # Generate path for plots
         if paths is None:
-            paths = [x.replace(".fits", ".pdf") for x in self.full_paths]
+            paths = ["{0}{1}.pdf".format(self.path_qc_bpm, fp) for fp in self.file_names]
 
         # Loop over files and create plots
         for bpm, path in zip(self.bpmfracs, paths):
