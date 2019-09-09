@@ -57,10 +57,20 @@ class FitsFiles:
         self.path_temp = self.path_proc + "temp/"
         self.path_master = self.path_proc + "master/"
         self.path_obspar = self.path_proc + "obspar/"
+
+        # QC
         self.path_qc = self.path_proc + "qc/"
-        for key, value in self.setup["paths"].items():
-            make_folder(path=value)
-        for path in [self.path_temp, self.path_master, self.path_obspar, self.path_qc]:
+        self.path_qc_zp = self.path_qc + "zp/"
+        self.path_qc_astrometry = self.path_qc + "astrometry/"
+        self.path_qc_apcor = self.path_qc + "aperture_correction/"
+
+        # Put into list
+        all_folders = [self.setup["paths"]["pype"], self.setup["paths"]["calibrated"], self.path_temp,
+                       self.path_master, self.path_obspar, self.path_qc, self.path_qc_zp, self.path_qc_astrometry,
+                       self.path_qc_apcor]
+
+        # Generate folders
+        for path in all_folders:
             make_folder(path)
 
         # Generate paths
