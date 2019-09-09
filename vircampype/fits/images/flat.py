@@ -503,6 +503,26 @@ class MasterFlat(MasterImages):
         """
         return self.dataheaders_get_keys(keywords=["HIERARCH PYPE FLAT SCALE"])[0]
 
+    def paths_qc_plots(self, paths):
+        """
+        Generates paths for QC plots
+
+        Parameters
+        ----------
+        paths : iterable
+            Input paths to override internal paths
+
+        Returns
+        -------
+        iterable
+            List of paths.
+        """
+
+        if paths is None:
+            return ["{0}{1}.pdf".format(self.path_qc_flat, fp) for fp in self.file_names]
+        else:
+            return paths
+
     # noinspection DuplicatedCode
     def qc_plot_flat(self, paths=None, axis_size=4, overwrite=False):
         """
@@ -524,8 +544,7 @@ class MasterFlat(MasterImages):
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots
-        if paths is None:
-            paths = [x.replace(".fits", ".pdf") for x in self.full_paths]
+        paths = self.paths_qc_plots(paths=paths)
 
         for flux, mjd, gs, path in zip(self.flux, self.flux_mjd, self.gainscale, paths):
 
