@@ -494,7 +494,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                path_plot = "{0}{1}.zp.pdf".format(self.path_qc, self.file_names[idx_catalog])
+                path_plot = "{0}{1}.zp.pdf".format(self.path_qc_zp, self.file_names[idx_catalog])
                 plot_value_detector(values=zp_avg, errors=zperr_avg, path=path_plot)
 
         # Print time
