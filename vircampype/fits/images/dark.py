@@ -125,9 +125,9 @@ class MasterDark(MasterImages):
 
         # Generate path for plots
         if paths is None:
-            paths = [x.replace(".fits", ".pdf") for x in self.full_paths]
+            paths = ["{0}{1}.pdf".format(self.path_qc_dark, fp) for fp in self.file_names]
 
         # Loop over files and create plots
         for dc, path in zip(self.darkcurrent, paths):
-            plot_value_detector(values=dc, path=path, ylabel="Dark Current (ADU/s)",
+            plot_value_detector(values=dc, path=path, ylabel="Dark Current (e-/s)",
                                 axis_size=axis_size, overwrite=overwrite)
