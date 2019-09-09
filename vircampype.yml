@@ -77,7 +77,7 @@ sky:
   mask_sources: True
   mask_sources_thresh: 5
   mask_sources_min_area: 3
-  mask_sources_max_area: 10000
+  mask_sources_max_area: 100000
   background_mesh_size: 100
   background_mesh_filter_size: 3
   collapse_metric: "median"
