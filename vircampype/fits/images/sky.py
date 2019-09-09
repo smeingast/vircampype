@@ -594,6 +594,29 @@ class MasterSky(MasterImages):
         self._sky_mjd = self._get_dataheaders_sequence(keyword="HIERARCH PYPE SKY MJD")
         return self._sky_mjd
 
+    # =========================================================================== #
+    # QC
+    # =========================================================================== #
+    def paths_qc_plots(self, paths):
+        """
+        Generates paths for QC plots
+
+        Parameters
+        ----------
+        paths : iterable
+            Input paths to override internal paths
+
+        Returns
+        -------
+        iterable
+            List of paths.
+        """
+
+        if paths is None:
+            return ["{0}{1}.pdf".format(self.path_qc_sky, fp) for fp in self.file_names]
+        else:
+            return paths
+
     # noinspection DuplicatedCode
     def qc_plot_sky(self, paths=None, axis_size=5, overwrite=False):
         """
@@ -615,8 +638,7 @@ class MasterSky(MasterImages):
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Plot paths
-        if paths is None:
-            paths = self.paths_qc_plots
+        paths = self.paths_qc_plots(paths=paths)
 
         for sky, noise, mjd, path in zip(self.sky, self.noise, self.sky_mjd, paths):
 
