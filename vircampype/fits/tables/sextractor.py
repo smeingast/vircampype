@@ -503,7 +503,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Return ZPs
         return zp_avg_catalogs, zperr_avg_catalogs
 
-    def _flux_scale(self):
+    def flux_scale(self):
         """
         Constructs flux scale from different zero points across all images and detectors
 
