@@ -280,7 +280,7 @@ class FitsFiles:
 
         return [[hdrs[i] for i in idx] for hdrs, idx in zip(self.headers, self.data_hdu)]
 
-    def dataheaders_get_keys(self, keywords):
+    def dataheaders_get_keys(self, keywords, file_index=None):
         """
         Method to return a list with lists for the individual values of the supplied keys from the data headers
 
@@ -305,8 +305,13 @@ class FitsFiles:
         if not isinstance(keywords, list):
             raise TypeError("Keywords must be in a list!")
 
+        if file_index is None:
+            headers_data = self.headers_data[:]
+        else:
+            headers_data = [self.headers_data[file_index]]
+
         # Return values
-        return [[[e[k] for e in h] for h in self.headers_data] for k in keywords]
+        return [[[e[k] for e in h] for h in headers_data] for k in keywords]
 
     def _get_dataheaders_sequence(self, keyword):
         """
@@ -334,6 +339,15 @@ class FitsFiles:
 
         temp = np.rollaxis(np.array(temp), axis=1)
         return [t.T.tolist() for t in temp]
+
+    def delete_headers_temp(self, file_index=None):
+        """ Removes temporary header files. """
+
+        if file_index is not None:
+            remove_file(path=self._header_paths[file_index])
+        else:
+            for p in self._header_paths:
+                remove_file(path=p)
 
     # =========================================================================== #
     # Data properties
