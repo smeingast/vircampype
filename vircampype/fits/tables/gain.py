@@ -56,6 +56,6 @@ class MasterGain(MasterTables):
     def _make_plot_paths(self, paths, prefix=""):
 
         if paths is None:
-            return [x.replace(".tab", ".{0}.pdf".format(prefix)) for x in self.full_paths]
+            return ["{0}{1}.{2}.pdf".format(self.path_qc_gain, fp, prefix) for fp in self.file_names]
         else:
             return paths
