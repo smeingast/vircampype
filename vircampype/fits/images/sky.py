@@ -304,7 +304,7 @@ class SkyImages(FitsImages):
                                       mesh_size=self.setup["sky"]["background_mesh_size"],
                                       mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"])
 
-                # Determine the sky levels for each plane
+                # Determine median sky level in each plane
                 s, n = cube.background_planes()
                 sky.append(s)
                 noise.append(n)
