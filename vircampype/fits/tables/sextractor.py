@@ -514,11 +514,22 @@ class SextractorCatalogs(SourceCatalogs):
         """
 
         # Convert ZPs to dummy flux
-        # TODO: Check if this is +2.5 or -2.5 in this case
         df = 10**(np.array(self.get_zeropoints()[0]) / -2.5)
 
         # Scale to mean flux (not to mean magnitude)
         return (df / np.mean(df)).tolist()
+
+    def flux_scale_default(self):
+        """
+        Returns flux scaling of 1.0 for each image and each extension.
+
+        Returns
+        -------
+        iterable
+            List of lists for default flux scaling (1.0)
+
+        """
+        return (np.array(self.flux_scale()) / np.array(self.flux_scale())).tolist()
 
     # =========================================================================== #
     # Properties
