@@ -173,7 +173,6 @@ class MasterLinearity(MasterTables):
     # =========================================================================== #
     # Plots
     # =========================================================================== #
-    # noinspection DuplicatedCode
     def paths_qc_plots(self, paths):
 
         if paths is None:
