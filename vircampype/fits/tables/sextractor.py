@@ -411,6 +411,12 @@ class SextractorCatalogs(SourceCatalogs):
 
     def get_zeropoints(self):
 
+        # Check if zeropoints have been determined already
+        try:
+            return self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
+        except KeyError:
+            pass
+
         # Processing info
         tstart = message_mastercalibration(master_type="ZERO POINTS", silent=self.setup["misc"]["silent"])
 
@@ -427,25 +433,6 @@ class SextractorCatalogs(SourceCatalogs):
         zp_avg_catalogs, zperr_avg_catalogs = [], []
         for idx_catalog in range(len(self)):
 
-            # Check if zeropoints have been determined already
-            try:
-
-                # Try reading ZPs from headers
-                a = self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key], file_index=idx_catalog)
-                zp_avg, zperr_avg = a[0][0], a[1][0]
-
-                # If already there, append, and continue with next file
-                zp_avg_catalogs.append(zp_avg)
-                zperr_avg_catalogs.append(zperr_avg)
-                continue
-
-            except KeyError:
-                # Make empty list to fill up later
-                zp_avg, zperr_avg = [], []
-
-            # Construct outpath of qc plot
-            path_plot = "{0}{1}.zp.pdf".format(self.path_qc, self.file_names[idx_catalog])
-
             # Fetch filter of current catalog
             filter_catalog = self.filters[idx_catalog]
 
@@ -460,6 +447,7 @@ class SextractorCatalogs(SourceCatalogs):
             apcors_catalog = [x[idx_catalog] for x in apcors]
 
             # Loop over extensions
+            zp_avg, zperr_avg = [], []
             for idx_hdu, fidx_hdu in zip(range(len(self.data_hdu[idx_catalog])), self.data_hdu[idx_catalog]):
 
                 # Message
@@ -500,8 +488,13 @@ class SextractorCatalogs(SourceCatalogs):
                 # Force reloading header after this temporary header
                 self.delete_headers_temp(file_index=idx_catalog)
 
+            # Append all average ZPs for current file
+            zp_avg_catalogs.append(zp_avg)
+            zperr_avg_catalogs.append(zperr_avg)
+
             # QC plot
             if self.setup["misc"]["qc_plots"]:
+                path_plot = "{0}{1}.zp.pdf".format(self.path_qc, self.file_names[idx_catalog])
                 plot_value_detector(values=zp_avg, errors=zperr_avg, path=path_plot)
 
         # Print time
