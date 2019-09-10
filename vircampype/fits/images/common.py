@@ -762,11 +762,13 @@ class FitsImages(FitsFiles):
         if preset == "scamp":
             ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
+                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image"])
         elif preset == "full":
             ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_photcal.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             phot_apertures=self.setup["photometry"]["apcor_diam_eval"],
+                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image", "starnnw_name"])
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
