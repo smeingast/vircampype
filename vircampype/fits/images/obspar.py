@@ -99,9 +99,9 @@ class ApcorImages(SkyImages):
                     and not split.setup["misc"]["overwrite"]:
                 run_command_bash(cmd=cmd, silent=True)
 
-                # Remove header
+                # Remove header and weight
                 remove_file(path=outpath.replace(".fits", ".ahead"))
-                exit()
+                remove_file(path=outpath.replace(".fits", ".weight.fits"))
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
