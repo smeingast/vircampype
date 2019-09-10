@@ -231,7 +231,7 @@ class SourceCatalogs(FitsTables):
 
             # Save plot
             with warnings.catch_warnings():
-                path = "{0}{1}_astrometry.pdf".format(self.path_qc, name)
+                path = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, name)
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(path, bbox_inches="tight")
             plt.close("all")
