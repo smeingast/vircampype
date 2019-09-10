@@ -743,9 +743,14 @@ class FitsFiles:
 
         return MasterTables(setup=self.setup, file_paths=paths)
 
-    def get_aperture_correction(self, diameter):
+    def get_aperture_correction(self, diameter=None):
         """
         Fetches all aperture correction images in the obspar directory.
+
+        Parameters
+        ----------
+        diameter : int, float, optional
+            If given, return only aperture correction files for given aperture.
 
         Returns
         -------
@@ -757,7 +762,10 @@ class FitsFiles:
         from vircampype.fits.images.obspar import ApcorImages
 
         # Get all aperture correction files in the obspar directory
-        paths = glob.glob(self.path_obspar + "*apcor{0}.fits".format(diameter))
+        if diameter is None:
+            paths = glob.glob(self.path_obspar + "*apcor*.fits".format(diameter))
+        else:
+            paths = glob.glob(self.path_obspar + "*apcor{0}.fits".format(diameter))
 
         # If there is nothing, issue error
         if len(paths) < 1:
