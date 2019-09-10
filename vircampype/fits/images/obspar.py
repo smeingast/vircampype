@@ -75,6 +75,10 @@ class ApcorImages(SkyImages):
             # Create output path
             outpath = split._swarp_path_coadd.replace(".fits", ".apcor{0}.fits".format(diameter))
 
+            if check_file_exists(file_path=outpath, silent=split.setup["misc"]["silent"]) \
+                    and not split.setup["misc"]["overwrite"]:
+                continue
+
             # Print processing info
             message_calibration(n_current=sidx + 1, n_total=len(split_apcor), name=outpath,
                                 d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
@@ -95,9 +99,7 @@ class ApcorImages(SkyImages):
                                               split._swarp_default_config, ss)
 
             # Run Swarp
-            if not check_file_exists(file_path=outpath, silent=split.setup["misc"]["silent"]) \
-                    and not split.setup["misc"]["overwrite"]:
-                run_command_bash(cmd=cmd, silent=True)
+            run_command_bash(cmd=cmd, silent=True)
 
             # Remove header and weight
             remove_file(path=outpath.replace(".fits", ".ahead"))
