@@ -10,6 +10,19 @@ class ApcorImages(SkyImages):
         super(ApcorImages, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
+    def diameters(self):
+        """
+        Fetches aperture diameters from headers.
+
+        Returns
+        -------
+        iterable
+            List of lists for each file and each detector.
+
+        """
+        return self.dataheaders_get_keys(keywords=["APCDIAM"])[0]
+
+    @property
     def _swarp_preset_apcor_path(self):
         """
         Obtains path to coadd preset for swarp.
