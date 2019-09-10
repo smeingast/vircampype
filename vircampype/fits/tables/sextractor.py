@@ -256,6 +256,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Write aperture correction diameter into primary header too
                 hdul[0].header["APCDIAM"] = (diams, "Aperture diameter (pix)")
+                hdul[0].header[self.setup["keywords"]["object"]] = "APERTURE-CORRECTION"
 
                 # Save to disk
                 hdul.writeto(path_file.replace(".apcor.", ".apcor{0}.".format(diams)),
