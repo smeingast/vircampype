@@ -68,13 +68,16 @@ class ApcorImages(SkyImages):
             # Get current diameter
             diameter = split.diameters[0][0]
 
+            # Create output path
+            outpath = split._swarp_path_coadd.replace(".fits", ".apcor{0}.fits".format(diameter))
+
             # Create output header
             header = split.header_coadd(scale=self.cdelt1_mean)
 
             # Write header to disk
-            outpath = "/Users/stefan/Desktop/test{0}.fits".format(diameter)
             header.totextfile(outpath.replace(".fits", ".ahead"), overwrite=True, endcard=True)
 
+            # Construct swarp options
             ss = yml2config(path=split._swarp_preset_apcor_path, imageout_name=outpath, weight_type="None",
                             weightout_name=outpath.replace(".fits", ".weight.fits"), resample_dir=self.path_temp,
                             nthreads=split.setup["misc"]["n_threads"], skip=["weight_thresh", "weight_image"])
@@ -84,7 +87,7 @@ class ApcorImages(SkyImages):
                                               split._swarp_default_config, ss)
 
             # Run Swarp
-            if not check_file_exists(file_path=split._swarp_path_coadd, silent=split.setup["misc"]["silent"]) \
+            if not check_file_exists(file_path=outpath, silent=split.setup["misc"]["silent"]) \
                     and not split.setup["misc"]["overwrite"]:
                 run_command_bash(cmd=cmd, silent=False)
 
