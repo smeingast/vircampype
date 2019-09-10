@@ -60,24 +60,33 @@ class ApcorImages(SkyImages):
         # Processing info
         tstart = message_mastercalibration(master_type="COADDING", silent=self.setup["misc"]["silent"], right=None)
 
-        # Create output header
-        header = self.header_coadd(scale=self.cdelt1_mean)
+        # Split by aperture diameter
+        split_apcor = self.split_keywords(keywords=["APCDIAM"])
 
-        # Write header to disk
-        outpath = "/Users/stefan/Desktop/test.fits"
-        header.totextfile(outpath.replace(".fits", ".ahead"), overwrite=True, endcard=True)
+        for split in split_apcor:  # type: ApcorImages
 
-        ss = yml2config(path=self._swarp_preset_apcor_path, imageout_name=outpath, weight_type="None",
-                        weightout_name=outpath.replace(".fits", ".weight.fits"), resample_dir=self.path_temp,
-                        nthreads=self.setup["misc"]["n_threads"], skip=["weight_thresh", "weight_image"])
+            # Get current diameter
+            diameter = split.diameters[0][0]
 
-        # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} {3}".format(self.bin_swarp, " ".join(self.full_paths), self._swarp_default_config, ss)
+            # Create output header
+            header = split.header_coadd(scale=self.cdelt1_mean)
 
-        # Run Swarp
-        if not check_file_exists(file_path=self._swarp_path_coadd, silent=self.setup["misc"]["silent"]) \
-                and not self.setup["misc"]["overwrite"]:
-            run_command_bash(cmd=cmd, silent=False)
+            # Write header to disk
+            outpath = "/Users/stefan/Desktop/test{0}.fits".format(diameter)
+            header.totextfile(outpath.replace(".fits", ".ahead"), overwrite=True, endcard=True)
+
+            ss = yml2config(path=split._swarp_preset_apcor_path, imageout_name=outpath, weight_type="None",
+                            weightout_name=outpath.replace(".fits", ".weight.fits"), resample_dir=self.path_temp,
+                            nthreads=split.setup["misc"]["n_threads"], skip=["weight_thresh", "weight_image"])
+
+            # Construct commands for source extraction
+            cmd = "{0} {1} -c {2} {3}".format(split.bin_swarp, " ".join(split.full_paths),
+                                              split._swarp_default_config, ss)
+
+            # Run Swarp
+            if not check_file_exists(file_path=split._swarp_path_coadd, silent=split.setup["misc"]["silent"]) \
+                    and not split.setup["misc"]["overwrite"]:
+                run_command_bash(cmd=cmd, silent=False)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
