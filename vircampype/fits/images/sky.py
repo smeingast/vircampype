@@ -593,7 +593,7 @@ class SkyImages(FitsImages):
 
         # Return final header with optimized rotation
         rotation = rotation_test[np.argmin(area)]
-        return skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation, enlarge=1.001, cdelt=scale / 3600)
+        return skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation, enlarge=1.001, cdelt=scale)
 
 
 class ScienceImages(SkyImages):
