@@ -762,7 +762,7 @@ class FitsFiles:
         # Import
         from vircampype.fits.images.obspar import ApcorImages
 
-        # Get all aperture correction files in the obspar directory
+        # Get aperture correction files matching the file name exactly
         if diameter is None:
             paths = flat_list([glob.glob("{0}{1}*apcor*.fits".format(self.path_obspar, fn))
                                for fn in self.file_names])
