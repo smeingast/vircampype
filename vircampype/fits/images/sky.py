@@ -157,6 +157,93 @@ class SkyImages(FitsImages):
         # Return maximum distance
         return s
 
+    @property
+    def cd11(self):
+        """
+        CD1_1 values from headers.
+
+        Returns
+        -------
+        float
+
+        """
+        return self.dataheaders_get_keys(keywords=["CD1_1"])
+
+    @property
+    def cd12(self):
+        """
+        CD1_2 values from headers.
+
+        Returns
+        -------
+        float
+
+        """
+        return self.dataheaders_get_keys(keywords=["CD1_2"])
+
+    @property
+    def cd21(self):
+        """
+        CD2_1 values from headers.
+
+        Returns
+        -------
+        float
+
+        """
+
+        return self.dataheaders_get_keys(keywords=["CD2_1"])
+
+    @property
+    def cd22(self):
+        """
+        CD2_2 values from headers.
+
+        Returns
+        -------
+        float
+
+        """
+
+        return self.dataheaders_get_keys(keywords=["CD2_2"])
+
+    @property
+    def crot_mean(self):
+        """
+        Mean rotation from headers.
+
+        Returns
+        -------
+        float
+
+        """
+        return np.mean(np.arctan(np.divide(self.cd21, self.cd11)))
+
+    @property
+    def cdelt1_mean(self):
+        """
+        Mean CDELT1.
+
+        Returns
+        -------
+        float
+
+        """
+
+        return np.mean(np.divide(self.cd11, np.cos(self.crot_mean)))
+
+    @property
+    def cdelt2_mean(self):
+        """
+        Mean CDELT1.
+
+        Returns
+        -------
+        float
+
+        """
+        return np.mean(np.divide(self.cd22, np.cos(self.crot_mean)))
+
     # =========================================================================== #
     # Swarping
     # =========================================================================== #
