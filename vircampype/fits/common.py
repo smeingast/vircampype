@@ -759,32 +759,19 @@ class FitsFiles:
 
         """
 
+        # Import
         from vircampype.fits.images.obspar import ApcorImages
 
         # Get all aperture correction files in the obspar directory
         if diameter is None:
-            paths = glob.glob(self.path_obspar + "*apcor*.fits".format(diameter))
-
+            paths = flat_list([glob.glob("{0}{1}*apcor*.fits".format(self.path_obspar, fn))
+                               for fn in self.file_names])
         else:
-            paths = glob.glob(self.path_obspar + "*apcor{0}.fits".format(diameter))
-
-        # Make new instance to get headers
-        apcor_all = ApcorImages(setup=self.setup, file_paths=paths)
-
-        # Now sort if exactly one aperture is given, otherwise not
-        if diameter is None:
-            indices = np.arange(0, len(paths))
-        else:
-            # There must be exactly 1 aperture correction image for each input image
-            indices = [[i for i, j in enumerate(apcor_all.primeheaders_get_keys(keywords=["ARCFILE"])[0]) if j == k][0]
-                       for k in self.primeheaders_get_keys(keywords=["ARCFILE"])[0]]
-
-        # If there is nothing, issue error
-        if len(paths) < 1:
-            raise ValueError("No aperture correction images found!")
+            paths = flat_list([glob.glob("{0}{1}*apcor{2}.fits".format(self.path_obspar, fn, diameter))
+                               for fn in self.file_names])
 
         # Return matched aperture correction files
-        return ApcorImages(setup=self.setup, file_paths=[apcor_all.full_paths[idx] for idx in indices])
+        return ApcorImages(setup=self.setup, file_paths=paths)
 
     # =========================================================================== #
     # Master tables
