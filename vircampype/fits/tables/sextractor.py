@@ -520,6 +520,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Return ZPs
         return zp_avg_catalogs, zperr_avg_catalogs
 
+    @property
     def flux_scale(self):
         """
         Constructs flux scale from different zero points across all images and detectors
@@ -536,6 +537,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Scale to mean flux (not to mean magnitude)
         return (df / np.mean(df)).tolist()
 
+    @property
     def flux_scale_default(self):
         """
         Returns flux scaling of 1.0 for each image and each extension.
