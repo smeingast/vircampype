@@ -18,7 +18,7 @@ class MasterGain(MasterTables):
         if self._gain is not None:
             return self._gain
 
-        self._gain = self.get_columns(column_name="gain")[0]
+        self._gain = [x[0] for x in self.get_columns(column_name="gain")]
         return self._gain
 
     _rdnoise = None
@@ -30,7 +30,7 @@ class MasterGain(MasterTables):
         if self._rdnoise is not None:
             return self._rdnoise
 
-        self._rdnoise = self.get_columns(column_name="rdnoise")[0]
+        self._rdnoise = [x[0] for x in self.get_columns(column_name="rdnoise")]
         return self._rdnoise
 
     def qc_plot_gain(self, paths=None, axis_size=5, overwrite=False):
