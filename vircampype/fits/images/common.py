@@ -723,7 +723,7 @@ class FitsImages(FitsFiles):
         if preset == "scamp":
             return get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.param")
         elif preset == "full":
-            return get_resource_path(package=self._sex_preset_package, resource="sextractor_photcal.param")
+            return get_resource_path(package=self._sex_preset_package, resource="sextractor_full.param")
 
     def sextractor(self, preset="scamp"):
         """
@@ -765,7 +765,7 @@ class FitsImages(FitsFiles):
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image"])
         elif preset == "full":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_photcal.yml"),
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_full.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             phot_apertures=self.setup["photometry"]["apcor_diam_eval"],
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
