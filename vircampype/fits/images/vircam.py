@@ -325,7 +325,7 @@ class VircamScienceImages(ScienceImages):
 
         raise NotImplementedError
         # for s in split:
-        #     s.coadd(header=self.header_coadd)
+        #     s.coadd(header=self.header_coadd())
 
     # =========================================================================== #
     # Swarping
@@ -483,7 +483,7 @@ class VircamScienceImages(ScienceImages):
 
             # Overrite internal coadd header if given
             if header_coadd is None:
-                header_coadd = self.header_coadd
+                header_coadd = self.header_coadd()
 
             # Write to disk
             self._write_header(header=header_coadd, path=self._swarp_path_coadd_header)
@@ -535,7 +535,7 @@ class VircamScienceImages(ScienceImages):
         # Write header to disk
         if not check_file_exists(file_path=self._swarp_path_coadd_header, silent=True):
             if header is None:
-                header = self.header_coadd
+                header = self.header_coadd()
             self._write_header(header=header, path=self._swarp_path_coadd_header)
 
         ss = yml2config(path=self._swarp_preset_coadd_path,
