@@ -151,6 +151,25 @@ class MasterTables(FitsTables):
         return MasterLinearity(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
 
     @property
+    def gain(self):
+        """
+        Holds all MasterGain tables.
+
+        Returns
+        -------
+        MasterGain
+            All MasterGain tables as a MasterLinearity instance.
+
+        """
+        # Import
+        from vircampype.fits.tables.gain import MasterGain
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-GAIN"]
+
+        return MasterGain(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
     def photometry(self):
         """
         Holds all MasterPhotometry tables.
