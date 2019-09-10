@@ -436,6 +436,21 @@ class FitsImages(FitsFiles):
         return self.match_mjd(match_to=self.get_master_tables().linearity,
                               max_lag=self.setup["master"]["max_lag_linearity"])
 
+    def get_master_gain(self):
+        """
+        Get for each file in self the corresponding MasterGain table.
+
+        Returns
+        -------
+        MasterGain
+            MasterGain instance holding for each file in self the corresponding Masterlinearity table.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self.get_master_tables().gain,
+                              max_lag=self.setup["master"]["max_lag_gain"])
+
     # =========================================================================== #
     # Matcher
     # =========================================================================== #
