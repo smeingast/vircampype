@@ -490,6 +490,7 @@ class VircamScienceImages(ScienceImages):
         ss = yml2config(path=self._swarp_preset_pawprints_path,
                         imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
                         nthreads=self.setup["misc"]["n_threads"], resample_suffix=self._swarp_resample_suffix,
+                        gain_keyword=self.setup["keywords"]["gain"], satlev_keyword=self.setup["keywords"]["saturate"],
                         skip=["weight_image", "weight_thresh", "resample_dir"])
 
         # Construct commands for source extraction
@@ -538,6 +539,7 @@ class VircamScienceImages(ScienceImages):
 
         ss = yml2config(path=self._swarp_preset_coadd_path,
                         imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
+                        gain_keyword=self.setup["keywords"]["gain"], satlev_keyword=self.setup["keywords"]["saturate"],
                         nthreads=self.setup["misc"]["n_threads"], skip=["weight_thresh", "weight_image"])
 
         # Construct commands for source extraction
