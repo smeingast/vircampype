@@ -145,15 +145,23 @@ class SextractorCatalogs(SourceCatalogs):
 
     def scamp(self):
 
+        # Get passband
+        bands = list(set(self.filters))
+        if len(bands) != 1:
+            raise ValueError("Sequence contains multiple filter")
+        else:
+            band = bands[0][0]  # THIS should only keep J,H, and K for 2MASS (First band and first letter)
+
         # Load preset
         options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=self._scamp_qc_types(joined=True),
-                             checkplot_name=self._scamp_qc_names(joined=True), skip=["HEADER_NAME", "AHEADER_NAME"],
+                             checkplot_name=self._scamp_qc_names(joined=True),
+                             skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_BAND"],
                              path=get_resource_path(package=self._scamp_preset_package, resource="scamp.yml"))
 
         # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} -HEADER_NAME {3} {4}" \
+        cmd = "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_BAND {4} {5}" \
               "".format(self._bin_scamp, self._scamp_catalog_paths, self._scamp_default_config,
-                        self._scamp_header_names(joined=True), options)
+                        self._scamp_header_names(joined=True), band, options)
 
         # Run Scamp
         # cp = subprocess.run([cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
