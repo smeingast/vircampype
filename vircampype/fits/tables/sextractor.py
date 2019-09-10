@@ -125,7 +125,7 @@ class SextractorCatalogs(SourceCatalogs):
             List or str with header names.
 
         """
-        names = [x.replace(".sources", ".ahead") for x in self.full_paths]
+        names = [x.replace(".fits", ".ahead") for x in self.full_paths]
         if joined:
             return ",".join(names)
         else:
@@ -147,7 +147,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Load preset
         options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=self._scamp_qc_types(joined=True),
-                             checkplot_name=self._scamp_qc_names(), skip=["HEADER_NAME"],
+                             checkplot_name=self._scamp_qc_names(joined=True), skip=["HEADER_NAME", "AHEADER_NAME"],
                              path=get_resource_path(package=self._scamp_preset_package, resource="scamp.yml"))
 
         # Construct commands for source extraction
