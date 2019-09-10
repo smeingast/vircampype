@@ -180,7 +180,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Generate output names
             path_file = "{0}{1}.apcor.fits".format(self.path_obspar, self.file_names[idx])
-            path_plot = "{0}{1}.apcor.pdf".format(self.path_qc, self.file_names[idx])
+            path_plot = "{0}{1}.apcor.pdf".format(self.path_qc_apcor, self.file_names[idx])
 
             if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(diameters_save[0])),
                                  silent=self.setup["misc"]["silent"]):
