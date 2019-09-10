@@ -277,6 +277,120 @@ class SkyImages(FitsImages):
         """
         return get_resource_path(package="vircampype.resources.astromatic.swarp", resource="default.config")
 
+    @property
+    def _swarp_path_coadd(self):
+        """
+        Constructs a path for a coadd of the current pawprints in self.
+
+        Returns
+        -------
+        str
+            Path to coadd.
+        """
+        return "{0}{1}.fits" \
+               "".format(self.file_directories[0],
+                         self.primeheaders_get_keys(keywords=[self.setup["keywords"]["object"]])[0][0])
+
+    @property
+    def _swarp_path_coadd_weight(self):
+        """
+        Constructs a path for coadd weight of the current pawprints in self.
+
+        Returns
+        -------
+        str
+            Path to coadd weight.
+        """
+        return self._swarp_path_coadd.replace(".fits", ".weight.fits")
+
+    @property
+    def _swarp_path_coadd_header(self):
+        """
+        Header path for coadd.
+
+        Returns
+        -------
+        str
+            Path to coadd.
+        """
+        return self._swarp_path_coadd.replace(".fits", ".ahead")
+
+    @staticmethod
+    def _write_header(header, path):
+        """
+        Writes fits header to into a textfile.
+
+        Parameters
+        ----------
+        header : Header
+            Astropy fits header.
+        path : str
+            Path where it should be written.
+        """
+        header.totextfile(path, overwrite=True, endcard=True)
+
+    @property
+    def _swarp_resample_suffix(self):
+        """
+        Returns resample suffix.
+
+        Returns
+        -------
+        str
+            Resample suffix.
+        """
+        return ".astr.fits"
+
+    @property
+    def _swarp_preset_pawprints_path(self):
+        """
+        Obtains path to pawprint preset for swarp.
+
+        Returns
+        -------
+        str
+            Path to preset.
+        """
+        return get_resource_path(package=self._swarp_preset_package, resource="swarp_pawprint.yml")
+
+    @property
+    def _swarp_preset_coadd_path(self):
+        """
+        Obtains path to coadd preset for swarp.
+
+        Returns
+        -------
+        str
+            Path to preset.
+        """
+        return get_resource_path(package=self._swarp_preset_package, resource="swarp_coadd.yml")
+
+    @property
+    def _swarp_paths_resampled(self):
+        """
+        Constructs a list of paths for the resampled images.
+
+        Returns
+        -------
+        iterable
+            List with paths.
+
+        """
+        return [x.replace(".fits", self._swarp_resample_suffix) for x in self.full_paths]
+
+    @property
+    def _swarp_paths_resampled_weight(self):
+        """
+        Constructs a list of paths for the resampled image weights.
+
+        Returns
+        -------
+        iterable
+            List with paths.
+
+        """
+        return [x.replace(".fits", ".weight.fits") for x in self._swarp_paths_resampled]
+
     # =========================================================================== #
     # Splitter
     # =========================================================================== #
