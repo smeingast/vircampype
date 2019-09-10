@@ -744,7 +744,7 @@ class FitsFiles:
 
     def get_aperture_correction(self, diameter):
         """
-        Fetches all aperture correction images in the obspar directory
+        Fetches all aperture correction images in the obspar directory.
 
         Returns
         -------
