@@ -205,7 +205,7 @@ class SextractorCatalogs(SourceCatalogs):
                 raise ValueError("Number of tables and headers no matching")
 
             # Lists to save results for this image
-            mag_apcor, magerr_apcor, models_apcor = [], [], []
+            mag_apcor, magerr_apcor, models_apcor, nsources = [], [], [], []
 
             # Loop over extensions and get aperture correction after filtering
             for tab, hdr in zip(tables, headers):
@@ -237,6 +237,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Construct header to append
                     hdr_temp = ohdr.copy()
+                    hdr_temp["NSRCAPC"] = (len(mag), "Number of sources used")
                     hdr_temp["APCMAG"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
                     hdr_temp["APCDIAM"] = (diameters_save[aidx], "Aperture diameter (pix)")
                     hdr_temp["APCMODEL"] = (mo_apcor.name, "Aperture correction model name")
@@ -247,6 +248,7 @@ class SextractorCatalogs(SourceCatalogs):
                                                            dtype=np.float32))
 
                 # Append to lists for QC plot
+                nsources.append(len(mag))
                 mag_apcor.append(ma_apcor)
                 magerr_apcor.append(me_apcor)
                 models_apcor.append(mo_apcor)
@@ -265,13 +267,14 @@ class SextractorCatalogs(SourceCatalogs):
             # QC plot
             if self.setup["misc"]["qc_plots"]:
                 self.qc_plot_apcor(path=path_plot, diameters=diameters_eval, mag_apcor=mag_apcor,
-                                   magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4,
+                                   magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4, nsources=nsources,
                                    overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-    def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4, overwrite=False):
+    def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4,
+                      nsources=None, overwrite=False):
         # TODO: This should be moved so some sort of MASTER-APCOR class perhaps
 
         # Check if plot already exits
@@ -338,6 +341,11 @@ class SextractorCatalogs(SourceCatalogs):
             # Annotate detector ID
             ax.annotate("Det.ID: {0:0d}".format(idx + 1), xy=(0.98, 0.02), xycoords="axes fraction",
                         ha="right", va="bottom")
+
+            # Annotate number of sources used
+            if nsources is not None:
+                ax.annotate("N: {0:0d}".format(nsources[idx]), xy=(0.02, 0.02), xycoords="axes fraction",
+                            ha="left", va="bottom")
 
         # Save plot
         with warnings.catch_warnings():
