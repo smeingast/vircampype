@@ -341,7 +341,8 @@ class VircamScienceImages(ScienceImages):
             Path to coadd.
         """
         return "{0}{1}.fits" \
-               "".format(self.file_directories[0], self.primeheaders_get_keys(keywords=["HIERARCH ESO OBS NAME"])[0][0])
+               "".format(self.file_directories[0],
+                         self.primeheaders_get_keys(keywords=[self.setup["keywords"]["object"]])[0][0])
 
     @property
     def _swarp_path_coadd_weight(self):
