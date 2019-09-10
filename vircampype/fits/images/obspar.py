@@ -58,18 +58,26 @@ class ApcorImages(SkyImages):
     def coadd_apcor(self):
 
         # Processing info
-        tstart = message_mastercalibration(master_type="COADDING", silent=self.setup["misc"]["silent"], right=None)
+        tstart = message_mastercalibration(master_type="COADDING APERTURE CORRECTION",
+                                           silent=self.setup["misc"]["silent"], right=None)
 
         # Split by aperture diameter
         split_apcor = self.split_keywords(keywords=["APCDIAM"])
 
-        for split in split_apcor:  # type: ApcorImages
+        for sidx in range(len(split_apcor)):
+
+            # Get current files
+            split = split_apcor[sidx]  # type: ApcorImages
 
             # Get current diameter
             diameter = split.diameters[0][0]
 
             # Create output path
             outpath = split._swarp_path_coadd.replace(".fits", ".apcor{0}.fits".format(diameter))
+
+            # Print processing info
+            message_calibration(n_current=sidx + 1, n_total=len(split_apcor), name=outpath,
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
 
             # Create output header
             header = split.header_coadd(scale=self.cdelt1_mean)
@@ -89,10 +97,11 @@ class ApcorImages(SkyImages):
             # Run Swarp
             if not check_file_exists(file_path=outpath, silent=split.setup["misc"]["silent"]) \
                     and not split.setup["misc"]["overwrite"]:
-                run_command_bash(cmd=cmd, silent=False)
+                run_command_bash(cmd=cmd, silent=True)
 
                 # Remove header
                 remove_file(path=outpath.replace(".fits", ".ahead"))
+                exit()
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
