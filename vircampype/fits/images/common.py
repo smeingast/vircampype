@@ -570,6 +570,7 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.dark import MasterDark
         from vircampype.fits.images.flat import MasterFlat
         # from vircampype.fits.images.bpm import MasterBadPixelMask
+        from vircampype.fits.tables.gain import MasterGain
         from vircampype.fits.tables.linearity import MasterLinearity
 
         # Processing info
@@ -579,6 +580,7 @@ class FitsImages(FitsFiles):
         # master_bpm = self.get_master_bpm()  # type: MasterBadPixelMask
         master_dark = self.get_master_dark()  # type: MasterDark
         master_flat = self.get_master_flat()  # type: MasterFlat
+        master_gain = self.get_master_gain()  # type: MasterGain
         master_sky = self.get_master_sky()  # type: MasterSky
         master_linearity = self.get_master_linearity()  # type: MasterLinearity
 
@@ -602,10 +604,16 @@ class FitsImages(FitsFiles):
             flat = master_flat.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
             sky = master_sky.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
             lin = master_linearity.file2coeff(file_index=idx, hdu_index=None)
-            norm_before = self.ndit_norm[idx]
+
+            # Add Gain, read noise, and saturation limit to headers
+            for h, g, r, s in zip(self.headers_data[idx], master_gain.gain[idx],
+                                  master_gain.rdnoise[idx], self.setup["data"]["saturate"]):
+                h[self.setup["keywords"]["gain"]] = (np.round(g, decimals=3), "Gain (e-/ADU)")
+                h[self.setup["keywords"]["rdnoise"]] = (np.round(r, decimals=3), "Read noise (e-)")
+                h[self.setup["keywords"]["saturate"]] = (s, "Saturation limit (ADU)")
 
             # Do calibration
-            calib_cube.calibrate(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=norm_before)
+            calib_cube.calibrate(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx])
 
             # Apply cosmetics
             # if self.setup["cosmetics"]["mask_cosmics"]:
