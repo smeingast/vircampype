@@ -403,6 +403,11 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.flat import MasterFlat
         return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
 
+    def get_unique_master_weights(self):
+        """ Returns unique MasterWeights as MasterWeights instance. """
+        from vircampype.fits.images.flat import MasterWeight
+        return MasterWeight(setup=self.setup, file_paths=list(set(self.get_master_weight().full_paths)))
+
     def get_master_sky(self):
         """
         Get for each file in self the corresponding Mastersky.
