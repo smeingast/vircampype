@@ -597,11 +597,9 @@ class SkyImages(FitsImages):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return paths to headers
-        if return_coadd_header:
-            return make_coadd_header(headers=flat_list([read_scamp_header(p) for p in paths_headers]))
-        else:
-            return [read_scamp_header(p) for p in paths_headers]
+        return [read_scamp_header(p) for p in paths_headers]
 
+        # TODO: Perhaps this is really the way to go...
         # Replace astrometry in header for calibrated files
         # for idx in range(len(self)):
         #
