@@ -577,7 +577,7 @@ class SkyImages(FitsImages):
         catalogs = self.sextractor(preset="scamp")  # type: SextractorCatalogs
 
         # Check if Scamp has already been run. If not, run it
-        path_hdr = []
+        paths_headers = []
         for f in self.full_paths:
 
             # Check if headers are already there
@@ -585,13 +585,19 @@ class SkyImages(FitsImages):
 
             # Check if header file exists and if any is not there, run scamp and break check loop
             if not os.path.isfile(phdr):
-                path_hdr = catalogs.scamp()
+                paths_headers = catalogs.scamp()
                 break
             else:
-                path_hdr.append(phdr)
+                paths_headers.append(phdr)
 
-        if len(path_hdr) != len(self):
+        if len(paths_headers) != len(self):
             raise ValueError("Something wrong with Scamp")
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return paths to headers
+        return paths_headers
 
         # Replace astrometry in header for calibrated files
         # for idx in range(len(self)):
@@ -615,9 +621,6 @@ class SkyImages(FitsImages):
         #     # Read data and write with new headers
         #     cube = self.file2cube(file_index=idx)
         #     cube.write_mef(path=outpath, prime_header=self.headers_primary[idx], data_headers=headers)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Reference catalog
