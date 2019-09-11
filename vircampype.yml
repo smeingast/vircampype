@@ -70,6 +70,7 @@ weight:
   mask_abs_min: 0.5
   mask_rel_max: 1.3
   mask_rel_min: 0.7
+  coadd_edge_gradient: 0.1          # Fraction of pixels that should have a gradient added for coaddition
 
 sky:
   mix_science: True                 # This is not yet used
