@@ -567,7 +567,7 @@ class SkyImages(FitsImages):
     # =========================================================================== #
     # Astrometry
     # =========================================================================== #
-    def calibrate_astrometry(self):
+    def calibrate_astrometry(self, return_coadd_header=True):
         # TODO: Implement more status messaging for sextractor and scamp
 
         # Processing info
@@ -597,7 +597,10 @@ class SkyImages(FitsImages):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return paths to headers
-        return paths_headers
+        if return_coadd_header:
+            return make_coadd_header(headers=flat_list([read_scamp_header(p) for p in paths_headers]))
+        else:
+            return [read_scamp_header(p) for p in paths_headers]
 
         # Replace astrometry in header for calibrated files
         # for idx in range(len(self)):
