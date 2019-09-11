@@ -408,6 +408,21 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.flat import MasterWeight
         return MasterWeight(setup=self.setup, file_paths=list(set(self.get_master_weight().full_paths)))
 
+    def get_master_weight_coadd(self):
+        """
+        Get for each file in self the corresponding MasterWeightCoadd.
+
+        Returns
+        -------
+        MasterWeightCoadd
+            MasterWeightCoadd instance holding for each file in self the corresponding MasterWeightCoadd file.
+
+        """
+
+        # Match and return
+        return self.match_filter(match_to=self.get_master_images().weight_coadd,
+                                 max_lag=self.setup["master"]["max_lag_flat"])
+
     def get_master_sky(self):
         """
         Get for each file in self the corresponding Mastersky.
@@ -1071,3 +1086,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT"]
 
         return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def weight_coadd(self):
+        """
+        Retrieves all MasterWeightCoadd images.
+
+        Returns
+        -------
+        MasterWeightCoadd
+            All MasterWeightCoadd images as a MasterSky instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterWeightCoadd
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-COADD"]
+
+        return MasterWeightCoadd(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
