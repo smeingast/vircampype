@@ -170,6 +170,7 @@ class VircamImages(FitsImages):
         if split["flat_twilight"] is not None:
             split["flat_twilight"].build_master_flat()
             split["flat_twilight"].build_master_weight()
+            split["flat_twilight"].build_master_weight_coadd()
 
         # Master offset
         # TODO: Add mixing with offset images
