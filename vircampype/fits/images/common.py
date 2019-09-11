@@ -383,6 +383,11 @@ class FitsImages(FitsFiles):
         return self.match_filter(match_to=self.get_master_images().flat,
                                  max_lag=self.setup["master"]["max_lag_flat"])
 
+    def get_unique_master_flats(self):
+        """ Returns unique Master Flats as MasterFlat instance. """
+        from vircampype.fits.images.flat import MasterFlat
+        return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
+
     def get_master_weight(self):
         """
         Get for each file in self the corresponding MasterWeight.
@@ -397,11 +402,6 @@ class FitsImages(FitsFiles):
         # Match and return
         return self.match_filter(match_to=self.get_master_images().weight,
                                  max_lag=self.setup["master"]["max_lag_flat"])
-
-    def get_unique_master_flats(self):
-        """ Returns unique Master Flats as MasterFlat instance. """
-        from vircampype.fits.images.flat import MasterFlat
-        return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
 
     def get_unique_master_weights(self):
         """ Returns unique MasterWeights as MasterWeights instance. """
