@@ -403,7 +403,7 @@ class ImageCube(object):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
-    def write_mef(self, path, prime_header=None, data_headers=None):
+    def write_mef(self, path, prime_header=None, data_headers=None, overwrite=False):
         """
         Write MEF Fits file to disk
 
@@ -415,6 +415,8 @@ class ImageCube(object):
             Primary header.
         data_headers : sized, optional
             Data headers.
+        overwrite : bool, optional
+            Whether existing files should be overwritten.
 
         """
 
@@ -431,7 +433,7 @@ class ImageCube(object):
 
         # Prepend PrimaryHDU and write
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
-        hdulist.writeto(fileobj=path, overwrite=self.setup["misc"]["overwrite"])
+        hdulist.writeto(fileobj=path, overwrite=overwrite)
 
     # =========================================================================== #
     # Masking
