@@ -391,19 +391,21 @@ class FlatImages(FitsImages):
         # Get unique Master flats
         master_flats = self.get_unique_master_flats()
 
+        # Generate outpaths
+        outpaths = [x.replace("MASTER-FLAT", "MASTER-WEIGHT") for x in master_flats.full_paths]
+
         # Loop over files and apply calibration
         for idx in range(len(master_flats)):
 
-            outpath = master_flats.full_paths[idx].replace("MASTER-FLAT", "MASTER-WEIGHT")
-
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpaths[idx], silent=self.setup["misc"]["silent"]) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Print processing info
             if not self.setup["misc"]["silent"]:
-                message_calibration(n_current=idx + 1, n_total=len(master_flats), name=outpath, d_current=0, d_total=0)
+                message_calibration(n_current=idx + 1, n_total=len(master_flats),
+                                    name=outpaths[idx], d_current=0, d_total=0)
 
             # Read file into cube
             cube = master_flats.file2cube(file_index=idx, hdu_index=None, dtype=None)
@@ -433,15 +435,79 @@ class FlatImages(FitsImages):
             cube.replace_nan(value=0)
 
             # Modify type in primary header
-            prime_header = master_flats.headers_primary[idx]
+            prime_header = master_flats.headers_primary[idx].copy()
             prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT"
 
             # Write to file
-            cube.write_mef(path=outpath, prime_header=master_flats.headers_primary[idx],
-                           data_headers=master_flats.headers_data[idx])
+            cube.write_mef(path=outpaths[idx], prime_header=prime_header, data_headers=master_flats.headers_data[idx])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return master weights
+        return MasterWeight(setup=self.setup, file_paths=outpaths)
+
+    def build_master_weight_coadd(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="MASTER-WEIGHT-COADD", right=None,
+                                           silent=self.setup["misc"]["silent"])
+
+        # Get unique Master flats
+        master_weights = self.get_unique_master_weights()
+
+        # Generate outpaths
+        outpaths = [x.replace("MASTER-WEIGHT", "MASTER-WEIGHT-COADD") for x in master_weights.full_paths]
+
+        # Loop over files and apply calibration
+        for idx in range(len(master_weights)):
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpaths[idx], silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Print processing info
+            if not self.setup["misc"]["silent"]:
+                message_calibration(n_current=idx + 1, n_total=len(master_weights),
+                                    name=outpaths[idx], d_current=None, d_total=None)
+
+            # Read file into cube
+            cube = master_weights.file2cube(file_index=idx, hdu_index=None, dtype=None)
+
+            # Create weight with 1s
+            weight = np.full_like(cube.cube, fill_value=1., dtype=np.float32)
+
+            # Generate edge arrays
+            nedge1 = int(cube.shape[1] * self.setup["weight"]["coadd_edge_gradient"])
+            nedge2 = int(cube.shape[2] * self.setup["weight"]["coadd_edge_gradient"])
+            grad1, grad2 = np.linspace(0.1, 1, nedge1), np.linspace(0.1, 1, nedge2)
+
+            # Modify constant weight
+            weight[:, :nedge2, :] *= \
+                np.stack([np.stack([grad2] * cube.shape[1], axis=1)] * len(weight), axis=0)
+            weight[:, -nedge2 - 1:-1, :] *= \
+                np.stack([np.stack([np.flip(grad2)] * cube.shape[1], axis=1)] * len(weight), axis=0)
+            weight[:, :, :nedge2] *= \
+                np.stack([np.stack([grad2] * cube.shape[2], axis=0)] * len(weight), axis=0)
+            weight[:, :, -nedge2 - 1:-1] *= \
+                np.stack([np.stack([np.flip(grad2)] * cube.shape[2], axis=0)] * len(weight), axis=0)
+
+            # Modify inout weight
+            cube.cube *= weight
+
+            # Modify type in primary header
+            prime_header = master_weights.headers_primary[idx].copy()
+            prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-COADD"
+
+            # Write to file
+            cube.write_mef(path=outpaths[idx], prime_header=prime_header, data_headers=master_weights.headers_data[idx])
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return master weights
+        return MasterWeightCoadd(setup=self.setup, file_paths=outpaths)
 
 
 class MasterFlat(MasterImages):
@@ -617,3 +683,9 @@ class MasterWeight(MasterImages):
 
     def __init__(self, setup, file_paths=None):
         super(MasterWeight, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class MasterWeightCoadd(MasterImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterWeightCoadd, self).__init__(setup=setup, file_paths=file_paths)
