@@ -725,7 +725,7 @@ class FitsFiles:
         from vircampype.fits.images.common import MasterImages
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master_common + "*.fits")
+        paths = glob.glob(self.path_master_common + "*.fits") + glob.glob(self.path_master_object + "*.fits")
 
         # If there is nothing, issue error
         if len(paths) < 1:
