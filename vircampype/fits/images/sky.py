@@ -567,7 +567,7 @@ class SkyImages(FitsImages):
     # =========================================================================== #
     # Astrometry
     # =========================================================================== #
-    def calibrate_astrometry(self, return_coadd_header=True):
+    def calibrate_astrometry(self):
         # TODO: Implement more status messaging for sextractor and scamp
 
         # Processing info
@@ -597,6 +597,7 @@ class SkyImages(FitsImages):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return paths to headers
+        # TODO: Or try an initial resampling with Swarp which just generates a header
         return [read_scamp_header(p) for p in paths_headers]
 
         # TODO: Perhaps this is really the way to go...
