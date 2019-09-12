@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from astropy import wcs as awcs
 from vircampype.utils import *
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
@@ -326,12 +327,12 @@ class SkyImages(FitsImages):
         path : str
             Path where it should be written.
         """
-        header.totextfile(path, overwrite=True, endcard=True)
+        header.totextfile(path, overwrite=True)
 
     @property
     def _swarp_resample_suffix(self):
         """
-        Returns resample suffix.
+        Returns resample suffix.Y
 
         Returns
         -------
@@ -593,36 +594,57 @@ class SkyImages(FitsImages):
         if len(paths_headers) != len(self):
             raise ValueError("Something wrong with Scamp")
 
+        # Try to read coadd header from disk
+        try:
+            header_coadd = fits.Header.fromtextfile(self._swarp_path_coadd_header)
+
+        # If not found, construct from scamp headers
+        except FileNotFoundError:
+
+            # Now loop over each output scamp header
+            ra, dec = [], []
+            for fidx in range(len(self)):
+
+                # Convert to astropy Headers
+                scamp_headers = read_scamp_header(path=paths_headers[fidx], remove_pv=True)
+
+                naxis1, naxis2 = self.dataheaders_get_keys(keywords=["NAXIS1", "NAXIS2"], file_index=fidx)
+                naxis1, naxis2 = naxis1[0], naxis2[0]
+
+                # Mody each header with NAXIS and extract ra,dec of footprint
+                for shdr, n1, n2 in zip(scamp_headers, naxis1, naxis2):
+
+                    # Update with NAXIS
+                    shdr.update(NAXIS=2, NAXIS1=n1, NAXIS2=n2)
+
+                    # Convert to WCS
+                    r, d = awcs.WCS(shdr).calc_footprint().T
+
+                    ra += r.tolist()
+                    dec += d.tolist()
+
+            # Construct skycoord
+            sc = SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg")
+
+            # Get optimal rotation of frame
+            rotation_test = np.linspace(0, np.pi / 2, 360)
+            area = []
+            for rot in rotation_test:
+                hdr = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rot, enlarge=1.002,
+                                      cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
+                area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+
+            # Return final header with optimized rotation
+            rotation = rotation_test[np.argmin(area)]
+            header_coadd = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation, enlarge=1.002,
+                                           cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
+            # Write coadd header to disk
+            self._write_header(header=header_coadd, path=self._swarp_path_coadd_header)
+
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-        # Return paths to headers
-        # TODO: Or try an initial resampling with Swarp which just generates a header
-        return [read_scamp_header(p) for p in paths_headers]
-
-        # TODO: Perhaps this is really the way to go...
-        # Replace astrometry in header for calibrated files
-        # for idx in range(len(self)):
-        #
-        #     # Make outpath
-        #     outpath = self.paths_calibrated_astrometry[idx]
-        #
-        #     # Skip if file exists already
-        #     if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-        #         continue
-        #
-        #     if not self.setup["misc"]["silent"]:
-        #         message_calibration(n_current=idx+1, n_total=len(self), name=outpath, d_current=None, d_total=None)
-        #
-        #     # Get updated data headers
-        #     headers = replace_astrometry(headers=self.headers_data[idx], path_scamp_hdr=path_hdr[idx])
-        #
-        #     # Modify primary header
-        #     self.headers_primary[idx]["HIERARCH PYPE ASTROM SCAMP"] = True
-        #
-        #     # Read data and write with new headers
-        #     cube = self.file2cube(file_index=idx)
-        #     cube.write_mef(path=outpath, prime_header=self.headers_primary[idx], data_headers=headers)
+        return header_coadd
 
     # =========================================================================== #
     # Reference catalog
@@ -672,46 +694,17 @@ class SkyImages(FitsImages):
     # =========================================================================== #
     # Resample
     # =========================================================================== #
-    def header_coadd(self, scale=None):
-        """
-        CD1_1 = CDELT1 * cos(CROTA2)
-        CD1_2 = -CDELT2 * sin(CROTA2)
-        CD2_1 = CDELT1 * sin(CROTA2)
-        CD2_2 = CDELT2 * cos(CROTA2)
+    @property
+    def header_coadd(self):
+        """ Reads the data header from disk. """
 
-        Returns
-        -------
-        Header
-            Astropy fits header.
+        # Try to read coadd header from disk
+        try:
+            return fits.Header.fromtextfile(self._swarp_path_coadd_header)
 
-        """
-
-        # If scale is not set, read from setup
-        if scale is None:
-            scale = self.setup["astromatic"]["pixel_scale"] / 3600
-
-        # Get rotation from input headers (I do this in a loop down below)
-        # cd11, cd21 = self.dataheaders_get_keys(keywords=["CD1_1", "CD2_1"])
-        # cd11, cd21 = np.median(cd11), np.median(cd21)
-        # rotation = np.arctan(cd21 / cd11)
-
-        # Obtain footprints from header
-        footprints = np.array(self.footprints)
-
-        # Get all edges in skycoord object
-        sc = SkyCoord(ra=footprints[:, :, :, 0].ravel(), dec=footprints[:, :, :, 1].ravel(),
-                      frame="icrs", unit="degree")
-
-        # Get optimal rotation of frame
-        rotation_test = np.linspace(0, np.pi / 2, 360)
-        area = []
-        for rot in rotation_test:
-            hdr = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rot, enlarge=1.001, cdelt=scale)
-            area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
-
-        # Return final header with optimized rotation
-        rotation = rotation_test[np.argmin(area)]
-        return skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation, enlarge=1.001, cdelt=scale)
+        # If not found, construct from scamp headers
+        except FileNotFoundError:
+            raise FileNotFoundError("Astrometric calibration not done yet!")
 
 
 class ScienceImages(SkyImages):
