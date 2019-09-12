@@ -164,13 +164,24 @@ class SourceCatalogs(FitsTables):
         import matplotlib.pyplot as plt
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
+        # Processing info
+        tstart = message_mastercalibration(master_type="QC ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
+
         # Obtain master coordinates
         sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
 
         # Loop over files
-        for sc_files, x_files, y_files, name in zip(self.skycoord(key_ra=key_ra, key_dec=key_dec),
-                                                    self.get_columns(column_name=key_x),
-                                                    self.get_columns(column_name=key_y), self.file_names):
+        for sc_files, x_files, y_files, name, fidx in zip(self.skycoord(key_ra=key_ra, key_dec=key_dec),
+                                                          self.get_columns(column_name=key_x),
+                                                          self.get_columns(column_name=key_y), self.file_names,
+                                                          range(len(self))):
+
+            # Generate outpath
+            outpath = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, name)
+
+            # Check if file exists
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
 
             fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
             ax_all = ax_all.ravel()
@@ -179,6 +190,10 @@ class SourceCatalogs(FitsTables):
             # Loop over extensions
             im = None
             for idx in range(len(sc_files)):
+
+                # Print processing info
+                message_calibration(n_current=fidx + 1, n_total=len(self), name=outpath, d_current=idx+1,
+                                    d_total=len(sc_files), silent=self.setup["misc"]["silent"])
 
                 # Get separations between master and current table
                 i1, sep, _ = sc_files[idx].match_to_catalog_sky(sc_master_astrometry)
@@ -231,10 +246,12 @@ class SourceCatalogs(FitsTables):
 
             # Save plot
             with warnings.catch_warnings():
-                path = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, name)
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
-                fig.savefig(path, bbox_inches="tight")
+                fig.savefig(outpath, bbox_inches="tight")
             plt.close("all")
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
 
 class ESOSourceCatalogs(SourceCatalogs):
