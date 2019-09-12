@@ -360,20 +360,10 @@ class VircamScienceImages(ScienceImages):
             [os.remove(x) for x in paths_images]
             [os.remove(x) for x in paths_weights]
 
-    def resample_pawprints(self, header_coadd=None):
+    def resample_pawprints(self):
 
         # Processing info
         tstart = message_mastercalibration(master_type="RESAMPLING", silent=self.setup["misc"]["silent"], right=None)
-
-        # Write coadd header
-        if not check_file_exists(file_path=self._swarp_path_coadd_header, silent=True):
-
-            # Overrite internal coadd header if given
-            if header_coadd is None:
-                header_coadd = self.header_coadd()
-
-            # Write to disk
-            self._write_header(header=header_coadd, path=self._swarp_path_coadd_header)
 
         ss = yml2config(path=self._swarp_preset_pawprints_path,
                         imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
