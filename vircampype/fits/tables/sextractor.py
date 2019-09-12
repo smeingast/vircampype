@@ -104,7 +104,7 @@ class SextractorCatalogs(SourceCatalogs):
             List or str with QC checkplot types.
 
         """
-        names = ["{0}scamp_{1}".format(self.file_directories[0], qt.lower()) for qt in
+        names = ["{0}scamp_{1}".format(self.path_qc_astrometry, qt.lower()) for qt in
                  self._scamp_qc_types(joined=False)]
         if joined:
             return ",".join(names)
