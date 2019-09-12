@@ -281,6 +281,9 @@ class SextractorCatalogs(SourceCatalogs):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
+        # return all aperture correction images
+        return self.get_aperture_correction(diameter=None)
+
     def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4,
                       nsources=None, overwrite=False):
         # TODO: This should be moved so some sort of MASTER-APCOR class perhaps
