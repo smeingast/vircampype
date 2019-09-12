@@ -801,9 +801,10 @@ class FitsImages(FitsFiles):
         # Run Sextractor
         run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
 
-        # Add primary header of file to sextractor table
+        # Add some keywords to primary header
         for cat, img in zip(path_tables_clean, self.full_paths):
-            merge_headers(path_1=cat, path_2=img, primary_only=True)
+            copy_keywords(path_1=cat, path_2=img, hdu_1=0, hdu_2=0,
+                          keywords=[self.setup["keywords"]["object"], self.setup["keywords"]["filter"]])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
