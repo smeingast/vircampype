@@ -431,8 +431,8 @@ class VircamScienceImages(ScienceImages):
             run_command_bash(cmd=cmd, silent=False)
 
             # Copy primary header from first entry of input
-            # TODO: This is still a problem as NAXIS should not be copied
-            merge_headers(path_1=self._swarp_path_coadd, path_2=self.full_paths[0], primary_only=True)
+            copy_keywords(path_1=self._swarp_path_coadd, path_2=self.full_paths[0], hdu_1=0, hdu_2=0,
+                          keywords=[self.setup["keywords"]["object"], self.setup["keywords"]["filter"]])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
