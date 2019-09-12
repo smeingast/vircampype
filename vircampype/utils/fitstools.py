@@ -9,7 +9,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -97,6 +97,33 @@ def merge_headers(path_1, path_2, primary_only=False):
 
         # Flush changes to first file
         hdulist_1.flush()
+
+
+def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
+    """
+    Copies specific keywords from file 2 to file 1. Also both HDUs can be specified. Default are primary HDUs.
+
+    Parameters
+    ----------
+    path_1 : str
+        Path to file where the keywords should be copied to.
+    path_2 : str
+        Path to file where the keywords should be copied from.
+    keywords : iterable
+        List of keywords to copy.
+    hdu_1 : int, optional
+        Extension number where to copy to. Default is 0 (primary).
+    hdu_2 : int, optional
+        Extension number where to copy from. Default is 0 (primary).
+
+    """
+
+    # Get HDUlists for both files
+    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
+
+        # Loop over files and update header
+        for k in keywords:
+            hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
 
 
 # noinspection PyTypeChecker
