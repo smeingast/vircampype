@@ -73,8 +73,9 @@ class ApcorImages(SkyImages):
             diameter = split.diameters[0][0]
 
             # Create output path
-            outpath = split._swarp_path_coadd.replace(".fits", ".apcor{0}.fits".format(diameter))
+            outpath = "{0}{1}{2}".format(split.file_directories[0], split.coadd_name, ".apcor{0}.fits".format(diameter))
 
+            # Check if file exists and skip if it does
             if check_file_exists(file_path=outpath, silent=split.setup["misc"]["silent"]) \
                     and not split.setup["misc"]["overwrite"]:
                 continue
@@ -84,7 +85,7 @@ class ApcorImages(SkyImages):
                                 d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
 
             # Create output header
-            header = split.header_coadd(scale=self.cdelt1_mean)
+            header = resize_header(header=split.header_coadd, factor=self.setup["photometry"]["apcor_image_scale"])
 
             # Write header to disk
             header.totextfile(outpath.replace(".fits", ".ahead"), overwrite=True, endcard=True)
