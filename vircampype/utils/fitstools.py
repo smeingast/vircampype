@@ -68,6 +68,8 @@ def merge_headers(path_1, path_2, primary_only=False):
 
     """
 
+    skip_list = ["SIMPLE", "NAXIS", "NAXIS1", "NAXIS2"]
+
     # Get HDUlists for both files
     with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
 
@@ -83,6 +85,9 @@ def merge_headers(path_1, path_2, primary_only=False):
 
             # Iterate over every item in 2
             for key2, val2 in hdu2.header.items():
+
+                if key2 in skip_list:
+                    continue
 
                 # If not in header 1, put there, but ignore HIERARCH warnings
                 if key2 not in keys1:
