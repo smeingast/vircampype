@@ -406,6 +406,8 @@ class VircamScienceImages(ScienceImages):
 
     def coadd_pawprints(self, header=None):
 
+        from vircampype.fits.images.sky import SkyImages
+
         # Processing info
         tstart = message_mastercalibration(master_type="COADDING", silent=self.setup["misc"]["silent"], right=None)
 
@@ -428,8 +430,14 @@ class VircamScienceImages(ScienceImages):
                 and not self.setup["misc"]["overwrite"]:
             run_command_bash(cmd=cmd, silent=False)
 
+            # Copy primary header from first entry of input
+            # TODO: This is still a problem as NAXIS should not be copied
+            merge_headers(path_1=self._swarp_path_coadd, path_2=self.full_paths[0], primary_only=True)
+
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        return SkyImages(setup=self.setup, file_paths=[self._swarp_path_coadd])
 
 
 class VircamStdImages(VircamScienceImages):
