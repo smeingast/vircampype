@@ -926,7 +926,10 @@ class FitsImages(FitsFiles):
         """
 
         # Common name
-        path = self.path_master_common + basename
+        if "sky" in basename.lower():
+            path = self.path_master_object + basename
+        else:
+            path = self.path_master_common + basename
 
         # Append options
         if dit:
