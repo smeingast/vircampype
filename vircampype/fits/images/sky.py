@@ -288,7 +288,7 @@ class SkyImages(FitsImages):
         str
             Path to coadd.
         """
-        return self.primeheaders_get_keys(keywords=["ESO OBS NAME"])[0][0]
+        return self.setup["paths"]["name"]
 
     @property
     def _swarp_path_coadd(self):
