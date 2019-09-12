@@ -451,10 +451,10 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Loop over catalogs
         zp_avg_catalogs, zperr_avg_catalogs = [], []
-        for idx_catalog in range(len(self)):
+        for idx_file in range(len(self)):
 
             # Fetch filter of current catalog
-            filter_catalog = self.filters[idx_catalog]
+            filter_catalog = self.filters[idx_file]
 
             # Filter master catalog for good data
             mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
@@ -464,23 +464,25 @@ class SextractorCatalogs(SourceCatalogs):
             msc = master_photometry.skycoord()[0][0][mkeep]
 
             # Current aperture corrections
-            apcors_catalog = [x[idx_catalog] for x in apcors]
+            apcors_catalog = [x[idx_file] for x in apcors]
 
             # Loop over extensions
             zp_avg, zperr_avg = [], []
-            for idx_hdu, fidx_hdu in zip(range(len(self.data_hdu[idx_catalog])), self.data_hdu[idx_catalog]):
+            for idx_hdu, idx_file_hdu, aidx_file_hdu in zip(range(len(self.data_hdu[idx_file])),
+                                                            self.data_hdu[idx_file],
+                                                            apcors_catalog[0].data_hdu[idx_file]):
 
                 # Message
-                message_calibration(n_current=idx_catalog+1, n_total=len(self), name=self.full_paths[idx_catalog],
-                                    d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_catalog]),
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=self.full_paths[idx_file],
+                                    d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
                                     silent=self.setup["misc"]["silent"])
 
                 # Fetch aperture corrections for all sources
-                c = [s.get_apcor(skycoo=self.skycoord()[idx_catalog][idx_hdu], file_index=0,
-                                 hdu_index=idx_hdu+1) for s in apcors_catalog]
+                c = [s.get_apcor(skycoo=self.skycoord()[idx_file][idx_hdu], file_index=0,
+                                 hdu_index=aidx_file_hdu) for s in apcors_catalog]
 
                 # Fetch magnitudes
-                mags = [self.mag_aper[idx_catalog][idx_hdu][:, idx_apc] for idx_apc in apertures_idx]
+                mags = [self.mag_aper[idx_file][idx_hdu][:, idx_apc] for idx_apc in apertures_idx]
 
                 # Apply aperture correction to magnitudes
                 # TODO: Write this directly into a new column of the current catalog?
@@ -489,7 +491,7 @@ class SextractorCatalogs(SourceCatalogs):
                 # Get zeropoints for each aperture
                 zp_values, zperr_values = [], []
                 for m in mags:
-                    zp, zperr = get_zeropoint(skycoo_cal=self.skycoord()[idx_catalog][idx_hdu], mag_cal=m,
+                    zp, zperr = get_zeropoint(skycoo_cal=self.skycoord()[idx_file][idx_hdu], mag_cal=m,
                                               mag_limits_ref=master_photometry.mag_lim,
                                               skycoo_ref=msc, mag_ref=mmag)
                     zp_values.append(float(str(np.round(zp, decimals=4))))      # This forces only 4 decimals to appear
@@ -503,10 +505,10 @@ class SextractorCatalogs(SourceCatalogs):
                 k = self._zp_keys + self._zperr_keys + [self._zp_avg_key, self._zperr_avg_key]
                 v = zp_values + zperr_values + [zp_avg[-1], zperr_avg[-1]]
                 c = self._zp_comments + self._zperr_comments + [self._zp_avg_comment, self._zperr_avg_comment]
-                add_keys_hdu(path=self.full_paths[idx_catalog], hdu=fidx_hdu, keys=k, values=v, comments=c)
+                add_keys_hdu(path=self.full_paths[idx_file], hdu=idx_file_hdu, keys=k, values=v, comments=c)
 
                 # Force reloading header after this temporary header
-                self.delete_headers_temp(file_index=idx_catalog)
+                self.delete_headers_temp(file_index=idx_file)
 
             # Append all average ZPs for current file
             zp_avg_catalogs.append(zp_avg)
@@ -514,7 +516,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                path_plot = "{0}{1}.zp.pdf".format(self.path_qc_zp, self.file_names[idx_catalog])
+                path_plot = "{0}{1}.zp.pdf".format(self.path_qc_zp, self.file_names[idx_file])
                 plot_value_detector(values=zp_avg, errors=zperr_avg, path=path_plot)
 
         # Print time
