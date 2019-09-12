@@ -279,6 +279,18 @@ class SkyImages(FitsImages):
         return get_resource_path(package="vircampype.resources.astromatic.swarp", resource="default.config")
 
     @property
+    def coadd_name(self):
+        """
+        Constructs a path for a coadd of the current pawprints in self.
+
+        Returns
+        -------
+        str
+            Path to coadd.
+        """
+        return self.primeheaders_get_keys(keywords=["ESO OBS NAME"])[0][0]
+
+    @property
     def _swarp_path_coadd(self):
         """
         Constructs a path for a coadd of the current pawprints in self.
@@ -288,8 +300,7 @@ class SkyImages(FitsImages):
         str
             Path to coadd.
         """
-        return "{0}{1}.fits" \
-               "".format(self.file_directories[0], self.primeheaders_get_keys(keywords=["ESO OBS NAME"])[0][0])
+        return "{0}{1}.fits".format(self.setup["paths"]["calibrated"], self.coadd_name)
 
     @property
     def _swarp_path_coadd_weight(self):
