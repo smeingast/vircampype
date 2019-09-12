@@ -56,36 +56,45 @@ class FitsFiles:
         self.name = self.setup["paths"]["name"]
 
         # Initialize folders and set attributes manually
-        self.path_proc = self.setup["paths"]["pype"]
-        self.path_temp = "{0}{1}/{2}/".format(self.path_proc, self.name, "temp")
-        self.path_headers = "{0}{1}/{2}/".format(self.path_proc, self.name, "headers/")
-        self.path_obspar = "{0}{1}/{2}/".format(self.path_proc, self.name, "obspar/")
-        self.path_apcor = "{0}{1}".format(self.path_obspar, "apcor")
+        self.path_pype = self.setup["paths"]["pype"]
+        self.path_object = "{0}{1}/".format(self.path_pype, self.name)
+        self.path_temp = "{0}{1}/".format(self.path_object, "temp")
+        self.path_headers = "{0}{1}/".format(self.path_object, "headers")
 
-        # General master path is separate
-        self.path_master = self.path_proc + "master/"
-        self.path_mastersky = "{0}{1}/{2}/".format(self.path_proc, self.name, "mastersky/")
+        # Obs parameters
+        self.path_obspar = "{0}{1}/".format(self.path_object, "obspar")
+        self.path_apcor = "{0}{1}/".format(self.path_obspar, "apcor")
+
+        # Master paths
+        self.path_master_common = "{0}{1}/".format(self.path_pype, "master")
+        self.path_master_object = "{0}{1}/".format(self.path_object, "master")
 
         # QC
-        self.path_qc = "{0}{1}/{2}/".format(self.path_proc, self.name, "qc/")
-        self.path_qc_bpm = self.path_qc + "bpm/"
-        self.path_qc_dark = self.path_qc + "dark/"
-        self.path_qc_gain = self.path_qc + "gain/"
-        self.path_qc_linearity = self.path_qc + "linearity/"
-        self.path_qc_flat = self.path_qc + "flat/"
-        self.path_qc_sky = self.path_qc + "sky/"
-        self.path_qc_zp = self.path_qc + "zp/"
-        self.path_qc_astrometry = self.path_qc + "astrometry/"
-        self.path_qc_apcor = self.path_qc + "aperture_correction/"
+        self.path_qc_common = "{0}{1}/".format(self.path_pype, "qc")
+        self.path_qc_object = "{0}{1}/".format(self.path_object, "qc")
+
+        # Common QC
+        self.path_qc_bpm = "{0}{1}/".format(self.path_qc_common, "bpm")
+        self.path_qc_dark = "{0}{1}/".format(self.path_qc_common, "dark")
+        self.path_qc_gain = "{0}{1}/".format(self.path_qc_common, "gain")
+        self.path_qc_linearity = "{0}{1}/".format(self.path_qc_common, "linearity")
+        self.path_qc_flat = "{0}{1}/".format(self.path_qc_common, "flat")
+
+        # Sequence specific QC
+        self.path_qc_sky = "{0}{1}/".format(self.path_qc_object, "sky")
+        self.path_qc_zp = "{0}{1}/".format(self.path_qc_object, "zp")
+        self.path_qc_astrometry = "{0}{1}/".format(self.path_qc_object, "astrometry")
+        self.path_qc_apcor = "{0}{1}/".format(self.path_qc_object, "aperture_correction")
 
         # Put into list
-        all_folders = [self.path_proc, self.path_temp, self.path_headers, self.path_obspar, self.path_master,
-                       self.path_qc, self.path_qc_zp, self.path_qc_astrometry, self.path_qc_apcor, self.path_qc_dark,
-                       self.path_qc_bpm, self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky,
-                       self.path_mastersky, self.path_apcor]
+        all_paths = [self.path_pype, self.path_object, self.path_temp, self.path_headers, self.path_obspar,
+                     self.path_obspar, self.path_apcor, self.path_master_common, self.path_master_object,
+                     self.path_qc_common, self.path_qc_object, self.path_qc_bpm, self.path_qc_dark, self.path_qc_gain,
+                     self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky, self.path_qc_zp,
+                     self.path_qc_astrometry, self.path_qc_apcor]
 
         # Generate folders
-        for path in all_folders:
+        for path in all_paths:
             make_folder(path)
 
         # Generate paths
@@ -716,7 +725,7 @@ class FitsFiles:
         from vircampype.fits.images.common import MasterImages
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master + "*.fits")
+        paths = glob.glob(self.path_master_common + "*.fits")
 
         # If there is nothing, issue error
         if len(paths) < 1:
@@ -742,7 +751,7 @@ class FitsFiles:
         from vircampype.fits.tables.common import MasterTables
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master + "*.fits.tab")
+        paths = glob.glob(self.path_master_common + "*.fits.tab")
 
         # If there is nothing, issue error
         if len(paths) < 1:

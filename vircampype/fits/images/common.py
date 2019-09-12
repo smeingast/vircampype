@@ -926,7 +926,7 @@ class FitsImages(FitsFiles):
         """
 
         # Common name
-        path = self.path_master + basename
+        path = self.path_master_common + basename
 
         # Append options
         if dit:
