@@ -1,3 +1,5 @@
+import numpy as np
+
 from astropy.io import fits
 from itertools import groupby
 from astropy.io.fits.header import Header
@@ -54,7 +56,7 @@ def yml2config(path, skip=None, **kwargs):
     return s
 
 
-def read_scamp_header(path):
+def read_scamp_header(path, remove_pv=False):
 
     with open(path, "r") as file:
         # data = file.read()
@@ -71,8 +73,20 @@ def read_scamp_header(path):
     # Group headers by chip
     headers_split = [list(group) for k, group in groupby(header_clean, lambda x: x.startswith("END")) if not k]
 
-    # Convert to headers and return
-    return [Header.fromstring("\n".join(hc), sep="\n") for hc in headers_split]
+    # Convert to headers
+    headers = [Header.fromstring("\n".join(hc), sep="\n") for hc in headers_split]
+
+    if remove_pv:
+        for h in headers:
+            for i in np.arange(2, 50):
+                try:
+                    h.remove("PV1_{0}".format(i))
+                    h.remove("PV2_{0}".format(i))
+                except KeyError:
+                    pass
+
+    # Return
+    return headers
 
 
 def replace_astrometry(headers, path_scamp_hdr):
