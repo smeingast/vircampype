@@ -52,15 +52,22 @@ class FitsFiles:
         self.file_directories = [os.path.dirname(x) + "/" for x in self.full_paths]
         self.n_files = len(self.file_paths)
 
+        # Set name for current batch
+        self.name = self.setup["paths"]["name"]
+
         # Initialize folders and set attributes manually
         self.path_proc = self.setup["paths"]["pype"]
-        self.path_temp = self.path_proc + "temp/"
-        self.path_headers = self.path_proc + "headers/"
+        self.path_temp = "{0}{1}/{2}/".format(self.path_proc, self.name, "temp")
+        self.path_headers = "{0}{1}/{2}/".format(self.path_proc, self.name, "headers/")
+        self.path_obspar = "{0}{1}/{2}/".format(self.path_proc, self.name, "obspar/")
+        self.path_apcor = "{0}{1}".format(self.path_obspar, "apcor")
+
+        # General master path is separate
         self.path_master = self.path_proc + "master/"
-        self.path_obspar = self.path_proc + "obspar/"
+        self.path_mastersky = "{0}{1}/{2}/".format(self.path_proc, self.name, "mastersky/")
 
         # QC
-        self.path_qc = self.path_proc + "qc/"
+        self.path_qc = "{0}{1}/{2}/".format(self.path_proc, self.name, "qc/")
         self.path_qc_bpm = self.path_qc + "bpm/"
         self.path_qc_dark = self.path_qc + "dark/"
         self.path_qc_gain = self.path_qc + "gain/"
@@ -72,10 +79,10 @@ class FitsFiles:
         self.path_qc_apcor = self.path_qc + "aperture_correction/"
 
         # Put into list
-        all_folders = [self.setup["paths"]["pype"], self.setup["paths"]["calibrated"], self.path_headers,
-                       self.path_temp, self.path_master, self.path_obspar, self.path_qc, self.path_qc_zp,
-                       self.path_qc_astrometry, self.path_qc_apcor, self.path_qc_dark, self.path_qc_bpm,
-                       self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky]
+        all_folders = [self.path_proc, self.path_temp, self.path_headers, self.path_obspar, self.path_master,
+                       self.path_qc, self.path_qc_zp, self.path_qc_astrometry, self.path_qc_apcor, self.path_qc_dark,
+                       self.path_qc_bpm, self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky,
+                       self.path_mastersky, self.path_apcor]
 
         # Generate folders
         for path in all_folders:
