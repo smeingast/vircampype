@@ -2,8 +2,8 @@
 # Pipeline
 # =========================================================================== #
 paths:
+  name: "Ophiuchus_control_J"
   pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
-  calibrated: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/calibrated/"
 
 # =========================================================================== #
 # Data and instrument
