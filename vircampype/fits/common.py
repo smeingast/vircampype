@@ -60,6 +60,7 @@ class FitsFiles:
         self.path_object = "{0}{1}/".format(self.path_pype, self.name)
         self.path_temp = "{0}{1}/".format(self.path_object, "temp")
         self.path_headers = "{0}{1}/".format(self.path_object, "headers")
+        self.path_processed = "{0}{1}/".format(self.path_object, "processed")
 
         # Obs parameters
         self.path_obspar = "{0}{1}/".format(self.path_object, "obspar")
@@ -87,7 +88,7 @@ class FitsFiles:
         self.path_qc_apcor = "{0}{1}/".format(self.path_qc_object, "aperture_correction")
 
         # Put into list
-        all_paths = [self.path_pype, self.path_object, self.path_temp, self.path_headers, self.path_obspar,
+        all_paths = [self.path_pype, self.path_object, self.path_temp, self.path_headers, self.path_processed,
                      self.path_obspar, self.path_apcor, self.path_master_common, self.path_master_object,
                      self.path_qc_common, self.path_qc_object, self.path_qc_bpm, self.path_qc_dark, self.path_qc_gain,
                      self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky, self.path_qc_zp,

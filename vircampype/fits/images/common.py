@@ -4,7 +4,6 @@ import os
 import numpy as np
 
 from astropy.io import fits
-from itertools import repeat
 from vircampype.utils import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
@@ -146,18 +145,17 @@ class FitsImages(FitsFiles):
         return self._dtypes
 
     @property
-    def paths_calibrated(self):
+    def paths_processed(self):
         """
-        Generates paths for calibrated images.
+        Generates paths for processed images.
 
         Returns
         -------
         List
             List with paths for each file.
-
         """
-        return ["{0}{1}.cal{2}".format(d, n, e) for d, n, e in
-                zip(repeat(self.setup["paths"]["calibrated"]), self.file_names, self.file_extensions)]
+        return ["{0}{1}.cal{2}".format(self.path_processed, n, e) for n, e
+                in zip(self.file_names, self.file_extensions)]
 
     # =========================================================================== #
     # I/O
@@ -608,11 +606,11 @@ class FitsImages(FitsFiles):
         for idx in range(self.n_files):
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=self.paths_calibrated[idx], silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=self.paths_processed[idx], silent=self.setup["misc"]["silent"]):
                 continue
 
             # Print processing info
-            message_calibration(n_current=idx + 1, n_total=self.n_files, name=self.paths_calibrated[idx],
+            message_calibration(n_current=idx + 1, n_total=self.n_files, name=self.paths_processed[idx],
                                 d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
 
             # Read file into cube
@@ -644,14 +642,14 @@ class FitsImages(FitsFiles):
                 calib_cube.destripe()
 
             # Write to disk
-            calib_cube.write_mef(path=self.paths_calibrated[idx], prime_header=self.headers_primary[idx],
+            calib_cube.write_mef(path=self.paths_processed[idx], prime_header=self.headers_primary[idx],
                                  data_headers=self.headers_data[idx])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return new instance of calibrated images
-        return self.__class__(setup=self.setup, file_paths=self.paths_calibrated)
+        return self.__class__(setup=self.setup, file_paths=self.paths_processed)
 
     # =========================================================================== #
     # Sextractor
