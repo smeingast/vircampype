@@ -350,7 +350,7 @@ class SkyImages(FitsImages):
         str
             Resample suffix.
         """
-        return ".astr.fits"
+        return ".resamp.fits"
 
     @property
     def _swarp_preset_pawprints_path(self):
@@ -387,7 +387,7 @@ class SkyImages(FitsImages):
             List with paths.
 
         """
-        return [x.replace(".fits", self._swarp_resample_suffix) for x in self.full_paths]
+        return ["{0}{1}{2}".format(self.path_resampled, fn, self._swarp_resample_suffix) for fn in self.file_names]
 
     @property
     def _swarp_paths_resampled_weight(self):
