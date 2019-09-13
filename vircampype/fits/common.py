@@ -754,7 +754,7 @@ class FitsFiles:
         from vircampype.fits.tables.common import MasterTables
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master_common + "*.fits.tab")
+        paths = glob.glob(self.path_master_common + "*.fits.tab") + glob.glob(self.path_master_object + "*.fits.tab")
 
         # If there is nothing, issue error
         if len(paths) < 1:
