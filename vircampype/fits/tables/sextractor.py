@@ -469,8 +469,7 @@ class SextractorCatalogs(SourceCatalogs):
             # Loop over extensions
             zp_avg, zperr_avg = [], []
             for idx_hdu, idx_file_hdu, aidx_file_hdu in zip(range(len(self.data_hdu[idx_file])),
-                                                            self.data_hdu[idx_file],
-                                                            apcors_catalog[0].data_hdu[idx_file]):
+                                                            self.data_hdu[idx_file], apcors_catalog[0].data_hdu[0]):
 
                 # Message
                 message_calibration(n_current=idx_file+1, n_total=len(self), name=self.full_paths[idx_file],
