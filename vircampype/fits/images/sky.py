@@ -649,6 +649,11 @@ class SkyImages(FitsImages):
             rotation = rotation_test[np.argmin(area)]
             header_coadd = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation, enlarge=1.002,
                                            cdelt=self.setup["astromatic"]["pixel_scale"] / 3600)
+
+            # Dummy check
+            if (header_coadd["NAXIS1"] > 100000.) or (header_coadd["NAXIS2"] > 100000.):
+                raise ValueError("Double check if the image size is correcti")
+
             # Write coadd header to disk
             self._write_header(header=header_coadd, path=self._swarp_path_coadd_header)
 
