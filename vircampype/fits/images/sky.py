@@ -464,7 +464,7 @@ class SkyImages(FitsImages):
         if len(split) == 0:
             raise ValueError("No suitable sequence found for sky images.")
 
-        # Now loop through separated files and build the Masterdarks
+        # Now loop through separated files
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
 
             # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
