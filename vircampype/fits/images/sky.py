@@ -300,7 +300,7 @@ class SkyImages(FitsImages):
         str
             Path to coadd.
         """
-        return "{0}{1}.fits".format(self.setup["paths"]["calibrated"], self.coadd_name)
+        return "{0}{1}.fits".format(self.path_coadd, self.coadd_name)
 
     @property
     def _swarp_path_coadd_weight(self):
