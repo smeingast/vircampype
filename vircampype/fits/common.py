@@ -783,10 +783,10 @@ class FitsFiles:
 
         # Get aperture correction files matching the file name exactly
         if diameter is None:
-            paths = flat_list([glob.glob("{0}{1}*apcor*.fits".format(self.path_obspar, fn))
+            paths = flat_list([glob.glob("{0}{1}*apcor*.fits".format(self.path_apcor, fn))
                                for fn in self.file_names])
         else:
-            paths = flat_list([glob.glob("{0}{1}*apcor{2}.fits".format(self.path_obspar, fn, diameter))
+            paths = flat_list([glob.glob("{0}{1}*apcor{2}.fits".format(self.path_apcor, fn, diameter))
                                for fn in self.file_names])
 
         # Return matched aperture correction files
