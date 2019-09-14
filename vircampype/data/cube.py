@@ -845,6 +845,11 @@ class ImageCube(object):
             if self.shape != dark.shape:
                 raise ValueError("Shapes do not match")
 
+            # Normalize dark also to NDIT=1
+            if norm_before is not None:
+                dark.normalize(norm=norm_before)
+                """ This needs to be recoded if at some point DIT scaling is implemented for darks. """
+
             # Subtract dark
             self.cube -= dark.cube
 
