@@ -366,6 +366,72 @@ class SextractorCatalogs(SourceCatalogs):
 
     _mag_aper = None
 
+    def add_aperture_correction(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
+
+        # Get indices of apertures to save
+        apertures_idx = [[i for i, x in enumerate(self._apertrure_eval) if x == b][0] for b in self._apertures_save]
+
+        # Construct aperture corrections dict
+        apc_self = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
+
+        # Loop over each file
+        for idx_cat_file in range(len(self)):
+
+            # Load current hdulist
+            chdulist = fits.open(self.full_paths[idx_cat_file], mode="update")
+
+            # Check if aperture correction has alrady been added
+            done = True
+            for i, d in zip(self.data_hdu[idx_cat_file], self._apertures_save):
+                if not "MAG_APC{0}".format(d) in chdulist[i].data.names:
+                    done = False
+            if done:
+                print("{0} already modified".format(self.file_names[idx_cat_file]))
+                continue
+
+            # Get aperture corrections for current file
+            apc_file = [apc[idx_cat_file] for apc in apc_self]
+
+            # Get aperture magnitudes for current file
+            mag_aper_file = self.mag_aper[idx_cat_file]
+
+            # Get SkyCoord of current file
+            skycoord_file = self.skycoord()[idx_cat_file]
+
+            # Loop over detectors
+            for idx_cat_hdu, idx_apc_hdu, mag_aper_hdu, skycoord_hdu in \
+                    zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], mag_aper_file, skycoord_file):
+
+                # Print info
+                message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
+                                    d_current=idx_apc_hdu, d_total=len(self.data_hdu[idx_cat_file]))
+
+                # Get columns for current HDU
+                ccolumns = chdulist[idx_cat_hdu].data.columns
+
+                # Extract given apertures
+                mag_aper_hdu_save = mag_aper_hdu[:, apertures_idx]
+
+                # Loop over different apertures
+                new_cols = fits.ColDefs([])
+                for apc, mag, d in zip(apc_file, mag_aper_hdu_save.T, self._apertures_save):
+
+                    # Extract aperture correction from image
+                    a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+                    new_cols.add_col(fits.Column(name="MAG_APC{0}".format(d), format="E", array=a))
+
+                # Replace HDU from input catalog
+                chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
+
+            # Overwrite catalog
+            chdulist.close()
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
     @property
     def mag_aper(self):
         """
