@@ -183,8 +183,15 @@ class SourceCatalogs(FitsTables):
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
                 continue
 
-            fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
-            ax_all = ax_all.ravel()
+            # Coadd mode
+            if len(self) == 1:
+                fig, ax_all = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                bins = (30, 30)
+                ax_all = [ax_all]
+            else:
+                fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+                ax_all = ax_all.ravel()
+                bins = (5, 5)
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
             # Loop over extensions
@@ -207,8 +214,8 @@ class SourceCatalogs(FitsTables):
                 sep, x_hdu, y_hdu = sep[keep], x_files[idx][keep], y_files[idx][keep]
                 # ang = ang[keep]
 
-                hist_num, xedges, yedges = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=None, normed=False)
-                hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=sep.arcsec, normed=False)
+                hist_num, xedges, yedges = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=None, normed=False)
+                hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=sep.arcsec, normed=False)
                 extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
 
                 im = ax_all[idx].imshow(hist_sep / hist_num, vmin=0, vmax=0.5, extent=extent, cmap="Spectral_r")
@@ -238,6 +245,10 @@ class SourceCatalogs(FitsTables):
                 ax_all[idx].xaxis.set_minor_locator(AutoMinorLocator())
                 ax_all[idx].yaxis.set_major_locator(MaxNLocator(5))
                 ax_all[idx].yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Left limit
+                ax_all[idx].set_xlim(left=0)
+                ax_all[idx].set_ylim(bottom=0)
 
             # Add colorbar
             cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
