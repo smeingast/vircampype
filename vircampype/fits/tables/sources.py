@@ -97,6 +97,52 @@ class SourceCatalogs(FitsTables):
         self._dec = [[y for y in x] for x in self.get_columns(column_name=kdec)]
         return self._dec
 
+    def ra_file(self, idx_file, key=None):
+        """
+        Extract RA from a given file.
+
+        Parameters
+        ----------
+        idx_file : int
+            Index of file
+        key: str, optional
+            Column name of RA.
+
+        Returns
+        -------
+        iterable
+            List of RAs for each extension
+
+        """
+        # Override RA key
+        kra = key if key is not None else self._key_ra
+
+        # Return for given file
+        return self.get_column_file(idx_file=idx_file, column_name=kra)
+
+    def dec_file(self, idx_file, key=None):
+        """
+        Extract DEC from a given file.
+
+        Parameters
+        ----------
+        idx_file : int
+            Index of file
+        key: str, optional
+            Column name of RA.
+
+        Returns
+        -------
+        iterable
+            List of DECs for each extension
+
+        """
+        # Override RA key
+        kdec = key if key is not None else self._key_dec
+
+        # Return for given file
+        return self.get_column_file(idx_file=idx_file, column_name=kdec)
+
     def skycoord(self, key_ra=None, key_dec=None):
         """
         Constructs SkyCoord object from ra/dec
@@ -124,6 +170,33 @@ class SourceCatalogs(FitsTables):
             skycoord_files.append(skycoord_ext)
 
         return skycoord_files
+
+    def skycoord_file(self, idx_file, key_ra=None, key_dec=None):
+        """
+        Constructs SkyCoord object from ra/dec for a given file.
+        Parameters
+        ----------
+        idx_file : int
+            Index of file
+        key_ra : str, optional
+            Key for RA in table.
+        key_dec : str, optional
+            Key for DEC in table.
+
+        Returns
+        -------
+        iterable
+            List of Skycoords for each extension of the given catalog.
+
+        """
+
+        from astropy.coordinates import SkyCoord
+
+        skycoord = []
+        for ra, dec in zip(self.ra_file(idx_file=idx_file, key=key_ra), self.dec_file(idx_file=idx_file, key=key_dec)):
+            skycoord.append(SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg"))
+
+        return skycoord
 
     def mag(self, key):
         """
@@ -171,17 +244,19 @@ class SourceCatalogs(FitsTables):
         sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
 
         # Loop over files
-        for sc_files, x_files, y_files, name, fidx in zip(self.skycoord(key_ra=key_ra, key_dec=key_dec),
-                                                          self.get_columns(column_name=key_x),
-                                                          self.get_columns(column_name=key_y), self.file_names,
-                                                          range(len(self))):
+        for idx_file in range(len(self)):
 
             # Generate outpath
-            outpath = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, name)
+            outpath = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, self.file_names[idx_file])
 
             # Check if file exists
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
                 continue
+
+            # Grab coordinates
+            xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
+            yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
+            sc_file = self.skycoord_file(idx_file=idx_file, key_ra=key_ra, key_dec=key_dec)
 
             # Coadd mode
             if len(self) == 1:
@@ -196,14 +271,14 @@ class SourceCatalogs(FitsTables):
 
             # Loop over extensions
             im = None
-            for idx in range(len(sc_files)):
+            for idx_hdu in range(len(sc_file)):
 
                 # Print processing info
-                message_calibration(n_current=fidx + 1, n_total=len(self), name=outpath, d_current=idx+1,
-                                    d_total=len(sc_files), silent=self.setup["misc"]["silent"])
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath, d_current=idx_hdu+1,
+                                    d_total=len(sc_file), silent=self.setup["misc"]["silent"])
 
                 # Get separations between master and current table
-                i1, sep, _ = sc_files[idx].match_to_catalog_sky(sc_master_astrometry)
+                i1, sep, _ = sc_file[idx_hdu].match_to_catalog_sky(sc_master_astrometry)
 
                 # Extract position angles between master catalog and input
                 # sc1 = sc_master_astrometry[i1]
@@ -211,44 +286,44 @@ class SourceCatalogs(FitsTables):
 
                 # Keep only those with a maximum of 0.5 arcsec
                 keep = sep.arcsec < 0.5
-                sep, x_hdu, y_hdu = sep[keep], x_files[idx][keep], y_files[idx][keep]
+                sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
                 # ang = ang[keep]
 
                 hist_num, xedges, yedges = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=None, normed=False)
                 hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=sep.arcsec, normed=False)
                 extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
 
-                im = ax_all[idx].imshow(hist_sep / hist_num, vmin=0, vmax=0.5, extent=extent, cmap="Spectral_r")
+                im = ax_all[idx_hdu].imshow(hist_sep / hist_num, vmin=0, vmax=0.5, extent=extent, cmap="Spectral_r")
 
                 # Show average offset angle
                 # hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=ang.degree, normed=False)
                 # im = ax.imshow(hist_sep / hist_num, vmin=0, vmax=360, cmap="jet")
 
                 # Annotate detector ID
-                ax_all[idx].annotate("Det.ID: {0:0d}".format(idx + 1), xy=(0.02, 1.01),
-                                     xycoords="axes fraction", ha="left", va="bottom")
+                ax_all[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                                         xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx >= len(sc_files) - self.setup["instrument"]["layout"][0]:
-                    ax_all[idx].set_xlabel("X (pix)")
+                if idx_hdu >= len(sc_file) - self.setup["instrument"]["layout"][0]:
+                    ax_all[idx_hdu].set_xlabel("X (pix)")
                 else:
-                    ax_all[idx].axes.xaxis.set_ticklabels([])
-                if idx % self.setup["instrument"]["layout"][0] == 0:
-                    ax_all[idx].set_ylabel("Y(pix)")
+                    ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
+                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                    ax_all[idx_hdu].set_ylabel("Y(pix)")
                 else:
-                    ax_all[idx].axes.yaxis.set_ticklabels([])
+                    ax_all[idx_hdu].axes.yaxis.set_ticklabels([])
 
-                ax_all[idx].set_aspect("equal")
+                ax_all[idx_hdu].set_aspect("equal")
 
                 # Set ticks
-                ax_all[idx].xaxis.set_major_locator(MaxNLocator(5))
-                ax_all[idx].xaxis.set_minor_locator(AutoMinorLocator())
-                ax_all[idx].yaxis.set_major_locator(MaxNLocator(5))
-                ax_all[idx].yaxis.set_minor_locator(AutoMinorLocator())
+                ax_all[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_all[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
 
                 # Left limit
-                ax_all[idx].set_xlim(left=0)
-                ax_all[idx].set_ylim(bottom=0)
+                ax_all[idx_hdu].set_xlim(left=0)
+                ax_all[idx_hdu].set_ylim(bottom=0)
 
             # Add colorbar
             cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
