@@ -2,7 +2,7 @@
 # Pipeline
 # =========================================================================== #
 paths:
-  name: "Ophiuchus_control_Ks"
+  name: "Ophiuchus_control_J"
   pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
 
 # =========================================================================== #
