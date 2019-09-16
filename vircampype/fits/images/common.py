@@ -768,6 +768,7 @@ class FitsImages(FitsFiles):
         path_tables_clean = []
         if not self.setup["misc"]["overwrite"]:
             for pt in self._sex_paths_tables:
+                check_file_exists(file_path=pt, silent=self.setup["misc"]["silent"])
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
