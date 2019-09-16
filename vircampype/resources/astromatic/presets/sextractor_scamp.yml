@@ -7,7 +7,7 @@ PARAMETERS_NAME:  default.param  # name of the file containing catalog contents
 
 DETECT_TYPE:      CCD            # CCD (linear) or PHOTO (with gamma correction)
 DETECT_MINAREA:   5              # min. # of pixels above threshold
-DETECT_MAXAREA:   500              # max. # of pixels above threshold (0=unlimited)
+DETECT_MAXAREA:   10000              # max. # of pixels above threshold (0=unlimited)
 THRESH_TYPE:      RELATIVE       # threshold type: RELATIVE (in sigmas)
                                 # or ABSOLUTE (in ADUs)
 DETECT_THRESH:    30            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
