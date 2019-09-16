@@ -30,8 +30,8 @@ class FitsFiles:
             self.setup = read_setup(path_yaml=setup)
         elif isinstance(setup, dict):
             self.setup = setup
-        elif setup is None:
-            self.setup = read_setup(path_yaml="/Users/stefan/Dropbox/Projects/vircampype/vircampype.yml")
+        else:
+            raise ValueError("Please provide a pipeline setup")
 
         if file_paths is None:
             self.file_paths = []
