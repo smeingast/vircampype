@@ -364,15 +364,10 @@ class SextractorCatalogs(SourceCatalogs):
             fig.savefig(path, bbox_inches="tight")
         plt.close("all")
 
-    _mag_aper = None
-
     def add_aperture_correction(self):
 
         # Processing info
         tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
-
-        # Get indices of apertures to save
-        apertures_idx = [[i for i, x in enumerate(self._apertrure_eval) if x == b][0] for b in self._apertures_save]
 
         # Construct aperture corrections dict
         apc_self = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
@@ -386,7 +381,7 @@ class SextractorCatalogs(SourceCatalogs):
             # Check if aperture correction has alrady been added
             done = True
             for i, d in zip(self.data_hdu[idx_cat_file], self._apertures_save):
-                if not "MAG_APC{0}".format(d) in chdulist[i].data.names:
+                if not "MAG_APC_{0}".format(d) in chdulist[i].data.names:
                     done = False
             if done:
                 print("{0} already modified".format(self.file_names[idx_cat_file]))
@@ -413,7 +408,7 @@ class SextractorCatalogs(SourceCatalogs):
                 ccolumns = chdulist[idx_cat_hdu].data.columns
 
                 # Extract given apertures
-                mag_aper_hdu_save = mag_aper_hdu[:, apertures_idx]
+                mag_aper_hdu_save = mag_aper_hdu[:, self._aperture_save_idx]
 
                 # Loop over different apertures
                 new_cols = fits.ColDefs([])
@@ -421,7 +416,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Extract aperture correction from image
                     a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-                    new_cols.add_col(fits.Column(name="MAG_APC{0}".format(d), format="E", array=a))
+                    new_cols.add_col(fits.Column(name="MAG_APC_{0}".format(d), format="E", array=a))
 
                 # Replace HDU from input catalog
                 chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
@@ -431,6 +426,8 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+    _mag_aper = None
 
     @property
     def mag_aper(self):
@@ -448,6 +445,27 @@ class SextractorCatalogs(SourceCatalogs):
 
         self._mag_aper = self.get_columns(column_name="MAG_APER")
         return self._mag_aper
+
+    _mag_apc_dict = None
+
+    @property
+    def mag_apc_dict(self):
+        """
+        Reads all aperture corrections from files for each extension and each source.
+
+        Returns
+        -------
+        dict
+            Dictionary with aperture corrections.
+        """
+
+        if self._mag_apc_dict is not None:
+            return self._mag_apc_dict
+
+        self._mag_apc_dict = {}
+        for d in self._apertures_save:
+            self._mag_apc_dict[d] = self.get_columns(column_name="MAG_APC_{0}".format(d))
+        return self._mag_apc_dict
 
     # =========================================================================== #
     # Zero points
@@ -509,12 +527,6 @@ class SextractorCatalogs(SourceCatalogs):
         # Get master photometry catalog
         master_photometry = self.get_master_photometry()
 
-        # Get indices of apertures to save
-        apertures_idx = [[i for i, x in enumerate(self._apertrure_eval) if x == b][0] for b in self._apertures_save]
-
-        # Construct aperture corrections dict
-        apcors = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
-
         # Loop over catalogs
         zp_avg_catalogs, zperr_avg_catalogs = [], []
         for idx_file in range(len(self)):
@@ -526,39 +538,31 @@ class SextractorCatalogs(SourceCatalogs):
             mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
 
             # Fetch magnitude and coordinates for master catalog
-            mmag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
-            msc = master_photometry.skycoord()[0][0][mkeep]
-
-            # Current aperture corrections
-            apcors_catalog = [x[idx_file] for x in apcors]
+            master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
+            master_skycoord = master_photometry.skycoord()[0][0][mkeep]
 
             # Loop over extensions
             zp_avg, zperr_avg = [], []
-            for idx_hdu, idx_file_hdu, aidx_file_hdu in zip(range(len(self.data_hdu[idx_file])),
-                                                            self.data_hdu[idx_file], apcors_catalog[0].data_hdu[0]):
+            for idx_hdu, idx_file_hdu in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
 
                 # Message
                 message_calibration(n_current=idx_file+1, n_total=len(self), name=self.full_paths[idx_file],
                                     d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
                                     silent=self.setup["misc"]["silent"])
 
-                # Fetch aperture corrections for all sources
-                c = [s.get_apcor(skycoo=self.skycoord()[idx_file][idx_hdu], file_index=0,
-                                 hdu_index=aidx_file_hdu) for s in apcors_catalog]
-
-                # Fetch magnitudes
-                mags = [self.mag_aper[idx_file][idx_hdu][:, idx_apc] for idx_apc in apertures_idx]
+                # Fetch magnitudes and aperture corrections
+                mags = [self.mag_aper[idx_file][idx_hdu][:, idx_apc] for idx_apc in self._aperture_save_idx]
+                apcs = [self.mag_apc_dict[d][idx_file][idx_hdu] for d in self._apertures_save]
 
                 # Apply aperture correction to magnitudes
-                # TODO: Write this directly into a new column of the current catalog?
-                mags = [m + a for m, a in zip(mags, c)]
+                mags = [m + a for m, a in zip(mags, apcs)]
 
                 # Get zeropoints for each aperture
                 zp_values, zperr_values = [], []
                 for m in mags:
                     zp, zperr = get_zeropoint(skycoo_cal=self.skycoord()[idx_file][idx_hdu], mag_cal=m,
                                               mag_limits_ref=master_photometry.mag_lim,
-                                              skycoo_ref=msc, mag_ref=mmag)
+                                              skycoo_ref=master_skycoord, mag_ref=master_mag)
                     zp_values.append(float(str(np.round(zp, decimals=4))))      # This forces only 4 decimals to appear
                     zperr_values.append(float(str(np.round(zperr, decimals=4))))  # in headers
 
@@ -646,6 +650,10 @@ class SextractorCatalogs(SourceCatalogs):
             List of apertures.
         """
         return str2list(s=self.setup["photometry"]["apcor_diam_save"], sep=",", dtype=float)
+
+    @property
+    def _aperture_save_idx(self):
+        return [[i for i, x in enumerate(self._apertrure_eval) if x == b][0] for b in self._apertures_save]
 
     @property
     def data_hdu(self):
