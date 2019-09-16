@@ -73,7 +73,7 @@ class ApcorImages(SkyImages):
             diameter = split.diameters[0][0]
 
             # Create output path
-            outpath = "{0}{1}{2}".format(split.path_apcor, split.coadd_name, ".apcor{0}.fits".format(diameter))
+            outpath = "{0}{1}{2}".format(split.path_apcor, split.coadd_name, ".sources.apcor{0}.fits".format(diameter))
 
             # Check if file exists and skip if it does
             if check_file_exists(file_path=outpath, silent=split.setup["misc"]["silent"]) \
