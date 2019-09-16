@@ -124,6 +124,29 @@ class FitsTables(FitsFiles):
 
         return data_files
 
+    def get_column_file(self, idx_file, column_name):
+        """
+        Fetches a given column for a given file across all extensions of this this file.
+
+        Parameters
+        ----------
+        idx_file : int
+            File index.
+        column_name : str
+            Name of column to read.
+
+        Returns
+        -------
+        iterable
+            List of arrays for given column.
+
+        """
+        with fits.open(self.full_paths[idx_file]) as f:
+            columns = []
+            for hdu in self.data_hdu[idx_file]:
+                columns.append(f[hdu].data[column_name])
+        return columns
+
 
 class MasterTables(FitsTables):
 
