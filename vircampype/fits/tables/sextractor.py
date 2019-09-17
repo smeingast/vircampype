@@ -151,6 +151,7 @@ class SextractorCatalogs(SourceCatalogs):
             raise ValueError("Sequence contains multiple filter")
         else:
             band = bands[0][0]  # THIS should only keep J,H, and K for 2MASS (First band and first letter)
+            band = "Ks" if "k" in band.lower() else band
 
         # Load preset
         options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=self._scamp_qc_types(joined=True),
