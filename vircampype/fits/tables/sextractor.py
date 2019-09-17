@@ -706,7 +706,7 @@ class SextractorCatalogs(SourceCatalogs):
     # =========================================================================== #
     # ESO
     # =========================================================================== #
-    def make_phase3_catalog(self):
+    def make_phase3_catalog(self, mode):
 
         # Processing info
         tstart = message_mastercalibration(master_type="PHASE 3 CATALOG", silent=self.setup["misc"]["silent"])
@@ -715,7 +715,12 @@ class SextractorCatalogs(SourceCatalogs):
         for idx_file in range(len(self)):
 
             # Make outpath
-            outpath = "{0}{1}.fits".format(self.path_eso, self.file_names[idx_file])
+            if mode == "individual":
+                outpath = "{0}{1}_{2:>02d}.cat.fits".format(self.path_eso, self.name, idx_file+1)
+            elif mode == "coadd":
+                outpath = "{0}{1}_{2:>02d}_tl.cat.fits".format(self.path_eso, self.name, idx_file+1)
+            else:
+                raise ValueError("Mode '{0}' not supported.".format(mode))
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
@@ -726,6 +731,13 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Get skycoord for current file
             skycoord_file = self.skycoord_file(idx_file=idx_file)
+
+            # Read data for this file
+            fwhm_file = self.get_column_file(idx_file=idx_file, column_name="FWHM_WORLD")
+            flags_file = self.get_column_file(idx_file=idx_file, column_name="FLAGS")
+            ell_file = self.get_column_file(idx_file=idx_file, column_name="ELLIPTICITY")
+            elo_file = self.get_column_file(idx_file=idx_file, column_name="ELONGATION")
+            class_file = self.get_column_file(idx_file=idx_file, column_name="CLASS_STAR")
 
             # Loop over data HDUs
             for idx_catalog_hdu, idx_arrays in zip(self.data_hdu[idx_file], range(len(self.data_hdu[idx_file]))):
@@ -738,24 +750,40 @@ class SextractorCatalogs(SourceCatalogs):
                 skycoord_hdu = skycoord_file[idx_arrays]
                 mag_aper_hdu = [self.mag_aper[idx_file][idx_arrays][:, idx_apc] for idx_apc in self._aperture_save_idx]
                 mag_apc_hdu = [self.mag_apc_dict[d][idx_file][idx_arrays] for d in self._apertures_save]
-                # mag_zp, magerr_zp = self.get_zeropoints()
-                # mag_zp, magerr_zp = mag_zp[idx_file][idx_arrays], magerr_zp[idx_file][idx_arrays]
                 mag_zp = self.dataheaders_get_keys(keywords=self._zp_keys, file_index=idx_file)
                 mag_zp = [m[0][0] for m in mag_zp]
 
                 # Apply aperture correction to magnitudes
                 mags_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper_hdu, mag_apc_hdu, mag_zp)]
 
-                # Create fits column
-                col_ra = fits.Column(name="RA", array=skycoord_hdu.icrs.ra.deg, format="D")
-                col_dec = fits.Column(name="DEC", array=skycoord_hdu.icrs.dec.deg, format="D")
+                # Mask bad photometry
+                amag_final = np.array(mags_final)
+                mag_bad = (amag_final > 50.) | (amag_final < 0.)
+                amag_final[mag_bad] = np.nan
+                mags_final = amag_final.tolist()
+
+                # Throw out bad sources
+                keep = fwhm_file[idx_arrays] * 3600 > 0.1
+
+                # Create fits columns
+                col_id = fits.Column(name="ID", array=skycoo2visionsid(skycoord=skycoord_hdu[keep]), format="21A")
+                col_ra = fits.Column(name="RA", array=skycoord_hdu.icrs.ra.deg[keep], format="D")
+                col_dec = fits.Column(name="DEC", array=skycoord_hdu.icrs.dec.deg[keep], format="D")
+                col_fwhm = fits.Column(name="FWHM", array=fwhm_file[idx_arrays][keep] * 3600, format="E")
+                col_flags = fits.Column(name="FLAGS", array=flags_file[idx_arrays][keep], format="I")
+                col_ell = fits.Column(name="ELLIPTICITY", array=ell_file[idx_arrays][keep], format="E")
+                col_elo = fits.Column(name="ELONGATION", array=elo_file[idx_arrays][keep], format="E")
+                col_class = fits.Column(name="CLASS", array=class_file[idx_arrays][keep], format="E")
 
                 cols_mag = []
+                # noinspection PyTypeChecker
                 for mag, diam in zip(mags_final, self._apertures_save):
-                    cols_mag.append(fits.Column(name="MAG_APER_{0}".format(diam), array=mag, format="D"))
+                    cols_mag.append(fits.Column(name="MAG_APER_{0}".format(diam), array=np.array(mag)[keep],
+                                                format="E"))
 
-                # Create new TableHDU
-                hdulist.append(fits.BinTableHDU.from_columns([col_ra, col_dec] + cols_mag))
+                # Append columns to HDUList
+                hdulist.append(fits.BinTableHDU.from_columns([col_id, col_ra, col_dec] + cols_mag +
+                                                             [col_fwhm, col_flags, col_ell, col_elo, col_class]))
 
             hdulist.writeto(outpath, overwrite=True)
 
