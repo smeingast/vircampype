@@ -26,7 +26,7 @@ images = VircamImages.from_folder(setup=args.setup, path=args.folder, substring=
 # =========================================================================== #
 # Build master calibration
 # =========================================================================== #
-images.build_master_calibration()
+# images.build_master_calibration()
 
 
 # =========================================================================== #
@@ -48,7 +48,7 @@ calibrated = science.calibrate()
 # =========================================================================== #
 # Calibrate astrometry
 # =========================================================================== #
-calibrated.calibrate_astrometry()
+# calibrated.calibrate_astrometry()
 
 
 # =========================================================================== #
@@ -60,20 +60,21 @@ swarped = calibrated.resample_pawprints()
 # =========================================================================== #
 # Build master photometry
 # =========================================================================== #
-swarped.build_master_photometry()
+# swarped.build_master_photometry()
 
 
 # =========================================================================== #
 # Run Sextractor on processed pawprints
 # =========================================================================== #
 sextractor = swarped.sextractor(preset="full")
-exit()
+
 
 # =========================================================================== #
 # Check astrometry
 # =========================================================================== #
 # TODO: Make this check for exisiting files
-# sextractor.plot_qc_astrometry()
+sextractor.plot_qc_astrometry()
+exit()
 
 
 # =========================================================================== #
