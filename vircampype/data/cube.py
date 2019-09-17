@@ -808,7 +808,7 @@ class ImageCube(object):
         self.cube = apply_along_axes(self.cube, method=self.setup["cosmetics"]["destripe_method"],
                                      axis=self.setup["cosmetics"]["destripe_axis"], norm=True, copy=False)
 
-    def calibrate(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None):
+    def process_raw(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None):
         """
         Applies calibration steps to the ImageCube.
         (0) normalization

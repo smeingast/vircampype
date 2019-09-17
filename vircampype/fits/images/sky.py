@@ -506,7 +506,7 @@ class SkyImages(FitsImages):
                 norm_before = files.ndit_norm
 
                 # Do calibration
-                cube.calibrate(dark=dark, flat=flat, linearize=lin, norm_before=norm_before)
+                cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=norm_before)
 
                 # Apply source masks if set
                 if self.setup["sky"]["mask_sources"]:

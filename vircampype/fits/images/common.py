@@ -591,7 +591,7 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Main data calibration
     # =========================================================================== #
-    def calibrate(self):
+    def process_raw(self):
         """ Main science calibration method. All options are set in the setup. """
         # TODO: Write better docstring
 
@@ -604,7 +604,7 @@ class FitsImages(FitsFiles):
         from vircampype.fits.tables.linearity import MasterLinearity
 
         # Processing info
-        tstart = message_mastercalibration(master_type="CALIBRATION", silent=self.setup["misc"]["silent"], right="")
+        tstart = message_mastercalibration(master_type="PROCESSING RAW", silent=self.setup["misc"]["silent"], right="")
 
         # Fetch the Masterfiles
         # master_bpm = self.get_master_bpm()  # type: MasterBadPixelMask
@@ -643,7 +643,7 @@ class FitsImages(FitsFiles):
                 h[self.setup["keywords"]["saturate"]] = (s, "Saturation limit (ADU)")
 
             # Do calibration
-            calib_cube.calibrate(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx])
+            calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx])
 
             # Apply cosmetics
             # if self.setup["cosmetics"]["mask_cosmics"]:

@@ -164,7 +164,7 @@ class FlatImages(FitsImages):
                 norm_before = files.ndit_norm
 
                 # Do calibration
-                cube.calibrate(dark=dark, norm_before=norm_before)
+                cube.process_raw(dark=dark, norm_before=norm_before)
 
                 # Apply BPM
                 cube.apply_masks(bpm=bpm)
@@ -295,7 +295,7 @@ class FlatImages(FitsImages):
                 norm_before = files.ndit_norm
 
                 # Do calibration
-                cube.calibrate(dark=dark, linearize=lin, norm_before=norm_before)
+                cube.process_raw(dark=dark, linearize=lin, norm_before=norm_before)
 
                 # Apply masks (only BPM and saturation before scaling)
                 cube.apply_masks(bpm=bpm, mask_above=sat)
