@@ -97,7 +97,7 @@ class FitsFiles:
                      self.path_resampled, self.path_coadd,  self.path_obspar, self.path_apcor, self.path_master_common,
                      self.path_master_object, self.path_qc_common, self.path_qc_object, self.path_qc_bpm,
                      self.path_qc_dark, self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky,
-                     self.path_qc_zp, self.path_qc_astrometry, self.path_qc_apcor]
+                     self.path_qc_zp, self.path_qc_astrometry, self.path_qc_apcor, self.path_eso]
 
         # Generate folders
         for path in all_paths:
