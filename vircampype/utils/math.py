@@ -10,6 +10,7 @@ import multiprocessing
 
 from PIL import Image
 from itertools import repeat
+from fractions import Fraction
 from astropy.units import Unit
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
@@ -21,7 +22,7 @@ from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
 __all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
            "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
            "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine"]
+           "haversine", "fraction2float"]
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
@@ -982,7 +983,24 @@ def haversine(theta, units="radian"):
         return np.degrees(np.sin(np.radians(theta) / 2.)**2)
 
 
+def fraction2float(fraction):
+    """
+    Converts a fraction given by a string to a float
+
+    Parameters
+    ----------
+    fraction : str
+        String. e.g. '1/3'.
+
+    Returns
+    -------
+    float
+        Converted fraction
+    """
+    return float(Fraction(fraction))
+
+
 # def mask_cosmics(array, **kwargs):
 #     _, clean = detect_cosmics(array.copy(), **kwargs)
-    array[mask] = np.nan
-    # return clean
+#     array[mask] = np.nan
+#     return clean

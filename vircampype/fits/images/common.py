@@ -157,6 +157,10 @@ class FitsImages(FitsFiles):
         return ["{0}{1}.cal{2}".format(self.path_processed, n, e) for n, e
                 in zip(self.file_names, self.file_extensions)]
 
+    @property
+    def pixel_scale(self):
+        return fraction2float(self.setup["astromatic"]["pixel_scale"])
+
     # =========================================================================== #
     # I/O
     # =========================================================================== #
