@@ -9,7 +9,7 @@ if sys.version_info < (3, 7):
 setup(
     name="vircampype",
     version="0.1",
-    install_requires=["numpy>=1.17", "scipy>=1.3", "scikit-learn>=0.21", "matplotlib>=3.1", "astropy>=3.1"],
+    install_requires=["numpy>=1.17", "scipy>=1.3", "matplotlib>=3.1", "astropy>=3.1"],
     packages=["vircampype"],
     url="",
     license="",
