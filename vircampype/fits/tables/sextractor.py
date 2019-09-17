@@ -701,3 +701,62 @@ class SextractorCatalogs(SourceCatalogs):
             self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
 
         return self._image_headers
+
+    # =========================================================================== #
+    # ESO
+    # =========================================================================== #
+    def make_phase3_catalog(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PHASE 3 CATALOG", silent=self.setup["misc"]["silent"])
+
+        # Loop over files
+        for idx_file in range(len(self)):
+
+            # Make outpath
+            outpath = "{0}{1}.fits".format(self.path_eso, self.file_names[idx_file])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Create empty Table HDUList
+            hdulist = fits.HDUList([fits.PrimaryHDU(header=self.headers_primary[idx_file])])
+
+            # Get skycoord for current file
+            skycoord_file = self.skycoord_file(idx_file=idx_file)
+
+            # Loop over data HDUs
+            for idx_catalog_hdu, idx_arrays in zip(self.data_hdu[idx_file], range(len(self.data_hdu[idx_file]))):
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self.data_hdu[idx_file]), name=outpath,
+                                    d_current=idx_arrays+1, d_total=len(self), silent=self.setup["misc"]["silent"])
+
+                # Fetch coordinates, magnitudes, aperture corrections, and zero points
+                skycoord_hdu = skycoord_file[idx_arrays]
+                mag_aper_hdu = [self.mag_aper[idx_file][idx_arrays][:, idx_apc] for idx_apc in self._aperture_save_idx]
+                mag_apc_hdu = [self.mag_apc_dict[d][idx_file][idx_arrays] for d in self._apertures_save]
+                # mag_zp, magerr_zp = self.get_zeropoints()
+                # mag_zp, magerr_zp = mag_zp[idx_file][idx_arrays], magerr_zp[idx_file][idx_arrays]
+                mag_zp = self.dataheaders_get_keys(keywords=self._zp_keys, file_index=idx_file)
+                mag_zp = [m[0][0] for m in mag_zp]
+
+                # Apply aperture correction to magnitudes
+                mags_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper_hdu, mag_apc_hdu, mag_zp)]
+
+                # Create fits column
+                col_ra = fits.Column(name="RA", array=skycoord_hdu.icrs.ra.deg, format="D")
+                col_dec = fits.Column(name="DEC", array=skycoord_hdu.icrs.dec.deg, format="D")
+
+                cols_mag = []
+                for mag, diam in zip(mags_final, self._apertures_save):
+                    cols_mag.append(fits.Column(name="MAG_APER_{0}".format(diam), array=mag, format="D"))
+
+                # Create new TableHDU
+                hdulist.append(fits.BinTableHDU.from_columns([col_ra, col_dec] + cols_mag))
+
+            hdulist.writeto(outpath, overwrite=True)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
