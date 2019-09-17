@@ -731,8 +731,8 @@ class SextractorCatalogs(SourceCatalogs):
             for idx_catalog_hdu, idx_arrays in zip(self.data_hdu[idx_file], range(len(self.data_hdu[idx_file]))):
 
                 # Print processing info
-                message_calibration(n_current=idx_file+1, n_total=len(self.data_hdu[idx_file]), name=outpath,
-                                    d_current=idx_arrays+1, d_total=len(self), silent=self.setup["misc"]["silent"])
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath, d_current=idx_arrays+1,
+                                    d_total=len(self.data_hdu[idx_file]), silent=self.setup["misc"]["silent"])
 
                 # Fetch coordinates, magnitudes, aperture corrections, and zero points
                 skycoord_hdu = skycoord_file[idx_arrays]
