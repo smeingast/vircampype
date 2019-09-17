@@ -27,7 +27,7 @@ images = VircamImages.from_folder(setup=args.setup, path=args.folder, substring=
 # =========================================================================== #
 # Build master calibration
 # =========================================================================== #
-# images.build_master_calibration()
+images.build_master_calibration()
 
 
 # =========================================================================== #
@@ -49,7 +49,7 @@ calibrated = science.calibrate()
 # =========================================================================== #
 # Calibrate astrometry
 # =========================================================================== #
-# calibrated.calibrate_astrometry()
+calibrated.calibrate_astrometry()
 
 
 # =========================================================================== #
@@ -61,7 +61,7 @@ swarped = calibrated.resample_pawprints()
 # =========================================================================== #
 # Build master photometry
 # =========================================================================== #
-# swarped.build_master_photometry()
+swarped.build_master_photometry()
 
 
 # =========================================================================== #
@@ -73,31 +73,29 @@ sextractor = swarped.sextractor(preset="full")
 # =========================================================================== #
 # Check astrometry
 # =========================================================================== #
-# TODO: Make this check for exisiting files
 sextractor.plot_qc_astrometry()
-exit()
 
 
 # =========================================================================== #
 # Build and coadd aperture correction
 # =========================================================================== #
-# apc = sextractor.build_aperture_correction()
-# apc.coadd_apcor()
+apc = sextractor.build_aperture_correction()
+apc.coadd_apcor()
 
 
 # =========================================================================== #
 # Add aperture correction to catalogs
 # =========================================================================== #
-# sextractor.add_aperture_correction()
+sextractor.add_aperture_correction()
 
 
 # =========================================================================== #
 # Determine zero points
 # =========================================================================== #
-# sextractor.get_zeropoints()
+sextractor.get_zeropoints()
 
 # Write ZPs as flux scale into headers of swarped images
-# swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
+swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
 
 
 # =========================================================================== #
@@ -127,9 +125,12 @@ csextractor.add_aperture_correction()
 # =========================================================================== #
 # Determine zero points
 # =========================================================================== #
-zp, zperr = csextractor.get_zeropoints()
-print(zp)
-print(zperr)
+csextractor.get_zeropoints()
+
+
+# =========================================================================== #
+# Make phase 3 catalog
+csextractor.make_phase3_catalog()
 
 # TODO: QC photometry on coadd
 # TODO: Make pawprint catalogs ESO phase 3 compliant
