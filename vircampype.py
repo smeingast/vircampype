@@ -43,7 +43,7 @@ if len(science) == 0:
 # =========================================================================== #
 # Calibrate science
 # =========================================================================== #
-calibrated = science.calibrate()
+calibrated = science.process_raw()
 
 
 # =========================================================================== #
@@ -90,7 +90,7 @@ sextractor.add_aperture_correction()
 
 
 # =========================================================================== #
-# Determine zero points
+# Determine zero points and write flux scale to header
 # =========================================================================== #
 sextractor.get_zeropoints()
 
