@@ -89,6 +89,9 @@ class FitsFiles:
         self.path_qc_astrometry = "{0}{1}/".format(self.path_qc_object, "astrometry")
         self.path_qc_apcor = "{0}{1}/".format(self.path_qc_object, "aperture_correction")
 
+        # ESO
+        self.path_eso = "{0}{1}/".format(self.path_object, "eso")
+
         # Put into list
         all_paths = [self.path_pype, self.path_object, self.path_temp, self.path_headers, self.path_processed,
                      self.path_resampled, self.path_coadd,  self.path_obspar, self.path_apcor, self.path_master_common,
