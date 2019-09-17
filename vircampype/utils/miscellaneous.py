@@ -14,7 +14,7 @@ from astropy.io import fits
 # Define objects in this module
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
-           "function_to_string", "flat_list", "read_setup", "prune_list", "str2list"]
+           "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid"]
 
 
 def remove_file(path):
@@ -404,3 +404,30 @@ def str2list(s, sep=",", dtype=float):
     """
 
     return [dtype(x) for x in s.split(sep)]
+
+
+def skycoo2visionsid(skycoord):
+    """
+    Constructs the VISIONS ID from astropy sky coordinates.
+
+    Parameters
+    ----------
+    skycoord : SkyCoord
+        Astropy SkyCoord instance.
+
+    Returns
+    -------
+    iterable
+        List with IDs for each entry in skycoord.
+
+    """
+
+    # Determine declination sign
+    sign = ["-" if np.sign(dec) < 0. else "+" for dec in skycoord.dec.degree]
+
+    # Construct id
+    id1 = np.around(skycoord.ra.degree, decimals=6)
+    id2 = np.around(skycoord.dec.degree, decimals=6) / np.sign(np.around(skycoord.dec.degree, decimals=6))
+
+    # Return string
+    return ["{0:0>10.6f}{1}{2:0>9.6f}".format(ra, s, dec) for ra, s, dec in zip(id1, sign, id2)]
