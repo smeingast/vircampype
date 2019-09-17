@@ -38,7 +38,7 @@ class FitsFiles:
         elif isinstance(file_paths, str):
             self.file_paths = [file_paths]
         else:
-            self.file_paths = file_paths
+            self.file_paths = sorted(file_paths)
 
         # Some checks
         if not isinstance(self.file_paths, list):
