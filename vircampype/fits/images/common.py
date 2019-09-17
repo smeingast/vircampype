@@ -159,6 +159,14 @@ class FitsImages(FitsFiles):
 
     @property
     def pixel_scale(self):
+        """
+        Reads the pixel scale from the setup and converts it to a float.
+
+        Returns
+        -------
+        float
+
+        """
         return fraction2float(self.setup["astromatic"]["pixel_scale"])
 
     # =========================================================================== #
