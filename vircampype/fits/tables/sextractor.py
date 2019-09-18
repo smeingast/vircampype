@@ -721,7 +721,7 @@ class SextractorCatalogs(SourceCatalogs):
     # =========================================================================== #
     # ESO
     # =========================================================================== #
-    def make_phase3_pawprints(self, swarped, mode):
+    def make_phase3_pawprints(self, swarped):
 
         # Import util
         from vircampype.utils.eso import make_phase3_pawprints
@@ -755,13 +755,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Loop over files
         for idx_file in range(len(self)):
 
-            # Make outpath
-            if mode == "pawprint":
-                outpath = "{0}{1}_{2:>02d}.fits".format(self.path_eso, self.name, idx_file+1)
-            elif mode == "coadd":
-                outpath = "{0}{1}_{2:>02d}_tl.fits".format(self.path_eso, self.name, idx_file+1)
-            else:
-                raise ValueError("Mode '{0}' not supported.".format(mode))
+            outpath = "{0}{1}_{2:>02d}.fits".format(self.path_eso, self.name, idx_file+1)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
