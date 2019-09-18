@@ -10,7 +10,7 @@ from vircampype.fits.images.vircam import VircamImages
 
 # =========================================================================== #
 # Setup parser
-parser = argparse.ArgumentParser(description="Simple normalization of a FITS image file")
+parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
 parser.add_argument("-s", "--setup", help="Input setup file", type=str, required=True)
 
 # Parse arguments
