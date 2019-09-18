@@ -9,7 +9,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -267,6 +267,30 @@ def delete_keys_hdu(path, hdu, keys):
                 del file[hdu].header[k]
             except KeyError:
                 pass
+
+
+def delete_keyword(header, keyword):
+    """
+    Deletes given keyword from header.
+
+    Parameters
+    ----------
+    header : fits.Header
+        astropy fits header.
+    keyword : str
+        Which keyword to delete
+
+    Returns
+    -------
+    fits.Header
+        Cleaned fits header.
+
+    """
+    try:
+        del header[keyword]
+    except KeyError:
+        pass
+    return header
 
 
 def get_value_image(ra, dec, data, header):
