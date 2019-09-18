@@ -35,7 +35,7 @@ images.build_master_calibration()
 science = images.split_type()["science"]
 
 # If there are non, exit
-if len(science) == 0:
+if science is None:
     sys.exit(0)
 
 
