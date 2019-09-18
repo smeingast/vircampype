@@ -90,7 +90,7 @@ class FitsFiles:
         self.path_qc_apcor = "{0}{1}/".format(self.path_qc_object, "aperture_correction")
 
         # ESO
-        self.path_eso = "{0}{1}/{2}/".format(self.path_pype, "eso", self.name)
+        self.path_phase3 = "{0}{1}/{2}/".format(self.path_pype, "phase3", self.name)
 
         # Common paths
         paths_common = [self.path_pype, self.path_headers, self.path_master_common, self.path_object]
@@ -102,7 +102,7 @@ class FitsFiles:
         # Object-specific paths
         paths_obj = [self.path_temp, self.path_processed, self.path_resampled, self.path_coadd, self.path_obspar,
                      self.path_apcor, self.path_master_object, self.path_qc_object, self.path_qc_sky, self.path_qc_zp,
-                     self.path_qc_astrometry, self.path_qc_apcor, self.path_eso]
+                     self.path_qc_astrometry, self.path_qc_apcor, self.path_phase3]
 
         # Generate common paths
         for path in paths_common:

@@ -755,7 +755,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Loop over files
         for idx_file in range(len(self)):
 
-            outpath = "{0}{1}_{2:>02d}.fits".format(self.path_eso, self.name, idx_file+1)
+            outpath = "{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
