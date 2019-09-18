@@ -194,10 +194,6 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths):
         hdu_cat = fits.BinTableHDU.from_columns([col_id, col_ra, col_dec] + cols_mag +
                                                 [col_fwhm, col_flags, col_ell, col_elo, col_class], header=hdr_cat)
 
-        # CHECKSUM/DATASUM
-        # hdu_paw.add_checksum()
-        # hdu_cat.add_checksum()
-
         # Add HDUs to HDULists
         hdul_paw.append(hdu=hdu_paw)
         hdul_cat.append(hdu=hdu_cat)
