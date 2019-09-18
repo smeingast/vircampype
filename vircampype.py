@@ -12,7 +12,6 @@ from vircampype.fits.images.vircam import VircamImages
 # Setup parser
 parser = argparse.ArgumentParser(description="Simple normalization of a FITS image file")
 parser.add_argument("-s", "--setup", help="Input setup file", type=str, required=True)
-parser.add_argument("-f", "--folder", help="Folder location of images", type=str, required=True)
 
 # Parse arguments
 args = parser.parse_args()
@@ -21,7 +20,7 @@ args = parser.parse_args()
 # =========================================================================== #
 # Initialize Images
 # =========================================================================== #
-images = VircamImages.from_folder(setup=args.setup, path=args.folder, substring="*.fits")
+images = VircamImages.from_setup(setup=args.setup)
 
 
 # =========================================================================== #
@@ -97,6 +96,12 @@ sextractor.get_zeropoints()
 # Write ZPs as flux scale into headers of swarped images
 swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
 
+
+# =========================================================================== #
+# Generate ESO compliant catalogs for pawprints
+# =========================================================================== #
+sextractor.make_phase3_catalog()
+exit()
 
 # =========================================================================== #
 # Coadd pawprints

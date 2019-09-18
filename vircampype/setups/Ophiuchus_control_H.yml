@@ -3,6 +3,8 @@
 # =========================================================================== #
 paths:
   name: "Ophiuchus_control_H"
+  data: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/VISIONS_Ophiuchus_control_H/"
+  substring: "*.fits"
   pype: "/Users/stefan/Dropbox/Data/VISIONS/DR1/raw/vircampype/"
 
 # =========================================================================== #
