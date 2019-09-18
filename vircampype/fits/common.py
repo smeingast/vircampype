@@ -92,16 +92,31 @@ class FitsFiles:
         # ESO
         self.path_eso = "{0}{1}/".format(self.path_object, "eso")
 
-        # Put into list
-        all_paths = [self.path_pype, self.path_object, self.path_temp, self.path_headers, self.path_processed,
-                     self.path_resampled, self.path_coadd,  self.path_obspar, self.path_apcor, self.path_master_common,
-                     self.path_master_object, self.path_qc_common, self.path_qc_object, self.path_qc_bpm,
-                     self.path_qc_dark, self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat, self.path_qc_sky,
-                     self.path_qc_zp, self.path_qc_astrometry, self.path_qc_apcor, self.path_eso]
+        # Common paths
+        paths_common = [self.path_pype, self.path_headers, self.path_master_common, self.path_object]
 
-        # Generate folders
-        for path in all_paths:
+        # calibration-specific paths
+        paths_cal = [self.path_qc_common, self.path_qc_bpm, self.path_qc_dark,
+                     self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat]
+
+        # Object-specific paths
+        paths_obj = [self.path_temp, self.path_processed, self.path_resampled, self.path_coadd, self.path_obspar,
+                     self.path_apcor, self.path_master_object, self.path_qc_object, self.path_qc_sky, self.path_qc_zp,
+                     self.path_qc_astrometry, self.path_qc_apcor, self.path_eso]
+
+        # Generate common paths
+        for path in paths_common:
             make_folder(path)
+
+        # Create common calibration path only if we run a calibration unit
+        if self.name.lower() == "calibration":
+            for path in paths_cal:
+                make_folder(path=path)
+
+        # Other wise make object paths
+        else:
+            for path in paths_obj:
+                make_folder(path=path)
 
         # Generate paths
         self._header_paths = ["{0}{1}.header".format(self.path_headers, x) for x in self.base_names]
