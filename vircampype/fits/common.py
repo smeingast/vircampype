@@ -90,7 +90,7 @@ class FitsFiles:
         self.path_qc_apcor = "{0}{1}/".format(self.path_qc_object, "aperture_correction")
 
         # ESO
-        self.path_eso = "{0}{1}/".format(self.path_object, "eso")
+        self.path_eso = "{0}{1}/{2}/".format(self.path_pype, "eso", self.name)
 
         # Common paths
         paths_common = [self.path_pype, self.path_headers, self.path_master_common, self.path_object]
