@@ -418,6 +418,7 @@ class SextractorCatalogs(SourceCatalogs):
                     # Extract aperture correction from image
                     a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
                     new_cols.add_col(fits.Column(name="MAG_APC_{0}".format(d), format="E", array=a))
+                    new_cols.add_col(fits.Column(name="MAG_APER_{0}".format(d), format="E", array=mag))
 
                 # Replace HDU from input catalog
                 chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
