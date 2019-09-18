@@ -33,7 +33,7 @@ def get_satlim(fil):
         raise ValueError("Filter {0} not supported".format(fil))
 
 
-def make_pp_prime_header(hdul_swarped, mode):
+def make_pp_prime_header(hdul_swarped, mode, additional):
 
     # Write keywords into primary image header
     hdr = fits.Header()
@@ -72,9 +72,12 @@ def make_pp_prime_header(hdul_swarped, mode):
     hdr["FLUXCAL"] = "ABSOLUTE"
     hdr["PROCSOFT"] = "VIRCAMPYPE v0.1"
     hdr["REFERENC"] = ""
-    hdr["TL_RA"] = hdul_swarped[0].header["ESO OCS SADT TILE RA"]
-    hdr["TL_DEC"] = hdul_swarped[0].header["ESO OCS SADT TILE DEC"]
-    hdr["TL_OFFAN"] = hdul_swarped[0].header["ESO OCS SADT TILE OFFANGLE"]
+
+    # These stupid keywords are not in all primary headers...
+    hdr["TL_RA"] = additional["tl_ra"]
+    hdr["TL_DEC"] = additional["tl_dec"]
+    hdr["TL_OFFAN"] = additional["tl_ofa"]
+
     hdr["EPS_REG"] = hdr["OBJECT"].split("_")[0]
     hdr["NJITTER"] = hdul_swarped[0].header["NJITTER"]
     hdr["NOFFSETS"] = hdul_swarped[0].header["NOFFSETS"]
@@ -123,14 +126,16 @@ def make_pp_ext_header(hdu_swarped, hdu_sex, fil, mode):
 
 
 # noinspection DuplicatedCode
-def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths):
+def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additional=None):
 
     hdul_swarped = fits.open(path_swarped)
     hdul_sextractor = fits.open(path_sextractor)
 
     # Make HDUlists for output
-    hdul_paw = fits.HDUList([fits.PrimaryHDU(header=make_pp_prime_header(hdul_swarped=hdul_swarped, mode="pawprint"))])
-    hdul_cat = fits.HDUList([fits.PrimaryHDU(header=make_pp_prime_header(hdul_swarped=hdul_swarped, mode="catalog"))])
+    hdul_paw = fits.HDUList([fits.PrimaryHDU(header=make_pp_prime_header(hdul_swarped=hdul_swarped, mode="pawprint",
+                                                                         additional=additional))])
+    hdul_cat = fits.HDUList([fits.PrimaryHDU(header=make_pp_prime_header(hdul_swarped=hdul_swarped, mode="catalog",
+                                                                         additional=additional))])
 
     # Add weight association
     hdul_paw[0].header["ASSON1"] = os.path.basename(outpaths[0].replace(".fits", ".weight.fits"))
