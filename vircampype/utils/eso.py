@@ -79,7 +79,9 @@ def make_pp_prime_header(hdul_swarped, mode, additional):
     hdr["TL_OFFAN"] = additional["tl_ofa"]
 
     hdr["EPS_REG"] = hdr["OBJECT"].split("_")[0]
+    hdr["JITTER_I"] = hdul_swarped[0].header["JITTER_I"]
     hdr["NJITTER"] = hdul_swarped[0].header["NJITTER"]
+    hdr["OFFSET_I"] = hdul_swarped[0].header["OFFSET_I"]
     hdr["NOFFSETS"] = hdul_swarped[0].header["NOFFSETS"]
     hdr["NUSTEP"] = hdul_swarped[0].header["NUSTEP"]
     hdr["DIT"] = hdul_swarped[0].header["ESO DET DIT"]
@@ -141,6 +143,11 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additi
     hdul_paw[0].header["ASSON1"] = os.path.basename(outpaths[0].replace(".fits", ".weight.fits"))
     hdul_paw[0].header.set("ASSON1", after="REFERENC")
 
+    # Get aperture indices
+    apertures_eval = str2list(setup["photometry"]["apcor_diam_eval"], sep=",")
+    apertures_save = str2list(setup["photometry"]["apcor_diam_save"], sep=",")
+    mag_aper_idx = [[i for i, x in enumerate(apertures_eval) if x == b][0] for b in apertures_save]
+
     # Now loop over extensions
     for idx_paw, idx_cat in zip(range(1, 17, 1), range(2, 33, 2)):
 
@@ -157,11 +164,10 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additi
         keep = data["FWHM_WORLD"] * 3600 > 0.1
 
         # Read aperture magnitudes and aperture corrections
-        aper_idx = [1, 2, 3, 4, 5, 6]
-        aper_diam = str2list(setup["photometry"]["apcor_diam_save"], sep=",")
-        mag_aper = [data["MAG_APER_{0}".format(a)][keep] for a in aper_diam]
-        mag_apc = [data["MAG_APC_{0}".format(a)][keep] for a in aper_diam]
-        mag_zp = [sheader["PYPE MAGZP {0}".format(i)] for i in aper_idx]
+        mag_aper = [data["MAG_APER"][:, aidx][keep] for aidx in mag_aper_idx]
+        magerr_aper = [data["MAGERR_APER"][:, aidx][keep] for aidx in mag_aper_idx]
+        mag_apc = [data["MAG_APC_{0}".format(a)][keep] for a in apertures_save]
+        mag_zp = [sheader["PYPE MAGZP {0}".format(i+1)] for i in range(len(apertures_save))]
 
         # Comput magnitudes
         mags_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper, mag_apc, mag_zp)]
@@ -186,8 +192,9 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additi
 
         cols_mag = []
         # noinspection PyTypeChecker
-        for mag, diam in zip(mags_final, aper_idx):
-            cols_mag.append(fits.Column(name="MAG_APER_{0}".format(diam), array=np.array(mag), format="E"))
+        for mag, magerr, i in zip(mags_final, magerr_aper, range(len(mags_final))):
+            cols_mag.append(fits.Column(name="MAG_APER_{0}".format(i+1), array=np.array(mag), format="E"))
+            cols_mag.append(fits.Column(name="MAGERR_APER_{0}".format(i+1), array=np.array(magerr), format="E"))
 
         # Remove keywords from header
         for kw in ["ORIGFILE"]:
