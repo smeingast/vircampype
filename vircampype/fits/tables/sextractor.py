@@ -391,17 +391,12 @@ class SextractorCatalogs(SourceCatalogs):
             # Get aperture corrections for current file
             apc_file = [apc[idx_cat_file] for apc in apc_self]
 
-            # Get aperture magnitudes for current file
-            mag_aper_file = self.mag_aper[idx_cat_file]
-            magerr_aper_file = self.magerr_aper[idx_cat_file]
-
             # Get SkyCoord of current file
             skycoord_file = self.skycoord()[idx_cat_file]
 
             # Loop over detectors
-            for idx_cat_hdu, idx_apc_hdu, mag_aper_hdu, magerr_aper_hdu, skycoord_hdu in \
-                    zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0],
-                        mag_aper_file, magerr_aper_file, skycoord_file):
+            for idx_cat_hdu, idx_apc_hdu, skycoord_hdu in \
+                    zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], skycoord_file):
 
                 # Print info
                 message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
@@ -410,20 +405,15 @@ class SextractorCatalogs(SourceCatalogs):
                 # Get columns for current HDU
                 ccolumns = chdulist[idx_cat_hdu].data.columns
 
-                # Extract given apertures
-                mag_aper_hdu_save = mag_aper_hdu[:, self._aperture_save_idx]
-                magerr_aper_hdu_save = magerr_aper_hdu[:, self._aperture_save_idx]
-
                 # Loop over different apertures
                 new_cols = fits.ColDefs([])
-                for apc, mag, magerr, d in zip(apc_file, mag_aper_hdu_save.T,
-                                               magerr_aper_hdu_save.T, self._apertures_save):
+                for apc, d in zip(apc_file, self._apertures_save):
 
                     # Extract aperture correction from image
                     a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+
+                    # Add as new column for each source
                     new_cols.add_col(fits.Column(name="MAG_APC_{0}".format(d), format="E", array=a))
-                    new_cols.add_col(fits.Column(name="MAG_APER_{0}".format(d), format="E", array=mag))
-                    new_cols.add_col(fits.Column(name="MAGERR_APER_{0}".format(d), format="E", array=magerr))
 
                 # Replace HDU from input catalog
                 chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
