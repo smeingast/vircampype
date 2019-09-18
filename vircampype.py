@@ -98,10 +98,10 @@ swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
 
 
 # =========================================================================== #
-# Generate ESO compliant catalogs for pawprints
+# Generate ESO phase 3 compliant catalogs for pawprints
 # =========================================================================== #
-sextractor.make_phase3_catalog()
-exit()
+sextractor.make_phase3_pawprints(swarped=swarped)
+
 
 # =========================================================================== #
 # Coadd pawprints
