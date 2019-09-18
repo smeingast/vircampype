@@ -171,6 +171,32 @@ class FitsFiles:
         else:
             return cls(setup=setup, file_paths=glob.glob(path + "*"))
 
+    @classmethod
+    def from_setup(cls, setup):
+        """
+        Creates instance by reading paths from setup
+
+        Parameters
+        ----------
+        setup : str, dict
+            YML setup. Can be either path to setup, or a dictionary.
+
+        Returns
+        -------
+            Instance with the found files built from the requested class.
+
+        """
+
+        # Read setup
+        setup = read_setup(path_yaml=setup)
+
+        # Fix path if necessary
+        path = setup["paths"]["data"]
+        if not path.endswith("/"):
+            path += "/"
+
+        return cls(setup=setup, file_paths=glob.glob(path + setup["paths"]["substring"]))
+
     # =========================================================================== #
     # Headers
     # =========================================================================== #
