@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import yaml
+import shutil
 import importlib
 import numpy as np
 
@@ -15,6 +16,32 @@ from astropy.io import fits
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid"]
+
+
+def sort_vircam_science(path, ending="*.fits"):
+
+    import glob
+
+    paths_orig = glob.glob(pathname=path + ending)[::100]
+    file_names = [os.path.basename(f) for f in paths_orig]
+    paths_dirs = ["{0}/".format(os.path.dirname(f)) for f in paths_orig]
+
+    # Get Object Name
+    obj = [fits.getheader(filename=f)["HIERARCH ESO OBS NAME"].replace("VISIONS_", "") for f in paths_orig]
+
+    # Identify unique objects
+    uobj = sorted(list(set(obj)))
+
+    # Make folders
+    for uo in uobj:
+        make_folder(path=path + uo)
+
+    # Construct output paths
+    paths_move = ["{0}{1}/{2}".format(d, o, f) for d, o, f in zip(paths_dirs, obj, file_names)]
+
+    # Move files to folders
+    for po, pm in zip(paths_orig, paths_move):
+        shutil.move(po, pm)
 
 
 def remove_file(path):
