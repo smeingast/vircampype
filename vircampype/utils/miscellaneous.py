@@ -3,6 +3,7 @@
 import re
 import os
 import sys
+import glob
 import time
 import yaml
 import shutil
@@ -18,11 +19,37 @@ __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_f
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid"]
 
 
-def sort_vircam_science(path, ending="*.fits"):
+def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
 
-    import glob
+    # Find files
+    paths_all = glob.glob(pathname="{0}*{1}".format(path_all, extension))
 
-    paths_orig = glob.glob(pathname=path + ending)[::100]
+    # Get category
+    catg_all = [fits.getheader(filename=f)["HIERARCH ESO DPR CATG"] for f in paths_all]
+
+    idx_calib = [i for i, j in enumerate(catg_all) if j == "CALIB"]
+    idx_science = [i for i, j in enumerate(catg_all) if j == "SCIENCE"]
+
+    # Dummy check
+    if len(idx_calib) + len(idx_science) != len(paths_all):
+        raise ValueError("Input and output not matching")
+
+    # Get paths for calibration files
+    paths_calib = [paths_all[i] for i in idx_calib]
+
+    # Move files to calibration directory
+    for p in paths_calib:
+        shutil.move(p, path_calibration)
+
+
+def sort_vircam_science(path, extension="*.fits"):
+
+    # Add '/' if necessary
+    if not path.endswith("/"):
+        path += "/"
+
+    # Find files
+    paths_orig = glob.glob(pathname=path + extension)
     file_names = [os.path.basename(f) for f in paths_orig]
     paths_dirs = ["{0}/".format(os.path.dirname(f)) for f in paths_orig]
 
