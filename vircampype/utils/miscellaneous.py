@@ -21,6 +21,12 @@ __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_f
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
 
+    # Add '/' if necessary
+    if not path_all.endswith("/"):
+        path_all += "/"
+    if not path_calibration.endswith("/"):
+        path_calibration += "/"
+
     # Find files
     paths_all = glob.glob(pathname="{0}*{1}".format(path_all, extension))
 
