@@ -124,6 +124,118 @@ def make_pp_ext_header(hdu_swarped, hdu_sex, fil, mode):
     hdr["PSF_FWHM"] = sigma_clipped_stats(hdu_sex.data["FWHM_WORLD"][stars] * 3600)[1]
     hdr["ELLIPTIC"] = sigma_clipped_stats(hdu_sex.data["ELLIPTICITY"][stars])[1]
 
+    # Return header
+    return hdr
+
+
+def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode):
+
+    # Determine some stuff
+    dit = hdul_prov[0][1].header["ESO DET DIT"]
+    ndit = hdul_prov[0][1].header["ESO DET NDIT"]
+    njitter = hdul_prov[0][0].header["NJITTER"]
+    band = hdul_tile[0].header["ESO INS FILT1 NAME"]
+
+    # Write keywords into primary image header
+    hdr = fits.Header()
+
+    if "prime" in mode.lower():
+        hdr["ORIGIN"] = "ESO-PARANAL"
+        hdr["DATE"] = hdul_tile[0].header["DATE"]  # Time from Swarp is in extentions
+        hdr["TELESCOP"] = "ESO-VISTA"
+        hdr["INSTRUME"] = "VIRCAM"
+        hdr["FILTER"] = band
+        hdr["OBJECT"] = hdul_tile[0].header["OBJECT"]
+        hdr["RA"] = hdul_tile[0].header["CRVAL1"]
+        hdr["DEC"] = hdul_tile[0].header["CRVAL2"]
+        hdr["EQUINOX"] = 2000.
+        hdr["RADECSYS"] = "ICRS"
+        hdr["EXPTIME"] = 2 * njitter * dit * ndit
+        hdr["TEXPTIME"] = 6 * njitter * dit * ndit
+        hdr["MJD-OBS"] = hdul_tile[0].header["MJD-OBS"]
+
+        # Get MJD-END from last exposure
+        mjd_obs_prov = [h[0].header["MJD-OBS"] for h in hdul_prov]
+        hdr["MJD-END"] = max(mjd_obs_prov) + (dit * ndit) / 86400
+
+        hdr["PROG_ID"] = hdul_prov[0][0].header["PROG_ID"]
+        hdr["OBID1"] = hdul_prov[0][0].header["OBID1"]
+        hdr["M_EPOCH"] = True
+
+    # Write PROV keywords
+    if mode.lower() == "tile_prime":
+        for idx in range(len(hdul_prov)):
+            hdr["PROV{0}".format(idx+1)] = os.path.basename(hdul_prov[idx].fileinfo(0)["file"].name)
+
+    if "prime" in mode.lower():
+        hdr["OBSTECH"] = hdul_prov[0][0].header["OBSTECH"]
+
+    # Select category based on input
+    if mode.lower() == "catalog_prime":
+        hdr["PRODCATG"] = "SCIENCE.SRCTBL"
+    elif mode.lower() == "catalog_data":
+        pass
+    elif mode.lower() == "tile_prime":
+        hdr["PRODCATG"] = "SCIENCE.IMAGE"
+        hdr["NCOMBINE"] = len(hdul_prov)
+    else:
+        raise ValueError("Mode '{0}' not supported".format(mode))
+
+    if "prime" in mode.lower():
+        hdr["IMATYPE"] = "TILE"
+
+    if "prime" in mode.lower():
+        hdr["ISAMP"] = False
+
+    if mode.lower() == "tile_prime":
+        hdr["FLUXCAL"] = "ABSOLUTE"
+
+    # Calculate mean ZP
+    zp_mean = np.mean([hdul_sex[2].header["PYPE MAGZP {0}".format(x)] for x in [1, 2, 3, 4, 5, 6]])
+    if mode.lower() == "tile_prime":
+        hdr["PHOTZP"] = (zp_mean, "Mean ZP across apertures")
+
+    if mode in ["tile_prime", "catalog_data"]:
+        hdr["PHOTSYS"] = "VEGA"
+
+        # Calculate maglimit
+        fa = hdul_sex[2].data["FLUX_AUTO"].T
+        fa_err = hdul_sex[2].data["FLUXERR_AUTO"].T
+        good = (fa / fa_err > 4.5) & (fa / fa_err < 5.5)
+        mag_lim = np.mean(hdul_sex[2].data["MAG_AUTO"][good]) + zp_mean
+        hdr["MAGLIM"] = mag_lim
+        hdr["ABMAGLIM"] = vega2ab(mag=mag_lim, fil=band)
+
+        # Starfilter
+        stars = hdul_sex[2].data["CLASS_STAR"] > 0.8
+
+        # Hardcoded stats
+        hdr["MAGSAT"] = get_satlim(fil=band)
+        hdr["ABMAGSAT"] = vega2ab(mag=get_satlim(fil=band), fil=band)
+
+        # PSF stats
+        _, hdr["PSF_FWHM"], _ = sigma_clipped_stats(hdul_sex[2].data["FWHM_WORLD"][stars] * 3600)
+        _, hdr["ELLIPTIC"], _ = sigma_clipped_stats(hdul_sex[2].data["ELLIPTICITY"][stars])
+
+    # Other
+    if "prime" in mode.lower():
+        hdr["PROCSOFT"] = "VIRCAMPYPE v0.1"
+        hdr["REFERENC"] = ""
+
+        # These stupid keywords are not in all primary headers...
+        hdr["TL_RA"] = hdul_prov[0][0].header["TL_RA"]
+        hdr["TL_DEC"] = hdul_prov[0][0].header["TL_DEC"]
+        hdr["TL_OFFAN"] = hdul_prov[0][0].header["TL_OFFAN"]
+        hdr["EPS_REG"] = hdul_prov[0][0].header["EPS_REG"]
+
+    if mode.lower() == "tile_prime":
+        hdr["NJITTER"] = njitter
+        hdr["NOFFSETS"] = hdul_prov[0][0].header["NOFFSETS"]
+        hdr["NUSTEP"] = hdul_prov[0][0].header["NUSTEP"]
+        hdr["DIT"] = dit
+        hdr["NDIT"] = ndit
+
+    # Return header
     return hdr
 
 
@@ -218,3 +330,82 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additi
     else:
         hdul_paw.writeto(outpaths[0], overwrite=True, checksum=True)
         hdul_cat.writeto(outpaths[1], overwrite=True, checksum=True)
+
+
+# noinspection DuplicatedCode
+def make_phase3_tile(path_swarped, path_sextractor, paths_prov, setup, outpath):
+
+    hdul_img = fits.open(path_swarped)
+    hdul_sex = fits.open(path_sextractor)
+    hdul_prov = [fits.open(path) for path in paths_prov]
+
+    # Generate prime headers for tile image and catalog
+    prhdr_img = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex, mode="tile_prime")
+    prhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex, mode="catalog_prime")
+    exhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex, mode="catalog_data")
+
+    # Add weight association to tile image
+    prhdr_img["ASSON1"] = os.path.basename(outpath.replace(".fits", ".weight.fits"))
+    prhdr_img.set("ASSON1", after="REFERENC")
+
+    # Add image association to tile catalog
+    # prhdr_cat["ASSON1"] = os.path.basename(outpath)
+    # prhdr_cat.set("ASSON1", after="REFERENC")
+
+    # Add extension name
+    exhdr_cat["EXTNAME"] = os.path.basename(outpath)
+
+    # Get catalog data
+    data, sheader = fits.getdata(filename=path_sextractor, ext=2, header=True)
+
+    # Filter bad sources
+    keep = data["FWHM_WORLD"] * 3600 > 0.1
+
+    # Get aperture indices
+    apertures_eval = str2list(setup["photometry"]["apcor_diam_eval"], sep=",")
+    apertures_save = str2list(setup["photometry"]["apcor_diam_save"], sep=",")
+    mag_aper_idx = [[i for i, x in enumerate(apertures_eval) if x == b][0] for b in apertures_save]
+
+    # Read aperture magnitudes and aperture corrections
+    mag_aper = [data["MAG_APER"][:, aidx][keep] for aidx in mag_aper_idx]
+    magerr_aper = [data["MAGERR_APER"][:, aidx][keep] for aidx in mag_aper_idx]
+    mag_apc = [data["MAG_APC_{0}".format(a)][keep] for a in apertures_save]
+    mag_zp = [sheader["PYPE MAGZP {0}".format(i + 1)] for i in range(len(apertures_save))]
+
+    # Comput magnitudes
+    mags_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper, mag_apc, mag_zp)]
+    amag_final = np.array(mags_final)
+    mag_bad = (amag_final > 50.) | (amag_final < 0.)
+    amag_final[mag_bad] = np.nan
+    mags_final = amag_final.tolist()
+
+    # Create skycoord
+    skycoord = SkyCoord(ra=data["ALPHAWIN_J2000"][keep], dec=data["DELTAWIN_J2000"][keep],
+                        frame="icrs", equinox="J2000", unit="deg")
+
+    # Create fits columns
+    col_id = fits.Column(name="ID", array=skycoo2visionsid(skycoord=skycoord), format="21A")
+    col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, format="D")
+    col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, format="D")
+    col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"][keep] * 3600, format="E")
+    col_flags = fits.Column(name="FLAGS", array=data["FLAGS"][keep], format="I")
+    col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"][keep], format="E")
+    col_elo = fits.Column(name="ELONGATION", array=data["ELONGATION"][keep], format="E")
+    col_class = fits.Column(name="CLASS", array=data["CLASS_STAR"][keep], format="E")
+
+    cols_mag = []
+    # noinspection PyTypeChecker
+    for mag, magerr, i in zip(mags_final, magerr_aper, range(len(mags_final))):
+        cols_mag.append(fits.Column(name="MAG_APER_{0}".format(i + 1), array=np.array(mag), format="E"))
+        cols_mag.append(fits.Column(name="MAGERR_APER_{0}".format(i + 1), array=np.array(magerr), format="E"))
+
+    # Make final HDUs
+    hdul_img = fits.PrimaryHDU(data=hdul_img[0].data, header=prhdr_img)
+    hdul_cat = fits.HDUList(fits.PrimaryHDU(header=prhdr_cat))
+    hdul_cat.append(fits.BinTableHDU.from_columns([col_id, col_ra, col_dec] + cols_mag +
+                                                  [col_fwhm, col_flags, col_ell, col_elo, col_class],
+                                                  header=exhdr_cat))
+
+    # Return HDU lists if outpaths are not set
+    hdul_img.writeto(outpath, overwrite=False, checksum=True)
+    hdul_cat.writeto(outpath.replace(".fits", ".cat.fits"), overwrite=False, checksum=True)
