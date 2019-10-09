@@ -753,21 +753,22 @@ class SextractorCatalogs(SourceCatalogs):
         shitty_kw = {"tl_ra": tl_ra, "tl_dec": tl_dec, "tl_ofa": tl_ofa}
 
         # Loop over files
+        outpaths = []
         for idx_file in range(len(self)):
 
-            outpath = "{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1)
+            outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]):
                 continue
 
             # Status message
-            message_calibration(n_current=idx_file + 1, n_total=len(self), name=outpath)
+            message_calibration(n_current=idx_file + 1, n_total=len(self), name=outpaths[-1])
 
             # Convert pawprint catalog and image
             make_phase3_pawprints(path_swarped=swarped.full_paths[idx_file], path_sextractor=self.full_paths[idx_file],
-                                  setup=swarped.setup, outpaths=(outpath, outpath.replace(".fits", ".cat.fits")),
-                                  additional=shitty_kw)
+                                  setup=swarped.setup, additional=shitty_kw,
+                                  outpaths=(outpaths[-1], outpaths[-1].replace(".fits", ".cat.fits")))
 
             # There also has to be a weight map
             with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
@@ -776,7 +777,47 @@ class SextractorCatalogs(SourceCatalogs):
                 weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
 
                 # Save
-                weight.writeto(outpath.replace(".fits", ".weight.fits"), overwrite=True, checksum=True)
+                weight.writeto(outpaths[-1].replace(".fits", ".weight.fits"), overwrite=True, checksum=True)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return images
+        from vircampype.fits.images.common import FitsImages
+        return FitsImages(setup=self.setup, file_paths=outpaths)
+
+    def make_phase3_tile(self, swarped, prov_images):
+
+        # Import util
+        from vircampype.utils.eso import make_phase3_tile
+
+        # There can be only one file in the current instance
+        if len(self) != len(swarped) != 1:
+            raise ValueError("Only one tile allowed")
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PHASE 3 TILE", right=None,
+                                           silent=self.setup["misc"]["silent"])
+
+        # Generate outpath
+        outpath = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
+
+        # Check if the file is already there and skip if it is
+        if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            return
+
+        # Convert to phase 3 compliant format
+        make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
+                         paths_prov=prov_images.full_paths, setup=self.setup, outpath=outpath)
+
+        # There also has to be a weight map
+        with fits.open(swarped.full_paths[0].replace(".fits", ".weight.fits")) as weight:
+
+            # Add PRODCATG
+            weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
+
+            # Save
+            weight.writeto(outpath.replace(".fits", ".weight.fits"), overwrite=False, checksum=True)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
