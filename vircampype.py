@@ -100,7 +100,7 @@ swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
 # =========================================================================== #
 # Generate ESO phase 3 compliant catalogs for pawprints
 # =========================================================================== #
-sextractor.make_phase3_pawprints(swarped=swarped)
+phase3_pp = sextractor.make_phase3_pawprints(swarped=swarped)
 
 
 # =========================================================================== #
@@ -135,10 +135,6 @@ csextractor.get_zeropoints()
 
 # =========================================================================== #
 # Make phase 3 catalog
-csextractor.make_phase3_catalog()
+csextractor.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
 
 # TODO: QC photometry on coadd
-# TODO: Make pawprint catalogs ESO phase 3 compliant
-# TODO: Make pawprint images ESO phase 3 compliant
-# TODO: Make coadd catalogs ESO phase 3 compliant
-# TODO: Make coadd images ESO phase 3 compliant
