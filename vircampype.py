@@ -48,7 +48,7 @@ calibrated = science.process_raw()
 # =========================================================================== #
 # Calibrate astrometry
 # =========================================================================== #
-calibrated.calibrate_astrometry()
+fwhms = calibrated.calibrate_astrometry(return_fwhm=True)
 
 
 # =========================================================================== #
@@ -66,7 +66,7 @@ swarped.build_master_photometry()
 # =========================================================================== #
 # Run Sextractor on processed pawprints
 # =========================================================================== #
-sextractor = swarped.sextractor(preset="full")
+sextractor = swarped.sextractor(preset="full", seeing_fwhm=fwhms)
 
 
 # =========================================================================== #
