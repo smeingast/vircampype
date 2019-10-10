@@ -9,6 +9,7 @@ from astropy import wcs as awcs
 from vircampype.utils import *
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
+from astropy.stats import sigma_clipped_stats
 from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
@@ -579,7 +580,7 @@ class SkyImages(FitsImages):
     # =========================================================================== #
     # Astrometry
     # =========================================================================== #
-    def calibrate_astrometry(self):
+    def calibrate_astrometry(self, return_fwhm=False):
         # TODO: Implement more status messaging for sextractor and scamp
 
         # Processing info
@@ -587,6 +588,13 @@ class SkyImages(FitsImages):
 
         # Run Sextractor
         catalogs = self.sextractor(preset="scamp")  # type: SextractorCatalogs
+
+        # Get FWHM if set
+        fwhms = None
+        if return_fwhm:
+            fwhms = catalogs.get_columns(column_name="FWHM_IMAGE")
+            # noinspection PyUnresolvedReferences
+            fwhms = [sigma_clipped_stats(flat_list(f))[1] * self.pixel_scale * 3600. for f in fwhms]
 
         # Check if Scamp has already been run. If not, run it
         paths_headers = []
@@ -660,7 +668,10 @@ class SkyImages(FitsImages):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-        return header_coadd
+        if return_fwhm:
+            return fwhms
+        else:
+            return header_coadd
 
     # =========================================================================== #
     # Reference catalog
