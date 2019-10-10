@@ -225,7 +225,7 @@ class SextractorCatalogs(SourceCatalogs):
                 # Remove bad sources (class, flags, bad mags, bad mag diffs, bad fwhm, bad mag errs)
                 good = (tab["CLASS_STAR"] > 0.7) & (tab["FLAGS"] == 0) & \
                        (np.sum(mag > 0, axis=1) == 0) & (np.sum(np.diff(mag, axis=1) > 0, axis=1) == 0) & \
-                       (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 6.0) & \
+                       (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 8.0) & \
                        (np.nanmean(tab["MAGERR_APER"], axis=1) < 0.1)
 
                 # Only keep good sources
