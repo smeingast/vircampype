@@ -755,7 +755,7 @@ class FitsImages(FitsFiles):
         elif preset == "full":
             return get_resource_path(package=self._sex_preset_package, resource="sextractor_full.param")
 
-    def sextractor(self, preset="scamp"):
+    def sextractor(self, preset="scamp", **kwargs):
         """
         Runs sextractor based on given presets.
 
@@ -800,7 +800,8 @@ class FitsImages(FitsFiles):
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             phot_apertures=self.setup["photometry"]["apcor_diam_eval"],
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
-                            skip=["catalog_name", "weight_image", "starnnw_name"])
+                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
+
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
 
@@ -808,6 +809,11 @@ class FitsImages(FitsFiles):
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
                 "".format(self._bin_sex, self._sex_default_config, image, self._sex_default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
+
+        # Add kwargs
+        for key, val in kwargs.items():
+            for cmd_idx in range(len(cmds)):
+                cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
 
         # Run Sextractor
         run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
