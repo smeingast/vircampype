@@ -650,7 +650,7 @@ class SkyImages(FitsImages):
             area = []
             for rot in rotation_test:
                 hdr = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rot,
-                                      enlarge=1.01, cdelt=self.pixel_scale)
+                                      enlarge=1.015, cdelt=self.pixel_scale)
                 area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
 
             # Return final header with optimized rotation
