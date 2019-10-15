@@ -52,8 +52,8 @@ MATCH:                  Y               # Do pattern-matching (Y/N) ?
 MATCH_NMAX:             0               # Max.number of detections for MATCHing
                                        # (0=auto)
 PIXSCALE_MAXERR:        1.05             # Max scale-factor uncertainty
-POSANGLE_MAXERR:        2.0             # Max position-angle uncertainty (deg)
-POSITION_MAXERR:        2.0             # Max positional uncertainty (arcmin)
+POSANGLE_MAXERR:        3.0             # Max position-angle uncertainty (deg)
+POSITION_MAXERR:        3.0             # Max positional uncertainty (arcmin)
 MATCH_RESOL:            0               # Matching resolution (arcsec); 0=auto
 MATCH_FLIPPED:          N               # Allow matching with flipped axes?
 MOSAIC_TYPE:            LOOSE       # UNCHANGED, SAME_CRVAL, SHARE_PROJAXIS,
@@ -111,9 +111,9 @@ PHOT_IMAFLAGSMASK:      0x0             # Photometry rejection mask on IMAFLAGS
 
 #----------------------------- Source selection -------------------------------
 
-SN_THRESHOLDS:          20.0,200.0      # S/N thresholds (in sigmas) for all and
+SN_THRESHOLDS:          10.0,200.0      # S/N thresholds (in sigmas) for all and
                                        # high-SN sample
-FWHM_THRESHOLDS:        0.5,6.0       # FWHM thresholds (in pixels) for sources
+FWHM_THRESHOLDS:        0.5,8.0       # FWHM thresholds (in pixels) for sources
 ELLIPTICITY_MAX:        0.5             # Max. source ellipticity
 FLAGS_MASK:             0x00f0          # Global rejection mask on SEx FLAGS
 WEIGHTFLAGS_MASK:       0x00ff          # Global rejec. mask on SEx FLAGS_WEIGHT
