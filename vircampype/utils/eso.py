@@ -139,6 +139,21 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode):
     # Write keywords into primary image header
     hdr = fits.Header()
 
+    # Write astrometry keywords and unit
+    if mode.lower() == "tile_prime":
+        hdr["BUNIT"] = "ADU"
+        hdr["CRVAL1"] = hdul_tile[0].header["CRVAL1"]
+        hdr["CRVAL2"] = hdul_tile[0].header["CRVAL2"]
+        hdr["CRPIX1"] = hdul_tile[0].header["CRPIX1"]
+        hdr["CRPIX2"] = hdul_tile[0].header["CRPIX2"]
+        hdr["CD1_1"] = hdul_tile[0].header["CD1_1"]
+        hdr["CD1_2"] = hdul_tile[0].header["CD1_2"]
+        hdr["CD2_1"] = hdul_tile[0].header["CD2_1"]
+        hdr["CD2_2"] = hdul_tile[0].header["CD2_2"]
+        hdr["CTYPE1"] = hdul_tile[0].header["CTYPE1"]
+        hdr["CTYPE2"] = hdul_tile[0].header["CTYPE2"]
+        hdr["RADESYS"] = hdul_tile[0].header["RADESYS"]
+
     if "prime" in mode.lower():
         hdr["ORIGIN"] = "ESO-PARANAL"
         hdr["DATE"] = hdul_tile[0].header["DATE"]  # Time from Swarp is in extentions
