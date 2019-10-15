@@ -270,6 +270,10 @@ class FitsFiles:
                                     tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
                                     tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
 
+                                    # Silly fix for short ALPHA strings
+                                    if len(tra.split(".")[0]) == 5:
+                                        tra = "0" + tra
+
                                     field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
 
                                     if tde[0].startswith("-"):
