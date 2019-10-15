@@ -246,6 +246,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Construct header to append
                     hdr_temp = ohdr.copy()
+                    # TODO: Can I add PSF FWHM here to header?
                     hdr_temp["NSRCAPC"] = (len(mag), "Number of sources used")
                     hdr_temp["APCMAG"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
                     hdr_temp["APCDIAM"] = (diameters_save[aidx], "Aperture diameter (pix)")
@@ -287,7 +288,6 @@ class SextractorCatalogs(SourceCatalogs):
 
     def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4,
                       nsources=None, overwrite=False):
-        # TODO: This should be moved so some sort of MASTER-APCOR class perhaps
 
         # Check if plot already exits
         if check_file_exists(file_path=path, silent=True) and not overwrite:
