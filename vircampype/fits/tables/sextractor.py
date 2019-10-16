@@ -246,7 +246,6 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Construct header to append
                     hdr_temp = ohdr.copy()
-                    # TODO: Can I add PSF FWHM here to header?
                     hdr_temp["NSRCAPC"] = (len(mag), "Number of sources used")
                     hdr_temp["APCMAG"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
                     hdr_temp["APCDIAM"] = (diameters_save[aidx], "Aperture diameter (pix)")
@@ -773,8 +772,19 @@ class SextractorCatalogs(SourceCatalogs):
             # There also has to be a weight map
             with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
 
-                # Add PRODCATG
-                weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
+                # Make empty primary header
+                prhdr = fits.Header()
+
+                # Fill primary header only with some keywords
+                for key, value in weight[0].header.items():
+                    if not key.startswith("ESO "):
+                        prhdr[key] = value
+
+                # Add PRODCATG before RA key
+                prhdr.insert(key="RA", card=("PRODCATG", "ANCILLARY.WEIGHTMAP"))
+
+                # Overwrite primary header
+                weight[0].header = prhdr
 
                 # Save
                 weight.writeto(outpaths[-1].replace(".fits", ".weight.fits"), overwrite=True, checksum=True)
