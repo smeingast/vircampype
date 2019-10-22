@@ -747,7 +747,8 @@ class FitsFiles:
             # Raise Error when there is no file available within the maximum lag
             if max_lag is not None:
                 if np.min(mjd_diff) > max_lag:
-                    raise ValueError("No match within allowed time frame")
+                    raise ValueError("No match within allowed time frame ({0} < {1})"
+                                     .format(max_lag, np.round(np.min(mjd_diff), decimals=4)))
 
             # Get minimum index and append files
             matched.append(match_to.full_paths[mjd_diff.index(min(mjd_diff))])
