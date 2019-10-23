@@ -940,12 +940,22 @@ class ImageCube(object):
                                       axis=chop_ax, overlap=overlap)
 
             # Do interpolation
-            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
-                ichopped = pool.starmap(interpolate_image, zip(chopped, repeat(kernel),
-                                                               repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+            if self.setup["misc"]["n_threads"] == 1:
+                mp = []
+                for ch in chopped:
+                    mp.append(interpolate_image(array=ch, kernel=kernel,
+                                                max_bad_neighbors=self.setup["cosmetics"]["max_bad_neighbors"]))
+
+            elif self.setup["misc"]["n_threads"] > 1:
+                with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+                    mp = pool.starmap(interpolate_image, zip(chopped, repeat(kernel),
+                                                             repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+            else:
+                raise ValueError(
+                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads"]))
 
             # Merge back into plane and put into cube
-            plane[:] = merge_chopped(arrays=ichopped, locations=loc, axis=chop_ax, overlap=overlap)
+            plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)
 
     def replace_nan(self, value):
         """
