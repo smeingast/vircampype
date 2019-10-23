@@ -93,7 +93,7 @@ class ApcorImages(SkyImages):
             # Construct swarp options
             ss = yml2config(path=split._swarp_preset_apcor_path, imageout_name=outpath, weight_type="None",
                             weightout_name=outpath.replace(".fits", ".weight.fits"), resample_dir=self.path_temp,
-                            nthreads=split.setup["misc"]["n_threads"], skip=["weight_thresh", "weight_image"])
+                            nthreads=split.setup["misc"]["n_threads_shell"], skip=["weight_thresh", "weight_image"])
 
             # Construct commands for source extraction
             cmd = "{0} {1} -c {2} {3}".format(split.bin_swarp, " ".join(split.full_paths),

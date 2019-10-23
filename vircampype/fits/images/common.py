@@ -816,7 +816,7 @@ class FitsImages(FitsFiles):
                 cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
 
         # Run Sextractor
-        run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads"])
+        run_cmds(cmds=cmds, silent=False, n_processes=self.setup["misc"]["n_threads_shell"])
 
         # Add some keywords to primary header
         for cat, img in zip(path_tables_clean, self.full_paths):

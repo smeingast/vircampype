@@ -154,7 +154,8 @@ class SextractorCatalogs(SourceCatalogs):
             band = "Ks" if "k" in band.lower() else band
 
         # Load preset
-        options = yml2config(nthreads=self.setup["misc"]["n_threads"], checkplot_type=self._scamp_qc_types(joined=True),
+        options = yml2config(nthreads=self.setup["misc"]["n_threads_shell"],
+                             checkplot_type=self._scamp_qc_types(joined=True),
                              checkplot_name=self._scamp_qc_names(joined=True),
                              skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_BAND"],
                              path=get_resource_path(package=self._scamp_preset_package, resource="scamp.yml"))
@@ -713,18 +714,19 @@ class SextractorCatalogs(SourceCatalogs):
             return self._image_headers
 
         # Extract Image headers
-        if self.setup["misc"]["n_threads"] == 1:
+        if self.setup["misc"]["n_threads_python"] == 1:
             self._image_headers = []
             for p in self.full_paths:
                 self.image_headers.append(sextractor2imagehdr(path=p))
 
         # Only launch a pool when requested
-        elif self.setup["misc"]["n_threads"] > 1:
-            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+        elif self.setup["misc"]["n_threads_python"] > 1:
+            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads_python"]) as pool:
                 self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
 
         else:
-            raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads"]))
+            raise ValueError("'n_threads' not correctly set (n_threads = {0})"
+                             .format(self.setup["misc"]["n_threads_python"]))
 
         return self._image_headers
 
