@@ -2,7 +2,6 @@
 # Import
 import numpy as np
 import warnings
-import matplotlib.pyplot as plt
 
 from vircampype.utils.miscellaneous import *
 from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
@@ -33,6 +32,9 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
         Whether an exisiting plot should be overwritten. Default is False.
 
     """
+
+    # Import matplotlib after launch
+    import matplotlib.pyplot as plt
 
     # Check if plot already exits
     if check_file_exists(file_path=path, silent=True) and not overwrite:
@@ -100,6 +102,9 @@ def get_plotgrid(layout, xsize=4, ysize=4):
         Tuple containing (Figure object, grid object, and focal plane layout)
 
     """
+
+    # Import matplotlib after launch
+    import matplotlib.pyplot as plt
 
     # Create figure
     fig, axes = plt.subplots(ncols=layout[0], nrows=layout[1], **{"figsize": (layout[0] * xsize, layout[1] * ysize)},
