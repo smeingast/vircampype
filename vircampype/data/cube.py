@@ -794,7 +794,6 @@ class ImageCube(object):
         else:
             cff = repeat(coeff)
 
-        # TODO: Write non-parallelized version
         # Only launch Pool if more than one thread is requested
         if self.setup["misc"]["n_threads"] == 1:
             mp = []
