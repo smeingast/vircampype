@@ -712,8 +712,19 @@ class SextractorCatalogs(SourceCatalogs):
         if self._image_headers is not None:
             return self._image_headers
 
-        with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
-            self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
+        # Extract Image headers
+        if self.setup["misc"]["n_threads"] == 1:
+            self._image_headers = []
+            for p in self.full_paths:
+                self.image_headers.append(sextractor2imagehdr(path=p))
+
+        # Only launch a pool when requested
+        elif self.setup["misc"]["n_threads"] > 1:
+            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+                self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
+
+        else:
+            raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads"]))
 
         return self._image_headers
 
