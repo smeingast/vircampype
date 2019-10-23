@@ -794,9 +794,20 @@ class ImageCube(object):
         else:
             cff = repeat(coeff)
 
-        # Start threaded processing of linearization
-        with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
-            mp = pool.starmap(linearize_data, zip(self.cube, cff))
+        # TODO: Write non-parallelized version
+        # Only launch Pool if more than one thread is requested
+        if self.setup["misc"]["n_threads"] == 1:
+            mp = []
+            for p, c in zip(self.cube, cff):
+                mp.append(linearize_data(data=p, coeff=c))
+
+        elif self.setup["misc"]["n_threads"] > 1:
+            # Start multithreaded processing of linearization
+            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+                mp = pool.starmap(linearize_data, zip(self.cube, cff))
+
+        else:
+            raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads"]))
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
