@@ -5,6 +5,8 @@
 # Import stuff
 import sys
 import argparse
+import numpy as np
+
 from vircampype.fits.images.vircam import VircamImages
 
 
@@ -101,6 +103,8 @@ swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
 # Generate ESO phase 3 compliant catalogs for pawprints
 # =========================================================================== #
 phase3_pp = sextractor.make_phase3_pawprints(swarped=swarped)
+fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+fwhm_pp_median = np.nanmedian(fwhms)
 
 
 # =========================================================================== #
@@ -112,7 +116,7 @@ coadd = swarped.coadd_pawprints()
 # =========================================================================== #
 # Run sextractor on coadd
 # =========================================================================== #
-csextractor = coadd.sextractor(preset="full")
+csextractor = coadd.sextractor(preset="full", seeing_fwhm=[fwhm_pp_median])
 
 
 # =========================================================================== #
