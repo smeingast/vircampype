@@ -37,6 +37,7 @@ def run_cmds(cmds, n_processes=1, silent=True):
             p.wait()
 
 
+# TODO: Rename to run_command_shell?
 def run_command_bash(cmd, silent=False):
     if silent:
         subprocess.run(cmd, shell=True, executable="/bin/bash", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
