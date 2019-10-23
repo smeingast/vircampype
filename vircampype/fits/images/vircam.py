@@ -389,7 +389,7 @@ class VircamScienceImages(ScienceImages):
                                 d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
 
             # Run Swarp
-            run_command_bash(cmd=cmds[idx], silent=False)
+            run_command_bash(cmd=cmds[idx], silent=True)
 
             # Merge temporary products into MEF
             self._merge_resampled_split(idx=idx)
@@ -427,7 +427,7 @@ class VircamScienceImages(ScienceImages):
         # Run Swarp
         if not check_file_exists(file_path=self._swarp_path_coadd, silent=self.setup["misc"]["silent"]) \
                 and not self.setup["misc"]["overwrite"]:
-            run_command_bash(cmd=cmd, silent=False)
+            run_command_bash(cmd=cmd, silent=True)
 
             # Copy primary header from first entry of input
             copy_keywords(path_1=self._swarp_path_coadd, path_2=self.full_paths[0], hdu_1=0, hdu_2=0,
