@@ -795,18 +795,19 @@ class ImageCube(object):
             cff = repeat(coeff)
 
         # Only launch Pool if more than one thread is requested
-        if self.setup["misc"]["n_threads"] == 1:
+        if self.setup["misc"]["n_threads_python"] == 1:
             mp = []
             for p, c in zip(self.cube, cff):
                 mp.append(linearize_data(data=p, coeff=c))
 
-        elif self.setup["misc"]["n_threads"] > 1:
+        elif self.setup["misc"]["n_threads_python"] > 1:
             # Start multithreaded processing of linearization
-            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads_python"]) as pool:
                 mp = pool.starmap(linearize_data, zip(self.cube, cff))
 
         else:
-            raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads"]))
+            raise ValueError("'n_threads' not correctly set (n_threads = {0})"
+                             .format(self.setup["misc"]["n_threads_python"]))
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
@@ -936,23 +937,23 @@ class ImageCube(object):
         for plane in self:
 
             # Chop in smaller sub-regions for better performance
-            chopped, loc = chop_image(array=plane, npieces=self.setup["misc"]["n_threads"] * 2,
+            chopped, loc = chop_image(array=plane, npieces=self.setup["misc"]["n_threads_python"] * 2,
                                       axis=chop_ax, overlap=overlap)
 
             # Do interpolation
-            if self.setup["misc"]["n_threads"] == 1:
+            if self.setup["misc"]["n_threads_python"] == 1:
                 mp = []
                 for ch in chopped:
                     mp.append(interpolate_image(array=ch, kernel=kernel,
                                                 max_bad_neighbors=self.setup["cosmetics"]["max_bad_neighbors"]))
 
-            elif self.setup["misc"]["n_threads"] > 1:
-                with multiprocessing.Pool(processes=self.setup["misc"]["n_threads"]) as pool:
+            elif self.setup["misc"]["n_threads_python"] > 1:
+                with multiprocessing.Pool(processes=self.setup["misc"]["n_threads_python"]) as pool:
                     mp = pool.starmap(interpolate_image, zip(chopped, repeat(kernel),
                                                              repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
             else:
                 raise ValueError(
-                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads"]))
+                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads_python"]))
 
             # Merge back into plane and put into cube
             plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)
