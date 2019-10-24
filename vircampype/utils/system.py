@@ -1,4 +1,5 @@
 # =========================================================================== #
+import os
 import subprocess
 from itertools import zip_longest
 
@@ -26,7 +27,7 @@ def run_cmds(cmds, n_processes=1, silent=True):
     """
 
     if silent:
-        groups = [(subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        groups = [(subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                    for cmd in cmds)] * n_processes
     else:
         groups = [(subprocess.Popen(cmd.split(" ")) for cmd in cmds)] * n_processes
@@ -40,6 +41,6 @@ def run_cmds(cmds, n_processes=1, silent=True):
 # TODO: Rename to run_command_shell?
 def run_command_bash(cmd, silent=False):
     if silent:
-        subprocess.run(cmd, shell=True, executable="/bin/bash", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        subprocess.run(cmd, shell=True, executable="/bin/bash", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         subprocess.run(cmd, shell=True, executable="/bin/bash")
