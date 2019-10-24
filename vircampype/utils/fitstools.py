@@ -10,7 +10,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "compress_fits_dir"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -378,7 +378,7 @@ def compress_fits_dir(path_dir, extension="fits", **kwargs):
 
     """
 
-    paths_files = glob.glob("{0}/*.{1}}".format(path_dir, extension))
+    paths_files = glob.glob("{0}/*.{1}".format(path_dir, extension))
 
     # Run compressor
     compress_fits(paths=paths_files, **kwargs)
