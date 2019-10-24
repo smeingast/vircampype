@@ -9,7 +9,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -323,3 +323,37 @@ def get_value_image(ra, dec, data, header):
 
     # Get value from data array
     return data[yy.astype(int), xx.astype(int)]
+
+
+def compress_fits(path, binary="fpack", quantize_level=32, delete_original=False, silent=True):
+    """
+    Compresses a fits file with the RICE algorithm. THis is not using the astropy builtin version (e.g. CompImageHDU
+    because this produces lots are artifacts.
+
+    Parameters
+    ----------
+    path : str
+        Path to file
+    binary : str, optional
+        name of executable
+    quantize_level : int, optional
+        Quantization level. Default is 32.
+    delete_original : bool, optional
+        Whether the input file should be removed after compression.
+    silent : bool, optional
+        Whether to run silent or not.
+
+    """
+
+    # Import
+    from vircampype.utils import run_command_bash, remove_file, which
+
+    # Find binary to run
+    binary_comp = which(binary)
+
+    # Construct and run compression command
+    run_command_bash(cmd="{0} -q {1} {2}".format(binary_comp, quantize_level, path), silent=silent)
+
+    # Delete original
+    if delete_original:
+        remove_file(path)
