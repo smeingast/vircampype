@@ -1,7 +1,6 @@
 # =========================================================================== #
 # Import
 import warnings
-import subprocess
 import numpy as np
 import multiprocessing
 
@@ -770,16 +769,34 @@ class SextractorCatalogs(SourceCatalogs):
             outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]):
+            if self.setup["compression"]["compress_phase3"]:
+                path_check = outpaths[-1].replace(".fits", ".fits.fz")
+            else:
+                path_check = outpaths[-1]
+            if check_file_exists(file_path=path_check, silent=self.setup["misc"]["silent"]):
                 continue
 
             # Status message
             message_calibration(n_current=idx_file + 1, n_total=len(self), name=outpaths[-1])
 
+            # Get paths
+            path_pawprint_img = outpaths[-1]
+            path_pawprint_cat = outpaths[-1].replace(".fits", ".cat.fits")
+            path_pawprint_wei = outpaths[-1].replace(".fits", ".weight.fits")
+
             # Convert pawprint catalog and image
             make_phase3_pawprints(path_swarped=swarped.full_paths[idx_file], path_sextractor=self.full_paths[idx_file],
                                   setup=swarped.setup, additional=shitty_kw,
-                                  outpaths=(outpaths[-1], outpaths[-1].replace(".fits", ".cat.fits")))
+                                  outpaths=(path_pawprint_img, path_pawprint_cat))
+
+            # Compress is set
+            if self.setup["compression"]["compress_phase3"]:
+                compress_fits(path=path_pawprint_img, binary=self.setup["compression"]["bin_compress"],
+                              quantize_level=self.setup["compression"]["quantize_level"], delete_original=True,
+                              silent=True)
+                compress_fits(path=path_pawprint_cat, binary=self.setup["compression"]["bin_compress"],
+                              quantize_level=self.setup["compression"]["quantize_level"], delete_original=True,
+                              silent=True)
 
             # There also has to be a weight map
             with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
@@ -799,7 +816,13 @@ class SextractorCatalogs(SourceCatalogs):
                 weight[0].header = prhdr
 
                 # Save
-                weight.writeto(outpaths[-1].replace(".fits", ".weight.fits"), overwrite=True, checksum=True)
+                weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
+
+            # Run RICE compression if set
+            if self.setup["compression"]["compress_phase3"]:
+                compress_fits(path=path_pawprint_wei, binary=self.setup["compression"]["bin_compress"],
+                              quantize_level=self.setup["compression"]["quantize_level"], delete_original=True,
+                              silent=True)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
