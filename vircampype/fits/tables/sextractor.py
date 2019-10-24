@@ -789,15 +789,6 @@ class SextractorCatalogs(SourceCatalogs):
                                   setup=swarped.setup, additional=shitty_kw,
                                   outpaths=(path_pawprint_img, path_pawprint_cat))
 
-            # Compress is set
-            if self.setup["compression"]["compress_phase3"]:
-                compress_fits(path=path_pawprint_img, binary=self.setup["compression"]["bin_compress"],
-                              quantize_level=self.setup["compression"]["quantize_level"], delete_original=True,
-                              silent=True)
-                compress_fits(path=path_pawprint_cat, binary=self.setup["compression"]["bin_compress"],
-                              quantize_level=self.setup["compression"]["quantize_level"], delete_original=True,
-                              silent=True)
-
             # There also has to be a weight map
             with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
 
@@ -818,11 +809,11 @@ class SextractorCatalogs(SourceCatalogs):
                 # Save
                 weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
 
-            # Run RICE compression if set
+            # Compress is set
             if self.setup["compression"]["compress_phase3"]:
-                compress_fits(path=path_pawprint_wei, binary=self.setup["compression"]["bin_compress"],
-                              quantize_level=self.setup["compression"]["quantize_level"], delete_original=True,
-                              silent=True)
+                compress_fits(paths=[path_pawprint_img, path_pawprint_cat, path_pawprint_wei],
+                              binary=self.setup["compression"]["bin_compress"], delete_original=True,
+                              quantize_level=self.setup["compression"]["quantize_level"], silent=True)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
@@ -845,15 +836,23 @@ class SextractorCatalogs(SourceCatalogs):
                                            silent=self.setup["misc"]["silent"])
 
         # Generate outpath
-        outpath = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
+        path_tile = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
+        path_cata = path_tile.replace(".fits", ".cat.fits")
+        path_weig = path_tile.replace(".fits", ".weight.fits")
 
         # Check if the file is already there and skip if it is
-        if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+        if self.setup["compression"]["compress_phase3"]:
+            path_check = path_tile.replace(".fits", ".fits.fz")
+        else:
+            path_check = path_tile
+
+        # Check if the file is already there and skip if it is
+        if check_file_exists(file_path=path_check, silent=self.setup["misc"]["silent"]):
             return
 
         # Convert to phase 3 compliant format
         make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
-                         paths_prov=prov_images.full_paths, setup=self.setup, outpath=outpath)
+                         paths_prov=prov_images.full_paths, setup=self.setup, outpath=path_tile)
 
         # There also has to be a weight map
         with fits.open(swarped.full_paths[0].replace(".fits", ".weight.fits")) as weight:
@@ -862,7 +861,13 @@ class SextractorCatalogs(SourceCatalogs):
             weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
 
             # Save
-            weight.writeto(outpath.replace(".fits", ".weight.fits"), overwrite=False, checksum=True)
+            weight.writeto(path_weig, overwrite=False, checksum=True)
+
+        # Compress is set
+        if self.setup["compression"]["compress_phase3"]:
+            compress_fits(paths=[path_tile, path_cata, path_weig],
+                          binary=self.setup["compression"]["bin_compress"], delete_original=True,
+                          quantize_level=self.setup["compression"]["quantize_level"], silent=True)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
