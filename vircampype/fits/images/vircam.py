@@ -177,6 +177,35 @@ class VircamImages(FitsImages):
         if split["science"] is not None:
             split["science"].build_master_sky()
 
+    def compress_phase3(self):
+        """ Phase 3 FITS compressor utility. Compresses all FITS files in the phase 3 directory. """
+
+        # Immediately return if no compression is set in the setup
+        if not self.setup["compression"]["compress_phase3"]:
+            return
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PHASE 3 COMPRESSION", right=None,
+                                           silent=self.setup["misc"]["silent"])
+
+        # Find all files
+        paths_files = sorted(glob.glob("{0}/*.fits".format(self.path_phase3)))
+
+        # Run compressort on all files
+        for idx in range(len(paths_files)):
+
+            # Print processing info
+            if not self.setup["misc"]["silent"]:
+                message_calibration(n_current=idx+1, n_total=len(paths_files), name=paths_files[idx])
+
+            # Run compressor
+            compress_fits(paths=paths_files[idx], binary=self.setup["compression"]["bin_compress"],
+                          delete_original=True, silent=True,
+                          quantize_level=self.setup["compression"]["quantize_level"])
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
 
 class VircamDarkImages(DarkImages):
 
