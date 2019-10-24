@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import glob
 import warnings
 import numpy as np
 
@@ -362,3 +363,22 @@ def compress_fits(paths, binary="fpack", quantize_level=32, delete_original=Fals
         # Delete original
         if delete_original:
             remove_file(path)
+
+
+def compress_fits_dir(path_dir, extension="fits", **kwargs):
+    """
+    Runs FITS compression on all FITS files in a directory
+
+    Parameters
+    ----------
+    path_dir : str
+        Path to directory
+    extension : str
+        Extenstion of files. Default is 'fits'.
+
+    """
+
+    paths_files = glob.glob("{0}/*.{1}}".format(path_dir, extension))
+
+    # Run compressor
+    compress_fits(paths=paths_files, **kwargs)
