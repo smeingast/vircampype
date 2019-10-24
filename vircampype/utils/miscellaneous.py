@@ -16,7 +16,8 @@ from astropy.io import fits
 # Define objects in this module
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
-           "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid"]
+           "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
+           "split_epoch"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -75,6 +76,27 @@ def sort_vircam_science(path, extension="*.fits"):
     # Move files to folders
     for po, pm in zip(paths_orig, paths_move):
         shutil.move(po, pm)
+
+
+def split_epoch(path_directory, extension=".fits"):
+
+    files = sorted(glob.glob("{0}/*{1}".format(path_directory, extension)))
+
+    # Get MJD
+    mjd = [fits.getheader(f, 0)["MJD-OBS"] for f in files]
+    mjd_diff = np.array([x - mjd[i - 1] for i, x in enumerate(mjd)][1:])
+    try:
+        idx_split = np.where(mjd_diff > 7)[0][0] + 1
+    except IndexError:
+        return
+
+    # Make the two new directories
+    path_dir_a, path_dir_b = path_directory + "A/", path_directory + "B/"
+    make_folder(path_dir_a)
+    make_folder(path_dir_b)
+
+    [shutil.move(f, path_dir_a) for f in files[:idx_split]]
+    [shutil.move(f, path_dir_b) for f in files[idx_split:]]
 
 
 def remove_file(path):
