@@ -141,4 +141,8 @@ csextractor.get_zeropoints()
 # Make phase 3 catalog
 csextractor.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
 
+# =========================================================================== #
+# Compress phase 3 files
+images.compress_phase3()
+
 # TODO: QC photometry on coadd
