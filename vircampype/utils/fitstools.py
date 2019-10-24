@@ -325,15 +325,15 @@ def get_value_image(ra, dec, data, header):
     return data[yy.astype(int), xx.astype(int)]
 
 
-def compress_fits(path, binary="fpack", quantize_level=32, delete_original=False, silent=True):
+def compress_fits(paths, binary="fpack", quantize_level=32, delete_original=False, silent=True):
     """
     Compresses a fits file with the RICE algorithm. THis is not using the astropy builtin version (e.g. CompImageHDU
     because this produces lots are artifacts.
 
     Parameters
     ----------
-    path : str
-        Path to file
+    paths : iterable
+        List of paths.
     binary : str, optional
         name of executable
     quantize_level : int, optional
@@ -352,8 +352,9 @@ def compress_fits(path, binary="fpack", quantize_level=32, delete_original=False
     binary_comp = which(binary)
 
     # Construct and run compression command
-    run_command_bash(cmd="{0} -q {1} {2}".format(binary_comp, quantize_level, path), silent=silent)
+    for path in paths:
+        run_command_bash(cmd="{0} -q {1} {2}".format(binary_comp, quantize_level, path), silent=silent)
 
-    # Delete original
-    if delete_original:
-        remove_file(path)
+        # Delete original
+        if delete_original:
+            remove_file(path)
