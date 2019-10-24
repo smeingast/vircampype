@@ -348,6 +348,10 @@ def compress_fits(paths, binary="fpack", quantize_level=32, delete_original=Fals
     # Import
     from vircampype.utils import run_command_bash, remove_file, which
 
+    # Make list if string is given
+    if isinstance(paths, str):
+        paths = [paths]
+
     # Find binary to run
     binary_comp = which(binary)
 
