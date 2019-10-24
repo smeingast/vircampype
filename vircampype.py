@@ -26,6 +26,11 @@ images = VircamImages.from_setup(setup=args.setup)
 
 
 # =========================================================================== #
+# Set console title
+sys.stdout.write("\x1b]2;{0}\x07".format(images.setup["paths"]["name"]))
+
+
+# =========================================================================== #
 # Build master calibration
 # =========================================================================== #
 images.build_master_calibration()
