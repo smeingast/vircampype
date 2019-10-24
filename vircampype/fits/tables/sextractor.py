@@ -804,6 +804,10 @@ class SextractorCatalogs(SourceCatalogs):
                 # Overwrite primary header
                 weight[0].header = prhdr
 
+                # Add EXTNAME
+                for eidx in range(1, len(weight)):
+                    weight[eidx].header.insert(key="EQUINOX", card=("EXTNAME", "DET1.CHIP{0}".format(eidx)))
+
                 # Save
                 weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
 
