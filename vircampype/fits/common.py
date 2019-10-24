@@ -147,10 +147,10 @@ class FitsFiles:
         return self.n_files
 
     def __add__(self, other):
-        return self.__class__(file_paths=self.full_paths + other.full_paths)
+        return self.__class__(setup=self.setup, file_paths=self.full_paths + other.full_paths)
 
     def __iadd__(self, other):
-        return self.__class__(file_paths=self.full_paths + other.full_paths)
+        return self.__class__(setup=self.setup, file_paths=self.full_paths + other.full_paths)
 
     # =========================================================================== #
     #   I/O
