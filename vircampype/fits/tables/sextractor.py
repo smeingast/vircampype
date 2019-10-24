@@ -785,7 +785,8 @@ class SextractorCatalogs(SourceCatalogs):
             # Convert pawprint catalog and image
             make_phase3_pawprints(path_swarped=swarped.full_paths[idx_file], path_sextractor=self.full_paths[idx_file],
                                   setup=swarped.setup, additional=shitty_kw,
-                                  outpaths=(path_pawprint_img, path_pawprint_cat))
+                                  outpaths=(path_pawprint_img, path_pawprint_cat),
+                                  compressed=self.setup["compression"]["compress_phase3"])
 
             # There also has to be a weight map
             with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
@@ -843,7 +844,8 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Convert to phase 3 compliant format
         make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
-                         paths_prov=prov_images.full_paths, setup=self.setup, outpath=path_tile)
+                         paths_prov=prov_images.full_paths, setup=self.setup, outpath=path_tile,
+                         compressed=self.setup["compression"]["compress_phase3"])
 
         # There also has to be a weight map
         with fits.open(swarped.full_paths[0].replace(".fits", ".weight.fits")) as weight:

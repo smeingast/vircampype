@@ -128,7 +128,7 @@ def make_pp_ext_header(hdu_swarped, hdu_sex, fil, mode):
     return hdr
 
 
-def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode):
+def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
 
     # Determine some stuff
     dit = hdul_prov[0][1].header["ESO DET DIT"]
@@ -180,7 +180,11 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode):
     # Write PROV keywords
     if mode.lower() == "tile_prime":
         for idx in range(len(hdul_prov)):
-            hdr["PROV{0}".format(idx+1)] = os.path.basename(hdul_prov[idx].fileinfo(0)["file"].name)
+            provname = os.path.basename(hdul_prov[idx].fileinfo(0)["file"].name)
+            if compressed:
+                provname = provname.replace(".fits", ".fits.fz")
+
+            hdr["PROV{0}".format(idx+1)] = provname
 
     if "prime" in mode.lower():
         hdr["OBSTECH"] = hdul_prov[0][0].header["OBSTECH"]
@@ -255,7 +259,7 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode):
 
 
 # noinspection DuplicatedCode
-def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additional=None):
+def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compressed, additional=None):
 
     hdul_swarped = fits.open(path_swarped)
     hdul_sextractor = fits.open(path_sextractor)
@@ -267,7 +271,10 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additi
                                                                          additional=additional))])
 
     # Add weight association
-    hdul_paw[0].header["ASSON1"] = os.path.basename(outpaths[0].replace(".fits", ".weight.fits"))
+    asson_name = os.path.basename(outpaths[0].replace(".fits", ".weight.fits"))
+    if compressed:
+        asson_name = asson_name.replace(".fits", ".fits.fz")
+    hdul_paw[0].header["ASSON1"] = asson_name
     hdul_paw[0].header.set("ASSON1", after="REFERENC")
 
     # Get aperture indices
@@ -348,19 +355,25 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, additi
 
 
 # noinspection DuplicatedCode
-def make_phase3_tile(path_swarped, path_sextractor, paths_prov, setup, outpath):
+def make_phase3_tile(path_swarped, path_sextractor, paths_prov, setup, outpath, compressed):
 
     hdul_img = fits.open(path_swarped)
     hdul_sex = fits.open(path_sextractor)
     hdul_prov = [fits.open(path) for path in paths_prov]
 
     # Generate prime headers for tile image and catalog
-    prhdr_img = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex, mode="tile_prime")
-    prhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex, mode="catalog_prime")
-    exhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex, mode="catalog_data")
+    prhdr_img = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex,
+                                  mode="tile_prime", compressed=compressed)
+    prhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex,
+                                  mode="catalog_prime", compressed=compressed)
+    exhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex,
+                                  mode="catalog_data", compressed=compressed)
 
     # Add weight association to tile image
-    prhdr_img["ASSON1"] = os.path.basename(outpath.replace(".fits", ".weight.fits"))
+    asson_name = os.path.basename(outpath.replace(".fits", ".weight.fits"))
+    if compressed:
+        asson_name = asson_name.replace(".fits", ".fits.fz")
+    prhdr_img["ASSON1"] = asson_name
     prhdr_img.set("ASSON1", after="REFERENC")
 
     # Add image association to tile catalog
