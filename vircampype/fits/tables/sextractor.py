@@ -166,8 +166,7 @@ class SextractorCatalogs(SourceCatalogs):
                         self._scamp_header_names(joined=True), band, options)
 
         # Run Scamp
-        # cp = subprocess.run([cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        subprocess.run(cmd, shell=True, executable="/bin/bash")
+        run_command_bash(cmd, silent=False)
 
         # Return header paths
         return self._scamp_header_names(joined=False)
