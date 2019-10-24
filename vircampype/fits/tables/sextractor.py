@@ -809,12 +809,6 @@ class SextractorCatalogs(SourceCatalogs):
                 # Save
                 weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
 
-            # Compress is set
-            if self.setup["compression"]["compress_phase3"]:
-                compress_fits(paths=[path_pawprint_img, path_pawprint_cat, path_pawprint_wei],
-                              binary=self.setup["compression"]["bin_compress"], delete_original=True,
-                              quantize_level=self.setup["compression"]["quantize_level"], silent=True)
-
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
@@ -837,7 +831,6 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Generate outpath
         path_tile = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
-        path_cata = path_tile.replace(".fits", ".cat.fits")
         path_weig = path_tile.replace(".fits", ".weight.fits")
 
         # Check if the file is already there and skip if it is
@@ -862,12 +855,6 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Save
             weight.writeto(path_weig, overwrite=False, checksum=True)
-
-        # Compress is set
-        if self.setup["compression"]["compress_phase3"]:
-            compress_fits(paths=[path_tile, path_cata, path_weig],
-                          binary=self.setup["compression"]["bin_compress"], delete_original=True,
-                          quantize_level=self.setup["compression"]["quantize_level"], silent=True)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
