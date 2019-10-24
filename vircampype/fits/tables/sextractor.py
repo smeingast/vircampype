@@ -769,11 +769,9 @@ class SextractorCatalogs(SourceCatalogs):
             outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
 
             # Check if the file is already there and skip if it is
-            if self.setup["compression"]["compress_phase3"]:
-                path_check = outpaths[-1].replace(".fits", ".fits.fz")
-            else:
-                path_check = outpaths[-1]
-            if check_file_exists(file_path=path_check, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) or \
+                    check_file_exists(file_path=outpaths[-1].replace(".fits", ".fits.fz"),
+                                      silent=self.setup["misc"]["silent"]):
                 continue
 
             # Status message
@@ -834,13 +832,9 @@ class SextractorCatalogs(SourceCatalogs):
         path_weig = path_tile.replace(".fits", ".weight.fits")
 
         # Check if the file is already there and skip if it is
-        if self.setup["compression"]["compress_phase3"]:
-            path_check = path_tile.replace(".fits", ".fits.fz")
-        else:
-            path_check = path_tile
-
-        # Check if the file is already there and skip if it is
-        if check_file_exists(file_path=path_check, silent=self.setup["misc"]["silent"]):
+        if check_file_exists(file_path=path_tile, silent=self.setup["misc"]["silent"]) or \
+                check_file_exists(file_path=path_tile.replace(".fits", ".fits.fz"),
+                                  silent=self.setup["misc"]["silent"]):
             return
 
         # Convert to phase 3 compliant format
