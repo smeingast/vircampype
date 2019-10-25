@@ -375,49 +375,46 @@ class SextractorCatalogs(SourceCatalogs):
         for idx_cat_file in range(len(self)):
 
             # Load current hdulist
-            chdulist = fits.open(self.full_paths[idx_cat_file], mode="update")
+            with fits.open(self.full_paths[idx_cat_file], mode="update") as chdulist:
 
-            # Check if aperture correction has alrady been added
-            done = True
-            for i, d in zip(self.data_hdu[idx_cat_file], self._apertures_save):
-                if not "MAG_APC_{0}".format(d) in chdulist[i].data.names:
-                    done = False
-            if done:
-                print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
-                continue
+                # Check if aperture correction has already been added
+                done = True
+                for i, d in zip(self.data_hdu[idx_cat_file], self._apertures_save):
+                    if not "MAG_APC_{0}".format(d) in chdulist[i].data.names:
+                        done = False
+                if done:
+                    print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
+                    continue
 
-            # Get aperture corrections for current file
-            apc_file = [apc[idx_cat_file] for apc in apc_self]
+                # Get aperture corrections for current file
+                apc_file = [apc[idx_cat_file] for apc in apc_self]
 
-            # Get SkyCoord of current file
-            skycoord_file = self.skycoord()[idx_cat_file]
+                # Get SkyCoord of current file
+                skycoord_file = self.skycoord()[idx_cat_file]
 
-            # Loop over detectors
-            for idx_cat_hdu, idx_apc_hdu, skycoord_hdu in \
-                    zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], skycoord_file):
+                # Loop over detectors
+                for idx_cat_hdu, idx_apc_hdu, skycoord_hdu in \
+                        zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], skycoord_file):
 
-                # Print info
-                message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
-                                    d_current=idx_apc_hdu, d_total=len(self.data_hdu[idx_cat_file]))
+                    # Print info
+                    message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
+                                        d_current=idx_apc_hdu, d_total=len(self.data_hdu[idx_cat_file]))
 
-                # Get columns for current HDU
-                ccolumns = chdulist[idx_cat_hdu].data.columns
+                    # Get columns for current HDU
+                    ccolumns = chdulist[idx_cat_hdu].data.columns
 
-                # Loop over different apertures
-                new_cols = fits.ColDefs([])
-                for apc, d in zip(apc_file, self._apertures_save):
+                    # Loop over different apertures
+                    new_cols = fits.ColDefs([])
+                    for apc, d in zip(apc_file, self._apertures_save):
 
-                    # Extract aperture correction from image
-                    a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+                        # Extract aperture correction from image
+                        a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
 
-                    # Add as new column for each source
-                    new_cols.add_col(fits.Column(name="MAG_APC_{0}".format(d), format="E", array=a))
+                        # Add as new column for each source
+                        new_cols.add_col(fits.Column(name="MAG_APC_{0}".format(d), format="E", array=a))
 
-                # Replace HDU from input catalog
-                chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
-
-            # Overwrite catalog
-            chdulist.close()
+                    # Replace HDU from input catalog
+                    chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
