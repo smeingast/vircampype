@@ -172,7 +172,7 @@ def message_calibration(n_current, n_total, name, d_current=None, d_total=None, 
     if not silent:
 
         if (d_current is not None) and (d_total is not None):
-            print("\r{0:<55s}{1:>25s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
+            print("\r{0:<65s}{1:>15s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
                                               str(d_current) + "/" + str(d_total)), end="")
         else:
             print("\r{0:<55s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name)), end="")
