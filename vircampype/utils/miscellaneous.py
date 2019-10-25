@@ -17,7 +17,7 @@ from astropy.io import fits
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch"]
+           "split_epoch", "BColors", "print_colors_bash"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -141,7 +141,7 @@ def message_mastercalibration(master_type, silent=True, left="File", right="Exte
 
     if not silent:
         print()
-        print(master_type)
+        print(BColors.HEADER + master_type + BColors.ENDC)
         print("{:-<80}".format(""))
         print("{0:<55s}{1:>25s}".format(left, right))
 
@@ -181,7 +181,8 @@ def message_calibration(n_current, n_total, name, d_current=None, d_total=None, 
 def message_finished(tstart, silent=False):
     """ Processing finisher message printer. """
     if not silent:
-        print("\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        # print("\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
+        print(BColors.OKGREEN + "\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart) + BColors.ENDC)
 
 
 def check_file_exists(file_path, silent=True):
@@ -208,7 +209,7 @@ def check_file_exists(file_path, silent=True):
         # Issue warning of not silent
         if not silent:
             # warnings.warn("'{0}' already exists".format(os.path.basename(file_path)))
-            print("{0} already exists.".format(os.path.basename(file_path)))
+            print(BColors.WARNING + "{0} already exists.".format(os.path.basename(file_path)) + BColors.ENDC)
 
         return True
     else:
@@ -513,3 +514,29 @@ def skycoo2visionsid(skycoord):
 
     # Return string
     return ["{0:0>10.6f}{1}{2:0>9.6f}".format(ra, s, dec) for ra, s, dec in zip(id1, sign, id2)]
+
+
+class BColors:
+    """
+    Class for color output in terminal
+    https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-terminal-in-python
+    """
+    HEADER = '\033[96m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
+def print_colors_bash():
+    """ Prints color examples in terminal based on above class. """
+    print(BColors.HEADER + "HEADER" + BColors.ENDC)
+    print(BColors.OKBLUE + "OKBLUE" + BColors.ENDC)
+    print(BColors.OKGREEN + "OKGREEN" + BColors.ENDC)
+    print(BColors.WARNING + "WARNING" + BColors.ENDC)
+    print(BColors.FAIL + "FAIL" + BColors.ENDC)
+    print(BColors.ENDC + "ENDC" + BColors.ENDC)
+    print(BColors.UNDERLINE + "UNDERLINE" + BColors.ENDC)
