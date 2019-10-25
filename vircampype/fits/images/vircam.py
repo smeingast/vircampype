@@ -173,9 +173,14 @@ class VircamImages(FitsImages):
             split["flat_twilight"].build_master_weight_coadd()
 
         # Master offset
-        # TODO: Add mixing with offset images
         if split["science"] is not None:
-            split["science"].build_master_sky()
+
+            # Mix offset frames
+            if (self.setup["sky"]["mix_science"]) and (split["offset"] is not None):
+                mixed = split["science"] + split["offset"]
+                mixed.build_master_sky()
+            else:
+                split["science"].build_master_sky()
 
     def compress_phase3(self):
         """ Phase 3 FITS compressor utility. Compresses all FITS files in the phase 3 directory. """
