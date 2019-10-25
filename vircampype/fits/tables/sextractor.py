@@ -383,7 +383,7 @@ class SextractorCatalogs(SourceCatalogs):
                 if not "MAG_APC_{0}".format(d) in chdulist[i].data.names:
                     done = False
             if done:
-                print("{0} already modified".format(self.file_names[idx_cat_file]))
+                print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
                 continue
 
             # Get aperture corrections for current file
