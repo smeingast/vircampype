@@ -7,6 +7,7 @@ import sys
 import argparse
 import numpy as np
 
+from vircampype.utils import print_done
 from vircampype.fits.images.vircam import VircamImages
 
 
@@ -23,7 +24,6 @@ args = parser.parse_args()
 # Initialize Images
 # =========================================================================== #
 images = VircamImages.from_setup(setup=args.setup)
-
 
 # =========================================================================== #
 # Set console title
@@ -149,5 +149,8 @@ csextractor.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
 # =========================================================================== #
 # Compress phase 3 files
 images.compress_phase3()
+
+# Done
+print_done(obj=images.setup["paths"]["name"])
 
 # TODO: QC photometry on coadd
