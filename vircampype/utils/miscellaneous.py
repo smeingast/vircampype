@@ -17,7 +17,7 @@ from astropy.io import fits
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch", "BColors", "print_colors_bash"]
+           "split_epoch", "BColors", "print_colors_bash", "print_done"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -182,7 +182,7 @@ def message_finished(tstart, silent=False):
     """ Processing finisher message printer. """
     if not silent:
         # print("\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
-        print(BColors.OKGREEN + "\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart) + BColors.ENDC)
+        print(BColors.OKBLUE + "\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart) + BColors.ENDC)
 
 
 def check_file_exists(file_path, silent=True):
@@ -540,3 +540,9 @@ def print_colors_bash():
     print(BColors.FAIL + "FAIL" + BColors.ENDC)
     print(BColors.ENDC + "ENDC" + BColors.ENDC)
     print(BColors.UNDERLINE + "UNDERLINE" + BColors.ENDC)
+
+
+def print_done(obj=""):
+    print(BColors.OKGREEN + "{:-<80}".format("") + BColors.ENDC)
+    print(BColors.OKGREEN + "{0:^74}".format("{0} DONE".format(obj)) + BColors.ENDC)
+    print(BColors.OKGREEN + "{:-<80}".format("") + BColors.ENDC)
