@@ -182,7 +182,7 @@ def message_finished(tstart, silent=False):
     """ Processing finisher message printer. """
     if not silent:
         # print("\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart))
-        print(BColors.OKBLUE + "\r-> Elapsed time: {0:.2f}s".format(time.time() - tstart) + BColors.ENDC)
+        print(BColors.OKBLUE + "\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart) + BColors.ENDC)
 
 
 def check_file_exists(file_path, silent=True):
