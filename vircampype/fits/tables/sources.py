@@ -270,7 +270,7 @@ class SourceCatalogs(FitsTables):
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
             # Loop over extensions
-            im = None
+            im, sep_all = None, []
             for idx_hdu in range(len(sc_file)):
 
                 # Print processing info
@@ -287,7 +287,9 @@ class SourceCatalogs(FitsTables):
                 # Keep only those with a maximum of 0.5 arcsec
                 keep = sep.arcsec < 0.5
                 sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
-                # ang = ang[keep]
+
+                # Append separations in arcsec
+                sep_all.append(sep.arcsec)
 
                 hist_num, xedges, yedges = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=None, normed=False)
                 hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=sep.arcsec, normed=False)
@@ -329,6 +331,9 @@ class SourceCatalogs(FitsTables):
             cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
             cbar.ax.xaxis.set_ticks_position("top")
             cbar.ax.xaxis.set_label_position("top")
+
+            # Print external error stats
+            message_qc_astrometry(separation=flat_list(sep_all))
 
             # Save plot
             with warnings.catch_warnings():

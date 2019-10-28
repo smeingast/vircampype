@@ -11,13 +11,14 @@ import importlib
 import numpy as np
 
 from astropy.io import fits
+from astropy.stats import sigma_clipped_stats
 
 
 # Define objects in this module
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch", "BColors", "print_colors_bash", "print_done"]
+           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -176,6 +177,31 @@ def message_calibration(n_current, n_total, name, d_current=None, d_total=None, 
                                               str(d_current) + "/" + str(d_total)), end="")
         else:
             print("\r{0:<70s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name)), end="")
+
+
+def message_qc_astrometry(separation):
+    """
+    Print astrometry QC message
+
+    Parameters
+    ----------
+    separation
+        Separation quantity.
+
+    """
+
+    sep_mean, _, sep_std = sigma_clipped_stats(separation, sigma=5, maxiters=2)
+
+    # Choose color
+    if sep_mean < 0.25:
+        color = BColors.OKGREEN
+    elif (sep_mean >= 0.25) & (sep_mean < 0.35):
+        color = BColors.WARNING
+    else:
+        color = BColors.FAIL
+
+    print(color + "\nExternal astrometric error (mean/std): {0:6.3f}/{1:6.3f}"
+          .format(sep_mean, sep_std) + BColors.ENDC, end="\n")
 
 
 def message_finished(tstart, silent=False):
