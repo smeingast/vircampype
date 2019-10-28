@@ -47,7 +47,14 @@ def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
 
     # Move files to calibration directory
     for p in paths_calib:
-        shutil.move(p, path_calibration)
+
+        # If file exists, remove and continue
+        if os.path.exists(path_calibration + os.path.basename(p)):
+            os.remove(p)
+
+        # Otherwise move
+        else:
+            shutil.move(p, path_calibration)
 
 
 def sort_vircam_science(path, extension="*.fits"):
