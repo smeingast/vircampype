@@ -712,7 +712,7 @@ class SextractorCatalogs(SourceCatalogs):
         if self.setup["misc"]["n_threads_python"] == 1:
             self._image_headers = []
             for p in self.full_paths:
-                self.image_headers.append(sextractor2imagehdr(path=p))
+                self._image_headers.append(sextractor2imagehdr(path=p))
 
         # Only launch a pool when requested
         elif self.setup["misc"]["n_threads_python"] > 1:
