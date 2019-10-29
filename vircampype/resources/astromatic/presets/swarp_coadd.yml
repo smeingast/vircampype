@@ -40,7 +40,7 @@ BLANK_BADPIXELS:        N               # Set to 0 pixels having a weight of 0
 CELESTIAL_TYPE:         NATIVE          # NATIVE, PIXEL, EQUATORIAL,
                                        # GALACTIC,ECLIPTIC, or SUPERGALACTIC
 PROJECTION_TYPE:        TAN             # Any WCS projection code or NONE
-PROJECTION_ERR:         0.001           # Maximum projection error (in output
+PROJECTION_ERR:         0           # Maximum projection error (in output
                                        # pixels), or 0 for no approximation
 CENTER_TYPE:            ALL             # MANUAL, ALL or MOST
 CENTER:         00:00:00.0, +00:00:00.0 # Coordinates of the image center
@@ -54,17 +54,17 @@ RESAMPLE:               N               # Resample input images (Y/N)?
 RESAMPLE_DIR:           .               # Directory path for resampled images
 RESAMPLE_SUFFIX:        .astr.fits    # filename extension for resampled images
 
-RESAMPLING_TYPE:        LANCZOS3        # NEAREST,BILINEAR,LANCZOS2,LANCZOS3
+RESAMPLING_TYPE:        LANCZOS3       # NEAREST,BILINEAR,LANCZOS2,LANCZOS3
                                        # LANCZOS4 (1 per axis) or FLAGS
-OVERSAMPLING:           0               # Oversampling in each dimension
+OVERSAMPLING:           0              # Oversampling in each dimension
                                        # (0 = automatic)
-INTERPOLATE:            N               # Interpolate bad input pixels (Y/N)?
+INTERPOLATE:            N              # Interpolate bad input pixels (Y/N)?
                                        # (all or for each image)
 
-FSCALASTRO_TYPE:        FIXED           # NONE,FIXED, or VARIABLE
-FSCALE_KEYWORD:         FLXSCALE        # FITS keyword for the multiplicative
+FSCALASTRO_TYPE:        VARIABLE       # NONE,FIXED, or VARIABLE
+FSCALE_KEYWORD:         FLXSCALE       # FITS keyword for the multiplicative
                                        # factor applied to each input image
-FSCALE_DEFAULT:         1.0             # Default FSCALE value if not in header
+FSCALE_DEFAULT:         1.0            # Default FSCALE value if not in header
 
 GAIN_KEYWORD:           GAIN            # FITS keyword for effect. gain (e-/ADU)
 GAIN_DEFAULT:           0.0             # Default gain if no FITS keyword found
@@ -91,9 +91,9 @@ BACK_FILTTHRESH:        0.0             # Threshold above which the background-
 #------------------------------ Memory management -----------------------------
 
 VMEM_DIR:               .               # Directory path for swap files
-VMEM_MAX:               8192            # Maximum amount of virtual memory (MB)
-MEM_MAX:                4096            # Maximum amount of usable RAM (MB)
-COMBINE_BUFSIZE:        4096            # RAM dedicated to co-addition(MB)
+VMEM_MAX:               16384           # Maximum amount of virtual memory (MB)
+MEM_MAX:                32768           # Maximum amount of usable RAM (MB)
+COMBINE_BUFSIZE:        16384           # RAM dedicated to co-addition(MB)
 
 #------------------------------ Miscellaneous ---------------------------------
 
