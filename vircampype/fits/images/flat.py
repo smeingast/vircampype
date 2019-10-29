@@ -386,7 +386,7 @@ class FlatImages(FitsImages):
         """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-WEIGHT", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER-WEIGHT", silent=self.setup["misc"]["silent"], right=None)
 
         # Get unique Master flats
         master_flats = self.get_unique_master_flats()
