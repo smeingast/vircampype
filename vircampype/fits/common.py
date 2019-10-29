@@ -217,6 +217,7 @@ class FitsFiles:
     # =========================================================================== #
     _headers = None
 
+    # noinspection DuplicatedCode
     @property
     def headers(self):
 
@@ -270,9 +271,21 @@ class FitsFiles:
                                     tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
                                     tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
 
-                                    # Silly fix for short ALPHA strings
+                                    # Silly fix for short ALPHA/DELTA strings
                                     if len(tra.split(".")[0]) == 5:
                                         tra = "0" + tra
+                                    elif len(tra.split(".")[0]) == 4:
+                                        tra = "00" + tra
+                                    elif len(tra.split(".")[0]) == 3:
+                                        tra = "000" + tra
+                                    # TODO: This does not work when the string starts with a '-'
+                                    #  (but the astropy should throw and error as it can't read the string)
+                                    if len(tde.split(".")[0]) == 5:
+                                        tde = "0" + tde
+                                    elif len(tde.split(".")[0]) == 4:
+                                        tde = "00" + tde
+                                    elif len(tde.split(".")[0]) == 3:
+                                        tde = "000" + tde
 
                                     field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
 
@@ -286,7 +299,7 @@ class FitsFiles:
 
                             if isinstance(hdu, ImageHDU):
 
-                                # Overwrite with consitently working keyword
+                                # Overwrite with consistently working keyword
                                 try:
                                     hdr["CRVAL1"] = field_ra if field_ra is not None else hdr["CRVAL1"]
                                     hdr["CRVAL2"] = field_de if field_ra is not None else hdr["CRVAL2"]
