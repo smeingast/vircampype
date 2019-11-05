@@ -5,8 +5,8 @@ import numpy as np
 
 from astropy import modeling
 from astropy.units import Unit
-from astropy.stats import sigma_clip
 from astropy.coordinates import SkyCoord
+from astropy.stats import sigma_clipped_stats
 
 # Define objects in this module
 __all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec"]
@@ -91,15 +91,14 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None)
     mag_ref = mag_ref[idx_ref]
     mag_cal = mag_cal[idx_sci]
 
-    # Apply sigma clipping
+    # Compute ZP for each source
     zp_cal = mag_ref - mag_cal
-    try:
-        zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True).filled(fill_value=np.nan)
-    except AttributeError:
-        zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True)
+
+    # Get sigma-clipped stats
+    _, zp_median, zp_std = sigma_clipped_stats(data=zp_cal, sigma=3, maxiters=3)
 
     # Return ZP and standard deviation
-    return np.nanmedian(zp_cal), np.nanstd(zp_cal)
+    return zp_median, zp_std
 
 
 def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):
