@@ -405,7 +405,7 @@ class FlatImages(FitsImages):
             # Print processing info
             if not self.setup["misc"]["silent"]:
                 message_calibration(n_current=idx + 1, n_total=len(master_flats),
-                                    name=outpaths[idx], d_current=0, d_total=0)
+                                    name=outpaths[idx], d_current=None, d_total=None)
 
             # Read file into cube
             cube = master_flats.file2cube(file_index=idx, hdu_index=None, dtype=None)
