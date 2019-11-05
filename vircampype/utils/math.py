@@ -1,6 +1,5 @@
 # =========================================================================== #
 # Import
-import astropy
 import warnings
 import numpy as np
 import multiprocessing
@@ -15,7 +14,7 @@ from astropy.units import Unit
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from vircampype.utils.miscellaneous import str2func
-from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel
+from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve
 
 
 # Define objects in this module
@@ -355,7 +354,7 @@ def interpolate_image(array, kernel=None, max_bad_neighbors=None):
         nan_kernel = np.ones(shape=(3, 3))
 
         # Convolve NaN data
-        nans_conv = astropy.convolution.convolve(nans, kernel=nan_kernel, boundary="extend")
+        nans_conv = convolve(nans, kernel=nan_kernel, boundary="extend")
 
         # Get the ones with a maximum of 'max_bad_neighbors' bad neighbors
         # noinspection PyTypeChecker
@@ -391,7 +390,7 @@ def interpolate_image(array, kernel=None, max_bad_neighbors=None):
     # Convolve
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
-        conv = astropy.convolution.convolve(array=array, kernel=kernel, boundary="extend")
+        conv = convolve(array, kernel=kernel, boundary="extend")
 
     # Fill interpolated NaNs in
     array[nans] = conv[nans]
