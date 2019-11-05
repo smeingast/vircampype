@@ -225,26 +225,29 @@ def add_key_file(path, key, values, comments=None, hdu_data=None):
 
     with fits.open(path, mode="update") as hdulist:
 
-        if hdu_data is not None:
-            hdulist = [hdulist[idx] for idx in hdu_data]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
 
-        if len(hdulist) == 1:
-            if len(values) != 1:
-                raise ValueError("For only primary hdu, provide one value in list!")
-        else:
-            if len(hdulist) != len(values):
-                raise ValueError("Must provide values for each extension")
+            if hdu_data is not None:
+                hdulist = [hdulist[idx] for idx in hdu_data]
 
-        # Make dummy comments if not set
-        if comments is None:
-            comments = ["" for _ in values]
-        else:
-            if len(values) != len(comments):
-                raise ValueError("Must provide comments for each value")
+            if len(hdulist) == 1:
+                if len(values) != 1:
+                    raise ValueError("For only primary hdu, provide one value in list!")
+            else:
+                if len(hdulist) != len(values):
+                    raise ValueError("Must provide values for each extension")
 
-        # Loop over HDUs
-        for h, v, c in zip(hdulist, values, comments):
-            h.header[key] = (v, c)
+            # Make dummy comments if not set
+            if comments is None:
+                comments = ["" for _ in values]
+            else:
+                if len(values) != len(comments):
+                    raise ValueError("Must provide comments for each value")
+
+            # Loop over HDUs
+            for h, v, c in zip(hdulist, values, comments):
+                h.header[key] = (v, c)
 
 
 def delete_keys_hdu(path, hdu, keys):
