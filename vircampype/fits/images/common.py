@@ -573,7 +573,7 @@ class FitsImages(FitsFiles):
 
             # Issue error if no files can be found
             if len(idx) < 1:
-                raise ValueError("Could not find matching filter")
+                raise ValueError(BColors.FAIL + "Could not find matching filter" + BColors.ENDC)
 
             # Otherwise append closest in time
             else:
