@@ -93,7 +93,10 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None)
 
     # Apply sigma clipping
     zp_cal = mag_ref - mag_cal
-    zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True).filled(fill_value=np.nan)
+    try:
+        zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True).filled(fill_value=np.nan)
+    except AttributeError:
+        zp_cal = sigma_clip(data=zp_cal, sigma=3, maxiters=3, copy=True)
 
     # Return ZP and standard deviation
     return np.nanmedian(zp_cal), np.nanstd(zp_cal)
