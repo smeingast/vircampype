@@ -46,6 +46,26 @@ class FitsTables(FitsFiles):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
+    def filehdu2table(self, file_index, hdu_index):
+        """
+        Extracts columns from a FITS table in and FitsTables instance.
+
+        Parameters
+        ----------
+        file_index : int
+            The index of the table in the FitsTables instance.
+        hdu_index : int
+            Index of HDU.
+
+        Returns
+        -------
+        Table
+            Astropy table
+
+        """
+
+        return Table.read(self.full_paths[file_index], hdu=hdu_index)
+
     def file2table(self, file_index):
         """
         Extracts columns from a FITS table in and FitsTables instance.
