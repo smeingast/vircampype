@@ -311,7 +311,7 @@ class SourceCatalogs(FitsTables):
                 else:
                     ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
                 if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
-                    ax_all[idx_hdu].set_ylabel("Y(pix)")
+                    ax_all[idx_hdu].set_ylabel("Y (pix)")
                 else:
                     ax_all[idx_hdu].axes.yaxis.set_ticklabels([])
 
