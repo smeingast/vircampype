@@ -50,7 +50,7 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
     return mag_apcor, magerr_apcor, model
 
 
-def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None):
+def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None, return_all=False):
     """
     Calculate zero point
 
@@ -66,13 +66,17 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None)
         Magnitudes of reference sources
     mag_limits_ref : tuple, optional
         Tuple of magnitude limits to be applied. e.g. (10, 15)
-
+    return_all : bool, optional
+        If set, rerturns ZPs for each input sources.
     Returns
     -------
     (float, float)
         Tuple holding zero point and error in zero point.
 
     """
+
+    # Make new array for output
+    zp_cal_out = np.full_like(mag_cal, fill_value=np.nan)
 
     # Restrict reference catalog
     if mag_limits_ref is not None:
@@ -98,7 +102,11 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None)
     _, zp_median, zp_std = sigma_clipped_stats(data=zp_cal, sigma=3, maxiters=3)
 
     # Return ZP and standard deviation
-    return zp_median, zp_std
+    if return_all:
+        zp_cal_out[idx_sci] = zp_cal
+        return zp_cal_out
+    else:
+        return zp_median, zp_std
 
 
 def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):
