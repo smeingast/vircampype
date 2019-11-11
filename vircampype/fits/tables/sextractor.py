@@ -596,7 +596,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                path_plot = "{0}{1}.zp.pdf".format(self.path_qc_zp, self.file_names[idx_file])
+                path_plot = "{0}{1}.zp.pdf".format(self.path_qc_photometry, self.file_names[idx_file])
                 plot_value_detector(values=zp_avg, errors=zperr_avg, path=path_plot)
 
         # Print time
@@ -636,10 +636,217 @@ class SextractorCatalogs(SourceCatalogs):
         return (np.array(self.flux_scale()) / np.array(self.flux_scale())).tolist()
 
     # =========================================================================== #
+    # QC
+    # =========================================================================== #
+    def plot_qc_photometry(self, axis_size=4):
+
+        # Import
+        from astropy.units import Unit
+        import matplotlib.pyplot as plt
+        from matplotlib.cm import get_cmap
+        from astropy.stats import sigma_clip
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="QC PHOTOMETRY", silent=self.setup["misc"]["silent"])
+
+        # Get ZPs for all data
+        zps_all = self.get_zeropoints()[0]
+
+        # Read master photometry table
+        master_photometry = self.get_master_photometry()[0]
+        sc_master = master_photometry.skycoord()[0][0]
+
+        for idx_file in range(len(self)):
+
+            # Generate outpath
+            outpath_1d = "{0}{1}.phot.1D.pdf".format(self.path_qc_photometry, self.file_names[idx_file])
+            outpath_2d = "{0}{1}.phot.2D.pdf".format(self.path_qc_photometry, self.file_names[idx_file])
+
+            # Check if file exists
+            if check_file_exists(file_path=outpath_2d, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Get magnitudes in master catalog
+            mag_master = master_photometry.mag(master_photometry.translate_filter(key=self.filters[idx_file]))[0][0]
+
+            # Get ZPs
+            zps_file = zps_all[idx_file]
+
+            # Fetch magnitudes and aperture corrections
+            apc_name, apc_idx = self._apertures_save[3], self._aperture_save_idx[3]
+            mag_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
+            apc_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APC_{0}".format(apc_name))
+
+            # Get coordinates
+            skycoord_file = self.skycoord_file(idx_file=idx_file)
+            x_file = self.get_column_file(idx_file=idx_file, column_name="X_IMAGE")
+            y_file = self.get_column_file(idx_file=idx_file, column_name="Y_IMAGE")
+
+            # =========================================================================== #
+            # 1D
+            # =========================================================================== #
+            # Make plot grid
+            if len(self) == 1:
+                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                # ax_all = [ax_all]
+            else:
+                fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"],
+                                            xsize=axis_size, ysize=axis_size / 2)
+                ax_file = ax_file.ravel()
+
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                # Get magnitudes into shape
+                mag_final = mag_file[idx_hdu][:, apc_idx] + apc_file[idx_hdu]
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath_1d, d_current=idx_hdu+1,
+                                    d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
+
+                # Xmatch science with reference
+                zp_idx, zp_d2d, _ = skycoord_file[idx_hdu].match_to_catalog_sky(sc_master)
+
+                # Get good indices in reference catalog and in current field
+                idx_master = zp_idx[zp_d2d < 1 * Unit("arcsec")]
+                idx_final = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
+
+                # Apply indices filter
+                mag_final = mag_final[idx_final]
+                mag_match = mag_master[idx_master]
+
+                # Draw photometry
+                ax_file[idx_hdu].scatter(mag_match, mag_match - mag_final, s=15, lw=0, alpha=0.4, zorder=0, c="crimson")
+
+                # Draw ZP
+                ax_file[idx_hdu].axhline(zps_file[idx_hdu], zorder=1, c="black", alpha=0.5)
+
+                # Annotate detector ID
+                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 0.96),
+                                          xycoords="axes fraction", ha="left", va="top")
+
+                # Set limits
+                ax_file[idx_hdu].set_xlim(10, 18)
+                ax_file[idx_hdu].set_ylim(np.floor(np.median(zps_file) - 0.5),
+                                          np.ceil(np.median(zps_file) + 0.5))
+
+                # Modify axes
+                if idx_hdu >= len(skycoord_file) - self.setup["instrument"]["layout"][0]:
+                    ax_file[idx_hdu].set_xlabel("{0} {1} (mag)".format(self.setup["photometry"]["reference"].upper(),
+                                                                       self.filters[idx_file]))
+                else:
+                    ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
+                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                    ax_file[idx_hdu].set_ylabel(r"$\Delta${0} (mag)".format(self.filters[idx_file]))
+                else:
+                    ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
+
+                # Set ticks
+                ax_file[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
+                ax_file[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_file[idx_hdu].yaxis.set_major_locator(MaxNLocator(3))
+                ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpath_1d, bbox_inches="tight")
+            plt.close("all")
+
+            # =========================================================================== #
+            # 2D
+            # =========================================================================== #
+            # Coadd mode
+            if len(self) == 1:
+                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                bins = (30, 30)
+                ax_file = [ax_file]
+            else:
+                fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+                ax_file = ax_file.ravel()
+                bins = (4, 4)
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            im = None
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath_2d, d_current=idx_hdu+1,
+                                    d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
+
+                # Get magnitudes into shape
+                mag_final = mag_file[idx_hdu][:, apc_idx] + apc_file[idx_hdu]
+
+                # Get ZP for each source
+                zp_hdu = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], skycoo_ref=sc_master, mag_cal=mag_final,
+                                       mag_ref=mag_master, mag_limits_ref=(12, 15), return_all=True)
+
+                # sigma-clip array
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    zp_hdu = sigma_clip(zp_hdu, masked=True, sigma=3, maxiters=2).filled(np.nan)
+
+                hist_num, xedges, yedges = np.histogram2d(y_file[idx_hdu][np.isfinite(zp_hdu)],
+                                                          x_file[idx_hdu][np.isfinite(zp_hdu)],
+                                                          bins=bins, weights=None, normed=False)
+                hist_zp, xedges, yedges = np.histogram2d(y_file[idx_hdu][np.isfinite(zp_hdu)],
+                                                         x_file[idx_hdu][np.isfinite(zp_hdu)],
+                                                         bins=bins, weights=zp_hdu[np.isfinite(zp_hdu)], normed=False)
+                extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+
+                kwargs = {"vmin": np.nanmedian(zp_hdu) - 0.25, "vmax": np.nanmedian(zp_hdu) + 0.25,
+                          "cmap": get_cmap("RdYlBu", 20)}
+                im = ax_file[idx_hdu].imshow(hist_zp / hist_num, extent=extent, **kwargs)
+                ax_file[idx_hdu].scatter(x_file[idx_hdu], y_file[idx_hdu], c=zp_hdu, s=10,
+                                         lw=0.1, edgecolor="black", **kwargs)
+
+                # Annotate detector ID
+                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                                          xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx_hdu >= len(skycoord_file) - self.setup["instrument"]["layout"][0]:
+                    ax_file[idx_hdu].set_xlabel("X (pix)")
+                else:
+                    ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
+                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                    ax_file[idx_hdu].set_ylabel("Y (pix)")
+                else:
+                    ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
+
+                ax_file[idx_hdu].set_aspect("equal")
+
+                # Set ticks
+                ax_file[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
+                ax_file[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_file[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
+                ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Set limits
+                ax_file[idx_hdu].set_xlim(np.nanmin(x_file[idx_hdu][np.isfinite(zp_hdu)]),
+                                          np.nanmax(x_file[idx_hdu][np.isfinite(zp_hdu)]))
+                ax_file[idx_hdu].set_ylim(np.nanmin(y_file[idx_hdu][np.isfinite(zp_hdu)]),
+                                          np.nanmax(y_file[idx_hdu][np.isfinite(zp_hdu)]))
+
+            # Add colorbar
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
+            cbar.ax.xaxis.set_ticks_position("top")
+            cbar.ax.xaxis.set_label_position("top")
+
+            # # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpath_2d, bbox_inches="tight")
+            plt.close("all")
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+    # =========================================================================== #
     # Properties
     # =========================================================================== #
     @property
-    def _apertrure_eval(self):
+    def _aperture_eval(self):
         """
         Constructs list of apertures from setup.
 
@@ -664,7 +871,7 @@ class SextractorCatalogs(SourceCatalogs):
 
     @property
     def _aperture_save_idx(self):
-        return [[i for i, x in enumerate(self._apertrure_eval) if x == b][0] for b in self._apertures_save]
+        return [[i for i, x in enumerate(self._aperture_eval) if x == b][0] for b in self._apertures_save]
 
     @property
     def data_hdu(self):
