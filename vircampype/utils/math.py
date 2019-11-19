@@ -11,6 +11,7 @@ from PIL import Image
 from itertools import repeat
 from fractions import Fraction
 from astropy.units import Unit
+from scipy.interpolate import griddata
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from vircampype.utils.miscellaneous import str2func
@@ -21,7 +22,7 @@ from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convol
 __all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
            "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
            "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine", "fraction2float"]
+           "haversine", "fraction2float", "grid_value_2d"]
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
@@ -1009,7 +1010,44 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-# def mask_cosmics(array, **kwargs):
-#     _, clean = detect_cosmics(array.copy(), **kwargs)
-#     array[mask] = np.nan
-#     return clean
+def grid_value_2d(x, y, value, naxis1, naxis2, conv=True):
+    """
+    Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
+
+    Parameters
+    ----------
+    x : iterable, ndarray
+        X coordinates
+    y : iterable, ndarray
+        Y coordinates
+    value : iterable, ndarray
+        Values for the X/Y coordinates
+    naxis1 : int
+        X size of final grid.
+    naxis2 : int
+        Y size of final grid.
+    conv : bool, optional
+        If set, convolve the grid before resampling to final size.
+
+    Returns
+    -------
+    ndarray
+        2D array with gridded data.
+
+    """
+
+    # Filter infinite values
+    good = np.isfinite(x) & np.isfinite(y) & np.isfinite(value)
+
+    # Make grid
+    xg, yg = np.meshgrid(np.linspace(min(x[good]), max(x[good]), 50), np.linspace(min(y), max(y), 50))
+
+    # Map ZPs onto grid
+    gridded = griddata(np.stack([x[good], y[good]], axis=1), value[good], (xg, yg), method="cubic")
+
+    # Smooth
+    if conv:
+        gridded = convolve(gridded, kernel=Gaussian2DKernel(x_stddev=5), boundary="extend")
+
+    # Rescale to original image
+    return np.array(Image.fromarray(gridded).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
