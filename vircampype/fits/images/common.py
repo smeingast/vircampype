@@ -448,6 +448,19 @@ class FitsImages(FitsFiles):
         return self.match_filter(match_to=self.get_master_images().sky,
                                  max_lag=self.setup["master"]["max_lag_sky"] / 1440.)
 
+    def get_master_superflat(self):
+        """
+        Get for all files in self the corresponding MasterSuperflat.
+
+        Returns
+        -------
+        MasterSuperflat
+            MasterSuperflat instance holding for all files in self the corresponding MasterSuperflat images.
+
+        """
+        return self.match_filter(match_to=self.get_master_images().superflat,
+                                 max_lag=self.setup["master"]["max_lag_superflat"] / 24.)
+
     # =========================================================================== #
     # Master tables
     # =========================================================================== #
