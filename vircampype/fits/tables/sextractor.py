@@ -440,6 +440,22 @@ class SextractorCatalogs(SourceCatalogs):
         self._mag_aper = self.get_columns(column_name="MAG_APER")
         return self._mag_aper
 
+    def mag_aper_file(self, idx_file):
+        """
+        Returns fixed aperture photometry for a given file.
+
+        Parameters
+        ----------
+        idx_file : int
+            Index of file in current instance
+
+        Returns
+        -------
+            List of aperture magnitudes for each data extension in given file.
+
+        """
+        return self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
+
     _magerr_aper = None
 
     @property
@@ -643,6 +659,7 @@ class SextractorCatalogs(SourceCatalogs):
             # Force reloading header
             self.delete_headers_temp(file_index=idx)
 
+    # TODO: Speed zp!
     def get_zeropoints(self):
 
         # Check if zeropoints have been determined already
@@ -681,6 +698,7 @@ class SextractorCatalogs(SourceCatalogs):
                                     silent=self.setup["misc"]["silent"])
 
                 # Fetch magnitudes and aperture corrections
+                # TODO: Perhaps write new method: mag_aper_file to speed this up on the first iteration
                 mags = [self.mag_aper[idx_file][idx_hdu][:, idx_apc] for idx_apc in self._aperture_save_idx]
                 apcs = [self.mag_apc_dict[d][idx_file][idx_hdu] for d in self._apertures_save]
 
