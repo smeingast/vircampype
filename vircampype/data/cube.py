@@ -972,7 +972,7 @@ class ImageCube(object):
         # Replace values
         self.cube[np.isnan(self.cube)] = value
 
-    def mask_sources(self, threshold=1.5, minarea=5, maxarea=None, mesh_size=128, mesh_filtersize=3, n_threads=None):
+    def mask_sources(self, threshold=1.5, minarea=5, maxarea=None, mesh_size=128, mesh_filtersize=3):
         """
         Masks sources in the cube. Sources are detected with an adaptive threshold technique
 
@@ -988,13 +988,11 @@ class ImageCube(object):
             Background mesh size (default = 128)
         mesh_filtersize : int, optional
             2D median filter size for meshes (default = 3)
-        n_threads : int, optional
-            Number of threads to use.
 
         """
 
         # Get background and noise map
-        background, noise = self.background(mesh_size=mesh_size, mesh_filtersize=mesh_filtersize, n_threads=n_threads)
+        background, noise = self.background(mesh_size=mesh_size, mesh_filtersize=mesh_filtersize)
 
         # Make the threshold cube (to avoid an editor warning I use np.add here)
         thresh_map = np.add(background, threshold * noise)
@@ -1166,7 +1164,7 @@ class ImageCube(object):
         # Calculate the sky values for each plane in the cube
         return estimate_background(array=self.cube[:], axis=(1, 2))
 
-    def background(self, mesh_size=128, mesh_filtersize=3, n_threads=None):
+    def background(self, mesh_size=128, mesh_filtersize=3):
         """
         Creates background and noise cubes.
 
@@ -1176,8 +1174,6 @@ class ImageCube(object):
             Requested mesh size in pixels. Actual mesh size will vary depending on input shape (default = 128 pix).
         mesh_filtersize : int, optional
             2D median filter size for meshes (default = 3).
-        n_threads : int, optional
-            Number of threads to use.
 
         Returns
         -------
@@ -1186,4 +1182,4 @@ class ImageCube(object):
         """
 
         return background_cube(cube=self.cube, mesh_size=mesh_size, max_iter=10,
-                               mesh_filtersize=mesh_filtersize, n_threads=n_threads)
+                               mesh_filtersize=mesh_filtersize, n_threads=self.setup["misc"]["n_threads_python"])
