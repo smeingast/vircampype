@@ -158,6 +158,19 @@ class FitsImages(FitsFiles):
                 in zip(self.file_names, self.file_extensions)]
 
     @property
+    def paths_superflatted(self):
+        """
+        Generates paths for superflatted images.
+
+        Returns
+        -------
+        List
+            List with paths for each file.
+        """
+        return ["{0}{1}.sf{2}".format(self.path_processed, n, e) for n, e
+                in zip(self.file_names, self.file_extensions)]
+
+    @property
     def pixel_scale(self):
         """
         Reads the pixel scale from the setup and converts it to a float in degrees.
@@ -675,6 +688,53 @@ class FitsImages(FitsFiles):
 
         # Return new instance of calibrated images
         return self.__class__(setup=self.setup, file_paths=self.paths_processed)
+
+    def apply_superflat(self):
+        """ Applies superflat to (processed) images. """
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="APPLYING SUPERFLAT",
+                                           silent=self.setup["misc"]["silent"], right="")
+
+        # Fetch superflat for each image in self
+        superflats = self.get_master_superflat()
+
+        # Loop over self and superflats
+        for idx_file in range(len(self)):
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=self.paths_superflatted[idx_file], silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=self.paths_superflatted[idx_file],
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Read data
+            cube_self = self.file2cube(file_index=idx_file)
+            cube_flat = superflats.file2cube(file_index=idx_file)
+
+            # Determine cube background
+            background = cube_self.background(mesh_size=256)[0]
+
+            # Apply background
+            cube_self -= background
+
+            # Normalize
+            cube_self /= cube_flat
+
+            # Add background back in
+            cube_self += background
+
+            # Write back to disk
+            cube_self.write_mef(self.paths_superflatted[idx_file], prime_header=self.headers_primary[idx_file],
+                                data_headers=self.headers_data[idx_file])
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return new instance of calibrated images
+        return self.__class__(setup=self.setup, file_paths=self.paths_superflatted)
 
     # =========================================================================== #
     # Sextractor
