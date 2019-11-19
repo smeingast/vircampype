@@ -684,6 +684,14 @@ class MasterSuperflat(MasterImages):
     def __init__(self, setup, file_paths=None):
         super(MasterSuperflat, self).__init__(setup=setup, file_paths=file_paths)
 
+    @property
+    def nsources(self):
+        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE SFLAT NSOURCES"])[0]
+
+    @property
+    def flx_std(self):
+        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE SFLAT STD"])[0]
+
     def qc_plot_msf(self, paths=None, axis_size=4):
 
         # Import
