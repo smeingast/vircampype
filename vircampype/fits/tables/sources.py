@@ -216,7 +216,7 @@ class SourceCatalogs(FitsTables):
         return [[y for y in x] for x in self.get_columns(column_name=key)]
 
     @property
-    def filters(self):
+    def filter(self):
         """
         Grabs filter keyword from header and puts in into list
 

@@ -147,7 +147,7 @@ class SextractorCatalogs(SourceCatalogs):
     def scamp(self):
 
         # Get passband
-        bands = list(set(self.filters))
+        bands = list(set(self.filter))
         if len(bands) != 1:
             raise ValueError("Sequence contains multiple filter")
         else:
@@ -503,7 +503,7 @@ class SextractorCatalogs(SourceCatalogs):
         master_photometry = self.get_master_photometry()
 
         # Fetch filter of current catalog
-        filter_catalog = self.filters[0]
+        filter_catalog = self.filter[0]
 
         # Filter master catalog for good data
         mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
@@ -579,7 +579,7 @@ class SextractorCatalogs(SourceCatalogs):
                                            self.setup["keywords"]["filter"], self.setup["keywords"]["date_ut"],
                                            "HIERARCH PYPE N_FILES"],
                                  values=["MASTER-SUPERFLAT", self.mjd_mean,
-                                         self.filters[0], self.time_obs_mean,
+                                         self.filter[0], self.time_obs_mean,
                                          len(self)])
         prime_header = fits.Header(cards=prime_cards)
 
@@ -662,7 +662,7 @@ class SextractorCatalogs(SourceCatalogs):
         for idx_file in range(len(self)):
 
             # Fetch filter of current catalog
-            filter_catalog = self.filters[idx_file]
+            filter_catalog = self.filter[idx_file]
 
             # Filter master catalog for good data
             mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
@@ -787,7 +787,7 @@ class SextractorCatalogs(SourceCatalogs):
                 continue
 
             # Get magnitudes in master catalog
-            mag_master = master_photometry.mag(master_photometry.translate_filter(key=self.filters[idx_file]))[0][0]
+            mag_master = master_photometry.mag(master_photometry.translate_filter(key=self.filter[idx_file]))[0][0]
 
             # Get ZPs
             zps_file = zps_all[idx_file]
@@ -853,11 +853,11 @@ class SextractorCatalogs(SourceCatalogs):
                 # Modify axes
                 if idx_hdu >= len(skycoord_file) - self.setup["instrument"]["layout"][0]:
                     ax_file[idx_hdu].set_xlabel("{0} {1} (mag)".format(self.setup["photometry"]["reference"].upper(),
-                                                                       self.filters[idx_file]))
+                                                                       self.filter[idx_file]))
                 else:
                     ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
                 if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
-                    ax_file[idx_hdu].set_ylabel(r"$\Delta${0} (mag)".format(self.filters[idx_file]))
+                    ax_file[idx_hdu].set_ylabel(r"$\Delta${0} (mag)".format(self.filter[idx_file]))
                 else:
                     ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
 
