@@ -101,13 +101,13 @@ class FitsTables(FitsFiles):
         """
         return [Table.read(f, hdu=hdu_index) for f in self.full_paths]
 
-    def get_column(self, hdu_index, column_name):
+    def get_column_hdu(self, idx_hdu, column_name):
         """
         Extracts a single column for a given HDU across all given tables in the current instance.
 
         Parameters
         ----------
-        hdu_index : int
+        idx_hdu : int
             Index of HDU from where to extract column.
         column_name : str
             Name of column.
@@ -118,7 +118,7 @@ class FitsTables(FitsFiles):
             List of Columns for all files in instance.
 
         """
-        return [Table.read(f, hdu=hdu_index)[column_name] for f in self.full_paths]
+        return [Table.read(f, hdu=idx_hdu)[column_name] for f in self.full_paths]
 
     def get_columns(self, column_name):
         """
