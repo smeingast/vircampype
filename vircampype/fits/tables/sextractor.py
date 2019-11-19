@@ -5,6 +5,7 @@ import numpy as np
 import multiprocessing
 
 from astropy.io import fits
+from astropy.time import Time
 from vircampype.utils import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
@@ -495,8 +496,8 @@ class SextractorCatalogs(SourceCatalogs):
         outpath = self.path_master_object + "MASTER-SUPERFLAT.fits"
 
         # Check if the file is already there and skip if it is
-        if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-            return MasterSuperflat(file_paths=outpath, setup=self.setup)
+        # if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+        #     return MasterSuperflat(file_paths=outpath, setup=self.setup)
 
         # Get master photometry catalog
         master_photometry = self.get_master_photometry()
@@ -1046,6 +1047,23 @@ class SextractorCatalogs(SourceCatalogs):
                              .format(self.setup["misc"]["n_threads_python"]))
 
         return self._image_headers
+
+    # =========================================================================== #
+    # Time
+    # =========================================================================== #
+    _time_obs = None
+
+    @property
+    def time_obs(self):
+
+        # Check if already determined
+        if self._time_obs is not None:
+            return self._time_obs
+        else:
+            pass
+
+        self._time_obs = Time([hdr[0][self.setup["keywords"]["date_ut"]] for hdr in self.image_headers])
+        return self._time_obs
 
     # =========================================================================== #
     # ESO
