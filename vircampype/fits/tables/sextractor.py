@@ -689,7 +689,7 @@ class SextractorCatalogs(SourceCatalogs):
             # Make plot grid
             if len(self) == 1:
                 fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
-                # ax_all = [ax_all]
+                ax_file = [ax_file]
             else:
                 fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"],
                                             xsize=axis_size, ysize=axis_size / 2)
@@ -716,7 +716,8 @@ class SextractorCatalogs(SourceCatalogs):
                 mag_match = mag_master[idx_master]
 
                 # Draw photometry
-                ax_file[idx_hdu].scatter(mag_match, mag_match - mag_final, s=15, lw=0, alpha=0.4, zorder=0, c="crimson")
+                ax_file[idx_hdu].scatter(mag_match, mag_match - mag_final,
+                                         s=15, lw=0, alpha=0.4, zorder=0, c="crimson")
 
                 # Draw ZP
                 ax_file[idx_hdu].axhline(zps_file[idx_hdu], zorder=1, c="black", alpha=0.5)
@@ -759,7 +760,7 @@ class SextractorCatalogs(SourceCatalogs):
             # Coadd mode
             if len(self) == 1:
                 fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
-                bins = (30, 30)
+                bins = (20, 20)
                 ax_file = [ax_file]
             else:
                 fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
@@ -796,7 +797,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                 kwargs = {"vmin": np.nanmedian(zp_hdu) - 0.25, "vmax": np.nanmedian(zp_hdu) + 0.25,
                           "cmap": get_cmap("RdYlBu", 20)}
-                im = ax_file[idx_hdu].imshow(hist_zp / hist_num, extent=extent, **kwargs)
+                im = ax_file[idx_hdu].imshow(hist_zp / hist_num, extent=extent, origin="lower", **kwargs)
                 ax_file[idx_hdu].scatter(x_file[idx_hdu], y_file[idx_hdu], c=zp_hdu, s=10,
                                          lw=0.1, edgecolor="black", **kwargs)
 
