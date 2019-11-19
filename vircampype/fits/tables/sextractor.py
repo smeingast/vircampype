@@ -496,8 +496,8 @@ class SextractorCatalogs(SourceCatalogs):
         outpath = self.path_master_object + "MASTER-SUPERFLAT.fits"
 
         # Check if the file is already there and skip if it is
-        # if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-        #     return MasterSuperflat(file_paths=outpath, setup=self.setup)
+        if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            return MasterSuperflat(file_paths=outpath, setup=self.setup)
 
         # Get master photometry catalog
         master_photometry = self.get_master_photometry()
