@@ -159,7 +159,7 @@ class FitsFiles:
     #   I/O
     # =========================================================================== #
     @classmethod
-    def from_folder(cls, path, setup, substring=None):
+    def from_folder(cls, path, setup, pattern=None):
         """
         Loads all files from the given folder into a FitsFiles (or child) instance.
 
@@ -169,7 +169,7 @@ class FitsFiles:
             Path to folder.
         setup : str, dict
             YML setup. Can be either path to setup, or a dictionary.
-        substring : str, optional
+        pattern : str, optional
             Substring to identify FITS files. Default is None, which loads all files in the folder.
 
         Returns
@@ -183,8 +183,8 @@ class FitsFiles:
             path += "/"
 
         # Return new instance
-        if substring is not None:
-            return cls(setup=setup, file_paths=glob.glob(path + substring))
+        if pattern is not None:
+            return cls(setup=setup, file_paths=glob.glob(path + pattern))
         # In case no substring is given, just return all files
         else:
             return cls(setup=setup, file_paths=glob.glob(path + "*"))
@@ -213,7 +213,7 @@ class FitsFiles:
         if not path.endswith("/"):
             path += "/"
 
-        return cls(setup=setup, file_paths=glob.glob(path + setup["paths"]["substring"]))
+        return cls(setup=setup, file_paths=glob.glob(path + setup["paths"]["pattern"]))
 
     # =========================================================================== #
     # Headers
