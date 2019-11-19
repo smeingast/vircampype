@@ -6,6 +6,7 @@ import multiprocessing
 
 from astropy.io import fits
 from vircampype.utils import *
+from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
 
 
@@ -477,6 +478,119 @@ class SextractorCatalogs(SourceCatalogs):
         for d in self._apertures_save:
             self._mag_apc_dict[d] = self.get_columns(column_name="MAG_APC_{0}".format(d))
         return self._mag_apc_dict
+
+    # =========================================================================== #
+    # Superflat
+    # =========================================================================== #
+    def build_master_superflat(self):
+
+        # Import
+        from vircampype.fits.images.flat import MasterSuperflat
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="MASTER-SUPERFLAT", silent=self.setup["misc"]["silent"])
+
+        # Create master dark name
+        # TODO: rewrite master path routine so that it takes e.g. dit=234 as argument directly
+        outpath = self.path_master_object + "MASTER-SUPERFLAT.fits"
+
+        # Check if the file is already there and skip if it is
+        if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            return MasterSuperflat(file_paths=outpath, setup=self.setup)
+
+        # Get master photometry catalog
+        master_photometry = self.get_master_photometry()
+
+        # Fetch filter of current catalog
+        filter_catalog = self.filters[0]
+
+        # Filter master catalog for good data
+        mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
+
+        # Fetch magnitude and coordinates for master catalog
+        master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
+        master_skycoord = master_photometry.skycoord()[0][0][mkeep]
+
+        # Instantiate output
+        superflat = ImageCube(setup=self.setup)
+
+        data_headers = []
+        for idx_hdu, idx_print in zip(self.data_hdu[0], range(len(self.data_hdu[0]))):
+
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=idx_print + 1,
+                                d_total=len(self.data_hdu[0]), silent=self.setup["misc"]["silent"])
+
+            # Read current HDU for all files
+            data = self.hdu2table(hdu_index=idx_hdu)
+
+            # Extract data for all files for this extension
+            aa = np.array(flat_list([d["ALPHA_J2000"] for d in data]))
+            dd = np.array(flat_list([d["DELTA_J2000"] for d in data]))
+            xx = np.array(flat_list([d["XWIN_IMAGE"] for d in data]))
+            yy = np.array(flat_list([d["YWIN_IMAGE"] for d in data]))
+            ff = np.array(flat_list([d["FLAGS"] for d in data]))
+            mm = np.array(flat_list([d["MAG_AUTO"] for d in data]))
+            fwhm = np.array(flat_list([d["FWHM_WORLD"] for d in data])) * 3600
+            ee = np.array(flat_list([d["ELLIPTICITY"] for d in data]))
+
+            # Filter for good sources
+            good = (np.isfinite(aa) & np.isfinite(dd) & np.isfinite(xx) &
+                    np.isfinite(yy) & np.isfinite(ff) & np.isfinite(mm) &
+                    (ff == 0) & (ee < 0.2) & (fwhm > 0.3) & (fwhm < 1.5))
+
+            # Apply filter
+            aa, dd, xx, yy, mm = aa[good], dd[good], xx[good], yy[good], mm[good]
+
+            # Get ZP for each single star
+            zp = get_zeropoint_radec(ra_cal=aa, dec_cal=dd, mag_cal=mm, mag_ref=master_mag,
+                                     ra_ref=master_skycoord.icrs.ra.deg, dec_ref=master_skycoord.icrs.dec.deg,
+                                     mag_limits_ref=(12, 15.5), return_all=True)
+
+            # Sigma clip ZP array just to be sure
+            zp = sigma_clip(zp, kappa=3, ikappa=5)
+
+            # Grid values to detector size array
+            grid_zp = grid_value_2d(x=xx, y=yy, value=zp,
+                                    naxis1=self.setup["data"]["dim_x"], naxis2=self.setup["data"]["dim_y"])
+
+            # Convert to flux scale
+            flx_scale = 10**(grid_zp / 2.5)
+            flx_scale /= np.nanmedian(flx_scale)
+
+            # Also for sources
+            flx_scale_sources = 10**(zp / 2.5)
+            flx_scale_sources /= np.nanmedian(flx_scale_sources)
+
+            # Append to output
+            superflat.extend(data=flx_scale.astype(np.float32))
+
+            # Create extension header
+            data_cards = make_cards(keywords=["HIERARCH PYPE SFLAT NSOURCES",
+                                              "HIERARCH PYPE SFLAT STD"],
+                                    values=[len(flx_scale_sources), np.round(np.nanstd(flx_scale_sources), decimals=2)],
+                                    comments=["Number of sources used", "Standard deviation in relative flux"])
+
+            data_headers.append(fits.Header(cards=data_cards))
+
+        # Make primary header
+        prime_cards = make_cards(keywords=[self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
+                                 values=["MASTER-SUPERFLAT", len(self)])
+        prime_header = fits.Header(cards=prime_cards)
+
+        # Write to disk
+        superflat.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
+
+        # QC plot
+        if self.setup["misc"]["qc_plots"]:
+            msf = MasterSuperflat(setup=self.setup, file_paths=outpath)
+            msf.qc_plot_msf(paths=None, axis_size=5)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return Master Superflat
+        return MasterSuperflat(file_paths=outpath, setup=self.setup)
 
     # =========================================================================== #
     # Zero points
