@@ -679,6 +679,75 @@ class MasterFlat(MasterImages):
             plt.close("all")
 
 
+class MasterSuperflat(MasterImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterSuperflat, self).__init__(setup=setup, file_paths=file_paths)
+
+    def qc_plot_msf(self, paths=None, axis_size=4):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.cm import get_cmap
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Generate path for plots
+        if paths is None:
+            paths = ["{0}{1}.pdf".format(self.path_qc_superflat, fp) for fp in self.file_names]
+
+        for idx_file in range(len(self)):
+
+            # Create figure
+            fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            ax_file = ax_file.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Read data
+            cube = self.file2cube(file_index=idx_file)
+
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                im = ax_file[idx_hdu].imshow(cube[idx_hdu], vmin=0.9, vmax=1.1,
+                                             cmap=get_cmap("RdYlBu_r", 20), origin="lower")
+
+                # Add colorbar
+                cbar = plt.colorbar(mappable=im, cax=cax, orientation="horizontal", label="Relative Flux")
+                cbar.ax.xaxis.set_ticks_position("top")
+                cbar.ax.xaxis.set_label_position("top")
+
+                # Limits
+                ax_file[idx_hdu].set_xlim(0, self.setup["data"]["dim_x"])
+                ax_file[idx_hdu].set_ylim(0, self.setup["data"]["dim_y"])
+
+                # Annotate detector ID
+                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.005),
+                                          xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx_hdu >= len(self.data_hdu[idx_file]) - self.setup["instrument"]["layout"][0]:
+                    ax_file[idx_hdu].set_xlabel("X (pix)")
+                else:
+                    ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
+                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                    ax_file[idx_hdu].set_ylabel("Y (pix)")
+                else:
+                    ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
+
+                ax_file[idx_hdu].set_aspect("equal")
+
+                # Set ticks
+                ax_file[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
+                ax_file[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_file[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
+                ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(paths[idx_file], bbox_inches="tight")
+            plt.close("all")
+
+
 class MasterWeight(MasterImages):
 
     def __init__(self, setup, file_paths=None):
