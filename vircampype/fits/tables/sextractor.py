@@ -575,8 +575,12 @@ class SextractorCatalogs(SourceCatalogs):
             data_headers.append(fits.Header(cards=data_cards))
 
         # Make primary header
-        prime_cards = make_cards(keywords=[self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
-                                 values=["MASTER-SUPERFLAT", len(self)])
+        prime_cards = make_cards(keywords=[self.setup["keywords"]["object"], self.setup["keywords"]["date_mjd"],
+                                           self.setup["keywords"]["filter"], self.setup["keywords"]["date_ut"],
+                                           "HIERARCH PYPE N_FILES"],
+                                 values=["MASTER-SUPERFLAT", self.mjd_mean,
+                                         self.filters[0], self.time_obs_mean,
+                                         len(self)])
         prime_header = fits.Header(cards=prime_cards)
 
         # Write to disk
