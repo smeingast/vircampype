@@ -1140,3 +1140,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-COADD"]
 
         return MasterWeightCoadd(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def superflat(self):
+        """
+        Holds all MasterSuperflat images.
+
+        Returns
+        -------
+        MasterSuperflat
+            All MasterSuperflat images.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterSuperflat
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SUPERFLAT"]
+
+        return MasterSuperflat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
