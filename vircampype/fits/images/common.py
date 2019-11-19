@@ -167,7 +167,7 @@ class FitsImages(FitsFiles):
         List
             List with paths for each file.
         """
-        return ["{0}{1}.sf{2}".format(self.path_processed, n, e) for n, e
+        return ["{0}{1}.sf{2}".format(self.path_superflatted, n, e) for n, e
                 in zip(self.file_names, self.file_extensions)]
 
     @property
