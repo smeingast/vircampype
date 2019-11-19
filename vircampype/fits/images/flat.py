@@ -731,6 +731,10 @@ class MasterSuperflat(MasterImages):
                 ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.005),
                                           xycoords="axes fraction", ha="left", va="bottom")
 
+                # Annotate number of sources used
+                ax_file[idx_hdu].annotate("N = {0:0d}".format(self.nsources[idx_file][idx_hdu]), xy=(0.98, 1.005),
+                                          xycoords="axes fraction", ha="right", va="bottom")
+
                 # Modify axes
                 if idx_hdu >= len(self.data_hdu[idx_file]) - self.setup["instrument"]["layout"][0]:
                     ax_file[idx_hdu].set_xlabel("X (pix)")
