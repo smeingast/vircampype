@@ -61,6 +61,7 @@ class FitsFiles:
         self.path_temp = "{0}{1}/".format(self.path_object, "temp")
         self.path_headers = "{0}{1}/".format(self.path_object, "headers")
         self.path_processed = "{0}{1}/".format(self.path_object, "processed")
+        self.path_superflatted = "{0}{1}/".format(self.path_object, "superflatted")
         self.path_resampled = "{0}{1}/".format(self.path_object, "resampled")
         self.path_coadd = "{0}{1}/".format(self.path_object, "coadd")
 
@@ -104,7 +105,7 @@ class FitsFiles:
         paths_obj = [self.path_temp, self.path_processed, self.path_resampled, self.path_coadd, self.path_obspar,
                      self.path_apcor, self.path_master_object, self.path_qc_object, self.path_qc_sky,
                      self.path_qc_photometry, self.path_qc_astrometry, self.path_qc_apcor, self.path_phase3,
-                     self.path_qc_superflat]
+                     self.path_qc_superflat, self.path_superflatted]
 
         # Generate common paths
         for path in paths_common:
