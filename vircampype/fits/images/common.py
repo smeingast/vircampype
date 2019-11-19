@@ -722,8 +722,7 @@ class FitsImages(FitsFiles):
 
         return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="default.nnw")
 
-    @property
-    def _sex_paths_tables(self):
+    def _sex_paths_tables(self, prefix=""):
         """
         Path to sextractor tables for files in instance.
 
@@ -733,7 +732,10 @@ class FitsImages(FitsFiles):
             List with table names.
         """
 
-        return [x.replace(".fits", ".sources.fits") for x in self.full_paths]
+        if prefix is None:
+            prefix = ""
+
+        return [x.replace(".fits", ".{0}.sources.fits".format(prefix)).replace("..", ".") for x in self.full_paths]
 
     def _sex_path_param(self, preset):
         """
@@ -754,8 +756,12 @@ class FitsImages(FitsFiles):
             return get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.param")
         elif preset == "full":
             return get_resource_path(package=self._sex_preset_package, resource="sextractor_full.param")
+        elif preset == "superflat":
+            return get_resource_path(package=self._sex_preset_package, resource="sextractor_superflat.param")
+        else:
+            raise ValueError("Sextractor parameter name '{0}' not supported".format(preset))
 
-    def sextractor(self, preset="scamp", **kwargs):
+    def sextractor(self, preset="scamp", prefix=None, **kwargs):
         """
         Runs sextractor based on given presets.
 
@@ -763,6 +769,8 @@ class FitsImages(FitsFiles):
         ----------
         preset : str
             Preset name.
+        prefix : str, optional
+            Prefix to be used for catalogs.
 
         Returns
         -------
@@ -779,7 +787,7 @@ class FitsImages(FitsFiles):
         # Check for existing files
         path_tables_clean = []
         if not self.setup["misc"]["overwrite"]:
-            for pt in self._sex_paths_tables:
+            for pt in self._sex_paths_tables(prefix=prefix):
                 check_file_exists(file_path=pt, silent=self.setup["misc"]["silent"])
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
@@ -801,7 +809,12 @@ class FitsImages(FitsFiles):
                             phot_apertures=self.setup["photometry"]["apcor_diam_eval"],
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
-
+        elif preset == "superflat":
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package,
+                                                   resource="sextractor_superflat.yml"),
+                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
+                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
+                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
 
@@ -827,7 +840,7 @@ class FitsImages(FitsFiles):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return Table instance
-        return SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables)
+        return SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables(prefix=prefix))
 
     # =========================================================================== #
     # Other methods
