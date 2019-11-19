@@ -192,8 +192,13 @@ class SourceCatalogs(FitsTables):
 
         from astropy.coordinates import SkyCoord
 
+        if key_ra is None:
+            key_ra = self._key_ra
+        if key_dec is None:
+            key_dec = self._key_dec
+
         skycoord = []
-        for ra, dec in zip(self.ra_file(idx_file=idx_file, key=key_ra), self.dec_file(idx_file=idx_file, key=key_dec)):
+        for ra, dec in zip(*self.get_columns_file(idx_file=idx_file, column_names=[key_ra, key_dec])):
             skycoord.append(SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg"))
 
         return skycoord
