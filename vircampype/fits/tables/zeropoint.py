@@ -86,6 +86,19 @@ class MasterZeroPoint(MasterTables):
         return [np.mean(np.stack([tab[name] for name in self._zp_colnames]), axis=0) for tab in self.zp_table]
 
     @property
+    def zperr_mean(self):
+        """
+        Computes the mean ZP across all apertures for each file and each detector in self
+
+        Returns
+        -------
+        iterable
+            List of averages for each file containing the mean ZP for each detector.
+
+        """
+        return [np.mean(np.stack([tab[name] for name in self._zperr_colnames]), axis=0) for tab in self.zp_table]
+
+    @property
     def zp_mean_std(self):
         return [np.std(np.stack([tab[name] for name in self._zp_colnames]), axis=0) for tab in self.zp_table]
 
