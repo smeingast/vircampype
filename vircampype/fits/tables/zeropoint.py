@@ -53,7 +53,7 @@ class MasterZeroPoint(MasterTables):
             List of ZPs for each file for specific aperture.
 
         """
-        return [t["ZP_{0}".format(diameter)].data for t in self.zp_table]
+        return [t["ZP_{0}".format(diameter)].tolist() for t in self.zp_table]
 
     def zperr_diameter(self, diameter):
         """
@@ -70,7 +70,7 @@ class MasterZeroPoint(MasterTables):
             List of ZP errors for each file for specific aperture.
 
         """
-        return [t["ZPERR_{0}".format(diameter)].data for t in self.zp_table]
+        return [t["ZPERR_{0}".format(diameter)].tolist() for t in self.zp_table]
 
     @property
     def zp_mean(self):
