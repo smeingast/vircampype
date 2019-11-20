@@ -514,9 +514,25 @@ class SextractorCatalogs(SourceCatalogs):
             return self._mag_apc_dict
 
         self._mag_apc_dict = {}
-        for d, cname in zip(self._apertures_save, self._colnames_apc):
-            self._mag_apc_dict[d] = self.get_columns(column_name=cname)
+        for cname in self._colnames_apc:
+            self._mag_apc_dict[cname] = self.get_columns(column_name=cname)
         return self._mag_apc_dict
+
+    def mag_apc_dict_file(self, idx_file):
+        """
+        Reads all aperture corrections from files for each extension and each source.
+
+        Returns
+        -------
+        dict
+            Dictionary with aperture corrections.
+        """
+
+        # Get APC columns
+        temp = self.get_columns_file(idx_file=idx_file, column_names=self._colnames_apc)
+
+        # Return dictionary with extracted valus
+        return {d: mag for d, mag in zip(self._colnames_apc, temp)}
 
     def _get_columns_zp_method_file(self, idx_file, key_ra=None, key_dec=None):
 
