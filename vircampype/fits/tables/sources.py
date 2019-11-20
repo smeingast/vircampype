@@ -224,7 +224,7 @@ class SourceCatalogs(FitsTables):
     @property
     def filter(self):
         """
-        Grabs filter keyword from header and puts in into list
+        Grabs filter keyword from header and puts in into list.
 
         Returns
         -------
