@@ -869,7 +869,6 @@ class SextractorCatalogs(SourceCatalogs):
     # =========================================================================== #
     # QC
     # =========================================================================== #
-    # TODO: Fix this with new method
     def plot_qc_photometry(self, axis_size=4):
 
         # Import
@@ -883,7 +882,7 @@ class SextractorCatalogs(SourceCatalogs):
         tstart = message_mastercalibration(master_type="QC PHOTOMETRY", silent=self.setup["misc"]["silent"])
 
         # Get ZPs for all data
-        zps_all = self.get_zeropoints()[0]
+        zps_all = self.mean_zeropoints[0]
 
         # Read master photometry table
         master_photometry = self.get_master_photometry()[0]
