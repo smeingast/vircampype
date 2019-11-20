@@ -768,7 +768,7 @@ class SextractorCatalogs(SourceCatalogs):
             prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
                                                self.setup["keywords"]["object"], self.setup["keywords"]["filter"],
                                                "HIERARCH PYPE ZP FILE"],
-                                     values=[self.mjd_mean, self.time_obs_mean,
+                                     values=[self.mjd[idx_file], self.time_obs[idx_file],
                                              "MASTER-ZEROPOINT", self.filter[idx_file],
                                              self.base_names[idx_file]])
             prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
@@ -807,6 +807,12 @@ class SextractorCatalogs(SourceCatalogs):
             When ZPs not found
 
         """
+
+        zps = self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
+        print(zps)
+
+        exit()
+
         try:
             return self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
         except KeyError:
