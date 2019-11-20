@@ -567,10 +567,7 @@ class SextractorCatalogs(SourceCatalogs):
         master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
         master_skycoord = master_photometry.skycoord()[0][0][mkeep]
 
-        # Instantiate output
-        superflat = ImageCube(setup=self.setup)
-
-        data_headers = []
+        data_headers, flx_scale, flx_scale_global, n_sources = [], [], [], []
         for idx_hdu, idx_print in zip(self.data_hdu[0], range(len(self.data_hdu[0]))):
 
             # Print processing info
@@ -611,20 +608,33 @@ class SextractorCatalogs(SourceCatalogs):
                                     naxis1=self.setup["data"]["dim_x"], naxis2=self.setup["data"]["dim_y"])
 
             # Convert to flux scale
-            flx_scale = 10**(grid_zp / 2.5)
-            flx_scale /= np.nanmedian(flx_scale)
+            flx_scale.append(10**(grid_zp / 2.5))
 
-            # Also for sources
-            flx_scale_sources = 10**(zp / 2.5)
-            flx_scale_sources /= np.nanmedian(flx_scale_sources)
+            # Save global scale
+            flx_scale_global.append(np.nanmedian(flx_scale[-1]))
+
+            # Save number of sources
+            n_sources.append(np.sum(np.isfinite(zp)))
+
+        # Get global flux scale across detectors
+        flx_scale_global /= np.median(flx_scale_global)
+
+        # Compute flux scale for each detector
+        flx_scale = [f / np.median(f) * g for f, g in zip(flx_scale, flx_scale_global)]
+
+        # Instantiate output
+        superflat = ImageCube(setup=self.setup)
+
+        # Loop over extensions and construct final superflat
+        for idx_hdu, fscl, nn in zip(self.data_hdu[0], flx_scale, n_sources):
 
             # Append to output
-            superflat.extend(data=flx_scale.astype(np.float32))
+            superflat.extend(data=fscl.astype(np.float32))
 
             # Create extension header
             data_cards = make_cards(keywords=["HIERARCH PYPE SFLAT NSOURCES",
                                               "HIERARCH PYPE SFLAT STD"],
-                                    values=[len(flx_scale_sources), np.round(np.nanstd(flx_scale_sources), decimals=2)],
+                                    values=[nn, np.round(np.nanstd(fscl), decimals=2)],
                                     comments=["Number of sources used", "Standard deviation in relative flux"])
 
             data_headers.append(fits.Header(cards=data_cards))
