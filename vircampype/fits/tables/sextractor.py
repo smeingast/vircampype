@@ -792,7 +792,8 @@ class SextractorCatalogs(SourceCatalogs):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-    def get_zeropoints(self):
+    @property
+    def mean_zeropoints(self):
         """
         Reads ZPs from file headers.
 
@@ -808,15 +809,11 @@ class SextractorCatalogs(SourceCatalogs):
 
         """
 
-        zps = self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
-        print(zps)
+        # Get master ZP files
+        master = self.get_master_zeropoint()
 
-        exit()
-
-        try:
-            return self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
-        except KeyError:
-            raise KeyError("Zero points not found in all headers")
+        # Return Mean ZP and ZPerr
+        return master.zp_mean, master.zperr_mean
 
     @property
     def flux_scale(self):
@@ -830,7 +827,7 @@ class SextractorCatalogs(SourceCatalogs):
         """
 
         # Convert ZPs to dummy flux
-        df = 10**(np.array(self.get_zeropoints()[0]) / -2.5)
+        df = 10**(np.array(self.mean_zeropoints[0]) / -2.5)
 
         # Scale to mean flux (not to mean magnitude)
         return (df / np.mean(df)).tolist()
@@ -846,11 +843,12 @@ class SextractorCatalogs(SourceCatalogs):
             List of lists for default flux scaling (1.0)
 
         """
-        return (np.array(self.flux_scale()) / np.array(self.flux_scale())).tolist()
+        return (np.array(self.flux_scale) / np.array(self.flux_scale)).tolist()
 
     # =========================================================================== #
     # QC
     # =========================================================================== #
+    # TODO: Fix this with new method
     def plot_qc_photometry(self, axis_size=4):
 
         # Import
