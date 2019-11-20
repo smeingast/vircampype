@@ -715,8 +715,8 @@ class MasterSuperflat(MasterImages):
 
             for idx_hdu in range(len(self.data_hdu[idx_file])):
 
-                im = ax_file[idx_hdu].imshow(cube[idx_hdu], vmin=0.9, vmax=1.1,
-                                             cmap=get_cmap("RdYlBu_r", 20), origin="lower")
+                im = ax_file[idx_hdu].imshow(cube[idx_hdu], vmin=0.85, vmax=1.15,
+                                             cmap=get_cmap("RdYlBu_r", 30), origin="lower")
 
                 # Add colorbar
                 cbar = plt.colorbar(mappable=im, cax=cax, orientation="horizontal", label="Relative Flux")
