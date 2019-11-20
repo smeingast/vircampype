@@ -815,6 +815,27 @@ class SextractorCatalogs(SourceCatalogs):
         # Return Mean ZP and ZPerr
         return master.zp_mean, master.zperr_mean
 
+    def zeropoint_diam(self, diameter):
+        """
+        Fetches the zero points for a given aperture diameter.
+
+        Parameters
+        ----------
+        diameter : str
+            Aperture diameter.
+
+        Returns
+        -------
+        iterable
+            List of lists.
+
+        """
+
+        # Get master ZP files
+        master = self.get_master_zeropoint()
+
+        return master.zp_diameter(diameter=diameter), master.zperr_diameter(diameter=diameter)
+
     @property
     def flux_scale(self):
         """
