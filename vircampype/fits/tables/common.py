@@ -46,6 +46,24 @@ class FitsTables(FitsFiles):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
+    def get_master_zeropoint(self):
+        """
+        Get for each file in self the corresponding MasterGain table.
+
+        Returns
+        -------
+        MasterZeroPoint
+            MasterZeroPoint instance holding for each file in self the corresponding MasterZeroPoint table.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self.get_master_tables().zeropoint,
+                              max_lag=0.001)
+
+    # =========================================================================== #
+    # I/O
+    # =========================================================================== #
     def filehdu2table(self, file_index, hdu_index):
         """
         Extracts columns from a FITS table in and FitsTables instance.
