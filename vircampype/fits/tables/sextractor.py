@@ -536,6 +536,17 @@ class SextractorCatalogs(SourceCatalogs):
         # Return
         return mag_aper, mag_apc, skycoord
 
+    _master_zeropoint = None
+
+    @property
+    def master_zeropoint(self):
+
+        if self._master_zeropoint is not None:
+            return self._master_zeropoint
+
+        self._master_zeropoint = self.get_master_zeropoint()
+        return self._master_zeropoint
+
     # =========================================================================== #
     # Superflat
     # =========================================================================== #
@@ -809,11 +820,8 @@ class SextractorCatalogs(SourceCatalogs):
 
         """
 
-        # Get master ZP files
-        master = self.get_master_zeropoint()
-
         # Return Mean ZP and ZPerr
-        return master.zp_mean, master.zperr_mean
+        return self.master_zeropoint.zp_mean, self.master_zeropoint.zperr_mean
 
     def zeropoint_diam(self, diameter):
         """
@@ -831,10 +839,8 @@ class SextractorCatalogs(SourceCatalogs):
 
         """
 
-        # Get master ZP files
-        master = self.get_master_zeropoint()
-
-        return master.zp_diameter(diameter=diameter), master.zperr_diameter(diameter=diameter)
+        return (self.master_zeropoint.zp_diameter(diameter=diameter),
+                self.master_zeropoint.zperr_diameter(diameter=diameter))
 
     @property
     def flux_scale(self):
