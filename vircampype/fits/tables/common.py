@@ -216,7 +216,7 @@ class MasterTables(FitsTables):
         # Import
         from vircampype.fits.tables.linearity import MasterLinearity
 
-        # Get the masterbpm files
+        # Get the masterlinearity files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-LINEARITY"]
 
         return MasterLinearity(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
@@ -235,10 +235,29 @@ class MasterTables(FitsTables):
         # Import
         from vircampype.fits.tables.gain import MasterGain
 
-        # Get the masterbpm files
+        # Get the mastergain files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-GAIN"]
 
         return MasterGain(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def zeropoint(self):
+        """
+        Holds all MasterZeroPoint tables.
+
+        Returns
+        -------
+        MasterZeroPoint
+            All MasterZeroPoint tables as a MasterZeroPoint instance.
+
+        """
+        # Import
+        from vircampype.fits.tables.zeropoint import MasterZeroPoint
+
+        # Get the mastergain files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-ZEROPOINT"]
+
+        return MasterZeroPoint(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
 
     @property
     def photometry(self):
@@ -255,7 +274,7 @@ class MasterTables(FitsTables):
         # Import
         from vircampype.fits.tables.sources import MasterPhotometry, MasterPhotometry2Mass
 
-        # Get the masterbpm files
+        # Get the masterphotometry files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
 
         # Return photometry catalog
