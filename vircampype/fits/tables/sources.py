@@ -190,6 +190,7 @@ class SourceCatalogs(FitsTables):
 
         """
 
+        # Import
         from astropy.coordinates import SkyCoord
 
         if key_ra is None:
