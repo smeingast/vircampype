@@ -540,6 +540,15 @@ class SextractorCatalogs(SourceCatalogs):
 
     @property
     def master_zeropoint(self):
+        """
+        Fetches the master zero point file for each file in self.
+
+        Returns
+        -------
+        MasterZeroPoint
+            MasterZeroPoint instance.
+
+        """
 
         if self._master_zeropoint is not None:
             return self._master_zeropoint
