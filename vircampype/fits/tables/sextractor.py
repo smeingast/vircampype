@@ -1093,34 +1093,6 @@ class SextractorCatalogs(SourceCatalogs):
     # Properties
     # =========================================================================== #
     @property
-    def _aperture_eval(self):
-        """
-        Constructs list of apertures from setup.
-
-        Returns
-        -------
-        iterable
-            List of apertures.
-        """
-        return str2list(s=self.setup["photometry"]["apcor_diam_eval"], sep=",", dtype=float)
-
-    @property
-    def _apertures_save(self):
-        """
-        Constructs list of apertures from setup.
-
-        Returns
-        -------
-        iterable
-            List of apertures.
-        """
-        return str2list(s=self.setup["photometry"]["apcor_diam_save"], sep=",", dtype=float)
-
-    @property
-    def _aperture_save_idx(self):
-        return [[i for i, x in enumerate(self._aperture_eval) if x == b][0] for b in self._apertures_save]
-
-    @property
     def data_hdu(self):
         """
         Overrides the normal table data_hdu property because Sextractor is special...
