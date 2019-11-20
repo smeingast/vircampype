@@ -366,62 +366,6 @@ class SextractorCatalogs(SourceCatalogs):
             fig.savefig(path, bbox_inches="tight")
         plt.close("all")
 
-    def add_aperture_correction(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
-
-        # Construct aperture corrections dict
-        apc_self = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
-
-        # Loop over each file
-        for idx_cat_file in range(len(self)):
-
-            # Load current hdulist
-            with fits.open(self.full_paths[idx_cat_file], mode="update") as chdulist:
-
-                # Check if aperture correction has already been added
-                done = True
-                for i, cname in zip(self.data_hdu[idx_cat_file], self._colnames_apc):
-                    if cname not in chdulist[i].data.names:
-                        done = False
-                if done:
-                    print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
-                    continue
-
-                # Get aperture corrections for current file
-                apc_file = [apc[idx_cat_file] for apc in apc_self]
-
-                # Get SkyCoord of current file
-                skycoord_file = self.skycoord()[idx_cat_file]
-
-                # Loop over detectors
-                for idx_cat_hdu, idx_apc_hdu, skycoord_hdu in \
-                        zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], skycoord_file):
-
-                    # Print info
-                    message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
-                                        d_current=idx_apc_hdu, d_total=len(self.data_hdu[idx_cat_file]))
-
-                    # Get columns for current HDU
-                    ccolumns = chdulist[idx_cat_hdu].data.columns
-
-                    # Loop over different apertures
-                    new_cols = fits.ColDefs([])
-                    for apc, cname in zip(apc_file, self._colnames_apc):
-
-                        # Extract aperture correction from image
-                        a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-
-                        # Add as new column for each source
-                        new_cols.add_col(fits.Column(name=cname, format="E", array=a))
-
-                    # Replace HDU from input catalog
-                    chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
     # =========================================================================== #
     # Magnitudes
     # =========================================================================== #
@@ -431,7 +375,7 @@ class SextractorCatalogs(SourceCatalogs):
         return ["MAG_APC_{0}".format(d) for d in self._apertures_save]
 
     @property
-    def _colnames_aper_cal(self):
+    def _colnames_aper(self):
         """ Constructor for column names for aperture corrections. """
         return ["MAG_APER_{0}".format(d) for d in self._apertures_save]
 
@@ -505,6 +449,40 @@ class SextractorCatalogs(SourceCatalogs):
         """
         return self.get_column_file(idx_file=idx_file, column_name="MAGERR_APER")
 
+    def mag_aper_dict_file(self, idx_file):
+        """
+        Constructs a dictionary for all aperture magnitudes (those that will be saved) for a given file.
+
+        Parameters
+        ----------
+        idx_file : int
+            File index in self.
+
+        Returns
+        -------
+        dict
+            Dictionary of aperture magnitudes.
+
+        """
+
+        # Get aperture magnitudes for given file
+        mag_aper_file = self.mag_aper_file(idx_file=idx_file)
+
+        # Loop over aperture diameters
+        mag_aper_dict_file = {}
+        for idx_apc, cname in zip(self._aperture_save_idx, self._colnames_aper):
+
+            # Make empty list for current aperture
+            mag_aper_dict_file[cname] = []
+
+            # Loop over HDUs and append aperture magnitudes
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                mag_aper_dict_file[cname].append(mag_aper_file[idx_hdu][:, idx_apc])
+
+        # return filled dictionary
+        return mag_aper_dict_file
+
     _mag_apc_dict = None
 
     @property
@@ -528,7 +506,12 @@ class SextractorCatalogs(SourceCatalogs):
 
     def mag_apc_dict_file(self, idx_file):
         """
-        Reads all aperture corrections from files for each extension and each source.
+        Reads all aperture corrections from a given file for each extension and each source.
+
+        Parameters
+        ----------
+        idx_file : int
+            File index in self.
 
         Returns
         -------
@@ -543,6 +526,7 @@ class SextractorCatalogs(SourceCatalogs):
         return {d: mag for d, mag in zip(self._colnames_apc, temp)}
 
     def _get_columns_zp_method_file(self, idx_file, key_ra=None, key_dec=None):
+        """ Convenience method for ZP calculation. """
 
         # Import
         from astropy.coordinates import SkyCoord
@@ -584,6 +568,65 @@ class SextractorCatalogs(SourceCatalogs):
 
         self._master_zeropoint = self.get_master_zeropoint()
         return self._master_zeropoint
+
+    # =========================================================================== #
+    # Catalog modifications
+    # =========================================================================== #
+    def add_aperture_correction(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
+
+        # Construct aperture corrections dict
+        apc_self = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
+
+        # Loop over each file
+        for idx_cat_file in range(len(self)):
+
+            # Load current hdulist
+            with fits.open(self.full_paths[idx_cat_file], mode="update") as chdulist:
+
+                # Check if aperture correction has already been added
+                done = True
+                for i, cname in zip(self.data_hdu[idx_cat_file], self._colnames_apc):
+                    if cname not in chdulist[i].data.names:
+                        done = False
+                if done:
+                    print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
+                    continue
+
+                # Get aperture corrections for current file
+                apc_file = [apc[idx_cat_file] for apc in apc_self]
+
+                # Get SkyCoord of current file
+                skycoord_file = self.skycoord()[idx_cat_file]
+
+                # Loop over detectors
+                for idx_cat_hdu, idx_apc_hdu, skycoord_hdu in \
+                        zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], skycoord_file):
+
+                    # Print info
+                    message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
+                                        d_current=idx_apc_hdu, d_total=len(self.data_hdu[idx_cat_file]))
+
+                    # Get columns for current HDU
+                    ccolumns = chdulist[idx_cat_hdu].data.columns
+
+                    # Loop over different apertures
+                    new_cols = fits.ColDefs([])
+                    for apc, cname in zip(apc_file, self._colnames_apc):
+
+                        # Extract aperture correction from image
+                        a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+
+                        # Add as new column for each source
+                        new_cols.add_col(fits.Column(name=cname, format="E", array=a))
+
+                    # Replace HDU from input catalog
+                    chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Superflat
