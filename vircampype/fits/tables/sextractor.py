@@ -440,22 +440,6 @@ class SextractorCatalogs(SourceCatalogs):
         self._mag_aper = self.get_columns(column_name="MAG_APER")
         return self._mag_aper
 
-    def mag_aper_file(self, idx_file):
-        """
-        Returns fixed aperture photometry for a given file.
-
-        Parameters
-        ----------
-        idx_file : int
-            Index of file in current instance
-
-        Returns
-        -------
-            List of aperture magnitudes for each data extension in given file.
-
-        """
-        return self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
-
     _magerr_aper = None
 
     @property
@@ -474,6 +458,38 @@ class SextractorCatalogs(SourceCatalogs):
 
         self._magerr_aper = self.get_columns(column_name="MAGERR_APER")
         return self._magerr_aper
+
+    def mag_aper_file(self, idx_file):
+        """
+        Returns fixed aperture photometry for a given file.
+
+        Parameters
+        ----------
+        idx_file : int
+            Index of file in current instance.
+
+        Returns
+        -------
+            List of aperture magnitudes for each data extension in given file.
+
+        """
+        return self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
+
+    def magerr_aper_file(self, idx_file):
+        """
+        Returns errors for fixed aperture photometry for a given file.
+
+        Parameters
+        ----------
+        idx_file : int
+            Index of file in current instance.
+
+        Returns
+        -------
+            List of aperture magnitude errors for each data extension in given file.
+
+        """
+        return self.get_column_file(idx_file=idx_file, column_name="MAGERR_APER")
 
     _mag_apc_dict = None
 
@@ -495,6 +511,29 @@ class SextractorCatalogs(SourceCatalogs):
         for d in self._apertures_save:
             self._mag_apc_dict[d] = self.get_columns(column_name="MAG_APC_{0}".format(d))
         return self._mag_apc_dict
+
+    def _get_columns_zp_method_file(self, idx_file, key_ra=None, key_dec=None):
+
+        # Import
+        from astropy.coordinates import SkyCoord
+
+        # Select default RA/DEC keys
+        if key_ra is None:
+            key_ra = self._key_ra
+        if key_dec is None:
+            key_dec = self._key_dec
+
+        # Construct column names to extract from file
+        cn = ["MAG_APER", key_ra, key_dec] + ["MAG_APC_{0}".format(d) for d in self._apertures_save]
+
+        # Extract all data at once from file
+        mag_aper, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
+
+        # Build skycoord
+        skycoord = [SkyCoord(ra=r, dec=d, frame="icrs", unit="deg") for r, d in zip(ra, dec)]
+
+        # Return
+        return mag_aper, mag_apc, skycoord
 
     # =========================================================================== #
     # Superflat
@@ -659,14 +698,8 @@ class SextractorCatalogs(SourceCatalogs):
             # Force reloading header
             self.delete_headers_temp(file_index=idx)
 
-    # TODO: Speed zp!
-    def get_zeropoints(self):
-
-        # Check if zeropoints have been determined already
-        try:
-            return self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
-        except KeyError:
-            pass
+    def build_master_zeropoint(self):
+        """ Build ZPs. """
 
         # Processing info
         tstart = message_mastercalibration(master_type="ZERO POINTS", silent=self.setup["misc"]["silent"])
@@ -688,6 +721,9 @@ class SextractorCatalogs(SourceCatalogs):
             master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
             master_skycoord = master_photometry.skycoord()[0][0][mkeep]
 
+            # Load aperture magnitudes, aperture corrections, and skycoords together from file
+            mag_aper_file, mag_apc_file, skycoord_file = self._get_columns_zp_method_file(idx_file=idx_file)
+
             # Loop over extensions
             zp_avg, zperr_avg = [], []
             for idx_hdu, idx_file_hdu in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
@@ -697,18 +733,19 @@ class SextractorCatalogs(SourceCatalogs):
                                     d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
                                     silent=self.setup["misc"]["silent"])
 
-                # Fetch magnitudes and aperture corrections
-                # TODO: Perhaps write new method: mag_aper_file to speed this up on the first iteration
-                mags = [self.mag_aper[idx_file][idx_hdu][:, idx_apc] for idx_apc in self._aperture_save_idx]
-                apcs = [self.mag_apc_dict[d][idx_file][idx_hdu] for d in self._apertures_save]
+                # Fetch aperture magnitudes and aperture corrections for current HDU
+                mags = [mag_aper_file[idx_hdu][:, idx_apc] for idx_apc in self._aperture_save_idx]
+                apcs = [mag[idx_hdu] for mag in mag_apc_file]
 
                 # Apply aperture correction to magnitudes
                 mags = [m + a for m, a in zip(mags, apcs)]
 
                 # Get zeropoints for each aperture
                 zp_values, zperr_values = [], []
+
                 for m in mags:
-                    zp, zperr = get_zeropoint(skycoo_cal=self.skycoord()[idx_file][idx_hdu], mag_cal=m,
+                    # TODO: This here does the same sky match for all apertures...
+                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], mag_cal=m,
                                               mag_limits_ref=master_photometry.mag_lim,
                                               skycoo_ref=master_skycoord, mag_ref=master_mag)
                     zp_values.append(float(str(np.round(zp, decimals=4))))      # This forces only 4 decimals to appear
@@ -722,6 +759,8 @@ class SextractorCatalogs(SourceCatalogs):
                 k = self._zp_keys + self._zperr_keys + [self._zp_avg_key, self._zperr_avg_key]
                 v = zp_values + zperr_values + [zp_avg[-1], zperr_avg[-1]]
                 c = self._zp_comments + self._zperr_comments + [self._zp_avg_comment, self._zperr_avg_comment]
+
+                # TODO: Perhaps write ZPs to separate MASTER-ZP table
                 add_keys_hdu(path=self.full_paths[idx_file], hdu=idx_file_hdu, keys=k, values=v, comments=c)
 
                 # Force reloading header after this temporary header
@@ -741,6 +780,26 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Return ZPs
         return zp_avg_catalogs, zperr_avg_catalogs
+
+    def get_zeropoints(self):
+        """
+        Reads ZPs from file headers.
+
+        Returns
+        -------
+        iterable
+            List of lists containing ZPs
+
+        Raises
+        ------
+        KeyError
+            When ZPs not found
+
+        """
+        try:
+            return self.dataheaders_get_keys(keywords=[self._zp_avg_key, self._zperr_avg_key])
+        except KeyError:
+            raise KeyError("Zero points not found in all headers")
 
     @property
     def flux_scale(self):
