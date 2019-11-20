@@ -9,6 +9,7 @@ from astropy.time import Time
 from vircampype.utils import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
+from vircampype.fits.tables.zeropoint import MasterZeroPoint
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -712,14 +713,20 @@ class SextractorCatalogs(SourceCatalogs):
         """ Build ZPs. """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="ZERO POINTS", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="MASTER ZERO POINT", silent=self.setup["misc"]["silent"])
 
         # Get master photometry catalog
         master_photometry = self.get_master_photometry()
 
         # Loop over catalogs
-        zp_avg_catalogs, zperr_avg_catalogs = [], []
         for idx_file in range(len(self)):
+
+            # Create master dark name
+            outpath = self.path_master_object + "MASTER-ZEROPOINT_{0}.fits".format(self.file_names[idx_file])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
 
             # Fetch filter of current catalog
             filter_catalog = self.filter[idx_file]
@@ -735,7 +742,8 @@ class SextractorCatalogs(SourceCatalogs):
             mag_aper_file, mag_apc_file, skycoord_file = self._get_columns_zp_method_file(idx_file=idx_file)
 
             # Loop over extensions
-            zp_avg, zperr_avg = [], []
+            zp_hdu = {diam_apc: [] for diam_apc in self._apertures_save}
+            zperr_hdu = {diam_apc: [] for diam_apc in self._apertures_save}
             for idx_hdu, idx_file_hdu in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
 
                 # Message
@@ -743,53 +751,45 @@ class SextractorCatalogs(SourceCatalogs):
                                     d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
                                     silent=self.setup["misc"]["silent"])
 
-                # Fetch aperture magnitudes and aperture corrections for current HDU
-                mags = [mag_aper_file[idx_hdu][:, idx_apc] for idx_apc in self._aperture_save_idx]
-                apcs = [mag[idx_hdu] for mag in mag_apc_file]
+                # Compute final magnitudes
+                mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_apc] + apc[idx_hdu]
+                        for idx_apc, diam_apc, apc in zip(self._aperture_save_idx, self._apertures_save, mag_apc_file)}
 
-                # Apply aperture correction to magnitudes
-                mags = [m + a for m, a in zip(mags, apcs)]
-
-                # Get zeropoints for each aperture
-                zp_values, zperr_values = [], []
-
-                for m in mags:
-                    # TODO: This here does the same sky match for all apertures...
-                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], mag_cal=m,
+                # TODO: This here does the same sky match for all apertures...
+                for diam_apc in self._apertures_save:
+                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], mag_cal=mags[diam_apc],
                                               mag_limits_ref=master_photometry.mag_lim,
                                               skycoo_ref=master_skycoord, mag_ref=master_mag)
-                    zp_values.append(float(str(np.round(zp, decimals=4))))      # This forces only 4 decimals to appear
-                    zperr_values.append(float(str(np.round(zperr, decimals=4))))  # in headers
+                    zp_hdu[diam_apc].append(zp)
+                    zperr_hdu[diam_apc].append(zperr)
 
-                # Get averages across apertures
-                zp_avg.append(float(str(np.round(np.mean(zp_values), decimals=4))))
-                zperr_avg.append(float(str(np.round(np.std(zp_values), decimals=4))))
+            # Make header cards
+            prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
+                                               self.setup["keywords"]["object"], self.setup["keywords"]["filter"],
+                                               "HIERARCH PYPE ZP FILE"],
+                                     values=[self.mjd_mean, self.time_obs_mean,
+                                             "MASTER-ZEROPOINT", self.filter[idx_file],
+                                             self.base_names[idx_file]])
+            prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
 
-                # Add ZP data to header
-                k = self._zp_keys + self._zperr_keys + [self._zp_avg_key, self._zperr_avg_key]
-                v = zp_values + zperr_values + [zp_avg[-1], zperr_avg[-1]]
-                c = self._zp_comments + self._zperr_comments + [self._zp_avg_comment, self._zperr_avg_comment]
+            # Create table HDU for output
+            cols = [fits.Column(name="ZP_{0}".format(apc_diam), format="E", array=zp_hdu[apc_diam])
+                    for apc_diam in self._apertures_save] + \
+                   [fits.Column(name="ZPERR_{0}".format(apc_diam), format="E", array=zperr_hdu[apc_diam])
+                    for apc_diam in self._apertures_save]
+            tbhdu = fits.TableHDU.from_columns(cols)
+            thdulist = fits.HDUList([prhdu, tbhdu])
 
-                # TODO: Perhaps write ZPs to separate MASTER-ZP table
-                add_keys_hdu(path=self.full_paths[idx_file], hdu=idx_file_hdu, keys=k, values=v, comments=c)
-
-                # Force reloading header after this temporary header
-                self.delete_headers_temp(file_index=idx_file)
-
-            # Append all average ZPs for current file
-            zp_avg_catalogs.append(zp_avg)
-            zperr_avg_catalogs.append(zperr_avg)
+            # Write
+            # thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
+            thdulist.writeto(fileobj=outpath, overwrite=True)
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                path_plot = "{0}{1}.zp.pdf".format(self.path_qc_photometry, self.file_names[idx_file])
-                plot_value_detector(values=zp_avg, errors=zperr_avg, path=path_plot)
+                MasterZeroPoint(setup=self.setup, file_paths=outpath).qc_plot_zp(overwrite=True)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return ZPs
-        return zp_avg_catalogs, zperr_avg_catalogs
 
     def get_zeropoints(self):
         """
