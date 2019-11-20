@@ -58,8 +58,7 @@ class FitsTables(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().zeropoint,
-                              max_lag=0.001)
+        return self.match_mjd(match_to=self.get_master_tables().zeropoint, max_lag=0.001)
 
     # =========================================================================== #
     # I/O
