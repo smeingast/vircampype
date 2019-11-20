@@ -382,8 +382,8 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Check if aperture correction has already been added
                 done = True
-                for i, d in zip(self.data_hdu[idx_cat_file], self._apertures_save):
-                    if not "MAG_APC_{0}".format(d) in chdulist[i].data.names:
+                for i, cname in zip(self.data_hdu[idx_cat_file], self._colnames_apc):
+                    if cname not in chdulist[i].data.names:
                         done = False
                 if done:
                     print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
@@ -408,13 +408,13 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Loop over different apertures
                     new_cols = fits.ColDefs([])
-                    for apc, d in zip(apc_file, self._apertures_save):
+                    for apc, cname in zip(apc_file, self._colnames_apc):
 
                         # Extract aperture correction from image
                         a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
 
                         # Add as new column for each source
-                        new_cols.add_col(fits.Column(name="MAG_APC_{0}".format(d), format="E", array=a))
+                        new_cols.add_col(fits.Column(name=cname, format="E", array=a))
 
                     # Replace HDU from input catalog
                     chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
@@ -492,6 +492,11 @@ class SextractorCatalogs(SourceCatalogs):
         """
         return self.get_column_file(idx_file=idx_file, column_name="MAGERR_APER")
 
+    @property
+    def _colnames_apc(self):
+        """ Constructor for column names for aperture corrections. """
+        return ["MAG_APC_{0}".format(d) for d in self._apertures_save]
+
     _mag_apc_dict = None
 
     @property
@@ -509,8 +514,8 @@ class SextractorCatalogs(SourceCatalogs):
             return self._mag_apc_dict
 
         self._mag_apc_dict = {}
-        for d in self._apertures_save:
-            self._mag_apc_dict[d] = self.get_columns(column_name="MAG_APC_{0}".format(d))
+        for d, cname in zip(self._apertures_save, self._colnames_apc):
+            self._mag_apc_dict[d] = self.get_columns(column_name=cname)
         return self._mag_apc_dict
 
     def _get_columns_zp_method_file(self, idx_file, key_ra=None, key_dec=None):
