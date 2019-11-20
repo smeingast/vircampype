@@ -722,7 +722,8 @@ class SextractorCatalogs(SourceCatalogs):
         for idx_file in range(len(self)):
 
             # Create master dark name
-            outpath = self.path_master_object + "MASTER-ZEROPOINT_{0}.fits".format(self.file_names[idx_file])
+            outpath = self.path_master_object + \
+                      "MASTER-ZEROPOINT.MJD_{0}.fits.tab".format(np.round(self.mjd[idx_file], decimals=4))
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
@@ -747,7 +748,7 @@ class SextractorCatalogs(SourceCatalogs):
             for idx_hdu, idx_file_hdu in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
 
                 # Message
-                message_calibration(n_current=idx_file+1, n_total=len(self), name=self.full_paths[idx_file],
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath,
                                     d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
                                     silent=self.setup["misc"]["silent"])
 
