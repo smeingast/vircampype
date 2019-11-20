@@ -422,6 +422,19 @@ class SextractorCatalogs(SourceCatalogs):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
+    # =========================================================================== #
+    # Magnitudes
+    # =========================================================================== #
+    @property
+    def _colnames_apc(self):
+        """ Constructor for column names for aperture corrections. """
+        return ["MAG_APC_{0}".format(d) for d in self._apertures_save]
+
+    @property
+    def _colnames_aper_cal(self):
+        """ Constructor for column names for aperture corrections. """
+        return ["MAG_APER_{0}".format(d) for d in self._apertures_save]
+
     _mag_aper = None
 
     @property
@@ -491,11 +504,6 @@ class SextractorCatalogs(SourceCatalogs):
 
         """
         return self.get_column_file(idx_file=idx_file, column_name="MAGERR_APER")
-
-    @property
-    def _colnames_apc(self):
-        """ Constructor for column names for aperture corrections. """
-        return ["MAG_APC_{0}".format(d) for d in self._apertures_save]
 
     _mag_apc_dict = None
 
