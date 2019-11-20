@@ -45,7 +45,7 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
         yrange = [np.min(values) - np.std(values), np.max(values) + np.std(values)]
 
     if errors is not None:
-        yrange[0], yrange[1] = yrange[0] - np.max(errors) / 2, yrange[1] + np.max(errors) / 2
+        yrange = yrange[0] - np.max(errors) / 2, yrange[1] + np.max(errors) / 2
 
     # Create figure
     fig, ax = plt.subplots(nrows=1, ncols=1, **{"figsize": [axis_size, axis_size * 0.6]})
