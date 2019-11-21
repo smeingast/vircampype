@@ -726,6 +726,35 @@ class FitsFiles:
         # Return List
         return split_list
 
+    def split_values(self, values):
+        """
+        Split self based on some given value. The length of the value iterable must match the length of self.
+
+        Parameters
+        ----------
+        values : iterable
+            Some value list or array. Unique entries will be split into different instances.
+
+        Returns
+        -------
+        List
+            List holding individual FitsFiles instance based on determined splits.
+
+        """
+
+        if len(self) != len(values):
+            raise ValueError("Split value must be provided for every file in self.")
+
+        # Get split indices for unique parameters
+        split_indices = [[i for i, j in enumerate(values) if j == u] for u in list(set(values))]
+
+        split_list = []
+        for s_idx in split_indices:
+            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[idx] for idx in s_idx]))
+
+        # Return List
+        return split_list
+
     # =========================================================================== #
     # Matcher
     # =========================================================================== #
