@@ -130,7 +130,7 @@ def sigma_clip(data, kappa=3, ikappa=1, center_metric=np.nanmedian, axis=0):
     ----------
     data : ndarray
         Input data.
-    kappa : int, optional
+    kappa : int, float, optional
         kappa-factor (e.g. 3-sigma).
     ikappa : int, optional
         Number of iterations.
