@@ -267,12 +267,10 @@ class SourceCatalogs(FitsTables):
             # Coadd mode
             if len(self) == 1:
                 fig, ax_all = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
-                bins = (30, 30)
                 ax_all = [ax_all]
             else:
                 fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
                 ax_all = ax_all.ravel()
-                bins = (5, 5)
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
             # Loop over extensions
@@ -294,18 +292,17 @@ class SourceCatalogs(FitsTables):
                 keep = sep.arcsec < 0.5
                 sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
 
+                # Grid value into image
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, naxis1=500, naxis2=500, conv=True)
+
                 # Append separations in arcsec
                 sep_all.append(sep.arcsec)
 
-                hist_num, xedges, yedges = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=None, normed=False)
-                hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=bins, weights=sep.arcsec, normed=False)
-                extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-
-                im = ax_all[idx_hdu].imshow(hist_sep / hist_num, vmin=0, vmax=0.5, extent=extent, cmap="Spectral_r")
-
-                # Show average offset angle
-                # hist_sep, *_ = np.histogram2d(x_hdu, y_hdu, bins=(5, 5), weights=ang.degree, normed=False)
-                # im = ax.imshow(hist_sep / hist_num, vmin=0, vmax=360, cmap="jet")
+                # Draw
+                kwargs = {"vmin": 0, "vmax": 0.5, "cmap": "Spectral_r"}
+                extent = [np.nanmin(x_hdu), np.nanmax(x_hdu), np.nanmin(y_hdu), np.nanmax(y_hdu)]
+                im = ax_all[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
+                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.arcsec, s=7, lw=0.5, ec="black", **kwargs)
 
                 # Annotate detector ID
                 ax_all[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
@@ -330,8 +327,8 @@ class SourceCatalogs(FitsTables):
                 ax_all[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
 
                 # Left limit
-                ax_all[idx_hdu].set_xlim(left=0)
-                ax_all[idx_hdu].set_ylim(bottom=0)
+                ax_all[idx_hdu].set_xlim(extent[0], extent[1])
+                ax_all[idx_hdu].set_ylim(extent[2], extent[3])
 
             # Add colorbar
             cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
