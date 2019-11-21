@@ -1133,12 +1133,10 @@ class SextractorCatalogs(SourceCatalogs):
             # Coadd mode
             if len(self) == 1:
                 fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
-                bins = (20, 20)
                 ax_file = [ax_file]
             else:
                 fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
                 ax_file = ax_file.ravel()
-                bins = (4, 4)
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
             im = None
@@ -1160,19 +1158,18 @@ class SextractorCatalogs(SourceCatalogs):
                     warnings.simplefilter("ignore")
                     zp_hdu = sigma_clip(zp_hdu, masked=True, sigma=3, maxiters=2).filled(np.nan)
 
-                hist_num, xedges, yedges = np.histogram2d(y_file[idx_hdu][np.isfinite(zp_hdu)],
-                                                          x_file[idx_hdu][np.isfinite(zp_hdu)],
-                                                          bins=bins, weights=None, normed=False)
-                hist_zp, xedges, yedges = np.histogram2d(y_file[idx_hdu][np.isfinite(zp_hdu)],
-                                                         x_file[idx_hdu][np.isfinite(zp_hdu)],
-                                                         bins=bins, weights=zp_hdu[np.isfinite(zp_hdu)], normed=False)
-                extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+                # Apply filter
+                fil = np.isfinite(zp_hdu)
+                x_hdu, y_hdu, zp_hdu = x_file[idx_hdu][fil], y_file[idx_hdu][fil], zp_hdu[fil]
 
-                kwargs = {"vmin": np.nanmedian(zp_hdu) - 0.25, "vmax": np.nanmedian(zp_hdu) + 0.25,
-                          "cmap": get_cmap("RdYlBu", 20)}
-                im = ax_file[idx_hdu].imshow(hist_zp / hist_num, extent=extent, origin="lower", **kwargs)
-                ax_file[idx_hdu].scatter(x_file[idx_hdu], y_file[idx_hdu], c=zp_hdu, s=10,
-                                         lw=0.1, edgecolor="black", **kwargs)
+                # Grid value into image
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500)
+
+                # Draw
+                kwargs = {"vmin": np.median(zp_hdu)-0.2, "vmax": np.median(zp_hdu)+0.2, "cmap": get_cmap("RdYlBu", 20)}
+                extent = [np.nanmin(x_hdu), np.nanmax(x_hdu), np.nanmin(y_hdu), np.nanmax(y_hdu)]
+                im = ax_file[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
+                ax_file[idx_hdu].scatter(x_hdu, y_hdu, c=zp_hdu, s=7, lw=0.5, ec="black", **kwargs)
 
                 # Annotate detector ID
                 ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
@@ -1197,10 +1194,8 @@ class SextractorCatalogs(SourceCatalogs):
                 ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
 
                 # Set limits
-                ax_file[idx_hdu].set_xlim(np.nanmin(x_file[idx_hdu][np.isfinite(zp_hdu)]),
-                                          np.nanmax(x_file[idx_hdu][np.isfinite(zp_hdu)]))
-                ax_file[idx_hdu].set_ylim(np.nanmin(y_file[idx_hdu][np.isfinite(zp_hdu)]),
-                                          np.nanmax(y_file[idx_hdu][np.isfinite(zp_hdu)]))
+                ax_file[idx_hdu].set_xlim(np.min(x_hdu), np.max(x_hdu))
+                ax_file[idx_hdu].set_ylim(np.min(y_hdu), np.max(y_hdu))
 
             # Add colorbar
             cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
