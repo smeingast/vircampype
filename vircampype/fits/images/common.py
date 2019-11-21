@@ -486,7 +486,7 @@ class FitsImages(FitsFiles):
 
         """
         return self.match_filter(match_to=self.get_master_images().superflat,
-                                 max_lag=self.setup["master"]["max_lag_superflat"] / 24.)
+                                 max_lag=self.setup["master"]["max_lag_superflat"] / 1440.)
 
     # =========================================================================== #
     # Master tables
