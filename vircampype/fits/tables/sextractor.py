@@ -879,8 +879,7 @@ class SextractorCatalogs(SourceCatalogs):
         for idx_file in range(len(self)):
 
             # Create master dark name
-            outpath = self.path_master_object + \
-                      "MASTER-ZEROPOINT.MJD_{0}.fits.tab".format(np.round(self.mjd[idx_file], decimals=4))
+            outpath = self.path_master_object + "MASTER-ZEROPOINT.MJD_{0:11.5f}.fits.tab".format(self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
