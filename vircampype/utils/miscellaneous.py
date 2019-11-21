@@ -18,7 +18,7 @@ from astropy.stats import sigma_clipped_stats
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry"]
+           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry", "copy_file"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -112,6 +112,10 @@ def remove_file(path):
         os.remove(path)
     except OSError:
         pass
+
+
+def copy_file(a, b):
+    shutil.copy2(a, b)
 
 
 def make_folder(path):
