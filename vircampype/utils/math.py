@@ -1010,7 +1010,7 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-def grid_value_2d(x, y, value, naxis1, naxis2, conv=True, method="cubic"):
+def grid_value_2d(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=True, kernel_scale=0.1, method="cubic"):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1026,8 +1026,14 @@ def grid_value_2d(x, y, value, naxis1, naxis2, conv=True, method="cubic"):
         X size of final grid.
     naxis2 : int
         Y size of final grid.
+    ngx : int, optional
+        Initial grid size in x.
+    ngy : int, optional.
+        Initial grid size in y.
     conv : bool, optional
         If set, convolve the grid before resampling to final size.
+    kernel_scale : float, optional
+        Convolution kernel scale relative to initial grid size.
     method : {"linear", "nearest", "cubic"}, optional
         Method of interpolation.
 
@@ -1042,14 +1048,15 @@ def grid_value_2d(x, y, value, naxis1, naxis2, conv=True, method="cubic"):
     good = np.isfinite(x) & np.isfinite(y) & np.isfinite(value)
 
     # Make grid
-    xg, yg = np.meshgrid(np.linspace(min(x[good]), max(x[good]), 50), np.linspace(min(y), max(y), 50))
+    xg, yg = np.meshgrid(np.linspace(min(x[good]), max(x[good]), ngx), np.linspace(min(y), max(y), ngy))
 
     # Map ZPs onto grid
     gridded = griddata(np.stack([x[good], y[good]], axis=1), value[good], (xg, yg), method=method)
 
     # Smooth
     if conv:
-        gridded = convolve(gridded, kernel=Gaussian2DKernel(x_stddev=5), boundary="extend")
+        gridded = convolve(gridded, kernel=Gaussian2DKernel(x_stddev=np.mean([ngx, ngy]) * kernel_scale),
+                           boundary="extend")
 
     # Rescale to original image
     return np.array(Image.fromarray(gridded).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
