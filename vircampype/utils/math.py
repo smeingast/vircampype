@@ -1010,7 +1010,7 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-def grid_value_2d(x, y, value, naxis1, naxis2, conv=True):
+def grid_value_2d(x, y, value, naxis1, naxis2, conv=True, method="cubic"):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1028,6 +1028,8 @@ def grid_value_2d(x, y, value, naxis1, naxis2, conv=True):
         Y size of final grid.
     conv : bool, optional
         If set, convolve the grid before resampling to final size.
+    method : {"linear", "nearest", "cubic"}, optional
+        Method of interpolation.
 
     Returns
     -------
@@ -1043,7 +1045,7 @@ def grid_value_2d(x, y, value, naxis1, naxis2, conv=True):
     xg, yg = np.meshgrid(np.linspace(min(x[good]), max(x[good]), 50), np.linspace(min(y), max(y), 50))
 
     # Map ZPs onto grid
-    gridded = griddata(np.stack([x[good], y[good]], axis=1), value[good], (xg, yg), method="cubic")
+    gridded = griddata(np.stack([x[good], y[good]], axis=1), value[good], (xg, yg), method=method)
 
     # Smooth
     if conv:
