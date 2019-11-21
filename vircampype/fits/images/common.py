@@ -151,7 +151,7 @@ class FitsImages(FitsFiles):
 
         Returns
         -------
-        List
+        iterable
             List with paths for each file.
         """
         return ["{0}{1}.proc{2}".format(self.path_processed, n, e) for n, e
@@ -164,11 +164,25 @@ class FitsImages(FitsFiles):
 
         Returns
         -------
-        List
+        iterable
             List with paths for each file.
         """
         return ["{0}{1}.sf{2}".format(self.path_superflatted, n, e) for n, e
                 in zip(self.file_names, self.file_extensions)]
+
+    @property
+    def _paths_aheaders(self):
+        """
+        Generates path for aheads (if any).
+
+        Returns
+        -------
+        iterable
+            List with aheader paths.
+
+        """
+
+        return [x.replace(".fits", ".ahead") for x in self.full_paths]
 
     @property
     def pixel_scale(self):
@@ -696,6 +710,9 @@ class FitsImages(FitsFiles):
         tstart = message_mastercalibration(master_type="APPLYING SUPERFLAT",
                                            silent=self.setup["misc"]["silent"], right="")
 
+        # Build paths for aheaders (need to be copied too for resampling)
+        path_aheaders = [x.replace(".fits", ".ahead") for x in self.paths_superflatted]
+
         # Fetch superflat for each image in self
         superflats = self.get_master_superflat()
 
@@ -729,6 +746,9 @@ class FitsImages(FitsFiles):
             # Write back to disk
             cube_self.write_mef(self.paths_superflatted[idx_file], prime_header=self.headers_primary[idx_file],
                                 data_headers=self.headers_data[idx_file])
+
+            # Copy aheader for swarping
+            copy_file(self._paths_aheaders[idx_file], path_aheaders[idx_file])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
