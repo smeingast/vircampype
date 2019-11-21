@@ -915,11 +915,9 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Make header cards
             prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], self.setup["keywords"]["filter"],
-                                               "HIERARCH PYPE ZP FILE"],
+                                               self.setup["keywords"]["object"], self.setup["keywords"]["filter"]],
                                      values=[self.mjd[idx_file], self.time_obs[idx_file],
-                                             "MASTER-ZEROPOINT", self.filter[idx_file],
-                                             self.base_names[idx_file]])
+                                             "MASTER-ZEROPOINT", self.filter[idx_file]])
             prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
 
             # Create table HDU for output
