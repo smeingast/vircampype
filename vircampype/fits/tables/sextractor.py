@@ -628,6 +628,63 @@ class SextractorCatalogs(SourceCatalogs):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
+    def add_calibrated_photometry(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="ADDING CALIBRATED PHOTOMETRY",
+                                           silent=self.setup["misc"]["silent"])
+
+        # Fetch zero points
+        master_zp = self.master_zeropoint
+
+        for idx_file in range(len(self)):
+
+            # Read aperture magnitudes
+            mag_aper_file = self.mag_aper_dict_file(idx_file=idx_file)
+            mag_apc_file = self.mag_apc_dict_file(idx_file=idx_file)
+
+            # Load current hdulist
+            with fits.open(self.full_paths[idx_file], mode="update") as chdulist:
+
+                # Check if aperture correction has already been added
+                done = True
+                for i, cname in zip(self.data_hdu[idx_file], self._colnames_aper):
+                    if cname not in chdulist[i].data.names:
+                        done = False
+                if done:
+                    print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_file]) + BColors.ENDC)
+                    continue
+
+                # Loop over HDUs
+                for idx_hdu, idx_hdu_file in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
+
+                    # Print info
+                    message_calibration(n_current=idx_file + 1, n_total=len(self), name=self.file_names[idx_file],
+                                        d_current=idx_hdu + 1, d_total=len(self.data_hdu[idx_file]))
+
+                    # Empy ColDefs for columns to be added
+                    new_cols = fits.ColDefs([])
+
+                    # Loop over aperture diameters
+                    for apc_name, aper_name, diam in zip(self._colnames_apc, self._colnames_aper, self._apertures_save):
+
+                        # Compute final magnitude
+                        mag_final = mag_aper_file[aper_name][idx_hdu] + \
+                                    mag_apc_file[apc_name][idx_hdu] + \
+                                    master_zp.zp_diameter(diameter=diam)[idx_file][idx_hdu]
+
+                        # Add as new column
+                        new_cols.add_col(fits.Column(name=aper_name, format="E", array=mag_final, unit="mag"))
+
+                    # Get columns for current HDU
+                    ccolumns = chdulist[idx_hdu_file].data.columns
+
+                    # Add new columns
+                    chdulist[idx_hdu_file] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
     # =========================================================================== #
     # Superflat
     # =========================================================================== #
