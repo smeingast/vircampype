@@ -528,12 +528,14 @@ class FitsFiles:
 
     @property
     def time_obs(self):
+
         # Check if already determined
         if self._time_obs is not None:
             return self._time_obs
         else:
             pass
-        self._time_obs = Time(self.primeheaders_get_keys([self.setup["keywords"]["date_ut"]])[0], scale="utc")
+        self._time_obs = Time(self.primeheaders_get_keys([self.setup["keywords"]["date_mjd"]])[0],
+                              scale="utc", format="mjd")
 
         return self._time_obs
 
