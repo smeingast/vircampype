@@ -1287,7 +1287,8 @@ class SextractorCatalogs(SourceCatalogs):
         else:
             pass
 
-        self._time_obs = Time([hdr[0][self.setup["keywords"]["date_ut"]] for hdr in self.image_headers])
+        self._time_obs = Time([hdr[0][self.setup["keywords"]["date_mjd"]]
+                               for hdr in self.image_headers], scale="utc", format="mjd")
         return self._time_obs
 
     # =========================================================================== #
