@@ -477,7 +477,7 @@ class FitsImages(FitsFiles):
 
     def get_master_superflat(self):
         """
-        Get for all files in self the corresponding MasterSuperflat.
+        Get for all files in self the corresponding MasterSuperflat (split by minutes from setup).
 
         Returns
         -------
