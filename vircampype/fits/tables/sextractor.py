@@ -1011,7 +1011,7 @@ class SextractorCatalogs(SourceCatalogs):
     # =========================================================================== #
     # QC
     # =========================================================================== #
-    def plot_qc_photometry(self, axis_size=4):
+    def plot_qc_photometry(self, axis_size=4, mode="pawprint"):
 
         # Import
         from astropy.units import Unit
@@ -1163,7 +1163,14 @@ class SextractorCatalogs(SourceCatalogs):
                 x_hdu, y_hdu, zp_hdu = x_file[idx_hdu][fil], y_file[idx_hdu][fil], zp_hdu[fil]
 
                 # Grid value into image
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500)
+                if mode == "pawprint":
+                    ngx, ngy, kernel_scale = 50, 50, 0.1
+                elif mode == "tile":
+                    ngx, ngy, kernel_scale = 200, 200, 0.05
+                else:
+                    raise ValueError("Mode '{0}' not supported".format(mode))
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500,
+                                     ngx=ngx, ngy=ngy, kernel_scale=kernel_scale)
 
                 # Draw
                 kwargs = {"vmin": np.median(zp_hdu)-0.2, "vmax": np.median(zp_hdu)+0.2, "cmap": get_cmap("RdYlBu", 20)}
