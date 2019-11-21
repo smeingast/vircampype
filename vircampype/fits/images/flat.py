@@ -692,7 +692,7 @@ class MasterSuperflat(MasterImages):
     def flx_std(self):
         return self.dataheaders_get_keys(keywords=["HIERARCH PYPE SFLAT STD"])[0]
 
-    def qc_plot_msf(self, paths=None, axis_size=4):
+    def qc_plot_superflat(self, paths=None, axis_size=4):
 
         # Import
         import matplotlib.pyplot as plt
