@@ -49,19 +49,38 @@ if science is None:
 # =========================================================================== #
 # Process raw science
 # =========================================================================== #
-calibrated = science.process_raw()
+processed = science.process_raw()
+
+
+# =========================================================================== #
+# Run sextractor on calibrated files with scamp preset
+# =========================================================================== #
+sources_processed = processed.sextractor(preset="scamp")
 
 
 # =========================================================================== #
 # Calibrate astrometry
 # =========================================================================== #
-fwhms = calibrated.calibrate_astrometry(return_fwhm=True)
+fwhms = processed.calibrate_astrometry(return_fwhm=True)
+
+
+# =========================================================================== #
+# Superflat
+# =========================================================================== #
+# Run sextractor with superflat preset
+sources_superflatted = processed.sextractor(preset="superflat", prefix="sf")
+
+# Build superflat
+sources_superflatted.build_master_superflat()
+
+# Apply superflat
+superflatted = processed.apply_superflat()
 
 
 # =========================================================================== #
 # Resample original files
 # =========================================================================== #
-swarped = calibrated.resample_pawprints()
+swarped = superflatted.resample_pawprints()
 
 
 # =========================================================================== #
@@ -71,44 +90,52 @@ swarped.build_master_photometry()
 
 
 # =========================================================================== #
-# Run Sextractor on processed pawprints
+# Run Sextractor on resampled pawprints
 # =========================================================================== #
-sextractor = swarped.sextractor(preset="full", seeing_fwhm=fwhms)
+swarped_sources = swarped.sextractor(preset="full", seeing_fwhm=fwhms)
 
 
 # =========================================================================== #
 # Check astrometry
 # =========================================================================== #
-sextractor.plot_qc_astrometry()
+swarped_sources.plot_qc_astrometry()
 
 
 # =========================================================================== #
-# Build and coadd aperture correction
+# Aperture correction
 # =========================================================================== #
-apc = sextractor.build_aperture_correction()
+apc = swarped_sources.build_aperture_correction()
 apc.coadd_apcor()
 
-
-# =========================================================================== #
 # Add aperture correction to catalogs
-# =========================================================================== #
-sextractor.add_aperture_correction()
+swarped_sources.add_aperture_correction()
 
 
 # =========================================================================== #
-# Determine zero points and write flux scale to header
+# Determine zero points and write data to files
 # =========================================================================== #
-sextractor.get_zeropoints()
+swarped_sources.build_master_zeropoint()
+
+# Add calibrated photometry to source tables
+swarped_sources.add_calibrated_photometry()
 
 # Write ZPs as flux scale into headers of swarped images
-swarped.add_dataheader_key(key="FLXSCALE", values=sextractor.flux_scale)
+swarped.add_dataheader_key(key="FLXSCALE", values=swarped_sources.flux_scale)
+
+
+# =========================================================================== #
+# Check photometry
+# =========================================================================== #
+swarped_sources.plot_qc_photometry()
 
 
 # =========================================================================== #
 # Generate ESO phase 3 compliant catalogs for pawprints
 # =========================================================================== #
-phase3_pp = sextractor.make_phase3_pawprints(swarped=swarped)
-fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+# phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
+# TODO: Check where these values are used
+# fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+# TODO: Should this not be PP?
 fwhm_pp_median = np.nanmedian(fwhms)
 
 
@@ -121,34 +148,43 @@ coadd = swarped.coadd_pawprints()
 # =========================================================================== #
 # Run sextractor on coadd
 # =========================================================================== #
-csextractor = coadd.sextractor(preset="full", seeing_fwhm=[fwhm_pp_median])
+coadd_sources = coadd.sextractor(preset="full", seeing_fwhm=[fwhm_pp_median])
 
 
 # =========================================================================== #
 # QC astrometry on coadd
 # =========================================================================== #
-csextractor.plot_qc_astrometry()
+coadd_sources.plot_qc_astrometry()
 
 
 # =========================================================================== #
 # Add aperture correction to header
 # =========================================================================== #
-csextractor.add_aperture_correction()
+coadd_sources.add_aperture_correction()
 
 
 # =========================================================================== #
-# Determine zero points
+# Determine zero points and write data to files
 # =========================================================================== #
-csextractor.get_zeropoints()
+coadd_sources.build_master_zeropoint()
+
+# Add calibrated photometry to source tables
+coadd_sources.add_calibrated_photometry()
+
+
+# =========================================================================== #
+# Check photometry
+# =========================================================================== #
+swarped_sources.plot_qc_photometry()
 
 
 # =========================================================================== #
 # Make phase 3 catalog
-csextractor.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
+# coadd_sources.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
 
 # =========================================================================== #
 # Compress phase 3 files
-images.compress_phase3()
+# images.compress_phase3()
 
 # Done
 print_done(obj=images.setup["paths"]["name"])
