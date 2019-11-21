@@ -413,10 +413,23 @@ class MasterPhotometry2Mass(MasterPhotometry):
         else:
             raise ValueError("Filter '{0}' not defined".format(key))
 
+    @staticmethod
+    def _key2idx(key):
+        """ Helper to return filter index for flags. """
+        if "j" in key.lower():
+            return 0
+        elif "h" in key.lower():
+            return 1
+        elif "k" in key.lower():
+            return 2
+        else:
+            raise ValueError("Filter '{0}' not defined".format(key))
+
     __qflag = None
 
     @property
     def _qflags(self):
+        """ Reads quality flag column from catalog. """
 
         if self.__qflag is not None:
             return self.__qflag
@@ -425,15 +438,21 @@ class MasterPhotometry2Mass(MasterPhotometry):
         return self.__qflag
 
     def qflags(self, key):
+        """ Return Quality flag for given filter. """
+        return [[[x[self._key2idx(key=key)] for x in y] for y in z] for z in self._qflags]
 
-        if "j" in key.lower():
-            idx = 0
-        elif "h" in key.lower():
-            idx = 1
-        elif "k" in key.lower():
-            idx = 2
-        else:
-            raise ValueError("Filter '{0}' not defined".format(key))
+    __cflag = None
 
-        # Return Quality flag for given filter
-        return [[[x[idx] for x in y] for y in z] for z in self._qflags]
+    @property
+    def _cflags(self):
+        """ Reads contamintation and confusion flag column from catalog. """
+
+        if self.__cflag is not None:
+            return self.__cflag
+
+        self.__cflag = self.get_columns(column_name="Cflg")
+        return self.__cflag
+
+    def cflags(self, key):
+        """ Return contamination and confusion flag for given filter. """
+        return [[[x[self._key2idx(key=key)] for x in y] for y in z] for z in self._cflags]
