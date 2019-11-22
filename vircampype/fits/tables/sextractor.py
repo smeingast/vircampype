@@ -712,7 +712,7 @@ class SextractorCatalogs(SourceCatalogs):
         for files, fidx in zip(split, range(1, len(split) + 1)):
 
             # Create master dark name
-            outpath = self.path_master_object + "MASTER-SUPERFLAT_{0:10.4f}.fits".format(files.mjd_mean)
+            outpath = self.path_master_object + "MASTER-SUPERFLAT_{0:11.5f}.fits".format(files.mjd_mean)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
