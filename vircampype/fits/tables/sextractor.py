@@ -895,7 +895,11 @@ class SextractorCatalogs(SourceCatalogs):
             filter_catalog = self.filter[idx_file]
 
             # Filter master catalog for good data
-            mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
+            mkeep_qfl = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_photometry.cflags(key=filter_catalog)[0][0]]
+
+            # Combine quality and contamination flag
+            mkeep = mkeep_qfl and mkeep_cfl
 
             # Fetch magnitude and coordinates for master catalog
             master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
