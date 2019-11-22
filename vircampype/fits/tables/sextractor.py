@@ -821,8 +821,6 @@ class SextractorCatalogs(SourceCatalogs):
                 msf = MasterSuperflat(setup=self.setup, file_paths=outpath)
                 msf.qc_plot_superflat(paths=None, axis_size=5)
 
-            exit()
-
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
