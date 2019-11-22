@@ -722,7 +722,11 @@ class SextractorCatalogs(SourceCatalogs):
             filter_catalog = files.filter[0]
 
             # Filter master catalog for good data
-            mkeep = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
+            mkeep_qfl = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_photometry.cflags(key=filter_catalog)[0][0]]
+
+            # Combine quality and contamination flag
+            mkeep = mkeep_qfl and mkeep_cfl
 
             # Fetch magnitude and coordinates for master catalog
             master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
@@ -765,7 +769,7 @@ class SextractorCatalogs(SourceCatalogs):
                 zp = sigma_clip(zp, kappa=2.5, ikappa=5)
 
                 # Grid values to detector size array
-                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, ngx=100, ngy=100, kernel_scale=0.1,
+                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, ngx=50, ngy=50, kernel_scale=0.1,
                                         naxis1=self.setup["data"]["dim_x"], naxis2=self.setup["data"]["dim_y"])
 
                 # Convert to flux scale
@@ -816,6 +820,8 @@ class SextractorCatalogs(SourceCatalogs):
             if self.setup["misc"]["qc_plots"]:
                 msf = MasterSuperflat(setup=self.setup, file_paths=outpath)
                 msf.qc_plot_superflat(paths=None, axis_size=5)
+
+            exit()
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
