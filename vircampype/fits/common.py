@@ -121,6 +121,12 @@ class FitsFiles:
             for path in paths_obj:
                 make_folder(path=path)
 
+        # Only single threads for python are allowed at the moment
+        if self.setup["misc"]["n_threads_python"] != 1:
+            raise SetupError(BColors.FAIL + "Multiple threads in Python are not supported at the moment, "
+                                            "'n_threads_python' = " "{0}".format(self.setup["misc"]["n_threads_python"])
+                             + BColors.ENDC)
+
         # Generate paths
         self._header_paths = ["{0}{1}.header".format(self.path_headers, x) for x in self.base_names]
 
