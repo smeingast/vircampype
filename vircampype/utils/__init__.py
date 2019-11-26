@@ -7,3 +7,5 @@ from .plots import *
 from .system import *
 from .vizier import *
 from .wcs import *
+from .exceptions import *
+
