@@ -1179,9 +1179,9 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Grid value into image
                 if mode == "pawprint":
-                    ngx, ngy, kernel_scale = 50, 50, 0.1
+                    ngx, ngy, kernel_scale = 50, 50, 0.2
                 elif mode == "tile":
-                    ngx, ngy, kernel_scale = 200, 200, 0.05
+                    ngx, ngy, kernel_scale = 200, 200, 0.1
                 else:
                     raise ValueError("Mode '{0}' not supported".format(mode))
                 grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500,
