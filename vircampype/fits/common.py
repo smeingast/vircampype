@@ -4,6 +4,7 @@ import os
 import glob
 import pickle
 import numpy as np
+import multiprocessing
 
 from astropy.io import fits
 from astropy.time import Time
@@ -44,7 +45,10 @@ class FitsFiles:
         if not isinstance(self.file_paths, list):
             raise ValueError("file_paths must be non-empty list")
 
-        # Simple paths and properties
+        # Check setup
+        self.__check_setup()
+
+        # Paths and properties
         self.base_names = [os.path.basename(x) for x in self.file_paths]
         self.file_names = [os.path.splitext(x)[0] for x in self.base_names]
         self.file_extensions = [os.path.splitext(x)[1] for x in self.base_names]
@@ -121,14 +125,28 @@ class FitsFiles:
             for path in paths_obj:
                 make_folder(path=path)
 
-        # Only single threads for python are allowed at the moment
-        if self.setup["misc"]["n_threads_python"] != 1:
-            raise SetupError(BColors.FAIL + "Multiple threads in Python are not supported at the moment, "
-                                            "'n_threads_python' = " "{0}".format(self.setup["misc"]["n_threads_python"])
-                             + BColors.ENDC)
-
         # Generate paths
         self._header_paths = ["{0}{1}.header".format(self.path_headers, x) for x in self.base_names]
+
+    # =========================================================================== #
+    # Setup check
+    # =========================================================================== #
+    def __check_setup(self):
+        """ Makes some consitency checks in setup. """
+
+        # Only single threads for python are allowed at the moment
+        if self.setup["misc"]["n_threads_python"] != 1:
+            raise SetupError(BColors.FAIL +
+                             "Multiple threads in Python are not supported at the moment, "
+                             "'n_threads_python' = " "{0}".format(self.setup["misc"]["n_threads_python"])
+                             + BColors.ENDC)
+
+        # Also raise error when more threads than available are requested
+        if self.setup["misc"]["n_threads_shell"] > multiprocessing.cpu_count():
+            raise SetupError(BColors.FAIL +
+                             "More threads reuqested than available. {0} > {1}"
+                             "".format(self.setup["misc"]["n_threads_shell"], multiprocessing.cpu_count())
+                             + BColors.ENDC)
 
     # =========================================================================== #
     #   Magic methods
