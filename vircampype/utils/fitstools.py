@@ -9,11 +9,11 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "table_kwargs_mag"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "kwargs_column_mag"]
 
 
 # Static definitions
-table_kwargs_mag = {"format": "1E", "disp": "F8.4", "unit": "mag"}
+kwargs_column_mag = {"format": "1E", "disp": "F8.4", "unit": "mag"}
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
