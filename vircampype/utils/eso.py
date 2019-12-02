@@ -2,9 +2,9 @@ import os
 import numpy as np
 
 from astropy.io import fits
+from vircampype.utils.fitstools import *
 from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats
-from vircampype.utils.fitstools import delete_keyword
 from vircampype.utils.miscellaneous import skycoo2visionsid, str2list
 
 
@@ -300,35 +300,45 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compre
         # Read aperture magnitudes and aperture corrections
         mag_aper = [data["MAG_APER"][:, aidx][keep] for aidx in mag_aper_idx]
         magerr_aper = [data["MAGERR_APER"][:, aidx][keep] for aidx in mag_aper_idx]
-        mag_apc = [data["MAG_APC_{0}".format(a)][keep] for a in apertures_save]
-        mag_zp = [sheader["PYPE MAGZP {0}".format(i+1)] for i in range(len(apertures_save))]
+        mag_apc = [data["MAG_APC_{0}".format(idx+1)][keep] for idx in range(len(apertures_save))]
+        mag_zp = [sheader["PYPE MAGZP {0}".format(idx+1)] for idx in range(len(apertures_save))]
 
-        # Comput magnitudes
-        mags_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper, mag_apc, mag_zp)]
-        amag_final = np.array(mags_final)
-        mag_bad = (amag_final > 50.) | (amag_final < 0.)
-        amag_final[mag_bad] = np.nan
-        mags_final = amag_final.tolist()
+        # Compute magnitudes
+        mag_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper, mag_apc, mag_zp)]
+        amag_final = np.array(mag_final)
+
+        # Get bad values
+        amagerr_aper = np.array(magerr_aper)
+        mag_bad = (amag_final > 50.) | (amag_final < 0.) | (amagerr_aper > 2.) | (amagerr_aper < 0.)
+
+        # Mask bad values
+        amag_final[mag_bad], amagerr_aper[mag_bad] = np.nan, np.nan
+
+        # Convert back to lists
+        mag_final, magerr_final = amag_final.tolist(), amagerr_aper.tolist()
 
         # Create skycoord
-        skycoord = SkyCoord(ra=data["ALPHAWIN_J2000"][keep], dec=data["DELTAWIN_J2000"][keep],
-                            frame="icrs", equinox="J2000", unit="deg")
+        skycoord = SkyCoord(ra=data["ALPHAWIN_J2000"], dec=data["DELTAWIN_J2000"],
+                            frame="icrs", equinox="J2000", unit="deg")[keep]
 
         # Create fits columns
         col_id = fits.Column(name="ID", array=skycoo2visionsid(skycoord=skycoord), format="21A")
-        col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, format="D")
-        col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, format="D")
-        col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"][keep] * 3600, format="E")
-        col_flags = fits.Column(name="FLAGS", array=data["FLAGS"][keep], format="I")
-        col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"][keep], format="E")
-        col_elo = fits.Column(name="ELONGATION", array=data["ELONGATION"][keep], format="E")
-        col_class = fits.Column(name="CLASS", array=data["CLASS_STAR"][keep], format="E")
+        col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, **kwargs_column_coo)
+        col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **kwargs_column_coo)
+        col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"][keep] * 3600, **kwargs_column_fwhm)
+        col_flags = fits.Column(name="FLAGS", array=data["FLAGS"][keep], **kwargs_column_flags)
+        col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"][keep], **kwargs_column_el)
+        col_elo = fits.Column(name="ELONGATION", array=data["ELONGATION"][keep], **kwargs_column_el)
+        col_class = fits.Column(name="CLASS", array=data["CLASS_STAR"][keep], **kwargs_column_class)
 
         cols_mag = []
         # noinspection PyTypeChecker
-        for mag, magerr, i in zip(mags_final, magerr_aper, range(len(mags_final))):
-            cols_mag.append(fits.Column(name="MAG_APER_{0}".format(i+1), array=np.array(mag), format="E"))
-            cols_mag.append(fits.Column(name="MAGERR_APER_{0}".format(i+1), array=np.array(magerr), format="E"))
+        for mag, magerr, i in zip(mag_final, magerr_final, range(len(mag_final))):
+
+            cols_mag.append(fits.Column(name="MAG_APER_{0}".format(i+1), array=np.array(mag),
+                                        **kwargs_column_mag))
+            cols_mag.append(fits.Column(name="MAGERR_APER_{0}".format(i+1), array=np.array(magerr),
+                                        **kwargs_column_mag))
 
         # Remove keywords from header
         for kw in ["ORIGFILE"]:
