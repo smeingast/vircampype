@@ -645,9 +645,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Check if already modified
             try:
-                # TODO: USE _magzp methods here
-                kw = "HIERARCH PYPE MAGZP {0}".format(self._apertures_save[0])
-                self.dataheaders_get_keys(keywords=[kw], file_index=idx_file)
+                self.dataheaders_get_keys(keywords=self._zp_keys, file_index=idx_file)
                 print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_file]) + BColors.ENDC)
                 continue
 
@@ -673,7 +671,9 @@ class SextractorCatalogs(SourceCatalogs):
                     new_cols = fits.ColDefs([])
 
                     # Loop over aperture diameters
-                    for apc_name, aper_name, diam in zip(self._colnames_apc, self._colnames_aper, self._apertures_save):
+                    for apc_name, aper_name, diam, kw, ckw in \
+                            zip(self._colnames_apc, self._colnames_aper, self._apertures_save,
+                                self._zp_keys, self._zp_comments):
 
                         # Get ZP
                         zp = master_zp.zp_diameter(diameter=diam)[idx_file][idx_hdu]
@@ -685,7 +685,7 @@ class SextractorCatalogs(SourceCatalogs):
                         new_cols.add_col(fits.Column(name=aper_name, array=mag_final, **self._table_kwargs_mag))
 
                         # Add ZP to header
-                        cheader["HIERARCH PYPE MAGZP {0}".format(diam)] = np.round(zp, decimals=3)
+                        cheader[kw] = (np.round(zp, decimals=4), ckw)
 
                     # Add new columns and header
                     chdulist[idx_hdu_file] = fits.BinTableHDU.from_columns(ccolumns + new_cols, header=cheader)
