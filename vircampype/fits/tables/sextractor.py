@@ -951,10 +951,9 @@ class SextractorCatalogs(SourceCatalogs):
             prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
 
             # Create table HDU for output
-            # TODO: Fix units and disp here
-            cols = [fits.Column(name="ZP_{0}".format(apc_diam), format="E", array=zp_hdu[apc_diam])
+            cols = [fits.Column(name="ZP_{0}".format(apc_diam), array=zp_hdu[apc_diam], **self._table_kwargs_mag)
                     for apc_diam in self._apertures_save] + \
-                   [fits.Column(name="ZPERR_{0}".format(apc_diam), format="E", array=zperr_hdu[apc_diam])
+                   [fits.Column(name="ZPERR_{0}".format(apc_diam), array=zperr_hdu[apc_diam], **self._table_kwargs_mag)
                     for apc_diam in self._apertures_save]
             tbhdu = fits.TableHDU.from_columns(cols)
             thdulist = fits.HDUList([prhdu, tbhdu])
