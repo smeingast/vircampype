@@ -620,7 +620,7 @@ class SextractorCatalogs(SourceCatalogs):
                         a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
 
                         # Add as new column for each source
-                        new_cols.add_col(fits.Column(name=cname, format="E", array=a, unit="mag"))
+                        new_cols.add_col(fits.Column(name=cname, array=a, **self._table_kwargs_mag))
 
                     # Replace HDU from input catalog
                     chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
@@ -645,6 +645,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Check if already modified
             try:
+                # TODO: USE _magzp methods here
                 kw = "HIERARCH PYPE MAGZP {0}".format(self._apertures_save[0])
                 self.dataheaders_get_keys(keywords=[kw], file_index=idx_file)
                 print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_file]) + BColors.ENDC)
@@ -681,7 +682,7 @@ class SextractorCatalogs(SourceCatalogs):
                         mag_final = mag_aper_file[aper_name][idx_hdu] + mag_apc_file[apc_name][idx_hdu] + zp
 
                         # Add as new column
-                        new_cols.add_col(fits.Column(name=aper_name, format="E", array=mag_final, unit="mag"))
+                        new_cols.add_col(fits.Column(name=aper_name, array=mag_final, **self._table_kwargs_mag))
 
                         # Add ZP to header
                         cheader["HIERARCH PYPE MAGZP {0}".format(diam)] = np.round(zp, decimals=3)
@@ -838,6 +839,10 @@ class SextractorCatalogs(SourceCatalogs):
     # Zero points
     # =========================================================================== #
     @property
+    def _table_kwargs_mag(self):
+        return {"format": "1E", "disp": "F8.4", "unit": "mag"}
+
+    @property
     def _zp_keys(self):
         return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(self._apertures_save))]
 
@@ -946,6 +951,7 @@ class SextractorCatalogs(SourceCatalogs):
             prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
 
             # Create table HDU for output
+            # TODO: Fix units and disp here
             cols = [fits.Column(name="ZP_{0}".format(apc_diam), format="E", array=zp_hdu[apc_diam])
                     for apc_diam in self._apertures_save] + \
                    [fits.Column(name="ZPERR_{0}".format(apc_diam), format="E", array=zperr_hdu[apc_diam])
