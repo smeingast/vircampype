@@ -620,7 +620,7 @@ class SextractorCatalogs(SourceCatalogs):
                         a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
 
                         # Add as new column for each source
-                        new_cols.add_col(fits.Column(name=cname, array=a, **self._table_kwargs_mag))
+                        new_cols.add_col(fits.Column(name=cname, array=a, **table_kwargs_mag))
 
                     # Replace HDU from input catalog
                     chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
@@ -682,7 +682,7 @@ class SextractorCatalogs(SourceCatalogs):
                         mag_final = mag_aper_file[aper_name][idx_hdu] + mag_apc_file[apc_name][idx_hdu] + zp
 
                         # Add as new column
-                        new_cols.add_col(fits.Column(name=aper_name, array=mag_final, **self._table_kwargs_mag))
+                        new_cols.add_col(fits.Column(name=aper_name, array=mag_final, **table_kwargs_mag))
 
                         # Add ZP to header
                         cheader[kw] = (np.round(zp, decimals=4), ckw)
@@ -839,10 +839,6 @@ class SextractorCatalogs(SourceCatalogs):
     # Zero points
     # =========================================================================== #
     @property
-    def _table_kwargs_mag(self):
-        return {"format": "1E", "disp": "F8.4", "unit": "mag"}
-
-    @property
     def _zp_keys(self):
         return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(self._apertures_save))]
 
@@ -951,9 +947,9 @@ class SextractorCatalogs(SourceCatalogs):
             prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
 
             # Create table HDU for output
-            cols = [fits.Column(name="ZP_{0}".format(apc_diam), array=zp_hdu[apc_diam], **self._table_kwargs_mag)
+            cols = [fits.Column(name="ZP_{0}".format(apc_diam), array=zp_hdu[apc_diam], **table_kwargs_mag)
                     for apc_diam in self._apertures_save] + \
-                   [fits.Column(name="ZPERR_{0}".format(apc_diam), array=zperr_hdu[apc_diam], **self._table_kwargs_mag)
+                   [fits.Column(name="ZPERR_{0}".format(apc_diam), array=zperr_hdu[apc_diam], **table_kwargs_mag)
                     for apc_diam in self._apertures_save]
             tbhdu = fits.TableHDU.from_columns(cols)
             thdulist = fits.HDUList([prhdu, tbhdu])
