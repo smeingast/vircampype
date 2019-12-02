@@ -372,12 +372,12 @@ class SextractorCatalogs(SourceCatalogs):
     @property
     def _colnames_apc(self):
         """ Constructor for column names for aperture corrections. """
-        return ["MAG_APC_{0}".format(d) for d in self._apertures_save]
+        return ["MAG_APC_{0}".format(idx+1) for idx in range(len(self._apertures_save))]
 
     @property
     def _colnames_aper(self):
         """ Constructor for column names for aperture corrections. """
-        return ["MAG_APER_{0}".format(d) for d in self._apertures_save]
+        return ["MAG_APER_{0}".format(idx+1) for idx in range(len(self._apertures_save))]
 
     _mag_aper = None
 
@@ -620,7 +620,7 @@ class SextractorCatalogs(SourceCatalogs):
                         a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
 
                         # Add as new column for each source
-                        new_cols.add_col(fits.Column(name=cname, format="E", array=a))
+                        new_cols.add_col(fits.Column(name=cname, format="E", array=a, unit="mag"))
 
                     # Replace HDU from input catalog
                     chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
