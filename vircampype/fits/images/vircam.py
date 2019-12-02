@@ -439,6 +439,7 @@ class VircamScienceImages(ScienceImages):
 
     def coadd_pawprints(self, header=None):
 
+        # Import locally
         from vircampype.fits.images.sky import SkyImages
 
         # Processing info
