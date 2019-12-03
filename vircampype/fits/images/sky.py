@@ -515,8 +515,7 @@ class SkyImages(FitsImages):
                                       minarea=self.setup["sky"]["mask_sources_min_area"],
                                       maxarea=self.setup["sky"]["mask_sources_max_area"],
                                       mesh_size=self.setup["sky"]["background_mesh_size"],
-                                      mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"],
-                                      n_threads=self.setup["misc"]["n_threads_python"])
+                                      mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"])
 
                 # Determine median sky level in each plane
                 s, n = cube.background_planes()
