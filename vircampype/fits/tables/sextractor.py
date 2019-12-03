@@ -1481,7 +1481,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Convert to phase 3 compliant format
         make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
-                         paths_prov=prov_images.full_paths, setup=self.setup, outpath=path_tile,
+                         paths_prov=prov_images.full_paths, outpath=path_tile,
                          compressed=self.setup["compression"]["compress_phase3"])
 
         # There also has to be a weight map

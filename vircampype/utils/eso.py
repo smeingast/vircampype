@@ -369,7 +369,7 @@ def make_phase3_pawprints(path_swarped, path_sextractor, outpaths, compressed, a
 
 
 # noinspection DuplicatedCode
-def make_phase3_tile(path_swarped, path_sextractor, paths_prov, setup, outpath, compressed):
+def make_phase3_tile(path_swarped, path_sextractor, paths_prov, outpath, compressed):
 
     hdul_img = fits.open(path_swarped)
     hdul_sex = fits.open(path_sextractor)
@@ -404,15 +404,13 @@ def make_phase3_tile(path_swarped, path_sextractor, paths_prov, setup, outpath, 
     keep = data["FWHM_WORLD"] * 3600 > 0.1
 
     # Get aperture indices
-    apertures_eval = str2list(setup["photometry"]["apcor_diam_eval"], sep=",")
-    apertures_save = str2list(setup["photometry"]["apcor_diam_save"], sep=",")
-    mag_aper_idx = [[i for i, x in enumerate(apertures_eval) if x == b][0] for b in apertures_save]
+    mag_aper_idx = [[i for i, x in enumerate(apertures_all) if x == b][0] for b in apertures_out]
 
     # Read aperture magnitudes and aperture corrections
     mag_aper = [data["MAG_APER"][:, aidx][keep] for aidx in mag_aper_idx]
     magerr_aper = [data["MAGERR_APER"][:, aidx][keep] for aidx in mag_aper_idx]
-    mag_apc = [data["MAG_APC_{0}".format(a)][keep] for a in apertures_save]
-    mag_zp = [sheader["PYPE MAGZP {0}".format(i + 1)] for i in range(len(apertures_save))]
+    mag_apc = [data["MAG_APC_{0}".format(a)][keep] for a in apertures_out]
+    mag_zp = [sheader["PYPE MAGZP {0}".format(i + 1)] for i in range(len(apertures_out))]
 
     # Comput magnitudes
     mags_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper, mag_apc, mag_zp)]
