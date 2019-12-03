@@ -549,7 +549,7 @@ class ImageCube(object):
 
     def _sigma_clip(self, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian):
         """
-        Performs Kappa-sigma clipping on cube. Replaces all rejected values with NaN.
+        Performs sigma clipping on cube. Replaces all rejected values with NaN.
 
         Parameters
         ----------
