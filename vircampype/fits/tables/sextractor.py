@@ -777,7 +777,7 @@ class SextractorCatalogs(SourceCatalogs):
                                          mag_limits_ref=master_photometry.mag_lim, return_all=True)
 
                 # Sigma clip ZP array just to be sure
-                zp = sigma_clip(zp, kappa=2.5, ikappa=5)
+                zp = sigma_clip(zp, sigma_level=2.5, sigma_iter=5)
 
                 # Grid values to detector size array
                 grid_zp = grid_value_2d(x=xx, y=yy, value=zp, ngx=50, ngy=50, kernel_scale=0.1,

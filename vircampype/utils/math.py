@@ -122,7 +122,7 @@ def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
         idx += 1
 
 
-def sigma_clip(data, kappa=3, ikappa=1, center_metric=np.nanmedian, axis=0):
+def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
     """
     Performs sigma clipping of data.
 
@@ -130,9 +130,9 @@ def sigma_clip(data, kappa=3, ikappa=1, center_metric=np.nanmedian, axis=0):
     ----------
     data : ndarray
         Input data.
-    kappa : int, float, optional
-        kappa-factor (e.g. 3-sigma).
-    ikappa : int, optional
+    sigma_level : int, float, optional
+        Sigma level for clipping (e.g. 3-sigma).
+    sigma_iter : int, optional
         Number of iterations.
     center_metric : callable, optional
         Metric which calculates the center around which clipping occurs.
@@ -150,16 +150,16 @@ def sigma_clip(data, kappa=3, ikappa=1, center_metric=np.nanmedian, axis=0):
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-        for _ in range(ikappa):
+        for _ in range(sigma_iter):
 
             # Calculate center with given metric
             center = center_metric(data, axis=axis)
 
             # Calculate standard deviation
-            sigma = np.nanstd(data, axis=axis)
+            std = np.nanstd(data, axis=axis)
 
             # find values outside limits and set to NaN
-            data[(data > center + kappa * sigma) | (data < center - kappa * sigma)] = np.nan
+            data[(data > center + sigma_level * std) | (data < center - sigma_level * std)] = np.nan
 
     # Return the clipped array
     return data

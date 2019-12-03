@@ -563,7 +563,7 @@ class ImageCube(object):
         """
 
         # Perform sigma clipping along first axis
-        self.cube = sigma_clip(data=self.cube, kappa=kappa, ikappa=ikappa, center_metric=center_metric, axis=0)
+        self.cube = sigma_clip(data=self.cube, sigma_level=kappa, sigma_iter=ikappa, center_metric=center_metric, axis=0)
 
     def apply_masks(self, bpm=None, mask_min=False, mask_max=False, mask_below=None, mask_above=None,
                     sigma=None, iter_sigma=1):
@@ -626,7 +626,7 @@ class ImageCube(object):
         """
 
         for plane in self:
-            plane[:] = sigma_clip(data=plane, kappa=kappa, ikappa=ikappa, center_metric=np.nanmedian)
+            plane[:] = sigma_clip(data=plane, sigma_level=kappa, sigma_iter=ikappa, center_metric=np.nanmedian)
 
     # =========================================================================== #
     # Data manipulation
