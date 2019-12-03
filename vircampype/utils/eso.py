@@ -6,6 +6,7 @@ from vircampype.utils.fitstools import *
 from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats
 from vircampype.utils.miscellaneous import skycoo2visionsid, str2list
+from vircampype.setup import *
 
 
 def vega2ab(mag, fil):
