@@ -400,8 +400,12 @@ def make_phase3_tile(path_swarped, path_sextractor, paths_prov, outpath, compres
     # Get catalog data
     data, sheader = fits.getdata(filename=path_sextractor, ext=2, header=True)
 
-    # Filter bad sources
-    keep = data["FWHM_WORLD"] * 3600 > 0.1
+    # Get difference for first two corrected aperture magnitudes
+    mag_diff12 = data["MAG_APER_1"] - data["MAG_APER_2"]
+    fhwm_stars = np.nanmedian(data["FWHM_WORLD"][data["CLASS_STAR"] > 0.8])
+
+    # Filter bad sources (bad FWHM, and those that have a good mag growth and good FWHM)
+    keep = (mag_diff12 > -0.2) & (data["FWHM_WORLD"] * 3600 > fhwm_stars * 3600 - 0.3)
 
     # Get aperture indices
     mag_aper_idx = [[i for i, x in enumerate(apertures_all) if x == b][0] for b in apertures_out]
