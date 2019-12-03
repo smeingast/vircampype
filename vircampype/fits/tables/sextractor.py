@@ -183,10 +183,6 @@ class SextractorCatalogs(SourceCatalogs):
         tstart = message_mastercalibration(master_type="APERTURE CORRECTION", silent=self.setup["misc"]["silent"],
                                            right=None)
 
-        # Obtain diameters from setup and put the in list
-        diameters_eval = [float(x) for x in self.setup["photometry"]["apcor_diam_eval"].split(",")]
-        diameters_save = [float(x) for x in self.setup["photometry"]["apcor_diam_save"].split(",")]
-
         # Loop over catalogs and build aperture correction
         for idx in range(len(self)):
 
@@ -194,7 +190,7 @@ class SextractorCatalogs(SourceCatalogs):
             path_file = "{0}{1}.apcor.fits".format(self.path_apcor, self.file_names[idx])
             path_plot = "{0}{1}.apcor.pdf".format(self.path_qc_apcor, self.file_names[idx])
 
-            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(diameters_save[0])),
+            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(apertures_out[0])),
                                  silent=self.setup["misc"]["silent"]):
                 continue
 
@@ -210,7 +206,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Make output Apcor Image HDUlist
             hdulist_base = fits.HDUList(hdus=[fits.PrimaryHDU(header=self.headers_primary[idx].copy())])
-            hdulist_save = [hdulist_base.copy() for _ in range(len(diameters_save))]
+            hdulist_save = [hdulist_base.copy() for _ in range(len(apertures_out))]
 
             # Dummy check
             if len(tables) != len(headers):
@@ -235,23 +231,23 @@ class SextractorCatalogs(SourceCatalogs):
                 mag = mag[good, :]
 
                 # Obtain aperture correction from cleaned sample
-                ma_apcor, me_apcor, mo_apcor = get_aperture_correction(diameters=diameters_eval, magnitudes=mag,
+                ma_apcor, me_apcor, mo_apcor = get_aperture_correction(diameters=apertures_all, magnitudes=mag,
                                                                        func=self.setup["photometry"]["apcor_func"])
 
                 # Obtain aperture correction values for output
-                mag_apcor_save = mo_apcor(diameters_save)
+                mag_apcor_save = mo_apcor(apertures_out)
 
                 # Shrink image header
                 ohdr = resize_header(header=hdr, factor=self.setup["photometry"]["apcor_image_scale"])
 
                 # Loop over apertures and make HDUs
-                for aidx in range(len(diameters_save)):
+                for aidx in range(len(apertures_out)):
 
                     # Construct header to append
                     hdr_temp = ohdr.copy()
                     hdr_temp["NSRCAPC"] = (len(mag), "Number of sources used")
                     hdr_temp["APCMAG"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
-                    hdr_temp["APCDIAM"] = (diameters_save[aidx], "Aperture diameter (pix)")
+                    hdr_temp["APCDIAM"] = (apertures_out[aidx], "Aperture diameter (pix)")
                     hdr_temp["APCMODEL"] = (mo_apcor.name, "Aperture correction model name")
                     for i in range(len(mo_apcor.parameters)):
                         hdr_temp["APCMPAR{0}".format(i+1)] = (mo_apcor.parameters[i], "Model parameter {0}".format(i+1))
@@ -266,7 +262,7 @@ class SextractorCatalogs(SourceCatalogs):
                 models_apcor.append(mo_apcor)
 
             # Save aperture correction as MEF
-            for hdul, diams in zip(hdulist_save, diameters_save):
+            for hdul, diams in zip(hdulist_save, apertures_out):
 
                 # Write aperture correction diameter into primary header too
                 hdul[0].header["APCDIAM"] = (diams, "Aperture diameter (pix)")
@@ -278,7 +274,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                self.qc_plot_apcor(path=path_plot, diameters=diameters_eval, mag_apcor=mag_apcor,
+                self.qc_plot_apcor(path=path_plot, diameters=apertures_all, mag_apcor=mag_apcor,
                                    magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4, nsources=nsources,
                                    overwrite=self.setup["misc"]["overwrite"])
 
