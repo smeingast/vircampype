@@ -61,7 +61,7 @@ class FlatImages(FitsImages):
                 # Mask low and high absolute values
                 cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
 
-                # Kappa-sigma clipping per plane
+                # Sigma clipping per plane
                 cube.apply_masks_plane(sigma_level=self.setup["bpm"]["sigma_level"],
                                        sigma_iter=self.setup["bpm"]["sigma_iter"])
 
