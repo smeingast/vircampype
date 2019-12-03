@@ -547,15 +547,15 @@ class ImageCube(object):
         # Mask bad pixels with NaN
         self.cube[bpm.cube > 0] = np.nan
 
-    def _kappa_sigma(self, kappa=3, ikappa=1, center_metric=np.nanmedian):
+    def _sigma_clip(self, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian):
         """
         Performs Kappa-sigma clipping on cube. Replaces all rejected values with NaN.
 
         Parameters
         ----------
-        kappa : float, int, optional
-            kappa-factor (kappa * sigma clipping); default is 3.
-        ikappa : int, optional
+        sigma_level : float, int, optional
+            sigma level; default is 3.
+        sigma_iter : int, optional
             Number of iterations; default is 1.
         center_metric : callable, optional
             Metric to calculate the center of the data; default is np.nanmedian.
@@ -563,7 +563,7 @@ class ImageCube(object):
         """
 
         # Perform sigma clipping along first axis
-        self.cube = sigma_clip(data=self.cube, sigma_level=kappa, sigma_iter=ikappa,
+        self.cube = sigma_clip(data=self.cube, sigma_level=sigma_level, sigma_iter=sigma_iter,
                                center_metric=center_metric, axis=0)
 
     def apply_masks(self, bpm=None, mask_min=False, mask_max=False, mask_below=None, mask_above=None,
@@ -612,7 +612,7 @@ class ImageCube(object):
 
         # Sigma clipping
         if sigma_level is not None:
-            self._kappa_sigma(kappa=sigma_level, ikappa=sigma_iter, center_metric=np.nanmedian)
+            self._sigma_clip(sigma_level=sigma_level, sigma_iter=sigma_iter, center_metric=np.nanmedian)
 
     def apply_masks_plane(self, sigma_level, sigma_iter):
         """
