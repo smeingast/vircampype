@@ -7,6 +7,7 @@ import multiprocessing
 from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
+from vircampype.setup import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.fits.tables.zeropoint import MasterZeroPoint
@@ -372,12 +373,12 @@ class SextractorCatalogs(SourceCatalogs):
     @property
     def _colnames_apc(self):
         """ Constructor for column names for aperture corrections. """
-        return ["MAG_APC_{0}".format(idx+1) for idx in range(len(self._apertures_save))]
+        return ["MAG_APC_{0}".format(idx+1) for idx in range(len(apertures_out))]
 
     @property
     def _colnames_aper(self):
         """ Constructor for column names for aperture corrections. """
-        return ["MAG_APER_{0}".format(idx+1) for idx in range(len(self._apertures_save))]
+        return ["MAG_APER_{0}".format(idx+1) for idx in range(len(apertures_out))]
 
     _mag_aper = None
 
@@ -538,7 +539,8 @@ class SextractorCatalogs(SourceCatalogs):
             key_dec = self._key_dec
 
         # Construct column names to extract from file
-        cn = ["MAG_APER", key_ra, key_dec] + ["MAG_APC_{0}".format(d) for d in self._apertures_save]
+        # TODO: Can this be replace with "self._colnames_apc"?
+        cn = ["MAG_APER", key_ra, key_dec] + ["MAG_APC_{0}".format(d) for d in apertures_out]
 
         # Extract all data at once from file
         mag_aper, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
@@ -578,7 +580,7 @@ class SextractorCatalogs(SourceCatalogs):
         tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
 
         # Construct aperture corrections dict
-        apc_self = [self.get_aperture_correction(diameter=diam) for diam in self._apertures_save]
+        apc_self = [self.get_aperture_correction(diameter=diam) for diam in apertures_out]
 
         # Loop over each file
         for idx_cat_file in range(len(self)):
@@ -672,7 +674,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Loop over aperture diameters
                     for apc_name, aper_name, diam, kw, ckw in \
-                            zip(self._colnames_apc, self._colnames_aper, self._apertures_save,
+                            zip(self._colnames_apc, self._colnames_aper, apertures_out,
                                 self._zp_keys, self._zp_comments):
 
                         # Get ZP
@@ -840,19 +842,19 @@ class SextractorCatalogs(SourceCatalogs):
     # =========================================================================== #
     @property
     def _zp_keys(self):
-        return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(self._apertures_save))]
+        return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(apertures_out))]
 
     @property
     def _zp_comments(self):
-        return ["ZP for {0} pix aperture".format(d) for d in self._apertures_save]
+        return ["ZP for {0} pix aperture".format(d) for d in apertures_out]
 
     @property
     def _zperr_keys(self):
-        return ["HIERARCH PYPE MAGZPERR {0}".format(i + 1) for i in range(len(self._apertures_save))]
+        return ["HIERARCH PYPE MAGZPERR {0}".format(i + 1) for i in range(len(apertures_out))]
 
     @property
     def _zperr_comments(self):
-        return ["ZP error for {0} pix aperture".format(d) for d in self._apertures_save]
+        return ["ZP error for {0} pix aperture".format(d) for d in apertures_out]
 
     @property
     def _zp_avg_key(self):
@@ -918,8 +920,8 @@ class SextractorCatalogs(SourceCatalogs):
             mag_aper_file, mag_apc_file, skycoord_file = self._get_columns_zp_method_file(idx_file=idx_file)
 
             # Loop over extensions
-            zp_hdu = {diam_apc: [] for diam_apc in self._apertures_save}
-            zperr_hdu = {diam_apc: [] for diam_apc in self._apertures_save}
+            zp_hdu = {diam_apc: [] for diam_apc in apertures_out}
+            zperr_hdu = {diam_apc: [] for diam_apc in apertures_out}
             for idx_hdu, idx_file_hdu in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
 
                 # Message
@@ -929,10 +931,10 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Compute final magnitudes
                 mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_apc] + apc[idx_hdu]
-                        for idx_apc, diam_apc, apc in zip(self._aperture_save_idx, self._apertures_save, mag_apc_file)}
+                        for idx_apc, diam_apc, apc in zip(self._aperture_save_idx, apertures_out, mag_apc_file)}
 
                 # TODO: This here does the same sky match for all apertures...
-                for diam_apc in self._apertures_save:
+                for diam_apc in apertures_out:
                     zp, zperr = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], mag_cal=mags[diam_apc],
                                               mag_limits_ref=master_photometry.mag_lim,
                                               skycoo_ref=master_skycoord, mag_ref=master_mag)
@@ -948,9 +950,9 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Create table HDU for output
             cols = [fits.Column(name="ZP_{0}".format(apc_diam), array=zp_hdu[apc_diam], **kwargs_column_mag)
-                    for apc_diam in self._apertures_save] + \
+                    for apc_diam in apertures_out] + \
                    [fits.Column(name="ZPERR_{0}".format(apc_diam), array=zperr_hdu[apc_diam], **kwargs_column_mag)
-                    for apc_diam in self._apertures_save]
+                    for apc_diam in apertures_out]
             tbhdu = fits.TableHDU.from_columns(cols)
             thdulist = fits.HDUList([prhdu, tbhdu])
 
@@ -1073,7 +1075,7 @@ class SextractorCatalogs(SourceCatalogs):
             zps_file = zps_all[idx_file]
 
             # Fetch magnitudes and aperture corrections
-            apc_name, apc_idx = self._apertures_save[3], self._aperture_save_idx[3]
+            apc_name, apc_idx = apertures_out[3], self._aperture_save_idx[3]
             mag_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
             apc_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APC_{0}".format(apc_name))
 
