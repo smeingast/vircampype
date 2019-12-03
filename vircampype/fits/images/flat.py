@@ -62,8 +62,8 @@ class FlatImages(FitsImages):
                 cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
 
                 # Kappa-sigma clipping per plane
-                # TODO: Kappa should be named sigma across all methods...
-                cube.apply_masks_plane(kappa=self.setup["bpm"]["kappa"], ikappa=self.setup["bpm"]["ikappa"])
+                cube.apply_masks_plane(sigma_level=self.setup["bpm"]["sigma_level"],
+                                       sigma_iter=self.setup["bpm"]["sigma_iter"])
 
                 # Collapse cube with median
                 flat = cube.flatten(metric=str2func(self.setup["bpm"]["collapse_metric"]), axis=0)
@@ -309,7 +309,7 @@ class FlatImages(FitsImages):
                 # After flux scaling we can also safely apply the remaining masks
                 cube.apply_masks(mask_min=self.setup["flat"]["mask_min"], mask_max=self.setup["flat"]["mask_min"],
                                  mask_below=self.setup["flat"]["rel_lo"], mask_above=self.setup["flat"]["rel_hi"],
-                                 sigma=self.setup["flat"]["kappa"], iter_sigma=self.setup["flat"]["ikappa"])
+                                 sigma_level=self.setup["flat"]["kappa"], sigma_iter=self.setup["flat"]["ikappa"])
 
                 # Create weights if needed
                 if self.setup["flat"]["collapse_metric"] == "weighted":
