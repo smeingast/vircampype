@@ -9,6 +9,7 @@ import multiprocessing
 from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
+from vircampype.setup import *
 from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
 
 
@@ -686,7 +687,7 @@ class FitsFiles:
         lag = [a - b for a, b in zip(hour[1:], hour[:-1])]
 
         # Get the indices where the data is spread out over more than max_lag
-        split_indices = [i + 1 for l, i in zip(lag, range(len(lag))) if l > max_lag]
+        split_indices = [i + 1 for k, i in zip(lag, range(len(lag))) if k > max_lag]
 
         # Add first and last index
         split_indices.insert(0, 0)
@@ -931,29 +932,5 @@ class FitsFiles:
     # Setup stuff
     # =========================================================================== #
     @property
-    def _aperture_eval(self):
-        """
-        Constructs list of apertures from setup.
-
-        Returns
-        -------
-        iterable
-            List of apertures.
-        """
-        return str2list(s=self.setup["photometry"]["apcor_diam_eval"], sep=",", dtype=float)
-
-    @property
-    def _apertures_save(self):
-        """
-        Constructs list of apertures from setup.
-
-        Returns
-        -------
-        iterable
-            List of apertures.
-        """
-        return str2list(s=self.setup["photometry"]["apcor_diam_save"], sep=",", dtype=float)
-
-    @property
     def _aperture_save_idx(self):
-        return [[i for i, x in enumerate(self._aperture_eval) if x == b][0] for b in self._apertures_save]
+        return [[i for i, x in enumerate(apertures_all) if x == b][0] for b in apertures_out]
