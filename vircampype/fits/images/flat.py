@@ -309,7 +309,7 @@ class FlatImages(FitsImages):
                 # After flux scaling we can also safely apply the remaining masks
                 cube.apply_masks(mask_min=self.setup["flat"]["mask_min"], mask_max=self.setup["flat"]["mask_min"],
                                  mask_below=self.setup["flat"]["rel_lo"], mask_above=self.setup["flat"]["rel_hi"],
-                                 kappa=self.setup["flat"]["kappa"], ikappa=self.setup["flat"]["ikappa"])
+                                 sigma=self.setup["flat"]["kappa"], iter_sigma=self.setup["flat"]["ikappa"])
 
                 # Create weights if needed
                 if self.setup["flat"]["collapse_metric"] == "weighted":

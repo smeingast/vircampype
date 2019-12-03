@@ -62,7 +62,7 @@ class DarkImages(FitsImages):
 
                 # Masking methods
                 cube.apply_masks(mask_min=self.setup["dark"]["mask_min"], mask_max=self.setup["dark"]["mask_max"],
-                                 kappa=self.setup["dark"]["kappa"], ikappa=self.setup["dark"]["ikappa"], bpm=bpm)
+                                 sigma=self.setup["dark"]["kappa"], iter_sigma=self.setup["dark"]["ikappa"], bpm=bpm)
 
                 # Collapse extensions
                 collapsed = cube.flatten(metric=str2func(self.setup["dark"]["collapse_metric"]))

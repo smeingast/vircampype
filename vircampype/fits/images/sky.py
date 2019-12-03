@@ -529,7 +529,7 @@ class SkyImages(FitsImages):
                 # Apply masks to the normalized cube
                 cube.apply_masks(bpm=bpm, mask_min=self.setup["sky"]["mask_min"],
                                  mask_max=self.setup["sky"]["mask_max"],
-                                 kappa=self.setup["sky"]["kappa"], ikappa=self.setup["sky"]["ikappa"])
+                                 sigma=self.setup["sky"]["kappa"], iter_sigma=self.setup["sky"]["ikappa"])
 
                 # Collapse extensions
                 collapsed = cube.flatten(metric=str2func(self.setup["sky"]["collapse_metric"]))
