@@ -563,10 +563,11 @@ class ImageCube(object):
         """
 
         # Perform sigma clipping along first axis
-        self.cube = sigma_clip(data=self.cube, sigma_level=kappa, sigma_iter=ikappa, center_metric=center_metric, axis=0)
+        self.cube = sigma_clip(data=self.cube, sigma_level=kappa, sigma_iter=ikappa,
+                               center_metric=center_metric, axis=0)
 
     def apply_masks(self, bpm=None, mask_min=False, mask_max=False, mask_below=None, mask_above=None,
-                    sigma=None, iter_sigma=1):
+                    sigma_level=None, sigma_iter=1):
         """
         Applies the above given masking methods to instance cube.
 
@@ -582,9 +583,9 @@ class ImageCube(object):
             Values below are masked in the entire cube
         mask_above : float, int, optional
             Values above are masked in the entire cube
-        sigma : float, int, optional
+        sigma_level : float, int, optional
             sigma-level in clipping.
-        iter_sigma : int, optional
+        sigma_iter : int, optional
             Iterations of sigma clipping.
 
         """
@@ -610,8 +611,8 @@ class ImageCube(object):
             self._mask_above(value=mask_above)
 
         # Sigma clipping
-        if sigma is not None:
-            self._kappa_sigma(kappa=sigma, ikappa=iter_sigma, center_metric=np.nanmedian)
+        if sigma_level is not None:
+            self._kappa_sigma(kappa=sigma_level, ikappa=sigma_iter, center_metric=np.nanmedian)
 
     def apply_masks_plane(self, sigma_level, sigma_iter):
         """
