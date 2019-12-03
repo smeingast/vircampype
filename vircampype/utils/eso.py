@@ -294,8 +294,12 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compre
         # Get catalog data for this extension
         data, sheader = fits.getdata(filename=path_sextractor, ext=idx_cat, header=True)
 
-        # Filter bad sources
-        keep = data["FWHM_WORLD"] * 3600 > 0.1
+        # Get difference for first two corrected aperture magnitudes
+        mag_diff12 = data["MAG_APER_1"] - data["MAG_APER_2"]
+        fhwm_stars = np.nanmedian(data["FWHM_WORLD"][data["CLASS_STAR"] > 0.8])
+
+        # Filter bad sources (bad FWHM, and those that have a good mag growth and good FWHM)
+        keep = (mag_diff12 > -0.2) & (data["FWHM_WORLD"] * 3600 > fhwm_stars * 3600 - 0.3)
 
         # Read aperture magnitudes and aperture corrections
         mag_aper = [data["MAG_APER"][:, aidx][keep] for aidx in mag_aper_idx]
@@ -333,6 +337,7 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compre
 
         cols_mag = []
         # noinspection PyTypeChecker
+        # TODO: These columns are already in the catalog. No need to create them again
         for mag, magerr, i in zip(mag_final, magerr_final, range(len(mag_final))):
 
             cols_mag.append(fits.Column(name="MAG_APER_{0}".format(i+1), array=np.array(mag),
