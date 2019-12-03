@@ -627,8 +627,7 @@ class SextractorCatalogs(SourceCatalogs):
             key_dec = self._key_dec
 
         # Construct column names to extract from file
-        # TODO: Can this be replace with "self._colnames_apc"?
-        cn = ["MAG_APER", key_ra, key_dec] + ["MAG_APC_{0}".format(d) for d in apertures_out]
+        cn = ["MAG_APER", key_ra, key_dec] + self._colnames_apc
 
         # Extract all data at once from file
         mag_aper, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
