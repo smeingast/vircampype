@@ -422,7 +422,6 @@ def _phase3_sex2col(path_sextractor, extension):
 
     cols_mag = []
     # noinspection PyTypeChecker
-    # TODO: These columns are already in the catalog. No need to create them again
     for mag, magerr, i in zip(mag_final, magerr_final, range(len(mag_final))):
         cols_mag.append(fits.Column(name="MAG_APER_{0}".format(i + 1), array=np.array(mag), **kwargs_column_mag))
         cols_mag.append(fits.Column(name="MAGERR_APER_{0}".format(i + 1), array=np.array(magerr), **kwargs_column_mag))
