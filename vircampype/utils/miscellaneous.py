@@ -18,7 +18,8 @@ from astropy.stats import sigma_clipped_stats
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry", "copy_file"]
+           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry", "copy_file",
+           "list2str"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -524,6 +525,27 @@ def str2list(s, sep=",", dtype=float):
     """
 
     return [dtype(x) for x in s.split(sep)]
+
+
+def list2str(ll, sep=","):
+    """
+    Generates a string from a list.
+
+    Parameters
+    ----------
+    ll : iterable
+        Input List.
+    sep : str, optional
+        Separator for elements
+
+
+    Returns
+    -------
+    str
+        Joined string.
+
+    """
+    return sep.join([str(x) for x in ll])
 
 
 def skycoo2visionsid(skycoord):
