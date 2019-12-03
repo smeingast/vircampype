@@ -623,7 +623,7 @@ class ImageCube(object):
         sigma_level : int, float
             Sigma level.
         sigma_iter : int
-            Number of iterations on kappa-sigma clipping
+            Number of iterations on sigma clipping
         """
 
         for plane in self:
