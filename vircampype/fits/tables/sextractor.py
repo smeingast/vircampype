@@ -19,7 +19,7 @@ class SextractorCatalogs(SourceCatalogs):
         super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
-    # Coordinates
+    # Key defintions
     # =========================================================================== #
     @property
     def _key_ra(self):
@@ -362,6 +362,98 @@ class SextractorCatalogs(SourceCatalogs):
             warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
             fig.savefig(path, bbox_inches="tight")
         plt.close("all")
+
+    # =========================================================================== #
+    # Coordinates
+    # =========================================================================== #
+    _ra_all = None
+
+    def ra_all(self, key_ra=None):
+        """ Read all RAs from files. """
+
+        # Return if already read
+        if self._ra_all is not None:
+            return self._ra_all
+
+        # Set key
+        if key_ra is None:
+            key_ra = self._key_ra
+
+        self._ra_all = np.hstack(flat_list(self.get_columns(column_name=key_ra)))
+        return self._ra_all
+
+    _dec_all = None
+
+    def dec_all(self, key_dec=None):
+        """ Read all DECs from files. """
+
+        # Return if already read
+        if self._dec_all is not None:
+            return self._dec_all
+
+        # Set key
+        if key_dec is None:
+            key_dec = self._key_dec
+
+        self._dec_all = np.hstack(flat_list(self.get_columns(column_name=key_dec)))
+        return self._dec_all
+
+    def centroid_total(self, key_ra=None, key_dec=None):
+        """ Return centroid positions for all files in instance together. """
+
+        # Set keys
+        if key_ra is None:
+            key_ra = self._key_ra
+        if key_dec is None:
+            key_dec = self._key_dec
+
+        # Return centroid
+        return centroid_sphere(lon=self.ra_all(key_ra=key_ra), lat=self.dec_all(key_dec=key_dec), units="degree")
+
+    def build_master_photometry(self):
+
+        # Import
+        from vircampype.fits.tables.sources import MasterPhotometry2Mass, MasterPhotometry
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
+                                           silent=self.setup["misc"]["silent"])
+
+        # Construct outpath
+        outpath = self.path_master_object + "MASTER-PHOTOMETRY.fits.tab"
+
+        # Print processing info
+        message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                            d_total=None, silent=self.setup["misc"]["silent"])
+
+        # Check if the file is already there and skip if it is
+        if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+
+            # Obtain field size
+            size = np.max(distance_sky(lon1=self.centroid_total()[0], lat1=self.centroid_total()[1],
+                                       lon2=self.ra_all(), lat2=self.dec_all(), unit="deg")) * 1.01
+
+            # Download catalog
+            if self.setup["photometry"]["reference"] == "2mass":
+                table = download_2mass(lon=self.centroid_total()[0], lat=self.centroid_total()[1], radius=2 * size)
+
+            else:
+                raise ValueError("Catalog '{0}' not supported".format(self.setup["photometry"]["reference"]))
+
+            # Save catalog
+            table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return photometry catalog
+        if self.setup["photometry"]["reference"] == "2mass":
+            return MasterPhotometry2Mass(setup=self.setup, file_paths=[outpath])
+        else:
+            return MasterPhotometry(setup=self.setup, file_paths=[outpath])
 
     # =========================================================================== #
     # Magnitudes
