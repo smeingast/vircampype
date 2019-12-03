@@ -260,7 +260,7 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
 
 
 # noinspection DuplicatedCode
-def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compressed, additional=None):
+def make_phase3_pawprints(path_swarped, path_sextractor, outpaths, compressed, additional=None):
 
     hdul_swarped = fits.open(path_swarped)
     hdul_sextractor = fits.open(path_sextractor)
@@ -279,9 +279,7 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compre
     hdul_paw[0].header.set("ASSON1", after="REFERENC")
 
     # Get aperture indices
-    apertures_eval = str2list(setup["photometry"]["apcor_diam_eval"], sep=",")
-    apertures_save = str2list(setup["photometry"]["apcor_diam_save"], sep=",")
-    mag_aper_idx = [[i for i, x in enumerate(apertures_eval) if x == b][0] for b in apertures_save]
+    mag_aper_idx = [[i for i, x in enumerate(apertures_all) if x == b][0] for b in apertures_out]
 
     # Now loop over extensions
     for idx_paw, idx_cat in zip(range(1, 17, 1), range(2, 33, 2)):
@@ -305,8 +303,8 @@ def make_phase3_pawprints(path_swarped, path_sextractor, setup, outpaths, compre
         # Read aperture magnitudes and aperture corrections
         mag_aper = [data["MAG_APER"][:, aidx][keep] for aidx in mag_aper_idx]
         magerr_aper = [data["MAGERR_APER"][:, aidx][keep] for aidx in mag_aper_idx]
-        mag_apc = [data["MAG_APC_{0}".format(idx+1)][keep] for idx in range(len(apertures_save))]
-        mag_zp = [sheader["PYPE MAGZP {0}".format(idx+1)] for idx in range(len(apertures_save))]
+        mag_apc = [data["MAG_APC_{0}".format(idx+1)][keep] for idx in range(len(apertures_out))]
+        mag_zp = [sheader["PYPE MAGZP {0}".format(idx+1)] for idx in range(len(apertures_out))]
 
         # Compute magnitudes
         mag_final = [mag + apc + zp for mag, apc, zp in zip(mag_aper, mag_apc, mag_zp)]
