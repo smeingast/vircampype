@@ -1,6 +1,6 @@
 # =========================================================================== #
-import os
 import subprocess
+from pkgutil import iter_modules
 from itertools import zip_longest
 
 
@@ -38,9 +38,26 @@ def run_cmds(cmds, n_processes=1, silent=True):
             p.wait()
 
 
-# TODO: Rename to run_command_shell?
 def run_command_bash(cmd, silent=False):
     if silent:
         subprocess.run(cmd, shell=True, executable="/bin/bash", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         subprocess.run(cmd, shell=True, executable="/bin/bash")
+
+
+def module_exists(module_name):
+    """
+    Check if module exists.
+
+    Parameters
+    ----------
+    module_name : str
+        Module name to check for.
+
+    Returns
+    -------
+    bool
+        True or False depending on whether module is installed,
+
+    """
+    return module_name in (name for loader, name, ispkg in iter_modules())
