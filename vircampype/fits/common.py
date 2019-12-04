@@ -149,6 +149,11 @@ class FitsFiles:
                              "".format(self.setup["misc"]["n_threads_shell"], multiprocessing.cpu_count())
                              + BColors.ENDC)
 
+        # Check if astroscrappy is installed when found in setup
+        if self.setup["cosmetics"]["mask_cosmics"]:
+            if not module_exists("astroscrappy"):
+                raise SystemError("For cosmic ray detection, you need 'astroscrappy' installed.")
+
     # =========================================================================== #
     #   Magic methods
     # =========================================================================== #
