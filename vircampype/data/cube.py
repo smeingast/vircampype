@@ -927,6 +927,7 @@ class ImageCube(object):
             satlevel = kwargs["satlevel"][idx] if "satlevel" in kwargs else None
 
             # Get input mask
+            bpm = None if bpm is not None else None  # For now force no BPM.
             inmask = bpm[idx] if bpm is not None else None
 
             # Apply cosmic detection algorithm
@@ -934,7 +935,7 @@ class ImageCube(object):
                 warnings.filterwarnings("ignore", message="invalid value encountered")
                 self.cube[idx] = detect_cosmics(self.cube[idx], inmask=inmask, gain=gain, readnoise=readnoise,
                                                 satlevel=satlevel, sepmed=True, cleantype="medmask",
-                                                sigclip=2.5, objlim=10.0)[1] / gain
+                                                sigclip=2.5, objlim=8.0)[1] / gain
 
     def interpolate_nan(self):
         """
