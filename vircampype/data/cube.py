@@ -902,17 +902,39 @@ class ImageCube(object):
         if norm_after is not None:
             self.normalize(norm=norm_after)
 
-    # def mask_cosmics(self, bpm=None):
-    #
-    #     # noinspection PyUnresolvedReferences
-    #     # from astroscrappy.astroscrappy import detect_cosmics
-    #     kwargs = {"readnoise": 20., "gain": 4.0, "objlim": 4, "sigclip": 5, "sigfrac": 0.3, "niter": 4}
-    #
-    #     for idx in range(len(self)):
-    #
-    #         # Get input mask
-    #         inmask = bpm[idx] if bpm is not None else None
-    #         self.cube[idx] = mask_cosmics(self.cube[idx], inmask=inmask, **kwargs)
+    def mask_cosmics(self, bpm=None, **kwargs):
+        """
+        Mask cosmics (and hot pixels) based on the L.A.Cosmic algorithm using astroscrappy.
+
+        Parameters
+        ----------
+        bpm : ImageCube
+            Bad pixel input mask cube.
+        kwargs
+            detect_cosmic kwargs. Here, we are only using basic arguments, though (check code).
+
+        """
+
+        # Import astroscrappy
+        from astroscrappy.astroscrappy import detect_cosmics
+
+        # Loop over layery in cube
+        for idx in range(len(self)):
+
+            # Get detector characteristics
+            gain = kwargs["gain"][idx] if "gain" in kwargs else None
+            readnoise = kwargs["readnoise"][idx] if "readnoise" in kwargs else None
+            satlevel = kwargs["satlevel"][idx] if "satlevel" in kwargs else None
+
+            # Get input mask
+            inmask = bpm[idx] if bpm is not None else None
+
+            # Apply cosmic detection algorithm
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="invalid value encountered")
+                self.cube[idx] = detect_cosmics(self.cube[idx], inmask=inmask, gain=gain, readnoise=readnoise,
+                                                satlevel=satlevel, sepmed=True, cleantype="medmask",
+                                                sigclip=3.0, objlim=7.0)[1] / gain
 
     def interpolate_nan(self):
         """
