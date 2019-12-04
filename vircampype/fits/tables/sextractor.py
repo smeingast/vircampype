@@ -1162,9 +1162,9 @@ class SextractorCatalogs(SourceCatalogs):
             zps_file = zps_all[idx_file]
 
             # Fetch magnitudes and aperture corrections
-            apc_name, apc_idx = apertures_out[3], self._aperture_save_idx[3]
+            apc_idx = self._aperture_save_idx[3]
             mag_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
-            apc_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APC_{0}".format(apc_name))
+            apc_file = self.get_column_file(idx_file=idx_file, column_name=self._colnames_apc[3])
 
             # Get coordinates
             skycoord_file = self.skycoord_file(idx_file=idx_file)
