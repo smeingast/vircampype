@@ -640,15 +640,15 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.sky import MasterSky
         from vircampype.fits.images.dark import MasterDark
         from vircampype.fits.images.flat import MasterFlat
-        # from vircampype.fits.images.bpm import MasterBadPixelMask
         from vircampype.fits.tables.gain import MasterGain
+        from vircampype.fits.images.bpm import MasterBadPixelMask
         from vircampype.fits.tables.linearity import MasterLinearity
 
         # Processing info
         tstart = message_mastercalibration(master_type="PROCESSING RAW", silent=self.setup["misc"]["silent"], right="")
 
         # Fetch the Masterfiles
-        # master_bpm = self.get_master_bpm()  # type: MasterBadPixelMask
+        master_bpm = self.get_master_bpm()  # type: MasterBadPixelMask
         master_dark = self.get_master_dark()  # type: MasterDark
         master_flat = self.get_master_flat()  # type: MasterFlat
         master_gain = self.get_master_gain()  # type: MasterGain
@@ -670,7 +670,7 @@ class FitsImages(FitsFiles):
             calib_cube = self.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
 
             # Get master calibration
-            # bpm = master_bpm.file2cube(file_index=idx, hdu_index=None, dtype=np.uint8)
+            bpm = master_bpm.file2cube(file_index=idx, hdu_index=None, dtype=np.uint8)
             dark = master_dark.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
             flat = master_flat.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
             sky = master_sky.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
@@ -687,8 +687,9 @@ class FitsImages(FitsFiles):
             calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx])
 
             # Apply cosmetics
-            # if self.setup["cosmetics"]["mask_cosmics"]:
-            #     calib_cube.mask_cosmics(bpm=bpm)
+            if self.setup["cosmetics"]["mask_cosmics"]:
+                calib_cube.mask_cosmics(bpm=bpm, gain=master_gain.gain[idx], readnoise=master_gain.rdnoise[idx],
+                                        satlevel=self.setup["data"]["saturate"], sepmed=False, cleantype="medmask")
             if self.setup["cosmetics"]["interpolate_nan"]:
                 calib_cube.interpolate_nan()
             if self.setup["cosmetics"]["destripe"]:
