@@ -11,6 +11,7 @@ setup(
     version="0.1",
     install_requires=["numpy>=1.17", "scipy>=1.3", "matplotlib>=3.1", "astropy>=3.1", "pillow>=6.1",
                       "astroquery>=0.3.9", "pyyaml>=3"],
+    extras_require={"Cosmic masking": ["astroscrappy"]},
     packages=["vircampype"],
     url="",
     license="",
