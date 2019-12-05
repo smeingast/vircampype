@@ -4,9 +4,9 @@ import os
 import glob
 import pickle
 import numpy as np
-import multiprocessing
 
 from astropy.io import fits
+from joblib import cpu_count
 from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
@@ -135,18 +135,18 @@ class FitsFiles:
     def __check_setup(self):
         """ Makes some consitency checks in setup. """
 
-        # Only single threads for python are allowed at the moment
-        if self.setup["misc"]["n_threads_python"] != 1:
-            raise SetupError(BColors.FAIL +
-                             "Multiple threads in Python are not supported at the moment, "
-                             "'n_threads_python' = " "{0}".format(self.setup["misc"]["n_threads_python"])
-                             + BColors.ENDC)
-
-        # Also raise error when more threads than available are requested
-        if self.setup["misc"]["n_threads_shell"] > multiprocessing.cpu_count():
+        # Raise error when more threads than available are requested
+        if self.setup["misc"]["n_threads_python"] > cpu_count():
             raise SetupError(BColors.FAIL +
                              "More threads reuqested than available. {0} > {1}"
-                             "".format(self.setup["misc"]["n_threads_shell"], multiprocessing.cpu_count())
+                             "".format(self.setup["misc"]["n_threads_python"], cpu_count())
+                             + BColors.ENDC)
+
+        # Raise error when more threads than available are requested
+        if self.setup["misc"]["n_threads_shell"] > cpu_count():
+            raise SetupError(BColors.FAIL +
+                             "More threads reuqested than available. {0} > {1}"
+                             "".format(self.setup["misc"]["n_threads_shell"], cpu_count())
                              + BColors.ENDC)
 
         # Check if astroscrappy is installed when found in setup
