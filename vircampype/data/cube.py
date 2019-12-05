@@ -803,8 +803,8 @@ class ImageCube(object):
             cff = repeat(coeff)
 
         # Start multithreaded processing of linearization
-        nt = self.setup["misc"]["n_threads_python"]
-        mp = Parallel(n_jobs=nt)(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
+        with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+            mp = parallel(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
@@ -961,9 +961,9 @@ class ImageCube(object):
                                       axis=chop_ax, overlap=overlap)
 
             # Do interpolation
-            nt = self.setup["misc"]["n_threads_python"]
-            mp = Parallel(n_jobs=nt)(delayed(interpolate_image)(d, k, m) for d, k, m in
-                                     zip(chopped, repeat(kernel), repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+            with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+                mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
+                              zip(chopped, repeat(kernel), repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
 
             # Merge back into plane and put into cube
             plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)

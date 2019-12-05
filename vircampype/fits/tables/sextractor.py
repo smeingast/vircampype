@@ -1423,8 +1423,8 @@ class SextractorCatalogs(SourceCatalogs):
             return self._image_headers
 
         # Extract Image headers
-        nt = self.setup["misc"]["n_threads_python"]
-        self._image_headers = Parallel(n_jobs=nt)(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
+        with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+            self._image_headers = parallel(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
 
         # Return
         return self._image_headers
