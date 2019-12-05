@@ -929,7 +929,7 @@ class ImageCube(object):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="invalid value encountered")
                 self.cube[idx] = detect_cosmics(self.cube[idx], inmask=inmask, gain=gain, readnoise=readnoise,
-                                                satlevel=satlevel, sepmed=True, cleantype="medmask",
+                                                satlevel=satlevel, sepmed=True, cleantype="meanmask",
                                                 sigclip=2.5, objlim=8.0)[1] / gain
 
     def interpolate_nan(self):
