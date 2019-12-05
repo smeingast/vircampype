@@ -697,7 +697,7 @@ class FitsImages(FitsFiles):
 
             # Write to disk
             calib_cube.write_mef(path=self.paths_processed[idx], prime_header=self.headers_primary[idx],
-                                 data_headers=self.headers_data[idx])
+                                 data_headers=self.headers_data[idx], dtype="float32")
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
