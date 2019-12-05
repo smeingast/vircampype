@@ -2,12 +2,12 @@
 # Import
 import warnings
 import numpy as np
-import multiprocessing
 
 from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
+from joblib import Parallel, delayed
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.fits.tables.zeropoint import MasterZeroPoint
@@ -1423,20 +1423,10 @@ class SextractorCatalogs(SourceCatalogs):
             return self._image_headers
 
         # Extract Image headers
-        if self.setup["misc"]["n_threads_python"] == 1:
-            self._image_headers = []
-            for p in self.full_paths:
-                self._image_headers.append(sextractor2imagehdr(path=p))
+        nt = self.setup["misc"]["n_threads_python"]
+        self._image_headers = Parallel(n_jobs=nt)(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
 
-        # Only launch a pool when requested
-        elif self.setup["misc"]["n_threads_python"] > 1:
-            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads_python"]) as pool:
-                self._image_headers = pool.starmap(sextractor2imagehdr, zip(self.full_paths))
-
-        else:
-            raise ValueError("'n_threads' not correctly set (n_threads = {0})"
-                             .format(self.setup["misc"]["n_threads_python"]))
-
+        # Return
         return self._image_headers
 
     # =========================================================================== #
