@@ -422,12 +422,12 @@ class SextractorCatalogs(SourceCatalogs):
         # Construct outpath
         outpath = self.path_master_object + "MASTER-PHOTOMETRY.fits.tab"
 
-        # Print processing info
-        message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-                            d_total=None, silent=self.setup["misc"]["silent"])
-
         # Check if the file is already there and skip if it is
         if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                                d_total=None, silent=self.setup["misc"]["silent"])
 
             # Obtain field size
             size = np.max(distance_sky(lon1=self.centroid_total()[0], lat1=self.centroid_total()[1],
