@@ -2,7 +2,6 @@
 # Import
 import warnings
 import numpy as np
-import multiprocessing
 
 # noinspection PyUnresolvedReferences
 # from astroscrappy.astroscrappy import detect_cosmics
@@ -11,6 +10,7 @@ from PIL import Image
 from itertools import repeat
 from fractions import Fraction
 from astropy.units import Unit
+from joblib import Parallel, delayed
 from scipy.interpolate import griddata
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
@@ -634,19 +634,8 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
             sub.append(cube[:, y:y + y2size, x:x + x2size])
 
     # For each sub-region estimate the background and noise
-    if n_threads == 1:
-        mp = []
-        for s in sub:
-            mp.append(estimate_background(array=s, max_iter=max_iter, force_clipping=True, axis=(1, 2)))
-
-    elif n_threads > 1:
-        with multiprocessing.Pool(processes=n_threads) as pool:
-            # TODO: Added a repeat(10) here for max_iter; check if ok!
-            # TODO: I think the max_iter repeat here is wrong
-            mp = pool.starmap(estimate_background, zip(sub, repeat(10), repeat(max_iter), repeat((1, 2))))
-
-    else:
-        raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(n_threads))
+    mp = Parallel(n_jobs=n_threads)(delayed(estimate_background)(s, i, mi, a)
+                                    for s, i, mi, a in zip(sub, repeat(max_iter), repeat(True), repeat((1, 2))))
 
     # Unpack results
     background, noise = np.array(list(zip(*mp)))
