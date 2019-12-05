@@ -355,11 +355,11 @@ def interpolate_image(array, kernel=None, max_bad_neighbors=None):
         nan_kernel = np.ones(shape=(3, 3))
 
         # Convolve NaN data
-        nans_conv = convolve(nans, kernel=nan_kernel, boundary="extend")
+        nans_conv = convolve(nans, kernel=nan_kernel, boundary="extend", normalize_kernel=False)
 
         # Get the ones with a maximum of 'max_bad_neighbors' bad neighbors
         # noinspection PyTypeChecker
-        nans_fil = (nans_conv <= max_bad_neighbors) & (nans > 0)
+        nans_fil = (nans_conv <= max_bad_neighbors) & (nans == 1)
 
         # If there are no NaNs at the stage, we return
         if np.sum(nans_fil) == 0:
