@@ -2,12 +2,12 @@
 # Import
 import warnings
 import numpy as np
-import multiprocessing
 import scipy.ndimage.measurements
 
 from astropy.io import fits
 from itertools import repeat
 from vircampype.utils import *
+from joblib import Parallel, delayed
 from astropy.convolution import Gaussian2DKernel
 
 
@@ -802,20 +802,9 @@ class ImageCube(object):
         else:
             cff = repeat(coeff)
 
-        # Only launch Pool if more than one thread is requested
-        if self.setup["misc"]["n_threads_python"] == 1:
-            mp = []
-            for p, c in zip(self.cube, cff):
-                mp.append(linearize_data(data=p, coeff=c))
-
-        elif self.setup["misc"]["n_threads_python"] > 1:
-            # Start multithreaded processing of linearization
-            with multiprocessing.Pool(processes=self.setup["misc"]["n_threads_python"]) as pool:
-                mp = pool.starmap(linearize_data, zip(self.cube, cff))
-
-        else:
-            raise ValueError("'n_threads' not correctly set (n_threads = {0})"
-                             .format(self.setup["misc"]["n_threads_python"]))
+        # Start multithreaded processing of linearization
+        nt = self.setup["misc"]["n_threads_python"]
+        mp = Parallel(n_jobs=nt)(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
@@ -972,19 +961,9 @@ class ImageCube(object):
                                       axis=chop_ax, overlap=overlap)
 
             # Do interpolation
-            if self.setup["misc"]["n_threads_python"] == 1:
-                mp = []
-                for ch in chopped:
-                    mp.append(interpolate_image(array=ch, kernel=kernel,
-                                                max_bad_neighbors=self.setup["cosmetics"]["max_bad_neighbors"]))
-
-            elif self.setup["misc"]["n_threads_python"] > 1:
-                with multiprocessing.Pool(processes=self.setup["misc"]["n_threads_python"]) as pool:
-                    mp = pool.starmap(interpolate_image, zip(chopped, repeat(kernel),
-                                                             repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
-            else:
-                raise ValueError(
-                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads_python"]))
+            nt = self.setup["misc"]["n_threads_python"]
+            mp = Parallel(n_jobs=nt)(delayed(interpolate_image)(d, k, m) for d, k, m in
+                                     zip(chopped, repeat(kernel), repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
 
             # Merge back into plane and put into cube
             plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)
