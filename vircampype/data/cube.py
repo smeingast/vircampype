@@ -403,7 +403,7 @@ class ImageCube(object):
     # =========================================================================== #
     # I/O
     # =========================================================================== #
-    def write_mef(self, path, prime_header=None, data_headers=None, overwrite=False):
+    def write_mef(self, path, prime_header=None, data_headers=None, overwrite=False, dtype=None):
         """
         Write MEF Fits file to disk
 
@@ -417,6 +417,8 @@ class ImageCube(object):
             Data headers.
         overwrite : bool, optional
             Whether existing files should be overwritten.
+        dtype : str, optional
+            Optionally force certain data type. e.g. 'float32'.
 
         """
 
@@ -428,8 +430,12 @@ class ImageCube(object):
         if len(self) != len(data_headers):
             raise ValueError("Supplied headers are not compatible with data format")
 
+        if dtype is None:
+            dtype = self.cube.dtype
+
         # Make HDUList from data and headers
-        hdulist = fits.HDUList(hdus=[fits.ImageHDU(data=d, header=h) for d, h in zip(self.cube[:], data_headers)])
+        hdulist = fits.HDUList(hdus=[fits.ImageHDU(data=d.astype(dtype), header=h)
+                                     for d, h in zip(self.cube[:], data_headers)])
 
         # Prepend PrimaryHDU and write
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
