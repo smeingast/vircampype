@@ -656,6 +656,12 @@ class SextractorCatalogs(SourceCatalogs):
             return self._master_zeropoint
 
         self._master_zeropoint = self.get_master_zeropoint()
+
+        # Dummy check for ZP fetcher
+        for f, m in zip(self.base_names, self._master_zeropoint.base_names):
+            if f not in m:
+                raise ValueError("MASTER-ZEROPOINT not matching!")
+
         return self._master_zeropoint
 
     # =========================================================================== #
