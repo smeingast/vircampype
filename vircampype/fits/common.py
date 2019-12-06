@@ -135,12 +135,19 @@ class FitsFiles:
     def __check_setup(self):
         """ Makes some consitency checks in setup. """
 
-        # Raise error when more threads than available are requested
-        if self.setup["misc"]["n_threads_python"] > cpu_count():
+        # Only single threads for python are allowed at the moment
+        if self.setup["misc"]["n_threads_python"] != 1:
             raise SetupError(BColors.FAIL +
-                             "More threads reuqested than available. {0} > {1}"
-                             "".format(self.setup["misc"]["n_threads_python"], cpu_count())
+                             "Multiple threads in Python are not supported at the moment, "
+                             "'n_threads_python' = " "{0}".format(self.setup["misc"]["n_threads_python"])
                              + BColors.ENDC)
+
+        # Raise error when more threads than available are requested
+        # if self.setup["misc"]["n_threads_python"] > cpu_count():
+        #     raise SetupError(BColors.FAIL +
+        #                      "More threads reuqested than available. {0} > {1}"
+        #                      "".format(self.setup["misc"]["n_threads_python"], cpu_count())
+        #                      + BColors.ENDC)
 
         # Raise error when more threads than available are requested
         if self.setup["misc"]["n_threads_shell"] > cpu_count():
