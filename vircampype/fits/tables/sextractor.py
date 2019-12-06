@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import os
 import warnings
 import numpy as np
 
@@ -1490,7 +1491,11 @@ class SextractorCatalogs(SourceCatalogs):
         outpaths = []
         for idx_file in range(len(self)):
 
+            # Generate output path
             outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
+
+            # Add final name to shitty kw to safe
+            shitty_kw["filename_phase3"] = os.path.basename(outpaths[-1])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) or \
