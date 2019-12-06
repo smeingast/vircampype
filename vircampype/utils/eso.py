@@ -65,10 +65,10 @@ def make_pp_prime_header(hdul_swarped, mode, additional):
     elif mode.lower() == "pawprint":
         hdr["PROV1"] = hdul_swarped[0].header["ARCFILE"]
         hdr["PRODCATG"] = "SCIENCE.MEFIMAGE"
-        hdr["NCOMBINE"] = 1
     else:
         raise ValueError("Mode '{0}' not supported".format(mode))
 
+    hdr["NCOMBINE"] = 1
     hdr["IMATYPE"] = "PAWPRINT"
     hdr["ISAMP"] = True
     hdr["FLUXCAL"] = "ABSOLUTE"
