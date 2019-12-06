@@ -802,9 +802,20 @@ class ImageCube(object):
         else:
             cff = repeat(coeff)
 
-        # Start multithreaded processing of linearization
-        with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
-            mp = parallel(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
+        # Only launch Pool if more than one thread is requested
+        if self.setup["misc"]["n_threads_python"] == 1:
+            mp = []
+            for p, c in zip(self.cube, cff):
+                mp.append(linearize_data(data=p, coeff=c))
+
+        elif self.setup["misc"]["n_threads_python"] > 1:
+            # Start multithreaded processing of linearization
+            with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+                mp = parallel(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
+
+        else:
+            raise ValueError("'n_threads' not correctly set (n_threads = {0})"
+                             .format(self.setup["misc"]["n_threads_python"]))
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
