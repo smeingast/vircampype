@@ -57,8 +57,20 @@ class FitsTables(FitsFiles):
 
         """
 
-        # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().zeropoint, max_lag=0.001)
+        # Get all MASTER-ZP files
+        master_zp_all = self.get_master_tables().zeropoint
+
+        # Extract PROV info from all ZP files
+        master_zp_all_prov = master_zp_all.primeheaders_get_keys(keywords=["PROV1"])[0]
+
+        # Find match for each file in self
+        match_idx = []
+        for bn in self.base_names:
+            match_idx.append(master_zp_all_prov.index(bn))
+
+        # Return exact match
+        return master_zp_all.__class__(setup=self.setup, file_paths=[master_zp_all.full_paths[idx]
+                                                                     for idx in match_idx])
 
     # =========================================================================== #
     # I/O
