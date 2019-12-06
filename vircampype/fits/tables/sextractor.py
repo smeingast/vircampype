@@ -7,7 +7,6 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
-from joblib import Parallel, delayed
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.fits.tables.zeropoint import MasterZeroPoint
@@ -1422,9 +1421,15 @@ class SextractorCatalogs(SourceCatalogs):
         if self._image_headers is not None:
             return self._image_headers
 
+        self._image_headers = []
+        for p in self.full_paths:
+            self._image_headers.append(sextractor2imagehdr(path=p))
+
+        # Parallel job is slower
         # Extract Image headers
-        with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
-            self._image_headers = parallel(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
+        # from joblib import Parallel, delayed
+        # with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+        #     self._image_headers = parallel(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
 
         # Return
         return self._image_headers
