@@ -130,7 +130,7 @@ def make_pp_ext_header(hdu_swarped, hdu_sex, fil, mode):
     return hdr
 
 
-def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
+def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed, additional=None):
 
     # Determine some stuff
     dit = hdul_prov[0][1].header["ESO DET DIT"]
@@ -196,6 +196,7 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
 
     # Select category based on input
     if mode.lower() == "catalog_prime":
+        hdr["PROV1"] = additional["filename_phase3"]
         hdr["PRODCATG"] = "SCIENCE.SRCTBL"
     elif mode.lower() == "catalog_data":
         pass
@@ -323,13 +324,16 @@ def make_phase3_tile(path_swarped, path_sextractor, paths_prov, outpath, compres
     hdul_sex = fits.open(path_sextractor)
     hdul_prov = [fits.open(path) for path in paths_prov]
 
+    # Make dict with additional entries
+    additional = {"filename_phase3": os.path.basename(outpath)}
+
     # Generate prime headers for tile image and catalog
     prhdr_img = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex,
-                                  mode="tile_prime", compressed=compressed)
+                                  mode="tile_prime", compressed=compressed, additional=additional)
     prhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex,
-                                  mode="catalog_prime", compressed=compressed)
+                                  mode="catalog_prime", compressed=compressed, additional=additional)
     exhdr_cat = make_tile_headers(hdul_tile=hdul_img, hdul_prov=hdul_prov, hdul_sex=hdul_sex,
-                                  mode="catalog_data", compressed=compressed)
+                                  mode="catalog_data", compressed=compressed, additional=additional)
 
     # Add weight association to tile image
     asson_name = os.path.basename(outpath.replace(".fits", ".weight.fits"))
