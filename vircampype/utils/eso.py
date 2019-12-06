@@ -154,6 +154,8 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
         hdr["CD2_2"] = hdul_tile[0].header["CD2_2"]
         hdr["CTYPE1"] = hdul_tile[0].header["CTYPE1"]
         hdr["CTYPE2"] = hdul_tile[0].header["CTYPE2"]
+        hdr["CUNIT1"] = "deg"
+        hdr["CUNIT2"] = "deg"
         hdr["RADESYS"] = hdul_tile[0].header["RADESYS"]
 
     if "prime" in mode.lower():
@@ -190,6 +192,7 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
 
     if "prime" in mode.lower():
         hdr["OBSTECH"] = hdul_prov[0][0].header["OBSTECH"]
+        hdr["NCOMBINE"] = len(hdul_prov)
 
     # Select category based on input
     if mode.lower() == "catalog_prime":
@@ -198,7 +201,6 @@ def make_tile_headers(hdul_tile, hdul_prov, hdul_sex, mode, compressed):
         pass
     elif mode.lower() == "tile_prime":
         hdr["PRODCATG"] = "SCIENCE.IMAGE"
-        hdr["NCOMBINE"] = len(hdul_prov)
     else:
         raise ValueError("Mode '{0}' not supported".format(mode))
 
