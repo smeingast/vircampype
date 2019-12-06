@@ -961,9 +961,19 @@ class ImageCube(object):
                                       axis=chop_ax, overlap=overlap)
 
             # Do interpolation
-            with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
-                mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
-                              zip(chopped, repeat(kernel), repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+            if self.setup["misc"]["n_threads_python"] == 1:
+                mp = []
+                for ch in chopped:
+                    mp.append(interpolate_image(array=ch, kernel=kernel,
+                                                max_bad_neighbors=self.setup["cosmetics"]["max_bad_neighbors"]))
+
+            elif self.setup["misc"]["n_threads_python"] > 1:
+                with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+                    mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
+                                  zip(chopped, repeat(kernel), repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+            else:
+                raise ValueError(
+                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup["misc"]["n_threads_python"]))
 
             # Merge back into plane and put into cube
             plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)
