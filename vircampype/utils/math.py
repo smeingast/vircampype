@@ -134,7 +134,7 @@ def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, ax
         Sigma level for clipping (e.g. 3-sigma).
     sigma_iter : int, optional
         Number of iterations.
-    center_metric : callable, optional
+    center_metric : callable, float, int, optional
         Metric which calculates the center around which clipping occurs.
     axis : int, optional
         Axis along which to perform clipping.
@@ -153,7 +153,10 @@ def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, ax
         for _ in range(sigma_iter):
 
             # Calculate center with given metric
-            center = center_metric(data, axis=axis)
+            if callable(center_metric):
+                center = center_metric(data, axis=axis)
+            else:
+                center = center_metric
 
             # Calculate standard deviation
             std = np.nanstd(data, axis=axis)
