@@ -983,7 +983,8 @@ class SextractorCatalogs(SourceCatalogs):
         for idx_file in range(len(self)):
 
             # Create master dark name
-            outpath = self.path_master_object + "MASTER-ZEROPOINT.MJD_{0:11.5f}.fits.tab".format(self.mjd[idx_file])
+            # outpath = self.path_master_object + "MASTER-ZEROPOINT.MJD_{0:11.5f}.fits.tab".format(self.mjd[idx_file])
+            outpath = self.path_master_object + "MASTER-ZEROPOINT.{0}.tab".format(self.base_names[idx_file])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
@@ -1030,9 +1031,11 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Make header cards
             prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], self.setup["keywords"]["filter"]],
+                                               self.setup["keywords"]["object"], self.setup["keywords"]["filter"],
+                                               "PROV1"],
                                      values=[self.mjd[idx_file], self.time_obs[idx_file],
-                                             "MASTER-ZEROPOINT", self.filter[idx_file]])
+                                             "MASTER-ZEROPOINT", self.filter[idx_file],
+                                             self.base_names[idx_file]])
             prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
 
             # Create table HDU for output
@@ -1044,6 +1047,7 @@ class SextractorCatalogs(SourceCatalogs):
             thdulist = fits.HDUList([prhdu, tbhdu])
 
             # Write
+            # TODO: Uncomment this again
             # thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
             thdulist.writeto(fileobj=outpath, overwrite=True)
 
