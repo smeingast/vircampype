@@ -56,13 +56,14 @@ def make_pp_prime_header(hdul_swarped, mode, additional):
     hdr["PROG_ID"] = hdul_swarped[0].header["ESO OBS PROG ID"]
     hdr["OBID1"] = hdul_swarped[0].header["ESO OBS ID"]
     hdr["M_EPOCH"] = False
-    hdr["PROV1"] = hdul_swarped[0].header["ARCFILE"]
     hdr["OBSTECH"] = hdul_swarped[0].header["ESO DPR TECH"]
 
     # Select category based on input
     if mode.lower() == "catalog":
+        hdr["PROV1"] = additional["filename_phase3"]
         hdr["PRODCATG"] = "SCIENCE.SRCTBL"
     elif mode.lower() == "pawprint":
+        hdr["PROV1"] = hdul_swarped[0].header["ARCFILE"]
         hdr["PRODCATG"] = "SCIENCE.MEFIMAGE"
         hdr["NCOMBINE"] = 1
     else:
