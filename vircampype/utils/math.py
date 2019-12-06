@@ -634,9 +634,18 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
             sub.append(cube[:, y:y + y2size, x:x + x2size])
 
     # For each sub-region estimate the background and noise
-    with Parallel(n_jobs=n_threads) as parallel:
-        mp = parallel(delayed(estimate_background)(s, i, mi, a)
-                      for s, i, mi, a in zip(sub, repeat(max_iter), repeat(True), repeat((1, 2))))
+    if n_threads == 1:
+        mp = []
+        for s in sub:
+            mp.append(estimate_background(array=s, max_iter=max_iter, force_clipping=True, axis=(1, 2)))
+
+    elif n_threads > 1:
+        with Parallel(n_jobs=n_threads) as parallel:
+            mp = parallel(delayed(estimate_background)(s, i, mi, a)
+                          for s, i, mi, a in zip(sub, repeat(max_iter), repeat(True), repeat((1, 2))))
+
+    else:
+        raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(n_threads))
 
     # Unpack results
     background, noise = np.array(list(zip(*mp)))
