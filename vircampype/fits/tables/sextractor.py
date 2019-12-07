@@ -1429,6 +1429,8 @@ class SextractorCatalogs(SourceCatalogs):
 
         """
 
+        # TODO: Speed this up. Perhaps write them pickled to the header folder
+
         if self._image_headers is not None:
             return self._image_headers
 
