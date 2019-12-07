@@ -25,6 +25,7 @@ args = parser.parse_args()
 # =========================================================================== #
 images = VircamImages.from_setup(setup=args.setup)
 
+
 # =========================================================================== #
 # Set console title
 sys.stdout.write("\x1b]2;{0}\x07".format(images.setup["paths"]["name"]))
@@ -65,11 +66,20 @@ fwhms = processed.calibrate_astrometry(return_fwhm=True)
 
 
 # =========================================================================== #
-# Superflat
-# =========================================================================== #
 # Run sextractor with superflat preset
+# =========================================================================== #
 sources_superflatted = processed.sextractor(preset="superflat", prefix="sf")
 
+
+# =========================================================================== #
+# Build master photometry
+# =========================================================================== #
+# sources_superflatted.build_master_photometry()
+
+
+# =========================================================================== #
+# Superflat
+# =========================================================================== #
 # Build superflat
 sources_superflatted.build_master_superflat()
 
@@ -81,12 +91,6 @@ superflatted = processed.apply_superflat()
 # Resample original files
 # =========================================================================== #
 swarped = superflatted.resample_pawprints()
-
-
-# =========================================================================== #
-# Build master photometry
-# =========================================================================== #
-swarped.build_master_photometry()
 
 
 # =========================================================================== #
@@ -116,32 +120,34 @@ swarped_sources.add_aperture_correction()
 # =========================================================================== #
 swarped_sources.build_master_zeropoint()
 
+
 # Add calibrated photometry to source tables
 swarped_sources.add_calibrated_photometry()
-
-# Write ZPs as flux scale into headers of swarped images
-swarped.add_dataheader_key(key="FLXSCALE", values=swarped_sources.flux_scale)
 
 
 # =========================================================================== #
 # Check photometry
 # =========================================================================== #
-swarped_sources.plot_qc_photometry()
+swarped_sources.plot_qc_photometry(mode="pawprint")
 
 
 # =========================================================================== #
 # Generate ESO phase 3 compliant catalogs for pawprints
 # =========================================================================== #
-# phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
-# TODO: Check where these values are used
-# fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
-# TODO: Should this not be PP?
-fwhm_pp_median = np.nanmedian(fwhms)
+phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
+
+# Extract FWHMs
+fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+fwhm_pp_median = np.nanmedian(fwhm_pp)
 
 
 # =========================================================================== #
 # Coadd pawprints
 # =========================================================================== #
+# Write external headers for flux scale
+swarped_sources.write_coadd_headers()
+
+# Run coadd
 coadd = swarped.coadd_pawprints()
 
 
@@ -175,18 +181,20 @@ coadd_sources.add_calibrated_photometry()
 # =========================================================================== #
 # Check photometry
 # =========================================================================== #
-swarped_sources.plot_qc_photometry()
+coadd_sources.plot_qc_photometry(mode="tile")
 
 
 # =========================================================================== #
 # Make phase 3 catalog
-# coadd_sources.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
+coadd_sources.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
+
 
 # =========================================================================== #
 # Compress phase 3 files
-# images.compress_phase3()
+images.compress_phase3()
 
+
+# =========================================================================== #
 # Done
+# =========================================================================== #
 print_done(obj=images.setup["paths"]["name"])
-
-# TODO: QC photometry on coadd
