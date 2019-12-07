@@ -605,3 +605,15 @@ def print_done(obj=""):
     print(BColors.OKGREEN + "{:-<80}".format("") + BColors.ENDC)
     print(BColors.OKGREEN + "{0:^74}".format("{0} DONE".format(obj)) + BColors.ENDC)
     print(BColors.OKGREEN + "{:-<80}".format("") + BColors.ENDC)
+
+
+def print_message(message, color=None, end=""):
+    """ Generic message printer. """
+
+    if color is None:
+        print(BColors.OKBLUE + "\r{0:<70s}".format(message) + BColors.ENDC, end=end)
+    else:
+        if "red" in color.lower():
+            print(BColors.FAIL + "\r{0:<70s}".format(message) + BColors.ENDC, end=end)
+        else:
+            raise ValueError("Implement more colors.")
