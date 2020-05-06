@@ -1252,6 +1252,7 @@ class SextractorCatalogs(SourceCatalogs):
                 fig.savefig(outpath_1d, bbox_inches="tight")
             plt.close("all")
 
+            # TODO: implement histogram plot (2mass - data)
             # =========================================================================== #
             # 2D
             # =========================================================================== #
