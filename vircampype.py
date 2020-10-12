@@ -74,7 +74,7 @@ sources_superflatted = processed.sextractor(preset="superflat", prefix="sf")
 # =========================================================================== #
 # Build master photometry
 # =========================================================================== #
-# sources_superflatted.build_master_photometry()
+sources_superflatted.build_master_photometry()
 
 
 # =========================================================================== #
