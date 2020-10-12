@@ -399,7 +399,7 @@ def str2func(s):
         raise ValueError("Metric '{0}' not suppoerted".format(s))
 
 
-def read_setup(path_yaml):
+def read_setup(path_yaml: str):
 
     # Read YAML
     with open(path_yaml, "r") as stream:

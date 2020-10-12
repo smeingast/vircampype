@@ -5,6 +5,7 @@ import glob
 import pickle
 import numpy as np
 
+from typing import Dict
 from astropy.io import fits
 from joblib import cpu_count
 from astropy.time import Time
@@ -21,7 +22,7 @@ class FitsFiles:
 
         Parameters
         ----------
-        setup : str, dict
+        setup : Dict[str, Dict[str, Any]]
             YML setup. Can be either path to setup, or a dictionary.
         file_paths : iterable, optional.
             Paths to FITS files.
