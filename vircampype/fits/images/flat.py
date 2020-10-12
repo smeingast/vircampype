@@ -494,7 +494,7 @@ class FlatImages(FitsImages):
             weight[:, :, -nedge2 - 1:-1] *= \
                 np.stack([np.stack([np.flip(grad2)] * cube.shape[2], axis=0)] * len(weight), axis=0)
 
-            # Modify inout weight
+            # Modify ipout weight
             cube.cube *= weight
 
             # Modify type in primary header
