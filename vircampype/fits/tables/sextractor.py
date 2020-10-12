@@ -875,7 +875,9 @@ class SextractorCatalogs(SourceCatalogs):
                 zp = sigma_clip(zp, sigma_level=2.5, sigma_iter=5)
 
                 # Grid values to detector size array
-                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, ngx=50, ngy=50, kernel_scale=0.1,
+                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, ngx=self.setup["superflat"]["grid_size_x"],
+                                        ngy=self.setup["superflat"]["grid_size_y"],
+                                        kernel_scale=self.setup["superflat"]["kernel_scale"],
                                         naxis1=self.setup["data"]["dim_x"], naxis2=self.setup["data"]["dim_y"])
 
                 # Convert to flux scale
