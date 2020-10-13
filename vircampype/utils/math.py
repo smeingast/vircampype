@@ -1053,7 +1053,8 @@ def grid_value_2d(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=True, kernel
     xg, yg = np.meshgrid(np.linspace(min(x[good]), max(x[good]), ngx), np.linspace(min(y), max(y), ngy))
 
     # Map ZPs onto grid
-    gridded = griddata(np.stack([x[good], y[good]], axis=1), value[good], (xg, yg), method=method)
+    gridded = griddata(points=np.stack([x[good], y[good]], axis=1), values=value[good],
+                       xi=(xg, yg), method=method)
 
     # Smooth
     if conv:
