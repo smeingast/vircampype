@@ -185,10 +185,12 @@ def message_calibration(n_current, n_total, name, d_current=None, d_total=None, 
     if not silent:
 
         if (d_current is not None) and (d_total is not None):
-            print("\r{0:<70s}{1:>10s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name),
-                                              str(d_current) + "/" + str(d_total)), end="")
+            print("\r{0:<10.10s} {1:^58.58s} {2:>10.10s}".format(str(n_current) + "/" + str(n_total),
+                                                                 os.path.basename(name),
+                                                                 str(d_current) + "/" + str(d_total)), end="")
         else:
-            print("\r{0:<70s}".format(str(n_current) + "/" + str(n_total) + ": " + os.path.basename(name)), end="")
+            print("\r{0:<10.10s} {1:^69.69s}".format(str(n_current) + "/" + str(n_total),
+                                                     os.path.basename(name)), end="")
 
 
 def message_qc_astrometry(separation):
