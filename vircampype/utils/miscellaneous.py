@@ -611,9 +611,9 @@ def print_message(message, color=None, end=""):
     """ Generic message printer. """
 
     if color is None:
-        print(BColors.OKBLUE + "\r{0:<70s}".format(message) + BColors.ENDC, end=end)
+        print(BColors.OKBLUE + "\r{0:^70.68s}".format(message) + BColors.ENDC, end=end)
     else:
         if "red" in color.lower():
-            print(BColors.FAIL + "\r{0:<70s}".format(message) + BColors.ENDC, end=end)
+            print(BColors.FAIL + "\r{0:^70.68s}".format(message) + BColors.ENDC, end=end)
         else:
             raise ValueError("Implement more colors.")
