@@ -871,21 +871,12 @@ class SextractorCatalogs(SourceCatalogs):
                                          ra_ref=master_skycoord.icrs.ra.deg, dec_ref=master_skycoord.icrs.dec.deg,
                                          mag_limits_ref=master_photometry.mag_lim, return_all=True)
 
-                # Remove sources from edges
-                zp[(xx < 20) | (yy < 20) |
-                   (xx > self.setup["data"]["dim_x"] - 20) |
-                   (yy > self.setup["data"]["dim_y"] - 20)] = np.nan
-
-                # Sigma clip ZP array just to be sure
-                zp = sigma_clip(zp, sigma_level=2.5, sigma_iter=5)
-
-                # Iterative min/max value removal of 5% of the data just to be safe from very extreme points
-                for _ in range(np.sum(np.isfinite(zp)) // 40):  # 40 because it removes top and bottom
-                    zp[np.nanargmax(zp)], zp[np.nanargmin(zp)] = np.nan, np.nan
+                # Sigma clip ZP array to remove outliers
+                zp = sigma_clip(zp, sigma_level=3, sigma_iter=5)
 
                 # Grid values to detector size array
-                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, ngx=self.setup["superflat"]["grid_size_x"],
-                                        ngy=self.setup["superflat"]["grid_size_y"],
+                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, nbins_x=self.setup["superflat"]["nbins_x"],
+                                        nbins_y=self.setup["superflat"]["nbins_y"],
                                         kernel_scale=self.setup["superflat"]["kernel_scale"],
                                         naxis1=self.setup["data"]["dim_x"], naxis2=self.setup["data"]["dim_y"])
 
