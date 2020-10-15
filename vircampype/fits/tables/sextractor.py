@@ -1284,7 +1284,7 @@ class SextractorCatalogs(SourceCatalogs):
                 # sigma-clip array
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    zp_hdu = sigma_clip(zp_hdu, masked=True, sigma=3, maxiters=2).filled(np.nan)
+                    zp_hdu = sigma_clip(zp_hdu, masked=True, sigma=3, maxiters=5).filled(np.nan)
 
                 # Apply filter
                 fil = np.isfinite(zp_hdu)
@@ -1292,13 +1292,13 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Grid value into image
                 if mode == "pawprint":
-                    ngx, ngy, kernel_scale = 50, 50, 0.2
+                    nbx, nby, kernel_scale = 20, 20, 0.2
                 elif mode == "tile":
-                    ngx, ngy, kernel_scale = 200, 200, 0.03
+                    nbx, nby, kernel_scale = 300, 300, 0.05
                 else:
                     raise ValueError("Mode '{0}' not supported".format(mode))
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500,
-                                     ngx=ngx, ngy=ngy, kernel_scale=kernel_scale)
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500, nbins_x=nbx,
+                                     nbins_y=nby, kernel_scale=kernel_scale)
 
                 # Draw
                 kwargs = {"vmin": np.median(zp_hdu)-0.2, "vmax": np.median(zp_hdu)+0.2, "cmap": get_cmap("RdYlBu", 20)}
