@@ -294,7 +294,7 @@ class SourceCatalogs(FitsTables):
 
                 # Grid value into image
                 grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, naxis1=500, naxis2=500,
-                                     conv=True, kernel_scale=0.15)
+                                     nbins_x=10, nbins_y=10, conv=True, kernel_scale=0.15)
 
                 # Append separations in arcsec
                 sep_all.append(sep.arcsec)
