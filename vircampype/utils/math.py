@@ -14,6 +14,7 @@ from joblib import Parallel, delayed
 from scipy.interpolate import griddata
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
+from scipy.stats import binned_statistic_2d
 from vircampype.utils.miscellaneous import str2func
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve
 
@@ -22,7 +23,7 @@ from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convol
 __all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
            "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
            "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine", "fraction2float", "grid_value_2d"]
+           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata"]
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
@@ -1012,7 +1013,7 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-def grid_value_2d(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=True, kernel_scale=0.1, method="cubic"):
+def grid_value_2d_griddata(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=True, kernel_scale=0.1, method="cubic"):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1063,3 +1064,53 @@ def grid_value_2d(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=True, kernel
 
     # Rescale to original image
     return np.array(Image.fromarray(gridded).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
+
+
+def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True, kernel_scale=0.1):
+    """
+    Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
+
+    Parameters
+    ----------
+    x : iterable, ndarray
+        X coordinates
+    y : iterable, ndarray
+        Y coordinates
+    value : iterable, ndarray
+        Values for the X/Y coordinates
+    naxis1 : int
+        X size of final grid.
+    naxis2 : int
+        Y size of final grid.
+    nbins_x : int, optional
+        Number of bins in X direction.
+    nbins_y : int, optional
+        Number of bins in Y direction.
+    conv : bool, optional
+        If set, convolve the grid before resampling to final size.
+    kernel_scale : float, optional
+        Convolution kernel scale relative to initial grid size.
+
+    Returns
+    -------
+    ndarray
+        2D array with gridded data.
+
+    """
+
+    # Filter infinite values
+    good = np.isfinite(x) & np.isfinite(y) & np.isfinite(value)
+
+    # Grid
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        # noinspection PyTypeChecker
+        stat, xe, ye, nn = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nbins_x, nbins_y],
+                                               range=[(0, naxis1), (0, naxis2)], statistic=np.nanmedian)
+
+        # Smooth
+        if conv:
+            stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=(len(xe) - 1) * kernel_scale), boundary="extend")
+
+    # Rescale to original image
+    return np.array(Image.fromarray(stat).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
