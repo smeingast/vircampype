@@ -403,6 +403,7 @@ class VircamScienceImages(ScienceImages):
                         imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
                         nthreads=self.setup["misc"]["n_threads_shell"], resample_suffix=self._swarp_resample_suffix,
                         gain_keyword=self.setup["keywords"]["gain"], satlev_keyword=self.setup["keywords"]["saturate"],
+                        back_size=self.setup["astromatic"]["swarp_back_size"],
                         skip=["weight_image", "weight_thresh", "resample_dir"])
 
         # Construct commands for source extraction
