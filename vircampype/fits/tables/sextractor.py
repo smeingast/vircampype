@@ -627,16 +627,16 @@ class SextractorCatalogs(SourceCatalogs):
             key_dec = self._key_dec
 
         # Construct column names to extract from file
-        cn = ["MAG_APER", key_ra, key_dec] + self._colnames_apc
+        cn = ["MAG_APER", "FLAGS", key_ra, key_dec] + self._colnames_apc
 
         # Extract all data at once from file
-        mag_aper, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
+        mag_aper, flags, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
 
         # Build skycoord
         skycoord = [SkyCoord(ra=r, dec=d, frame="icrs", unit="deg") for r, d in zip(ra, dec)]
 
         # Return
-        return mag_aper, mag_apc, skycoord
+        return mag_aper, flags, mag_apc, skycoord
 
     _master_zeropoint = None
 
@@ -1013,7 +1013,7 @@ class SextractorCatalogs(SourceCatalogs):
             master_skycoord = master_photometry.skycoord()[0][0][mkeep]
 
             # Load aperture magnitudes, aperture corrections, and skycoords together from file
-            mag_aper_file, mag_apc_file, skycoord_file = self._get_columns_zp_method_file(idx_file=idx_file)
+            mag_aper_file, flags_file, mag_apc_file, skycoord_file = self._get_columns_zp_method_file(idx_file=idx_file)
 
             # Loop over extensions
             zp_hdu = {diam_apc: [] for diam_apc in apertures_out}
@@ -1025,13 +1025,20 @@ class SextractorCatalogs(SourceCatalogs):
                                     d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
                                     silent=self.setup["misc"]["silent"])
 
+                # Determine good sources with sextractor flags for current HDU
+                flags_good = flags_file[idx_hdu] == 0
+
+                # Fetch current sky coordinates
+                skycoord_hdu = skycoord_file[idx_hdu][flags_good]
+
                 # Compute final magnitudes
-                mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_apc] + apc[idx_hdu]
+                mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_apc][flags_good] + apc[idx_hdu][flags_good]
                         for idx_apc, diam_apc, apc in zip(self._aperture_save_idx, apertures_out, mag_apc_file)}
 
                 # TODO: This here does the same sky match for all apertures...
                 for diam_apc in apertures_out:
-                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], mag_cal=mags[diam_apc],
+
+                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_hdu, mag_cal=mags[diam_apc],
                                               mag_limits_ref=master_photometry.mag_lim,
                                               skycoo_ref=master_skycoord, mag_ref=master_mag)
                     zp_hdu[diam_apc].append(zp)
