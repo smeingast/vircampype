@@ -138,7 +138,6 @@ phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
 
 # Extract FWHMs
 fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
-fwhm_pp_median = np.nanmedian(fwhm_pp)
 
 
 # =========================================================================== #
@@ -154,7 +153,7 @@ coadd = swarped.coadd_pawprints()
 # =========================================================================== #
 # Run sextractor on coadd
 # =========================================================================== #
-coadd_sources = coadd.sextractor(preset="full", seeing_fwhm=[fwhm_pp_median])
+coadd_sources = coadd.sextractor(preset="full", seeing_fwhm=[np.nanmedian(fwhm_pp)])
 
 
 # =========================================================================== #
