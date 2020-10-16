@@ -695,8 +695,16 @@ class FitsImages(FitsFiles):
             if self.setup["cosmetics"]["destripe"]:
                 calib_cube.destripe()
 
+            # Add file info to main header
+            phdr = self.headers_primary[idx].copy()
+            phdr["BPMFILE"] = master_bpm.file_names[idx]
+            phdr["DARKFILE"] = master_dark.file_names[idx]
+            phdr["FLATFILE"] = master_flat.file_names[idx]
+            phdr["SKYFILE"] = master_sky.file_names[idx]
+            phdr["LINFILE"] = master_linearity.file_names[idx]
+
             # Write to disk
-            calib_cube.write_mef(path=self.paths_processed[idx], prime_header=self.headers_primary[idx],
+            calib_cube.write_mef(path=self.paths_processed[idx], prime_header=phdr,
                                  data_headers=self.headers_data[idx], dtype="float32")
 
         # Print time
