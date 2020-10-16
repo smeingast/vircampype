@@ -1182,6 +1182,14 @@ class SextractorCatalogs(SourceCatalogs):
             skycoord_file = self.skycoord_file(idx_file=idx_file)
             x_file = self.get_column_file(idx_file=idx_file, column_name="X_IMAGE")
             y_file = self.get_column_file(idx_file=idx_file, column_name="Y_IMAGE")
+            flags = self.get_column_file(idx_file=idx_file, column_name="FLAGS")
+
+            # Apply cut with flags
+            x_file = [x[f == 0] for x, f in zip(x_file, flags)]
+            y_file = [y[f == 0] for y, f in zip(y_file, flags)]
+            mag_file = [m[f == 0] for m, f in zip(mag_file, flags)]
+            apc_file = [a[f == 0] for a, f in zip(apc_file, flags)]
+            skycoord_file = [sc[f == 0] for sc, f in zip(skycoord_file, flags)]
 
             # =========================================================================== #
             # 1D
