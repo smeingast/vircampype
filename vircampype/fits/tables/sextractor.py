@@ -9,6 +9,7 @@ from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
 from vircampype.data.cube import ImageCube
+from sklearn.neighbors import KernelDensity
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.fits.tables.zeropoint import MasterZeroPoint
 
@@ -1227,24 +1228,43 @@ class SextractorCatalogs(SourceCatalogs):
                 idx_final = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
 
                 # Apply indices filter
-                mag_final = mag_final[idx_final]
-                mag_match = mag_master[idx_master]
+                mag_final, mag_match = mag_final[idx_final], mag_master[idx_master]
+                mag_delta = mag_match - mag_final
 
                 # Draw photometry
-                ax_file[idx_hdu].scatter(mag_match, mag_match - mag_final,
-                                         s=15, lw=0, alpha=0.4, zorder=0, c="crimson")
+                ax_file[idx_hdu].scatter(mag_match, mag_delta, s=15, lw=0, alpha=0.4, zorder=0, c="crimson")
 
                 # Draw ZP
                 ax_file[idx_hdu].axhline(zps_file[idx_hdu], zorder=1, c="black", alpha=0.5)
 
+                # Evalulate KDE
+                kde = KernelDensity(kernel="gaussian", bandwidth=0.1, metric="euclidean")
+                kde_grid = np.arange(np.floor(zps_file[idx_hdu] - 1), np.ceil(zps_file[idx_hdu] + 1), 0.02)
+                # dens = np.exp(kde.fit(mag_delta.reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
+
+                # KDE for ZP mag interval
+                keep = (mag_match >= master_photometry.mag_lim[0]) & (mag_match <= master_photometry.mag_lim[1])
+                # noinspection PyUnresolvedReferences
+                dens_zp = np.exp(kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
+
+                # Draw KDE
+                ax_kde = ax_file[idx_hdu].twiny()
+                ax_kde.plot(dens_zp, kde_grid, lw=1, c="black", alpha=0.8)
+                ax_kde.axis("off")
+
+                # Draw normal histogram
+                # ax_file[idx_hdu].hist(mag_match - mag_final, orientation="horizontal",
+                #                       histtype="step", lw=1, ec="black", bins="scott")
+
                 # Annotate detector ID
-                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 0.96),
-                                          xycoords="axes fraction", ha="left", va="top")
+                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.98, 0.04),
+                                          xycoords="axes fraction", ha="right", va="bottom")
 
                 # Set limits
                 ax_file[idx_hdu].set_xlim(10, 18)
-                ax_file[idx_hdu].set_ylim(np.floor(np.median(zps_file) - 0.5),
-                                          np.ceil(np.median(zps_file) + 0.5))
+                ylim = np.median(zps_file[idx_hdu] - 1), np.median(zps_file[idx_hdu] + 1)
+                ax_file[idx_hdu].set_ylim(ylim)
+                ax_kde.set_ylim(ylim)
 
                 # Modify axes
                 if idx_hdu >= len(skycoord_file) - self.setup["instrument"]["layout"][0]:
@@ -1269,7 +1289,6 @@ class SextractorCatalogs(SourceCatalogs):
                 fig.savefig(outpath_1d, bbox_inches="tight")
             plt.close("all")
 
-            # TODO: implement histogram plot (2mass - data)
             # =========================================================================== #
             # 2D
             # =========================================================================== #
@@ -1289,12 +1308,15 @@ class SextractorCatalogs(SourceCatalogs):
                 message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath_2d, d_current=idx_hdu+1,
                                     d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
 
+                # Read header
+                header = self.image_headers[idx_file][idx_hdu]
+
                 # Get magnitudes into shape
                 mag_final = mag_file[idx_hdu][:, apc_idx] + apc_file[idx_hdu]
 
                 # Get ZP for each source
                 zp_hdu = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], skycoo_ref=sc_master, mag_cal=mag_final,
-                                       mag_ref=mag_master, mag_limits_ref=(12, 15), return_all=True)
+                                       mag_ref=mag_master, mag_limits_ref=master_photometry.mag_lim, return_all=True)
 
                 # sigma-clip array
                 with warnings.catch_warnings():
@@ -1307,17 +1329,17 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Grid value into image
                 if mode == "pawprint":
-                    nbx, nby, kernel_scale = 20, 20, 0.2
+                    nbx, nby, kernel_scale = 3, 3, 0.2
                 elif mode == "tile":
-                    nbx, nby, kernel_scale = 300, 300, 0.05
+                    nbx, nby, kernel_scale = 10, 10, 0.05
                 else:
                     raise ValueError("Mode '{0}' not supported".format(mode))
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=500, naxis2=500, nbins_x=nbx,
-                                     nbins_y=nby, kernel_scale=kernel_scale)
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=header["NAXIS1"], naxis2=header["NAXIS1"],
+                                     conv=False, nbins_x=nbx, nbins_y=nby, upscale=False)
 
                 # Draw
                 kwargs = {"vmin": np.median(zp_hdu)-0.2, "vmax": np.median(zp_hdu)+0.2, "cmap": get_cmap("RdYlBu", 20)}
-                extent = [np.nanmin(x_hdu), np.nanmax(x_hdu), np.nanmin(y_hdu), np.nanmax(y_hdu)]
+                extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax_file[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
                 ax_file[idx_hdu].scatter(x_hdu, y_hdu, c=zp_hdu, s=7, lw=0.5, ec="black", **kwargs)
 
@@ -1344,8 +1366,8 @@ class SextractorCatalogs(SourceCatalogs):
                 ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
 
                 # Set limits
-                ax_file[idx_hdu].set_xlim(np.min(x_hdu), np.max(x_hdu))
-                ax_file[idx_hdu].set_ylim(np.min(y_hdu), np.max(y_hdu))
+                ax_file[idx_hdu].set_xlim(1, header["NAXIS1"])
+                ax_file[idx_hdu].set_ylim(1, header["NAXIS2"])
 
             # Add colorbar
             cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
