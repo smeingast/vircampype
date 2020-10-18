@@ -1335,7 +1335,7 @@ class SextractorCatalogs(SourceCatalogs):
                 else:
                     raise ValueError("Mode '{0}' not supported".format(mode))
                 grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=header["NAXIS1"], naxis2=header["NAXIS1"],
-                                     conv=False, nbins_x=nbx, nbins_y=nby, upscale=False)
+                                     nbins_x=nbx, nbins_y=nby, conv=False, upscale=False)
 
                 # Draw
                 kwargs = {"vmin": np.median(zp_hdu)-0.2, "vmax": np.median(zp_hdu)+0.2, "cmap": get_cmap("RdYlBu", 20)}
