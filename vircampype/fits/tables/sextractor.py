@@ -816,7 +816,7 @@ class SextractorCatalogs(SourceCatalogs):
         master_photometry = self.get_master_photometry()
 
         # Now loop through separated files
-        for files, fidx in zip(split, range(1, len(split) + 1)):
+        for files, idx_print in zip(split, range(1, len(split) + 1)):
 
             # Create master dark name
             outpath = self.path_master_object + "MASTER-SUPERFLAT_{0:11.5f}.fits".format(files.mjd_mean)
@@ -840,14 +840,17 @@ class SextractorCatalogs(SourceCatalogs):
             master_skycoord = master_photometry.skycoord()[0][0][mkeep]
 
             data_headers, flx_scale, flx_scale_global, n_sources = [], [], [], []
-            for idx_hdu, idx_print in zip(files.data_hdu[0], range(len(files.data_hdu[0]))):
+            for idx_hdu, idx_hdr in zip(files.data_hdu[0], range(len(files.data_hdu[0]))):
 
                 # Print processing info
-                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=idx_print + 1,
+                message_calibration(n_current=idx_print, n_total=len(split), name=outpath, d_current=idx_hdr + 1,
                                     d_total=len(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
 
                 # Read current HDU for all files
                 data = files.hdu2table(hdu_index=idx_hdu)
+
+                # Read header of current extension in first file
+                header = files.image_headers[0][idx_hdr]
 
                 # Extract data for all files for this extension
                 aa = np.array(flat_list([d["ALPHA_J2000"] for d in data]))
@@ -877,9 +880,9 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Grid values to detector size array
                 grid_zp = grid_value_2d(x=xx, y=yy, value=zp, nbins_x=self.setup["superflat"]["nbins_x"],
-                                        nbins_y=self.setup["superflat"]["nbins_y"],
+                                        nbins_y=self.setup["superflat"]["nbins_y"], upscale=True, conv=True,
                                         kernel_scale=self.setup["superflat"]["kernel_scale"],
-                                        naxis1=self.setup["data"]["dim_x"], naxis2=self.setup["data"]["dim_y"])
+                                        naxis1=header["NAXIS1"], naxis2=header["NAXIS2"])
 
                 # Convert to flux scale
                 flx_scale.append(10**(grid_zp / 2.5))
