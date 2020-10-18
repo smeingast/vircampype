@@ -273,10 +273,11 @@ class FitsImages(FitsFiles):
         if dtype is None:
             dtype = np.float32
 
+        # Read header of first file and given extension
+        header = self.headers_data[0][hdu_index]
+
         # Create empty numpy cube
-        cube = np.empty((self.n_files,
-                         self.headers_data[0][hdu_index]["NAXIS2"],
-                         self.headers_data[0][hdu_index]["NAXIS1"]), dtype=dtype)
+        cube = np.empty((self.n_files, header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
 
         # Fill cube with data
         for path, plane in zip(self.full_paths, cube):
@@ -313,8 +314,11 @@ class FitsImages(FitsFiles):
         if dtype is None:
             dtype = self.dtypes[file_index]
 
+        # Read header of requested file and first extension
+        header = self.headers_data[file_index][0]
+
         # Create empty cube
-        cube = np.empty((len(hdu_index), self.setup["data"]["dim_y"], self.setup["data"]["dim_x"]), dtype=dtype)
+        cube = np.empty((len(hdu_index), header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
 
         # Fill cube with data
         with fits.open(name=self.full_paths[file_index]) as f:
