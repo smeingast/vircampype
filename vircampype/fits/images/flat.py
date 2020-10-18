@@ -716,6 +716,7 @@ class MasterSuperflat(MasterImages):
 
             for idx_hdu in range(len(self.data_hdu[idx_file])):
 
+                # Draw image
                 im = ax_file[idx_hdu].imshow(cube[idx_hdu], vmin=0.85, vmax=1.15,
                                              cmap=get_cmap("RdYlBu_r", 30), origin="lower")
 
@@ -725,8 +726,8 @@ class MasterSuperflat(MasterImages):
                 cbar.ax.xaxis.set_label_position("top")
 
                 # Limits
-                ax_file[idx_hdu].set_xlim(0, self.setup["data"]["dim_x"])
-                ax_file[idx_hdu].set_ylim(0, self.setup["data"]["dim_y"])
+                ax_file[idx_hdu].set_xlim(0, self.headers_data[idx_file][idx_hdu]["NAXIS1"] - 1)
+                ax_file[idx_hdu].set_ylim(0, self.headers_data[idx_file][idx_hdu]["NAXIS2"] - 1)
 
                 # Annotate detector ID
                 ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.005),
