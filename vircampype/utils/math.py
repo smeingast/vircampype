@@ -1066,7 +1066,7 @@ def grid_value_2d_griddata(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=Tru
     return np.array(Image.fromarray(gridded).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
 
 
-def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True, kernel_scale=0.1):
+def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True, kernel_scale=0.1, upscale=True):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1090,6 +1090,8 @@ def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True
         If set, convolve the grid before resampling to final size.
     kernel_scale : float, optional
         Convolution kernel scale relative to initial grid size.
+    upscale : bool, optional
+        Whether result should be upscaled to naxis1/naxis2 size. Default is True.
 
     Returns
     -------
@@ -1108,9 +1110,15 @@ def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True
         stat, xe, ye, nn = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nbins_x, nbins_y],
                                                range=[(0, naxis1), (0, naxis2)], statistic=np.nanmedian)
 
+        # Transpose
+        stat = stat.T
+
         # Smooth
         if conv:
             stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=(len(xe) - 1) * kernel_scale), boundary="extend")
 
     # Rescale to original image
-    return np.array(Image.fromarray(stat).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
+    if upscale:
+        return np.array(Image.fromarray(stat).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
+    else:
+        return stat
