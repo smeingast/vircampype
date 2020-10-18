@@ -23,7 +23,7 @@ from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convol
 __all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
            "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
            "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata"]
+           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata", "point_density"]
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
@@ -1122,3 +1122,52 @@ def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True
         return np.array(Image.fromarray(stat).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
     else:
         return stat
+
+
+def _point_density(x, y, xdata, ydata, xsize, ysize):
+    """ Parallelisation method for point_average function. """
+
+    d = (xdata > x - xsize / 2.) & \
+        (xdata < x + xsize / 2.) & \
+        (ydata > y - ysize / 2.) & \
+        (ydata < y + ysize / 2.)
+
+    return np.sum(d)
+
+
+def point_density(xdata, ydata, xsize, ysize, norm=False, njobs=None):
+    """ Compute singe point density. """
+
+    # Import
+    from joblib import Parallel, delayed, cpu_count
+
+    # Create outarray
+    out_dens = np.array([xdata]).reshape(-1)
+
+    # Clean from NaNs
+    goodindex = np.isfinite(xdata) & np.isfinite(ydata)
+
+    # Apply to data
+    xdata = xdata[goodindex]
+    ydata = ydata[goodindex]
+
+    # Set parallel jobs
+    njobs = cpu_count() // 2 if njobs is None else njobs
+
+    # Run
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with Parallel(n_jobs=njobs) as parallel:
+            mp = parallel(delayed(_point_density)(a, b, c, d, e, f) for a, b, c, d, e, f in
+                          zip(xdata, ydata, repeat(xdata), repeat(ydata),
+                              repeat(xsize), repeat(ysize)))
+
+    # Fill indices
+    out_dens[goodindex] = np.array(mp)
+    out_dens[~goodindex] = np.nan
+
+    # Return
+    if norm:
+        return out_dens / np.nanmax(out_dens)
+    else:
+        return out_dens
