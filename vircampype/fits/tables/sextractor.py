@@ -1232,14 +1232,18 @@ class SextractorCatalogs(SourceCatalogs):
                 mag_delta = mag_match - mag_final
 
                 # Draw photometry
-                ax_file[idx_hdu].scatter(mag_match, mag_delta, s=15, lw=0, alpha=0.4, zorder=0, c="crimson")
+                dens = point_density(xdata=mag_match, ydata=mag_delta, xsize=0.25, ysize=0.05, norm=True,
+                                     njobs=self.setup["misc"]["n_threads_python"])
+                sidx = np.argsort(dens)
+                ax_file[idx_hdu].scatter(mag_match[sidx], mag_delta[sidx], c=np.sqrt(dens[sidx]), vmin=0, vmax=1.0,
+                                         s=5, lw=0, alpha=1.0, zorder=0, cmap="magma")
 
                 # Draw ZP
                 ax_file[idx_hdu].axhline(zps_file[idx_hdu], zorder=1, c="black", alpha=0.5)
 
                 # Evalulate KDE
                 kde = KernelDensity(kernel="gaussian", bandwidth=0.1, metric="euclidean")
-                kde_grid = np.arange(np.floor(zps_file[idx_hdu] - 1), np.ceil(zps_file[idx_hdu] + 1), 0.02)
+                kde_grid = np.arange(np.floor(zps_file[idx_hdu] - 1), np.ceil(zps_file[idx_hdu] + 1), 0.01)
                 # dens = np.exp(kde.fit(mag_delta.reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
 
                 # KDE for ZP mag interval
@@ -1288,6 +1292,7 @@ class SextractorCatalogs(SourceCatalogs):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpath_1d, bbox_inches="tight")
             plt.close("all")
+            exit()
 
             # =========================================================================== #
             # 2D
