@@ -1295,7 +1295,6 @@ class SextractorCatalogs(SourceCatalogs):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpath_1d, bbox_inches="tight")
             plt.close("all")
-            exit()
 
             # =========================================================================== #
             # 2D
