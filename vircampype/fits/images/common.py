@@ -274,7 +274,9 @@ class FitsImages(FitsFiles):
             dtype = np.float32
 
         # Create empty numpy cube
-        cube = np.empty((self.n_files, self.setup["data"]["dim_y"], self.setup["data"]["dim_x"]), dtype=dtype)
+        cube = np.empty((self.n_files,
+                         self.headers_data[0][hdu_index]["NAXIS2"],
+                         self.headers_data[0][hdu_index]["NAXIS1"]), dtype=dtype)
 
         # Fill cube with data
         for path, plane in zip(self.full_paths, cube):
