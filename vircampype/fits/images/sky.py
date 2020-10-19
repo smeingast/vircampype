@@ -7,6 +7,7 @@ import numpy as np
 from astropy.io import fits
 from astropy import wcs as awcs
 from vircampype.utils import *
+from vircampype.setup import *
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from astropy.stats import sigma_clipped_stats
@@ -873,7 +874,7 @@ class MasterSky(MasterImages):
                 continue
 
             # Get plot grid
-            fig, axes = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
 
             # Helpers
@@ -899,11 +900,11 @@ class MasterSky(MasterImages):
                             ha="left", va="bottom")
 
                 # Modify axes
-                if idx >= len(sky) - self.setup["instrument"]["layout"][0]:
+                if idx >= len(sky) - fpa_layout[0]:
                     ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % self.setup["instrument"]["layout"][0] == 0:
+                if idx % fpa_layout[0] == 0:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
