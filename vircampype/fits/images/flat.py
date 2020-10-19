@@ -650,11 +650,11 @@ class MasterFlat(MasterImages):
                             xy=(0.04, 0.04), xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx >= len(flux) - self.setup["instrument"]["layout"][0]:
+                if idx >= len(flux) - fpa_layout[0]:
                     ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % self.setup["instrument"]["layout"][0] == 0:
+                if idx % fpa_layout[0] == 0:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
@@ -708,7 +708,7 @@ class MasterSuperflat(MasterImages):
         for idx_file in range(len(self)):
 
             # Create figure
-            fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
             ax_file = ax_file.ravel()
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
@@ -739,11 +739,11 @@ class MasterSuperflat(MasterImages):
                                           xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
-                if idx_hdu >= len(self.data_hdu[idx_file]) - self.setup["instrument"]["layout"][0]:
+                if idx_hdu >= len(self.data_hdu[idx_file]) - fpa_layout[0]:
                     ax_file[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                if idx_hdu % fpa_layout[0] == 0:
                     ax_file[idx_hdu].set_ylabel("Y (pix)")
                 else:
                     ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
