@@ -285,7 +285,8 @@ class SextractorCatalogs(SourceCatalogs):
         # return all aperture correction images
         return self.get_aperture_correction(diameter=None)
 
-    def qc_plot_apcor(self, path, diameters, mag_apcor, magerr_apcor, models, axis_size=4,
+    @staticmethod
+    def qc_plot_apcor(path, diameters, mag_apcor, magerr_apcor, models, axis_size=4,
                       nsources=None, overwrite=False):
 
         # Check if plot already exits
