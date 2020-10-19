@@ -258,11 +258,11 @@ class MasterLinearity(MasterTables):
                             xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
-                if idx >= len(dit) - self.setup["instrument"]["layout"][0]:
+                if idx >= len(dit) - fpa_layout[0]:
                     ax.set_xlabel("DIT (s)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % self.setup["instrument"]["layout"][0] == 0:
+                if idx % fpa_layout[0] == 0:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
