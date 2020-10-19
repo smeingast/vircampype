@@ -3,6 +3,7 @@
 import warnings
 import numpy as np
 
+from vircampype.setup import *
 from vircampype.utils import *
 from vircampype.fits.tables.common import FitsTables
 
@@ -269,7 +270,7 @@ class SourceCatalogs(FitsTables):
                 fig, ax_all = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
                 ax_all = [ax_all]
             else:
-                fig, ax_all = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+                fig, ax_all = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
                 ax_all = ax_all.ravel()
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
@@ -310,11 +311,11 @@ class SourceCatalogs(FitsTables):
                                          xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx_hdu >= len(sc_file) - self.setup["instrument"]["layout"][0]:
+                if idx_hdu >= len(sc_file) - fpa_layout[0]:
                     ax_all[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                if idx_hdu % fpa_layout[0] == 0:
                     ax_all[idx_hdu].set_ylabel("Y (pix)")
                 else:
                     ax_all[idx_hdu].axes.yaxis.set_ticklabels([])
