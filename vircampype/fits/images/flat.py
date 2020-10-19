@@ -30,7 +30,7 @@ class FlatImages(FitsImages):
         split = self.split_lag(max_lag=self.setup["bpm"]["max_lag"])
 
         # Now loop through separated files and build Masterbpm
-        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: FlatImages, int
+        for files, idx_print in zip(split, range(1, len(split) + 1)):
 
             # Check sequence compatibility
             files.check_compatibility(n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3)
@@ -52,7 +52,7 @@ class FlatImages(FitsImages):
 
                 # Print processing info
                 if not self.setup["misc"]["silent"]:
-                    message_calibration(n_current=fidx, n_total=len(split), name=outpath,
+                    message_calibration(n_current=idx_print, n_total=len(split), name=outpath,
                                         d_current=d, d_total=len(files.data_hdu[0]))
 
                 # Get data
