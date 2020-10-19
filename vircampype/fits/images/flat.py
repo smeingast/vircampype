@@ -5,6 +5,7 @@ import numpy as np
 
 from astropy.io import fits
 from vircampype.utils import *
+from vircampype.setup import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
@@ -624,7 +625,7 @@ class MasterFlat(MasterImages):
                 continue
 
             # Get plot grid
-            fig, axes = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
 
             # Helpers
