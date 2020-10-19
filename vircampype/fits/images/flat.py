@@ -66,7 +66,7 @@ class FlatImages(FitsImages):
                                        sigma_iter=self.setup["bpm"]["sigma_iter"])
 
                 # Collapse cube with median
-                flat = cube.flatten(metric=str2func(self.setup["bpm"]["collapse_metric"]), axis=0)
+                flat = cube.flatten(metric=str2func(self.setup["bpm"]["metric"]), axis=0)
 
                 # Normalize cube with flattened data
                 cube.cube = cube.cube / flat
