@@ -274,7 +274,7 @@ class FitsImages(FitsFiles):
             dtype = np.float32
 
         # Read header of first file and given extension
-        header = self.headers_data[0][hdu_index]
+        header = self.headers[0][hdu_index]
 
         # Create empty numpy cube
         cube = np.empty((self.n_files, header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
