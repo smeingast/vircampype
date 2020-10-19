@@ -1,0 +1,91 @@
+# =========================================================================== #
+# Pipeline
+# =========================================================================== #
+paths:
+  name: "calibration"
+  data: "/path/to/calibration/"
+  pattern: "*.fits"
+  pype: "/path/to/vircampype/"
+
+misc:
+  silent:  False
+  overwrite:  False
+  qc_plots:  True
+  n_threads_python: 8
+  n_threads_shell: 8
+  fix_vircam_header: True
+  reset_wcs: True
+
+
+# =========================================================================== #
+# Data and instrument
+# =========================================================================== #
+keywords:
+  object: "OBJECT"
+  filter: "HIERARCH ESO INS FILT1 NAME"
+  type: "HIERARCH ESO DPR TYPE"
+  category: "HIERARCH ESO DPR CATG"
+  dit: "HIERARCH ESO DET DIT"
+  ndit: "HIERARCH ESO DET NDIT"
+  date_mjd: "MJD-OBS"
+  date_ut: "DATE-OBS"
+  gain: "GAIN"
+  rdnoise: "RDNOISE"
+  saturate: "SATURATE"
+
+
+# =========================================================================== #
+# Calibration
+# =========================================================================== #
+master:
+  max_lag_bpm: 10                    # Maximum time difference to MasterBPM in days
+  max_lag_dark: 10                   # Maximum time difference to MasterDark in days
+  max_lag_flat: 10                   # Maximum time difference to MasterFlat in days
+  max_lag_sky: 30                    # Maximum time difference to MasterSky in minutes
+  max_lag_gain: 10                   # Maximum time difference to MasterGain in days
+  max_lag_weight: 10                 # Maximum time difference to MasterWright in days
+  max_lag_linearity: 10              # Maximum time difference to MasterLinearity in days
+
+bpm:
+  max_lag: 1
+  abs_lo: 0.1
+  abs_hi: 20000
+  rel_lo: 0.97
+  rel_hi: 1.03
+  sigma_level: 4
+  sigma_iter: 1
+  frac: 0.2
+  metric: "median"
+
+dark:
+  max_lag: 1
+  mask_min: False
+  mask_max: False
+  sigma_level: 3
+  sigma_iter: 1
+  metric: "mean"
+
+gain:
+  max_lag: 1
+
+linearity:
+  order: 2
+  max_lag: 1
+
+flat:
+  max_lag: 1
+  mask_min: False
+  mask_max: False
+  rel_lo: 0.3
+  rel_hi: 1.7
+  sigma_level: 3
+  sigma_iter: 1
+  metric: "weighted"
+
+weight:
+  mask_abs_max: 1.7
+  mask_abs_min: 0.3
+  mask_rel_max: 1.5
+  mask_rel_min: 0.5
+  interpolate_nan: False
+  coadd_edge_gradient: 0.1          # Fraction of pixels that should have a gradient added for coaddition
