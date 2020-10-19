@@ -220,13 +220,13 @@ class MasterLinearity(MasterTables):
             # Helpers
             alldit, allflux = [i for s in dit for i in s], [i for s in flux for i in s]
             xmax = 1.05 * np.max(alldit)
-            ymax = 1.10 * np.max(self.setup["data"]["saturate"])
+            ymax = 1.10 * np.max(saturate_vircam)
 
             # Plot
             for idx in range(len(dit)):
 
                 # Get those above the saturation
-                bad = np.array(flux[idx]) > self.setup["data"]["saturate"][idx]
+                bad = np.array(flux[idx]) > saturate_vircam[idx]
 
                 # Add axis
                 ax = axes[idx]
@@ -248,8 +248,8 @@ class MasterLinearity(MasterTables):
                 ax.scatter(np.array(dit[idx])[~bad], lin, c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
 
                 # Saturation
-                ax.hlines(self.setup["data"]["saturate"][idx], 0,
-                          ceil_value(xmax, value=5), linestyles="dashed", colors="#7F7F7F", lw=1)
+                ax.hlines(saturate_vircam[idx], 0, ceil_value(xmax, value=5),
+                          linestyles="dashed", colors="#7F7F7F", lw=1)
 
                 # Annotate non-linearity and detector ID
                 ax.annotate("NL$_{{10000}}=${}%".format(np.round(nl10k[idx], decimals=2)),
