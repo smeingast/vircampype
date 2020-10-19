@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 
 from typing import List
+from vircampype.setup import *
 from vircampype.utils import *
 from vircampype.fits.tables.common import MasterTables
 from vircampype.utils.miscellaneous import check_file_exists
@@ -213,7 +214,7 @@ class MasterLinearity(MasterTables):
                 continue
 
             # Get plot grid
-            fig, axes = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
 
             # Helpers
