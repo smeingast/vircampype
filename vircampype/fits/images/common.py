@@ -1110,7 +1110,7 @@ class FitsImages(FitsFiles):
             raise ValueError("HDU with index {0} does not exits".format(hdu_index-1))
 
         # Return HDU saturation limit
-        return self.setup["data"]["saturate"][hdu_index-1]
+        return saturate_vircam[hdu_index-1]
 
 
 class MasterImages(FitsImages):
