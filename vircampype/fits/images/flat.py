@@ -430,7 +430,7 @@ class FlatImages(FitsImages):
             cube *= median
 
             # Interpolate NaNs if set (cosmetic function can't be used since this would also apply e.g. de-striping)
-            if self.setup["cosmetics"]["interpolate_nan"]:
+            if self.setup["weight"]["interpolate_nan"]:
                 cube.interpolate_nan()
 
             # Replace remaining NaNs with 0 weight
