@@ -137,24 +137,24 @@ class FitsFiles:
         """ Makes some consitency checks in setup. """
 
         # Only single threads for python are allowed at the moment
-        if self.setup["misc"]["n_threads_python"] != 1:
-            raise SetupError(BColors.FAIL +
-                             "Multiple threads in Python are not supported at the moment, "
-                             "'n_threads_python' = " "{0}".format(self.setup["misc"]["n_threads_python"])
-                             + BColors.ENDC)
-
-        # Raise error when more threads than available are requested
-        # if self.setup["misc"]["n_threads_python"] > cpu_count():
+        # if self.setup["misc"]["n_jobs"] != 1:
         #     raise SetupError(BColors.FAIL +
-        #                      "More threads reuqested than available. {0} > {1}"
-        #                      "".format(self.setup["misc"]["n_threads_python"], cpu_count())
+        #                      "Multiple threads in Python are not supported at the moment, "
+        #                      "'n_jobs' = " "{0}".format(self.setup["misc"]["n_jobs"])
         #                      + BColors.ENDC)
 
         # Raise error when more threads than available are requested
-        if self.setup["misc"]["n_threads_shell"] > cpu_count():
+        # if self.setup["misc"]["n_jobs"] > cpu_count():
+        #     raise SetupError(BColors.FAIL +
+        #                      "More threads reuqested than available. {0} > {1}"
+        #                      "".format(self.setup["misc"]["n_jobs"], cpu_count())
+        #                      + BColors.ENDC)
+
+        # Raise error when more threads than available are requested
+        if self.setup["misc"]["n_jobs"] > cpu_count():
             raise SetupError(BColors.FAIL +
                              "More threads reuqested than available. {0} > {1}"
-                             "".format(self.setup["misc"]["n_threads_shell"], cpu_count())
+                             "".format(self.setup["misc"]["n_jobs"], cpu_count())
                              + BColors.ENDC)
 
         # Check if astroscrappy is installed when found in setup

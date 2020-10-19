@@ -11,8 +11,7 @@ misc:
   silent: False
   overwrite: False
   qc_plots: True
-  n_threads_python: 1
-  n_threads_shell: 8
+  n_jobs: 8
   fix_vircam_header: True
   reset_wcs: True
 

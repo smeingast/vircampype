@@ -158,7 +158,7 @@ class SextractorCatalogs(SourceCatalogs):
             band = "Ks" if "k" in band.lower() else band
 
         # Load preset
-        options = yml2config(nthreads=self.setup["misc"]["n_threads_shell"],
+        options = yml2config(nthreads=self.setup["misc"]["n_jobs"],
                              checkplot_type=self._scamp_qc_types(joined=True),
                              checkplot_name=self._scamp_qc_names(joined=True),
                              skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_BAND"],
@@ -1236,7 +1236,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Draw photometry
                 dens = point_density(xdata=mag_match, ydata=mag_delta, xsize=0.25, ysize=0.05, norm=True,
-                                     njobs=self.setup["misc"]["n_threads_python"])
+                                     njobs=self.setup["misc"]["n_jobs"])
                 sidx = np.argsort(dens)
                 ax_file[idx_hdu].scatter(mag_match[sidx], mag_delta[sidx], c=np.sqrt(dens[sidx]), vmin=0, vmax=1.0,
                                          s=5, lw=0, alpha=1.0, zorder=0, cmap="magma")
@@ -1488,7 +1488,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Parallel job is slower
         # Extract Image headers
         # from joblib import Parallel, delayed
-        # with Parallel(n_jobs=self.setup["misc"]["n_threads_python"]) as parallel:
+        # with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
         #     self._image_headers = parallel(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
 
         # Return
