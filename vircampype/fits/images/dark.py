@@ -66,7 +66,7 @@ class DarkImages(FitsImages):
                                  sigma_iter=self.setup["dark"]["sigma_iter"], bpm=bpm)
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=str2func(self.setup["dark"]["collapse_metric"]))
+                collapsed = cube.flatten(metric=str2func(self.setup["dark"]["metric"]))
 
                 # Determine dark current as median
                 dc = np.nanmedian(collapsed) / (files.dit[0] * files.ndit[0])
