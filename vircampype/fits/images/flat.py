@@ -313,14 +313,14 @@ class FlatImages(FitsImages):
                                  sigma_iter=self.setup["flat"]["sigma_iter"])
 
                 # Create weights if needed
-                if self.setup["flat"]["collapse_metric"] == "weighted":
+                if self.setup["flat"]["metric"] == "weighted":
                     weights = np.empty_like(cube.cube)
                     weights[:] = flux[-1][:, np.newaxis, np.newaxis]
                 else:
                     weights = None
 
                 # Flatten data
-                flat = cube.flatten(metric=self.setup["flat"]["collapse_metric"], axis=0, weights=weights, dtype=None)
+                flat = cube.flatten(metric=self.setup["flat"]["metric"], axis=0, weights=weights, dtype=None)
 
                 # Create header with flux measurements
                 cards_flux = []
