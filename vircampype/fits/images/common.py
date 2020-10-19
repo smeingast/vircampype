@@ -684,7 +684,7 @@ class FitsImages(FitsFiles):
 
             # Add Gain, read noise, and saturation limit to headers
             for h, g, r, s in zip(self.headers_data[idx], master_gain.gain[idx],
-                                  master_gain.rdnoise[idx], self.setup["data"]["saturate"]):
+                                  master_gain.rdnoise[idx], saturate_vircam):
                 h[self.setup["keywords"]["gain"]] = (np.round(g, decimals=3), "Gain (e-/ADU)")
                 h[self.setup["keywords"]["rdnoise"]] = (np.round(r, decimals=3), "Read noise (e-)")
                 h[self.setup["keywords"]["saturate"]] = (s, "Saturation limit (ADU)")
