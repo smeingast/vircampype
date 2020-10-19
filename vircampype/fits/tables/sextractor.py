@@ -297,7 +297,7 @@ class SextractorCatalogs(SourceCatalogs):
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Get plot grid
-        fig, axes = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+        fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
         axes = axes.ravel()
 
         # Helper
@@ -329,11 +329,11 @@ class SextractorCatalogs(SourceCatalogs):
             ax.set_xscale("log")
 
             # Labels
-            if idx >= len(mag_apcor) - self.setup["instrument"]["layout"][0]:
+            if idx >= len(mag_apcor) - fpa_layout[0]:
                 ax.set_xlabel("Aperture diameter (pix)")
             else:
                 ax.axes.xaxis.set_ticklabels([])
-            if idx % self.setup["instrument"]["layout"][0] == 0:
+            if idx % fpa_layout[0] == 0:
                 ax.set_ylabel("Aperture correction (mag)")
             else:
                 ax.axes.yaxis.set_ticklabels([])
@@ -1210,8 +1210,7 @@ class SextractorCatalogs(SourceCatalogs):
                 fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
                 ax_file = [ax_file]
             else:
-                fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"],
-                                            xsize=axis_size, ysize=axis_size / 2)
+                fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size / 2)
                 ax_file = ax_file.ravel()
 
             for idx_hdu in range(len(self.data_hdu[idx_file])):
@@ -1274,12 +1273,12 @@ class SextractorCatalogs(SourceCatalogs):
                 ax_kde.set_ylim(ylim)
 
                 # Modify axes
-                if idx_hdu >= len(skycoord_file) - self.setup["instrument"]["layout"][0]:
+                if idx_hdu >= len(skycoord_file) - fpa_layout[0]:
                     ax_file[idx_hdu].set_xlabel("{0} {1} (mag)".format(self.setup["photometry"]["reference"].upper(),
                                                                        self.filter[idx_file]))
                 else:
                     ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                if idx_hdu % fpa_layout[0] == 0:
                     ax_file[idx_hdu].set_ylabel(r"$\Delta${0} (mag)".format(self.filter[idx_file]))
                 else:
                     ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
@@ -1304,7 +1303,7 @@ class SextractorCatalogs(SourceCatalogs):
                 fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
                 ax_file = [ax_file]
             else:
-                fig, ax_file = get_plotgrid(layout=self.setup["instrument"]["layout"], xsize=axis_size, ysize=axis_size)
+                fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
                 ax_file = ax_file.ravel()
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
@@ -1355,11 +1354,11 @@ class SextractorCatalogs(SourceCatalogs):
                                           xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx_hdu >= len(skycoord_file) - self.setup["instrument"]["layout"][0]:
+                if idx_hdu >= len(skycoord_file) - fpa_layout[0]:
                     ax_file[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % self.setup["instrument"]["layout"][0] == 0:
+                if idx_hdu % fpa_layout[0] == 0:
                     ax_file[idx_hdu].set_ylabel("Y (pix)")
                 else:
                     ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
