@@ -158,9 +158,9 @@ class FitsFiles:
                              + BColors.ENDC)
 
         # Check if astroscrappy is installed when found in setup
-        if self.setup["cosmetics"]["mask_cosmics"]:
-            if not module_exists("astroscrappy"):
-                raise SystemError("For cosmic ray detection, you need 'astroscrappy' installed.")
+        # if self.setup["cosmetics"]["mask_cosmics"]:
+        #     if not module_exists("astroscrappy"):
+        #         raise SystemError("For cosmic ray detection, you need 'astroscrappy' installed.")
 
     # =========================================================================== #
     #   Magic methods
