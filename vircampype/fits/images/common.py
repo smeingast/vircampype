@@ -1090,7 +1090,8 @@ class FitsImages(FitsFiles):
         # Return
         return path
 
-    def get_saturation_hdu(self, hdu_index):
+    @staticmethod
+    def get_saturation_hdu(hdu_index):
         """
 
         Parameters
