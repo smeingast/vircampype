@@ -86,4 +86,4 @@ weight:
   mask_rel_max: 1.5
   mask_rel_min: 0.5
   interpolate_nan: False
-  coadd_edge_gradient: 0.1          # Fraction of pixels that should have a gradient added for coaddition
+  coadd_edge_gradient: 200          # Number of pixels that should have a gradient toward the image edge
