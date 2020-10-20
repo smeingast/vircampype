@@ -696,7 +696,7 @@ class FitsImages(FitsFiles):
             if self.setup["cosmetics"]["mask_cosmics"]:
                 calib_cube.mask_cosmics(bpm=bpm, gain=master_gain.gain[idx], readnoise=master_gain.rdnoise[idx],
                                         satlevel=self.setup["data"]["saturate"], sepmed=False, cleantype="medmask")
-            if self.setup["cosmetics"]["interpolate_nan"]:
+            if self.setup["interpolation"]["interpolate_nan"]:
                 calib_cube.interpolate_nan()
             if self.setup["cosmetics"]["destripe"]:
                 calib_cube.destripe()

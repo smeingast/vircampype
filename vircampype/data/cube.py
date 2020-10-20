@@ -976,12 +976,13 @@ class ImageCube(object):
                 mp = []
                 for ch in chopped:
                     mp.append(interpolate_image(data=ch, kernel=kernel,
-                                                max_bad_neighbors=self.setup["cosmetics"]["max_bad_neighbors"]))
+                                                max_bad_neighbors=self.setup["interpolation"]["max_bad_neighbors"]))
 
             elif self.setup["misc"]["n_jobs"] > 1:
                 with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
                     mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
-                                  zip(chopped, repeat(kernel), repeat(self.setup["cosmetics"]["max_bad_neighbors"])))
+                                  zip(chopped, repeat(kernel),
+                                      repeat(self.setup["interpolation"]["max_bad_neighbors"])))
 
             else:
                 raise ValueError(
