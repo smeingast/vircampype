@@ -7,6 +7,7 @@ from astropy.io import fits
 from vircampype.utils import *
 from vircampype.setup import *
 from vircampype.data.cube import ImageCube
+from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
@@ -477,23 +478,29 @@ class FlatImages(FitsImages):
             # Read file into cube
             cube = master_weights.file2cube(file_index=idx, hdu_index=None, dtype=None)
 
-            # Create weight with 1s
-            weight = np.full_like(cube.cube, fill_value=1., dtype=np.float32)
+            # Edge arrays
+            e1 = np.array([np.full(cube.shape[1], fill_value=0, dtype=int),
+                           np.arange(0, cube.shape[2], 1).astype(int)])
+            e2 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
+                           np.full(cube.shape[2], fill_value=0, dtype=int)])
+            e3 = np.array([np.full(cube.shape[1], fill_value=cube.shape[1], dtype=int),
+                           np.arange(0, cube.shape[2], 1).astype(int)])
+            e4 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
+                           np.full(cube.shape[2], fill_value=cube.shape[2], dtype=int)])
+            edges_stacked = np.hstack([e1, e2, e3, e4])
 
-            # Generate edge arrays
-            nedge1 = int(cube.shape[1] * self.setup["weight"]["coadd_edge_gradient"])
-            nedge2 = int(cube.shape[2] * self.setup["weight"]["coadd_edge_gradient"])
-            grad1, grad2 = np.linspace(0.1, 1, nedge1), np.linspace(0.1, 1, nedge2)
+            # Create coorainate array for entire image
+            coo_image_x, coo_image_y = np.meshgrid(np.arange(cube.shape[1]), np.arange(cube.shape[2]))
+            coo_stacked = np.stack([coo_image_x.ravel(), coo_image_y.ravel()])
 
-            # Modify constant weight
-            weight[:, :nedge2, :] *= \
-                np.stack([np.stack([grad2] * cube.shape[1], axis=1)] * len(weight), axis=0)
-            weight[:, -nedge2 - 1:-1, :] *= \
-                np.stack([np.stack([np.flip(grad2)] * cube.shape[1], axis=1)] * len(weight), axis=0)
-            weight[:, :, :nedge2] *= \
-                np.stack([np.stack([grad2] * cube.shape[2], axis=0)] * len(weight), axis=0)
-            weight[:, :, -nedge2 - 1:-1] *= \
-                np.stack([np.stack([np.flip(grad2)] * cube.shape[2], axis=0)] * len(weight), axis=0)
+            dis, _ = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(edges_stacked.T).kneighbors(coo_stacked.T)
+            dis = dis[:, -1].reshape(cube.shape[1], cube.shape[2])
+
+            # Create weight
+            weight = dis / self.setup["weight"]["coadd_edge_gradient"]
+
+            # Mask too large weights in center of image
+            weight[weight > 1] = 1.
 
             # Modify ipout weight
             cube.cube *= weight
