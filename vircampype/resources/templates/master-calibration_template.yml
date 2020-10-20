@@ -85,5 +85,8 @@ weight:
   mask_abs_min: 0.3
   mask_rel_max: 1.5
   mask_rel_min: 0.5
-  interpolate_nan: False
   coadd_edge_gradient: 200          # Number of pixels that should have a gradient toward the image edge
+
+interpolation:
+  interpolate_nan: True
+  max_bad_neighbors: 3

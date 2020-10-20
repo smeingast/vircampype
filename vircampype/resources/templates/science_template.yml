@@ -71,12 +71,14 @@ superflat:
   kernel_scale: 0.2
 
 cosmetics:
-  interpolate_nan: False
   mask_cosmics: False
-  max_bad_neighbors: 3
   destripe: True
   destripe_axis: 2
   destripe_method: "median"
+
+interpolation:
+  interpolate_nan: True
+  max_bad_neighbors: 3
 
 
 # =========================================================================== #
