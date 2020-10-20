@@ -888,6 +888,19 @@ class SextractorCatalogs(SourceCatalogs):
                 # Convert to flux scale
                 flx_scale.append(10**(grid_zp / 2.5))
 
+                # Plot sources on top of superflat
+                # import matplotlib.pyplot as plt
+                # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
+                #
+                # im = ax.imshow(flx_scale[-1] / np.median(flx_scale[-1]), cmap="RdYlBu_r", vmin=0.95, vmax=1.04,
+                #                origin="lower")
+                # flux = 10**(zp / 2.5)
+                # ax.scatter(xx, yy, c=flux / np.nanmedian(flux), s=5, lw=0.5, cmap="RdYlBu_r",
+                #            ec="black", vmin=0.95, vmax=1.04)
+                # plt.colorbar(im)
+                # plt.show()
+                # exit()
+
                 # Save global scale
                 flx_scale_global.append(np.nanmedian(flx_scale[-1]))
 
