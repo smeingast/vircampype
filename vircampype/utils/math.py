@@ -323,7 +323,7 @@ def floor_value(data, value):
     return np.floor(data / value) * value
 
 
-def interpolate_image(array, kernel=None, max_bad_neighbors=None):
+def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     """
     Interpolates NaNs in an image. NaNs are replaced by convolving the original image with a kernel from which
     the pixel values are copied. This technique is much faster than other aporaches involving spline fitting
@@ -331,7 +331,7 @@ def interpolate_image(array, kernel=None, max_bad_neighbors=None):
 
     Parameters
     ----------
-    array : np.ndarray
+    data : np.ndarray
         2D numpy array to interpolate.
     kernel : Kernel2D, np.ndarray, optional
         Kernel used for interpolation.
@@ -344,6 +344,9 @@ def interpolate_image(array, kernel=None, max_bad_neighbors=None):
         Interpolated image
 
     """
+
+    # Copy data to avoid "read_only issue"
+    array = data.copy()
 
     # Determine NaNs
     nans = ~np.isfinite(array)
@@ -660,8 +663,8 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
 
     # Interpolate NaNs if any
     if np.sum(~np.isfinite(background)) > 0:
-        background = interpolate_image(array=background, kernel=np.ones((3, 3)), max_bad_neighbors=None)
-        noise = interpolate_image(array=noise, kernel=np.ones((3, 3)), max_bad_neighbors=None)
+        background = interpolate_image(data=background, kernel=np.ones((3, 3)), max_bad_neighbors=None)
+        noise = interpolate_image(data=noise, kernel=np.ones((3, 3)), max_bad_neighbors=None)
 
     # Median-filter low-res images if set and reshape into image
     if mesh_filtersize > 1:
