@@ -1354,7 +1354,7 @@ class SextractorCatalogs(SourceCatalogs):
                     nbx, nby, kernel_scale = 10, 10, 0.05
                 else:
                     raise ValueError("Mode '{0}' not supported".format(mode))
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=header["NAXIS1"], naxis2=header["NAXIS1"],
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=header["NAXIS1"], naxis2=header["NAXIS2"],
                                      nbins_x=nbx, nbins_y=nby, conv=False, upscale=False)
 
                 # Draw
@@ -1398,6 +1398,121 @@ class SextractorCatalogs(SourceCatalogs):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpath_2d, bbox_inches="tight")
+            plt.close("all")
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE", key_ra=None, key_dec=None,
+                           nbins=3):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="QC ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
+
+        # Obtain master coordinates
+        sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
+
+        # Loop over files
+        for idx_file in range(len(self)):
+
+            # Generate outpath
+            outpath = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, self.file_names[idx_file])
+
+            # Check if file exists
+            # if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            #     continue
+
+            # Grab coordinates
+            xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
+            yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
+            sc_file = self.skycoord_file(idx_file=idx_file, key_ra=key_ra, key_dec=key_dec)
+
+            # Coadd mode
+            if len(self) == 1:
+                fig, ax_all = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                ax_all = [ax_all]
+            else:
+                fig, ax_all = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+                ax_all = ax_all.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Loop over extensions
+            im, sep_all = None, []
+            for idx_hdu in range(len(sc_file)):
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath, d_current=idx_hdu+1,
+                                    d_total=len(sc_file), silent=self.setup["misc"]["silent"])
+
+                # Read header
+                header = self.image_headers[idx_file][idx_hdu]
+
+                # Get separations between master and current table
+                i1, sep, _ = sc_file[idx_hdu].match_to_catalog_sky(sc_master_astrometry)
+
+                # Extract position angles between master catalog and input
+                # sc1 = sc_master_astrometry[i1]
+                # ang = sc1.position_angle(sc_hdu)
+
+                # Keep only those with a maximum of 0.5 arcsec
+                keep = sep.arcsec < 0.5
+                sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
+
+                # Grid value into image
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, naxis1=header["NAXIS1"],
+                                     naxis2=header["NAXIS2"], nbins_x=nbins, nbins_y=nbins, conv=False, upscale=False)
+
+                # Append separations in arcsec
+                sep_all.append(sep.arcsec)
+
+                # Draw
+                kwargs = {"vmin": 0, "vmax": 0.5, "cmap": "Spectral_r"}
+                extent = [np.nanmin(x_hdu), np.nanmax(x_hdu), np.nanmin(y_hdu), np.nanmax(y_hdu)]
+                im = ax_all[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
+                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.arcsec, s=7, lw=0.5, ec="black", **kwargs)
+
+                # Annotate detector ID
+                ax_all[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                                         xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx_hdu >= len(sc_file) - fpa_layout[0]:
+                    ax_all[idx_hdu].set_xlabel("X (pix)")
+                else:
+                    ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
+                if idx_hdu % fpa_layout[0] == 0:
+                    ax_all[idx_hdu].set_ylabel("Y (pix)")
+                else:
+                    ax_all[idx_hdu].axes.yaxis.set_ticklabels([])
+
+                ax_all[idx_hdu].set_aspect("equal")
+
+                # Set ticks
+                ax_all[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_all[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Left limit
+                ax_all[idx_hdu].set_xlim(extent[0], extent[1])
+                ax_all[idx_hdu].set_ylim(extent[2], extent[3])
+
+            # Add colorbar
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
+            cbar.ax.xaxis.set_ticks_position("top")
+            cbar.ax.xaxis.set_label_position("top")
+
+            # Print external error stats
+            message_qc_astrometry(separation=flat_list(sep_all))
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpath, bbox_inches="tight")
             plt.close("all")
 
         # Print time
