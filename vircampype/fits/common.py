@@ -80,15 +80,14 @@ class FitsFiles:
         self.path_master_object = "{0}{1}/".format(self.path_object, "master")
 
         # QC
-        self.path_qc_common = "{0}{1}/".format(self.path_pype, "qc")
         self.path_qc_object = "{0}{1}/".format(self.path_object, "qc")
 
         # Common QC
-        self.path_qc_bpm = "{0}{1}/".format(self.path_qc_common, "bpm")
-        self.path_qc_dark = "{0}{1}/".format(self.path_qc_common, "dark")
-        self.path_qc_gain = "{0}{1}/".format(self.path_qc_common, "gain")
-        self.path_qc_linearity = "{0}{1}/".format(self.path_qc_common, "linearity")
-        self.path_qc_flat = "{0}{1}/".format(self.path_qc_common, "flat")
+        self.path_qc_bpm = "{0}{1}/".format(self.path_qc_object, "bpm")
+        self.path_qc_dark = "{0}{1}/".format(self.path_qc_object, "dark")
+        self.path_qc_gain = "{0}{1}/".format(self.path_qc_object, "gain")
+        self.path_qc_linearity = "{0}{1}/".format(self.path_qc_object, "linearity")
+        self.path_qc_flat = "{0}{1}/".format(self.path_qc_object, "flat")
 
         # Sequence specific QC
         self.path_qc_sky = "{0}{1}/".format(self.path_qc_object, "sky")
@@ -104,8 +103,7 @@ class FitsFiles:
         paths_common = [self.path_pype, self.path_headers, self.path_master_common, self.path_object]
 
         # calibration-specific paths
-        paths_cal = [self.path_qc_common, self.path_qc_bpm, self.path_qc_dark,
-                     self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat]
+        paths_cal = [self.path_qc_bpm, self.path_qc_dark, self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat]
 
         # Object-specific paths
         paths_obj = [self.path_temp, self.path_processed, self.path_resampled, self.path_coadd, self.path_obspar,
@@ -118,7 +116,7 @@ class FitsFiles:
             make_folder(path)
 
         # Create common calibration path only if we run a calibration unit
-        if self.name.lower() == "calibration":
+        if "calibration" in self.name.lower():
             for path in paths_cal:
                 make_folder(path=path)
 
