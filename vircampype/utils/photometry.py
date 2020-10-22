@@ -111,6 +111,10 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
     mag_ref = mag_ref[idx_ref]
     mag_cal = mag_cal[idx_sci]
 
+    # Return bad value if ZP could not be determined
+    if len(mag_ref) == 0:
+        return 99., 99.
+
     # Compute ZP for each source
     mag_diff = mag_ref - mag_cal
 
