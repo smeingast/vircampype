@@ -1176,8 +1176,14 @@ class SextractorCatalogs(SourceCatalogs):
         # Processing info
         tstart = message_mastercalibration(master_type="QC PHOTOMETRY", silent=self.setup["misc"]["silent"])
 
+        # Aperture index to use for plotting
+        aper_idx = 3
+
+        # Determine aperture size
+        diam = apertures_all[self._aperture_save_idx[aper_idx]]
+
         # Get ZPs for all data
-        zps_all = self.mean_zeropoints[0]
+        zps_all = self.zeropoint_diam(diameter=diam)[0]
 
         # Read master photometry table
         master_photometry = self.get_master_photometry()[0]
