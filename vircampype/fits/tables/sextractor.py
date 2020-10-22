@@ -1285,7 +1285,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Set limits
                 ax_file[idx_hdu].set_xlim(10, 18)
-                ylim = np.median(zps_file[idx_hdu] - 1), np.median(zps_file[idx_hdu] + 1)
+                ylim = np.median(zps_file) - 1, np.median(zps_file) + 1
                 ax_file[idx_hdu].set_ylim(ylim)
                 ax_kde.set_ylim(ylim)
 
