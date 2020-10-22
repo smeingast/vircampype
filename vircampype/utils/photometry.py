@@ -153,8 +153,6 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
         else:
             raise ValueError("ZP method '{0}' not supported. Use 'median' or 'weighted'.")
 
-    # Return ZP and error
-
 
 def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):
     """ Convenience method """
