@@ -201,23 +201,6 @@ class SourceCatalogs(FitsTables):
 
         return skycoord
 
-    def mag(self, key):
-        """
-        Returns magnitude in catalog based on keyword.
-
-        Parameters
-        ----------
-        key : str
-            Key in catalog for magnitude.
-
-        Returns
-        -------
-        iterable
-            List of lists for each catalog and extension in self.
-
-        """
-        return [[y for y in x] for x in self.get_columns(column_name=key)]
-
     @property
     def filter(self):
         """
@@ -340,3 +323,37 @@ class MasterPhotometry2Mass(MasterPhotometry):
     def cflags(self, key):
         """ Return contamination and confusion flag for given filter. """
         return [[[x[self._key2idx(key=key)] for x in y] for y in z] for z in self._cflags]
+
+    def mag(self, band):
+        """
+        Returns magnitude in catalog based on keyword.
+
+        Parameters
+        ----------
+        band : str
+            Key in catalog for magnitude.
+
+        Returns
+        -------
+        iterable
+            List of lists for each catalog and extension in self.
+
+        """
+        return [[y for y in x] for x in self.get_columns(column_name=band)]
+
+    def mag_err(self, band):
+        """
+        Returns magnitude in catalog based on keyword.
+
+        Parameters
+        ----------
+        band : str
+            Key in catalog for magnitude.
+
+        Returns
+        -------
+        iterable
+            List of lists for each catalog and extension in self.
+
+        """
+        return [[y for y in x] for x in self.get_columns(column_name="e_" + band)]
