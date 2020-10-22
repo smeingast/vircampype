@@ -51,7 +51,7 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
 
 
 def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
-                  method="weighted", mag_err_cal=None, mag_err_ref=None):
+                  method="weighted", mag_err_cal=None, mag_err_ref=None, plot=False):
     """
     Calculate zero point
 
@@ -73,6 +73,8 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
         Tuple of magnitude limits to be applied. e.g. (10, 15)
     method: str, optional
         Method used to calcualte ZP. Either 'median', 'weighted', or 'all'. Default is 'weighted'.
+    plot: bool, optional
+        Makes a test plot for testing.
     Returns
     -------
     (float, float)
@@ -126,9 +128,6 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
             # Get sigma-clipped stats
             _, zp, zp_err = sigma_clipped_stats(data=mag_diff, sigma=3, maxiters=3)
 
-            # Return
-            return zp, zp_err
-
         # Weighted ZP
         elif method.lower() == "weighted":
 
@@ -137,7 +136,7 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
             mag_err_cal = mag_err_cal[idx_sci]
 
             # Sigma clip mag_diff array and set weights of outliers to 0
-            mask = sigma_clip(mag_diff).mask
+            mask = sigma_clip(mag_diff, sigma=2.5, maxiters=5).mask
             weights = 1/np.sqrt(mag_err_ref**2 + mag_err_cal**2)
             weights[mask] = 0.
 
@@ -147,11 +146,22 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
             # Determine variance
             zp_err = np.sqrt(np.average((mag_diff - zp)**2, weights=weights))
 
-            # Return
-            return zp, zp_err
-
         else:
             raise ValueError("ZP method '{0}' not supported. Use 'median' or 'weighted'.")
+
+        # For tests
+        if plot:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
+            kwargs = dict(s=30, lw=0, alpha=1)
+            ax.scatter(mag_ref, mag_diff, fc="crimson", **kwargs)
+            if method.lower() == "weighted":
+                ax.scatter(mag_ref[~mask], mag_diff[~mask], fc="green", **kwargs)
+            ax.axhline(zp, c="black")
+            plt.show()
+
+        # Return
+        return zp, zp_err
 
 
 def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):
