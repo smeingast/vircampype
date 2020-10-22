@@ -6,7 +6,7 @@ import numpy as np
 from astropy import modeling
 from astropy.units import Unit
 from astropy.coordinates import SkyCoord
-from astropy.stats import sigma_clipped_stats
+from astropy.stats import sigma_clipped_stats, sigma_clip
 
 # Define objects in this module
 __all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec"]
@@ -50,7 +50,8 @@ def get_aperture_correction(diameters, magnitudes, func="Moffat"):
     return mag_apcor, magerr_apcor, model
 
 
-def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None, return_all=False):
+def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
+                  method="weighted", mag_err_cal=None, mag_err_ref=None):
     """
     Calculate zero point
 
@@ -60,14 +61,18 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
         Astropy SkyCoord object with all coordinates of catalog to be calibrated.
     mag_cal : iterable, ndarray
         Magnitudes of sources to be calibrated.
+    mag_err_cal : iterable, ndarray
+        Magnitude errors of sources to be calibrated.
     skycoo_ref : SkyCoord
         Astropy SkyCoord instance for reference catalog sources.
     mag_ref : iterable, ndarray
-        Magnitudes of reference sources
+        Magnitudes of reference sources.
+    mag_err_ref : iterable, ndarray
+        Magnitude errors of reference sources.
     mag_limits_ref : tuple, optional
         Tuple of magnitude limits to be applied. e.g. (10, 15)
-    return_all : bool, optional
-        If set, rerturns ZPs for each input sources.
+    method: str, optional
+        Method used to calcualte ZP. Either 'median', 'weighted', or 'all'. Default is 'weighted'.
     Returns
     -------
     (float, float)
@@ -75,13 +80,22 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
 
     """
 
+    # Dummy check for errors
+    if (method.lower() == "weighted") & ((mag_err_cal is None) | (mag_err_ref is None)):
+        raise ValueError("For weighted ZP determination, please provide magnitude errors!")
+
     # Make new array for output
-    zp_cal_out = np.full_like(mag_cal, fill_value=np.nan)
+    mag_diff_all = np.full_like(mag_cal, fill_value=np.nan)
 
     # Restrict reference catalog
     if mag_limits_ref is not None:
         keep = (mag_ref >= mag_limits_ref[0]) & (mag_ref <= mag_limits_ref[1])
         mag_ref = mag_ref[keep]
+
+        # Also apply to errors if needed
+        if method.lower() == "weighted":
+            mag_err_ref = mag_err_ref[keep]
+
         skycoo_ref = skycoo_ref[keep]
 
     # Xmatch science with reference
@@ -96,17 +110,49 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
     mag_cal = mag_cal[idx_sci]
 
     # Compute ZP for each source
-    zp_cal = mag_ref - mag_cal
+    mag_diff = mag_ref - mag_cal
 
-    # Get sigma-clipped stats
-    _, zp_median, zp_std = sigma_clipped_stats(data=zp_cal, sigma=3, maxiters=3)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
 
-    # Return ZP and standard deviation
-    if return_all:
-        zp_cal_out[idx_sci] = zp_cal
-        return zp_cal_out
-    else:
-        return zp_median, zp_std
+        # Return magdiff for all sources if requested
+        if method == "all":
+            mag_diff_all[idx_sci] = mag_diff
+            return mag_diff_all
+
+        # Median ZP
+        if method.lower() == "median":
+            # Get sigma-clipped stats
+            _, zp, zp_err = sigma_clipped_stats(data=mag_diff, sigma=3, maxiters=3)
+
+            # Return
+            return zp, zp_err
+
+        # Weighted ZP
+        elif method.lower() == "weighted":
+
+            # Apply match to errors
+            mag_err_ref = mag_err_ref[idx_ref]
+            mag_err_cal = mag_err_cal[idx_sci]
+
+            # Sigma clip mag_diff array and set weights of outliers to 0
+            mask = sigma_clip(mag_diff).mask
+            weights = 1/np.sqrt(mag_err_ref**2 + mag_err_cal**2)
+            weights[mask] = 0.
+
+            # Compute weighted average
+            zp = np.average(mag_diff, weights=weights)
+
+            # Determine variance
+            zp_err = np.sqrt(np.average((mag_diff - zp)**2, weights=weights))
+
+            # Return
+            return zp, zp_err
+
+        else:
+            raise ValueError("ZP method '{0}' not supported. Use 'median' or 'weighted'.")
+
+    # Return ZP and error
 
 
 def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):

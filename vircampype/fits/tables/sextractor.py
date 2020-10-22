@@ -629,16 +629,16 @@ class SextractorCatalogs(SourceCatalogs):
             key_dec = self._key_dec
 
         # Construct column names to extract from file
-        cn = ["MAG_APER", "FLAGS", key_ra, key_dec] + self._colnames_apc
+        cn = ["MAG_APER", "MAGERR_APER", "FLAGS", key_ra, key_dec] + self._colnames_apc
 
         # Extract all data at once from file
-        mag_aper, flags, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
+        mag_aper, magerr_aper, flags, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
 
         # Build skycoord
         skycoord = [SkyCoord(ra=r, dec=d, frame="icrs", unit="deg") for r, d in zip(ra, dec)]
 
         # Return
-        return mag_aper, flags, mag_apc, skycoord
+        return mag_aper, magerr_aper, flags, mag_apc, skycoord
 
     _master_zeropoint = None
 
@@ -814,7 +814,7 @@ class SextractorCatalogs(SourceCatalogs):
         split = prune_list(split, n_min=self.setup["superflat"]["n_min"])
 
         # Get master photometry catalog
-        master_photometry = self.get_master_photometry()
+        master_phot = self.get_master_photometry()
 
         # Now loop through separated files
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -830,15 +830,15 @@ class SextractorCatalogs(SourceCatalogs):
             filter_catalog = files.filter[0]
 
             # Filter master catalog for good data
-            mkeep_qfl = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
-            mkeep_cfl = [True if x == "0" else False for x in master_photometry.cflags(key=filter_catalog)[0][0]]
+            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=filter_catalog)[0][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=filter_catalog)[0][0]]
 
             # Combine quality and contamination flag
             mkeep = mkeep_qfl and mkeep_cfl
 
             # Fetch magnitude and coordinates for master catalog
-            master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
-            master_skycoord = master_photometry.skycoord()[0][0][mkeep]
+            master_mag = master_phot.mag(band=master_phot.translate_filter(key=filter_catalog))[0][0][mkeep]
+            master_skycoord = master_phot.skycoord()[0][0][mkeep]
 
             data_headers, flx_scale, flx_scale_global, n_sources = [], [], [], []
             for idx_hdu, idx_hdr in zip(files.data_hdu[0], range(len(files.data_hdu[0]))):
@@ -874,7 +874,7 @@ class SextractorCatalogs(SourceCatalogs):
                 # Get ZP for each single star
                 zp = get_zeropoint_radec(ra_cal=aa, dec_cal=dd, mag_cal=mm, mag_ref=master_mag,
                                          ra_ref=master_skycoord.icrs.ra.deg, dec_ref=master_skycoord.icrs.dec.deg,
-                                         mag_limits_ref=master_photometry.mag_lim, return_all=True)
+                                         mag_limits_ref=master_phot.mag_lim, method="all")
 
                 # Sigma clip ZP array to remove outliers
                 zp = sigma_clip(zp, sigma_level=3, sigma_iter=5)
@@ -1003,7 +1003,7 @@ class SextractorCatalogs(SourceCatalogs):
         tstart = message_mastercalibration(master_type="MASTER ZERO POINT", silent=self.setup["misc"]["silent"])
 
         # Get master photometry catalog
-        master_photometry = self.get_master_photometry()
+        master_phot = self.get_master_photometry()
 
         # Loop over catalogs
         for idx_file in range(len(self)):
@@ -1020,18 +1020,20 @@ class SextractorCatalogs(SourceCatalogs):
             filter_catalog = self.filter[idx_file]
 
             # Filter master catalog for good data
-            mkeep_qfl = [True if x in "AB" else False for x in master_photometry.qflags(key=filter_catalog)[0][0]]
-            mkeep_cfl = [True if x == "0" else False for x in master_photometry.cflags(key=filter_catalog)[0][0]]
+            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=filter_catalog)[0][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=filter_catalog)[0][0]]
 
             # Combine quality and contamination flag
             mkeep = mkeep_qfl and mkeep_cfl
 
             # Fetch magnitude and coordinates for master catalog
-            master_mag = master_photometry.mag(key=master_photometry.translate_filter(key=filter_catalog))[0][0][mkeep]
-            master_skycoord = master_photometry.skycoord()[0][0][mkeep]
+            master_mag = master_phot.mag(band=master_phot.translate_filter(key=filter_catalog))[0][0][mkeep]
+            master_magerr = master_phot.mag_err(band=master_phot.translate_filter(key=filter_catalog))[0][0][mkeep]
+            master_skycoord = master_phot.skycoord()[0][0][mkeep]
 
             # Load aperture magnitudes, aperture corrections, and skycoords together from file
-            mag_aper_file, flags_file, mag_apc_file, skycoord_file = self._get_columns_zp_method_file(idx_file=idx_file)
+            mag_aper_file, magerr_aper_file, flags_file, mag_apc_file, skycoord_file \
+                = self._get_columns_zp_method_file(idx_file=idx_file)
 
             # Loop over extensions
             zp_hdu = {diam_apc: [] for diam_apc in apertures_out}
@@ -1050,17 +1052,18 @@ class SextractorCatalogs(SourceCatalogs):
                 skycoord_hdu = skycoord_file[idx_hdu][flags_good]
 
                 # Compute final magnitudes
-                mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_apc][flags_good] + apc[idx_hdu][flags_good]
-                        for idx_apc, diam_apc, apc in zip(self._aperture_save_idx, apertures_out, mag_apc_file)}
+                mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_aper][flags_good] + apc[idx_hdu][flags_good]
+                        for idx_aper, diam_apc, apc in zip(self._aperture_save_idx, apertures_out, mag_apc_file)}
+                magerrs = {diam_apc: magerr_aper_file[idx_hdu][:, idx_aper][flags_good]
+                           for idx_aper, diam_apc in zip(self._aperture_save_idx, apertures_out)}
 
-                # TODO: This here does the same sky match for all apertures...
-                for diam_apc in apertures_out:
-
-                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_hdu, mag_cal=mags[diam_apc],
-                                              mag_limits_ref=master_photometry.mag_lim,
-                                              skycoo_ref=master_skycoord, mag_ref=master_mag)
-                    zp_hdu[diam_apc].append(zp)
-                    zperr_hdu[diam_apc].append(zperr)
+                for aperture in apertures_out:
+                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_hdu, mag_cal=mags[aperture],
+                                              mag_err_cal=magerrs[aperture], mag_limits_ref=master_phot.mag_lim,
+                                              skycoo_ref=master_skycoord, mag_ref=master_mag, mag_err_ref=master_magerr,
+                                              method="weighted")
+                    zp_hdu[aperture].append(zp)
+                    zperr_hdu[aperture].append(zperr)
 
             # Make header cards
             prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
