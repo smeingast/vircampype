@@ -1335,17 +1335,17 @@ class SextractorCatalogs(SourceCatalogs):
                 mag_final = mag_file[idx_hdu][:, apc_idx] + apc_file[idx_hdu]
 
                 # Get ZP for each source
-                zp_hdu = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], skycoo_ref=sc_master, mag_cal=mag_final,
-                                       mag_ref=mag_master, mag_limits_ref=master_photometry.mag_lim, return_all=True)
+                zp_all = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], skycoo_ref=sc_master, mag_cal=mag_final,
+                                       mag_ref=mag_master, mag_limits_ref=master_photometry.mag_lim, method="all")
 
                 # sigma-clip array
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    zp_hdu = sigma_clip(zp_hdu, masked=True, sigma=3, maxiters=5).filled(np.nan)
+                    zp_all = sigma_clip(zp_all, masked=True, sigma=3, maxiters=5).filled(np.nan)
 
                 # Apply filter
-                fil = np.isfinite(zp_hdu)
-                x_hdu, y_hdu, zp_hdu = x_file[idx_hdu][fil], y_file[idx_hdu][fil], zp_hdu[fil]
+                fil = np.isfinite(zp_all)
+                x_hdu, y_hdu, zp_all = x_file[idx_hdu][fil], y_file[idx_hdu][fil], zp_all[fil]
 
                 # Grid value into image
                 if mode == "pawprint":
@@ -1354,14 +1354,14 @@ class SextractorCatalogs(SourceCatalogs):
                     nbx, nby, kernel_scale = 10, 10, 0.05
                 else:
                     raise ValueError("Mode '{0}' not supported".format(mode))
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_hdu, naxis1=header["NAXIS1"], naxis2=header["NAXIS2"],
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_all, naxis1=header["NAXIS1"], naxis2=header["NAXIS2"],
                                      nbins_x=nbx, nbins_y=nby, conv=False, upscale=False)
 
                 # Draw
-                kwargs = {"vmin": np.median(zp_hdu)-0.2, "vmax": np.median(zp_hdu)+0.2, "cmap": get_cmap("RdYlBu", 20)}
+                kwargs = {"vmin": np.median(zp_all)-0.2, "vmax": np.median(zp_all)+0.2, "cmap": get_cmap("RdYlBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax_file[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
-                ax_file[idx_hdu].scatter(x_hdu, y_hdu, c=zp_hdu, s=7, lw=0.5, ec="black", **kwargs)
+                ax_file[idx_hdu].scatter(x_hdu, y_hdu, c=zp_all, s=7, lw=0.5, ec="black", **kwargs)
 
                 # Annotate detector ID
                 ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
