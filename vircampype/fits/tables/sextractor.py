@@ -1083,9 +1083,7 @@ class SextractorCatalogs(SourceCatalogs):
             thdulist = fits.HDUList([prhdu, tbhdu])
 
             # Write
-            # TODO: Uncomment this again
-            # thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
-            thdulist.writeto(fileobj=outpath, overwrite=True)
+            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
