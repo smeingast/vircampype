@@ -122,6 +122,7 @@ def get_zeropoint(skycoo_cal, mag_cal, skycoo_ref, mag_ref, mag_limits_ref=None,
 
         # Median ZP
         if method.lower() == "median":
+
             # Get sigma-clipped stats
             _, zp, zp_err = sigma_clipped_stats(data=mag_diff, sigma=3, maxiters=3)
 
