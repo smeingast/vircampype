@@ -1471,7 +1471,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Draw
                 kwargs = {"vmin": 0, "vmax": 0.5, "cmap": "Spectral_r"}
-                extent = [np.nanmin(x_hdu), np.nanmax(x_hdu), np.nanmin(y_hdu), np.nanmax(y_hdu)]
+                extent = [0, header["NAXIS1"], 0, header["NAXIS2"]]
                 im = ax_all[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
                 ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.arcsec, s=7, lw=0.5, ec="black", **kwargs)
 
