@@ -1357,6 +1357,8 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Apply filter
                 fil = np.isfinite(zp_all)
+                if np.sum(fil) <= 2:
+                    continue
                 x_hdu, y_hdu, zp_all = x_file[idx_hdu][fil], y_file[idx_hdu][fil], zp_all[fil]
 
                 # Grid value into image
