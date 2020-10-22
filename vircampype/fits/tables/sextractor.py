@@ -1271,6 +1271,11 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # KDE for ZP mag interval
                 keep = (mag_match >= master_photometry.mag_lim[0]) & (mag_match <= master_photometry.mag_lim[1])
+
+                # Skip if nothing remains
+                if np.sum(keep) == 0:
+                    continue
+
                 # noinspection PyUnresolvedReferences
                 dens_zp = np.exp(kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
 
