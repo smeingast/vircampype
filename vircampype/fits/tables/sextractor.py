@@ -1437,8 +1437,8 @@ class SextractorCatalogs(SourceCatalogs):
             outpath = "{0}{1}_astrometry.pdf".format(self.path_qc_astrometry, self.file_names[idx_file])
 
             # Check if file exists
-            # if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-            #     continue
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
 
             # Grab coordinates
             xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
