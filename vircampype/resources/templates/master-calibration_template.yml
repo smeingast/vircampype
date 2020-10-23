@@ -39,10 +39,8 @@ keywords:
 master:
   max_lag_bpm: 10                    # Maximum time difference to MasterBPM in days
   max_lag_dark: 10                   # Maximum time difference to MasterDark in days
-  max_lag_flat: 10                   # Maximum time difference to MasterFlat in days
-  max_lag_gain: 10                   # Maximum time difference to MasterGain in days
-  max_lag_weight: 10                 # Maximum time difference to MasterWeight in days
   max_lag_linearity: 10              # Maximum time difference to MasterLinearity in days
+  max_lag_flat: 10                   # Maximum time difference to MasterFlat in days
 
 bpm:
   max_lag: 1
