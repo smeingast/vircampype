@@ -647,7 +647,7 @@ class SkyImages(FitsImages):
             sc = SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg")
 
             # Get optimal rotation of frame
-            rotation_test = np.linspace(0, np.pi / 2, 360)
+            rotation_test = np.linspace(0, 2 * np.pi, 360)
             area = []
             for rot in rotation_test:
                 hdr = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rot,
