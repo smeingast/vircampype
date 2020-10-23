@@ -129,9 +129,12 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
     else:
         raise ValueError("Frame {0:s} not supported".format(skycoord.frame))
 
+    # Set CDELT in each axis (negative for longitude/x)
+    cdelt1, cdelt2 = -cdelt, cdelt
+
     # Compute CD matrix
-    cd11, cd12 = cdelt * np.cos(rotation), -cdelt * np.sin(rotation)
-    cd21, cd22 = cdelt * np.sin(rotation), cdelt * np.cos(rotation)
+    cd11, cd12 = cdelt1 * np.cos(rotation), -cdelt2 * np.sin(rotation)
+    cd21, cd22 = cdelt1 * np.sin(rotation), cdelt2 * np.cos(rotation)
 
     # Create cards for header
     cards = []
