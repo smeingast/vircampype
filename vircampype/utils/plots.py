@@ -83,7 +83,7 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
     plt.close("all")
 
 
-def get_plotgrid(layout, xsize=4, ysize=4):
+def get_plotgrid(layout, xsize=4, ysize=4, rearrange_vircam=True):
     """
     Generates a matplotlib grid for the focal plane array
 
@@ -110,6 +110,14 @@ def get_plotgrid(layout, xsize=4, ysize=4):
     fig, axes = plt.subplots(ncols=layout[0], nrows=layout[1], **{"figsize": (layout[0] * xsize, layout[1] * ysize)},
                              gridspec_kw={"hspace": 0.1, "wspace": 0.1, "left": 0.1,
                                           "right": 0.9, "bottom": 0.1, "top": 0.9})
+
+    if rearrange_vircam:
+        axes_new = axes.copy()
+        axes_new[3] = axes[0]
+        axes_new[2] = axes[1]
+        axes_new[1] = axes[2]
+        axes_new[0] = axes[3]
+        axes = axes_new
 
     # Return figure, grid, and focal plane array layout
     return fig, axes
