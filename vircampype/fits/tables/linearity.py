@@ -213,6 +213,10 @@ class MasterLinearity(MasterTables):
             if check_file_exists(file_path=path, silent=True) and not overwrite:
                 continue
 
+            # Read focal play array layout and saturation levels from instance setup
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"])
+            saturation_levels = str2list(self.setup["data"]["saturation_levels"])
+
             # Get plot grid
             fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
@@ -220,13 +224,13 @@ class MasterLinearity(MasterTables):
             # Helpers
             alldit, allflux = [i for s in dit for i in s], [i for s in flux for i in s]
             xmax = 1.05 * np.max(alldit)
-            ymax = 1.10 * np.max(saturate_vircam)
+            ymax = 1.10 * np.max(saturation_levels)
 
             # Plot
             for idx in range(len(dit)):
 
                 # Get those above the saturation
-                bad = np.array(flux[idx]) > saturate_vircam[idx]
+                bad = np.array(flux[idx]) > saturation_levels[idx]
 
                 # Add axis
                 ax = axes[idx]
@@ -248,7 +252,7 @@ class MasterLinearity(MasterTables):
                 ax.scatter(np.array(dit[idx])[~bad], lin, c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
 
                 # Saturation
-                ax.hlines(saturate_vircam[idx], 0, ceil_value(xmax, value=5),
+                ax.hlines(saturation_levels[idx], 0, ceil_value(xmax, value=5),
                           linestyles="dashed", colors="#7F7F7F", lw=1)
 
                 # Annotate non-linearity and detector ID
