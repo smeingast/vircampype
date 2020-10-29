@@ -10,7 +10,6 @@ from astropy.io import fits
 from joblib import cpu_count
 from astropy.time import Time
 from vircampype.utils import *
-from vircampype.setup import *
 from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
 
 
@@ -288,7 +287,7 @@ class FitsFiles:
                         # Load header
                         hdr = hdu.header
 
-                        if self.setup["misc"]["fix_vircam_header"]:
+                        if self.setup["data"]["fix_vircam_header"]:
                             try:
                                 hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
                             except KeyError:
@@ -301,7 +300,7 @@ class FitsFiles:
                             fixed = False
 
                         # Reset WCS if set
-                        if self.setup["misc"]["reset_wcs"] and not fixed:
+                        if self.setup["data"]["reset_wcs"] and not fixed:
 
                             # Save Target coordinate
                             if isinstance(hdu, PrimaryHDU):
