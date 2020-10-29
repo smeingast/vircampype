@@ -5,7 +5,6 @@ import numpy as np
 
 from astropy.io import fits
 from vircampype.utils import *
-from vircampype.setup import *
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
 from vircampype.fits.tables.sextractor import SextractorCatalogs
@@ -684,10 +683,10 @@ class FitsImages(FitsFiles):
 
             # Add Gain, read noise, and saturation limit to headers
             for h, g, r, s in zip(self.headers_data[idx], master_gain.gain[idx],
-                                  master_gain.rdnoise[idx], saturate_vircam):
+                                  master_gain.rdnoise[idx], str2list(self.setup["data"]["saturation_levels"])):
                 h[self.setup["keywords"]["gain"]] = (np.round(g, decimals=3), "Gain (e-/ADU)")
                 h[self.setup["keywords"]["rdnoise"]] = (np.round(r, decimals=3), "Read noise (e-)")
-                h[self.setup["keywords"]["saturate"]] = (s, "Saturation limit (ADU)")
+                h[self.setup["keywords"]["saturate"]] = (s, "Saturation level (ADU)")
 
             # Do calibration
             calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx])
@@ -921,7 +920,7 @@ class FitsImages(FitsFiles):
         elif preset == "full":
             ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_full.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
-                            phot_apertures=list2str(apertures, sep=","),
+                            phot_apertures=list2str(self.setup["photometry"]["apertures"], sep=","),
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         else:
@@ -1089,8 +1088,7 @@ class FitsImages(FitsFiles):
         # Return
         return path
 
-    @staticmethod
-    def get_saturation_hdu(hdu_index):
+    def get_saturation_hdu(self, hdu_index):
         """
 
         Parameters
@@ -1110,7 +1108,7 @@ class FitsImages(FitsFiles):
             raise ValueError("HDU with index {0} does not exits".format(hdu_index-1))
 
         # Return HDU saturation limit
-        return saturate_vircam[hdu_index-1]
+        return str2list(self.setup["data"]["saturation_levels"])[hdu_index-1]
 
 
 class MasterImages(FitsImages):
