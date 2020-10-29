@@ -636,6 +636,9 @@ class MasterFlat(MasterImages):
             if check_file_exists(file_path=path, silent=True) and not overwrite:
                 continue
 
+            # Read focal play array layout
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"])
+
             # Get plot grid
             fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
@@ -718,6 +721,9 @@ class MasterSuperflat(MasterImages):
             paths = ["{0}{1}.pdf".format(self.path_qc_superflat, fp) for fp in self.file_names]
 
         for idx_file in range(len(self)):
+
+            # Read focal play array layout
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"])
 
             # Create figure
             fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
