@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 
 from typing import List
-from vircampype.setup import *
 from vircampype.utils import *
 from vircampype.fits.tables.common import MasterTables
 from vircampype.utils.miscellaneous import check_file_exists
