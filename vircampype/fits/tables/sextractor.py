@@ -866,7 +866,7 @@ class SextractorCatalogs(SourceCatalogs):
                 # Filter for good sources
                 good = (np.isfinite(aa) & np.isfinite(dd) & np.isfinite(xx) &
                         np.isfinite(yy) & np.isfinite(ff) & np.isfinite(mm) &
-                        (ff == 0) & (ee < 0.2) & (fwhm > 0.3) & (fwhm < 1.5))
+                        (ff == 0) & (ee < 0.2) & (fwhm > 0.3) & (fwhm < 2.0))
 
                 # Apply filter
                 aa, dd, xx, yy, mm = aa[good], dd[good], xx[good], yy[good], mm[good]
@@ -880,15 +880,15 @@ class SextractorCatalogs(SourceCatalogs):
                 zp = sigma_clip(zp, sigma_level=3, sigma_iter=5)
 
                 # Grid values to detector size array
-                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, nbins_x=self.setup["superflat"]["nbins_x"],
-                                        nbins_y=self.setup["superflat"]["nbins_y"], upscale=True, conv=True,
-                                        kernel_scale=self.setup["superflat"]["kernel_scale"],
-                                        naxis1=header["NAXIS1"], naxis2=header["NAXIS2"])
+                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, x_min=0, x_max=header["NAXIS1"], y_min=0,
+                                        y_max=header["NAXIS2"], nx=self.setup["superflat"]["nbins_x"],
+                                        ny=self.setup["superflat"]["nbins_y"], conv=True,
+                                        kernel_scale=self.setup["superflat"]["kernel_scale"])
 
                 # Convert to flux scale
                 flx_scale.append(10**(grid_zp / 2.5))
 
-                # Plot sources on top of superflat
+                # # Plot sources on top of superflat
                 # import matplotlib.pyplot as plt
                 # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
                 #
