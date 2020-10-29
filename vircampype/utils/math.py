@@ -1016,7 +1016,9 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-def grid_value_2d_griddata(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=True, kernel_scale=0.1, method="cubic"):
+def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
+                           conv=True, kernel_scale=0.1, method="cubic"):
+
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1028,14 +1030,18 @@ def grid_value_2d_griddata(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=Tru
         Y coordinates
     value : iterable, ndarray
         Values for the X/Y coordinates
-    naxis1 : int
-        X size of final grid.
-    naxis2 : int
-        Y size of final grid.
-    ngx : int, optional
-        Initial grid size in x.
-    ngy : int, optional.
-        Initial grid size in y.
+    x_min : int, float
+        Minimum X position for grid.
+    x_max : int, float
+        Maximum X position for grid.
+    y_min : int, float
+        Minimum Y position for grid.
+    y_max : int, float
+        Maximum Y position for grid.
+    nx : int
+        Number of bins in X.
+    ny : int
+        Number of bins in Y.
     conv : bool, optional
         If set, convolve the grid before resampling to final size.
     kernel_scale : float, optional
@@ -1054,7 +1060,7 @@ def grid_value_2d_griddata(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=Tru
     good = np.isfinite(x) & np.isfinite(y) & np.isfinite(value)
 
     # Make grid
-    xg, yg = np.meshgrid(np.linspace(min(x[good]), max(x[good]), ngx), np.linspace(min(y), max(y), ngy))
+    xg, yg = np.meshgrid(np.linspace(x_min, x_max, nx), np.linspace(y_min, y_max, ny))
 
     # Map ZPs onto grid
     gridded = griddata(points=np.stack([x[good], y[good]], axis=1), values=value[good],
@@ -1062,14 +1068,15 @@ def grid_value_2d_griddata(x, y, value, naxis1, naxis2, ngx=50, ngy=50, conv=Tru
 
     # Smooth
     if conv:
-        gridded = convolve(gridded, kernel=Gaussian2DKernel(x_stddev=np.mean([ngx, ngy]) * kernel_scale),
+        gridded = convolve(gridded, kernel=Gaussian2DKernel(x_stddev=np.mean([nx, ny]) * kernel_scale),
                            boundary="extend")
 
-    # Rescale to original image
-    return np.array(Image.fromarray(gridded).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
+    # Rescale
+    return gridded
 
 
-def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True, kernel_scale=0.1, upscale=True):
+def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
+                  conv=True, kernel_scale=0.1, weights=None, upscale=True):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1080,21 +1087,27 @@ def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True
     y : iterable, ndarray
         Y coordinates
     value : iterable, ndarray
-        Values for the X/Y coordinates
-    naxis1 : int
-        X size of final grid.
-    naxis2 : int
-        Y size of final grid.
-    nbins_x : int, optional
-        Number of bins in X direction.
-    nbins_y : int, optional
-        Number of bins in Y direction.
+        Values for the X/Y coordinates.
+    x_min : int, float
+        Minimum X position for grid.
+    x_max : int, float
+        Maximum X position for grid.
+    y_min : int, float
+        Minimum Y position for grid.
+    y_max : int, float
+        Maximum Y position for grid.
+    nx : int
+        Number of bins in X.
+    ny : int
+        Number of bins in Y.
     conv : bool, optional
         If set, convolve the grid before resampling to final size.
     kernel_scale : float, optional
         Convolution kernel scale relative to initial grid size.
+    weights : ndarray, optional
+        Optionally provide weights for weighted average.
     upscale : bool, optional
-        Whether result should be upscaled to naxis1/naxis2 size. Default is True.
+        If True, rescale outout to (x_max - x_min, y_max  - y_min). Default it True.
 
     Returns
     -------
@@ -1109,22 +1122,40 @@ def grid_value_2d(x, y, value, naxis1, naxis2, nbins_x=20, nbins_y=20, conv=True
     # Grid
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
+
         # noinspection PyTypeChecker
-        stat, xe, ye, nn = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nbins_x, nbins_y],
-                                               range=[(0, naxis1), (0, naxis2)], statistic=np.nanmedian)
+        stat, xe, ye, (nbx, nby) = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nx, ny],
+                                                       range=[(x_min, x_max), (y_min, y_max)], statistic=np.nanmedian,
+                                                       expand_binnumbers=True)
+
+        # Convert bin number to index
+        nbx, nby = nbx - 1, nby - 1
+
+        if weights is not None:
+
+            stat = np.full((nx, ny), fill_value=np.nan)
+
+            import itertools
+            idx_combinations = list(itertools.product(np.arange(nx), np.arange(ny)))
+
+            for cidx in idx_combinations:
+
+                fil = (nbx == cidx[0]) & (nby == cidx[1])
+
+                # Compute weighted average for this bin
+                stat[cidx[0], cidx[1]] = np.average(value[good][fil], weights=weights[good][fil])
 
         # Transpose
         stat = stat.T
 
-        # Smooth
-        if conv:
-            stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=(len(xe) - 1) * kernel_scale), boundary="extend")
+    # Smooth
+    if conv:
+        stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=(len(xe) - 1) * kernel_scale), boundary="extend")
 
-    # Rescale to original image
     if upscale:
-        return np.array(Image.fromarray(stat).resize(size=(naxis1, naxis2), resample=Image.BILINEAR))
-    else:
-        return stat
+        return np.array(Image.fromarray(stat).resize(size=(x_max - x_min, y_max - y_min), resample=Image.LANCZOS))
+
+    return stat
 
 
 def _point_density(x, y, xdata, ydata, xsize, ysize):
