@@ -746,7 +746,7 @@ class MasterSuperflat(MasterImages):
                                           xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
-                if idx_hdu >= len(self.data_hdu[idx_file]) - fpa_layout[0]:
+                if idx_hdu < fpa_layout[1]:
                     ax_file[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
