@@ -5,7 +5,6 @@ import numpy as np
 
 from astropy.io import fits
 from vircampype.utils import *
-from vircampype.setup import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.images.dark import MasterDark
@@ -517,6 +516,12 @@ class FlatImages(FitsImages):
 
         # Return master weights
         return MasterWeightCoadd(setup=self.setup, file_paths=outpaths)
+
+
+class WeightImages(FitsImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(WeightImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class MasterFlat(MasterImages):
