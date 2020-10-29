@@ -1477,8 +1477,8 @@ class SextractorCatalogs(SourceCatalogs):
                 sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
 
                 # Grid value into image
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, naxis1=header["NAXIS1"],
-                                     naxis2=header["NAXIS2"], nbins_x=nbins, nbins_y=nbins, conv=False, upscale=False)
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, x_min=0, x_max=header["NAXIS1"], y_min=0,
+                                     y_max=header["NAXIS2"], nx=nbins, ny=nbins, conv=False, upscale=False)
 
                 # Append separations in arcsec
                 sep_all.append(sep.arcsec)
@@ -1494,7 +1494,7 @@ class SextractorCatalogs(SourceCatalogs):
                                          xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx_hdu >= len(sc_file) - fpa_layout[0]:
+                if idx_hdu < fpa_layout[1]:
                     ax_all[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
