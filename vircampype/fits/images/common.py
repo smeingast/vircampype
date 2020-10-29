@@ -912,17 +912,16 @@ class FitsImages(FitsFiles):
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image"])
-        elif preset == "full":
-
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_full.yml"),
-                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
-                            phot_apertures=list2str(apertures_all, sep=","),
-                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
-                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         elif preset == "superflat":
             ss = yml2config(path=get_resource_path(package=self._sex_preset_package,
                                                    resource="sextractor_superflat.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
+                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
+                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
+        elif preset == "full":
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_full.yml"),
+                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
+                            phot_apertures=list2str(apertures, sep=","),
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         else:
