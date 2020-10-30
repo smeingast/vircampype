@@ -921,6 +921,9 @@ class ImageCube(object):
 
         """
 
+        if bpm is not None:
+            raise ValueError("BPM not supported during cosmic ray detection")
+
         # Import astroscrappy
         from astroscrappy.astroscrappy import detect_cosmics
 
@@ -934,6 +937,7 @@ class ImageCube(object):
 
             # Get input mask
             bpm = None if bpm is not None else None  # For now force no BPM.
+            # noinspection PyUnresolvedReferences
             inmask = bpm[idx] if bpm is not None else None
 
             # Apply cosmic detection algorithm
