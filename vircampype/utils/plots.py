@@ -119,5 +119,8 @@ def get_plotgrid(layout, xsize=4, ysize=4):
     axes_new[0] = axes[3]
     axes = axes_new
 
+    # Flip
+    axes = np.fliplr(axes)
+
     # Return figure, grid, and focal plane array layout
     return fig, axes
