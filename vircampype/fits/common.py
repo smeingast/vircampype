@@ -194,7 +194,7 @@ class FitsFiles:
     #   I/O
     # =========================================================================== #
     @classmethod
-    def from_folder(cls, path, setup, pattern=None):
+    def from_folder(cls, path, setup, pattern=None, exclude=None):
         """
         Loads all files from the given folder into a FitsFiles (or child) instance.
 
@@ -206,6 +206,8 @@ class FitsFiles:
             YML setup. Can be either path to setup, or a dictionary.
         pattern : str, optional
             Substring to identify FITS files. Default is None, which loads all files in the folder.
+        exclude : str, optional
+            Substring contained in filenames for files that should be excluded.
 
         Returns
         -------
@@ -217,12 +219,16 @@ class FitsFiles:
         if not path.endswith("/"):
             path += "/"
 
-        # Return new instance
         if pattern is not None:
-            return cls(setup=setup, file_paths=glob.glob(path + pattern))
-        # In case no substring is given, just return all files
+            file_paths = glob.glob(path + pattern)
         else:
-            return cls(setup=setup, file_paths=glob.glob(path + "*"))
+            file_paths = glob.glob(path + "*")
+
+        if exclude is not None:
+            file_paths = [x for x in file_paths if exclude not in x]
+
+        # Return new instance
+        return cls(setup=setup, file_paths=file_paths)
 
     @classmethod
     def from_setup(cls, setup):
