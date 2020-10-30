@@ -3,6 +3,7 @@
 import os
 import glob
 import pickle
+import warnings
 import numpy as np
 
 from typing import Dict
@@ -349,8 +350,11 @@ class FitsFiles:
                                     hdr["CRVAL2"] = field_de if field_ra is not None else hdr["CRVAL2"]
                                 except KeyError:
                                     pass
-                                hdr = header_reset_wcs(hdr)
-                                hdr["HIERARCH PYPE WCS RESET"] = True
+
+                                with warnings.catch_warnings():
+                                    warnings.filterwarnings("ignore")
+                                    hdr = header_reset_wcs(hdr)
+                                    hdr["HIERARCH PYPE WCS RESET"] = True
 
                         # Save cleaned header
                         fileheaders.append(hdr)
