@@ -200,7 +200,6 @@ class SextractorCatalogs(SourceCatalogs):
         # Read weights into new instance
         weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
 
-        # Loop over catalogs and build aperture correction
         for idx in range(len(self)):
 
             # Generate output names
@@ -213,10 +212,6 @@ class SextractorCatalogs(SourceCatalogs):
             if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(apertures[0])),
                                  silent=self.setup["misc"]["silent"]):
                 continue
-
-            # Print processing info
-            message_calibration(n_current=idx+1, n_total=len(self), name=path_file, d_current=None,
-                                d_total=None, silent=self.setup["misc"]["silent"])
 
             # Read currect catalog
             tables = self.file2table(file_index=idx)
@@ -235,6 +230,10 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Loop over extensions and get aperture correction after filtering
             for tab, hdr, whdu_idx in zip(tables, headers, weight_images.data_hdu[idx]):
+
+                # Print processing info
+                message_calibration(n_current=idx+1, n_total=len(self), name=path_file, d_current=whdu_idx,
+                                    d_total=len(headers), silent=self.setup["misc"]["silent"])
 
                 # Get distance to nearest neighbor for cleaning
                 stacked = np.stack([tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]]).T
