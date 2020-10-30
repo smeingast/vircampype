@@ -947,10 +947,3 @@ class FitsFiles:
 
         """
         return self.get_master_tables().photometry
-
-    # =========================================================================== #
-    # Setup stuff
-    # =========================================================================== #
-    @property
-    def _aperture_save_idx(self):
-        return [[i for i, x in enumerate(apertures_all) if x == b][0] for b in apertures_out]
