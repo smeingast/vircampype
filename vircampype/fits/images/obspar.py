@@ -1,5 +1,10 @@
 # =========================================================================== #
 # Import
+import os
+import warnings
+import numpy as np
+
+from astropy.io import fits
 from vircampype.utils import *
 from vircampype.fits.images.sky import SkyImages
 
@@ -20,7 +25,33 @@ class ApcorImages(SkyImages):
             List of lists for each file and each detector.
 
         """
-        return self.dataheaders_get_keys(keywords=["APCDIAM"])[0]
+        return self.dataheaders_get_keys(keywords=["DIAMAPC"])[0]
+
+    @property
+    def n_sources(self):
+        """
+        Fetches number of sources used to build aperture correction.
+
+        Returns
+        -------
+        iterable
+            List of lists for each file and each detector.
+
+        """
+        return self.dataheaders_get_keys(keywords=["NSRCAPC"])[0]
+
+    @property
+    def mag_apc(self):
+        """
+        Fetches average aperture correction.
+
+        Returns
+        -------
+        iterable
+            List of lists for each file and each detector.
+
+        """
+        return self.dataheaders_get_keys(keywords=["MAGAPC"])[0]
 
     @property
     def _swarp_preset_apcor_path(self):
@@ -33,6 +64,23 @@ class ApcorImages(SkyImages):
             Path to preset.
         """
         return get_resource_path(package=self._swarp_preset_package, resource="swarp_apcor.yml")
+
+    @property
+    def weight_images(self):
+
+        # Import
+        from vircampype.fits.images.flat import WeightImages
+
+        # Search for weight for each image
+        weight_paths = [x.replace(".apcor{0}.".format(d[0]), ".apcor.weight.")
+                        for x, d in zip(self.full_paths, self.diameters)]
+
+        # For each file there must be a weight
+        if len(self) != np.sum([os.path.exists(x) for x in weight_paths]):
+            raise ValueError("Not all images have an associated weight.")
+
+        # Return WeightImages instance
+        return WeightImages(file_paths=weight_paths, setup=self.setup)
 
     def get_apcor(self, skycoo, file_index, hdu_index):
         """
@@ -62,7 +110,7 @@ class ApcorImages(SkyImages):
                                            silent=self.setup["misc"]["silent"], right=None)
 
         # Split by aperture diameter
-        split_apcor = self.split_keywords(keywords=["APCDIAM"])
+        split_apcor = self.split_keywords(keywords=["DIAMAPC"])
 
         for sidx in range(len(split_apcor)):
 
@@ -108,3 +156,94 @@ class ApcorImages(SkyImages):
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+    def qc_plot_apc(self, paths=None, axis_size=5):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Generate path for plots
+        if paths is None:
+            paths = ["{0}{1}.pdf".format(self.path_qc_apcor, fp) for fp in self.file_names]
+
+        for idx_file in range(len(self)):
+
+            # Read focal play array layout
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
+
+            # Create figure
+            fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+            ax_file, cax = ax_file.ravel(), fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Determine plot color range
+            vmin, vmax = np.percentile(self.mag_apc[idx_file], 5), np.percentile(self.mag_apc[idx_file], 95)
+
+            # Minimum range of 1% if computed range is too small
+            if vmax - vmin < 0.01:
+                diff = 0.01 - (vmax - vmin)
+                vmin -= diff / 2
+                vmax += diff / 2
+
+            for idx_plot, idx_data, dhdr in \
+                    zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file], self.headers_data[idx_file]):
+
+                # Grab axes
+                ax = ax_file[idx_plot]
+
+                # Read data
+                data = fits.getdata(self.full_paths[idx_file], idx_data, header=False)
+
+                # Read weight
+                weight = fits.getdata(self.weight_images.full_paths[idx_file], idx_data, header=False)
+
+                # Mask
+                data[weight <= 0.00001] = np.nan
+
+                # Dimensions must match
+                if data.shape != weight.shape:
+                    raise ValueError("Data and weight shapes do not match")
+
+                # Draw image
+                im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap="RdYlBu_r", origin="lower")
+
+                # Add colorbar
+                cbar = plt.colorbar(mappable=im, cax=cax, orientation="horizontal", label="Relative Flux")
+                cbar.ax.xaxis.set_ticks_position("top")
+                cbar.ax.xaxis.set_label_position("top")
+
+                # Limits
+                ax.set_xlim(0, dhdr["NAXIS1"] - 1)
+                ax.set_ylim(0, dhdr["NAXIS2"] - 1)
+
+                # Annotate detector ID
+                ax.annotate("Det.ID: {0:0d}".format(idx_data), xy=(0.02, 1.005),
+                            xycoords="axes fraction", ha="left", va="bottom")
+
+                # Annotate number of sources used
+                ax.annotate("N = {0:0d}".format(self.n_sources[idx_file][idx_data-1]), xy=(0.98, 1.005),
+                            xycoords="axes fraction", ha="right", va="bottom")
+
+                # Modify axes
+                if idx_plot < fpa_layout[1]:
+                    ax.set_xlabel("X (pix)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_plot % fpa_layout[0] == fpa_layout[0] - 1:
+                    ax.set_ylabel("Y (pix)")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                ax.set_aspect("equal")
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(paths[idx_file], bbox_inches="tight")
+            plt.close("all")

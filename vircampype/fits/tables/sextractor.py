@@ -4,13 +4,17 @@ import os
 import warnings
 import numpy as np
 
+from PIL import Image
 from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
+from astropy.wcs import wcs as awcs
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
+from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
+from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.fits.tables.zeropoint import MasterZeroPoint
 
 
@@ -184,14 +188,29 @@ class SextractorCatalogs(SourceCatalogs):
         tstart = message_mastercalibration(master_type="APERTURE CORRECTION", silent=self.setup["misc"]["silent"],
                                            right=None)
 
+        # Find weights
+        from vircampype.fits.images.flat import WeightImages
+        paths_weights = [x.replace(".sources.", ".weight.") for x in self.full_paths]
+
+        # Dummy check weights
+        fe = [os.path.exists(p) for p in paths_weights]
+        if np.sum(fe) != len(self):
+            raise ValueError("Not all files have associated weights!")
+
+        # Read weights into new instance
+        weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
+
         # Loop over catalogs and build aperture correction
         for idx in range(len(self)):
 
             # Generate output names
             path_file = "{0}{1}.apcor.fits".format(self.path_apcor, self.file_names[idx])
-            path_plot = "{0}{1}.apcor.pdf".format(self.path_qc_apcor, self.file_names[idx])
+            path_weight = "{0}{1}.apcor.weight.fits".format(self.path_apcor, self.file_names[idx])
 
-            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(apertures_out[0])),
+            # Read apertures from setup
+            apertures = str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)
+
+            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(apertures[0])),
                                  silent=self.setup["misc"]["silent"]):
                 continue
 
@@ -207,163 +226,121 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Make output Apcor Image HDUlist
             hdulist_base = fits.HDUList(hdus=[fits.PrimaryHDU(header=self.headers_primary[idx].copy())])
-            hdulist_save = [hdulist_base.copy() for _ in range(len(apertures_out))]
+            hdulist_apcor = [hdulist_base.copy() for _ in range(len(apertures))]
+            hdulist_weight = hdulist_base.copy()
 
             # Dummy check
             if len(tables) != len(headers):
                 raise ValueError("Number of tables and headers no matching")
 
-            # Lists to save results for this image
-            mag_apcor, magerr_apcor, models_apcor, nsources = [], [], [], []
-
             # Loop over extensions and get aperture correction after filtering
-            for tab, hdr in zip(tables, headers):
+            for tab, hdr, whdu_idx in zip(tables, headers, weight_images.data_hdu[idx]):
 
-                # Read magnitudes
-                mag = tab["MAG_APER"]
+                # Get distance to nearest neighbor for cleaning
+                stacked = np.stack([tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]]).T
+                dis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
 
-                # Remove bad sources (class, flags, bad mags, bad mag diffs, bad fwhm, bad mag errs)
-                good = (tab["CLASS_STAR"] > 0.7) & (tab["FLAGS"] == 0) & \
-                       (np.sum(mag > 0, axis=1) == 0) & (np.sum(np.diff(mag, axis=1) > 0, axis=1) == 0) & \
-                       (tab["FWHM_IMAGE"] > 0.8) & (tab["FWHM_IMAGE"] < 8.0) & \
-                       (np.nanmean(tab["MAGERR_APER"], axis=1) < 0.1)
+                # Filter bad sources
+                good = (tab["CLASS_STAR"] > 0.9) & (tab["FLAGS"] == 0) & (tab["SNR_WIN"] > 50) &  \
+                       (tab["ELLIPTICITY"] < 0.1) & (tab["ISOAREA_IMAGE"] > 5) & (tab["ISOAREA_IMAGE"] < 1000) & \
+                       (np.sum(tab["MAG_APER"] > 0, axis=1) == 0) & \
+                       (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 6.0) & \
+                       (np.sum(np.diff(tab["MAG_APER"], axis=1) > 0, axis=1) == 0) & (dis > 10) & \
+                       (tab["XWIN_IMAGE"] > 10) & (tab["YWIN_IMAGE"] > 10) & \
+                       (tab["XWIN_IMAGE"] < hdr["NAXIS1"] - 10) & (tab["YWIN_IMAGE"] < hdr["NAXIS2"] - 10)
 
-                # Only keep good sources
-                mag = mag[good, :]
+                # Read data and only keep good sources
+                mag = tab["MAG_APER"][good, :]
+                xx, yy, weights = tab["XWIN_IMAGE"][good], tab["YWIN_IMAGE"][good], tab["SNR_WIN"][good]
 
-                # Obtain aperture correction from cleaned sample
-                ma_apcor, me_apcor, mo_apcor = get_aperture_correction(diameters=apertures_all, magnitudes=mag,
-                                                                       func=self.setup["photometry"]["apcor_func"])
+                # Compute aperture correction for each source
+                mag_apcor = mag[:, -1][:, np.newaxis] - mag
 
-                # Obtain aperture correction values for output
-                mag_apcor_save = mo_apcor(apertures_out)
-
-                # Shrink image header
+                # Shrink original image header and keep only WCS info
                 ohdr = resize_header(header=hdr, factor=self.setup["photometry"]["apcor_image_scale"])
+                naxis1, naxis2 = ohdr["NAXIS1"], ohdr["NAXIS2"]
+                ohdr = awcs.WCS(ohdr).to_header()
+                ohdr["NAXIS1"], ohdr["NAXIS2"], ohdr["NAXIS"] = naxis1, naxis2, 2
 
-                # Loop over apertures and make HDUs
-                for aidx in range(len(apertures_out)):
+                # Determine output size
+                output_size = (ohdr["NAXIS1"], ohdr["NAXIS2"])
+
+                # Loop over apertures
+                for mag, aidx in zip(mag_apcor.T, range(len(apertures))):
+
+                    # Sigma-clip
+                    mask = ~astropy_sigma_clip(mag).mask
+
+                    # Compute aperture correction on grid
+                    apc_grid = grid_value_2d(x=xx[mask], y=yy[mask], value=mag[mask], x_min=0, y_min=0,
+                                             x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=5,
+                                             ny=5, conv=True, kernel_scale=0.4, weights=weights[mask], upscale=False)
+
+                    # Rescale to given size
+                    apc_grid = np.array(Image.fromarray(apc_grid).resize(size=output_size, resample=Image.LANCZOS))
+
+                    # Get weighted mean aperture correction
+                    apc_average = np.average(mag[mask], weights=weights[mask])
+                    apc_err = np.sqrt(np.average((mag[mask] - apc_average)**2, weights=weights[mask]))
+
+                    # # This plots all sources on top of the current aperture correction image
+                    # import matplotlib.pyplot as plt
+                    # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
+                    # apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]),
+                    #                                                      resample=Image.LANCZOS))
+                    # kwargs = dict(cmap="RdYlBu", vmin=apc_average * 1.1, vmax=apc_average / 1.1)
+                    # im = ax.imshow(apc_plot, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
+                    # ax.scatter(xx[mask], yy[mask], c=mag[mask], lw=0.5, ec="black", s=30, **kwargs)
+                    # plt.colorbar(im)
+                    # plt.show()
+                    # exit()
 
                     # Construct header to append
                     hdr_temp = ohdr.copy()
-                    hdr_temp["NSRCAPC"] = (len(mag), "Number of sources used")
-                    hdr_temp["APCMAG"] = (mag_apcor_save[aidx], "Aperture correction (mag)")
-                    hdr_temp["APCDIAM"] = (apertures_out[aidx], "Aperture diameter (pix)")
-                    hdr_temp["APCMODEL"] = (mo_apcor.name, "Aperture correction model name")
-                    for i in range(len(mo_apcor.parameters)):
-                        hdr_temp["APCMPAR{0}".format(i+1)] = (mo_apcor.parameters[i], "Model parameter {0}".format(i+1))
+                    hdr_temp["NSRCAPC"] = (len(mag[mask]), "Number of sources used")
+                    hdr_temp["MAGAPC"] = (apc_average, "Average aperture correction (mag)")
+                    hdr_temp["STDAPC"] = (apc_err, "Aperture correction std across detector (mag)")
+                    hdr_temp["DIAMAPC"] = (apertures[aidx], "Aperture diameter (pix)")
 
-                    hdulist_save[aidx].append(hdr2imagehdu(header=hdr_temp, fill_value=mag_apcor_save[aidx],
-                                                           dtype=np.float32))
+                    # Construct and add image HDU
+                    # noinspection PyTypeChecker
+                    hdulist_apcor[aidx].append(fits.ImageHDU(data=apc_grid, header=hdr_temp))
 
-                # Append to lists for QC plot
-                nsources.append(len(mag))
-                mag_apcor.append(ma_apcor)
-                magerr_apcor.append(me_apcor)
-                models_apcor.append(mo_apcor)
+                # Read weight
+                weight = fits.getdata(weight_images.full_paths[idx], whdu_idx, header=False)
+
+                # Resize with PIL
+                weight = np.array(Image.fromarray(weight).resize(size=output_size, resample=Image.BILINEAR))
+
+                # Construct and add image weight HDU
+                # noinspection PyTypeChecker
+                hdulist_weight.append(fits.ImageHDU(data=weight, header=ohdr))
 
             # Save aperture correction as MEF
-            for hdul, diams in zip(hdulist_save, apertures_out):
+            paths = []
+            for hdul, diams in zip(hdulist_apcor, apertures):
 
                 # Write aperture correction diameter into primary header too
                 hdul[0].header["APCDIAM"] = (diams, "Aperture diameter (pix)")
                 hdul[0].header[self.setup["keywords"]["object"]] = "APERTURE-CORRECTION"
 
                 # Save to disk
-                hdul.writeto(path_file.replace(".apcor.", ".apcor{0}.".format(diams)),
-                             overwrite=self.setup["misc"]["overwrite"])
+                paths.append(path_file.replace(".apcor.", ".apcor{0}.".format(diams)))
+                hdul.writeto(paths[-1], overwrite=self.setup["misc"]["overwrite"])
+
+            # Save weight to disk
+            hdulist_weight.writeto(path_weight, overwrite=self.setup["misc"]["overwrite"])
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                self.qc_plot_apcor(path=path_plot, diameters=apertures_all, mag_apcor=mag_apcor,
-                                   magerr_apcor=magerr_apcor, models=models_apcor, axis_size=4, nsources=nsources,
-                                   overwrite=self.setup["misc"]["overwrite"])
+                from vircampype.fits.images.obspar import ApcorImages
+                ApcorImages(file_paths=paths, setup=self.setup).qc_plot_apc()
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # return all aperture correction images
         return self.get_aperture_correction(diameter=None)
-
-    @staticmethod
-    def qc_plot_apcor(path, diameters, mag_apcor, magerr_apcor, models, axis_size=4,
-                      nsources=None, overwrite=False):
-
-        # Check if plot already exits
-        if check_file_exists(file_path=path, silent=True) and not overwrite:
-            return
-
-        # Import locally
-        import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
-
-        # Get plot grid
-        fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
-        axes = axes.ravel()
-
-        # Helper
-        ymin = np.floor(np.min(np.array(mag_apcor) - np.array(magerr_apcor))) - 1
-
-        # Loop over detectors
-        for idx in range(len(mag_apcor)):
-
-            # Grab axex
-            ax = axes[idx]
-
-            # Plot model
-            rad_model = np.linspace(0.1, 30, 2000)
-            kwargs = {"lw": 0.8, "ls": "solid", "zorder": 10, "c": "black"}
-            ax.plot(rad_model, models[idx](rad_model), label=models[idx].name, **kwargs)
-
-            # Scatter plot of measurements
-            ax.errorbar(diameters, mag_apcor[idx], yerr=magerr_apcor[idx],
-                        fmt="none", ecolor="#08519c", capsize=3, zorder=1, lw=1.0)
-            ax.scatter(diameters, mag_apcor[idx],
-                       facecolor="white", edgecolor="#08519c", lw=1.0, s=25, marker="o", zorder=2)
-
-            # Limits
-            ax.set_ylim(ymin, 0.5)
-            ax.set_xlim(min(diameters) - 0.1, max(diameters) + 5.0)
-            # ax.legend()
-
-            # Logscale
-            ax.set_xscale("log")
-
-            # Labels
-            if idx >= len(mag_apcor) - fpa_layout[0]:
-                ax.set_xlabel("Aperture diameter (pix)")
-            else:
-                ax.axes.xaxis.set_ticklabels([])
-            if idx % fpa_layout[0] == 0:
-                ax.set_ylabel("Aperture correction (mag)")
-            else:
-                ax.axes.yaxis.set_ticklabels([])
-
-            # Mark 0,0
-            kwargs = {"ls": "dashed", "lw": 1.0, "c": "gray", "alpha": 0.5, "zorder": 0}
-            ax.axvline(x=0, **kwargs)
-            ax.axhline(y=0, **kwargs)
-
-            # Set ticks
-            # ax.xaxis.set_major_locator(MaxNLocator(5))
-            # ax.xaxis.set_minor_locator(AutoMinorLocator())
-            ax.yaxis.set_major_locator(MaxNLocator(5))
-            ax.yaxis.set_minor_locator(AutoMinorLocator())
-
-            # Annotate detector ID
-            ax.annotate("Det.ID: {0:0d}".format(idx + 1), xy=(0.98, 0.02), xycoords="axes fraction",
-                        ha="right", va="bottom")
-
-            # Annotate number of sources used
-            if nsources is not None:
-                ax.annotate("N: {0:0d}".format(nsources[idx]), xy=(0.02, 0.02), xycoords="axes fraction",
-                            ha="left", va="bottom")
-
-        # Save plot
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
-            fig.savefig(path, bbox_inches="tight")
-        plt.close("all")
 
     # =========================================================================== #
     # Coordinates
