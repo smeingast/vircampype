@@ -1,7 +1,7 @@
 # =========================================================================== #
 # Import
-import numpy as np
 import warnings
+import numpy as np
 
 from vircampype.utils.miscellaneous import *
 from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
