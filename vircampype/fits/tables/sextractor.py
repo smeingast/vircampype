@@ -183,6 +183,14 @@ class SextractorCatalogs(SourceCatalogs):
     # Aperture correction
     # =========================================================================== #
     def build_aperture_correction(self):
+        """
+        Computes aperture corrections for each detector.
+
+        Returns
+        -------
+        ApcorImages
+
+        """
 
         # Processing info
         tstart = message_mastercalibration(master_type="APERTURE CORRECTION", silent=self.setup["misc"]["silent"],
