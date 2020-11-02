@@ -735,9 +735,11 @@ class MasterSuperflat(MasterImages):
 
             for idx_hdu in range(len(self.data_hdu[idx_file])):
 
+                # Fetch current axes
+                ax = ax_file[idx_hdu]
+
                 # Draw image
-                im = ax_file[idx_hdu].imshow(cube[idx_hdu], vmin=0.85, vmax=1.15,
-                                             cmap=get_cmap("RdYlBu_r", 30), origin="lower")
+                im = ax.imshow(cube[idx_hdu], vmin=0.85, vmax=1.15, cmap=get_cmap("RdYlBu_r", 30), origin="lower")
 
                 # Add colorbar
                 cbar = plt.colorbar(mappable=im, cax=cax, orientation="horizontal", label="Relative Flux")
@@ -745,34 +747,35 @@ class MasterSuperflat(MasterImages):
                 cbar.ax.xaxis.set_label_position("top")
 
                 # Limits
-                ax_file[idx_hdu].set_xlim(0, self.headers_data[idx_file][idx_hdu]["NAXIS1"] - 1)
-                ax_file[idx_hdu].set_ylim(0, self.headers_data[idx_file][idx_hdu]["NAXIS2"] - 1)
+                ax.set_xlim(0, self.headers_data[idx_file][idx_hdu]["NAXIS1"] - 1)
+                ax.set_ylim(0, self.headers_data[idx_file][idx_hdu]["NAXIS2"] - 1)
 
                 # Annotate detector ID
-                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.005),
-                                          xycoords="axes fraction", ha="left", va="bottom")
+                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.005),
+                            xycoords="axes fraction", ha="left", va="bottom")
 
                 # Annotate number of sources used
-                ax_file[idx_hdu].annotate("N = {0:0d}".format(self.nsources[idx_file][idx_hdu]), xy=(0.98, 1.005),
-                                          xycoords="axes fraction", ha="right", va="bottom")
+                ax.annotate("N = {0:0d}".format(self.nsources[idx_file][idx_hdu]), xy=(0.98, 1.005),
+                            xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
                 if idx_hdu < fpa_layout[1]:
-                    ax_file[idx_hdu].set_xlabel("X (pix)")
+                    ax.set_xlabel("X (pix)")
                 else:
-                    ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % fpa_layout[0] == 0:
-                    ax_file[idx_hdu].set_ylabel("Y (pix)")
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_hdu % fpa_layout[0] == fpa_layout[0] - 1:
+                    ax.set_ylabel("Y (pix)")
                 else:
-                    ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
+                    ax.axes.yaxis.set_ticklabels([])
 
-                ax_file[idx_hdu].set_aspect("equal")
+                # Set equal aspect ratio
+                ax.set_aspect("equal")
 
                 # Set ticks
-                ax_file[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
-                ax_file[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
-                ax_file[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
-                ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
 
             # Save plot
             with warnings.catch_warnings():
