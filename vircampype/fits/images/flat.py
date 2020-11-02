@@ -637,7 +637,7 @@ class MasterFlat(MasterImages):
                 continue
 
             # Read focal play array layout
-            fpa_layout = str2list(self.setup["data"]["fpa_layout"])
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
 
             # Get plot grid
             fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
@@ -723,7 +723,7 @@ class MasterSuperflat(MasterImages):
         for idx_file in range(len(self)):
 
             # Read focal play array layout
-            fpa_layout = str2list(self.setup["data"]["fpa_layout"])
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
 
             # Create figure
             fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)

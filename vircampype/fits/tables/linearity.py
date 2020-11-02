@@ -213,7 +213,7 @@ class MasterLinearity(MasterTables):
                 continue
 
             # Read focal play array layout and saturation levels from instance setup
-            fpa_layout = str2list(self.setup["data"]["fpa_layout"])
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
             saturation_levels = str2list(self.setup["data"]["saturation_levels"])
 
             # Get plot grid
