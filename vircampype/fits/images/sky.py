@@ -532,7 +532,7 @@ class SkyImages(FitsImages):
                                  sigma_iter=self.setup["sky"]["sigma_iter"])
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=str2func(self.setup["sky"]["collapse_metric"]))
+                collapsed = cube.flatten(metric=str2func(self.setup["sky"]["metric"]))
 
                 # Create header with sky measurements
                 cards_sky = []
