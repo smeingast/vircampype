@@ -5,9 +5,8 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from astropy import wcs as awcs
 from vircampype.utils import *
-from vircampype.setup import *
+from astropy import wcs as awcs
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from astropy.stats import sigma_clipped_stats
@@ -867,6 +866,9 @@ class MasterSky(MasterImages):
         # Plot paths
         paths = self.paths_qc_plots(paths=paths)
 
+        # Fetch FPA layout
+        fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
+
         for sky, noise, mjd, path in zip(self.sky, self.noise, self.sky_mjd, paths):
 
             # Check if plot already exits
@@ -900,11 +902,11 @@ class MasterSky(MasterImages):
                             ha="left", va="bottom")
 
                 # Modify axes
-                if idx >= len(sky) - fpa_layout[0]:
+                if idx < fpa_layout[1]:
                     ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % fpa_layout[0] == 0:
+                if idx % fpa_layout[0] == fpa_layout[0] - 1:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
