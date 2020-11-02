@@ -180,7 +180,7 @@ class VircamImages(FitsImages):
                 mixed = split["science"] + split["offset"]
                 mixed.build_master_sky()
             else:
-                split["science"].build_master_sky()
+                split["offset"].build_master_sky()
 
     def compress_phase3(self):
         """ Phase 3 FITS compressor utility. Compresses all FITS files in the phase 3 directory. """
