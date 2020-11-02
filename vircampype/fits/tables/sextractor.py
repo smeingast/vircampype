@@ -1401,8 +1401,8 @@ class SextractorCatalogs(SourceCatalogs):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE", key_ra=None, key_dec=None,
-                           nbins=3):
+    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE",
+                           key_ra=None, key_dec=None, nbins=3):
 
         # Import
         import matplotlib.pyplot as plt
@@ -1410,6 +1410,9 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Processing info
         tstart = message_mastercalibration(master_type="QC ASTROMETRY", right=None, silent=self.setup["misc"]["silent"])
+
+        # Get FPA layout
+        fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
 
         # Obtain master coordinates
         sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
