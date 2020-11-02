@@ -262,11 +262,11 @@ class MasterLinearity(MasterTables):
 
                 # Modify axes
                 if idx < fpa_layout[1]:
-                    ax.set_xlabel("X (pix)")
+                    ax.set_xlabel("DIT (s)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
                 if idx % fpa_layout[0] == fpa_layout[0] - 1:
-                    ax.set_ylabel("Y (pix)")
+                    ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
 
