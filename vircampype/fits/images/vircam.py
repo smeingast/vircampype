@@ -175,10 +175,11 @@ class VircamImages(FitsImages):
         # Master offset
         if split["science"] is not None:
 
-            # Mix offset frames
+            # Mix offset frames with science frames if set
             if (self.setup["sky"]["mix_science"]) and (split["offset"] is not None):
                 mixed = split["science"] + split["offset"]
                 mixed.build_master_sky()
+            # Otherwise build only from Offset frames
             else:
                 split["offset"].build_master_sky()
 
