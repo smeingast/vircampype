@@ -103,14 +103,14 @@ class ApcorImages(SkyImages):
         """
         return self.get_pixel_value(skycoo=skycoo, file_index=file_index, hdu_index=hdu_index)
 
-    def coadd_apcor(self):
+    def coadd(self):
 
         # Processing info
         tstart = message_mastercalibration(master_type="COADDING APERTURE CORRECTION",
                                            silent=self.setup["misc"]["silent"], right=None)
 
         # Split by aperture diameter
-        split_apcor = self.split_keywords(keywords=["DIAMAPC"])
+        split_apcor = self.split_keywords(keywords=["APCDIAM"])
 
         for sidx in range(len(split_apcor)):
 
@@ -128,6 +128,12 @@ class ApcorImages(SkyImages):
                     and not split.setup["misc"]["overwrite"]:
                 continue
 
+            # Rename weights for Swarp
+            orig_paths_weights = split.weight_images.full_paths.copy()
+            new_paths_weights = [p.replace(".apcor.", ".apcor{0}.".format(diameter)) for p in orig_paths_weights]
+            for orig, new in zip(orig_paths_weights, new_paths_weights):
+                os.rename(orig, new)
+
             # Print processing info
             message_calibration(n_current=sidx + 1, n_total=len(split_apcor), name=outpath,
                                 d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
@@ -139,7 +145,7 @@ class ApcorImages(SkyImages):
             header.totextfile(outpath.replace(".fits", ".ahead"), overwrite=True, endcard=True)
 
             # Construct swarp options
-            ss = yml2config(path=split._swarp_preset_apcor_path, imageout_name=outpath, weight_type="None",
+            ss = yml2config(path=split._swarp_preset_apcor_path, imageout_name=outpath, weight_type="MAP_WEIGHT",
                             weightout_name=outpath.replace(".fits", ".weight.fits"), resample_dir=self.path_temp,
                             nthreads=split.setup["misc"]["n_jobs"], skip=["weight_thresh", "weight_image"])
 
@@ -150,9 +156,13 @@ class ApcorImages(SkyImages):
             # Run Swarp
             run_command_bash(cmd=cmd, silent=True)
 
+            # Rename weights back to original
+            for orig, new in zip(orig_paths_weights, new_paths_weights):
+                os.rename(new, orig)
+
             # Remove header and weight
             remove_file(path=outpath.replace(".fits", ".ahead"))
-            remove_file(path=outpath.replace(".fits", ".weight.fits"))
+            # remove_file(path=outpath.replace(".fits", ".weight.fits"))
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
