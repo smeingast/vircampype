@@ -109,7 +109,7 @@ swarped_sources.plot_qc_astrometry()
 # Aperture correction
 # =========================================================================== #
 apc = swarped_sources.build_aperture_correction()
-apc.coadd_apcor()
+apc.coadd()
 
 # Add aperture correction to catalogs
 swarped_sources.add_aperture_correction()
