@@ -930,6 +930,9 @@ class FitsFiles:
             paths = flat_list([glob.glob("{0}{1}*apcor{2}.fits".format(self.path_apcor, fn, diameter))
                                for fn in self.file_names])
 
+        # Remove weights
+        paths = [p for p in paths if ".weight.fits" not in p]
+
         # Return matched aperture correction files
         return ApcorImages(setup=self.setup, file_paths=paths)
 
