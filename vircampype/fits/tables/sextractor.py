@@ -447,7 +447,8 @@ class SextractorCatalogs(SourceCatalogs):
     @property
     def _colnames_apc(self):
         """ Constructor for column names for aperture corrections. """
-        return ["MAG_APC_{0}".format(idx+1) for idx in range(len(apertures_out))]
+        return ["MAG_APC_{0}".format(idx+1) for idx in
+                range(len(str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)))]
 
     @property
     def _colnames_aper(self):
@@ -659,7 +660,8 @@ class SextractorCatalogs(SourceCatalogs):
         tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
 
         # Construct aperture corrections dict
-        apc_self = [self.get_aperture_correction(diameter=diam) for diam in apertures_out]
+        apc_self = [self.get_aperture_correction(diameter=diam) for diam in
+                    str2list(self.setup["photometry"]["apertures"])]
 
         # Loop over each file
         for idx_cat_file in range(len(self)):
