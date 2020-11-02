@@ -665,11 +665,11 @@ class MasterFlat(MasterImages):
                             xy=(0.04, 0.04), xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx >= len(flux) - fpa_layout[0]:
+                if idx < fpa_layout[1]:
                     ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % fpa_layout[0] == 0:
+                if idx % fpa_layout[0] == fpa_layout[0] - 1:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
