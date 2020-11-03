@@ -9,13 +9,15 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
+from astropy.table import Column
 from astropy.wcs import wcs as awcs
+from vircampype.utils.tables import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
 from astropy.stats import sigma_clip as astropy_sigma_clip
-from vircampype.fits.tables.zeropoint import MasterZeroPoint
+from vircampype.utils.fitstools import add_float_to_header
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -24,7 +26,7 @@ class SextractorCatalogs(SourceCatalogs):
         super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     # =========================================================================== #
-    # Key defintions
+    # Some defintions
     # =========================================================================== #
     @property
     def _key_ra(self):
@@ -33,6 +35,10 @@ class SextractorCatalogs(SourceCatalogs):
     @property
     def _key_dec(self):
         return "DELTA_J2000"
+
+    @property
+    def apertures(self):
+        return str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)
 
     # =========================================================================== #
     # Scamp
@@ -214,10 +220,7 @@ class SextractorCatalogs(SourceCatalogs):
             path_file = "{0}{1}.apcor.fits".format(self.path_apcor, self.file_names[idx])
             path_weight = "{0}{1}.apcor.weight.fits".format(self.path_apcor, self.file_names[idx])
 
-            # Read apertures from setup
-            apertures = str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)
-
-            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(apertures[0])),
+            if check_file_exists(file_path=path_file.replace(".apcor.", ".apcor{0}.".format(self.apertures[0])),
                                  silent=self.setup["misc"]["silent"]):
                 continue
 
@@ -229,7 +232,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Make output Apcor Image HDUlist
             hdulist_base = fits.HDUList(hdus=[fits.PrimaryHDU(header=self.headers_primary[idx].copy())])
-            hdulist_apcor = [hdulist_base.copy() for _ in range(len(apertures))]
+            hdulist_apcor = [hdulist_base.copy() for _ in range(len(self.apertures))]
             hdulist_weight = hdulist_base.copy()
 
             # Dummy check
@@ -273,7 +276,7 @@ class SextractorCatalogs(SourceCatalogs):
                 output_size = (ohdr["NAXIS1"], ohdr["NAXIS2"])
 
                 # Loop over apertures
-                for mag, aidx in zip(mag_apcor.T, range(len(apertures))):
+                for mag, aidx in zip(mag_apcor.T, range(len(self.apertures))):
 
                     # Sigma-clip
                     mask = ~astropy_sigma_clip(mag).mask
@@ -307,7 +310,7 @@ class SextractorCatalogs(SourceCatalogs):
                     hdr_temp["NSRCAPC"] = (len(mag[mask]), "Number of sources used")
                     hdr_temp["MAGAPC"] = (apc_average, "Average aperture correction (mag)")
                     hdr_temp["STDAPC"] = (apc_err, "Aperture correction std across detector (mag)")
-                    hdr_temp["DIAMAPC"] = (apertures[aidx], "Aperture diameter (pix)")
+                    hdr_temp["DIAMAPC"] = (self.apertures[aidx], "Aperture diameter (pix)")
 
                     # Construct and add image HDU
                     # noinspection PyTypeChecker
@@ -325,7 +328,7 @@ class SextractorCatalogs(SourceCatalogs):
 
             # Save aperture correction as MEF
             paths = []
-            for hdul, diams in zip(hdulist_apcor, apertures):
+            for hdul, diams in zip(hdulist_apcor, self.apertures):
 
                 # Write aperture correction diameter into primary header too
                 hdul[0].header["APCDIAM"] = (diams, "Aperture diameter (pix)")
@@ -396,6 +399,30 @@ class SextractorCatalogs(SourceCatalogs):
         # Return centroid
         return centroid_sphere(lon=self.ra_all(key_ra=key_ra), lat=self.dec_all(key_dec=key_dec), units="degree")
 
+    # =========================================================================== #
+    # Names
+    # =========================================================================== #
+    @property
+    def _colnames_mag_apc(self):
+        """ Constructor for column names. """
+        return ["MAG_APC_{0}".format(idx+1) for idx in
+                range(len(str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)))]
+
+    @property
+    def _colnames_mag_cal(self):
+        """ Constructor for column names. """
+        return ["MAG_CAL_{0}".format(idx+1)
+                for idx in range(len(str2list(self.setup["photometry"]["apertures"], sep=",")))]
+
+    @property
+    def _colnames_mag_err(self):
+        """ Constructor for column names. """
+        return ["MAGERR_CAL_{0}".format(idx+1)
+                for idx in range(len(str2list(self.setup["photometry"]["apertures"], sep=",")))]
+
+    # =========================================================================== #
+    # Photometry
+    # =========================================================================== #
     def build_master_photometry(self):
 
         # Import
@@ -441,343 +468,151 @@ class SextractorCatalogs(SourceCatalogs):
         else:
             return MasterPhotometry(setup=self.setup, file_paths=[outpath])
 
-    # =========================================================================== #
-    # Magnitudes
-    # =========================================================================== #
-    @property
-    def _colnames_apc(self):
-        """ Constructor for column names for aperture corrections. """
-        return ["MAG_APC_{0}".format(idx+1) for idx in
-                range(len(str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)))]
-
-    @property
-    def _colnames_aper(self):
-        """ Constructor for column names for aperture corrections. """
-        return ["MAG_APER_{0}".format(idx+1) for idx in range(len(apertures_out))]
-
-    _mag_aper = None
-
-    @property
-    def mag_aper(self):
-        """
-        Reads fixed aperture magnitudes from all tables.
-
-        Returns
-        -------
-        iterable
-            List of lists containing MAG_APER from the Sextractor catalogs.
-
-        """
-        if self._mag_aper is not None:
-            return self._mag_aper
-
-        self._mag_aper = self.get_columns(column_name="MAG_APER")
-        return self._mag_aper
-
-    _magerr_aper = None
-
-    @property
-    def magerr_aper(self):
-        """
-        Reads errors for fixed aperture magnitudes from all tables.
-
-        Returns
-        -------
-        iterable
-            List of lists containing MAGERR_APER from the Sextractor catalogs.
-
-        """
-        if self._magerr_aper is not None:
-            return self._magerr_aper
-
-        self._magerr_aper = self.get_columns(column_name="MAGERR_APER")
-        return self._magerr_aper
-
-    def mag_aper_file(self, idx_file):
-        """
-        Returns fixed aperture photometry for a given file.
-
-        Parameters
-        ----------
-        idx_file : int
-            Index of file in current instance.
-
-        Returns
-        -------
-            List of aperture magnitudes for each data extension in given file.
-
-        """
-        return self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
-
-    def magerr_aper_file(self, idx_file):
-        """
-        Returns errors for fixed aperture photometry for a given file.
-
-        Parameters
-        ----------
-        idx_file : int
-            Index of file in current instance.
-
-        Returns
-        -------
-            List of aperture magnitude errors for each data extension in given file.
-
-        """
-        return self.get_column_file(idx_file=idx_file, column_name="MAGERR_APER")
-
-    def mag_aper_dict_file(self, idx_file):
-        """
-        Constructs a dictionary for all aperture magnitudes (those that will be saved) for a given file.
-
-        Parameters
-        ----------
-        idx_file : int
-            File index in self.
-
-        Returns
-        -------
-        dict
-            Dictionary of aperture magnitudes.
-
-        """
-
-        # Get aperture magnitudes for given file
-        mag_aper_file = self.mag_aper_file(idx_file=idx_file)
-
-        # Loop over aperture diameters
-        mag_aper_dict_file = {}
-        for idx_apc, cname in zip(self._aperture_save_idx, self._colnames_aper):
-
-            # Make empty list for current aperture
-            mag_aper_dict_file[cname] = []
-
-            # Loop over HDUs and append aperture magnitudes
-            for idx_hdu in range(len(self.data_hdu[idx_file])):
-
-                mag_aper_dict_file[cname].append(mag_aper_file[idx_hdu][:, idx_apc])
-
-        # return filled dictionary
-        return mag_aper_dict_file
-
-    _mag_apc_dict = None
-
-    @property
-    def mag_apc_dict(self):
-        """
-        Reads all aperture corrections from files for each extension and each source.
-
-        Returns
-        -------
-        dict
-            Dictionary with aperture corrections.
-        """
-
-        if self._mag_apc_dict is not None:
-            return self._mag_apc_dict
-
-        self._mag_apc_dict = {}
-        for cname in self._colnames_apc:
-            self._mag_apc_dict[cname] = self.get_columns(column_name=cname)
-        return self._mag_apc_dict
-
-    def mag_apc_dict_file(self, idx_file):
-        """
-        Reads all aperture corrections from a given file for each extension and each source.
-
-        Parameters
-        ----------
-        idx_file : int
-            File index in self.
-
-        Returns
-        -------
-        dict
-            Dictionary with aperture corrections.
-        """
-
-        # Get APC columns
-        temp = self.get_columns_file(idx_file=idx_file, column_names=self._colnames_apc)
-
-        # Return dictionary with extracted valus
-        return {d: mag for d, mag in zip(self._colnames_apc, temp)}
-
-    def _get_columns_zp_method_file(self, idx_file, key_ra=None, key_dec=None):
-        """ Convenience method for ZP calculation. """
-
-        # Import
-        from astropy.coordinates import SkyCoord
-
-        # Select default RA/DEC keys
-        if key_ra is None:
-            key_ra = self._key_ra
-        if key_dec is None:
-            key_dec = self._key_dec
-
-        # Construct column names to extract from file
-        cn = ["MAG_APER", "MAGERR_APER", "FLAGS", key_ra, key_dec] + self._colnames_apc
-
-        # Extract all data at once from file
-        mag_aper, magerr_aper, flags, ra, dec, *mag_apc = self.get_columns_file(idx_file=idx_file, column_names=cn)
-
-        # Build skycoord
-        skycoord = [SkyCoord(ra=r, dec=d, frame="icrs", unit="deg") for r, d in zip(ra, dec)]
-
-        # Return
-        return mag_aper, magerr_aper, flags, mag_apc, skycoord
-
-    _master_zeropoint = None
-
-    @property
-    def master_zeropoint(self):
-        """
-        Fetches the master zero point file for each file in self.
-
-        Returns
-        -------
-        MasterZeroPoint
-            MasterZeroPoint instance.
-
-        """
-
-        if self._master_zeropoint is not None:
-            return self._master_zeropoint
-
-        self._master_zeropoint = self.get_master_zeropoint()
-
-        # Dummy check for ZP fetcher
-        for f, m in zip(self.base_names, self._master_zeropoint.base_names):
-            if f not in m:
-                raise ValueError("MASTER-ZEROPOINT not matching!")
-
-        return self._master_zeropoint
-
-    # =========================================================================== #
-    # Catalog modifications
-    # =========================================================================== #
-    def add_aperture_correction(self):
+    def calibrate_photometry(self):
 
         # Processing info
-        tstart = message_mastercalibration(master_type="ADDING APETURE CORRECTION", silent=self.setup["misc"]["silent"])
+        tstart = message_mastercalibration(master_type="PHOTOMETRY", silent=self.setup["misc"]["silent"])
 
-        # Construct aperture corrections dict
-        apc_self = [self.get_aperture_correction(diameter=diam) for diam in
-                    str2list(self.setup["photometry"]["apertures"])]
+        # Extract apertures
+        apertures = str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)
+
+        # Get aperture correction imaages for all aperture diameters
+        apc_images = [self.get_aperture_correction(diameter=a) for a in apertures]
+
+        # Get master photometry catalog
+        master_phot = self.get_master_photometry()
 
         # Loop over each file
-        for idx_cat_file in range(len(self)):
-
-            # Load current hdulist
-            with fits.open(self.full_paths[idx_cat_file], mode="update") as chdulist:
-
-                # Check if aperture correction has already been added
-                done = True
-                for i, cname in zip(self.data_hdu[idx_cat_file], self._colnames_apc):
-                    if cname not in chdulist[i].data.names:
-                        done = False
-                if done:
-                    print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_cat_file]) + BColors.ENDC)
-                    continue
-
-                # Get aperture corrections for current file
-                apc_file = [apc[idx_cat_file] for apc in apc_self]
-
-                # Get SkyCoord of current file
-                skycoord_file = self.skycoord()[idx_cat_file]
-
-                # Loop over detectors
-                for idx_cat_hdu, idx_apc_hdu, skycoord_hdu in \
-                        zip(self.data_hdu[idx_cat_file], apc_file[0].data_hdu[0], skycoord_file):
-
-                    # Print info
-                    message_calibration(n_current=idx_cat_file+1, n_total=len(self), name=self.file_names[idx_cat_file],
-                                        d_current=idx_apc_hdu, d_total=len(self.data_hdu[idx_cat_file]))
-
-                    # Get columns for current HDU
-                    ccolumns = chdulist[idx_cat_hdu].data.columns
-
-                    # Loop over different apertures
-                    new_cols = fits.ColDefs([])
-                    for apc, cname in zip(apc_file, self._colnames_apc):
-
-                        # Extract aperture correction from image
-                        a = apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-
-                        # Add as new column for each source
-                        new_cols.add_col(fits.Column(name=cname, array=a, **kwargs_column_mag))
-
-                    # Replace HDU from input catalog
-                    chdulist[idx_cat_hdu] = fits.BinTableHDU.from_columns(ccolumns + new_cols)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    def add_calibrated_photometry(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="ADDING CALIBRATED PHOTOMETRY",
-                                           silent=self.setup["misc"]["silent"])
-
-        # Fetch zero points
-        master_zp = self.master_zeropoint
-
+        outpaths = []
         for idx_file in range(len(self)):
 
-            # Read aperture magnitudes
-            mag_aper_file = self.mag_aper_dict_file(idx_file=idx_file)
-            mag_apc_file = self.mag_apc_dict_file(idx_file=idx_file)
+            # Make outpath
+            outpaths.append(self.full_paths[idx_file].replace(".sources.fits", ".sources.cal.fits"))
 
-            # Check if already modified
-            try:
-                self.dataheaders_get_keys(keywords=self._zp_keys, file_index=idx_file)
-                print(BColors.WARNING + "{0} already modified".format(self.file_names[idx_file]) + BColors.ENDC)
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]):
                 continue
 
-            # If error is raised, pass
-            except KeyError:
-                pass
+            # Current passband
+            passband = self.filter[idx_file][0]
 
-            # Load current hdulist
-            with fits.open(self.full_paths[idx_file], mode="update") as chdulist:
+            # Construct cleaned master photometry
+            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=passband)[0][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=passband)[0][0]]
 
-                # Loop over HDUs
-                for idx_hdu, idx_hdu_file in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
+            # Combine quality and contamination flag
+            mkeep = mkeep_qfl and mkeep_cfl
 
-                    # Print info
-                    message_calibration(n_current=idx_file + 1, n_total=len(self), name=self.file_names[idx_file],
-                                        d_current=idx_hdu + 1, d_total=len(self.data_hdu[idx_file]))
+            # Fetch magnitude and coordinates for master catalog
+            master_mag = master_phot.mag(band=master_phot.translate_filter(key=passband))[0][0][mkeep]
+            master_magerr = master_phot.mag_err(band=master_phot.translate_filter(key=passband))[0][0][mkeep]
+            master_skycoord = master_phot.skycoord()[0][0][mkeep]
 
-                    # Get columns and header for current HDU
-                    ccolumns = chdulist[idx_hdu_file].data.columns
-                    cheader = chdulist[idx_hdu_file].header
+            # Get aperture correction subset for current files
+            apcs_file = [apc[idx_file] for apc in apc_images]
 
-                    # Empy ColDefs for columns to be added
-                    new_cols = fits.ColDefs([])
+            # Read source catalog into
+            tab_file = self.file2table(file_index=idx_file)
 
-                    # Loop over aperture diameters
-                    for apc_name, aper_name, diam, kw, ckw in \
-                            zip(self._colnames_apc, self._colnames_aper, apertures_out,
-                                self._zp_keys, self._zp_comments):
+            # Make list to store output tables and ZPs
+            tab_out, zp_out, zperr_out, zp_auto, zperr_auto = [], [], [], None, None
 
-                        # Get ZP
-                        zp = master_zp.zp_diameter(diameter=diam)[idx_file][idx_hdu]
+            for idx, idx_apc_hdu, hdr in \
+                    zip(range(len(self.data_hdu[idx_file])), apcs_file[0].data_hdu[0], self.image_headers[idx_file]):
 
-                        # Compute final magnitude
-                        mag_final = mag_aper_file[aper_name][idx_hdu] + mag_apc_file[apc_name][idx_hdu] + zp
+                # Print info
+                message_calibration(n_current=idx_file + 1, n_total=len(self), name=self.file_names[idx_file],
+                                    d_current=idx + 1, d_total=len(self.data_hdu[idx_file]))
 
-                        # Add as new column
-                        new_cols.add_col(fits.Column(name=aper_name, array=mag_final, **kwargs_column_mag))
+                # Get table for current HDU
+                tab_hdu = tab_file[idx]
 
-                        # Add ZP to header
-                        cheader[kw] = (np.round(zp, decimals=4), ckw)
+                # Get source coordinates
+                key_ra, key_dec = "ALPHAWIN_J2000", "DELTAWIN_J2000"
+                skycoord_hdu = skycoord_from_tab(tab=tab_hdu, key_ra=key_ra, key_dec=key_dec)
 
-                    # Add new columns and header
-                    chdulist[idx_hdu_file] = fits.BinTableHDU.from_columns(ccolumns + new_cols, header=cheader)
+                # Extract aperture corrections
+                apcs = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+                                 for apc in apcs_file])
 
-            # Remove saved headers
-            self.delete_headers_temp(file_index=idx_file)
+                # Extract magnitudes and errors
+                mags, errs = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
+
+                # Get subset of good sources for ZP
+                good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True)
+
+                # Get ZP for each aperture
+                zp = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
+                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord, mag_ref=master_mag,
+                                    mag_err_ref=master_magerr, method="weighted")
+                      for m, apc, e in zip(mags[:, good], apcs[:, good], errs[:, good])]
+
+                # Unpack results
+                zp, zperr = list(zip(*zp))
+                zp, zperr = np.array(zp), np.array(zperr)
+
+                # Compute final magnitudes
+                mags_calib = mags.T + apcs.T + zp
+
+                # Make new columns
+                cols_mag = [Column(name=name, data=data, **kwargs_column_mag) for
+                            name, data in zip(self._colnames_mag_cal, mags_calib.T)]
+                cols_err = [Column(name=name, data=data, **kwargs_column_mag) for
+                            name, data in zip(self._colnames_mag_err, errs)]
+                cols_apc = [Column(name=name, data=data, **kwargs_column_mag) for
+                            name, data in zip(self._colnames_mag_apc, apcs)]
+
+                # Get ZP for MAG_AUTO
+                zp_auto, zperr_auto = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_AUTO"][good],
+                                                    mag_err_cal=tab_hdu["MAGERR_AUTO"][good],
+                                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
+                                                    mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
+
+                col_mag_auto = Column(name="MAG_AUTO_CAL", data=tab_hdu["MAG_AUTO"] + zp_auto, **kwargs_column_mag)
+
+                # Append to table
+                tab_hdu.add_columns(cols=cols_mag + cols_err + cols_apc + [col_mag_auto])
+
+                # Save data
+                tab_out.append(tab_hdu)
+                zp_out.append(zp)
+                zperr_out.append(zperr)
+
+            # Constructe new output file
+            with fits.open(self.full_paths[idx_file]) as cat:
+
+                # Loop over table extensions
+                for tidx, tab, zp, zperr in zip(self.data_hdu[idx_file], tab_out, zp_out, zperr_out):
+
+                    # Read header
+                    hdr = cat[tidx].header
+
+                    # Add keywords to header
+                    for aidx in range(len(zp)):
+                        add_float_to_header(hdr, self._zp_keys[aidx], zp[aidx], self._zp_comments[aidx])
+                        add_float_to_header(hdr, self._zperr_keys[aidx], zperr[aidx], self._zperr_comments[aidx])
+                    add_float_to_header(hdr, self._zp_avg_key, np.mean(zp), self._zp_avg_comment)
+                    add_float_to_header(hdr, self._zpstd_avg_key, np.std(zp), self._zpstd_avg_comment)
+                    add_float_to_header(hdr, self._zp_auto_key, zp_auto, self._zp_auto_comments)
+                    add_float_to_header(hdr, self._zperr_auto_key, zperr_auto, self._zperr_auto_comment)
+
+                    # Create new output table
+                    cat[tidx] = fits.BinTableHDU(data=tab, header=hdr)
+
+                # Write to disk
+                cat.writeto(outpaths[-1], overwrite=self.setup["misc"]["overwrite"])
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                csc = CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths[-1])
+                csc.plot_qc_zp(axis_size=5)
+                csc.plot_qc_ref(axis_size=5)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return new catalog instance
+        return CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
 
     # =========================================================================== #
     # Superflat
@@ -941,19 +776,35 @@ class SextractorCatalogs(SourceCatalogs):
     # =========================================================================== #
     @property
     def _zp_keys(self):
-        return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(apertures_out))]
+        return ["HIERARCH PYPE MAGZP {0}".format(i + 1) for i in range(len(self.apertures))]
 
     @property
     def _zp_comments(self):
-        return ["ZP for {0} pix aperture".format(d) for d in apertures_out]
+        return ["ZP for {0} pix aperture".format(d) for d in self.apertures]
 
     @property
     def _zperr_keys(self):
-        return ["HIERARCH PYPE MAGZPERR {0}".format(i + 1) for i in range(len(apertures_out))]
+        return ["HIERARCH PYPE MAGZPERR {0}".format(i + 1) for i in range(len(self.apertures))]
 
     @property
     def _zperr_comments(self):
-        return ["ZP error for {0} pix aperture".format(d) for d in apertures_out]
+        return ["ZP error for {0} pix aperture".format(d) for d in self.apertures]
+
+    @property
+    def _zp_auto_key(self):
+        return "HIERARCH PYPE MAGZP AUTO"
+
+    @property
+    def _zp_auto_comments(self):
+        return "ZP for AUTO aperture"
+
+    @property
+    def _zperr_auto_key(self):
+        return "HIERARCH PYPE MAGZPERR AUTO"
+
+    @property
+    def _zperr_auto_comment(self):
+        return "ZP error for AUTO aperture"
 
     @property
     def _zp_avg_key(self):
@@ -964,444 +815,12 @@ class SextractorCatalogs(SourceCatalogs):
         return "Average ZP across apertures"
 
     @property
-    def _zperr_avg_key(self):
-        return "HIERARCH PYPE MAGZPERR AVG"
+    def _zpstd_avg_key(self):
+        return "HIERARCH PYPE MAGZPSTD AVG"
 
     @property
-    def _zperr_avg_comment(self):
-        return "Average ZP error across apertures"
-
-    def delete_zeropoints(self):
-
-        keys = self._zp_keys + self._zperr_keys + [self._zp_avg_key] + [self._zperr_avg_key]
-
-        for idx in range(len(self)):
-            for hdu in self.data_hdu[idx]:
-                delete_keys_hdu(path=self.full_paths[idx], hdu=hdu, keys=keys)
-
-            # Force reloading header
-            self.delete_headers_temp(file_index=idx)
-
-    def build_master_zeropoint(self):
-        """ Build ZPs. """
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="MASTER ZERO POINT", silent=self.setup["misc"]["silent"])
-
-        # Get master photometry catalog
-        master_phot = self.get_master_photometry()
-
-        # Loop over catalogs
-        for idx_file in range(len(self)):
-
-            # Create master dark name
-            # outpath = self.path_master_object + "MASTER-ZEROPOINT.MJD_{0:11.5f}.fits.tab".format(self.mjd[idx_file])
-            outpath = self.path_master_object + "MASTER-ZEROPOINT.{0}.tab".format(self.base_names[idx_file])
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Fetch filter of current catalog
-            filter_catalog = self.filter[idx_file]
-
-            # Filter master catalog for good data
-            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=filter_catalog)[0][0]]
-            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=filter_catalog)[0][0]]
-
-            # Combine quality and contamination flag
-            mkeep = mkeep_qfl and mkeep_cfl
-
-            # Fetch magnitude and coordinates for master catalog
-            master_mag = master_phot.mag(band=master_phot.translate_filter(key=filter_catalog))[0][0][mkeep]
-            master_magerr = master_phot.mag_err(band=master_phot.translate_filter(key=filter_catalog))[0][0][mkeep]
-            master_skycoord = master_phot.skycoord()[0][0][mkeep]
-
-            # Load aperture magnitudes, aperture corrections, and skycoords together from file
-            mag_aper_file, magerr_aper_file, flags_file, mag_apc_file, skycoord_file \
-                = self._get_columns_zp_method_file(idx_file=idx_file)
-
-            # Loop over extensions
-            zp_hdu = {diam_apc: [] for diam_apc in apertures_out}
-            zperr_hdu = {diam_apc: [] for diam_apc in apertures_out}
-            for idx_hdu, idx_file_hdu in zip(range(len(self.data_hdu[idx_file])), self.data_hdu[idx_file]):
-
-                # Message
-                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath,
-                                    d_current=idx_hdu+1, d_total=len(self.data_hdu[idx_file]),
-                                    silent=self.setup["misc"]["silent"])
-
-                # Determine good sources with sextractor flags for current HDU
-                flags_good = flags_file[idx_hdu] == 0
-
-                # Fetch current sky coordinates
-                skycoord_hdu = skycoord_file[idx_hdu][flags_good]
-
-                # Compute final magnitudes
-                mags = {diam_apc: mag_aper_file[idx_hdu][:, idx_aper][flags_good] + apc[idx_hdu][flags_good]
-                        for idx_aper, diam_apc, apc in zip(self._aperture_save_idx, apertures_out, mag_apc_file)}
-                magerrs = {diam_apc: magerr_aper_file[idx_hdu][:, idx_aper][flags_good]
-                           for idx_aper, diam_apc in zip(self._aperture_save_idx, apertures_out)}
-
-                for aperture in apertures_out:
-                    zp, zperr = get_zeropoint(skycoo_cal=skycoord_hdu, mag_cal=mags[aperture],
-                                              mag_err_cal=magerrs[aperture], mag_limits_ref=master_phot.mag_lim,
-                                              skycoo_ref=master_skycoord, mag_ref=master_mag, mag_err_ref=master_magerr,
-                                              method="weighted")
-                    zp_hdu[aperture].append(zp)
-                    zperr_hdu[aperture].append(zperr)
-
-            # Make header cards
-            prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], self.setup["keywords"]["filter"],
-                                               "PROV1"],
-                                     values=[self.mjd[idx_file], self.time_obs[idx_file],
-                                             "MASTER-ZEROPOINT", self.filter[idx_file],
-                                             self.base_names[idx_file]])
-            prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
-
-            # Create table HDU for output
-            cols = [fits.Column(name="ZP_{0}".format(apc_diam), array=zp_hdu[apc_diam], **kwargs_column_mag)
-                    for apc_diam in apertures_out] + \
-                   [fits.Column(name="ZPERR_{0}".format(apc_diam), array=zperr_hdu[apc_diam], **kwargs_column_mag)
-                    for apc_diam in apertures_out]
-            tbhdu = fits.TableHDU.from_columns(cols)
-            thdulist = fits.HDUList([prhdu, tbhdu])
-
-            # Write
-            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
-
-            # QC plot
-            if self.setup["misc"]["qc_plots"]:
-                MasterZeroPoint(setup=self.setup, file_paths=outpath).qc_plot_zp(overwrite=True)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    @property
-    def mean_zeropoints(self):
-        """
-        Reads ZPs from file headers.
-
-        Returns
-        -------
-        iterable
-            List of lists containing ZPs
-
-        Raises
-        ------
-        KeyError
-            When ZPs not found
-
-        """
-
-        # Return Mean ZP and ZPerr
-        return self.master_zeropoint.zp_mean, self.master_zeropoint.zperr_mean
-
-    def zeropoint_diam(self, diameter):
-        """
-        Fetches the zero points for a given aperture diameter.
-
-        Parameters
-        ----------
-        diameter : str
-            Aperture diameter.
-
-        Returns
-        -------
-        iterable
-            List of lists.
-
-        """
-
-        return (self.master_zeropoint.zp_diameter(diameter=diameter),
-                self.master_zeropoint.zperr_diameter(diameter=diameter))
-
-    @property
-    def flux_scale(self):
-        """
-        Constructs flux scale from different zero points across all images and detectors
-
-        Returns
-        -------
-        iterable
-            List of lists for flux scaling
-        """
-
-        # Convert ZPs to dummy flux
-        df = 10**(np.array(self.mean_zeropoints[0]) / -2.5)
-
-        # Scale to mean flux (not to mean magnitude)
-        return (df / np.mean(df)).tolist()
-
-    @property
-    def flux_scale_default(self):
-        """
-        Returns flux scaling of 1.0 for each image and each extension.
-
-        Returns
-        -------
-        iterable
-            List of lists for default flux scaling (1.0)
-
-        """
-        return (np.array(self.flux_scale) / np.array(self.flux_scale)).tolist()
-
-    # =========================================================================== #
-    # QC
-    # =========================================================================== #
-    def plot_qc_photometry(self, axis_size=4, mode="pawprint"):
-
-        # Import
-        from astropy.units import Unit
-        import matplotlib.pyplot as plt
-        from matplotlib.cm import get_cmap
-        from astropy.stats import sigma_clip
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="QC PHOTOMETRY", silent=self.setup["misc"]["silent"])
-
-        # Aperture index to use for plotting
-        aper_idx = 3
-
-        # Determine aperture size
-        diam = apertures_all[self._aperture_save_idx[aper_idx]]
-
-        # Get ZPs for all data
-        zps_all = self.zeropoint_diam(diameter=diam)[0]
-
-        # Read master photometry table
-        master_photometry = self.get_master_photometry()[0]
-        sc_master = master_photometry.skycoord()[0][0]
-
-        for idx_file in range(len(self)):
-
-            # Generate outpath
-            outpath_1d = "{0}{1}.phot.1D.pdf".format(self.path_qc_photometry, self.file_names[idx_file])
-            outpath_2d = "{0}{1}.phot.2D.pdf".format(self.path_qc_photometry, self.file_names[idx_file])
-
-            # Check if file exists
-            if check_file_exists(file_path=outpath_2d, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Get magnitudes in master catalog
-            mag_master = master_photometry.mag(master_photometry.translate_filter(key=self.filter[idx_file]))[0][0]
-
-            # Get ZPs
-            zps_file = zps_all[idx_file]
-
-            # Fetch magnitudes and aperture corrections
-            apc_idx = self._aperture_save_idx[3]
-            mag_file = self.get_column_file(idx_file=idx_file, column_name="MAG_APER")
-            apc_file = self.get_column_file(idx_file=idx_file, column_name=self._colnames_apc[3])
-
-            # Get coordinates
-            skycoord_file = self.skycoord_file(idx_file=idx_file)
-            x_file = self.get_column_file(idx_file=idx_file, column_name="X_IMAGE")
-            y_file = self.get_column_file(idx_file=idx_file, column_name="Y_IMAGE")
-            flags = self.get_column_file(idx_file=idx_file, column_name="FLAGS")
-
-            # Apply cut with flags
-            x_file = [x[f == 0] for x, f in zip(x_file, flags)]
-            y_file = [y[f == 0] for y, f in zip(y_file, flags)]
-            mag_file = [m[f == 0] for m, f in zip(mag_file, flags)]
-            apc_file = [a[f == 0] for a, f in zip(apc_file, flags)]
-            skycoord_file = [sc[f == 0] for sc, f in zip(skycoord_file, flags)]
-
-            # =========================================================================== #
-            # 1D
-            # =========================================================================== #
-            # Make plot grid
-            if len(self) == 1:
-                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
-                ax_file = [ax_file]
-            else:
-                fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size / 2)
-                ax_file = ax_file.ravel()
-
-            for idx_hdu in range(len(self.data_hdu[idx_file])):
-
-                # Get magnitudes into shape
-                mag_final = mag_file[idx_hdu][:, apc_idx] + apc_file[idx_hdu]
-
-                # Print processing info
-                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath_1d, d_current=idx_hdu+1,
-                                    d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
-
-                # Xmatch science with reference
-                zp_idx, zp_d2d, _ = skycoord_file[idx_hdu].match_to_catalog_sky(sc_master)
-
-                # Get good indices in reference catalog and in current field
-                idx_master = zp_idx[zp_d2d < 1 * Unit("arcsec")]
-                idx_final = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
-
-                # Apply indices filter
-                mag_final, mag_match = mag_final[idx_final], mag_master[idx_master]
-                mag_delta = mag_match - mag_final
-
-                # Draw photometry
-                dens = point_density(xdata=mag_match, ydata=mag_delta, xsize=0.25, ysize=0.05, norm=True,
-                                     njobs=self.setup["misc"]["n_jobs"])
-                sidx = np.argsort(dens)
-                ax_file[idx_hdu].scatter(mag_match[sidx], mag_delta[sidx], c=np.sqrt(dens[sidx]), vmin=0, vmax=1.0,
-                                         s=5, lw=0, alpha=1.0, zorder=0, cmap="magma")
-
-                # Draw ZP
-                ax_file[idx_hdu].axhline(zps_file[idx_hdu], zorder=1, c="black", alpha=0.5)
-
-                # Evalulate KDE
-                kde = KernelDensity(kernel="gaussian", bandwidth=0.1, metric="euclidean")
-                kde_grid = np.arange(np.floor(zps_file[idx_hdu] - 1), np.ceil(zps_file[idx_hdu] + 1), 0.01)
-                # dens = np.exp(kde.fit(mag_delta.reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
-
-                # KDE for ZP mag interval
-                keep = (mag_match >= master_photometry.mag_lim[0]) & (mag_match <= master_photometry.mag_lim[1])
-
-                # Skip if nothing remains
-                if np.sum(keep) == 0:
-                    continue
-
-                # noinspection PyUnresolvedReferences
-                dens_zp = np.exp(kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
-
-                # Draw KDE
-                ax_kde = ax_file[idx_hdu].twiny()
-                ax_kde.plot(dens_zp, kde_grid, lw=1, c="black", alpha=0.8)
-                ax_kde.axis("off")
-
-                # Draw normal histogram
-                # ax_file[idx_hdu].hist(mag_match - mag_final, orientation="horizontal",
-                #                       histtype="step", lw=1, ec="black", bins="scott")
-
-                # Annotate detector ID
-                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.98, 0.04),
-                                          xycoords="axes fraction", ha="right", va="bottom")
-
-                # Set limits
-                ax_file[idx_hdu].set_xlim(10, 18)
-                ylim = np.median(zps_file) - 1, np.median(zps_file) + 1
-                ax_file[idx_hdu].set_ylim(ylim)
-                ax_kde.set_ylim(ylim)
-
-                # Modify axes
-                if idx_hdu >= len(skycoord_file) - fpa_layout[0]:
-                    ax_file[idx_hdu].set_xlabel("{0} {1} (mag)".format(self.setup["photometry"]["reference"].upper(),
-                                                                       self.filter[idx_file]))
-                else:
-                    ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % fpa_layout[0] == 0:
-                    ax_file[idx_hdu].set_ylabel(r"$\Delta${0} (mag)".format(self.filter[idx_file]))
-                else:
-                    ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
-
-                # Set ticks
-                ax_file[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
-                ax_file[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
-                ax_file[idx_hdu].yaxis.set_major_locator(MaxNLocator(3))
-                ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
-
-            # Save plot
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
-                fig.savefig(outpath_1d, bbox_inches="tight")
-            plt.close("all")
-
-            # =========================================================================== #
-            # 2D
-            # =========================================================================== #
-            # Coadd mode
-            if len(self) == 1:
-                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
-                ax_file = [ax_file]
-            else:
-                fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
-                ax_file = ax_file.ravel()
-            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
-
-            im = None
-            for idx_hdu in range(len(self.data_hdu[idx_file])):
-
-                # Print processing info
-                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath_2d, d_current=idx_hdu+1,
-                                    d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
-
-                # Read header
-                header = self.image_headers[idx_file][idx_hdu]
-
-                # Get magnitudes into shape
-                mag_final = mag_file[idx_hdu][:, apc_idx] + apc_file[idx_hdu]
-
-                # Get ZP for each source
-                zp_all = get_zeropoint(skycoo_cal=skycoord_file[idx_hdu], skycoo_ref=sc_master, mag_cal=mag_final,
-                                       mag_ref=mag_master, mag_limits_ref=master_photometry.mag_lim, method="all")
-
-                # sigma-clip array
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    zp_all = sigma_clip(zp_all, masked=True, sigma=3, maxiters=5).filled(np.nan)
-
-                # Apply filter
-                fil = np.isfinite(zp_all)
-                if np.sum(fil) <= 2:
-                    continue
-                x_hdu, y_hdu, zp_all = x_file[idx_hdu][fil], y_file[idx_hdu][fil], zp_all[fil]
-
-                # Grid value into image
-                if mode == "pawprint":
-                    nbx, nby, kernel_scale = 3, 3, 0.2
-                elif mode == "tile":
-                    nbx, nby, kernel_scale = 10, 10, 0.05
-                else:
-                    raise ValueError("Mode '{0}' not supported".format(mode))
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=zp_all, naxis1=header["NAXIS1"], naxis2=header["NAXIS2"],
-                                     nbins_x=nbx, nbins_y=nby, conv=False, upscale=False)
-
-                # Draw
-                kwargs = {"vmin": np.median(zp_all)-0.2, "vmax": np.median(zp_all)+0.2, "cmap": get_cmap("RdYlBu", 20)}
-                extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
-                im = ax_file[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
-                ax_file[idx_hdu].scatter(x_hdu, y_hdu, c=zp_all, s=7, lw=0.5, ec="black", **kwargs)
-
-                # Annotate detector ID
-                ax_file[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
-                                          xycoords="axes fraction", ha="left", va="bottom")
-
-                # Modify axes
-                if idx_hdu >= len(skycoord_file) - fpa_layout[0]:
-                    ax_file[idx_hdu].set_xlabel("X (pix)")
-                else:
-                    ax_file[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % fpa_layout[0] == 0:
-                    ax_file[idx_hdu].set_ylabel("Y (pix)")
-                else:
-                    ax_file[idx_hdu].axes.yaxis.set_ticklabels([])
-
-                ax_file[idx_hdu].set_aspect("equal")
-
-                # Set ticks
-                ax_file[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
-                ax_file[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
-                ax_file[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
-                ax_file[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
-
-                # Set limits
-                ax_file[idx_hdu].set_xlim(1, header["NAXIS1"])
-                ax_file[idx_hdu].set_ylim(1, header["NAXIS2"])
-
-            # Add colorbar
-            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
-            cbar.ax.xaxis.set_ticks_position("top")
-            cbar.ax.xaxis.set_label_position("top")
-
-            # # Save plot
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
-                fig.savefig(outpath_2d, bbox_inches="tight")
-            plt.close("all")
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+    def _zpstd_avg_comment(self):
+        return "Sigma ZP across apertures"
 
     def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE",
                            key_ra=None, key_dec=None, nbins=3):
@@ -1517,50 +936,6 @@ class SextractorCatalogs(SourceCatalogs):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpath, bbox_inches="tight")
             plt.close("all")
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    # =========================================================================== #
-    # External headers
-    # =========================================================================== #
-    def write_coadd_headers(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="EXTERNAL COADD HEADERS", silent=self.setup["misc"]["silent"],
-                                           right=None)
-
-        # Loop over files
-        for idx_file in range(len(self)):
-
-            # Get current ahead path
-            path_ahead = self.full_paths[idx_file].replace(".sources.fits", ".ahead")
-
-            if check_file_exists(file_path=path_ahead, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print info
-            message_calibration(n_current=idx_file + 1, n_total=len(self),
-                                name=path_ahead, d_current=None, d_total=None)
-
-            # Create empty string
-            text = f""
-
-            # Loop over HDUs
-            for idx_hdu in range(len(self.data_hdu[idx_file])):
-
-                # Create empty Header
-                header = fits.Header()
-
-                # Put flux scale
-                header["FLXSCALE"] = self.flux_scale[idx_file][idx_hdu]
-
-                # Get string and append
-                text += header.tostring(padding=False, endcard=False) + "\nEND     \n"
-
-            # Dump into file
-            with open(path_ahead, "w") as file:
-                print(text, file=file)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
@@ -1776,3 +1151,358 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+
+class CalibratedSextractorCatalogs(SextractorCatalogs):
+
+    def __init__(self, setup, file_paths=None):
+        super(CalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
+
+    @property
+    def flux_scale(self):
+        """
+        Constructs flux scale from different zero points across all images and detectors
+
+        Returns
+        -------
+        iterable
+            List of lists for flux scaling
+        """
+
+        # Convert ZPs to dummy flux
+        df = 10**(np.array(self.mean_zeropoints[0]) / -2.5)
+
+        # Scale to mean flux (not to mean magnitude)
+        return (df / np.mean(df)).tolist()
+
+    @property
+    def flux_scale_default(self):
+        """
+        Returns flux scaling of 1.0 for each image and each extension.
+
+        Returns
+        -------
+        iterable
+            List of lists for default flux scaling (1.0)
+
+        """
+        return (np.array(self.flux_scale) / np.array(self.flux_scale)).tolist()
+
+    # =========================================================================== #
+    # External headers
+    # =========================================================================== #
+    def write_coadd_headers(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="EXTERNAL COADD HEADERS", silent=self.setup["misc"]["silent"],
+                                           right=None)
+
+        # Loop over files
+        for idx_file in range(len(self)):
+
+            # Get current ahead path
+            path_ahead = self.full_paths[idx_file].replace(".sources.fits", ".ahead")
+
+            if check_file_exists(file_path=path_ahead, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print info
+            message_calibration(n_current=idx_file + 1, n_total=len(self),
+                                name=path_ahead, d_current=None, d_total=None)
+
+            # Create empty string
+            text = f""
+
+            # Loop over HDUs
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                # Create empty Header
+                header = fits.Header()
+
+                # Put flux scale
+                header["FLXSCALE"] = self.flux_scale[idx_file][idx_hdu]
+
+                # Get string and append
+                text += header.tostring(padding=False, endcard=False) + "\nEND     \n"
+
+            # Dump into file
+            with open(path_ahead, "w") as file:
+                print(text, file=file)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+    # =========================================================================== #
+    # QC
+    # =========================================================================== #
+    def paths_qc_plots(self, prefix, paths=None):
+        """ Constructs paths for ZP QC plots. """
+        if paths is None:
+            return ["{0}{1}.{2}.pdf".format(self.path_qc_photometry, fp, prefix) for fp in self.file_names]
+        else:
+            return paths
+
+    def plot_qc_zp(self, paths=None, axis_size=5, overwrite=False):
+        """ Generates ZP QC plot. """
+
+        # Generate path for plots
+        paths = self.paths_qc_plots(paths=paths, prefix="zp")
+
+        zp_mean = self.dataheaders_get_keys(keywords=[self._zp_avg_key])[0]
+        zperr_mean = self.dataheaders_get_keys(keywords=[self._zpstd_avg_key])[0]
+
+        # Loop over files and create plots
+        for zp, zpstd, path in zip(zp_mean, zperr_mean, paths):
+            plot_value_detector(values=zp, errors=zpstd, path=path, ylabel="ZP (mag)", axis_size=axis_size,
+                                overwrite=overwrite, yrange=(np.median(zp) - 0.05, np.median(zp) + 0.05))
+
+    def plot_qc_ref(self, axis_size=5):
+
+        # Import
+        from astropy.units import Unit
+        import matplotlib.pyplot as plt
+        from matplotlib.cm import get_cmap
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Aperture index to use for plotting
+        aper_idx = 3
+
+        # Generate output paths
+        outpaths_1d = self.paths_qc_plots(paths=None, prefix="phot.1D")
+        outpaths_2d = self.paths_qc_plots(paths=None, prefix="phot.2D")
+
+        for idx_file in range(len(self)):
+
+            # if check_file_exists(file_path=outpath_2d, silent=self.setup["misc"]["silent"]):
+            #     continue
+
+            # Read master photometry table
+            master_phot = self.get_master_photometry()[idx_file]
+
+            # Get passband
+            passband = self.filter[idx_file][0]
+
+            # Construct cleaned master photometry
+            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=passband)[idx_file][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=passband)[idx_file][0]]
+
+            # Combine quality and contamination flag
+            mkeep = mkeep_qfl and mkeep_cfl
+
+            # Fetch magnitude and coordinates for master catalog
+            mag_master = master_phot.mag(band=master_phot.translate_filter(key=passband))[idx_file][0][mkeep]
+            master_skycoord = master_phot.skycoord()[idx_file][0][mkeep]
+
+            # Plot layout
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
+
+            # Fetch magnitudes and aperture corrections
+            mag_file = self.get_column_file(idx_file=idx_file, column_name=self._colnames_mag_cal[aper_idx])
+
+            # Get coordinates
+            skycoord_file = self.skycoord_file(idx_file=idx_file)
+            x_file = self.get_column_file(idx_file=idx_file, column_name="X_IMAGE")
+            y_file = self.get_column_file(idx_file=idx_file, column_name="Y_IMAGE")
+            flags = self.get_column_file(idx_file=idx_file, column_name="FLAGS")
+
+            # Apply cut with flags
+            x_file = [x[f == 0] for x, f in zip(x_file, flags)]
+            y_file = [y[f == 0] for y, f in zip(y_file, flags)]
+            mag_file = [m[f == 0] for m, f in zip(mag_file, flags)]
+            skycoord_file = [sc[f == 0] for sc, f in zip(skycoord_file, flags)]
+
+            # =========================================================================== #
+            # 1D
+            # =========================================================================== #
+            # Make plot grid
+            if len(self.data_hdu[idx_file]) == 1:
+                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                ax_file = [ax_file]
+            else:
+                fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size / 2)
+                ax_file = ax_file.ravel()
+
+            # Loop over extensions
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                # Grab axes
+                ax = ax_file[idx_hdu]
+
+                # Get magnitudes for current extension
+                mag_hdu = mag_file[idx_hdu]
+
+                # Xmatch science with reference
+                zp_idx, zp_d2d, _ = skycoord_file[idx_hdu].match_to_catalog_sky(master_skycoord)
+
+                # Get good indices in reference catalog and in current field
+                idx_master = zp_idx[zp_d2d < 1 * Unit("arcsec")]
+                idx_final = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
+
+                # Apply indices filter
+                mag_hdu_match, mag_master_match = mag_hdu[idx_final], mag_master[idx_master]
+                mag_delta = mag_hdu_match - mag_master_match
+
+                # Draw photometry
+                dens = point_density(xdata=mag_master_match, ydata=mag_delta, xsize=0.25, ysize=0.05, norm=True,
+                                     njobs=self.setup["misc"]["n_jobs"])
+                sidx = np.argsort(dens)
+                ax.scatter(mag_master_match[sidx], mag_delta[sidx], c=np.sqrt(dens[sidx]),
+                           vmin=0, vmax=1.0, s=5, lw=0, alpha=1.0, zorder=0, cmap="magma")
+
+                # Draw ZP
+                ax.axhline(0, zorder=1, c="black", alpha=0.5)
+
+                # Evalulate KDE
+                kde = KernelDensity(kernel="gaussian", bandwidth=0.1, metric="euclidean")
+                kde_grid = np.arange(np.floor(-1), np.ceil(1), 0.01)
+                # dens = np.exp(kde.fit(mag_delta.reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
+
+                # KDE for ZP mag interval
+                keep = (mag_master_match >= master_phot.mag_lim[0]) & \
+                       (mag_master_match <= master_phot.mag_lim[1])
+
+                # Skip if nothing remains
+                if np.sum(keep) == 0:
+                    continue
+
+                # noinspection PyUnresolvedReferences
+                dens_zp = np.exp(kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
+
+                # Draw KDE
+                ax_kde = ax.twiny()
+                ax_kde.plot(dens_zp, kde_grid, lw=1, c="black", alpha=0.8)
+                ax_kde.axis("off")
+
+                # Draw normal histogram
+                # ax_file[idx_hdu].hist(mag_match - mag_final, orientation="horizontal",
+                #                       histtype="step", lw=1, ec="black", bins="scott")
+
+                # Annotate detector ID
+                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.98, 0.04),
+                            xycoords="axes fraction", ha="right", va="bottom")
+
+                # Set limits
+                ax.set_xlim(10, 18)
+                ylim = (-1, 1)
+                ax.set_ylim(ylim)
+                ax_kde.set_ylim(ylim)
+
+                # Modify axes
+                if idx_hdu < fpa_layout[1]:
+                    ax.set_xlabel("{0} {1} (mag)"
+                                  "".format(self.setup["photometry"]["reference"].upper(), self.filter[idx_file]))
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_hdu % fpa_layout[0] == fpa_layout[0] - 1:
+                    ax.set_ylabel(r"$\Delta${0} (mag)".format(self.filter[idx_file]))
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(3))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpaths_1d[-1], bbox_inches="tight")
+            plt.close("all")
+
+            # =========================================================================== #
+            # 2D
+            # =========================================================================== #
+            # Coadd mode
+            if len(self.data_hdu[idx_file]) == 1:
+                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                ax_file = [ax_file]
+            else:
+                fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+                ax_file = ax_file.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            im = None
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpaths_2d[-1], d_current=idx_hdu+1,
+                                    d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
+
+                # Grab axes
+                ax = ax_file[idx_hdu]
+
+                # Read header
+                header = self.image_headers[idx_file][idx_hdu]
+
+                # Get magnitudes for current extension
+                mag_hdu = mag_file[idx_hdu]
+
+                # Xmatch science with reference
+                zp_idx, zp_d2d, _ = skycoord_file[idx_hdu].match_to_catalog_sky(master_skycoord)
+
+                # Get good indices in reference catalog and in current field
+                idx_master = zp_idx[zp_d2d < 1 * Unit("arcsec")]
+                idx_final = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
+
+                # Apply indices filter
+                mag_hdu_match, mag_master_match = mag_hdu[idx_final], mag_master[idx_master]
+                mag_delta = mag_hdu_match - mag_master_match
+                x_hdu, y_hdu = x_file[idx_hdu][idx_final], y_file[idx_hdu][idx_final]
+
+                # Grid value into image
+                mode = "pawprint"
+                if mode == "pawprint":
+                    nx, ny, kernel_scale = 3, 3, 0.2
+                elif mode == "tile":
+                    nx, ny, kernel_scale = 10, 10, 0.05
+                else:
+                    raise ValueError("Mode '{0}' not supported".format(mode))
+
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=mag_delta, x_min=0, x_max=header["NAXIS1"],
+                                     y_min=0, y_max=header["NAXIS2"], nx=nx, ny=ny, conv=False, upscale=False)
+
+                # Draw
+                kwargs = {"vmin": -0.2, "vmax": +0.2, "cmap": get_cmap("RdYlBu", 20)}
+                extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
+                im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
+                ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7, lw=0.5, ec="black", **kwargs)
+
+                # Annotate detector ID
+                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                            xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx_hdu < fpa_layout[1]:
+                    ax_file[idx_hdu].set_xlabel("X (pix)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_hdu % fpa_layout[0] == fpa_layout[0] - 1:
+                    ax_file[idx_hdu].set_ylabel("Y (pix)")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Equal aspect ratio
+                ax.set_aspect("equal")
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Set limits
+                ax.set_xlim(1, header["NAXIS1"])
+                ax.set_ylim(1, header["NAXIS2"])
+
+            # Add colorbar
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
+            cbar.ax.xaxis.set_ticks_position("top")
+            cbar.ax.xaxis.set_label_position("top")
+
+            # # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpaths_2d[-1], bbox_inches="tight")
+            plt.close("all")
+            exit()
