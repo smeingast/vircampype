@@ -1505,4 +1505,3 @@ class CalibratedSextractorCatalogs(SextractorCatalogs):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpaths_2d[-1], bbox_inches="tight")
             plt.close("all")
-            exit()
