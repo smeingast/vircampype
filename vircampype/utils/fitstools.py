@@ -9,7 +9,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "add_float_to_header"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -365,3 +365,24 @@ def compress_fits(paths, binary="fpack", quantize_level=32, delete_original=Fals
         # Delete original
         if delete_original:
             remove_file(path)
+
+
+def add_float_to_header(header, key, value, comment=None):
+    """
+    Adds float to header with fixed format.
+
+    Parameters
+    ----------
+    header : fits.Header
+        FITS header to be modified.
+    key : str
+        Key of header entry.
+    value : float
+        Value of header entry.
+    comment : str, optional
+        Comment of header entry.
+
+    """
+    c = fits.Card.fromstring("{0:8}={1:0.4f}".format(key, value))
+    c.comment = comment
+    header.append(c)
