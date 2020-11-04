@@ -367,7 +367,7 @@ def compress_fits(paths, binary="fpack", quantize_level=32, delete_original=Fals
             remove_file(path)
 
 
-def add_float_to_header(header, key, value, comment=None):
+def add_float_to_header(header, key, value, comment=None, remove_before=True):
     """
     Adds float to header with fixed format.
 
@@ -381,8 +381,17 @@ def add_float_to_header(header, key, value, comment=None):
         Value of header entry.
     comment : str, optional
         Comment of header entry.
+    remove_before : bool, optional
+        If set, removes all occurences of 'key' from header. Default is true
 
     """
-    c = fits.Card.fromstring("{0:8}={1:0.4f}".format(key, value))
+    # If the key is already there, remove it
+    if remove_before:
+        try:
+            header.remove(key, remove_all=True)
+        except KeyError:
+            pass
+
+    c = fits.Card.fromstring("{0:8}= {1:0.4f}".format(key, value))
     c.comment = comment
     header.append(c)
