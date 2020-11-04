@@ -1134,12 +1134,16 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
         if weights is not None:
 
+            # Empty stat matrix
             stat = np.full((nx, ny), fill_value=np.nan)
 
+            # Get all combinations of indices
             idx_combinations = list(itertools.product(np.arange(nx), np.arange(ny)))
 
+            # Evaluate statistic for each bin
             for cidx in idx_combinations:
 
+                # Get filter for current bin
                 fil = (nbx == cidx[0]) & (nby == cidx[1])
 
                 # Compute weighted average for this bin
