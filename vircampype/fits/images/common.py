@@ -845,14 +845,14 @@ class FitsImages(FitsFiles):
 
         return [x.replace(".fits", ".{0}.sources.fits".format(prefix)).replace("..", ".") for x in self.full_paths]
 
-    def _sex_path_param(self, preset):
+    def _path_sex_param(self, preset):
         """
         Returns path to sextractor param file, given preset.
 
         Parameters
         ----------
         preset : str
-            Which preset to use
+            Which preset to use.
 
         Returns
         -------
@@ -860,14 +860,24 @@ class FitsImages(FitsFiles):
             Path to preset param.
         """
 
-        if preset == "scamp":
-            return get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.param")
-        elif preset == "full":
-            return get_resource_path(package=self._sex_preset_package, resource="sextractor_full.param")
-        elif preset == "superflat":
-            return get_resource_path(package=self._sex_preset_package, resource="sextractor_superflat.param")
-        else:
-            raise ValueError("Sextractor parameter name '{0}' not supported".format(preset))
+        return get_resource_path(package=self._sex_preset_package, resource="{0}.param".format(preset))
+
+    def _path_sex_yml(self, preset):
+        """
+        Returns path to sextractor yml file, given preset.
+
+        Parameters
+        ----------
+        preset : str
+            Which preset to use.
+
+        Returns
+        -------
+        str
+            Path to preset yml.
+        """
+
+        return get_resource_path(package=self._sex_preset_package, resource="{0}.yml".format(preset))
 
     def sextractor(self, preset="scamp", prefix=None, **kwargs):
         """
@@ -906,8 +916,7 @@ class FitsImages(FitsFiles):
             master_weight_paths = self.get_master_weight().full_paths
 
         # Read setup based on preset
-        yml_path = get_resource_path(package=self._sex_preset_package, resource="{0}.yml".format(preset))
-        parameters_name = self._sex_path_param(preset=preset)
+        yml_path, parameters_name = self._path_sex_yml(preset=preset), self._path_sex_param(preset=preset)
         key_satur, key_gain = self.setup["keywords"]["saturate"], self.setup["keywords"]["gain"]
         if preset == "scamp":
             ss = yml2config(path=yml_path, filter_name=self._sex_default_filter, parameters_name=parameters_name,
