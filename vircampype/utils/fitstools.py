@@ -9,7 +9,8 @@ from astropy.io.fits.verify import VerifyWarning
 
 # Define objects in this module
 __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "add_float_to_header"]
+           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "add_float_to_header",
+           "write_header"]
 
 
 def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
@@ -395,3 +396,17 @@ def add_float_to_header(header, key, value, comment=None, remove_before=True):
     c = fits.Card.fromstring("{0:8}= {1:0.4f}".format(key, value))
     c.comment = comment
     header.append(c)
+
+
+def write_header(header, path):
+    """
+    Writes fits header to into a textfile.
+
+    Parameters
+    ----------
+    header : Header
+        Astropy fits header.
+    path : str
+        Path where it should be written.
+    """
+    header.totextfile(path, overwrite=True)
