@@ -905,22 +905,25 @@ class FitsImages(FitsFiles):
         if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
             master_weight_paths = self.get_master_weight().full_paths
 
-        # Fetch param file
+        # Read setup based on preset
+        yml_path = get_resource_path(package=self._sex_preset_package, resource="{0}.yml".format(preset))
+        parameters_name = self._sex_path_param(preset=preset)
+        key_satur, key_gain = self.setup["keywords"]["saturate"], self.setup["keywords"]["gain"]
         if preset == "scamp":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="scamp.yml"),
-                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
-                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
-                            skip=["catalog_name", "weight_image"])
+            ss = yml2config(path=yml_path, filter_name=self._sex_default_filter, parameters_name=parameters_name,
+                            satur_key=key_satur, gain_key=key_gain, skip=["catalog_name", "weight_image"])
+        elif preset == "fwhm":
+            ss = yml2config(path=yml_path, parameters_name=parameters_name, filter_name=self._sex_default_filter,
+                            satur_key=key_satur, gain_key=key_gain,
+                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         elif preset == "superflat":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="superflat.yml"),
-                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
-                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
+            ss = yml2config(path=yml_path, parameters_name=parameters_name,  filter_name=self._sex_default_filter,
+                            satur_key=key_satur, gain_key=key_gain,
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         elif preset == "full":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="full.yml"),
-                            filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
+            ss = yml2config(path=yml_path, parameters_name=parameters_name, filter_name=self._sex_default_filter,
                             phot_apertures=self.setup["photometry"]["apertures"].replace(", ", ","),
-                            satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
+                            satur_key=key_satur, gain_key=key_gain,
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
