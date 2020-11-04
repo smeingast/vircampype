@@ -921,10 +921,8 @@ class FitsImages(FitsFiles):
                           gain_key=self.setup["keywords"]["gain"])
 
         # Read setup based on preset
-        if preset == "scamp":
+        if (preset == "scamp") | (preset == "fwhm"):
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
-        elif preset == "fwhm":
-            ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
         elif preset == "superflat":
             ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
         elif preset == "full":
