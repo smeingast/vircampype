@@ -6,31 +6,88 @@ from astropy.coordinates import SkyCoord
 __all__ = ["clean_source_table", "skycoord_from_tab"]
 
 
-def clean_source_table(table, image_header, return_filter=False):
+def clean_source_table(table, image_header=None, return_filter=False):
 
-    # Base cleaning
-    good = (table["CLASS_STAR"] > 0.5) & \
-           (table["FLAGS"] == 0) & \
-           (table["SNR_WIN"] > 10) & \
-           (table["ELLIPTICITY"] < 0.1) & \
-           (table["ISOAREA_IMAGE"] > 3) & \
-           (table["ISOAREA_IMAGE"] < 5000) & \
-           (np.sum(table["MAG_APER"] > 0, axis=1) == 0) & \
-           (table["FWHM_IMAGE"] > 0.5) & \
-           (table["FWHM_IMAGE"] < 8.0) & \
-           (table["XWIN_IMAGE"] > 10) & \
-           (table["YWIN_IMAGE"] > 10) & \
-           (table["XWIN_IMAGE"] < image_header["NAXIS1"] - 10) & \
-           (table["YWIN_IMAGE"] < image_header["NAXIS2"] - 10)
+    # We start with all good sources
+    good = np.full(len(table), fill_value=True, dtype=bool)
 
-    # Filter bad sources based on preset
-    # if preset.lower() == "apc":
-    # # Get distance to nearest neighbor for cleaning
-    # stacked = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
-    # dis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
-    # (dis > 10)
-    # else:
-    #     raise ValueError("Preset '{0}' not supported".format(preset))
+    # Build filter based on available columns
+    try:
+        good &= table["CLASS_STAR"] > 0.5
+    except KeyError:
+        pass
+
+    try:
+        good &= table["FLAGS"] == 0
+    except KeyError:
+        pass
+
+    try:
+        good &= table["SNR_WIN"] > 10
+    except KeyError:
+        pass
+
+    try:
+        good &= table["ELLIPTICITY"] < 0.1
+    except KeyError:
+        pass
+
+    try:
+        good &= table["ISOAREA_IMAGE"] > 3
+    except KeyError:
+        pass
+
+    try:
+        good &= table["ISOAREA_IMAGE"] < 500
+    except KeyError:
+        pass
+
+    try:
+        good &= np.sum(table["MAG_APER"] > 0, axis=1) == 0
+    except KeyError:
+        pass
+
+    try:
+        good &= table["FWHM_IMAGE"] > 0.5
+    except KeyError:
+        pass
+
+    try:
+        good &= table["FWHM_IMAGE"] < 8.0
+    except KeyError:
+        pass
+
+    try:
+        good &= table["FLUX_RADIUS"] > 0.8
+    except KeyError:
+        pass
+
+    try:
+        good &= table["FLUX_RADIUS"] < 3.0
+    except KeyError:
+        pass
+
+    try:
+        good &= table["XWIN_IMAGE"] > 10
+    except KeyError:
+        pass
+
+    try:
+        good &= table["YWIN_IMAGE"] > 10
+    except KeyError:
+        pass
+
+    # Also the other edge
+    if image_header is not None:
+        try:
+            good &= table["XWIN_IMAGE"] < image_header["NAXIS1"] - 10
+        except KeyError:
+            pass
+
+        try:
+            good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - 10
+        except KeyError:
+            pass
 
     # Return cleaned table
     if return_filter:
