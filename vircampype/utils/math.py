@@ -1,6 +1,7 @@
 # =========================================================================== #
 # Import
 import warnings
+import itertools
 import numpy as np
 
 # noinspection PyUnresolvedReferences
@@ -1135,7 +1136,6 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
             stat = np.full((nx, ny), fill_value=np.nan)
 
-            import itertools
             idx_combinations = list(itertools.product(np.arange(nx), np.arange(ny)))
 
             for cidx in idx_combinations:
