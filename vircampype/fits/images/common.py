@@ -802,7 +802,7 @@ class FitsImages(FitsFiles):
             Package path.
         """
 
-        return "vircampype.resources.astromatic.presets"
+        return "vircampype.resources.astromatic.sextractor.presets"
 
     @property
     def _sex_default_filter(self):
@@ -907,18 +907,17 @@ class FitsImages(FitsFiles):
 
         # Fetch param file
         if preset == "scamp":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_scamp.yml"),
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="scamp.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image"])
         elif preset == "superflat":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package,
-                                                   resource="sextractor_superflat.yml"),
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="superflat.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()))
         elif preset == "full":
-            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="sextractor_full.yml"),
+            ss = yml2config(path=get_resource_path(package=self._sex_preset_package, resource="full.yml"),
                             filter_name=self._sex_default_filter, parameters_name=self._sex_path_param(preset=preset),
                             phot_apertures=self.setup["photometry"]["apertures"].replace(", ", ","),
                             satur_key=self.setup["keywords"]["saturate"], gain_key=self.setup["keywords"]["gain"],
