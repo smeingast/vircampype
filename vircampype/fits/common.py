@@ -69,7 +69,13 @@ class FitsFiles:
         self.path_processed = "{0}{1}/".format(self.path_object, "processed")
         self.path_superflatted = "{0}{1}/".format(self.path_object, "superflatted")
         self.path_resampled = "{0}{1}/".format(self.path_object, "resampled")
+
+        # Coadd paths
         self.path_coadd = "{0}{1}/".format(self.path_object, "coadd")
+        self.coadd_name = self.setup["paths"]["name"]
+        self.path_coadd_image = "{0}{1}.fits".format(self.path_coadd, self.coadd_name)
+        self.path_coadd_weight = self.path_coadd_image.replace(".fits", ".weight.fits")
+        self.path_coadd_header = self.path_coadd_image.replace(".fits", ".ahead")
 
         # Obs parameters
         self.path_obspar = "{0}{1}/".format(self.path_object, "obspar")

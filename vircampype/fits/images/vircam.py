@@ -10,6 +10,7 @@ from vircampype.utils import *
 from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
+from vircampype.utils.fitstools import write_header
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.sky import OffsetImages, ScienceImages
 
@@ -406,7 +407,7 @@ class VircamScienceImages(ScienceImages):
         tstart = message_mastercalibration(master_type="RESAMPLING", silent=self.setup["misc"]["silent"], right=None)
 
         ss = yml2config(path=self._swarp_preset_pawprints_path,
-                        imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
+                        imageout_name=self.path_coadd_image, weightout_name=self.path_coadd_weight,
                         nthreads=self.setup["misc"]["n_jobs"], resample_suffix=self._swarp_resample_suffix,
                         gain_keyword=self.setup["keywords"]["gain"], satlev_keyword=self.setup["keywords"]["saturate"],
                         back_size=self.setup["astromatic"]["swarp_back_size"],
@@ -453,13 +454,13 @@ class VircamScienceImages(ScienceImages):
         tstart = message_mastercalibration(master_type="COADDING", silent=self.setup["misc"]["silent"], right=None)
 
         # Write header to disk
-        if not check_file_exists(file_path=self._swarp_path_coadd_header, silent=True):
+        if not check_file_exists(file_path=self.path_coadd_header, silent=True):
             if header is None:
                 header = self.header_coadd()
-            self._write_header(header=header, path=self._swarp_path_coadd_header)
+            write_header(header=header, path=self.path_coadd_header)
 
         ss = yml2config(path=self._swarp_preset_coadd_path,
-                        imageout_name=self._swarp_path_coadd, weightout_name=self._swarp_path_coadd_weight,
+                        imageout_name=self.path_coadd_image, weightout_name=self.path_coadd_weight,
                         gain_keyword=self.setup["keywords"]["gain"], satlev_keyword=self.setup["keywords"]["saturate"],
                         nthreads=self.setup["misc"]["n_jobs"], skip=["weight_thresh", "weight_image"])
 
@@ -467,18 +468,18 @@ class VircamScienceImages(ScienceImages):
         cmd = "{0} {1} -c {2} {3}".format(self.bin_swarp, " ".join(self.full_paths), self._swarp_default_config, ss)
 
         # Run Swarp
-        if not check_file_exists(file_path=self._swarp_path_coadd, silent=self.setup["misc"]["silent"]) \
+        if not check_file_exists(file_path=self.path_coadd_image, silent=self.setup["misc"]["silent"]) \
                 and not self.setup["misc"]["overwrite"]:
             run_command_bash(cmd=cmd, silent=True)
 
             # Copy primary header from first entry of input
-            copy_keywords(path_1=self._swarp_path_coadd, path_2=self.full_paths[0], hdu_1=0, hdu_2=0,
+            copy_keywords(path_1=self.path_coadd_image, path_2=self.full_paths[0], hdu_1=0, hdu_2=0,
                           keywords=[self.setup["keywords"]["object"], self.setup["keywords"]["filter"]])
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-        return SkyImages(setup=self.setup, file_paths=[self._swarp_path_coadd])
+        return SkyImages(setup=self.setup, file_paths=[self.path_coadd_image])
 
 
 class VircamStdImages(VircamScienceImages):
