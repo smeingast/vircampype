@@ -156,8 +156,8 @@ def message_mastercalibration(master_type, silent=True, left="File", right="Exte
         print()
         print(BColors.HEADER + master_type + BColors.ENDC)
         print("{:-<80}".format(""))
-    if not (left == "") & (right == ""):
-        print("{0:<55s}{1:>25s}".format(left, right))
+        if not (left == "") & (right == ""):
+            print("{0:<55s}{1:>25s}".format(left, right))
 
     return time.time()
 
