@@ -12,12 +12,13 @@ from vircampype.setup import *
 from astropy.table import Column
 from astropy.wcs import wcs as awcs
 from vircampype.utils.tables import *
+from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
 from astropy.stats import sigma_clip as astropy_sigma_clip
-from vircampype.utils.fitstools import add_float_to_header
+from vircampype.utils.fitstools import add_float_to_header, write_header
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -125,7 +126,7 @@ class SextractorCatalogs(SourceCatalogs):
         else:
             return names
 
-    def _scamp_header_names(self, joined=False):
+    def _scamp_header_paths(self, joined=False):
         """
         List or str containing scamp header names.
         Parameters
@@ -177,13 +178,47 @@ class SextractorCatalogs(SourceCatalogs):
         # Construct commands for source extraction
         cmd = "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_BAND {4} {5}" \
               "".format(self._bin_scamp, self._scamp_catalog_paths, self._scamp_default_config,
-                        self._scamp_header_names(joined=True), band, options)
+                        self._scamp_header_paths(joined=True), band, options)
 
         # Run Scamp
         run_command_bash(cmd, silent=False)
 
-        # Return header paths
-        return self._scamp_header_names(joined=False)
+    def fwhm_from_columns(self):
+        """ Estimates average PSF_FWHMs based on measured values by sextractor. """
+
+        psf_fwhm_files = []
+        for idx_file in range(len(self)):
+
+            # Read entire table
+            tab_file = self.file2table(file_index=idx_file)
+
+            psf_fwhm_hdus = []
+            for hdu_idx in range(len(tab_file)):
+
+                # Table for current extension
+                tab_hdu = tab_file[hdu_idx]
+
+                # Apply source filter
+                tab_hdu_clean = clean_source_table(table=tab_hdu)
+
+                # Sigma clipping
+                good = ~astropy_sigma_clip(tab_hdu_clean["FWHM_IMAGE"]).mask
+
+                # Apply filter
+                data, weights = tab_hdu_clean["FWHM_IMAGE"][good], tab_hdu_clean["FWHM_IMAGE"][good]
+
+                # Get weighted average and append
+                avg = np.average(data, weights=weights)
+                err = np.sqrt(np.average((data - avg)**2, weights=weights))
+
+                # Append
+                psf_fwhm_hdus.append((avg, err))
+
+            # Append to file lists
+            psf_fwhm_files.append(psf_fwhm_hdus)
+
+        # Return
+        return psf_fwhm_files
 
     # =========================================================================== #
     # Aperture correction
@@ -421,198 +456,95 @@ class SextractorCatalogs(SourceCatalogs):
                 for idx in range(len(str2list(self.setup["photometry"]["apertures"], sep=",")))]
 
     # =========================================================================== #
-    # Photometry
+    # Astrometry
     # =========================================================================== #
-    def build_master_photometry(self):
-
-        # Import
-        from vircampype.fits.tables.sources import MasterPhotometry2Mass, MasterPhotometry
+    def calibrate_astrometry(self):
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
+        tstart = message_mastercalibration(master_type="ASTROMETRY", right=None, left=None,
                                            silent=self.setup["misc"]["silent"])
 
-        # Construct outpath
-        outpath = self.path_master_object + "MASTER-PHOTOMETRY.fits.tab"
+        # Check how many ahead files are there
+        n_ahead = np.sum([os.path.isfile(p) for p in self._scamp_header_paths()])
 
-        # Check if the file is already there and skip if it is
-        if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+        # If there are already all files, do not do anything
+        if n_ahead == len(self):
+            print(BColors.WARNING + "Astrometry already done." + BColors.ENDC)
+            pass
 
-            # Print processing info
-            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-                                d_total=None, silent=self.setup["misc"]["silent"])
-
-            # Obtain field size
-            size = np.max(distance_sky(lon1=self.centroid_total()[0], lat1=self.centroid_total()[1],
-                                       lon2=self.ra_all(), lat2=self.dec_all(), unit="deg")) * 1.01
-
-            # Download catalog
-            if self.setup["photometry"]["reference"] == "2mass":
-                table = download_2mass(lon=self.centroid_total()[0], lat=self.centroid_total()[1], radius=2 * size)
-
-            else:
-                raise ValueError("Catalog '{0}' not supported".format(self.setup["photometry"]["reference"]))
-
-            # Save catalog
-            table.write(outpath, format="fits", overwrite=True)
-
-            # Add object info to primary header
-            add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return photometry catalog
-        if self.setup["photometry"]["reference"] == "2mass":
-            return MasterPhotometry2Mass(setup=self.setup, file_paths=[outpath])
+        # Otherwise Run scamp
         else:
-            return MasterPhotometry(setup=self.setup, file_paths=[outpath])
 
-    def calibrate_photometry(self):
+            # Run
+            self.scamp()
 
-        # Processing info
-        tstart = message_mastercalibration(master_type="PHOTOMETRY", silent=self.setup["misc"]["silent"])
+            # Dummy check
+            if len(self._scamp_header_paths()) != len(self):
+                raise ValueError("Something wrong with Scamp")
 
-        # Extract apertures
-        apertures = str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)
-
-        # Get aperture correction imaages for all aperture diameters
-        apc_images = [self.get_aperture_correction(diameter=a) for a in apertures]
-
-        # Get master photometry catalog
-        master_phot = self.get_master_photometry()
-
-        # Loop over each file
-        outpaths = []
-        for idx_file in range(len(self)):
-
-            # Make outpath
-            outpaths.append(self.full_paths[idx_file].replace(".sources.fits", ".sources.cal.fits"))
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Current passband
-            passband = self.filter[idx_file][0]
-
-            # Construct cleaned master photometry
-            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=passband)[0][0]]
-            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=passband)[0][0]]
-
-            # Combine quality and contamination flag
-            mkeep = mkeep_qfl and mkeep_cfl
-
-            # Fetch magnitude and coordinates for master catalog
-            master_mag = master_phot.mag(band=master_phot.translate_filter(key=passband))[0][0][mkeep]
-            master_magerr = master_phot.mag_err(band=master_phot.translate_filter(key=passband))[0][0][mkeep]
-            master_skycoord = master_phot.skycoord()[0][0][mkeep]
-
-            # Get aperture correction subset for current files
-            apcs_file = [apc[idx_file] for apc in apc_images]
-
-            # Read source catalog into
-            tab_file = self.file2table(file_index=idx_file)
-
-            # Make list to store output tables and ZPs
-            tab_out, zp_out, zperr_out, zp_auto, zperr_auto = [], [], [], None, None
-
-            for idx, idx_apc_hdu, hdr in \
-                    zip(range(len(self.data_hdu[idx_file])), apcs_file[0].data_hdu[0], self.image_headers[idx_file]):
-
-                # Print info
-                message_calibration(n_current=idx_file + 1, n_total=len(self), name=self.file_names[idx_file],
-                                    d_current=idx + 1, d_total=len(self.data_hdu[idx_file]))
-
-                # Get table for current HDU
-                tab_hdu = tab_file[idx]
-
-                # Get source coordinates
-                key_ra, key_dec = "ALPHAWIN_J2000", "DELTAWIN_J2000"
-                skycoord_hdu = skycoord_from_tab(tab=tab_hdu, key_ra=key_ra, key_dec=key_dec)
-
-                # Extract aperture corrections
-                apcs = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-                                 for apc in apcs_file])
-
-                # Extract magnitudes and errors
-                mags, errs = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
-
-                # Get subset of good sources for ZP
-                good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True)
-
-                # Get ZP for each aperture
-                zp = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
-                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord, mag_ref=master_mag,
-                                    mag_err_ref=master_magerr, method="weighted")
-                      for m, apc, e in zip(mags[:, good], apcs[:, good], errs[:, good])]
-
-                # Unpack results
-                zp, zperr = list(zip(*zp))
-                zp, zperr = np.array(zp), np.array(zperr)
-
-                # Compute final magnitudes
-                mags_calib = mags.T + apcs.T + zp
-
-                # Make new columns
-                cols_mag = [Column(name=name, data=data, **kwargs_column_mag) for
-                            name, data in zip(self._colnames_mag_cal, mags_calib.T)]
-                cols_err = [Column(name=name, data=data, **kwargs_column_mag) for
-                            name, data in zip(self._colnames_mag_err, errs)]
-                cols_apc = [Column(name=name, data=data, **kwargs_column_mag) for
-                            name, data in zip(self._colnames_mag_apc, apcs)]
-
-                # Get ZP for MAG_AUTO
-                zp_auto, zperr_auto = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_AUTO"][good],
-                                                    mag_err_cal=tab_hdu["MAGERR_AUTO"][good],
-                                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
-                                                    mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
-
-                col_mag_auto = Column(name="MAG_AUTO_CAL", data=tab_hdu["MAG_AUTO"] + zp_auto, **kwargs_column_mag)
-
-                # Append to table
-                tab_hdu.add_columns(cols=cols_mag + cols_err + cols_apc + [col_mag_auto])
-
-                # Save data
-                tab_out.append(tab_hdu)
-                zp_out.append(zp)
-                zperr_out.append(zperr)
-
-            # Constructe new output file
-            with fits.open(self.full_paths[idx_file]) as cat:
-
-                # Loop over table extensions
-                for tidx, tab, zp, zperr in zip(self.data_hdu[idx_file], tab_out, zp_out, zperr_out):
-
-                    # Read header
-                    hdr = cat[tidx].header
-
-                    # Add keywords to header
-                    for aidx in range(len(zp)):
-                        add_float_to_header(hdr, self._zp_keys[aidx], zp[aidx], self._zp_comments[aidx])
-                        add_float_to_header(hdr, self._zperr_keys[aidx], zperr[aidx], self._zperr_comments[aidx])
-                    add_float_to_header(hdr, self._zp_avg_key, np.mean(zp), self._zp_avg_comment)
-                    add_float_to_header(hdr, self._zpstd_avg_key, np.std(zp), self._zpstd_avg_comment)
-                    add_float_to_header(hdr, self._zp_auto_key, zp_auto, self._zp_auto_comments)
-                    add_float_to_header(hdr, self._zperr_auto_key, zperr_auto, self._zperr_auto_comment)
-
-                    # Create new output table
-                    cat[tidx] = fits.BinTableHDU(data=tab, header=hdr)
-
-                # Write to disk
-                cat.writeto(outpaths[-1], overwrite=self.setup["misc"]["overwrite"])
-
-            # QC plot
-            if self.setup["misc"]["qc_plots"]:
-                csc = CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths[-1])
-                csc.plot_qc_zp(axis_size=5)
-                csc.plot_qc_ref(axis_size=5)
+        # Write coadd header if not there yet
+        if not os.path.exists(self.path_coadd_header):
+            self.coadd_header()
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-        # Return new catalog instance
-        return CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
+    def coadd_header(self):
+
+        # Try to read coadd header from disk
+        try:
+            header_coadd = fits.Header.fromtextfile(self.path_coadd_header)
+
+        except FileNotFoundError:
+
+            # Determine pixel scale
+            pixel_scale = fraction2float(self.setup["astromatic"]["pixel_scale"]) / 3600.
+
+            # Now loop over each output scamp header
+            ra, dec = [], []
+            for fidx in range(len(self)):
+
+                # Convert to astropy Headers
+                scamp_headers = read_scamp_header(path=self._scamp_header_paths()[fidx], remove_pv=True)
+
+                naxis1, naxis2 = self.imageheaders_get_keys(keywords=["NAXIS1", "NAXIS2"], file_index=fidx)
+                naxis1, naxis2 = naxis1[0], naxis2[0]
+
+                # Mody each header with NAXIS and extract ra,dec of footprint
+                for shdr, n1, n2 in zip(scamp_headers, naxis1, naxis2):
+
+                    # Update with NAXIS
+                    shdr.update(NAXIS=2, NAXIS1=n1, NAXIS2=n2)
+
+                    # Convert to WCS
+                    r, d = awcs.WCS(shdr).calc_footprint().T
+
+                    ra += r.tolist()
+                    dec += d.tolist()
+
+            # Construct skycoord
+            sc = SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg")
+
+            # Get optimal rotation of frame
+            rotation_test = np.linspace(0, 2 * np.pi, 360)
+            area = []
+            for rot in rotation_test:
+                hdr = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rot, enlarge=1.02, cdelt=pixel_scale)
+                area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+
+            # Return final header with optimized rotation
+            rotation = rotation_test[np.argmin(area)]
+            header_coadd = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation,
+                                           enlarge=1.01, cdelt=pixel_scale)
+
+            # Dummy check
+            if (header_coadd["NAXIS1"] > 100000.) or (header_coadd["NAXIS2"] > 100000.):
+                raise ValueError("Double check if the image size is correcti")
+
+            # Write coadd header to disk
+            write_header(header=header_coadd, path=self.path_coadd_header)
+
+        return header_coadd
 
     # =========================================================================== #
     # Superflat
@@ -1000,6 +932,41 @@ class SextractorCatalogs(SourceCatalogs):
         # Return
         return self._image_headers
 
+    def imageheaders_get_keys(self, keywords, file_index=None):
+        """
+        Method to return a list with lists for the individual values of the supplied keys from the data headers
+
+        Parameters
+        ----------
+        keywords : list[str]
+            List of FITS header keys in the primary header
+        file_index : int, optional
+            If set, only retrieve values from given file.
+
+        Returns
+        -------
+        iterable
+            Triple stacked list: List which contains a list of all keywords which in turn contain the values from all
+            data headers
+
+        Raises
+        ------
+        TypeError
+            When the supplied keywords are not in a list.
+
+        """
+
+        if not isinstance(keywords, list):
+            raise TypeError("Keywords must be in a list!")
+
+        if file_index is None:
+            headers_images = self.image_headers[:]
+        else:
+            headers_images = [self.image_headers[file_index]]
+
+        # Return values
+        return [[[e[k] for e in h] for h in headers_images] for k in keywords]
+
     # =========================================================================== #
     # Time
     # =========================================================================== #
@@ -1018,145 +985,211 @@ class SextractorCatalogs(SourceCatalogs):
                                for hdr in self.image_headers], scale="utc", format="mjd")
         return self._time_obs
 
-    # =========================================================================== #
-    # ESO
-    # =========================================================================== #
-    def make_phase3_pawprints(self, swarped):
 
-        # Import util
-        from vircampype.utils.eso import make_phase3_pawprints
+class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
+
+    def __init__(self, setup, file_paths=None):
+        super(AstrometricCalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
+
+    # =========================================================================== #
+    # Photometry
+    # =========================================================================== #
+    def build_master_photometry(self):
+
+        # Import
+        from vircampype.fits.tables.sources import MasterPhotometry2Mass, MasterPhotometry
 
         # Processing info
-        tstart = message_mastercalibration(master_type="PHASE 3 PAWPRINTS", right=None,
+        tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
                                            silent=self.setup["misc"]["silent"])
 
-        # Find keywords that are only in some headers
-        tl_ra, tl_dec, tl_ofa = None, None, None
-        for idx_file in range(len(self)):
+        # Construct outpath
+        outpath = self.path_master_object + "MASTER-PHOTOMETRY.fits.tab"
 
-            # Get header
-            hdr = fits.getheader(filename=swarped.full_paths[idx_file], ext=0)
+        # Check if the file is already there and skip if it is
+        if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
 
-            # Try to read the keywords
-            try:
-                tl_ra = hdr["ESO OCS SADT TILE RA"]
-                tl_dec = hdr["ESO OCS SADT TILE DEC"]
-                tl_ofa = hdr["ESO OCS SADT TILE OFFANGLE"]
-                break
-            except KeyError:
-                continue
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                                d_total=None, silent=self.setup["misc"]["silent"])
 
-        if (tl_ra is None) | (tl_dec is None) | (tl_ofa is None):
-            raise ValueError("Could not determine all silly ESO keywords...")
+            # Obtain field size
+            size = np.max(distance_sky(lon1=self.centroid_total()[0], lat1=self.centroid_total()[1],
+                                       lon2=self.ra_all(), lat2=self.dec_all(), unit="deg")) * 1.01
 
-        # Put in dict
-        shitty_kw = {"tl_ra": tl_ra, "tl_dec": tl_dec, "tl_ofa": tl_ofa}
+            # Download catalog
+            if self.setup["photometry"]["reference"] == "2mass":
+                table = download_2mass(lon=self.centroid_total()[0], lat=self.centroid_total()[1], radius=2 * size)
 
-        # Loop over files
+            else:
+                raise ValueError("Catalog '{0}' not supported".format(self.setup["photometry"]["reference"]))
+
+            # Save catalog
+            table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return photometry catalog
+        if self.setup["photometry"]["reference"] == "2mass":
+            return MasterPhotometry2Mass(setup=self.setup, file_paths=[outpath])
+        else:
+            return MasterPhotometry(setup=self.setup, file_paths=[outpath])
+
+    def calibrate_photometry(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PHOTOMETRY", silent=self.setup["misc"]["silent"])
+
+        # Extract apertures
+        apertures = str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)
+
+        # Get aperture correction imaages for all aperture diameters
+        apc_images = [self.get_aperture_correction(diameter=a) for a in apertures]
+
+        # Get master photometry catalog
+        master_phot = self.get_master_photometry()
+
+        # Loop over each file
         outpaths = []
         for idx_file in range(len(self)):
 
-            # Generate output path
-            outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
-
-            # Add final name to shitty kw to safe
-            shitty_kw["filename_phase3"] = os.path.basename(outpaths[-1])
+            # Make outpath
+            outpaths.append(self.full_paths[idx_file].replace(".sources.fits", ".sources.cal.fits"))
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) or \
-                    check_file_exists(file_path=outpaths[-1].replace(".fits", ".fits.fz"),
-                                      silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]):
                 continue
 
-            # Status message
-            message_calibration(n_current=idx_file + 1, n_total=len(self), name=outpaths[-1])
+            # Current passband
+            passband = self.filter[idx_file][0]
 
-            # Get paths
-            path_pawprint_img = outpaths[-1]
-            path_pawprint_cat = outpaths[-1].replace(".fits", ".cat.fits")
-            path_pawprint_wei = outpaths[-1].replace(".fits", ".weight.fits")
+            # Construct cleaned master photometry
+            mkeep_qfl = [True if x in "AB" else False for x in master_phot.qflags(key=passband)[0][0]]
+            mkeep_cfl = [True if x == "0" else False for x in master_phot.cflags(key=passband)[0][0]]
 
-            # Convert pawprint catalog and image
-            make_phase3_pawprints(path_swarped=swarped.full_paths[idx_file], path_sextractor=self.full_paths[idx_file],
-                                  additional=shitty_kw, outpaths=(path_pawprint_img, path_pawprint_cat),
-                                  compressed=self.setup["compression"]["compress_phase3"])
+            # Combine quality and contamination flag
+            mkeep = mkeep_qfl and mkeep_cfl
 
-            # There also has to be a weight map
-            with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
+            # Fetch magnitude and coordinates for master catalog
+            master_mag = master_phot.mag(band=master_phot.translate_filter(key=passband))[0][0][mkeep]
+            master_magerr = master_phot.mag_err(band=master_phot.translate_filter(key=passband))[0][0][mkeep]
+            master_skycoord = master_phot.skycoord()[0][0][mkeep]
 
-                # Make empty primary header
-                prhdr = fits.Header()
+            # Get aperture correction subset for current files
+            apcs_file = [apc[idx_file] for apc in apc_images]
 
-                # Fill primary header only with some keywords
-                for key, value in weight[0].header.items():
-                    if not key.startswith("ESO "):
-                        prhdr[key] = value
+            # Read source catalog into
+            tab_file = self.file2table(file_index=idx_file)
 
-                # Add PRODCATG before RA key
-                prhdr.insert(key="RA", card=("PRODCATG", "ANCILLARY.WEIGHTMAP"))
+            # Make list to store output tables and ZPs
+            tab_out, zp_out, zperr_out, zp_auto, zperr_auto = [], [], [], None, None
 
-                # Overwrite primary header
-                weight[0].header = prhdr
+            for idx, idx_apc_hdu, hdr in \
+                    zip(range(len(self.data_hdu[idx_file])), apcs_file[0].data_hdu[0], self.image_headers[idx_file]):
 
-                # Add EXTNAME
-                for eidx in range(1, len(weight)):
-                    weight[eidx].header.insert(key="EQUINOX", card=("EXTNAME", "DET1.CHIP{0}".format(eidx)))
+                # Print info
+                message_calibration(n_current=idx_file + 1, n_total=len(self), name=self.file_names[idx_file],
+                                    d_current=idx + 1, d_total=len(self.data_hdu[idx_file]))
 
-                # Save
-                weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
+                # Get table for current HDU
+                tab_hdu = tab_file[idx]
+
+                # Get source coordinates
+                key_ra, key_dec = "ALPHAWIN_J2000", "DELTAWIN_J2000"
+                skycoord_hdu = skycoord_from_tab(tab=tab_hdu, key_ra=key_ra, key_dec=key_dec)
+
+                # Extract aperture corrections
+                apcs = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+                                 for apc in apcs_file])
+
+                # Extract magnitudes and errors
+                mags, errs = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
+
+                # Get subset of good sources for ZP
+                good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True)
+
+                # Get ZP for each aperture
+                zp = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
+                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord, mag_ref=master_mag,
+                                    mag_err_ref=master_magerr, method="weighted")
+                      for m, apc, e in zip(mags[:, good], apcs[:, good], errs[:, good])]
+
+                # Unpack results
+                zp, zperr = list(zip(*zp))
+                zp, zperr = np.array(zp), np.array(zperr)
+
+                # Compute final magnitudes
+                mags_calib = mags.T + apcs.T + zp
+
+                # Make new columns
+                cols_mag = [Column(name=name, data=data, **kwargs_column_mag) for
+                            name, data in zip(self._colnames_mag_cal, mags_calib.T)]
+                cols_err = [Column(name=name, data=data, **kwargs_column_mag) for
+                            name, data in zip(self._colnames_mag_err, errs)]
+                cols_apc = [Column(name=name, data=data, **kwargs_column_mag) for
+                            name, data in zip(self._colnames_mag_apc, apcs)]
+
+                # Get ZP for MAG_AUTO
+                zp_auto, zperr_auto = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_AUTO"][good],
+                                                    mag_err_cal=tab_hdu["MAGERR_AUTO"][good],
+                                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
+                                                    mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
+
+                col_mag_auto = Column(name="MAG_AUTO_CAL", data=tab_hdu["MAG_AUTO"] + zp_auto, **kwargs_column_mag)
+
+                # Append to table
+                tab_hdu.add_columns(cols=cols_mag + cols_err + cols_apc + [col_mag_auto])
+
+                # Save data
+                tab_out.append(tab_hdu)
+                zp_out.append(zp)
+                zperr_out.append(zperr)
+
+            # Constructe new output file
+            with fits.open(self.full_paths[idx_file]) as cat:
+
+                # Loop over table extensions
+                for tidx, tab, zp, zperr in zip(self.data_hdu[idx_file], tab_out, zp_out, zperr_out):
+
+                    # Read header
+                    hdr = cat[tidx].header
+
+                    # Add keywords to header
+                    for aidx in range(len(zp)):
+                        add_float_to_header(hdr, self._zp_keys[aidx], zp[aidx], self._zp_comments[aidx])
+                        add_float_to_header(hdr, self._zperr_keys[aidx], zperr[aidx], self._zperr_comments[aidx])
+                    add_float_to_header(hdr, self._zp_avg_key, np.mean(zp), self._zp_avg_comment)
+                    add_float_to_header(hdr, self._zpstd_avg_key, np.std(zp), self._zpstd_avg_comment)
+                    add_float_to_header(hdr, self._zp_auto_key, zp_auto, self._zp_auto_comments)
+                    add_float_to_header(hdr, self._zperr_auto_key, zperr_auto, self._zperr_auto_comment)
+
+                    # Create new output table
+                    cat[tidx] = fits.BinTableHDU(data=tab, header=hdr)
+
+                # Write to disk
+                cat.writeto(outpaths[-1], overwrite=self.setup["misc"]["overwrite"])
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                csc = CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths[-1])
+                csc.plot_qc_zp(axis_size=5)
+                csc.plot_qc_ref(axis_size=5)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-        # Return images
-        from vircampype.fits.images.common import FitsImages
-        return FitsImages(setup=self.setup, file_paths=outpaths)
-
-    def make_phase3_tile(self, swarped, prov_images):
-
-        # Import util
-        from vircampype.utils.eso import make_phase3_tile
-
-        # There can be only one file in the current instance
-        if len(self) != len(swarped) != 1:
-            raise ValueError("Only one tile allowed")
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="PHASE 3 TILE", right=None,
-                                           silent=self.setup["misc"]["silent"])
-
-        # Generate outpath
-        path_tile = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
-        path_weig = path_tile.replace(".fits", ".weight.fits")
-
-        # Check if the file is already there and skip if it is
-        if check_file_exists(file_path=path_tile, silent=self.setup["misc"]["silent"]) or \
-                check_file_exists(file_path=path_tile.replace(".fits", ".fits.fz"),
-                                  silent=self.setup["misc"]["silent"]):
-            return
-
-        # Convert to phase 3 compliant format
-        make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
-                         paths_prov=prov_images.full_paths, outpath=path_tile,
-                         compressed=self.setup["compression"]["compress_phase3"])
-
-        # There also has to be a weight map
-        with fits.open(swarped.full_paths[0].replace(".fits", ".weight.fits")) as weight:
-
-            # Add PRODCATG
-            weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
-
-            # Save
-            weight.writeto(path_weig, overwrite=False, checksum=True)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        # Return new catalog instance
+        return CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
 
 
-class CalibratedSextractorCatalogs(SextractorCatalogs):
+class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCatalogs):
 
     def __init__(self, setup, file_paths=None):
-        super(CalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
+        super(PhotometricCalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
     @property
     def flux_scale(self):
@@ -1505,3 +1538,137 @@ class CalibratedSextractorCatalogs(SextractorCatalogs):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpaths_2d[-1], bbox_inches="tight")
             plt.close("all")
+
+    # =========================================================================== #
+    # ESO
+    # =========================================================================== #
+    def make_phase3_pawprints(self, swarped):
+
+        # Import util
+        from vircampype.utils.eso import make_phase3_pawprints
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PHASE 3 PAWPRINTS", right=None,
+                                           silent=self.setup["misc"]["silent"])
+
+        # Find keywords that are only in some headers
+        tl_ra, tl_dec, tl_ofa = None, None, None
+        for idx_file in range(len(self)):
+
+            # Get header
+            hdr = fits.getheader(filename=swarped.full_paths[idx_file], ext=0)
+
+            # Try to read the keywords
+            try:
+                tl_ra = hdr["ESO OCS SADT TILE RA"]
+                tl_dec = hdr["ESO OCS SADT TILE DEC"]
+                tl_ofa = hdr["ESO OCS SADT TILE OFFANGLE"]
+                break
+            except KeyError:
+                continue
+
+        if (tl_ra is None) | (tl_dec is None) | (tl_ofa is None):
+            raise ValueError("Could not determine all silly ESO keywords...")
+
+        # Put in dict
+        shitty_kw = {"tl_ra": tl_ra, "tl_dec": tl_dec, "tl_ofa": tl_ofa}
+
+        # Loop over files
+        outpaths = []
+        for idx_file in range(len(self)):
+
+            # Generate output path
+            outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
+
+            # Add final name to shitty kw to safe
+            shitty_kw["filename_phase3"] = os.path.basename(outpaths[-1])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) or \
+                    check_file_exists(file_path=outpaths[-1].replace(".fits", ".fits.fz"),
+                                      silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Status message
+            message_calibration(n_current=idx_file + 1, n_total=len(self), name=outpaths[-1])
+
+            # Get paths
+            path_pawprint_img = outpaths[-1]
+            path_pawprint_cat = outpaths[-1].replace(".fits", ".cat.fits")
+            path_pawprint_wei = outpaths[-1].replace(".fits", ".weight.fits")
+
+            # Convert pawprint catalog and image
+            make_phase3_pawprints(path_swarped=swarped.full_paths[idx_file], path_sextractor=self.full_paths[idx_file],
+                                  additional=shitty_kw, outpaths=(path_pawprint_img, path_pawprint_cat),
+                                  compressed=self.setup["compression"]["compress_phase3"])
+
+            # There also has to be a weight map
+            with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
+
+                # Make empty primary header
+                prhdr = fits.Header()
+
+                # Fill primary header only with some keywords
+                for key, value in weight[0].header.items():
+                    if not key.startswith("ESO "):
+                        prhdr[key] = value
+
+                # Add PRODCATG before RA key
+                prhdr.insert(key="RA", card=("PRODCATG", "ANCILLARY.WEIGHTMAP"))
+
+                # Overwrite primary header
+                weight[0].header = prhdr
+
+                # Add EXTNAME
+                for eidx in range(1, len(weight)):
+                    weight[eidx].header.insert(key="EQUINOX", card=("EXTNAME", "DET1.CHIP{0}".format(eidx)))
+
+                # Save
+                weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
+        # Return images
+        from vircampype.fits.images.common import FitsImages
+        return FitsImages(setup=self.setup, file_paths=outpaths)
+
+    def make_phase3_tile(self, swarped, prov_images):
+
+        # Import util
+        from vircampype.utils.eso import make_phase3_tile
+
+        # There can be only one file in the current instance
+        if len(self) != len(swarped) != 1:
+            raise ValueError("Only one tile allowed")
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PHASE 3 TILE", right=None,
+                                           silent=self.setup["misc"]["silent"])
+
+        # Generate outpath
+        path_tile = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
+        path_weig = path_tile.replace(".fits", ".weight.fits")
+
+        # Check if the file is already there and skip if it is
+        if check_file_exists(file_path=path_tile, silent=self.setup["misc"]["silent"]) or \
+                check_file_exists(file_path=path_tile.replace(".fits", ".fits.fz"),
+                                  silent=self.setup["misc"]["silent"]):
+            return
+
+        # Convert to phase 3 compliant format
+        make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
+                         paths_prov=prov_images.full_paths, outpath=path_tile,
+                         compressed=self.setup["compression"]["compress_phase3"])
+
+        # There also has to be a weight map
+        with fits.open(swarped.full_paths[0].replace(".fits", ".weight.fits")) as weight:
+
+            # Add PRODCATG
+            weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
+
+            # Save
+            weight.writeto(path_weig, overwrite=False, checksum=True)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
