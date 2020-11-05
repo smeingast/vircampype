@@ -1191,79 +1191,79 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
     def __init__(self, setup, file_paths=None):
         super(PhotometricCalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
-    @property
-    def flux_scale(self):
-        """
-        Constructs flux scale from different zero points across all images and detectors
-
-        Returns
-        -------
-        iterable
-            List of lists for flux scaling
-        """
-
-        # Convert ZPs to dummy flux
-        df = 10**(np.array(self.mean_zeropoints[0]) / -2.5)
-
-        # Scale to mean flux (not to mean magnitude)
-        return (df / np.mean(df)).tolist()
-
-    @property
-    def flux_scale_default(self):
-        """
-        Returns flux scaling of 1.0 for each image and each extension.
-
-        Returns
-        -------
-        iterable
-            List of lists for default flux scaling (1.0)
-
-        """
-        return (np.array(self.flux_scale) / np.array(self.flux_scale)).tolist()
+    # @property
+    # def flux_scale(self):
+    #     """
+    #     Constructs flux scale from different zero points across all images and detectors
+    #
+    #     Returns
+    #     -------
+    #     iterable
+    #         List of lists for flux scaling
+    #     """
+    #
+    #     # Convert ZPs to dummy flux
+    #     df = 10**(np.array(self.mean_zeropoints[0]) / -2.5)
+    #
+    #     # Scale to mean flux (not to mean magnitude)
+    #     return (df / np.mean(df)).tolist()
+    #
+    # @property
+    # def flux_scale_default(self):
+    #     """
+    #     Returns flux scaling of 1.0 for each image and each extension.
+    #
+    #     Returns
+    #     -------
+    #     iterable
+    #         List of lists for default flux scaling (1.0)
+    #
+    #     """
+    #     return (np.array(self.flux_scale) / np.array(self.flux_scale)).tolist()
 
     # =========================================================================== #
     # External headers
     # =========================================================================== #
-    def write_coadd_headers(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="EXTERNAL COADD HEADERS", silent=self.setup["misc"]["silent"],
-                                           right=None)
-
-        # Loop over files
-        for idx_file in range(len(self)):
-
-            # Get current ahead path
-            path_ahead = self.full_paths[idx_file].replace(".sources.fits", ".ahead")
-
-            if check_file_exists(file_path=path_ahead, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print info
-            message_calibration(n_current=idx_file + 1, n_total=len(self),
-                                name=path_ahead, d_current=None, d_total=None)
-
-            # Create empty string
-            text = f""
-
-            # Loop over HDUs
-            for idx_hdu in range(len(self.data_hdu[idx_file])):
-
-                # Create empty Header
-                header = fits.Header()
-
-                # Put flux scale
-                header["FLXSCALE"] = self.flux_scale[idx_file][idx_hdu]
-
-                # Get string and append
-                text += header.tostring(padding=False, endcard=False) + "\nEND     \n"
-
-            # Dump into file
-            with open(path_ahead, "w") as file:
-                print(text, file=file)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+    # def write_coadd_headers(self):
+    #
+    #     # Processing info
+    #     tstart = message_mastercalibration(master_type="EXTERNAL COADD HEADERS", silent=self.setup["misc"]["silent"],
+    #                                        right=None)
+    #
+    #     # Loop over files
+    #     for idx_file in range(len(self)):
+    #
+    #         # Get current ahead path
+    #         path_ahead = self.full_paths[idx_file].replace(".sources.fits", ".ahead")
+    #
+    #         if check_file_exists(file_path=path_ahead, silent=self.setup["misc"]["silent"]):
+    #             continue
+    #
+    #         # Print info
+    #         message_calibration(n_current=idx_file + 1, n_total=len(self),
+    #                             name=path_ahead, d_current=None, d_total=None)
+    #
+    #         # Create empty string
+    #         text = f""
+    #
+    #         # Loop over HDUs
+    #         for idx_hdu in range(len(self.data_hdu[idx_file])):
+    #
+    #             # Create empty Header
+    #             header = fits.Header()
+    #
+    #             # Put flux scale
+    #             header["FLXSCALE"] = self.flux_scale[idx_file][idx_hdu]
+    #
+    #             # Get string and append
+    #             text += header.tostring(padding=False, endcard=False) + "\nEND     \n"
+    #
+    #         # Dump into file
+    #         with open(path_ahead, "w") as file:
+    #             print(text, file=file)
+    #
+    #     # Print time
+    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # QC
