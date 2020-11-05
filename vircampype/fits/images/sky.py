@@ -676,47 +676,47 @@ class SkyImages(FitsImages):
     # =========================================================================== #
     # Reference catalog
     # =========================================================================== #
-    def build_master_photometry(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
-                                           silent=self.setup["misc"]["silent"])
-
-        # Construct outpath
-        outpath = self.build_master_path(basename="MASTER-PHOTOMETRY", idx=0, table=True)
-
-        # Print processing info
-        message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-                            d_total=None, silent=self.setup["misc"]["silent"])
-
-        # Check if the file is already there and skip if it is
-        if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-
-            # Obtain field size
-            size = np.max(distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
-                                       lon2=self.corners_all_lon, lat2=self.corners_all_lat, unit="deg")) * 1.01
-
-            # Download catalog
-            if self.setup["photometry"]["reference"] == "2mass":
-                table = download_2mass(lon=self.centroid_total[0], lat=self.centroid_total[1], radius=2 * size)
-
-            else:
-                raise ValueError("Catalog '{0}' not supported".format(self.setup["photometry"]["reference"]))
-
-            # Save catalog
-            table.write(outpath, format="fits", overwrite=True)
-
-            # Add object info to primary header
-            add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return photometry catalog
-        if self.setup["photometry"]["reference"] == "2mass":
-            return MasterPhotometry2Mass(setup=self.setup, file_paths=[outpath])
-        else:
-            return MasterPhotometry(setup=self.setup, file_paths=[outpath])
+    # def build_master_photometry(self):
+    #
+    #     # Processing info
+    #     tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
+    #                                        silent=self.setup["misc"]["silent"])
+    #
+    #     # Construct outpath
+    #     outpath = self.build_master_path(basename="MASTER-PHOTOMETRY", idx=0, table=True)
+    #
+    #     # Print processing info
+    #     message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+    #                         d_total=None, silent=self.setup["misc"]["silent"])
+    #
+    #     # Check if the file is already there and skip if it is
+    #     if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+    #
+    #         # Obtain field size
+    #         size = np.max(distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
+    #                                    lon2=self.corners_all_lon, lat2=self.corners_all_lat, unit="deg")) * 1.01
+    #
+    #         # Download catalog
+    #         if self.setup["photometry"]["reference"] == "2mass":
+    #             table = download_2mass(lon=self.centroid_total[0], lat=self.centroid_total[1], radius=2 * size)
+    #
+    #         else:
+    #             raise ValueError("Catalog '{0}' not supported".format(self.setup["photometry"]["reference"]))
+    #
+    #         # Save catalog
+    #         table.write(outpath, format="fits", overwrite=True)
+    #
+    #         # Add object info to primary header
+    #         add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
+    #
+    #     # Print time
+    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+    #
+    #     # Return photometry catalog
+    #     if self.setup["photometry"]["reference"] == "2mass":
+    #         return MasterPhotometry2Mass(setup=self.setup, file_paths=[outpath])
+    #     else:
+    #         return MasterPhotometry(setup=self.setup, file_paths=[outpath])
 
     # =========================================================================== #
     # Resample
