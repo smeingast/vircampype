@@ -569,7 +569,7 @@ class SkyImages(FitsImages):
 
         # Try to read coadd header from disk
         try:
-            return fits.Header.fromtextfile(self._swarp_path_coadd_header)
+            return fits.Header.fromtextfile(self.path_coadd_header)
 
         # If not found, construct from scamp headers
         except FileNotFoundError:
