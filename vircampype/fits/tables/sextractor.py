@@ -1175,7 +1175,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # QC plot
             if self.setup["misc"]["qc_plots"]:
-                csc = CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths[-1])
+                csc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths[-1])
                 csc.plot_qc_zp(axis_size=5)
                 csc.plot_qc_ref(axis_size=5)
 
@@ -1183,7 +1183,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
         # Return new catalog instance
-        return CalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
+        return PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
 
 
 class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCatalogs):
