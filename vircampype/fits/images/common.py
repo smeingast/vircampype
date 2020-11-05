@@ -184,18 +184,6 @@ class FitsImages(FitsFiles):
 
         return [x.replace(".fits", ".ahead") for x in self.full_paths]
 
-    @property
-    def pixel_scale(self):
-        """
-        Reads the pixel scale from the setup and converts it to a float in degrees.
-
-        Returns
-        -------
-        float
-
-        """
-        return fraction2float(self.setup["astromatic"]["pixel_scale"]) / 3600.
-
     # =========================================================================== #
     # I/O
     # =========================================================================== #
@@ -879,7 +867,7 @@ class FitsImages(FitsFiles):
 
         return get_resource_path(package=self._sex_preset_package, resource="{0}.yml".format(preset))
 
-    def sextractor(self, preset="scamp", prefix=None, **kwargs):
+    def sextractor(self, preset="scamp", prefix=None, silent=None, **kwargs):
         """
         Runs sextractor based on given presets.
 
@@ -889,6 +877,8 @@ class FitsImages(FitsFiles):
             Preset name.
         prefix : str, optional
             Prefix to be used for catalogs.
+        silent : bool, optional
+            Can overrides setup on messaging.
 
         Returns
         -------
@@ -897,8 +887,11 @@ class FitsImages(FitsFiles):
 
         """
 
+        if silent is None:
+            silent = self.setup["misc"]["silent"]
+
         # Processing info
-        tstart = message_mastercalibration(master_type="SOURCE DETECTION", silent=self.setup["misc"]["silent"],
+        tstart = message_mastercalibration(master_type="SOURCE DETECTION", silent=silent,
                                            left="Running Sextractor with preset '{0}' on {1} files"
                                                 "".format(preset, len(self)), right=None)
 
@@ -906,7 +899,7 @@ class FitsImages(FitsFiles):
         path_tables_clean = []
         if not self.setup["misc"]["overwrite"]:
             for pt in self._sex_paths_tables(prefix=prefix):
-                check_file_exists(file_path=pt, silent=self.setup["misc"]["silent"])
+                check_file_exists(file_path=pt, silent=silent)
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
@@ -950,7 +943,7 @@ class FitsImages(FitsFiles):
                           keywords=[self.setup["keywords"]["object"], self.setup["keywords"]["filter"]])
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        message_finished(tstart=tstart, silent=silent)
 
         # Return Table instance
         return SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables(prefix=prefix))
