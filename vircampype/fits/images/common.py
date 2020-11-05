@@ -9,7 +9,7 @@ from astropy import wcs as awcs
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
 from astropy.wcs.utils import proj_plane_pixel_scales
-from vircampype.fits.tables.sextractor import SextractorCatalogs
+from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
 
 
 class FitsImages(FitsFiles):
@@ -947,8 +947,16 @@ class FitsImages(FitsFiles):
         # Print time
         message_finished(tstart=tstart, silent=silent)
 
+        # Select return class based on preset
+        if (preset == "scamp") | (preset == "fwhm"):
+            cls = SextractorCatalogs
+        elif (preset == "superflat") | (preset == "full"):
+            cls = AstrometricCalibratedSextractorCatalogs
+        else:
+            raise ValueError("Preset '{0}' not supported".format(preset))
+
         # Return Table instance
-        return SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables(prefix=prefix))
+        return cls(setup=self.setup, file_paths=self._sex_paths_tables(prefix=prefix))
 
     # =========================================================================== #
     # Image quality
