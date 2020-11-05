@@ -5,8 +5,10 @@ import numpy as np
 
 from astropy.io import fits
 from vircampype.utils import *
+from astropy import wcs as awcs
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
+from astropy.wcs.utils import proj_plane_pixel_scales
 from vircampype.fits.tables.sextractor import SextractorCatalogs
 
 
@@ -947,6 +949,58 @@ class FitsImages(FitsFiles):
 
         # Return Table instance
         return SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables(prefix=prefix))
+
+    # =========================================================================== #
+    # Image quality
+    # =========================================================================== #
+    def set_image_quality(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="IMAGE QUALITY", silent=self.setup["misc"]["silent"], right="")
+
+        # Run Sextractor with preset for image quality
+        catalogs = self.sextractor(preset="fwhm", prefix="fwhm", silent=True)
+
+        # Set variables to None for faster skipping if this step has already been done
+        psf_fwhm, pixel_scales = None, None
+
+        # Loop over self and set put values into headers
+        for idx_file in range(len(self)):
+
+            # Check if keyword was already added
+            if "PSF_FWHM" in self.headers_data[idx_file][0]:
+                print(BColors.WARNING + "{0} already modified."
+                                        "".format(os.path.basename(self.full_paths[idx_file])) + BColors.ENDC)
+                continue
+
+            # Estimate FWHM from measurements and read pixel scales from headers if necessary
+            if (psf_fwhm is None) & (pixel_scales is None):
+                psf_fwhm = catalogs.fwhm_from_columns()
+                pixel_scales = self.pixel_scale()
+
+            # Open current file
+            with fits.open(self.full_paths[idx_file], mode="update") as hdul:
+
+                # Print processing info
+                message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=self.full_paths[idx_file],
+                                    d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+                for idx_hdu, idx_arr in zip(self.data_hdu[idx_file], range(len(self.data_hdu[idx_file]))):
+
+                    # Get current value
+                    psf_fwhm_hdu = psf_fwhm[idx_file][idx_arr][0] * pixel_scales[idx_file][idx_arr][0]
+
+                    # Modify header
+                    add_float_to_header(hdul[idx_hdu].header, "PSF_FWHM", psf_fwhm_hdu, "PSF FWHM (arcsec)")
+
+                # Write changes
+                hdul.flush()
+
+            # Delete temp header
+            self.delete_headers_temp(file_index=idx_file)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Other methods
