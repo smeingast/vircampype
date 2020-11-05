@@ -63,7 +63,7 @@ class ApcorImages(SkyImages):
         str
             Path to preset.
         """
-        return get_resource_path(package=self._swarp_preset_package, resource="swarp_apcor.yml")
+        return get_resource_path(package=self._swarp_preset_package, resource="apcor.yml")
 
     @property
     def weight_images(self):
