@@ -931,7 +931,13 @@ class FitsImages(FitsFiles):
                 "".format(self._bin_sex, self._sex_default_config, image, self._sex_default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
 
-        # Add kwargs
+        # Add FWHMs to commands
+        if preset == "full":
+            psf_fwhm = self.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+            for idx_file in range(len(self)):
+                cmds[idx_file] += "-SEEING_FWHM {0:0.4f}".format(np.mean(psf_fwhm[idx_file]))
+
+        # Add kwargs to commands
         for key, val in kwargs.items():
             for cmd_idx in range(len(cmds)):
                 cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
