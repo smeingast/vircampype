@@ -934,7 +934,7 @@ class FitsImages(FitsFiles):
         # Add FWHMs to commands
         if preset == "full":
             psf_fwhm = self.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
-            for idx_file in range(len(self)):
+            for idx_file in range(len(cmds)):
                 cmds[idx_file] += "-SEEING_FWHM {0:0.4f}".format(np.mean(psf_fwhm[idx_file]))
 
         # Add kwargs to commands
