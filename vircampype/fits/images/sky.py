@@ -280,68 +280,6 @@ class SkyImages(FitsImages):
         return get_resource_path(package="vircampype.resources.astromatic.swarp", resource="default.config")
 
     @property
-    def coadd_name(self):
-        """
-        Constructs a path for a coadd of the current pawprints in self.
-
-        Returns
-        -------
-        str
-            Path to coadd.
-        """
-        return self.setup["paths"]["name"]
-
-    @property
-    def _swarp_path_coadd(self):
-        """
-        Constructs a path for a coadd of the current pawprints in self.
-
-        Returns
-        -------
-        str
-            Path to coadd.
-        """
-        return "{0}{1}.fits".format(self.path_coadd, self.coadd_name)
-
-    @property
-    def _swarp_path_coadd_weight(self):
-        """
-        Constructs a path for coadd weight of the current pawprints in self.
-
-        Returns
-        -------
-        str
-            Path to coadd weight.
-        """
-        return self._swarp_path_coadd.replace(".fits", ".weight.fits")
-
-    @property
-    def _swarp_path_coadd_header(self):
-        """
-        Header path for coadd.
-
-        Returns
-        -------
-        str
-            Path to coadd.
-        """
-        return self._swarp_path_coadd.replace(".fits", ".ahead")
-
-    @staticmethod
-    def _write_header(header, path):
-        """
-        Writes fits header to into a textfile.
-
-        Parameters
-        ----------
-        header : Header
-            Astropy fits header.
-        path : str
-            Path where it should be written.
-        """
-        header.totextfile(path, overwrite=True)
-
-    @property
     def _swarp_resample_suffix(self):
         """
         Returns resample suffix.Y
