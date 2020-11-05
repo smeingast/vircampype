@@ -80,7 +80,7 @@ class SextractorCatalogs(SourceCatalogs):
             Package path.
         """
 
-        return "vircampype.resources.astromatic.presets"
+        return "vircampype.resources.astromatic.scamp.presets"
 
     @staticmethod
     def _scamp_qc_types(joined=False):
