@@ -1162,8 +1162,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     for aidx in range(len(zp)):
                         add_float_to_header(hdr, self._zp_keys[aidx], zp[aidx], self._zp_comments[aidx])
                         add_float_to_header(hdr, self._zperr_keys[aidx], zperr[aidx], self._zperr_comments[aidx])
-                    add_float_to_header(hdr, self._zp_avg_key, np.mean(zp), self._zp_avg_comment)
-                    add_float_to_header(hdr, self._zpstd_avg_key, np.std(zp), self._zpstd_avg_comment)
+                    add_float_to_header(hdr, self._zp_avg_key, float(np.mean(zp)), self._zp_avg_comment)
+                    add_float_to_header(hdr, self._zpstd_avg_key, float(np.std(zp)), self._zpstd_avg_comment)
                     add_float_to_header(hdr, self._zp_auto_key, zp_auto, self._zp_auto_comments)
                     add_float_to_header(hdr, self._zperr_auto_key, zperr_auto, self._zperr_auto_comment)
 
