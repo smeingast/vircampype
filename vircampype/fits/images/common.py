@@ -958,6 +958,26 @@ class FitsImages(FitsFiles):
     # =========================================================================== #
     # Other methods
     # =========================================================================== #
+    def pixel_scale(self):
+        """
+        Computes pixel scales for each detector and for each file in X/Y in arcseconds.
+
+        Returns
+        -------
+        iterable
+            Stacked list. First level: files, second levels: HDUs. Each HDU then contains a tuple for the pixel scale
+            in arcseconds in X and Y.
+
+        """
+        ps_files = []
+        for hdrs_file in self.headers_data:
+            ps_hdus = []
+            for hdr_hdu in hdrs_file:
+                w = awcs.WCS(hdr_hdu)
+                ps_hdus.append(tuple(proj_plane_pixel_scales(w) * 3600))
+            ps_files.append(ps_hdus)
+        return ps_files
+
     def check_compatibility(self, n_files_min=None, n_files_max=None, n_hdu_min=None, n_hdu_max=None, n_dit_min=None,
                             n_dit_max=None, n_ndit_min=None, n_ndit_max=None, n_filter_min=None, n_filter_max=None):
         """
