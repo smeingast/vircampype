@@ -1,22 +1,16 @@
 # =========================================================================== #
 # Import
-import os
 import warnings
 import numpy as np
 
 from astropy.io import fits
 from vircampype.utils import *
-from astropy import wcs as awcs
-from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
-from astropy.stats import sigma_clipped_stats
 from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
-from vircampype.fits.tables.sextractor import SextractorCatalogs
 from vircampype.fits.images.common import FitsImages, MasterImages
-from vircampype.fits.tables.sources import MasterPhotometry2Mass, MasterPhotometry
 
 
 class SkyImages(FitsImages):
