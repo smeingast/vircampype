@@ -258,7 +258,7 @@ class SkyImages(FitsImages):
             Package path.
         """
 
-        return "vircampype.resources.astromatic.presets"
+        return "vircampype.resources.astromatic.swarp.presets"
 
     @property
     def _swarp_default_config(self):
@@ -295,7 +295,7 @@ class SkyImages(FitsImages):
         str
             Path to preset.
         """
-        return get_resource_path(package=self._swarp_preset_package, resource="swarp_pawprint.yml")
+        return get_resource_path(package=self._swarp_preset_package, resource="pawprint.yml")
 
     @property
     def _swarp_preset_coadd_path(self):
@@ -307,7 +307,7 @@ class SkyImages(FitsImages):
         str
             Path to preset.
         """
-        return get_resource_path(package=self._swarp_preset_package, resource="swarp_coadd.yml")
+        return get_resource_path(package=self._swarp_preset_package, resource="coadd.yml")
 
     @property
     def _swarp_paths_resampled(self):
