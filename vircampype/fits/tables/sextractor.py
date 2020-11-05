@@ -470,7 +470,6 @@ class SextractorCatalogs(SourceCatalogs):
         # If there are already all files, do not do anything
         if n_ahead == len(self):
             print(BColors.WARNING + "Astrometry already done." + BColors.ENDC)
-            pass
 
         # Otherwise Run scamp
         else:
