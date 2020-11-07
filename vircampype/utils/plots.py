@@ -112,15 +112,16 @@ def get_plotgrid(layout, xsize=4, ysize=4):
                                           "right": 0.9, "bottom": 0.1, "top": 0.9})
 
     # Rearrange axes order
-    axes_new = axes.copy()
-    axes_new[3] = axes[0]
-    axes_new[2] = axes[1]
-    axes_new[1] = axes[2]
-    axes_new[0] = axes[3]
-    axes = axes_new
+    if np.prod(layout) > 1:
+        axes_new = axes.copy()
+        axes_new[3] = axes[0]
+        axes_new[2] = axes[1]
+        axes_new[1] = axes[2]
+        axes_new[0] = axes[3]
+        axes = axes_new
 
-    # Flip
-    axes = np.fliplr(axes)
+        # Flip
+        axes = np.fliplr(axes)
 
     # Return figure, grid, and focal plane array layout
     return fig, axes
