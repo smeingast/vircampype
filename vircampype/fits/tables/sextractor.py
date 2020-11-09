@@ -1298,7 +1298,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Aperture index to use for plotting
-        aper_idx = 3
+        aper_idx = 2
 
         # Generate output paths
         outpaths_1d = self.paths_qc_plots(paths=None, prefix="phot.1D")
@@ -1330,7 +1330,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
 
             # Fetch magnitudes and aperture corrections
-            mag_file = self.get_column_file(idx_file=idx_file, column_name=self._colnames_mag_cal[aper_idx])
+            mag_file = self.get_column_file(idx_file=idx_file, column_name=self._colname_mag_cal)
+            mag_file = [m[:, aper_idx] for m in mag_file]
 
             # Get coordinates
             skycoord_file = self.skycoord_file(idx_file=idx_file)
