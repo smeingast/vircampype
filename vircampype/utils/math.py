@@ -1077,7 +1077,7 @@ def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
 
 def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
-                  conv=True, kernel_scale=0.1, weights=None, upscale=True):
+                  conv=True, kernel_size=2, weights=None, upscale=True):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1103,8 +1103,8 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
         Number of bins in Y.
     conv : bool, optional
         If set, convolve the grid before resampling to final size.
-    kernel_scale : float, optional
-        Convolution kernel scale relative to initial grid size.
+    kernel_size : float, optional
+        Convolution kernel size in pix. Default is 2.
     weights : ndarray, optional
         Optionally provide weights for weighted average.
     upscale : bool, optional
@@ -1158,7 +1158,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
     # Smooth
     if conv:
-        stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=(len(xe) - 1) * kernel_scale), boundary="extend")
+        stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=kernel_size), boundary="extend")
 
     if upscale:
         return np.array(Image.fromarray(stat).resize(size=(x_max - x_min, y_max - y_min), resample=Image.LANCZOS))
