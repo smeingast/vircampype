@@ -244,7 +244,8 @@ class SextractorCatalogs(SourceCatalogs):
         # Dummy check weights
         fe = [os.path.exists(p) for p in paths_weights]
         if np.sum(fe) != len(self):
-            raise ValueError("Not all files have associated weights!")
+            raise ValueError("Not all files have associated weights! n_images = {0}; n_weight = {1}"
+                             "".format(len(self), np.sum(fe)))
 
         # Read weights into new instance
         weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
