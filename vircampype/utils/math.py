@@ -1146,8 +1146,12 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
                 # Get filter for current bin
                 fil = (nbx == cidx[0]) & (nby == cidx[1])
 
-                # Compute weighted average for this bin
-                stat[cidx[0], cidx[1]] = np.average(value[good][fil], weights=weights[good][fil])
+                # Check sum of weights
+                if np.sum(weights[good][fil]) < 0.0001:
+                    stat[cidx[0], cidx[1]] = np.nan
+                else:
+                    # Compute weighted average for this bin
+                    stat[cidx[0], cidx[1]] = np.average(value[good][fil], weights=weights[good][fil])
 
         # Transpose
         stat = stat.T
