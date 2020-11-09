@@ -445,22 +445,19 @@ class SextractorCatalogs(SourceCatalogs):
     # Names
     # =========================================================================== #
     @property
-    def _colnames_mag_apc(self):
+    def _colname_mag_apc(self):
         """ Constructor for column names. """
-        return ["MAG_APC_{0}".format(idx+1) for idx in
-                range(len(str2list(self.setup["photometry"]["apertures"], sep=",", dtype=float)))]
+        return "MAG_APC"
 
     @property
-    def _colnames_mag_cal(self):
+    def _colname_mag_cal(self):
         """ Constructor for column names. """
-        return ["MAG_CAL_{0}".format(idx+1)
-                for idx in range(len(str2list(self.setup["photometry"]["apertures"], sep=",")))]
+        return "MAG_CAL"
 
     @property
-    def _colnames_mag_err(self):
+    def _colname_mag_err(self):
         """ Constructor for column names. """
-        return ["MAGERR_CAL_{0}".format(idx+1)
-                for idx in range(len(str2list(self.setup["photometry"]["apertures"], sep=",")))]
+        return "MAGERR_CAL"
 
     # =========================================================================== #
     # Astrometry
@@ -1129,15 +1126,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 zp, zperr = np.array(zp), np.array(zperr)
 
                 # Compute final magnitudes
-                mags_calib = mags.T + apcs.T + zp
+                mag_cal = mags.T + apcs.T + zp
 
                 # Make new columns
-                cols_mag = [Column(name=name, data=data, **kwargs_column_mag) for
-                            name, data in zip(self._colnames_mag_cal, mags_calib.T)]
-                cols_err = [Column(name=name, data=data, **kwargs_column_mag) for
-                            name, data in zip(self._colnames_mag_err, errs)]
-                cols_apc = [Column(name=name, data=data, **kwargs_column_mag) for
-                            name, data in zip(self._colnames_mag_apc, apcs)]
+                col_mag = Column(name=self._colname_mag_cal, data=mag_cal, **kwargs_column_mag)
+                col_err = Column(name=self._colname_mag_err, data=errs.T, **kwargs_column_mag)
+                col_apc = Column(name=self._colname_mag_apc, data=apcs.T, **kwargs_column_mag)
 
                 # Get ZP for MAG_AUTO
                 zp_auto, zperr_auto = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_AUTO"][good],
@@ -1148,7 +1142,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 col_mag_auto = Column(name="MAG_AUTO_CAL", data=tab_hdu["MAG_AUTO"] + zp_auto, **kwargs_column_mag)
 
                 # Append to table
-                tab_hdu.add_columns(cols=cols_mag + cols_err + cols_apc + [col_mag_auto])
+                tab_hdu.add_columns(cols=[col_mag, col_err, col_apc, col_mag_auto])
 
                 # Save data
                 tab_out.append(tab_hdu)
