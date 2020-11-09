@@ -1040,9 +1040,9 @@ def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     y_max : int, float
         Maximum Y position for grid.
     nx : int
-        Number of bins in X.
+        Number of pixels for grid in X.
     ny : int
-        Number of bins in Y.
+        Number of pixels for grid in Y.
     conv : bool, optional
         If set, convolve the grid before resampling to final size.
     kernel_scale : float, optional
