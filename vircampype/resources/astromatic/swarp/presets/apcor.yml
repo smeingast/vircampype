@@ -62,7 +62,7 @@ INTERPOLATE:            N               # Interpolate bad input pixels (Y/N)?
                                        # (all or for each image)
 
 FSCALASTRO_TYPE:        NONE           # NONE,FIXED, or VARIABLE
-FSCALE_KEYWORD:         FLXSCALE        # FITS keyword for the multiplicative
+FSCALE_KEYWORD:         NONE        # FITS keyword for the multiplicative
                                        # factor applied to each input image
 FSCALE_DEFAULT:         1.0             # Default FSCALE value if not in header
 
