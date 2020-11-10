@@ -327,7 +327,8 @@ class SextractorCatalogs(SourceCatalogs):
                     # Grid
                     apc_grid = grid_value_2d(x=xx[mask], y=yy[mask], value=mag[mask], x_min=0, y_min=0,
                                              x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x,
-                                             ny=n_bins_y, conv=True, weights=weights[mask], upscale=False)
+                                             ny=n_bins_y, conv=True, weights=weights[mask], upscale=False,
+                                             kernel_size=2)
 
                     # Rescale to given size
                     apc_grid = np.array(Image.fromarray(apc_grid).resize(size=output_size, resample=Image.LANCZOS))
