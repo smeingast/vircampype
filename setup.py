@@ -10,7 +10,7 @@ setup(
     name="vircampype",
     version="0.1",
     install_requires=["numpy>=1.17", "scipy>=1.3", "matplotlib>=3.1", "astropy>=3.1", "pillow>=6.1",
-                      "astroquery>=0.3.9", "pyyaml>=3", "joblib>0.12", "scikit-learn>=0.23"],
+                      "astroquery>=0.3.9", "pyyaml>=3", "joblib>0.12", "scikit-learn>=0.23", "photutils>1"],
     extras_require={"Cosmic masking": ["astroscrappy"]},
     packages=["vircampype"],
     url="",
