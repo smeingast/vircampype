@@ -1460,10 +1460,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             im = None
             for idx_hdu in range(len(self.data_hdu[idx_file])):
 
-                # Print processing info
-                # message_calibration(n_current=idx_file+1, n_total=len(self), name=outpaths_2d[-1], d_current=idx_hdu+1,
-                #                     d_total=len(skycoord_file), silent=self.setup["misc"]["silent"])
-
                 # Grab axes
                 ax = ax_file[idx_hdu]
 
