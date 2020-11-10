@@ -284,14 +284,14 @@ class SextractorCatalogs(SourceCatalogs):
 
                 # Get distance to nearest neighbor for cleaning
                 stacked = np.stack([tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]]).T
-                dis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
+                nndis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
 
                 # Filter bad sources
                 good = (tab["CLASS_STAR"] > 0.9) & (tab["FLAGS"] == 0) & (tab["SNR_WIN"] > 50) &  \
                        (tab["ELLIPTICITY"] < 0.1) & (tab["ISOAREA_IMAGE"] > 5) & (tab["ISOAREA_IMAGE"] < 1000) & \
                        (np.sum(tab["MAG_APER"] > 0, axis=1) == 0) & \
                        (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 6.0) & \
-                       (np.sum(np.diff(tab["MAG_APER"], axis=1) > 0, axis=1) == 0) & (dis > 10) & \
+                       (np.sum(np.diff(tab["MAG_APER"], axis=1) > 0, axis=1) == 0) & (nndis > 10) & \
                        (tab["XWIN_IMAGE"] > 10) & (tab["YWIN_IMAGE"] > 10) & \
                        (tab["XWIN_IMAGE"] < hdr["NAXIS1"] - 10) & (tab["YWIN_IMAGE"] < hdr["NAXIS2"] - 10)
 
