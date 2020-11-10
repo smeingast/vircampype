@@ -1103,6 +1103,7 @@ class FitsImages(FitsFiles):
             # Make primary header
             prime_header = fits.Header()
             prime_header[self.setup["keywords"]["object"]] = "MASTER-PSF"
+            prime_header[self.setup["keywords"]["date_mjd"]] = self.mjd[idx_file]
             prime_header["PSF_SIZE"] = (self.setup["psf"]["size"], "PSF size in pixels")
             prime_header["OVERSAMP"] = (self.setup["psf"]["oversampling"], "EPSF oversampling factor")
             prime_header["MAXITERS"] = (self.setup["psf"]["maxiters"], "Maximum number of iterations")
