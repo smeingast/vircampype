@@ -7,6 +7,7 @@ import numpy as np
 from astropy.io import fits
 from vircampype.utils import *
 from vircampype.fits.images.sky import SkyImages
+from vircampype.fits.images.common import FitsImages
 
 
 class ApcorImages(SkyImages):
@@ -244,6 +245,116 @@ class ApcorImages(SkyImages):
                 else:
                     ax.axes.yaxis.set_ticklabels([])
 
+                ax.set_aspect("equal")
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(paths[idx_file], bbox_inches="tight")
+            plt.close("all")
+
+
+class MasterPSF(FitsImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    @property
+    def nsources(self):
+        return self.dataheaders_get_keys(keywords=["NSOURCES"])[0]
+
+    # =========================================================================== #
+    def paths_qc_plots(self, paths):
+        """
+        Generates paths for QC plots
+
+        Parameters
+        ----------
+        paths : iterable
+            Input paths to override internal paths
+
+        Returns
+        -------
+        iterable
+            List of paths.
+        """
+
+        if paths is None:
+            return ["{0}{1}.pdf".format(self.path_qc_psf, fp) for fp in self.file_names]
+        else:
+            return paths
+
+    def qc_plot_psf(self, paths=None, axis_size=4):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.cm import get_cmap
+        from matplotlib.colors import PowerNorm
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Generate path for plots
+        paths = self.paths_qc_plots(paths=paths)
+
+        for idx_file in range(len(self)):
+
+            # Read focal play array layout
+            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
+
+            # Create figure
+            fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+            ax_file = ax_file.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Read data
+            cube = self.file2cube(file_index=idx_file)
+
+            # Normalize cube
+            cube.normalize(norm=np.nanmax(cube))
+
+            # Loop over extensions
+            for idx_hdu in range(len(self.data_hdu[idx_file])):
+
+                # Fetch current axes
+                ax = ax_file[idx_hdu]
+
+                # Draw image
+                im = ax.imshow(cube[idx_hdu], cmap=get_cmap("viridis"), origin="lower",
+                               norm=PowerNorm(gamma=0.4, vmin=0, vmax=1))
+
+                # Add colorbar
+                cbar = plt.colorbar(mappable=im, cax=cax, orientation="horizontal", label="Relative Flux")
+                cbar.ax.xaxis.set_ticks_position("top")
+                cbar.ax.xaxis.set_label_position("top")
+
+                # Limits
+                ax.set_xlim(0, self.headers_data[idx_file][idx_hdu]["NAXIS1"] - 1)
+                ax.set_ylim(0, self.headers_data[idx_file][idx_hdu]["NAXIS2"] - 1)
+
+                # Annotate detector ID
+                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.005),
+                            xycoords="axes fraction", ha="left", va="bottom")
+
+                # Annotate number of sources used
+                ax.annotate("N = {0:0d}".format(self.nsources[idx_file][idx_hdu]), xy=(0.98, 1.005),
+                            xycoords="axes fraction", ha="right", va="bottom")
+
+                # Modify axes
+                if idx_hdu < fpa_layout[1]:
+                    ax.set_xlabel("X (pix)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_hdu % fpa_layout[0] == fpa_layout[0] - 1:
+                    ax.set_ylabel("Y (pix)")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Set equal aspect ratio
                 ax.set_aspect("equal")
 
                 # Set ticks
