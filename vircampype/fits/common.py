@@ -69,6 +69,7 @@ class FitsFiles:
         self.path_processed = "{0}{1}/".format(self.path_object, "processed")
         self.path_superflatted = "{0}{1}/".format(self.path_object, "superflatted")
         self.path_resampled = "{0}{1}/".format(self.path_object, "resampled")
+        self.path_homo = "{0}{1}/".format(self.path_object, "homo")
 
         # Coadd paths
         self.path_coadd = "{0}{1}/".format(self.path_object, "coadd")
