@@ -287,8 +287,9 @@ class SextractorCatalogs(SourceCatalogs):
                 nndis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
 
                 # Filter bad sources
-                good = (tab["CLASS_STAR"] > 0.9) & (tab["FLAGS"] == 0) & (tab["SNR_WIN"] > 50) &  \
-                       (tab["ELLIPTICITY"] < 0.1) & (tab["ISOAREA_IMAGE"] > 5) & (tab["ISOAREA_IMAGE"] < 1000) & \
+                good = (tab["CLASS_STAR"] > 0.5) & (tab["FLAGS"] == 0) & (tab["SNR_WIN"] > 50) &  \
+                       (tab["ELLIPTICITY"] < 0.2) & (tab["ISOAREA_IMAGE"] > 5) & (tab["ISOAREA_IMAGE"] < 1000) & \
+                       (tab["BACKGROUND"] <= np.nanmedian(tab["BACKGROUND"]) + 3 * np.nanstd(tab["BACKGROUND"])) & \
                        (np.sum(tab["MAG_APER"] > 0, axis=1) == 0) & \
                        (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 6.0) & \
                        (np.sum(np.diff(tab["MAG_APER"], axis=1) > 0, axis=1) == 0) & (nndis > 10) & \
