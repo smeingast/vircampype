@@ -1060,9 +1060,6 @@ class FitsImages(FitsFiles):
         tstart = message_mastercalibration(master_type="PSF", silent=self.setup["misc"]["silent"],
                                            right=None)
 
-        # Instantiate output
-        masterpsf = ImageCube(setup=self.setup)
-
         # Loop over files
         for idx_file in range(len(self)):
 
@@ -1076,6 +1073,9 @@ class FitsImages(FitsFiles):
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
                                 d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Instantiate output
+            masterpsf = ImageCube(setup=self.setup)
 
             # Read all extensions
             data_img = self.file2list(file_index=idx_file)
