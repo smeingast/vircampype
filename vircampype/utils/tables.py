@@ -76,12 +76,12 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
         pass
 
     try:
-        good &= table["XWIN_IMAGE"] > 10
+        good &= table["XWIN_IMAGE"] > 20
     except KeyError:
         pass
 
     try:
-        good &= table["YWIN_IMAGE"] > 10
+        good &= table["YWIN_IMAGE"] > 20
     except KeyError:
         pass
 
@@ -93,12 +93,12 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
     # Also the other edge
     if image_header is not None:
         try:
-            good &= table["XWIN_IMAGE"] < image_header["NAXIS1"] - 10
+            good &= table["XWIN_IMAGE"] < image_header["NAXIS1"] - 20
         except KeyError:
             pass
 
         try:
-            good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - 10
+            good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - 20
         except KeyError:
             pass
 
