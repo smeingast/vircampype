@@ -2,14 +2,22 @@ import numpy as np
 
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
+from sklearn.neighbors import NearestNeighbors
 
 __all__ = ["clean_source_table", "skycoord_from_tab"]
 
 
-def clean_source_table(table, image_header=None, return_filter=False):
+def clean_source_table(table, image_header=None, return_filter=False, snr_limit=10, nndis_limit=None):
 
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
+
+    # Apply nearest neighbor limit if set
+    if nndis_limit is not None:
+        # Get distance to nearest neighbor for cleaning
+        stacked = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
+        nndis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
+        good &= (nndis > nndis_limit)
 
     # Build filter based on available columns
     try:
@@ -23,7 +31,7 @@ def clean_source_table(table, image_header=None, return_filter=False):
         pass
 
     try:
-        good &= table["SNR_WIN"] > 10
+        good &= table["SNR_WIN"] > snr_limit
     except KeyError:
         pass
 
