@@ -77,6 +77,11 @@ def clean_source_table(table, image_header=None, return_filter=False):
     except KeyError:
         pass
 
+    try:
+        good &= (table["BACKGROUND"] <= np.nanmedian(table["BACKGROUND"]) + 3 * np.nanstd(table["BACKGROUND"]))
+    except KeyError:
+        pass
+
     # Also the other edge
     if image_header is not None:
         try:
