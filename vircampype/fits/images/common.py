@@ -317,6 +317,26 @@ class FitsImages(FitsFiles):
         # Return
         return ImageCube(setup=self.setup, cube=cube)
 
+    def file2list(self, file_index):
+        """
+        Reads all extensions of a given file into a list. As opposed to the file2cube method, this works with varying
+        image shapes across the extensions.
+
+        Parameters
+        ----------
+        file_index : int
+            Integer index of the file in the current FitsFiles instance.
+
+        Returns
+        -------
+        iterable, list
+            List of arrays with data for each extension.
+
+        """
+        with fits.open(self.full_paths[file_index]) as file:
+            data = [file[ei].data for ei in self.data_hdu[file_index]]
+        return data
+
     # =========================================================================== #
     # Splitter
     # =========================================================================== #
