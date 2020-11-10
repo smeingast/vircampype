@@ -508,6 +508,18 @@ class FitsImages(FitsFiles):
         return self.match_filter(match_to=self.get_master_images().superflat,
                                  max_lag=self.setup["master"]["max_lag_superflat"] / 1440.)
 
+    def get_master_psf(self):
+        """
+        Get all matching MasterPSF files in self.
+
+        Returns
+        -------
+        MasterPSF
+            MasterPSF instance with matched files.
+
+        """
+        return self.match_mjd(match_to=self.get_master_images().psf, max_lag=0.00001)
+
     # =========================================================================== #
     # Master tables
     # =========================================================================== #
@@ -1458,3 +1470,23 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SUPERFLAT"]
 
         return MasterSuperflat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def psf(self):
+        """
+        Holds all MasterPSF images.
+
+        Returns
+        -------
+        MasterPSF
+            All MasterPSF images.
+
+        """
+
+        # Import
+        from vircampype.fits.images.obspar import MasterPSF
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PSF"]
+
+        return MasterPSF(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
