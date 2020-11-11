@@ -108,6 +108,7 @@ class SextractorCatalogs(SourceCatalogs):
     def _scamp_qc_names(self, joined=False):
         """
         List or str containing scamp QC plot names.
+
         Parameters
         ----------
         joined : bool, optional
@@ -129,6 +130,7 @@ class SextractorCatalogs(SourceCatalogs):
     def _scamp_header_paths(self, joined=False):
         """
         List or str containing scamp header names.
+
         Parameters
         ----------
         joined : bool, optional
@@ -219,6 +221,162 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Return
         return psf_fwhm_files
+
+    # =========================================================================== #
+    # PSFEX
+    # =========================================================================== #
+    @property
+    def _bin_psfex(self):
+        """
+        Searches for psfex executable and returns path.
+
+        Returns
+        -------
+        str
+            Path to psfex executable.
+
+        """
+        return which(self.setup["astromatic"]["bin_psfex"])
+
+    @property
+    def _psfex_default_config(self):
+        """
+        Searches for default config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        return get_resource_path(package="vircampype.resources.astromatic.psfex", resource="default.config")
+
+    @property
+    def _psfex_preset_package(self):
+        """
+        Internal package preset path for psfex.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return "vircampype.resources.astromatic.psfex.presets"
+
+    @staticmethod
+    def _psfex_checkplot_types(joined=False):
+        """
+        QC check plot types for psfex.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkplot types.
+
+        """
+        types = ["SELECTION_FWHM", "FWHM", "ELLIPTICITY", "COUNTS", "COUNT_FRACTION", "CHI2", "RESIDUALS"]
+        if joined:
+            return ",".join(types)
+        else:
+            return types
+
+    def _psfex_checkplot_names(self, joined=False):
+        """
+        List or str containing psfex QC plot names.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkplot names.
+
+        """
+        names = ["{0}psfex_checkplot_{1}".format(self.path_qc_psf, qt.lower()) for qt in
+                 self._psfex_checkplot_types(joined=False)]
+        if joined:
+            return ",".join(names)
+        else:
+            return names
+
+    @staticmethod
+    def _psfex_checkimage_types(joined=False):
+        """
+        QC check image types for psfex.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkimage types.
+
+        """
+        types = ["SNAPSHOTS_IMRES"]
+        if joined:
+            return ",".join(types)
+        else:
+            return types
+
+    def _psfex_checkimage_names(self, joined=False):
+        """
+        List or str containing psfex check image names.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC check image names.
+
+        """
+        names = ["{0}psfex_checkimage_{1}".format(self.path_qc_psf, qt.lower()) for qt in
+                 self._psfex_checkimage_types(joined=False)]
+        if joined:
+            return ",".join(names)
+        else:
+            return names
+
+    def psfex(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="PSFEX", silent=self.setup["misc"]["silent"],
+                                           left="Running PSFEX on {0} files with {1} threads"
+                                                "".format(len(self), self.setup["misc"]["n_jobs"]), right=None)
+
+        # Load preset
+        options = yml2config(nthreads=1,
+                             checkplot_type=self._psfex_checkplot_types(joined=True),
+                             checkplot_name=self._psfex_checkplot_names(joined=True),
+                             checkimage_type=self._psfex_checkimage_types(joined=True),
+                             checkimage_name=self._psfex_checkimage_names(joined=True),
+                             psf_dir=self.path_master_object, skip=["homokernel_dir"],
+                             path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml"))
+
+        # Construct commands
+        cmds = ["{0} {1} -c {2} {3}".format(self._bin_psfex, tab, self._psfex_default_config, options)
+                for tab in self.full_paths]
+
+        # Run PSFEX
+        run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["n_jobs"])
 
     # =========================================================================== #
     # Aperture correction

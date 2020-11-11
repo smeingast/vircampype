@@ -117,7 +117,7 @@ class FitsFiles:
         paths_obj = [self.path_temp, self.path_processed, self.path_resampled, self.path_coadd, self.path_obspar,
                      self.path_apcor, self.path_master_object, self.path_qc_object, self.path_qc_sky,
                      self.path_qc_photometry, self.path_qc_astrometry, self.path_qc_apcor, self.path_phase3,
-                     self.path_qc_superflat, self.path_superflatted]
+                     self.path_qc_superflat, self.path_superflatted, self.path_qc_psf]
 
         # Generate common paths
         for path in paths_common:

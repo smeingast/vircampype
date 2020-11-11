@@ -1057,6 +1057,14 @@ class FitsImages(FitsFiles):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
+    def build_master_psf(self):
+
+        # Run Sextractor with PSFEX preset
+        sources_psfex = self.sextractor(preset="psfex", prefix="psfex")
+
+        # Run PSFEX
+        sources_psfex.psfex()
+
     def build_master_psf_photutils(self):
 
         # Find and instantiate weights
@@ -1135,8 +1143,8 @@ class FitsImages(FitsFiles):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-    def homogenize_psf(self):
-        raise NotImplementedError
+    # def homogenize_psf(self):
+    #     raise NotImplementedError
 
         # # Get all PSFs
         # self.build_master_psf()
