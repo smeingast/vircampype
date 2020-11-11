@@ -65,7 +65,7 @@ OUTCAT_NAME:        psfex_out.cat  # Output catalog filename
  
 CHECKPLOT_DEV:       PNG         # NULL, XWIN, TK, PS, PSC, XFIG, PNG,
                                  # JPEG, AQT, PDF or SVG
-CHECKPLOT_RES:       2000        # Check-plot resolution (0 = default)
+CHECKPLOT_RES:       2000,1500        # Check-plot resolution (0 = default)
 CHECKPLOT_ANTIALIAS: Y           # Anti-aliasing using convert (Y/N) ?
 CHECKPLOT_TYPE:      SELECTION_FWHM,FWHM,ELLIPTICITY,COUNTS,COUNT_FRACTION,CHI2,RESIDUALS
                                  # or NONE
