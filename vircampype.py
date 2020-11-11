@@ -56,32 +56,32 @@ processed = science.process_raw()
 # =========================================================================== #
 # Run sextractor on calibrated files with scamp preset
 # =========================================================================== #
-sources_processed = processed.sextractor(preset="scamp")
+sources_processed_sc = processed.sextractor(preset="scamp")
 
 
 # =========================================================================== #
 # Calibrate astrometry
 # =========================================================================== #
-fwhms = processed.calibrate_astrometry(return_fwhm=True)
+sources_processed_sc.calibrate_astrometry()
 
 
 # =========================================================================== #
 # Run sextractor with superflat preset
 # =========================================================================== #
-sources_superflatted = processed.sextractor(preset="superflat", prefix="sf")
+sources_processed_sf = processed.sextractor(preset="superflat", prefix="sf")
 
 
 # =========================================================================== #
 # Build master photometry
 # =========================================================================== #
-sources_superflatted.build_master_photometry()
+sources_processed_sf.build_master_photometry()
 
 
 # =========================================================================== #
 # Superflat
 # =========================================================================== #
 # Build superflat
-sources_superflatted.build_master_superflat()
+sources_processed_sf.build_master_superflat()
 
 # Apply superflat
 superflatted = processed.apply_superflat()
@@ -90,71 +90,60 @@ superflatted = processed.apply_superflat()
 # =========================================================================== #
 # Resample original files
 # =========================================================================== #
-swarped = superflatted.resample_pawprints()
+resampled = superflatted.resample_pawprints()
+
+
+# =========================================================================== #
+# Determine image_quality
+# =========================================================================== #
+resampled.set_image_quality()
 
 
 # =========================================================================== #
 # Run Sextractor on resampled pawprints
 # =========================================================================== #
-swarped_sources = swarped.sextractor(preset="full", seeing_fwhm=fwhms)
+resampled_sources = resampled.sextractor(preset="full")
 
 
 # =========================================================================== #
 # Check astrometry
 # =========================================================================== #
-swarped_sources.plot_qc_astrometry()
+resampled_sources.plot_qc_astrometry()
 
 
 # =========================================================================== #
 # Aperture correction
 # =========================================================================== #
-apc = swarped_sources.build_aperture_correction()
+apc = resampled_sources.build_aperture_correction()
 apc.coadd()
 
-# Add aperture correction to catalogs
-swarped_sources.add_aperture_correction()
-
 
 # =========================================================================== #
-# Determine zero points and write data to files
+# Calibrate photometry
 # =========================================================================== #
-swarped_sources.build_master_zeropoint()
-
-
-# Add calibrated photometry to source tables
-swarped_sources.add_calibrated_photometry()
-
-
-# =========================================================================== #
-# Check photometry
-# =========================================================================== #
-swarped_sources.plot_qc_photometry(mode="pawprint")
-
-
-# =========================================================================== #
-# Generate ESO phase 3 compliant catalogs for pawprints
-# =========================================================================== #
-phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
-
-# Extract FWHMs
-fwhm_pp = phase3_pp.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+calibrated_sources = resampled_sources.calibrate_photometry()
 
 
 # =========================================================================== #
 # Coadd pawprints
 # =========================================================================== #
 # Write external headers for flux scale
-swarped_sources.write_coadd_headers()
+calibrated_sources.write_coadd_headers()
 
 # Run coadd
-coadd = swarped.coadd_pawprints()
+coadd = resampled.coadd_pawprints()
+coadd.set_image_quality()
 
 
 # =========================================================================== #
 # Run sextractor on coadd
 # =========================================================================== #
-coadd_sources = coadd.sextractor(preset="full", seeing_fwhm=[np.nanmedian(fwhm_pp)])
+coadd_sources = coadd.sextractor(preset="full")
+# coadd_sources.build_aperture_correction()
+coadd_sources.calibrate_photometry()
 
+
+exit()
 
 # =========================================================================== #
 # QC astrometry on coadd
@@ -163,24 +152,15 @@ coadd_sources.plot_qc_astrometry()
 
 
 # =========================================================================== #
-# Add aperture correction to header
-# =========================================================================== #
-coadd_sources.add_aperture_correction()
-
-
-# =========================================================================== #
-# Determine zero points and write data to files
-# =========================================================================== #
-coadd_sources.build_master_zeropoint()
-
-# Add calibrated photometry to source tables
-coadd_sources.add_calibrated_photometry()
-
-
-# =========================================================================== #
 # Check photometry
 # =========================================================================== #
 coadd_sources.plot_qc_photometry(mode="tile")
+
+
+# =========================================================================== #
+# Generate ESO phase 3 compliant catalogs for pawprints
+# =========================================================================== #
+phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
 
 
 # =========================================================================== #
