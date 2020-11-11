@@ -954,7 +954,7 @@ class FitsImages(FitsFiles):
                           gain_key=self.setup["keywords"]["gain"])
 
         # Read setup based on preset
-        if (preset == "scamp") | (preset == "fwhm"):
+        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex"):
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "superflat":
             ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
@@ -992,7 +992,7 @@ class FitsImages(FitsFiles):
         message_finished(tstart=tstart, silent=silent)
 
         # Select return class based on preset
-        if (preset == "scamp") | (preset == "fwhm"):
+        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex"):
             cls = SextractorCatalogs
         elif (preset == "superflat") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
@@ -1057,7 +1057,7 @@ class FitsImages(FitsFiles):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-    def build_master_psf(self):
+    def build_master_psf_photutils(self):
 
         # Find and instantiate weights
         from vircampype.fits.images.obspar import MasterPSF
@@ -1136,93 +1136,94 @@ class FitsImages(FitsFiles):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     def homogenize_psf(self):
+        raise NotImplementedError
 
-        # Get all PSFs
-        self.build_master_psf()
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="PSF HOMOGENIZATION", silent=self.setup["misc"]["silent"],
-                                           right=None)
-
-        # Find weights
-        # from vircampype.fits.images.flat import WeightImages
-        # paths_weights = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
-
-        # Dummy check weights
-        # check = [os.path.exists(p) for p in paths_weights]
-        # if np.sum(check) != len(self):
-        #     raise ValueError("Not all files have associated weights! n_images = {0}; n_weight = {1}"
-        #                      "".format(len(self), np.sum(check)))
-
-        # Read weights into new instance
-        # weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
-
-        # Read Master PSF
-        master_psf = self.get_master_psf()
-
-        # Alright, now we find the worst image quality
-        psf_fwhm_all = np.array(self.dataheaders_get_keys(keywords=["PSF_FWHM"])[0])
-        idx_bad = np.argmax(psf_fwhm_all)
-        idx_bad_all = np.indices(psf_fwhm_all.shape)
-        idx_bad_img, idx_bad_ext = idx_bad_all[0].ravel()[idx_bad], idx_bad_all[1].ravel()[idx_bad]
-
-        # Get PSF that others need to be matched to
-        psf_match_to = fits.getdata(master_psf.full_paths[idx_bad_img], idx_bad_ext)
-
-        # Generate output paths
-        outpaths = ["{0}{1}.homo{2}".format(self.path_homo, fn, fw)
-                    for fn, fw in zip(self.file_names, self.file_extensions)]
-
-        # Now loop over each file and create matching kernel
-        window = CosineBellWindow(alpha=0.35)
-        for idx_file in range(len(self)):
-
-            # Get current putput path
-            outpath = outpaths[idx_file]
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-
-            # Create matching kernel
-            master_psf_cube = master_psf.file2cube(file_index=idx_file)
-            kernels = [create_matching_kernel(d, psf_match_to, window=window) for d in master_psf_cube]
-
-            # Resize matching kernels for convolution
-            kernels = [resize_psf(k, input_pixel_scale=1, output_pixel_scale=2*self.setup["psf"]["oversampling"])
-                       for k in kernels]
-
-            # Read image data
-            cube_img = self.file2list(file_index=idx_file)
-            # cube_wei = weight_images.file2list(file_index=idx_file)
-
-            # for idx in range(len(cube_img)):
-            #     cube_img[idx][cube_wei[idx] <= 0.0001] = np.nan
-
-            # Convolve
-            with Parallel(n_jobs=16) as parallel:
-                mp = parallel(delayed(convolve)(d, k, b) for d, k, b in zip(cube_img, kernels, repeat("extend")))
-
-            # Put back bad values
-            # for idx in range(len(mp)):
-            #     mp[idx][cube_wei[idx] <= 0.0001] = np.nan
-
-            # Replace data and write new file with old headers
-            hdul = fits.open(self.full_paths[idx_file])
-            for ei, nd in zip(self.data_hdu[idx_file], mp):
-                hdul[ei] = fits.ImageHDU(nd, header=(delete_keyword(header=hdul[ei].header, keyword="PSF_FWHM")))
-
-            hdul.writeto(outpath, overwrite=True)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return new instance of calibrated images
-        return self.__class__(setup=self.setup, file_paths=outpaths)
+        # # Get all PSFs
+        # self.build_master_psf()
+        #
+        # # Processing info
+        # tstart = message_mastercalibration(master_type="PSF HOMOGENIZATION", silent=self.setup["misc"]["silent"],
+        #                                    right=None)
+        #
+        # # Find weights
+        # # from vircampype.fits.images.flat import WeightImages
+        # # paths_weights = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
+        #
+        # # Dummy check weights
+        # # check = [os.path.exists(p) for p in paths_weights]
+        # # if np.sum(check) != len(self):
+        # #     raise ValueError("Not all files have associated weights! n_images = {0}; n_weight = {1}"
+        # #                      "".format(len(self), np.sum(check)))
+        #
+        # # Read weights into new instance
+        # # weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
+        #
+        # # Read Master PSF
+        # master_psf = self.get_master_psf()
+        #
+        # # Alright, now we find the worst image quality
+        # psf_fwhm_all = np.array(self.dataheaders_get_keys(keywords=["PSF_FWHM"])[0])
+        # idx_bad = np.argmax(psf_fwhm_all)
+        # idx_bad_all = np.indices(psf_fwhm_all.shape)
+        # idx_bad_img, idx_bad_ext = idx_bad_all[0].ravel()[idx_bad], idx_bad_all[1].ravel()[idx_bad]
+        #
+        # # Get PSF that others need to be matched to
+        # psf_match_to = fits.getdata(master_psf.full_paths[idx_bad_img], idx_bad_ext)
+        #
+        # # Generate output paths
+        # outpaths = ["{0}{1}.homo{2}".format(self.path_homo, fn, fw)
+        #             for fn, fw in zip(self.file_names, self.file_extensions)]
+        #
+        # # Now loop over each file and create matching kernel
+        # window = CosineBellWindow(alpha=0.35)
+        # for idx_file in range(len(self)):
+        #
+        #     # Get current putput path
+        #     outpath = outpaths[idx_file]
+        #
+        #     # Check if the file is already there and skip if it is
+        #     if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+        #         continue
+        #
+        #     # Print processing info
+        #     message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
+        #                         d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+        #
+        #     # Create matching kernel
+        #     master_psf_cube = master_psf.file2cube(file_index=idx_file)
+        #     kernels = [create_matching_kernel(d, psf_match_to, window=window) for d in master_psf_cube]
+        #
+        #     # Resize matching kernels for convolution
+        #     kernels = [resize_psf(k, input_pixel_scale=1, output_pixel_scale=2*self.setup["psf"]["oversampling"])
+        #                for k in kernels]
+        #
+        #     # Read image data
+        #     cube_img = self.file2list(file_index=idx_file)
+        #     # cube_wei = weight_images.file2list(file_index=idx_file)
+        #
+        #     # for idx in range(len(cube_img)):
+        #     #     cube_img[idx][cube_wei[idx] <= 0.0001] = np.nan
+        #
+        #     # Convolve
+        #     with Parallel(n_jobs=16) as parallel:
+        #         mp = parallel(delayed(convolve)(d, k, b) for d, k, b in zip(cube_img, kernels, repeat("extend")))
+        #
+        #     # Put back bad values
+        #     # for idx in range(len(mp)):
+        #     #     mp[idx][cube_wei[idx] <= 0.0001] = np.nan
+        #
+        #     # Replace data and write new file with old headers
+        #     hdul = fits.open(self.full_paths[idx_file])
+        #     for ei, nd in zip(self.data_hdu[idx_file], mp):
+        #         hdul[ei] = fits.ImageHDU(nd, header=(delete_keyword(header=hdul[ei].header, keyword="PSF_FWHM")))
+        #
+        #     hdul.writeto(outpath, overwrite=True)
+        #
+        # # Print time
+        # message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        #
+        # # Return new instance of calibrated images
+        # return self.__class__(setup=self.setup, file_paths=outpaths)
 
     # =========================================================================== #
     # Other methods
