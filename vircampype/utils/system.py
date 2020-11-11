@@ -27,10 +27,10 @@ def run_cmds(cmds, n_processes=1, silent=True):
     """
 
     if silent:
-        groups = [(subprocess.Popen(cmd.split(" "), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        groups = [(subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                    for cmd in cmds)] * n_processes
     else:
-        groups = [(subprocess.Popen(cmd.split(" ")) for cmd in cmds)] * n_processes
+        groups = [(subprocess.Popen(cmd, shell=True) for cmd in cmds)] * n_processes
 
     # Run processes
     for processes in zip_longest(*groups):  # run len(processes) == limit at a time
