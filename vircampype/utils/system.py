@@ -27,10 +27,10 @@ def run_cmds(cmds, n_processes=1, silent=True):
     """
 
     if silent:
-        groups = [(subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                   for cmd in cmds)] * n_processes
+        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL) for cmd in cmds)] * n_processes
     else:
-        groups = [(subprocess.Popen(cmd, shell=True) for cmd in cmds)] * n_processes
+        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh") for cmd in cmds)] * n_processes
 
     # Run processes
     for processes in zip_longest(*groups):  # run len(processes) == limit at a time
@@ -40,9 +40,9 @@ def run_cmds(cmds, n_processes=1, silent=True):
 
 def run_command_bash(cmd, silent=False):
     if silent:
-        subprocess.run(cmd, shell=True, executable="/bin/bash", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        subprocess.run(cmd, shell=True, executable="/bin/bash")
+        subprocess.run(cmd, shell=True, executable="/bin/zsh")
 
 
 def module_exists(module_name):
