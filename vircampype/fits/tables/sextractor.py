@@ -142,7 +142,8 @@ class SextractorCatalogs(SourceCatalogs):
             List or str with header names.
 
         """
-        names = [x.replace(".sources.fits", ".ahead") for x in self.full_paths]
+
+        names = [x.replace(".scamp.sources.fits", ".ahead") for x in self.full_paths]
         if joined:
             return ",".join(names)
         else:
