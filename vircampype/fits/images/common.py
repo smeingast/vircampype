@@ -901,7 +901,7 @@ class FitsImages(FitsFiles):
 
         return get_resource_path(package=self._sex_preset_package, resource="{0}.yml".format(preset))
 
-    def sextractor(self, preset="scamp", prefix=None, silent=None, **kwargs):
+    def sextractor(self, preset="scamp", silent=None, **kwargs):
         """
         Runs sextractor based on given presets.
 
@@ -909,8 +909,6 @@ class FitsImages(FitsFiles):
         ----------
         preset : str
             Preset name.
-        prefix : str, optional
-            Prefix to be used for catalogs.
         silent : bool, optional
             Can overrides setup on messaging.
 
@@ -932,7 +930,7 @@ class FitsImages(FitsFiles):
         # Check for existing files
         path_tables_clean = []
         if not self.setup["misc"]["overwrite"]:
-            for pt in self._sex_paths_tables(prefix=prefix):
+            for pt in self._sex_paths_tables(prefix=preset):
                 check_file_exists(file_path=pt, silent=silent)
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
@@ -994,7 +992,7 @@ class FitsImages(FitsFiles):
             raise ValueError("Preset '{0}' not supported".format(preset))
 
         # Return Table instance
-        return cls(setup=self.setup, file_paths=self._sex_paths_tables(prefix=prefix))
+        return cls(setup=self.setup, file_paths=self._sex_paths_tables(prefix=preset))
 
     # =========================================================================== #
     # Image quality
