@@ -17,6 +17,7 @@ from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
 from vircampype.utils.miscellaneous import str2func
+from astropy.stats import sigma_clip as astropy_sigma_clip
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve
 
 
@@ -1132,6 +1133,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
         # Convert bin number to index
         nbx, nby = nbx - 1, nby - 1
 
+        # Compute weighted average instead of median if weights are provided
         if weights is not None:
 
             # Empty stat matrix
@@ -1146,12 +1148,15 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
                 # Get filter for current bin
                 fil = (nbx == cidx[0]) & (nby == cidx[1])
 
+                # sigma clip each bin separately
+                mask = ~astropy_sigma_clip(value[good][fil]).mask
+
                 # Check sum of weights
                 if np.sum(weights[good][fil]) < 0.0001:
                     stat[cidx[0], cidx[1]] = np.nan
                 else:
                     # Compute weighted average for this bin
-                    stat[cidx[0], cidx[1]] = np.average(value[good][fil], weights=weights[good][fil])
+                    stat[cidx[0], cidx[1]] = np.average(value[good][fil][mask], weights=weights[good][fil][mask])
 
         # Transpose
         stat = stat.T
