@@ -4,17 +4,11 @@ import os
 import numpy as np
 
 from astropy.io import fits
-from itertools import repeat
 from vircampype.utils import *
 from astropy import wcs as awcs
-from joblib import Parallel, delayed
-from astropy.convolution import convolve
-from vircampype.utils.psf import build_psf
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
 from astropy.wcs.utils import proj_plane_pixel_scales
-from vircampype.utils.tables import clean_source_table
-from photutils import CosineBellWindow, create_matching_kernel, resize_psf
 from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
 
 
@@ -1065,83 +1059,83 @@ class FitsImages(FitsFiles):
         # Run PSFEX
         sources_psfex.psfex()
 
-    def build_master_psf_photutils(self):
-
-        # Find and instantiate weights
-        from vircampype.fits.images.obspar import MasterPSF
-        from vircampype.fits.images.flat import WeightImages
-        from vircampype.fits.tables.sextractor import SextractorCatalogs
-
-        # Get Weight images
-        paths_weights = [x.replace(".sources.", ".weight.") for x in self.full_paths]
-        weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
-
-        # Get source catalogs
-        source_tables = SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables())
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="PSF", silent=self.setup["misc"]["silent"],
-                                           right=None)
-
-        # Loop over files
-        for idx_file in range(len(self)):
-
-            # Create master dark name
-            outpath = self.path_master_object + "MASTER-PSF.{0}".format(self.base_names[idx_file])
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-
-            # Instantiate output
-            masterpsf = ImageCube(setup=self.setup)
-
-            # Read all extensions
-            data_img = self.file2list(file_index=idx_file)
-            data_wei = weight_images.file2list(file_index=idx_file)
-            data_src = source_tables.file2table(file_index=idx_file)
-
-            # Clean source tables
-            data_src = [clean_source_table(table=t, image_header=hdr, snr_limit=self.setup["psf"]["snr_min"],
-                                           nndis_limit=15) for t, hdr in zip(data_src, self.headers_data[idx_file])]
-
-            # Build PSF
-            with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
-                mp = parallel(delayed(build_psf)(da, we, src, si, ov, mi) for da, we, src, si, ov, mi in
-                              zip(data_img, data_wei, data_src, repeat(self.setup["psf"]["size"]),
-                                  repeat(self.setup["psf"]["oversampling"]), repeat(self.setup["psf"]["maxiters"])))
-                masterpsf.extend(data=np.array(mp).astype(np.float32))
-
-            # Construct data header
-            data_headers = []
-            for idx in range(len(mp)):
-                hdr = fits.Header()
-                hdr["NSOURCES"] = (len(data_src[idx]), "Number of used sources to build PSF")
-                data_headers.append(hdr)
-
-            # Make primary header
-            prime_header = fits.Header()
-            prime_header[self.setup["keywords"]["object"]] = "MASTER-PSF"
-            prime_header[self.setup["keywords"]["date_mjd"]] = self.mjd[idx_file]
-            prime_header["PSF_SIZE"] = (self.setup["psf"]["size"], "PSF size in pixels")
-            prime_header["OVERSAMP"] = (self.setup["psf"]["oversampling"], "EPSF oversampling factor")
-            prime_header["MAXITERS"] = (self.setup["psf"]["maxiters"], "Maximum number of iterations")
-            prime_header["SNR_MIN"] = (self.setup["psf"]["snr_min"], "Minimum S/N to be PSF star")
-
-            # Write to disk
-            masterpsf.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
-
-            # QC plot
-            if self.setup["misc"]["qc_plots"]:
-                msf = MasterPSF(setup=self.setup, file_paths=outpath)
-                msf.qc_plot_psf()
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+    # def build_master_psf_photutils(self):
+    #
+    #     # Find and instantiate weights
+    #     from vircampype.fits.images.obspar import MasterPSF
+    #     from vircampype.fits.images.flat import WeightImages
+    #     from vircampype.fits.tables.sextractor import SextractorCatalogs
+    #
+    #     # Get Weight images
+    #     paths_weights = [x.replace(".sources.", ".weight.") for x in self.full_paths]
+    #     weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
+    #
+    #     # Get source catalogs
+    #     source_tables = SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables())
+    #
+    #     # Processing info
+    #     tstart = message_mastercalibration(master_type="PSF", silent=self.setup["misc"]["silent"],
+    #                                        right=None)
+    #
+    #     # Loop over files
+    #     for idx_file in range(len(self)):
+    #
+    #         # Create master dark name
+    #         outpath = self.path_master_object + "MASTER-PSF.{0}".format(self.base_names[idx_file])
+    #
+    #         # Check if the file is already there and skip if it is
+    #         if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+    #             continue
+    #
+    #         # Print processing info
+    #         message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
+    #                             d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+    #
+    #         # Instantiate output
+    #         masterpsf = ImageCube(setup=self.setup)
+    #
+    #         # Read all extensions
+    #         data_img = self.file2list(file_index=idx_file)
+    #         data_wei = weight_images.file2list(file_index=idx_file)
+    #         data_src = source_tables.file2table(file_index=idx_file)
+    #
+    #         # Clean source tables
+    #         data_src = [clean_source_table(table=t, image_header=hdr, snr_limit=self.setup["psf"]["snr_min"],
+    #                                        nndis_limit=15) for t, hdr in zip(data_src, self.headers_data[idx_file])]
+    #
+    #         # Build PSF
+    #         with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
+    #             mp = parallel(delayed(build_psf)(da, we, src, si, ov, mi) for da, we, src, si, ov, mi in
+    #                           zip(data_img, data_wei, data_src, repeat(self.setup["psf"]["size"]),
+    #                               repeat(self.setup["psf"]["oversampling"]), repeat(self.setup["psf"]["maxiters"])))
+    #             masterpsf.extend(data=np.array(mp).astype(np.float32))
+    #
+    #         # Construct data header
+    #         data_headers = []
+    #         for idx in range(len(mp)):
+    #             hdr = fits.Header()
+    #             hdr["NSOURCES"] = (len(data_src[idx]), "Number of used sources to build PSF")
+    #             data_headers.append(hdr)
+    #
+    #         # Make primary header
+    #         prime_header = fits.Header()
+    #         prime_header[self.setup["keywords"]["object"]] = "MASTER-PSF"
+    #         prime_header[self.setup["keywords"]["date_mjd"]] = self.mjd[idx_file]
+    #         prime_header["PSF_SIZE"] = (self.setup["psf"]["size"], "PSF size in pixels")
+    #         prime_header["OVERSAMP"] = (self.setup["psf"]["oversampling"], "EPSF oversampling factor")
+    #         prime_header["MAXITERS"] = (self.setup["psf"]["maxiters"], "Maximum number of iterations")
+    #         prime_header["SNR_MIN"] = (self.setup["psf"]["snr_min"], "Minimum S/N to be PSF star")
+    #
+    #         # Write to disk
+    #         masterpsf.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
+    #
+    #         # QC plot
+    #         if self.setup["misc"]["qc_plots"]:
+    #             msf = MasterPSF(setup=self.setup, file_paths=outpath)
+    #             msf.qc_plot_psf()
+    #
+    #     # Print time
+    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # def homogenize_psf(self):
     #     raise NotImplementedError
