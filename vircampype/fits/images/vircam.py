@@ -171,7 +171,7 @@ class VircamImages(FitsImages):
         if split["flat_twilight"] is not None:
             split["flat_twilight"].build_master_flat()
             split["flat_twilight"].build_master_weight()
-            split["flat_twilight"].build_master_weight_coadd()
+            # split["flat_twilight"].build_master_weight_coadd()
 
         # Master offset
         if split["science"] is not None:
