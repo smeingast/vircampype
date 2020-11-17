@@ -1,6 +1,7 @@
 # =========================================================================== #
 # Import
 import os
+import pickle
 import warnings
 import numpy as np
 
@@ -25,6 +26,9 @@ class SextractorCatalogs(SourceCatalogs):
 
     def __init__(self, setup, file_paths=None):
         super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
+
+        # Generate image header paths
+        self._image_header_paths = ["{0}{1}.image.header".format(self.path_headers, x) for x in self.base_names]
 
     # =========================================================================== #
     # Some defintions
@@ -1063,20 +1067,34 @@ class SextractorCatalogs(SourceCatalogs):
 
         """
 
-        # TODO: Speed this up. Perhaps write them pickled to the header folder
-
+        # Check if already determined
         if self._image_headers is not None:
             return self._image_headers
 
         self._image_headers = []
-        for p in self.full_paths:
-            self._image_headers.append(sextractor2imagehdr(path=p))
+        for idx in range(self.n_files):
 
-        # Parallel job is slower
-        # Extract Image headers
-        # from joblib import Parallel, delayed
-        # with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
-        #     self._image_headers = parallel(delayed(sextractor2imagehdr)(i) for i in self.full_paths)
+            # Try to read the database
+            try:
+                with open(self._image_header_paths[idx], "rb") as f:
+
+                    # If the file is there, load the headers...
+                    self._image_headers.append(pickle.load(f))
+
+                    # And continue with next file
+                    continue
+
+            # If not found we move on to read the headers from the fits file
+            except FileNotFoundError:
+
+                headers = sextractor2imagehdr(path=self.full_paths[idx])
+
+                # When done for all headers dump them into the designated database
+                with open(self._image_header_paths[idx], "wb") as d:
+                    pickle.dump(headers, d)
+
+                # Append converted headers
+                self._image_headers.append(headers)
 
         # Return
         return self._image_headers
