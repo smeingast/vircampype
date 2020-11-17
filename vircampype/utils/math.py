@@ -17,7 +17,7 @@ from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
 from vircampype.utils.miscellaneous import str2func
-from astropy.stats import sigma_clip as astropy_sigma_clip
+from scipy.interpolate import SmoothBivariateSpline
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve
 
 
@@ -1149,7 +1149,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
                 fil = (nbx == cidx[0]) & (nby == cidx[1])
 
                 # sigma clip each bin separately
-                mask = ~astropy_sigma_clip(value[good][fil]).mask
+                mask = np.isfinite(sigma_clip(value[good][fil], sigma_level=3, sigma_iter=3))
 
                 # Check sum of weights
                 if np.sum(weights[good][fil]) < 0.0001:
@@ -1165,10 +1165,27 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     if conv:
         stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=kernel_size), boundary="extend")
 
+    # Upscale with spline
     if upscale:
-        return np.array(Image.fromarray(stat).resize(size=(x_max - x_min, y_max - y_min), resample=Image.LANCZOS))
+        # Get bin centers in X and Y and make grid of centers
+        xc, yc = (xe[1:] + xe[:-1]) / 2, (ye[1:] + ye[:-1]) / 2
+        xcg, ycg = np.meshgrid(xc, yc)
+
+        # Return interpolate image
+        return upscale_image(x_in=xcg.ravel(), y_in=ycg.ravel(), values=stat.ravel(),
+                             x_size_out=x_max - x_min, y_size_out=y_max - y_min)
 
     return stat
+
+
+def upscale_image(x_in, y_in, values, x_size_out, y_size_out, order=3):
+
+    # Fit spline to grid
+    spline_fit = SmoothBivariateSpline(x_in, y_in, values, kx=order, ky=order).ev
+
+    # Return interplated spline
+    return spline_fit(*np.meshgrid(np.arange(x_size_out), np.arange(y_size_out)))
+    # return np.array(Image.fromarray(stat).resize(size=(x_size_out, y_size_out), resample=Image.LANCZOS))
 
 
 def _point_density(x, y, xdata, ydata, xsize, ysize):
