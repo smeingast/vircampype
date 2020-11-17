@@ -9,9 +9,9 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
 from vircampype.setup import *
-from astropy.table import Column
 from astropy.wcs import wcs as awcs
 from vircampype.utils.tables import *
+from astropy.table import Column, vstack
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
@@ -764,43 +764,28 @@ class SextractorCatalogs(SourceCatalogs):
                 message_calibration(n_current=idx_print, n_total=len(split), name=outpath, d_current=idx_hdr + 1,
                                     d_total=len(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
 
-                # Read current HDU for all files
-                data = files.hdu2table(hdu_index=idx_hdu)
+                # Read current HDU for all files into a single table
+                tab = vstack(files.hdu2table(hdu_index=idx_hdu))
 
                 # Read header of current extension in first file
                 header = files.image_headers[0][idx_hdr]
 
-                # Extract data for all files for this extension
-                aa = np.array(flat_list([d["ALPHA_J2000"] for d in data]))
-                dd = np.array(flat_list([d["DELTA_J2000"] for d in data]))
-                xx = np.array(flat_list([d["XWIN_IMAGE"] for d in data]))
-                yy = np.array(flat_list([d["YWIN_IMAGE"] for d in data]))
-                ff = np.array(flat_list([d["FLAGS"] for d in data]))
-                mm = np.array(flat_list([d["MAG_AUTO"] for d in data]))
-                fwhm = np.array(flat_list([d["FWHM_WORLD"] for d in data])) * 3600
-                ee = np.array(flat_list([d["ELLIPTICITY"] for d in data]))
-
-                # Filter for good sources
-                good = (np.isfinite(aa) & np.isfinite(dd) & np.isfinite(xx) &
-                        np.isfinite(yy) & np.isfinite(ff) & np.isfinite(mm) &
-                        (ff == 0) & (ee < 0.2) & (fwhm > 0.3) & (fwhm < 2.0))
-
-                # Apply filter
-                aa, dd, xx, yy, mm = aa[good], dd[good], xx[good], yy[good], mm[good]
+                # Clean table
+                tab = clean_source_table(table=tab, image_header=header)
 
                 # Get ZP for each single star
-                zp = get_zeropoint_radec(ra_cal=aa, dec_cal=dd, mag_cal=mm, mag_ref=master_mag,
+                zp = get_zeropoint_radec(ra_cal=tab[self._key_ra], dec_cal=tab[self._key_dec], mag_cal=tab["MAG_AUTO"].data,
                                          ra_ref=master_skycoord.icrs.ra.deg, dec_ref=master_skycoord.icrs.dec.deg,
-                                         mag_limits_ref=master_phot.mag_lim, method="all")
+                                         mag_ref=master_mag, mag_limits_ref=master_phot.mag_lim, method="all")
 
-                # Sigma clip ZP array to remove outliers
-                zp = sigma_clip(zp, sigma_level=3, sigma_iter=5)
+                # Remove all table entries without ZP entry
+                tab, zp = tab[np.isfinite(zp)], zp[np.isfinite(zp)]
 
                 # Grid values to detector size array
-                grid_zp = grid_value_2d(x=xx, y=yy, value=zp, x_min=0, x_max=header["NAXIS1"], y_min=0,
-                                        y_max=header["NAXIS2"], nx=self.setup["superflat"]["nbins_x"],
-                                        ny=self.setup["superflat"]["nbins_y"], conv=True,
-                                        kernel_scale=self.setup["superflat"]["kernel_scale"])
+                grid_zp = grid_value_2d(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], value=zp, x_min=0, y_min=0,
+                                        weights=1/tab["MAGERR_AUTO"]**2, x_max=header["NAXIS1"], y_max=header["NAXIS2"],
+                                        nx=self.setup["superflat"]["nbins_x"], ny=self.setup["superflat"]["nbins_y"],
+                                        conv=True, kernel_size=2, upscale=True)
 
                 # Convert to flux scale
                 flx_scale.append(10**(grid_zp / 2.5))
@@ -809,11 +794,11 @@ class SextractorCatalogs(SourceCatalogs):
                 # import matplotlib.pyplot as plt
                 # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
                 #
-                # im = ax.imshow(flx_scale[-1] / np.median(flx_scale[-1]), cmap="RdYlBu_r", vmin=0.95, vmax=1.04,
-                #                origin="lower")
+                # im = ax.imshow(flx_scale[-1] / np.nanmedian(flx_scale[-1]), cmap="RdYlBu_r", vmin=0.95, vmax=1.04,
+                #                origin="lower", extent=[0, header["NAXIS1"], 0, header["NAXIS2"]])
                 # flux = 10**(zp / 2.5)
-                # ax.scatter(xx, yy, c=flux / np.nanmedian(flux), s=5, lw=0.5, cmap="RdYlBu_r",
-                #            ec="black", vmin=0.95, vmax=1.04)
+                # ax.scatter(tab["XWIN_IMAGE"], tab["YWIN_IMAGE"], c=flux / np.nanmedian(flux), s=5, lw=0.5,
+                #            cmap="RdYlBu_r", ec="black", vmin=0.95, vmax=1.04)
                 # plt.colorbar(im)
                 # plt.show()
                 # exit()
