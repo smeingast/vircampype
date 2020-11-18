@@ -1003,7 +1003,7 @@ class FitsImages(FitsFiles):
         tstart = message_mastercalibration(master_type="IMAGE QUALITY", silent=self.setup["misc"]["silent"], right="")
 
         # Run Sextractor with preset for image quality
-        catalogs = self.sextractor(preset="fwhm", prefix="fwhm", silent=True)
+        catalogs = self.sextractor(preset="fwhm", silent=True)
 
         # Set variables to None for faster skipping if this step has already been done
         psf_fwhm, pixel_scales = None, None
@@ -1052,7 +1052,7 @@ class FitsImages(FitsFiles):
     def build_master_psf(self):
 
         # Run Sextractor with PSFEX preset
-        sources_psfex = self.sextractor(preset="psfex", prefix="psfex")
+        sources_psfex = self.sextractor(preset="psfex")
 
         # Run PSFEX
         sources_psfex.psfex()
