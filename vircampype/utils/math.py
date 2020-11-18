@@ -7,7 +7,6 @@ import numpy as np
 # noinspection PyUnresolvedReferences
 # from astroscrappy.astroscrappy import detect_cosmics
 
-from PIL import Image
 from itertools import repeat
 from fractions import Fraction
 from astropy.units import Unit
@@ -675,23 +674,11 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
             noise[idx, :, :] = median_filter(input=noise[idx, :, :], size=mesh_filtersize)
 
     # Scale back to original size
-    cube_background, cube_noise = [], []
-    for bg, nn in zip(background, noise):
-        cube_background.append(np.array(Image.fromarray(bg).resize(size=cube.shape[1:], resample=Image.BICUBIC)))
-        cube_noise.append(np.array(Image.fromarray(nn).resize(size=cube.shape[1:], resample=Image.BICUBIC)))
-
-        """
-        This is how it works with griddata.
-        Imresize is MUCH faster than griddata, but the results are different and it only works for 32bit float data!
-    
-        from scipy.interpolate import griddata
-        xgrid, ygrid = grid_like(array=array)
-        back_map = griddata(np.stack([ygrid_flat, xgrid_flat], axis=1), back_map.ravel(), (ygrid, xgrid),
-                            method=method)
-        noise_map = griddata(np.stack([ygrid_flat, xgrid_flat], axis=1), noise_map.ravel(), (ygrid, xgrid),
-                             method=method)
-    
-        """
+    with Parallel(n_jobs=n_threads) as parallel:
+        cube_background = parallel(delayed(upscale_image)(i, j, k)
+                                   for i, j, k in zip(background, repeat(cube.shape[1:]), repeat(2)))
+        cube_noise = parallel(delayed(upscale_image)(i, j, k)
+                              for i, j, k in zip(noise, repeat(cube.shape[1:]), repeat(2)))
 
     # Return scaled cubes
     return np.array(cube_background), np.array(cube_noise)
