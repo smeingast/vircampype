@@ -1188,10 +1188,12 @@ def upscale_image(image, new_size, order=3):
     xcenter, ycenter = np.meshgrid(xcenter, ycenter)
 
     # Fit spline to grid
-    spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
 
-    # Return interplated spline
-    return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
+        # Return interplated spline
+        return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
 
 
 def _point_density(x, y, xdata, ydata, xsize, ysize):
