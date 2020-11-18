@@ -1185,7 +1185,6 @@ def upscale_image(x_in, y_in, values, x_size_out, y_size_out, order=3):
 
     # Return interplated spline
     return spline_fit(*np.meshgrid(np.arange(x_size_out), np.arange(y_size_out)))
-    # return np.array(Image.fromarray(stat).resize(size=(x_size_out, y_size_out), resample=Image.LANCZOS))
 
 
 def _point_density(x, y, xdata, ydata, xsize, ysize):
