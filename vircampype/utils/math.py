@@ -1167,24 +1167,44 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
     # Upscale with spline
     if upscale:
-        # Get bin centers in X and Y and make grid of centers
-        xc, yc = (xe[1:] + xe[:-1]) / 2, (ye[1:] + ye[:-1]) / 2
-        xcg, ycg = np.meshgrid(xc, yc)
-
-        # Return interpolate image
-        return upscale_image(x_in=xcg.ravel(), y_in=ycg.ravel(), values=stat.ravel(),
-                             x_size_out=x_max - x_min, y_size_out=y_max - y_min)
+        return upscale_image(image=stat, new_size=(x_max - x_min, y_max - y_min))
 
     return stat
 
 
-def upscale_image(x_in, y_in, values, x_size_out, y_size_out, order=3):
+def upscale_image(image, new_size, order=3):
+    """
+    Resizes a 2D array to tiven new size.
+
+    Parameters
+    ----------
+    image : array_like
+        numpy 2D array.
+    new_size : tuple
+        New size (xsize, ysize)
+    order
+
+    Returns
+    -------
+    array_like
+        Resized image.
+
+    """
+
+    # Detemrine edge coordinates of input wrt output size
+    xedge, yedge = np.linspace(0, new_size[0], image.shape[0]+1), np.linspace(0, new_size[1], image.shape[1]+1)
+
+    # Determine pixel center coordinates
+    xcenter, ycenter = (xedge[1:] + xedge[:-1]) / 2, (yedge[1:] + yedge[:-1]) / 2
+
+    # Make coordinate grid
+    xcenter, ycenter = np.meshgrid(xcenter, ycenter)
 
     # Fit spline to grid
-    spline_fit = SmoothBivariateSpline(x_in, y_in, values, kx=order, ky=order).ev
+    spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
 
     # Return interplated spline
-    return spline_fit(*np.meshgrid(np.arange(x_size_out), np.arange(y_size_out)))
+    return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
 
 
 def _point_density(x, y, xdata, ydata, xsize, ysize):
