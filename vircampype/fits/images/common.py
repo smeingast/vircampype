@@ -1041,10 +1041,10 @@ class FitsImages(FitsFiles):
                 hdul.flush()
 
             # Delete temp header
-            # TODO: There seems to be an issue the header after setting the image quality
-            # It works when I manually remove the header folder and restart the pipeline
-            # So this statement does not seem to do what it is supposed to
             self.delete_headers_temp(file_index=idx_file)
+
+        # Flush headers for so that they are regenerated next time they are accessed
+        self._headers = None
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
