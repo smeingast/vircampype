@@ -401,7 +401,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Find weights
         from vircampype.fits.images.flat import WeightImages
-        paths_weights = [x.replace(".sources.", ".weight.") for x in self.full_paths]
+        paths_weights = [x.replace(".full.sources.", ".weight.") for x in self.full_paths]
 
         # Dummy check weights
         fe = [os.path.exists(p) for p in paths_weights]
