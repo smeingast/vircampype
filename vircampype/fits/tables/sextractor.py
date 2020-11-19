@@ -5,7 +5,6 @@ import pickle
 import warnings
 import numpy as np
 
-from PIL import Image
 from astropy.io import fits
 from astropy.time import Time
 from vircampype.utils import *
@@ -494,7 +493,7 @@ class SextractorCatalogs(SourceCatalogs):
                                              kernel_size=2)
 
                     # Rescale to given size
-                    apc_grid = np.array(Image.fromarray(apc_grid).resize(size=output_size, resample=Image.LANCZOS))
+                    apc_grid = upscale_image(apc_grid, new_size=output_size, order=2)
 
                     # Get weighted mean aperture correction
                     apc_average = np.average(mag[mask], weights=weights[mask])
