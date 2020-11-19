@@ -24,7 +24,7 @@ from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convol
 __all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
            "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
            "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata", "point_density"]
+           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata", "point_density", "upscale_image"]
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
