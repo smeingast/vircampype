@@ -1163,6 +1163,9 @@ def upscale_image(image, new_size, order=3):
     """
     Resizes a 2D array to tiven new size.
 
+    An example of how to upscale with PIL:
+    apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]), resample=Image.LANCZOS))
+
     Parameters
     ----------
     image : array_like
