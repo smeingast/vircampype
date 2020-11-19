@@ -505,7 +505,7 @@ class SextractorCatalogs(SourceCatalogs):
                     # apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]),
                     #                                                      resample=Image.LANCZOS))
                     # kwargs = dict(cmap="RdYlBu", vmin=apc_average * 1.1, vmax=apc_average / 1.1)
-                    # im = ax.imshow(apc_plot, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
+                    # im = ax.imshow(apc_grid, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
                     # ax.scatter(xx[mask], yy[mask], c=mag[mask], lw=0.5, ec="black", s=30, **kwargs)
                     # plt.colorbar(im)
                     # plt.show()
