@@ -15,11 +15,11 @@ from astropy.table import Column, vstack
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
+from astropy.visualization import simple_norm
 from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.utils.fitstools import add_float_to_header, write_header
-
 
 class SextractorCatalogs(SourceCatalogs):
 
@@ -464,42 +464,37 @@ class SextractorCatalogs(SourceCatalogs):
                 # Loop over apertures
                 for mag, aidx in zip(mag_apcor.T, range(len(self.apertures))):
 
-                    # Sigma-clip
-                    mask = ~astropy_sigma_clip(mag).mask
-
                     # Determine number of bins (with given radius at least 10 sources)
-                    stacked = np.stack([tab["XWIN_IMAGE"][mask], tab["YWIN_IMAGE"][mask]]).T
+                    stacked = np.stack([tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]]).T
                     dis, _ = NearestNeighbors(n_neighbors=11, algorithm="auto").fit(stacked).kneighbors(stacked)
                     maxdis = np.percentile(dis[:, -1], 95)
                     n_bins_x, n_bins_y = int(hdr["NAXIS1"] / maxdis), int(hdr["NAXIS2"] / maxdis)
 
                     # Grid
-                    apc_grid = grid_value_2d(x=tab["XWIN_IMAGE"][mask], y=tab["YWIN_IMAGE"][mask], value=mag[mask],
-                                             x_min=0, y_min=0, x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x,
-                                             ny=n_bins_y, conv=True, weights=tab["SNR_WIN"][mask], upscale=False,
-                                             kernel_size=2)
+                    apc_grid = grid_value_2d(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], value=mag, x_min=0, y_min=0,
+                                             x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x, ny=n_bins_y,
+                                             conv=True, weights=tab["SNR_WIN"], upscale=False, kernel_size=2)
 
                     # Rescale to given size
                     apc_grid = upscale_image(apc_grid, new_size=output_size, method="spline", order=2)
 
                     # Get weighted mean aperture correction
-                    apc_average = np.average(mag[mask], weights=tab["SNR_WIN"][mask])
-                    apc_err = np.sqrt(np.average((mag[mask] - apc_average)**2, weights=tab["SNR_WIN"][mask]))
+                    apc_average = np.average(mag, weights=tab["SNR_WIN"])
+                    apc_err = np.sqrt(np.average((mag - apc_average)**2, weights=tab["SNR_WIN"]))
 
                     # # This plots all sources on top of the current aperture correction image
                     # import matplotlib.pyplot as plt
                     # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
-                    # kwargs = dict(cmap="RdYlBu", vmin=apc_average * 1.1, vmax=apc_average / 1.1)
+                    # kwargs = dict(cmap="RdYlBu", norm=simple_norm(apc_grid, min_percent=1, percent=98))
                     # im = ax.imshow(apc_grid, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
-                    # ax.scatter(tab["XWIN_IMAGE"][mask], tab["YWIN_IMAGE"][mask],
-                    #            c=mag[mask], lw=0.5, ec="black", s=30, **kwargs)
+                    # ax.scatter(tab["XWIN_IMAGE"], tab["YWIN_IMAGE"], c=mag, lw=0.5, ec="black", s=30, **kwargs)
                     # plt.colorbar(im)
                     # plt.show()
                     # exit()
 
                     # Construct header to append
                     hdr_temp = ohdr.copy()
-                    hdr_temp["NSRCAPC"] = (len(mag[mask]), "Number of sources used")
+                    hdr_temp["NSRCAPC"] = (len(mag), "Number of sources used")
                     hdr_temp["MAGAPC"] = (apc_average, "Average aperture correction (mag)")
                     hdr_temp["STDAPC"] = (apc_err, "Aperture correction std across detector (mag)")
                     hdr_temp["DIAMAPC"] = (self.apertures[aidx], "Aperture diameter (pix)")
