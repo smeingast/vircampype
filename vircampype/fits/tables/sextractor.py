@@ -777,9 +777,10 @@ class SextractorCatalogs(SourceCatalogs):
                 tab = clean_source_table(table=tab, image_header=header)
 
                 # Get ZP for each single star
-                zp = get_zeropoint_radec(ra_cal=tab[self._key_ra], dec_cal=tab[self._key_dec], mag_cal=tab["MAG_AUTO"].data,
-                                         ra_ref=master_skycoord.icrs.ra.deg, dec_ref=master_skycoord.icrs.dec.deg,
-                                         mag_ref=master_mag, mag_limits_ref=master_phot.mag_lim, method="all")
+                zp = get_zeropoint_radec(ra_cal=tab[self._key_ra], dec_cal=tab[self._key_dec],
+                                         mag_cal=tab["MAG_AUTO"].data, ra_ref=master_skycoord.icrs.ra.deg,
+                                         dec_ref=master_skycoord.icrs.dec.deg, mag_ref=master_mag,
+                                         mag_limits_ref=master_phot.mag_lim, method="all")
 
                 # Remove all table entries without ZP entry
                 tab, zp = tab[np.isfinite(zp)], zp[np.isfinite(zp)]
