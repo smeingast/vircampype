@@ -15,11 +15,11 @@ from astropy.table import Column, vstack
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
-from astropy.visualization import simple_norm
 from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.utils.fitstools import add_float_to_header, write_header
+
 
 class SextractorCatalogs(SourceCatalogs):
 
@@ -483,6 +483,7 @@ class SextractorCatalogs(SourceCatalogs):
                     apc_err = np.sqrt(np.average((mag - apc_average)**2, weights=tab["SNR_WIN"]))
 
                     # # This plots all sources on top of the current aperture correction image
+                    # from astropy.visualization import simple_norm
                     # import matplotlib.pyplot as plt
                     # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
                     # kwargs = dict(cmap="RdYlBu", norm=simple_norm(apc_grid, min_percent=1, percent=98))
