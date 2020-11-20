@@ -444,26 +444,11 @@ class SextractorCatalogs(SourceCatalogs):
                 message_calibration(n_current=idx+1, n_total=len(self), name=path_file, d_current=whdu_idx,
                                     d_total=len(headers), silent=self.setup["misc"]["silent"])
 
-                # Get distance to nearest neighbor for cleaning
-                stacked = np.stack([tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]]).T
-                nndis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
-
-                # Filter bad sources
-                good = (tab["CLASS_STAR"] > 0.5) & (tab["FLAGS"] == 0) & (tab["SNR_WIN"] > 50) &  \
-                       (tab["ELLIPTICITY"] < 0.2) & (tab["ISOAREA_IMAGE"] > 5) & (tab["ISOAREA_IMAGE"] < 1000) & \
-                       (tab["BACKGROUND"] <= np.nanmedian(tab["BACKGROUND"]) + 3 * np.nanstd(tab["BACKGROUND"])) & \
-                       (np.sum(tab["MAG_APER"] > 0, axis=1) == 0) & \
-                       (tab["FWHM_IMAGE"] > 1.0) & (tab["FWHM_IMAGE"] < 6.0) & \
-                       (np.sum(np.diff(tab["MAG_APER"], axis=1) > 0, axis=1) == 0) & (nndis > 10) & \
-                       (tab["XWIN_IMAGE"] > 10) & (tab["YWIN_IMAGE"] > 10) & \
-                       (tab["XWIN_IMAGE"] < hdr["NAXIS1"] - 10) & (tab["YWIN_IMAGE"] < hdr["NAXIS2"] - 10)
-
-                # Read data and only keep good sources
-                mag = tab["MAG_APER"][good, :]
-                xx, yy, weights = tab["XWIN_IMAGE"][good], tab["YWIN_IMAGE"][good], tab["SNR_WIN"][good]
+                # Retain only clean sources
+                tab = clean_source_table(table=tab, image_header=hdr, return_filter=False, snr_limit=50)
 
                 # Compute aperture correction for each source
-                mag_apcor = mag[:, -1][:, np.newaxis] - mag
+                mag_apcor = tab["MAG_APER"][:, -1][:, np.newaxis] - tab["MAG_APER"]
 
                 # Shrink original image header and keep only WCS info
                 ohdr = resize_header(header=hdr, factor=self.setup["photometry"]["apcor_image_scale"])
@@ -481,30 +466,31 @@ class SextractorCatalogs(SourceCatalogs):
                     mask = ~astropy_sigma_clip(mag).mask
 
                     # Determine number of bins (with given radius at least 10 sources)
-                    stacked = np.stack([xx[mask], yy[mask]]).T
+                    stacked = np.stack([tab["XWIN_IMAGE"][mask], tab["YWIN_IMAGE"][mask]]).T
                     dis, _ = NearestNeighbors(n_neighbors=11, algorithm="auto").fit(stacked).kneighbors(stacked)
                     maxdis = np.percentile(dis[:, -1], 95)
                     n_bins_x, n_bins_y = int(hdr["NAXIS1"] / maxdis), int(hdr["NAXIS2"] / maxdis)
 
                     # Grid
-                    apc_grid = grid_value_2d(x=xx[mask], y=yy[mask], value=mag[mask], x_min=0, y_min=0,
-                                             x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x,
-                                             ny=n_bins_y, conv=True, weights=weights[mask], upscale=False,
+                    apc_grid = grid_value_2d(x=tab["XWIN_IMAGE"][mask], y=tab["YWIN_IMAGE"][mask], value=mag[mask],
+                                             x_min=0, y_min=0, x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x,
+                                             ny=n_bins_y, conv=True, weights=tab["SNR_WIN"][mask], upscale=False,
                                              kernel_size=2)
 
                     # Rescale to given size
                     apc_grid = upscale_image(apc_grid, new_size=output_size, method="spline", order=2)
 
                     # Get weighted mean aperture correction
-                    apc_average = np.average(mag[mask], weights=weights[mask])
-                    apc_err = np.sqrt(np.average((mag[mask] - apc_average)**2, weights=weights[mask]))
+                    apc_average = np.average(mag[mask], weights=tab["SNR_WIN"][mask])
+                    apc_err = np.sqrt(np.average((mag[mask] - apc_average)**2, weights=tab["SNR_WIN"][mask]))
 
                     # # This plots all sources on top of the current aperture correction image
                     # import matplotlib.pyplot as plt
                     # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
                     # kwargs = dict(cmap="RdYlBu", vmin=apc_average * 1.1, vmax=apc_average / 1.1)
                     # im = ax.imshow(apc_grid, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
-                    # ax.scatter(xx[mask], yy[mask], c=mag[mask], lw=0.5, ec="black", s=30, **kwargs)
+                    # ax.scatter(tab["XWIN_IMAGE"][mask], tab["YWIN_IMAGE"][mask],
+                    #            c=mag[mask], lw=0.5, ec="black", s=30, **kwargs)
                     # plt.colorbar(im)
                     # plt.show()
                     # exit()
