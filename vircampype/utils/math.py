@@ -675,10 +675,10 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
 
     # Scale back to original size
     with Parallel(n_jobs=n_threads) as parallel:
-        cube_background = parallel(delayed(upscale_image)(i, j, k)
-                                   for i, j, k in zip(background, repeat(cube.shape[1:]), repeat(2)))
-        cube_noise = parallel(delayed(upscale_image)(i, j, k)
-                              for i, j, k in zip(noise, repeat(cube.shape[1:]), repeat(2)))
+        cube_background = parallel(delayed(upscale_image)(i, j, k, l) for i, j, k, l
+                                   in zip(background, repeat(cube.shape[1:]), repeat("spline"), repeat(2)))
+        cube_noise = parallel(delayed(upscale_image)(i, j, k, l) for i, j, k, l
+                              in zip(noise, repeat(cube.shape[1:]), repeat("spline"), repeat(2)))
 
     # Return scaled cubes
     return np.array(cube_background), np.array(cube_noise)
@@ -1159,7 +1159,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     return stat
 
 
-def upscale_image(image, new_size, method="splines", order=3):
+def upscale_image(image, new_size, method="spline", order=3):
     """
     Resizes a 2D array to tiven new size.
 
