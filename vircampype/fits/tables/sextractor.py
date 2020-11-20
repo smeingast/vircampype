@@ -412,6 +412,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Read weights into new instance
         weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
 
+        # Loop over files
         for idx in range(len(self)):
 
             # Generate output names
@@ -445,7 +446,8 @@ class SextractorCatalogs(SourceCatalogs):
                                     d_total=len(headers), silent=self.setup["misc"]["silent"])
 
                 # Retain only clean sources
-                tab = clean_source_table(table=tab, image_header=hdr, return_filter=False, snr_limit=50)
+                tab = clean_source_table(table=tab, image_header=hdr, return_filter=False, snr_limit=50,
+                                         flux_max=hdr["SEXSATLV"] / 2)
 
                 # Compute aperture correction for each source
                 mag_apcor = tab["MAG_APER"][:, -1][:, np.newaxis] - tab["MAG_APER"]
