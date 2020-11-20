@@ -68,7 +68,7 @@ sources_processed_sc.calibrate_astrometry()
 # =========================================================================== #
 # Run sextractor with superflat preset
 # =========================================================================== #
-sources_processed_sf = processed.sextractor(preset="superflat", prefix="sf")
+sources_processed_sf = processed.sextractor(preset="superflat")
 
 
 # =========================================================================== #
