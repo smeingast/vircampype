@@ -46,12 +46,17 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
         pass
 
     try:
-        good &= table["ISOAREA_IMAGE"] < 500
+        good &= table["ISOAREA_IMAGE"] < 1000
     except KeyError:
         pass
 
     try:
         good &= np.sum(table["MAG_APER"] > 0, axis=1) == 0
+    except KeyError:
+        pass
+
+    try:
+        good &= (np.sum(np.diff(table["MAG_APER"], axis=1) > 0, axis=1) == 0)
     except KeyError:
         pass
 
