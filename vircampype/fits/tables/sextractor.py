@@ -502,7 +502,7 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Construct and add image HDU
                     # noinspection PyTypeChecker
-                    hdulist_apcor[aidx].append(fits.ImageHDU(data=apc_grid, header=hdr_temp))
+                    hdulist_apcor[aidx].append(fits.ImageHDU(data=apc_grid.astype(np.float32), header=hdr_temp))
 
                 # Read weight
                 weight = fits.getdata(weight_images.full_paths[idx], whdu_idx, header=False)
