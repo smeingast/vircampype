@@ -7,7 +7,7 @@ from sklearn.neighbors import NearestNeighbors
 __all__ = ["clean_source_table", "skycoord_from_tab"]
 
 
-def clean_source_table(table, image_header=None, return_filter=False, snr_limit=10, nndis_limit=None):
+def clean_source_table(table, image_header=None, return_filter=False, snr_limit=10, nndis_limit=None, flux_max=None):
 
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
@@ -104,6 +104,12 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
 
         try:
             good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - 20
+        except KeyError:
+            pass
+
+    if flux_max is not None:
+        try:
+            good &= table["FLUX_MAX"] <= flux_max
         except KeyError:
             pass
 
