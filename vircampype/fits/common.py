@@ -11,6 +11,7 @@ from astropy.io import fits
 from joblib import cpu_count
 from astropy.time import Time
 from vircampype.utils import *
+from vircampype.setup import *
 from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
 
 
@@ -363,6 +364,11 @@ class FitsFiles:
                                     warnings.filterwarnings("ignore")
                                     hdr = header_reset_wcs(hdr)
                                     hdr["HIERARCH PYPE WCS RESET"] = True
+
+                        # Remove useless keywords if set
+                        if self.setup["data"]["clean_headers"]:
+                            all_keys = prime_keywords_noboby_needs + extension_keywords_noboby_needs
+                            [hdr.remove(kw, ignore_missing=True, remove_all=True) for kw in all_keys]
 
                         # Save cleaned header
                         fileheaders.append(hdr)
