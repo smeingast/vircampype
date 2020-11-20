@@ -1159,7 +1159,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     return stat
 
 
-def upscale_image(image, new_size, order=3):
+def upscale_image(image, new_size, method="splines", order=3):
     """
     Resizes a 2D array to tiven new size.
 
@@ -1172,7 +1172,10 @@ def upscale_image(image, new_size, order=3):
         numpy 2D array.
     new_size : tuple
         New size (xsize, ysize)
-    order
+    method : str, optional
+        Method to use for scaling. Either 'splines' or 'pil'.
+    order : int
+        Order for spline fit.
 
     Returns
     -------
@@ -1181,22 +1184,29 @@ def upscale_image(image, new_size, order=3):
 
     """
 
-    # Detemrine edge coordinates of input wrt output size
-    xedge, yedge = np.linspace(0, new_size[0], image.shape[0]+1), np.linspace(0, new_size[1], image.shape[1]+1)
+    if "pil" in method.lower():
+        from PIL import Image
+        return np.array(Image.fromarray(image).resize(size=new_size, resample=Image.LANCZOS))
+    elif "spline" in method.lower():
 
-    # Determine pixel center coordinates
-    xcenter, ycenter = (xedge[1:] + xedge[:-1]) / 2, (yedge[1:] + yedge[:-1]) / 2
+        # Detemrine edge coordinates of input wrt output size
+        xedge, yedge = np.linspace(0, new_size[0], image.shape[0]+1), np.linspace(0, new_size[1], image.shape[1]+1)
 
-    # Make coordinate grid
-    xcenter, ycenter = np.meshgrid(xcenter, ycenter)
+        # Determine pixel center coordinates
+        xcenter, ycenter = (xedge[1:] + xedge[:-1]) / 2, (yedge[1:] + yedge[:-1]) / 2
 
-    # Fit spline to grid
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
+        # Make coordinate grid
+        xcenter, ycenter = np.meshgrid(xcenter, ycenter)
 
-        # Return interplated spline
-        return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
+        # Fit spline to grid
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
+
+            # Return interplated spline
+            return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
+    else:
+        raise ValueError("Method '{0}' not supported".format(method))
 
 
 def _point_density(x, y, xdata, ydata, xsize, ysize):
