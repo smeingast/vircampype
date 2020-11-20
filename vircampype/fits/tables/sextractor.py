@@ -493,7 +493,7 @@ class SextractorCatalogs(SourceCatalogs):
                                              kernel_size=2)
 
                     # Rescale to given size
-                    apc_grid = upscale_image(apc_grid, new_size=output_size, order=2)
+                    apc_grid = upscale_image(apc_grid, new_size=output_size, method="spline", order=2)
 
                     # Get weighted mean aperture correction
                     apc_average = np.average(mag[mask], weights=weights[mask])
@@ -502,8 +502,6 @@ class SextractorCatalogs(SourceCatalogs):
                     # # This plots all sources on top of the current aperture correction image
                     # import matplotlib.pyplot as plt
                     # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
-                    # apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]),
-                    #                                                      resample=Image.LANCZOS))
                     # kwargs = dict(cmap="RdYlBu", vmin=apc_average * 1.1, vmax=apc_average / 1.1)
                     # im = ax.imshow(apc_grid, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
                     # ax.scatter(xx[mask], yy[mask], c=mag[mask], lw=0.5, ec="black", s=30, **kwargs)
@@ -525,8 +523,8 @@ class SextractorCatalogs(SourceCatalogs):
                 # Read weight
                 weight = fits.getdata(weight_images.full_paths[idx], whdu_idx, header=False)
 
-                # Resize with PIL
-                weight = np.array(Image.fromarray(weight).resize(size=output_size, resample=Image.BILINEAR))
+                # Resize weight with PIL
+                weight = upscale_image(weight, new_size=output_size, method="pil")
 
                 # Construct and add image weight HDU
                 # noinspection PyTypeChecker
