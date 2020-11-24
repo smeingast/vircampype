@@ -399,9 +399,9 @@ class SextractorCatalogs(SourceCatalogs):
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
-    # Aperture correction
+    # Aperture matching
     # =========================================================================== #
-    def build_aperture_correction(self):
+    def aperture_matching(self):
         """
         Computes aperture corrections for each detector.
 
@@ -412,7 +412,7 @@ class SextractorCatalogs(SourceCatalogs):
         """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="APERTURE CORRECTION", silent=self.setup["misc"]["silent"],
+        tstart = message_mastercalibration(master_type="APERTURE MATCHING", silent=self.setup["misc"]["silent"],
                                            right=None)
 
         # Find weights
