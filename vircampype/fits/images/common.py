@@ -1,6 +1,7 @@
 # =========================================================================== #
 # Import
 import os
+import glob
 import numpy as np
 
 from astropy.io import fits
@@ -505,16 +506,18 @@ class FitsImages(FitsFiles):
                                  max_lag=self.setup["master"]["max_lag_superflat"] / 1440.)
 
     def get_master_psf(self):
-        """
-        Get all matching MasterPSF files in self.
 
-        Returns
-        -------
-        MasterPSF
-            MasterPSF instance with matched files.
+        # Get all master psf files
+        master_psf = glob.glob(self.path_master_object + "*.psfex")
 
-        """
-        return self.match_mjd(match_to=self.get_master_images().psf, max_lag=0.00001)
+        # Loop over files
+        master_psf_files = []
+        for fn in self.file_names:
+
+            # Find match for current file
+            master_psf_files.append(master_psf[[fn in mpsf for mpsf in master_psf].index(True)])
+
+        return master_psf_files
 
     # =========================================================================== #
     # Master tables
