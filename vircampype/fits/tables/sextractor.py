@@ -1305,10 +1305,20 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                                     mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
                                                     mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
 
+                # Make new column
                 col_mag_auto = Column(name="MAG_AUTO_CAL", data=tab_hdu["MAG_AUTO"] + zp_auto, **kwargs_column_mag)
 
+                # ZP for MAG_PSF
+                zp_psf, zperr_psf = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_PSF"][good],
+                                                  mag_err_cal=tab_hdu["MAGERR_PSF"][good],
+                                                  mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
+                                                  mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
+
+                # Make new column
+                col_mag_psf = Column(name="MAG_PSF_CAL", data=tab_hdu["MAG_PSF"] + zp_psf, **kwargs_column_mag)
+
                 # Append to table
-                tab_hdu.add_columns(cols=[col_mag, col_err, col_apc, col_mag_auto])
+                tab_hdu.add_columns(cols=[col_mag, col_err, col_apc, col_mag_auto, col_mag_psf])
 
                 # Save data
                 tab_out.append(tab_hdu)
