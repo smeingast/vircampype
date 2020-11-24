@@ -109,3 +109,19 @@ MAGERR_ISOCOR
 MAG_PETRO
 MAGERR_PETRO
 PETRO_RADIUS
+
+
+# =========================================================================== #
+# PSF
+# =========================================================================== #
+FLUX_PSF                 Flux from PSF-fitting                                     [count]
+FLUXERR_PSF              RMS flux error for PSF-fitting                            [count]
+MAG_PSF                  Magnitude from PSF-fitting                                [mag]
+MAGERR_PSF               RMS magnitude error from PSF-fitting                      [mag]
+
+FWHMPSF_IMAGE            FWHM of the local PSF model                               [pixel]
+FWHMPSF_WORLD            FWHM of the local PSF model (world units)                 [deg]
+SPREAD_MODEL             Spread parameter from model-fitting                      
+
+NITER_PSF                Number of iterations for PSF-fitting                     
+CHI2_PSF                 Reduced chi2 from PSF-fitting                            
