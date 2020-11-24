@@ -363,6 +363,16 @@ class SextractorCatalogs(SourceCatalogs):
                                            left="Running PSFEX on {0} files with {1} threads"
                                                 "".format(len(self), self.setup["misc"]["n_jobs"]), right=None)
 
+        # Construct output psf paths
+        psf_paths = ["{0}{1}.psfex".format(self.path_master_object, fn) for fn in self.file_names]
+
+        # Check for existing PSF models
+        done = [os.path.exists(p) for p in psf_paths]
+
+        # Print statement on already existing files
+        for p in psf_paths:
+            check_file_exists(file_path=p, silent=self.setup["misc"]["silent"])
+
         # Load preset
         options = yml2config(nthreads=1,
                              checkplot_type=self._psfex_checkplot_types(joined=True),
@@ -370,17 +380,21 @@ class SextractorCatalogs(SourceCatalogs):
                              checkimage_type=self._psfex_checkimage_types(joined=True),
                              checkimage_name=self._psfex_checkimage_names(joined=True),
                              psf_dir=self.path_master_object, skip=["homokernel_dir"],
+                             psfvar_nsnap=self.setup["psf"]["n_snap"],
                              path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml"))
 
         # Construct commands
         cmds = ["{0} {1} -c {2} {3}".format(self._bin_psfex, tab, self._psfex_default_config, options)
                 for tab in self.full_paths]
 
+        # Clean commands
+        cmds = [c for c, d in zip(cmds, done) if not d]
+
         # Run PSFEX
         run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["n_jobs"])
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
     # =========================================================================== #
     # Aperture correction
@@ -534,9 +548,9 @@ class SextractorCatalogs(SourceCatalogs):
             hdulist_weight.writeto(path_weight, overwrite=self.setup["misc"]["overwrite"])
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
-                from vircampype.fits.images.obspar import ApcorImages
-                ApcorImages(file_paths=paths, setup=self.setup).qc_plot_apc()
+            # if self.setup["misc"]["qc_plots"]:
+            #     from vircampype.fits.images.obspar import ApcorImages
+            #     ApcorImages(file_paths=paths, setup=self.setup).qc_plot_apc()
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
