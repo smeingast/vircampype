@@ -954,7 +954,7 @@ class FitsImages(FitsFiles):
         elif preset == "superflat":
             ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
         elif preset == "full":
-            ss = yml2config(phot_apertures=self.setup["photometry"]["apertures"].replace(", ", ","),
+            ss = yml2config(phot_apertures=self.setup["photometry"]["apertures"].replace(", ", ","), seeing_fwhm=0,
                             skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
@@ -964,11 +964,11 @@ class FitsImages(FitsFiles):
                 "".format(self._bin_sex, self._sex_default_config, image, self._sex_default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
 
-        # Add FWHMs to commands
+        # Add PSF models to commands
         if preset == "full":
-            psf_fwhm = self.dataheaders_get_keys(keywords=["PSF_FWHM"])[0]
+            mpsf_paths = self.get_master_psf()
             for idx_file in range(len(cmds)):
-                cmds[idx_file] += "-SEEING_FWHM {0:0.4f}".format(np.mean(psf_fwhm[idx_file]))
+                cmds[idx_file] += "-PSF_NAME {0}".format(mpsf_paths[idx_file])
 
         # Add kwargs to commands
         for key, val in kwargs.items():
