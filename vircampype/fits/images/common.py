@@ -1563,23 +1563,3 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SUPERFLAT"]
 
         return MasterSuperflat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
-
-    @property
-    def psf(self):
-        """
-        Holds all MasterPSF images.
-
-        Returns
-        -------
-        MasterPSF
-            All MasterPSF images.
-
-        """
-
-        # Import
-        from vircampype.fits.images.obspar import MasterPSF
-
-        # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PSF"]
-
-        return MasterPSF(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
