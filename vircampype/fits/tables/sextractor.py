@@ -1474,7 +1474,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Aperture index to use for plotting
-        aper_idx = 2
+        aper_idx = 1
 
         # Generate output paths
         outpaths_1d = self.paths_qc_plots(paths=None, prefix="phot.1D")
