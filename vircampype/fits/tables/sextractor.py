@@ -688,7 +688,7 @@ class SextractorCatalogs(SourceCatalogs):
             # Return final header with optimized rotation
             rotation = rotation_test[np.argmin(area)]
             header_coadd = skycoord2header(skycoord=sc, proj_code="ZEA", rotation=rotation,
-                                           enlarge=1.01, cdelt=pixel_scale)
+                                           enlarge=1.02, cdelt=pixel_scale)
 
             # Dummy check
             if (header_coadd["NAXIS1"] > 100000.) or (header_coadd["NAXIS2"] > 100000.):
