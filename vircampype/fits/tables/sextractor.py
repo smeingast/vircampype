@@ -1550,7 +1550,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Apply indices filter
                 mag_hdu_match, mag_master_match = mag_hdu[idx_final], mag_master[idx_master]
-                mag_delta = mag_hdu_match - mag_master_match
+                mag_delta = mag_master_match - mag_hdu_match
 
                 # Draw photometry
                 dens = point_density(xdata=mag_master_match, ydata=mag_delta, xsize=0.25, ysize=0.05, norm=True,
@@ -1653,7 +1653,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Apply indices filter
                 mag_hdu_match, mag_master_match = mag_hdu[idx_final], mag_master[idx_master]
-                mag_delta = mag_hdu_match - mag_master_match
+                mag_delta = mag_master_match - mag_hdu_match
                 x_hdu, y_hdu = x_file[idx_hdu][idx_final], y_file[idx_hdu][idx_final]
 
                 # Grid value into image
