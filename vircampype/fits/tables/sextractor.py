@@ -470,6 +470,10 @@ class SextractorCatalogs(SourceCatalogs):
                     maxdis = np.percentile(dis[:, -1], 95)
                     n_bins_x, n_bins_y = int(hdr["NAXIS1"] / maxdis), int(hdr["NAXIS2"] / maxdis)
 
+                    # Minimum size of 3
+                    n_bins_x = 3 if n_bins_x <= 3 else n_bins_x
+                    n_bins_y = 3 if n_bins_y <= 3 else n_bins_y
+
                     # Grid
                     apc_grid = grid_value_2d(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], value=mag, x_min=0, y_min=0,
                                              x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x, ny=n_bins_y,
