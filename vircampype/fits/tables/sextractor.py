@@ -373,14 +373,16 @@ class SextractorCatalogs(SourceCatalogs):
         for p in psf_paths:
             check_file_exists(file_path=p, silent=self.setup["misc"]["silent"])
 
+        # Determine number of PSF snapshots (about every 300 pixels one snapshot)
+        n_snap = int(np.mean(self.imageheaders_get_keys(keywords=["NAXIS1", "NAXIS2"])) // 300)
+
         # Load preset
         options = yml2config(nthreads=1,
                              checkplot_type=self._psfex_checkplot_types(joined=True),
                              checkplot_name=self._psfex_checkplot_names(joined=True),
                              checkimage_type=self._psfex_checkimage_types(joined=True),
                              checkimage_name=self._psfex_checkimage_names(joined=True),
-                             psf_dir=self.path_master_object, skip=["homokernel_dir"],
-                             psfvar_nsnap=self.setup["psf"]["n_snap"],
+                             psf_dir=self.path_master_object, skip=["homokernel_dir"], psfvar_nsnap=n_snap,
                              path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml"))
 
         # Construct commands
