@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats, sigma_clip
 
 # Define objects in this module
-__all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec"]
+__all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec", "vega2ab"]
 
 
 def get_aperture_correction(diameters, magnitudes, func="Moffat"):
@@ -173,3 +173,33 @@ def get_zeropoint_radec(ra_cal, dec_cal, ra_ref, dec_ref, **kwargs):
     sc = SkyCoord(ra=ra_cal, dec=dec_cal, frame="icrs", unit="degree")
     sc_ref = SkyCoord(ra=ra_ref, dec=dec_ref, frame="icrs", unit="degree")
     return get_zeropoint(skycoo_cal=sc, skycoo_ref=sc_ref, **kwargs)
+
+
+def vega2ab(mag, passband):
+    """
+    Converts Vega to AB magnitudes for the 2MASS system.
+    http://iopscience.iop.org/article/10.1086/429803/pdf (Blanton 2005)
+
+    Parameters
+    ----------
+    mag : array_like
+        Array of magnitudes to convert.
+    passband : str
+        Passband (Either 'J', 'H' or 'Ks').
+
+    Returns
+    -------
+    array_like
+        Converted magnitudes.
+
+    """
+    if passband.lower() == "j":
+        cor = 0.91
+    elif passband.lower() == "h":
+        cor = 1.39
+    elif passband.lower() == "ks":
+        cor = 1.85
+    else:
+        raise ValueError("Filter {0} not supported".format(passband))
+
+    return mag + cor
