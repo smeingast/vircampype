@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-
-
 # =========================================================================== #
 # Import stuff
 import sys
 import argparse
-import numpy as np
 
 from vircampype.utils import print_done
 from vircampype.fits.images.vircam import VircamImages
@@ -21,28 +18,23 @@ args = parser.parse_args()
 
 
 # =========================================================================== #
-# Initialize Images
+# Initialize images
 # =========================================================================== #
 images = VircamImages.from_setup(setup=args.setup)
 
-
-# =========================================================================== #
 # Set console title
 sys.stdout.write("\x1b]2;{0}\x07".format(images.setup["paths"]["name"]))
 
 
 # =========================================================================== #
-# Build master calibration
+# Master calibration
 # =========================================================================== #
 images.build_master_calibration()
 
-
-# =========================================================================== #
 # Continue with science images
-# =========================================================================== #
 science = images.split_type()["science"]
 
-# If there are non, exit
+# If there are none, exit here
 if science is None:
     sys.exit(0)
 
@@ -52,109 +44,67 @@ if science is None:
 # =========================================================================== #
 processed = science.process_raw()
 
+# Run sextractor on calibrated for scamp
+processed_sources_scamp = processed.sextractor(preset="scamp")
 
-# =========================================================================== #
-# Run sextractor on calibrated files with scamp preset
-# =========================================================================== #
-sources_processed_sc = processed.sextractor(preset="scamp")
-
-
-# =========================================================================== #
 # Calibrate astrometry
-# =========================================================================== #
-sources_processed_sc.calibrate_astrometry()
+processed_sources_scamp.calibrate_astrometry()
 
-
-# =========================================================================== #
 # Run sextractor with superflat preset
-# =========================================================================== #
-sources_processed_sf = processed.sextractor(preset="superflat")
+sources_processed_superflat = processed.sextractor(preset="superflat")
 
-
-# =========================================================================== #
 # Build master photometry
-# =========================================================================== #
-sources_processed_sf.build_master_photometry()
+sources_processed_superflat.build_master_photometry()
 
-
-# =========================================================================== #
-# Superflat
-# =========================================================================== #
 # Build superflat
-sources_processed_sf.build_master_superflat()
+sources_processed_superflat.build_master_superflat()
 
 # Apply superflat
 superflatted = processed.apply_superflat()
 
-
-# =========================================================================== #
 # Resample original files
-# =========================================================================== #
-resampled = superflatted.resample_pawprints()
+pawprints = superflatted.resample_pawprints()
 
 
 # =========================================================================== #
-# Determine image_quality
+# Pawprints
 # =========================================================================== #
-resampled.set_image_quality()
+# Build PSF
+pawprints.build_master_psf()
 
+# Source extraction
+pawprints_sources = pawprints.sextractor(preset="full")
 
-# =========================================================================== #
-# Run Sextractor on resampled pawprints
-# =========================================================================== #
-resampled_sources = resampled.sextractor(preset="full")
+# QC astrometry
+pawprints_sources.plot_qc_astrometry()
 
+# Aperture matching
+pawprints_sources.aperture_matching().coadd()
 
-# =========================================================================== #
-# Check astrometry
-# =========================================================================== #
-resampled_sources.plot_qc_astrometry()
-
-
-# =========================================================================== #
-# Aperture correction
-# =========================================================================== #
-apc = resampled_sources.build_aperture_correction()
-apc.coadd()
-
-
-# =========================================================================== #
 # Calibrate photometry
+pawprints_sources = pawprints_sources.calibrate_photometry()
+
+# Write external headers for coadd flux scale
+pawprints_sources.write_coadd_headers()
+
+
 # =========================================================================== #
-calibrated_sources = resampled_sources.calibrate_photometry()
-
-
+# Tile
 # =========================================================================== #
 # Coadd pawprints
-# =========================================================================== #
-# Write external headers for flux scale
-calibrated_sources.write_coadd_headers()
+tile = pawprints.coadd_pawprints()
 
-# Run coadd
-coadd = resampled.coadd_pawprints()
-coadd.set_image_quality()
+# Build PSF
+tile.build_master_psf()
 
+# Source extraction
+tile_sources = tile.sextractor(preset="full")
 
-# =========================================================================== #
-# Run sextractor on coadd
-# =========================================================================== #
-coadd_sources = coadd.sextractor(preset="full")
-# coadd_sources.build_aperture_correction()
-coadd_sources.calibrate_photometry()
+# QC astrometry
+tile_sources.plot_qc_astrometry()
 
-
-exit()
-
-# =========================================================================== #
-# QC astrometry on coadd
-# =========================================================================== #
-coadd_sources.plot_qc_astrometry()
-
-
-# =========================================================================== #
-# Check photometry
-# =========================================================================== #
-coadd_sources.plot_qc_photometry(mode="tile")
+# Calibrate photometry
+tile_sources.calibrate_photometry()
 
 
 # =========================================================================== #
