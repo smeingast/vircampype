@@ -932,8 +932,7 @@ class SextractorCatalogs(SourceCatalogs):
     def _zpstd_avg_comment(self):
         return "Sigma ZP across apertures"
 
-    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE",
-                           key_ra=None, key_dec=None, nbins=3):
+    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE", key_ra=None, key_dec=None):
 
         # Import
         import matplotlib.pyplot as plt
@@ -994,9 +993,19 @@ class SextractorCatalogs(SourceCatalogs):
                 keep = sep.arcsec < 0.5
                 sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
 
+                # Determine number of bins (with given radius at least 10 sources)
+                stacked = np.stack([x_hdu, y_hdu]).T
+                dis, _ = NearestNeighbors(n_neighbors=51, algorithm="auto").fit(stacked).kneighbors(stacked)
+                maxdis = np.percentile(dis[:, -1], 95)
+                n_bins_x, n_bins_y = int(header["NAXIS1"] / maxdis), int(header["NAXIS2"] / maxdis)
+
+                # Minimum number of 3 bins
+                n_bins_x = 3 if n_bins_x <= 3 else n_bins_x
+                n_bins_y = 3 if n_bins_y <= 3 else n_bins_y
+
                 # Grid value into image
                 grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, x_min=0, x_max=header["NAXIS1"], y_min=0,
-                                     y_max=header["NAXIS2"], nx=nbins, ny=nbins, conv=False, upscale=False)
+                                     y_max=header["NAXIS2"], nx=n_bins_x, ny=n_bins_y, conv=False, upscale=False)
 
                 # Append separations in arcsec
                 sep_all.append(sep.arcsec)
