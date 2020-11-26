@@ -1304,32 +1304,24 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 skycoord_hdu = skycoord_from_tab(tab=tab_hdu, key_ra=key_ra, key_dec=key_dec)
 
                 # Extract aperture corrections
-                apcs = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-                                 for apc in apcs_file])
+                mag_aper_cor = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+                                         for apc in apcs_file])
 
                 # Extract magnitudes and errors
-                mags, errs = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
+                mag_aper, magerr_aper = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
 
                 # Get subset of good sources for ZP
                 good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True)
 
                 # Get ZP for each aperture
-                zp = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
-                                    mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord, mag_ref=master_mag,
-                                    mag_err_ref=master_magerr, method="weighted")
-                      for m, apc, e in zip(mags[:, good], apcs[:, good], errs[:, good])]
+                zp_aper = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
+                                         mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
+                                         mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
+                           for m, apc, e in zip(mag_aper[:, good], mag_aper_cor[:, good], magerr_aper[:, good])]
 
-                # Unpack results
-                zp, zperr = list(zip(*zp))
-                zp, zperr = np.array(zp), np.array(zperr)
-
-                # Compute final magnitudes
-                mag_cal = mags.T + apcs.T + zp
-
-                # Make new columns
-                col_mag = Column(name=self._colname_mag_cal, data=mag_cal, **kwargs_column_mag)
-                col_err = Column(name=self._colname_mag_err, data=errs.T, **kwargs_column_mag)
-                col_apc = Column(name=self._colname_mag_apc, data=apcs.T, **kwargs_column_mag)
+                # Unpack results and convert to arrays
+                zp_aper, zperr_aper = list(zip(*zp_aper))
+                zp_aper, zperr_aper = np.array(zp_aper), np.array(zperr_aper)
 
                 # Get ZP for MAG_AUTO
                 zp_auto, zperr_auto = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_AUTO"][good],
@@ -1337,27 +1329,38 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                                     mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
                                                     mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
 
-                # Make new column
-                col_mag_auto = Column(name="MAG_AUTO_CAL", data=tab_hdu["MAG_AUTO"] + zp_auto, **kwargs_column_mag)
-
                 # ZP for MAG_PSF
                 zp_psf, zperr_psf = get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=tab_hdu["MAG_PSF"][good],
                                                   mag_err_cal=tab_hdu["MAGERR_PSF"][good],
                                                   mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
                                                   mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
 
-                # Make new column
-                col_mag_psf = Column(name="MAG_PSF_CAL", data=tab_hdu["MAG_PSF"] + zp_psf, **kwargs_column_mag)
+                # Add ZPs and aperture corrections
+                mag_aper_cal = mag_aper.T + mag_aper_cor.T + zp_aper
+                mag_auto_cal = tab_hdu["MAG_AUTO"] + zp_auto
+                mag_psf_cal = tab_hdu["MAG_PSF"] + zp_psf
+
+                # Mask bad photometry
+                bad_aper = (mag_aper_cal > 50) | (magerr_aper > 50)
+                mag_aper_cal[bad_aper], magerr_aper[bad_aper], mag_aper_cor[bad_aper] = np.nan, np.nan, np.nan
+                mag_auto_cal[mag_auto_cal > 50], mag_psf_cal[mag_psf_cal > 50] = np.nan, np.nan
+
+                # Make new columns
+                col_mag = Column(name=self._colname_mag_cal, data=mag_aper_cal, **kwargs_column_mag)
+                col_err = Column(name=self._colname_mag_err, data=magerr_aper.T, **kwargs_column_mag)
+                col_apc = Column(name=self._colname_mag_apc, data=mag_aper_cor.T, **kwargs_column_mag)
+                col_mag_auto = Column(name="MAG_AUTO_CAL", data=mag_auto_cal, **kwargs_column_mag)
+                col_mag_psf = Column(name="MAG_PSF_CAL", data=mag_psf_cal, **kwargs_column_mag)
 
                 # Append to table
                 tab_hdu.add_columns(cols=[col_mag, col_err, col_apc, col_mag_auto, col_mag_psf])
 
                 # Save data
                 tab_out.append(tab_hdu)
-                zp_out.append(zp)
-                zperr_out.append(zperr)
+                zp_out.append(zp_aper)
+                zperr_out.append(zperr_aper)
 
-            # Constructe new output file
+            # Construct new output file
             with fits.open(self.full_paths[idx_file]) as cat:
 
                 # Loop over table extensions
