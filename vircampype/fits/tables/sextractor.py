@@ -1567,6 +1567,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Grab current catalog
                 tab_hdu = tab_file[idx_hdu]
 
+                # Clean table
+                tab_hdu = clean_source_table(table=tab_hdu)
+
                 # Construct skycoordinates
                 sc_hdu = SkyCoord(ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg")
 
