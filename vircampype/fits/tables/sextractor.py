@@ -799,7 +799,7 @@ class SextractorCatalogs(SourceCatalogs):
                 header = files.image_headers[0][idx_hdr]
 
                 # Clean table
-                tab = clean_source_table(table=tab, image_header=header)
+                tab = clean_source_table(table=tab, image_header=header, flux_max=header["SEXSATLV"] / 2)
 
                 # Get ZP for each single star
                 zp = get_zeropoint_radec(ra_cal=tab[self._key_ra], dec_cal=tab[self._key_dec],
@@ -1311,7 +1311,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 mag_aper, magerr_aper = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
 
                 # Get subset of good sources for ZP
-                good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True)
+                good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True,
+                                          flux_max=hdr["SEXSATLV"] / 2)
 
                 # Get ZP for each aperture
                 zp_aper = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
