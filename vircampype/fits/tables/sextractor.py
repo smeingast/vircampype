@@ -1305,10 +1305,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Extract aperture corrections
                 mag_aper_cor = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-                                         for apc in apcs_file])
+                                         for apc in apcs_file]).T
 
                 # Extract magnitudes and errors
-                mag_aper, magerr_aper = tab_hdu["MAG_APER"].T, tab_hdu["MAGERR_APER"].T
+                mag_aper, magerr_aper = tab_hdu["MAG_APER"], tab_hdu["MAGERR_APER"]
 
                 # Get subset of good sources for ZP
                 good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True,
@@ -1318,7 +1318,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 zp_aper = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
                                          mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
                                          mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
-                           for m, apc, e in zip(mag_aper[:, good], mag_aper_cor[:, good], magerr_aper[:, good])]
+                           for m, apc, e in zip(mag_aper[good, :].T, mag_aper_cor[good, :].T, magerr_aper[good, :].T)]
 
                 # Unpack results and convert to arrays
                 zp_aper, zperr_aper = list(zip(*zp_aper))
@@ -1337,7 +1337,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                                   mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
 
                 # Add ZPs and aperture corrections
-                mag_aper_cal = mag_aper.T + mag_aper_cor.T + zp_aper
+                mag_aper_cal = mag_aper + mag_aper_cor + zp_aper
                 mag_auto_cal = tab_hdu["MAG_AUTO"] + zp_auto
                 mag_psf_cal = tab_hdu["MAG_PSF"] + zp_psf
 
@@ -1348,8 +1348,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Make new columns
                 col_mag = Column(name=self._colname_mag_cal, data=mag_aper_cal, **kwargs_column_mag)
-                col_err = Column(name=self._colname_mag_err, data=magerr_aper.T, **kwargs_column_mag)
-                col_apc = Column(name=self._colname_mag_apc, data=mag_aper_cor.T, **kwargs_column_mag)
+                col_err = Column(name=self._colname_mag_err, data=magerr_aper, **kwargs_column_mag)
+                col_apc = Column(name=self._colname_mag_apc, data=mag_aper_cor, **kwargs_column_mag)
                 col_mag_auto = Column(name="MAG_AUTO_CAL", data=mag_auto_cal, **kwargs_column_mag)
                 col_mag_psf = Column(name="MAG_PSF_CAL", data=mag_psf_cal, **kwargs_column_mag)
 
@@ -1752,137 +1752,3 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             #     warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
             #     fig.savefig(outpaths_2d[-1], bbox_inches="tight")
             # plt.close("all")
-
-    # =========================================================================== #
-    # ESO
-    # =========================================================================== #
-    def make_phase3_pawprints(self, swarped):
-
-        # Import util
-        from vircampype.utils.eso import make_phase3_pawprints
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="PHASE 3 PAWPRINTS", right=None,
-                                           silent=self.setup["misc"]["silent"])
-
-        # Find keywords that are only in some headers
-        tl_ra, tl_dec, tl_ofa = None, None, None
-        for idx_file in range(len(self)):
-
-            # Get header
-            hdr = fits.getheader(filename=swarped.full_paths[idx_file], ext=0)
-
-            # Try to read the keywords
-            try:
-                tl_ra = hdr["ESO OCS SADT TILE RA"]
-                tl_dec = hdr["ESO OCS SADT TILE DEC"]
-                tl_ofa = hdr["ESO OCS SADT TILE OFFANGLE"]
-                break
-            except KeyError:
-                continue
-
-        if (tl_ra is None) | (tl_dec is None) | (tl_ofa is None):
-            raise ValueError("Could not determine all silly ESO keywords...")
-
-        # Put in dict
-        shitty_kw = {"tl_ra": tl_ra, "tl_dec": tl_dec, "tl_ofa": tl_ofa}
-
-        # Loop over files
-        outpaths = []
-        for idx_file in range(len(self)):
-
-            # Generate output path
-            outpaths.append("{0}{1}_{2:>02d}.fits".format(self.path_phase3, self.name, idx_file + 1))
-
-            # Add final name to shitty kw to safe
-            shitty_kw["filename_phase3"] = os.path.basename(outpaths[-1])
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[-1], silent=self.setup["misc"]["silent"]) or \
-                    check_file_exists(file_path=outpaths[-1].replace(".fits", ".fits.fz"),
-                                      silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Status message
-            message_calibration(n_current=idx_file + 1, n_total=len(self), name=outpaths[-1])
-
-            # Get paths
-            path_pawprint_img = outpaths[-1]
-            path_pawprint_cat = outpaths[-1].replace(".fits", ".cat.fits")
-            path_pawprint_wei = outpaths[-1].replace(".fits", ".weight.fits")
-
-            # Convert pawprint catalog and image
-            make_phase3_pawprints(path_swarped=swarped.full_paths[idx_file], path_sextractor=self.full_paths[idx_file],
-                                  additional=shitty_kw, outpaths=(path_pawprint_img, path_pawprint_cat),
-                                  compressed=self.setup["compression"]["compress_phase3"])
-
-            # There also has to be a weight map
-            with fits.open(swarped.full_paths[idx_file].replace(".fits", ".weight.fits")) as weight:
-
-                # Make empty primary header
-                prhdr = fits.Header()
-
-                # Fill primary header only with some keywords
-                for key, value in weight[0].header.items():
-                    if not key.startswith("ESO "):
-                        prhdr[key] = value
-
-                # Add PRODCATG before RA key
-                prhdr.insert(key="RA", card=("PRODCATG", "ANCILLARY.WEIGHTMAP"))
-
-                # Overwrite primary header
-                weight[0].header = prhdr
-
-                # Add EXTNAME
-                for eidx in range(1, len(weight)):
-                    weight[eidx].header.insert(key="EQUINOX", card=("EXTNAME", "DET1.CHIP{0}".format(eidx)))
-
-                # Save
-                weight.writeto(path_pawprint_wei, overwrite=True, checksum=True)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return images
-        from vircampype.fits.images.common import FitsImages
-        return FitsImages(setup=self.setup, file_paths=outpaths)
-
-    def make_phase3_tile(self, swarped, prov_images):
-
-        # Import util
-        from vircampype.utils.eso import make_phase3_tile
-
-        # There can be only one file in the current instance
-        if len(self) != len(swarped) != 1:
-            raise ValueError("Only one tile allowed")
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="PHASE 3 TILE", right=None,
-                                           silent=self.setup["misc"]["silent"])
-
-        # Generate outpath
-        path_tile = "{0}{1}_tl.fits".format(self.path_phase3, self.name)
-        path_weig = path_tile.replace(".fits", ".weight.fits")
-
-        # Check if the file is already there and skip if it is
-        if check_file_exists(file_path=path_tile, silent=self.setup["misc"]["silent"]) or \
-                check_file_exists(file_path=path_tile.replace(".fits", ".fits.fz"),
-                                  silent=self.setup["misc"]["silent"]):
-            return
-
-        # Convert to phase 3 compliant format
-        make_phase3_tile(path_swarped=swarped.full_paths[0], path_sextractor=self.full_paths[0],
-                         paths_prov=prov_images.full_paths, outpath=path_tile,
-                         compressed=self.setup["compression"]["compress_phase3"])
-
-        # There also has to be a weight map
-        with fits.open(swarped.full_paths[0].replace(".fits", ".weight.fits")) as weight:
-
-            # Add PRODCATG
-            weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
-
-            # Save
-            weight.writeto(path_weig, overwrite=False, checksum=True)
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
