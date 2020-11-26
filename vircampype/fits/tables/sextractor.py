@@ -376,13 +376,23 @@ class SextractorCatalogs(SourceCatalogs):
         # Determine number of PSF snapshots (about every 300 pixels one snapshot)
         n_snap = int(np.mean(self.imageheaders_get_keys(keywords=["NAXIS1", "NAXIS2"])) // 300)
 
+        # Set degree of PSF variability
+        if n_snap > 15:
+            psfvar_degrees = 3
+        elif n_snap > 25:
+            psfvar_degrees = 4
+        elif n_snap > 35:
+            psfvar_degrees = 5
+        else:
+            psfvar_degrees = 2
+
         # Load preset
-        options = yml2config(nthreads=1,
+        options = yml2config(nthreads=1, psfvar_degrees=psfvar_degrees, psfvar_nsnap=n_snap,
                              checkplot_type=self._psfex_checkplot_types(joined=True),
                              checkplot_name=self._psfex_checkplot_names(joined=True),
                              checkimage_type=self._psfex_checkimage_types(joined=True),
                              checkimage_name=self._psfex_checkimage_names(joined=True),
-                             psf_dir=self.path_master_object, skip=["homokernel_dir"], psfvar_nsnap=n_snap,
+                             psf_dir=self.path_master_object, skip=["homokernel_dir"],
                              path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml"))
 
         # Construct commands
