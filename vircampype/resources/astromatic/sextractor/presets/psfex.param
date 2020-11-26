@@ -1,9 +1,9 @@
-XWIN_IMAGE
-YWIN_IMAGE
-VIGNET(25,25)
-FLUX_RADIUS
-FLUX_APER
-FLUXERR_APER
-ELONGATION
-FLAGS
-SNR_WIN
+XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
+YWIN_IMAGE              # Windowed covariance between x and y                       [pixel**2]
+VIGNET(25,25)            # Pixel data around detection                               [count]
+FLUX_RADIUS              # Fraction-of-light radii                                   [pixel]
+FLUX_APER                # Flux vector within fixed circular aperture(s)             [count]
+FLUXERR_APER             # RMS error vector for aperture flux(es)                    [count]
+ELONGATION               # A_IMAGE/B_IMAGE                                          
+FLAGS                    # Extraction flags                                         
+SNR_WIN                  # Gaussian-weighted SNR                                    
