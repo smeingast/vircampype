@@ -392,8 +392,21 @@ class SextractorCatalogs(SourceCatalogs):
         # Clean commands
         cmds = [c for c, d in zip(cmds, done) if not d]
 
+        # Set number of parallel jobs
+        n_jobs_psfex = 1
+        n_jobs_shell = self.setup["misc"]["n_jobs"]
+
+        # If there are less files than parallel jobs, optimize psfex jobs
+        if (len(cmds) > 0) & (len(cmds) < self.setup["misc"]["n_jobs"]):
+            n_jobs_shell = len(cmds)
+            while n_jobs_psfex * n_jobs_shell < self.setup["misc"]["n_jobs"]:
+                n_jobs_psfex += 1
+
+            # Adapt commands
+            cmds = [c.replace("NTHREADS 1", "NTHREADS {0}".format(n_jobs_psfex)) for c in cmds]
+
         # Run PSFEX
-        run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
+        run_cmds(cmds=cmds, silent=True, n_processes=n_jobs_shell)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
