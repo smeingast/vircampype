@@ -7,7 +7,7 @@ from itertools import zip_longest
 
 
 # Define objects in this module
-__all__ = ["run_cmds", "run_command_bash", "module_exists", "which"]
+__all__ = ["run_cmds", "run_command_bash", "module_exists", "which", "read_setup"]
 
 
 def run_cmds(cmds, n_processes=1, silent=True):
