@@ -5,7 +5,10 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils import *
+from vircampype.utils.wcs import *
+from vircampype.utils.plots import *
+from vircampype.utils.system import *
+from vircampype.utils.miscellaneous import *
 from vircampype.fits.images.sky import SkyImages
 
 
