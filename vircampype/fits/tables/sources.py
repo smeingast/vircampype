@@ -1,6 +1,6 @@
 # =========================================================================== #
 # Import
-from vircampype.utils import *
+from vircampype.utils.miscellaneous import str2list
 from vircampype.fits.tables.common import FitsTables
 
 
