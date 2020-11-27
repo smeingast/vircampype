@@ -1,7 +1,9 @@
 # =========================================================================== #
 import os
+import sys
 import yaml
 import shutil
+import importlib
 import subprocess
 
 from pkgutil import iter_modules
@@ -182,3 +184,28 @@ def yml2config(path, skip=None, **kwargs):
             s += "-{0} {1} ".format(key.upper(), val)
 
     return s
+
+
+def get_resource_path(package, resource):
+    """
+    Returns the path to an included resource.
+
+    Parameters
+    ----------
+    package : str
+        package name (e.g. vircampype.resources.sextractor).
+    resource : str
+        Name of the resource (e.g. default.conv)
+
+    Returns
+    -------
+    str
+        Path to resource.
+
+    """
+
+    # Import package
+    importlib.import_module(name=package)
+
+    # Return path to resource
+    return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)

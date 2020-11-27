@@ -2,11 +2,9 @@
 # Import
 import re
 import os
-import sys
 import glob
 import time
 import shutil
-import importlib
 import numpy as np
 
 from astropy.io import fits
@@ -14,11 +12,10 @@ from vircampype.utils.system import *
 from astropy.stats import sigma_clipped_stats
 
 # Define objects in this module
-__all__ = ["message_mastercalibration", "message_finished", "message_calibration",
-           "make_cards", "make_card", "str2func", "get_resource_path", "check_file_exists", "check_card_value",
-           "function_to_string", "flat_list", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry",
-           "list2str", "sort_vircam_science", "sort_vircam_calibration"]
+__all__ = ["message_mastercalibration", "message_finished", "message_calibration", "make_cards", "make_card",
+           "str2func", "check_file_exists", "check_card_value", "function_to_string", "flat_list", "prune_list",
+           "str2list", "skycoo2visionsid", "split_epoch", "BColors", "print_colors_bash", "print_done",
+           "message_qc_astrometry", "list2str", "sort_vircam_science", "sort_vircam_calibration"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
@@ -413,31 +410,6 @@ def prune_list(ll, n_min):
         ll.pop(idx)
 
     return ll
-
-
-def get_resource_path(package, resource):
-    """
-    Returns the path to an included resource.
-
-    Parameters
-    ----------
-    package : str
-        package name (e.g. vircampype.resources.sextractor).
-    resource : str
-        Name of the resource (e.g. default.conv)
-
-    Returns
-    -------
-    str
-        Path to resource.
-
-    """
-
-    # Import package
-    importlib.import_module(name=package)
-
-    # Return path to resource
-    return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
 
 
 def str2list(s, sep=",", dtype=float):
