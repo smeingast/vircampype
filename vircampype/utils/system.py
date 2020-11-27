@@ -1,5 +1,7 @@
 # =========================================================================== #
+import yaml
 import subprocess
+
 from pkgutil import iter_modules
 from itertools import zip_longest
 
@@ -104,3 +106,13 @@ def which(program):
 
     # If we don't find anything, we return None
     return None
+
+
+def read_setup(path_yaml: str):
+
+    # Read YAML
+    with open(path_yaml, "r") as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)

@@ -404,16 +404,6 @@ def str2func(s):
         raise ValueError("Metric '{0}' not suppoerted".format(s))
 
 
-def read_setup(path_yaml: str):
-
-    # Read YAML
-    with open(path_yaml, "r") as stream:
-        try:
-            return yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-
 def prune_list(ll, n_min):
     """
     Removes all FitsList entries which contain fewer items than 'n_min'.
