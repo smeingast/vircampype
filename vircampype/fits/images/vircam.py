@@ -6,11 +6,12 @@ import shutil
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils import *
+from vircampype.utils.system import *
+from vircampype.utils.fitstools import *
+from vircampype.utils.miscellaneous import *
 from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.dark import DarkImages
 from vircampype.fits.images.flat import FlatImages
-from vircampype.utils.fitstools import write_header
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.sky import OffsetImages, ScienceImages
 
