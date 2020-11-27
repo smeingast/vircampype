@@ -430,8 +430,3 @@ extension_keywords_noboby_needs = ["ESO DET CHIP ID",
                                    "PV2_3",
                                    "PV2_4",
                                    "PV2_5"]
-
-# from astropy.io import fits
-# hdr = fits.getheader("/Users/stefan/Dropbox/Data/VISIONS/test/Ophiuchus_control_H/VCAM.2017-04-26T03:48:06.897.fits", 1)
-# kws = [k for k in hdr.keys()]
-# print(kws)
