@@ -4,9 +4,10 @@ import warnings
 import numpy as np
 
 from typing import List
-from vircampype.utils import *
+from vircampype.utils.math import *
+from vircampype.utils.plots import *
+from vircampype.utils.miscellaneous import *
 from vircampype.fits.tables.common import MasterTables
-from vircampype.utils.miscellaneous import check_file_exists
 
 
 class MasterLinearity(MasterTables):
