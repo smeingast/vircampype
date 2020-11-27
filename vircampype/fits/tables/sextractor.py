@@ -7,18 +7,25 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.time import Time
-from vircampype.utils import *
 from vircampype.setup import *
+from vircampype.utils.wcs import *
+from vircampype.utils.math import *
 from astropy.wcs import wcs as awcs
+from vircampype.utils.plots import *
 from vircampype.utils.tables import *
+from vircampype.utils.vizier import *
+from vircampype.utils.fitstools import *
 from astropy.table import Column, vstack
 from astropy.coordinates import SkyCoord
+from vircampype.utils.photometry import *
+from vircampype.utils.astromatic import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
+from vircampype.utils.miscellaneous import *
 from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
 from astropy.stats import sigma_clip as astropy_sigma_clip
-from vircampype.utils.fitstools import add_float_to_header, write_header
+from vircampype.utils.system import run_cmds, run_command_bash, which
 
 
 class SextractorCatalogs(SourceCatalogs):
