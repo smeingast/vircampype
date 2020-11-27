@@ -4,8 +4,12 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils import *
+from vircampype.utils.wcs import *
+from vircampype.utils.math import *
+from vircampype.utils.plots import *
+from vircampype.utils.system import *
 from vircampype.data.cube import ImageCube
+from vircampype.utils.miscellaneous import *
 from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
