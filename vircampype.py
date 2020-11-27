@@ -5,7 +5,8 @@ import sys
 import argparse
 
 from vircampype.fits.images.vircam import VircamImages
-from vircampype.utils import make_phase3_pawprints, make_phase3_tile, print_done
+from vircampype.utils.miscellaneous import print_done
+from vircampype.utils.eso import make_phase3_pawprints, make_phase3_tile
 
 
 # =========================================================================== #
