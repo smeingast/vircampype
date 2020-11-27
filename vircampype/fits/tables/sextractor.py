@@ -14,6 +14,7 @@ from astropy.wcs import wcs as awcs
 from vircampype.utils.plots import *
 from vircampype.utils.tables import *
 from vircampype.utils.vizier import *
+from vircampype.utils.system import *
 from vircampype.utils.fitstools import *
 from astropy.table import Column, vstack
 from astropy.coordinates import SkyCoord
