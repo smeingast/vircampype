@@ -6,8 +6,9 @@ import scipy.ndimage.measurements
 
 from astropy.io import fits
 from itertools import repeat
-from vircampype.utils import *
+from vircampype.utils.math import *
 from joblib import Parallel, delayed
+from vircampype.utils.system import *
 from astropy.convolution import Gaussian2DKernel
 
 
