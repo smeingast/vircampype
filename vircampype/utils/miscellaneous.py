@@ -16,7 +16,7 @@ from astropy.stats import sigma_clipped_stats
 
 # Define objects in this module
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
-           "make_cards", "make_card", "str2func", "which", "get_resource_path", "check_file_exists", "check_card_value",
+           "make_cards", "make_card", "str2func", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
            "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry", "copy_file",
            "list2str", "sort_vircam_science", "sort_vircam_calibration"]
@@ -440,49 +440,6 @@ def prune_list(ll, n_min):
         ll.pop(idx)
 
     return ll
-
-
-def which(program):
-    """
-    Returns the path for an arbitrary executable shell program defined in the PAHT environment variable.
-
-    Parameters
-    ----------
-    program : str
-        Shell binary name
-
-    Returns
-    -------
-
-    """
-    import os
-
-    # Check if path contains file and is executable
-    def is_exe(f_path):
-        return os.path.isfile(f_path) and os.access(f_path, os.X_OK)
-
-    # Get path and name
-    fpath, fname = os.path.split(program)
-
-    if fpath:
-        # If a path is given, and the file is executable, we just return the path
-        if is_exe(program):
-            return program
-
-    # If no path is given (as usual) we loop through $PATH
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-
-            # Create executable names at current path
-            exe_file = os.path.join(path, program)
-
-            # Test is we have a match and return if so
-            if is_exe(exe_file):
-                return exe_file
-
-    # If we don't find anything, we return None
-    return None
 
 
 def get_resource_path(package, resource):
