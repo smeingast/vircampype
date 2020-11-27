@@ -10,8 +10,12 @@ from typing import Dict
 from astropy.io import fits
 from joblib import cpu_count
 from astropy.time import Time
-from vircampype.utils import *
 from vircampype.setup import *
+from vircampype.utils.wcs import *
+from vircampype.utils.system import *
+from vircampype.utils.fitstools import *
+from vircampype.utils.exceptions import *
+from vircampype.utils.miscellaneous import *
 from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
 
 
