@@ -5,7 +5,6 @@ import os
 import sys
 import glob
 import time
-import yaml
 import shutil
 import importlib
 import numpy as np
@@ -17,7 +16,7 @@ from astropy.stats import sigma_clipped_stats
 # Define objects in this module
 __all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "get_resource_path", "check_file_exists", "check_card_value",
-           "function_to_string", "flat_list", "read_setup", "prune_list", "str2list", "skycoo2visionsid",
+           "function_to_string", "flat_list", "prune_list", "str2list", "skycoo2visionsid",
            "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry", "copy_file",
            "list2str", "sort_vircam_science", "sort_vircam_calibration"]
 
