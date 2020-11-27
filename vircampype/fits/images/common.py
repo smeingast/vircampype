@@ -5,9 +5,11 @@ import glob
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils import *
 from astropy import wcs as awcs
+from vircampype.utils.system import *
+from vircampype.utils.fitstools import *
 from vircampype.data.cube import ImageCube
+from vircampype.utils.miscellaneous import *
 from vircampype.fits.common import FitsFiles
 from astropy.wcs.utils import proj_plane_pixel_scales
 from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
