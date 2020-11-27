@@ -1,5 +1,7 @@
 # =========================================================================== #
+import os
 import yaml
+import shutil
 import subprocess
 
 from pkgutil import iter_modules
@@ -7,7 +9,8 @@ from itertools import zip_longest
 
 
 # Define objects in this module
-__all__ = ["run_cmds", "run_command_bash", "module_exists", "which", "read_setup"]
+__all__ = ["run_cmds", "run_command_bash", "module_exists", "which", "read_setup", "remove_file", "copy_file",
+           "make_folder"]
 
 
 def run_cmds(cmds, n_processes=1, silent=True):
@@ -116,3 +119,19 @@ def read_setup(path_yaml: str):
             return yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
+
+
+def remove_file(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def copy_file(a, b):
+    shutil.copy2(a, b)
+
+
+def make_folder(path):
+    if not os.path.exists(path):
+        os.makedirs(path)

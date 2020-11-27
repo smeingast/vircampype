@@ -10,14 +10,14 @@ import importlib
 import numpy as np
 
 from astropy.io import fits
+from vircampype.utils.system import *
 from astropy.stats import sigma_clipped_stats
 
-
 # Define objects in this module
-__all__ = ["remove_file", "make_folder", "message_mastercalibration", "message_finished", "message_calibration",
+__all__ = ["message_mastercalibration", "message_finished", "message_calibration",
            "make_cards", "make_card", "str2func", "get_resource_path", "check_file_exists", "check_card_value",
            "function_to_string", "flat_list", "prune_list", "str2list", "skycoo2visionsid",
-           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry", "copy_file",
+           "split_epoch", "BColors", "print_colors_bash", "print_done", "message_qc_astrometry",
            "list2str", "sort_vircam_science", "sort_vircam_calibration"]
 
 
@@ -105,22 +105,6 @@ def split_epoch(path_directory, extension=".fits"):
 
     [shutil.move(f, path_dir_a) for f in files[:idx_split]]
     [shutil.move(f, path_dir_b) for f in files[idx_split:]]
-
-
-def remove_file(path):
-    try:
-        os.remove(path)
-    except OSError:
-        pass
-
-
-def copy_file(a, b):
-    shutil.copy2(a, b)
-
-
-def make_folder(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 
 def message_mastercalibration(master_type, silent=True, left="File", right="Extension"):
