@@ -505,6 +505,10 @@ class SextractorCatalogs(SourceCatalogs):
                 ohdr = awcs.WCS(ohdr).to_header()
                 ohdr["NAXIS1"], ohdr["NAXIS2"], ohdr["NAXIS"] = naxis1, naxis2, 2
 
+                # Remove DATE-OBS and MJD-OBS (would lead to annoying warnings when reading files)
+                for kw in ["DATE-OBS", "MJD-OBS"]:
+                    ohdr = delete_keyword(header=ohdr, keyword=kw)
+
                 # Determine output size
                 output_size = (ohdr["NAXIS1"], ohdr["NAXIS2"])
 
