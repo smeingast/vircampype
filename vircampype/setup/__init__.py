@@ -7,12 +7,13 @@ __all__ = ["kwargs_column_mag", "kwargs_column_coo", "kwargs_column_flags",
 # =========================================================================== #
 # Table format
 # =========================================================================== #
-kwargs_column_mag = dict(format="8.4f", unit=Unit("mag"))
-kwargs_column_coo = {"format": "1D", "disp": "F11.7", "unit": Unit("deg")}
-kwargs_column_flags = {"format": "1I", "disp": "I3"}
-kwargs_column_el = {"format": "1E", "disp": "F8.3"}
-kwargs_column_fwhm = {"format": "1E", "disp": "F7.4", "unit": Unit("arcsec")}
-kwargs_column_class = {"format": "1E", "disp": "F6.3"}
+kwargs_column_mag = dict(disp="F8.4", unit="mag")
+kwargs_column_coo = dict(format="1D", disp="F11.7", unit="deg")
+kwargs_column_flags = dict(format="1I", disp="I3")
+kwargs_column_el = dict(format="1E", disp="F8.3")
+kwargs_column_fwhm = dict(format="1E", disp="F7.4", unit="deg")
+kwargs_column_class = dict(format="1E", disp="F6.3")
+
 
 # =========================================================================== #
 # Useless keywords that are removed during reading of headers
