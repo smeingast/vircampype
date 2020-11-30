@@ -506,7 +506,7 @@ class SextractorCatalogs(SourceCatalogs):
                 ohdr["NAXIS1"], ohdr["NAXIS2"], ohdr["NAXIS"] = naxis1, naxis2, 2
 
                 # Remove DATE-OBS and MJD-OBS (would lead to annoying warnings when reading files)
-                for kw in ["DATE-OBS", "MJD-OBS"]:
+                for kw in ["DATE-OBS", "MJD-OBS", "MJDREF"]:
                     ohdr = delete_keyword(header=ohdr, keyword=kw)
 
                 # Determine output size
