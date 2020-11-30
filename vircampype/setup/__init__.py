@@ -1,5 +1,3 @@
-from astropy.units import Unit
-
 __all__ = ["kwargs_column_mag", "kwargs_column_coo", "kwargs_column_flags",
            "kwargs_column_el", "kwargs_column_fwhm", "kwargs_column_class",
            "prime_keywords_noboby_needs", "extension_keywords_noboby_needs"]
