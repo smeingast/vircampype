@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy.stats import sigma_clipped_stats, sigma_clip
 
 # Define objects in this module
-__all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec", "vega2ab"]
+__all__ = ["get_aperture_correction", "get_zeropoint", "get_zeropoint_radec", "vega2ab", "saturation_limit"]
 
 
 def get_aperture_correction(diameters, magnitudes, func="Moffat"):
@@ -203,3 +203,14 @@ def vega2ab(mag, passband):
         raise ValueError("Filter {0} not supported".format(passband))
 
     return mag + cor
+
+
+def saturation_limit(passband):
+    if passband.lower() == "j":
+        return 11.5
+    elif passband.lower() == "h":
+        return 11.0
+    elif passband.lower() == "ks":
+        return 11.0
+    else:
+        raise ValueError("Filter {0} not supported".format(passband))
