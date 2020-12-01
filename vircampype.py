@@ -74,19 +74,19 @@ pawprints = superflatted.resample_pawprints()
 pawprints.build_master_psf()
 
 # Source extraction
-pawprints_sources = pawprints.sextractor(preset="full")
+pawprints_catalogs = pawprints.sextractor(preset="full")
 
 # QC astrometry
-pawprints_sources.plot_qc_astrometry()
+pawprints_catalogs.plot_qc_astrometry()
 
 # Aperture matching
-pawprints_sources.aperture_matching().coadd()
+pawprints_catalogs.aperture_matching().coadd()
 
 # Calibrate photometry
-pawprints_sources = pawprints_sources.calibrate_photometry()
+pawprints_catalogs = pawprints_catalogs.calibrate_photometry()
 
 # Write external headers for coadd flux scale
-pawprints_sources.write_coadd_headers()
+pawprints_catalogs.write_coadd_headers()
 
 
 # =========================================================================== #
@@ -99,29 +99,20 @@ tile = pawprints.coadd_pawprints()
 tile.build_master_psf()
 
 # Source extraction
-tile_sources = tile.sextractor(preset="full")
+tile_catalog = tile.sextractor(preset="full")
 
 # QC astrometry
-tile_sources.plot_qc_astrometry()
+tile_catalog.plot_qc_astrometry()
 
 # Calibrate photometry
-tile_sources.calibrate_photometry()
+tile_catalog.calibrate_photometry()
 
 
 # =========================================================================== #
-# Generate ESO phase 3 compliant catalogs for pawprints
+# PHASE 3
 # =========================================================================== #
-phase3_pp = swarped_sources.make_phase3_pawprints(swarped=swarped)
-
-
-# =========================================================================== #
-# Make phase 3 catalog
-coadd_sources.make_phase3_tile(swarped=coadd, prov_images=phase3_pp)
-
-
-# =========================================================================== #
-# Compress phase 3 files
-images.compress_phase3()
+make_phase3_pawprints(pawprint_images=pawprints, pawprint_catalogs=pawprints_catalogs)
+make_phase3_tile(tile_image=tile, tile_catalog=tile_catalog, pawprint_images=pawprints)
 
 
 # =========================================================================== #
