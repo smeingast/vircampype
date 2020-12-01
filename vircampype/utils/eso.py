@@ -28,12 +28,11 @@ def make_phase3_pawprints(pawprint_images, pawprint_catalogs):
 
     """
 
-    # Processing info
-    tstart = message_mastercalibration(master_type="PHASE 3 PAWPRINTS", right=None,
-                                       silent=pawprint_images.setup["misc"]["silent"])
-
     # Grab setup
     setup = pawprint_images.setup
+
+    # Processing info
+    tstart = message_mastercalibration(master_type="PHASE 3 PAWPRINTS", right=None, silent=setup["misc"]["silent"])
 
     # Dummy check
     if len(pawprint_images) != len(pawprint_catalogs):
