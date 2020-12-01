@@ -19,11 +19,12 @@ def make_phase3_pawprints(pawprint_images, pawprint_catalogs):
     """
     Converts the calibrated source catalogs to a phase 3 compliant standard.
 
-
     Parameters
     ----------
     pawprint_images : VircamScienceImages
+        Input pawprint images.
     pawprint_catalogs : PhotometricCalibratedSextractorCatalogs
+        Input pawprint source catalogs.
 
     """
 
