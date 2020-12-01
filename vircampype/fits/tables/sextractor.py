@@ -929,6 +929,22 @@ class SextractorCatalogs(SourceCatalogs):
         return "ZP error for AUTO aperture"
 
     @property
+    def _zp_psf_key(self):
+        return "HIERARCH PYPE MAGZP PSF"
+
+    @property
+    def _zp_psf_comments(self):
+        return "ZP for PSF mag"
+
+    @property
+    def _zperr_psf_key(self):
+        return "HIERARCH PYPE MAGZPERR PSF"
+
+    @property
+    def _zperr_psf_comment(self):
+        return "ZP error for PSF mag"
+
+    @property
     def _zp_avg_key(self):
         return "HIERARCH PYPE MAGZP AVG"
 
