@@ -110,7 +110,7 @@ class FitsFiles:
         self.path_qc_psf = "{0}{1}/".format(self.path_qc_object, "psf")
 
         # ESO
-        self.path_phase3 = "{0}{1}/{2}/".format(self.path_pype, "phase3", self.name)
+        self.path_phase3 = "{0}{1}/{2}/".format(self.path_object, "phase3", self.name)
 
         # Common paths
         paths_common = [self.path_pype, self.path_headers, self.path_master_common, self.path_object]
