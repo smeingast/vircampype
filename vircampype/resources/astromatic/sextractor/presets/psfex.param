@@ -1,5 +1,5 @@
 XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
-YWIN_IMAGE              # Windowed covariance between x and y                       [pixel**2]
+YWIN_IMAGE               # Windowed position estimate along y                        [pixel]
 VIGNET(25,25)            # Pixel data around detection                               [count]
 FLUX_RADIUS              # Fraction-of-light radii                                   [pixel]
 FLUX_APER                # Flux vector within fixed circular aperture(s)             [count]
