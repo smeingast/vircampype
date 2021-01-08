@@ -7,7 +7,8 @@ from sklearn.neighbors import NearestNeighbors
 __all__ = ["clean_source_table", "skycoord_from_tab"]
 
 
-def clean_source_table(table, image_header=None, return_filter=False, snr_limit=10, nndis_limit=None, flux_max=None):
+def clean_source_table(table, image_header=None, return_filter=False, snr_limit=10, nndis_limit=None, flux_max=None,
+                       max_ellipticity=0.1, min_fwhm=0.5, max_fwhm=8.0):
 
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
@@ -36,7 +37,7 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
         pass
 
     try:
-        good &= table["ELLIPTICITY"] < 0.1
+        good &= table["ELLIPTICITY"] <= max_ellipticity
     except KeyError:
         pass
 
@@ -61,12 +62,12 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
         pass
 
     try:
-        good &= table["FWHM_IMAGE"] > 0.5
+        good &= table["FWHM_IMAGE"] >= min_fwhm
     except KeyError:
         pass
 
     try:
-        good &= table["FWHM_IMAGE"] < 8.0
+        good &= table["FWHM_IMAGE"] <= max_fwhm
     except KeyError:
         pass
 
