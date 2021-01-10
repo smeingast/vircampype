@@ -48,7 +48,7 @@ DGEO_IMAGE:       dgeo.fits      # Filename for input differential geometry imag
 
 #------------------------------ Photometry -----------------------------------
 
-PHOT_APERTURES:   10              # MAG_APER aperture diameter(s) in pixels
+PHOT_APERTURES:   12              # MAG_APER aperture diameter(s) in pixels
 PHOT_AUTOPARAMS:  2.5, 3.5       # MAG_AUTO parameters: <Kron_fact>,<min_radius>
 PHOT_PETROPARAMS: 2.0, 3.5       # MAG_PETRO parameters: <Petrosian_fact>,
                                 # <min_radius>
