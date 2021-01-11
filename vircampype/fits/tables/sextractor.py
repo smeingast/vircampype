@@ -368,7 +368,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Processing info
         tstart = message_mastercalibration(master_type="PSFEX", silent=self.setup["misc"]["silent"],
-                                           left="Running PSFEX on {0} files with {1} threads"
+                                           left="Running PSFEx on {0} files with {1} threads"
                                                 "".format(len(self), self.setup["misc"]["n_jobs"]), right=None)
 
         # Construct output psf paths
