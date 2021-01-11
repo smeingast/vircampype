@@ -381,31 +381,64 @@ class SextractorCatalogs(SourceCatalogs):
         for p in psf_paths:
             check_file_exists(file_path=p, silent=self.setup["misc"]["silent"])
 
-        # Determine number of PSF snapshots (about every 300 pixels one snapshot)
-        n_snap = int(np.mean(self.imageheaders_get_keys(keywords=["NAXIS1", "NAXIS2"])) // 300)
+        # Return if nothing to be done
+        if sum(done) == len(self):
+            message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+            return
 
-        # Set degree of PSF variability
-        if n_snap > 15:
-            psfvar_degrees = 3
-        elif n_snap > 25:
-            psfvar_degrees = 4
-        elif n_snap > 35:
-            psfvar_degrees = 5
-        else:
-            psfvar_degrees = 2
+        # Read PSFEX setup
+        o = read_setup(path_yaml=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml"))
 
-        # Load preset
-        options = yml2config(nthreads=1, psfvar_degrees=psfvar_degrees, psfvar_nsnap=n_snap,
-                             checkplot_type=self._psfex_checkplot_types(joined=True),
-                             checkplot_name=self._psfex_checkplot_names(joined=True),
-                             checkimage_type=self._psfex_checkimage_types(joined=True),
-                             checkimage_name=self._psfex_checkimage_names(joined=True),
-                             psf_dir=self.path_master_object, skip=["homokernel_dir"],
-                             path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml"))
+        # Read source tables and stack all HDUs in a file
+        options = []
+        for i in range(self.n_files):
+
+            # Read tables for current file
+            tables = self.file2table(file_index=i)
+
+            # Clean tables
+            kwargs_clean = dict(snr_limit=o["SAMPLE_MINSN"], min_fwhm=o["SAMPLE_FWHMRANGE"][0], nndis_limit=5,
+                                max_fwhm=o["SAMPLE_FWHMRANGE"][1], max_ellipticity=o["SAMPLE_MAXELLIP"])
+            tables = [clean_source_table(table=t, **kwargs_clean) for t in tables]
+
+            # Loop over each HDU
+            psf_var_hdu = []
+            for t in tables:
+
+                # Determine PSF_VAR based on number of sources
+                if len(t) >= 500:
+                    psf_var = 3
+                elif len(t) >= 5000:
+                    psf_var = 4
+                elif len(t) >= 20000:
+                    psf_var = 5
+                elif len(t) >= 50000:
+                    psf_var = 6
+                elif len(t) >= 100000:
+                    psf_var = 7
+                else:
+                    psf_var = 2
+
+                psf_var_hdu.append(psf_var)
+
+            # Take minimum across all HDUs but at least 2
+            psfvar_degrees = min(psf_var_hdu) if min(psf_var_hdu) > 2 else 2
+
+            # Set degree of PSF variability (it actually would make more sense to select PSFVAR_DEGREES and not N_SNAP
+            n_snap = psfvar_degrees * 10
+
+            # Construct PSFEx options for current file
+            options.append(yml2config(nthreads=1, psfvar_degrees=psfvar_degrees, psfvar_nsnap=n_snap,
+                                      checkplot_type=self._psfex_checkplot_types(joined=True),
+                                      checkplot_name=self._psfex_checkplot_names(joined=True),
+                                      checkimage_type=self._psfex_checkimage_types(joined=True),
+                                      checkimage_name=self._psfex_checkimage_names(joined=True),
+                                      psf_dir=self.path_master_object, skip=["homokernel_dir"],
+                                      path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml")))
 
         # Construct commands
-        cmds = ["{0} {1} -c {2} {3}".format(self._bin_psfex, tab, self._psfex_default_config, options)
-                for tab in self.full_paths]
+        cmds = ["{0} {1} -c {2} {3}".format(self._bin_psfex, tab, self._psfex_default_config, o)
+                for tab, o in zip(self.full_paths, options)]
 
         # Clean commands
         cmds = [c for c, d in zip(cmds, done) if not d]
