@@ -510,14 +510,15 @@ class FitsImages(FitsFiles):
     def get_master_psf(self):
 
         # Get all master psf files
-        master_psf = [os.path.basename(x) for x in glob.glob(self.path_master_object + "*.psfex")]
+        master_psf_paths = glob.glob(self.path_master_object + "*.psfex")
+        master_psf_names = [os.path.basename(x) for x in master_psf_paths]
 
         # Loop over files
         master_psf_files = []
         for fn in self.file_names:
 
             # Find match for current file
-            master_psf_files.append(master_psf[[fn in mpsf for mpsf in master_psf].index(True)])
+            master_psf_files.append(master_psf_paths[[fn in mpsf for mpsf in master_psf_names].index(True)])
 
         return master_psf_files
 
