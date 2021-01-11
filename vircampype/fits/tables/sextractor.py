@@ -8,6 +8,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.time import Time
 from vircampype.setup import *
+from astropy.table import vstack
 from vircampype.utils.wcs import *
 from vircampype.utils.math import *
 from astropy.wcs import wcs as awcs
@@ -16,7 +17,6 @@ from vircampype.utils.tables import *
 from vircampype.utils.vizier import *
 from vircampype.utils.system import *
 from vircampype.utils.fitstools import *
-from astropy.table import Column, vstack
 from astropy.coordinates import SkyCoord
 from vircampype.utils.photometry import *
 from vircampype.utils.astromatic import *
