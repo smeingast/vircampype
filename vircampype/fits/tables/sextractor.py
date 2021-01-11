@@ -336,7 +336,7 @@ class SextractorCatalogs(SourceCatalogs):
             List or str with QC checkimage types.
 
         """
-        types = ["SNAPSHOTS_IMRES"]
+        types = ["SNAPSHOTS_IMRES", "SAMPLES", "RESIDUALS"]
         if joined:
             return ",".join(types)
         else:
