@@ -13,7 +13,7 @@ __all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhd
            "write_header"]
 
 
-def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
+def make_image_mef(paths_input, path_output, primeheader=None, add_constant=None, overwrite=False):
     """
     Creates an MEF image file from multiple input image file.
 
@@ -25,6 +25,9 @@ def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
         Path of output file.
     primeheader : fits.Header, optional
         If set, the primary header for the output file.
+    add_constant : int, float, str, optional
+        A constant value that is added to each input file upon combining the files. If given as a string, then
+        the value of each added constant will be read from the header.
     overwrite : bool, optional
         Whether an existing file should be overwritten.
 
@@ -32,6 +35,10 @@ def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
 
     if len(paths_input) == 0:
         raise ValueError("No images to combine")
+
+    # Make add_constant loopable if passed as None or string or constant
+    if not hasattr(add_constant, "len"):
+        add_constant = [add_constant] * len(paths_input)
 
     # Create empty HDUlist
     hdulist = fits.HDUList()
@@ -44,10 +51,18 @@ def make_image_mef(paths_input, path_output, primeheader=None, overwrite=False):
     hdulist.append(fits.PrimaryHDU(header=primeheader))
 
     # Construct image HDUs from input
-    for pi in paths_input:
+    for pi, ac in zip(paths_input, add_constant):
 
         with fits.open(pi) as file:
-            hdulist.append(fits.ImageHDU(data=file[0].data, header=file[0].header))
+
+            # Determine constant to add
+            if isinstance(ac, (int, float)):
+                const = ac
+            elif isinstance(ac, str):
+                const = file[0].header[ac]
+            else:
+                const = 0
+            hdulist.append(fits.ImageHDU(data=file[0].data + const, header=file[0].header))
 
     # Write final HDUlist to disk
     hdulist.writeto(path_output, overwrite=overwrite)
