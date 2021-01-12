@@ -949,7 +949,8 @@ class FitsImages(FitsFiles):
         # Set some common variables
         kwargs_yml = dict(path=self._path_sex_yml(preset=preset), parameters_name=self._path_sex_param(preset=preset),
                           filter_name=self._sex_default_filter, satur_key=self.setup["keywords"]["saturate"],
-                          gain_key=self.setup["keywords"]["gain"])
+                          gain_key=self.setup["keywords"]["gain"], back_size=self.setup["astromatic"]["back_size_sex"],
+                          back_filtersize=self.setup["astromatic"]["back_filtersize_sex"])
 
         # Read setup based on preset
         if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex"):
