@@ -393,7 +393,8 @@ class VircamScienceImages(ScienceImages):
 
         # Construct MEF from resampled detectors
         make_image_mef(paths_input=sorted(paths_images), overwrite=self.setup["misc"]["overwrite"],
-                       path_output=self._swarp_paths_resampled[idx], primeheader=self.headers_primary[idx])
+                       path_output=self._swarp_paths_resampled[idx], primeheader=self.headers_primary[idx],
+                       add_constant="BACKMEAN")
         make_image_mef(paths_input=sorted(paths_weights), overwrite=self.setup["misc"]["overwrite"],
                        path_output=self._swarp_paths_resampled_weight[idx], primeheader=self.headers_primary[idx])
 
