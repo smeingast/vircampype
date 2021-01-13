@@ -119,3 +119,9 @@ make_phase3_tile(tile_image=tile, tile_catalog=tile_catalog, pawprint_images=paw
 # Done
 # =========================================================================== #
 print_done(obj=images.setup["paths"]["name"])
+
+
+# =========================================================================== #
+# Send notification
+# =========================================================================== #
+notify(title=images.name, message="Processing complete", open_url="file:///{0}".format(images.path_object))
