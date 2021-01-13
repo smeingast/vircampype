@@ -406,18 +406,18 @@ class SextractorCatalogs(SourceCatalogs):
             for t in tables:
 
                 # Determine PSF_VAR based on number of sources
-                if len(t) >= 500:
-                    psf_var = 3
-                elif len(t) >= 5000:
-                    psf_var = 4
-                elif len(t) >= 20000:
-                    psf_var = 5
-                elif len(t) >= 50000:
-                    psf_var = 6
-                elif len(t) >= 100000:
-                    psf_var = 7
-                else:
+                if len(t) < 500:
                     psf_var = 2
+                elif len(t) < 5000:
+                    psf_var = 3
+                elif len(t) < 20000:
+                    psf_var = 4
+                elif len(t) < 50000:
+                    psf_var = 5
+                elif len(t) < 100000:
+                    psf_var = 6
+                else:
+                    psf_var = 7
 
                 psf_var_hdu.append(psf_var)
 
