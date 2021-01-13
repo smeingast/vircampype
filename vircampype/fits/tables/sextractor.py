@@ -403,7 +403,7 @@ class SextractorCatalogs(SourceCatalogs):
             tables = [clean_source_table(table=t, **kwargs_clean) for t in tables]
 
             # Loop over each HDU
-            psf_var_hdu = []
+            psf_var_hdu, fwhm_hdu = [], []
             for t in tables:
 
                 # Determine PSF_VAR based on number of sources
@@ -421,6 +421,7 @@ class SextractorCatalogs(SourceCatalogs):
                     psf_var = 7
 
                 psf_var_hdu.append(psf_var)
+                fwhm_hdu.append(np.nanmedian(t["FWHM_IMAGE"]))
 
             # Take minimum across all HDUs but at least 2
             psfvar_degrees = min(psf_var_hdu) if min(psf_var_hdu) > 2 else 2
@@ -428,12 +429,16 @@ class SextractorCatalogs(SourceCatalogs):
             # Set degree of PSF variability (it actually would make more sense to select PSFVAR_DEGREES and not N_SNAP
             n_snap = psfvar_degrees * 10
 
+            # Determine sample FWHM range
+            sample_fwhmrange = [0.7 * np.min(fwhm_hdu), 2.0 * np.max(fwhm_hdu)]
+
             # Construct PSFEx options for current file
             options.append(yml2config(nthreads=1, psfvar_degrees=psfvar_degrees, psfvar_nsnap=n_snap,
                                       checkplot_type=self._psfex_checkplot_types(joined=True),
                                       checkplot_name=self._psfex_checkplot_names(joined=True),
                                       checkimage_type=self._psfex_checkimage_types(joined=True),
                                       checkimage_name=self._psfex_checkimage_names(joined=True),
+                                      sample_fwhmrange=",".join(["{0:0.2f}".format(x) for x in sample_fwhmrange]),
                                       psf_dir=self.path_master_object, skip=["homokernel_dir"],
                                       path=get_resource_path(package=self._psfex_preset_package, resource="psfex.yml")))
 
