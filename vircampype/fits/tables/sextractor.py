@@ -27,6 +27,8 @@ from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.tables.sources import SourceCatalogs
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.utils.system import run_cmds, run_command_bash, which
+# noinspection PyProtectedMember
+from astropy.io.fits.column import NUMPY2FITS
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -1353,11 +1355,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Read source catalog into
             tab_file = self.file2table(file_index=idx_file)
 
-            # Make list to store output tables and ZPs
-            tab_out, zp_out, zperr_out, zp_auto, zperr_auto = [], [], [], None, None
+            # List to save output tables
+            tabs_out = []
 
-            for idx, idx_apc_hdu, hdr in \
-                    zip(range(len(self.data_hdu[idx_file])), apcs_file[0].data_hdu[0], self.image_headers[idx_file]):
+            # Loop over extensions
+            for idx, idx_apc_hdu, hdr_img, hdr_cat in \
+                    zip(range(len(self.data_hdu[idx_file])), apcs_file[0].data_hdu[0],
+                        self.image_headers[idx_file], self.headers_data[idx_file]):
 
                 # Print info
                 message_calibration(n_current=idx_file + 1, n_total=len(self), name=self.file_names[idx_file],
@@ -1371,21 +1375,21 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 skycoord_hdu = skycoord_from_tab(tab=tab_hdu, key_ra=key_ra, key_dec=key_dec)
 
                 # Extract aperture corrections
-                mag_aper_cor = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
-                                         for apc in apcs_file]).T
+                mag_apc = np.array([apc.get_apcor(skycoo=skycoord_hdu, file_index=0, hdu_index=idx_apc_hdu)
+                                    for apc in apcs_file]).T
 
                 # Extract magnitudes and errors
                 mag_aper, magerr_aper = tab_hdu["MAG_APER"], tab_hdu["MAGERR_APER"]
 
                 # Get subset of good sources for ZP
-                good = clean_source_table(table=tab_hdu, image_header=hdr, return_filter=True,
-                                          flux_max=hdr["SEXSATLV"] / 2)
+                good = clean_source_table(table=tab_hdu, image_header=hdr_img, return_filter=True,
+                                          flux_max=hdr_img["SEXSATLV"] / 2)
 
                 # Get ZP for each aperture
                 zp_aper = [get_zeropoint(skycoo_cal=skycoord_hdu[good], mag_cal=m + apc, mag_err_cal=e,
                                          mag_limits_ref=master_phot.mag_lim, skycoo_ref=master_skycoord,
                                          mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
-                           for m, apc, e in zip(mag_aper[good, :].T, mag_aper_cor[good, :].T, magerr_aper[good, :].T)]
+                           for m, apc, e in zip(mag_aper[good, :].T, mag_apc[good, :].T, magerr_aper[good, :].T)]
 
                 # Unpack results and convert to arrays
                 zp_aper, zperr_aper = list(zip(*zp_aper))
@@ -1404,50 +1408,52 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                                   mag_ref=master_mag, mag_err_ref=master_magerr, method="weighted")
 
                 # Add ZPs and aperture corrections
-                mag_aper_cal = mag_aper + mag_aper_cor + zp_aper
+                mag_aper_cal = mag_aper + mag_apc + zp_aper
                 mag_auto_cal = tab_hdu["MAG_AUTO"] + zp_auto
                 mag_psf_cal = tab_hdu["MAG_PSF"] + zp_psf
 
-                # Mask bad photometry
-                bad_aper = (mag_aper_cal > 50) | (magerr_aper > 50)
-                mag_aper_cal[bad_aper], magerr_aper[bad_aper], mag_aper_cor[bad_aper] = np.nan, np.nan, np.nan
-                mag_auto_cal[mag_auto_cal > 50], mag_psf_cal[mag_psf_cal > 50] = np.nan, np.nan
+                # Construct FITS columns from all table columns
+                cols_hdu = []
+                for key in tab_hdu.keys():
+                    fits_format = NUMPY2FITS[str(tab_hdu.field(key).dtype).replace("<", "").replace(">", "")]
+
+                    # Modify format for 2D column
+                    if len(tab_hdu.field(key).shape) == 2:
+                        fits_format = str(tab_hdu.field(key).shape[1]) + fits_format
+
+                    cols_hdu.append(fits.Column(name=key, array=tab_hdu.field(key), format=fits_format))
 
                 # Make new columns
-                col_mag = Column(name=self._colname_mag_cal, data=mag_aper_cal, **kwargs_column_mag)
-                col_err = Column(name=self._colname_mag_err, data=magerr_aper, **kwargs_column_mag)
-                col_apc = Column(name=self._colname_mag_apc, data=mag_aper_cor, **kwargs_column_mag)
-                col_mag_auto = Column(name="MAG_AUTO_CAL", data=mag_auto_cal, **kwargs_column_mag)
-                col_mag_psf = Column(name="MAG_PSF_CAL", data=mag_psf_cal, **kwargs_column_mag)
+                ncol_mag_aper = mag_aper.shape[1]
+                cols_hdu.append(fits.Column(name=self._colname_mag_cal, array=mag_aper_cal,
+                                            format="{0}E".format(ncol_mag_aper), **kwargs_column_mag))
+                cols_hdu.append(fits.Column(name=self._colname_mag_err, array=magerr_aper,
+                                            format="{0}E".format(ncol_mag_aper), **kwargs_column_mag))
+                cols_hdu.append(fits.Column(name=self._colname_mag_apc, array=mag_apc,
+                                            format="{0}E".format(ncol_mag_aper), **kwargs_column_mag))
+                cols_hdu.append(fits.Column(name="MAG_AUTO_CAL", array=mag_auto_cal, format="E", **kwargs_column_mag))
+                cols_hdu.append(fits.Column(name="MAG_PSF_CAL", array=mag_psf_cal, format="E", **kwargs_column_mag))
 
-                # Append to table
-                tab_hdu.add_columns(cols=[col_mag, col_err, col_apc, col_mag_auto, col_mag_psf])
+                # Modify header
+                for aidx in range(len(zp_aper)):
+                    add_float_to_header(hdr_cat, self._zp_keys[aidx], zp_aper[aidx], self._zp_comments[aidx])
+                    add_float_to_header(hdr_cat, self._zperr_keys[aidx], zperr_aper[aidx], self._zperr_comments[aidx])
+                add_float_to_header(hdr_cat, self._zp_avg_key, float(np.mean(zp_aper)), self._zp_avg_comment)
+                add_float_to_header(hdr_cat, self._zpstd_avg_key, float(np.std(zp_aper)), self._zpstd_avg_comment)
+                add_float_to_header(hdr_cat, self._zp_auto_key, zp_auto, self._zp_auto_comments)
+                add_float_to_header(hdr_cat, self._zperr_auto_key, zperr_auto, self._zperr_auto_comment)
+                add_float_to_header(hdr_cat, self._zp_psf_key, zp_psf, self._zp_psf_comments)
+                add_float_to_header(hdr_cat, self._zperr_psf_key, zperr_psf, self._zperr_psf_comment)
 
-                # Save data
-                tab_out.append(tab_hdu)
-                zp_out.append(zp_aper)
-                zperr_out.append(zperr_aper)
+                # Append new table
+                tabs_out.append(fits.BinTableHDU.from_columns(columns=cols_hdu, header=hdr_cat))
 
-            # Construct new output file
+            # Construct new output file by replacing HDUs from input with new tables
             with fits.open(self.full_paths[idx_file]) as cat:
 
                 # Loop over table extensions
-                for tidx, tab, zp, zperr in zip(self.data_hdu[idx_file], tab_out, zp_out, zperr_out):
-
-                    # Read header
-                    hdr = cat[tidx].header
-
-                    # Add keywords to header
-                    for aidx in range(len(zp)):
-                        add_float_to_header(hdr, self._zp_keys[aidx], zp[aidx], self._zp_comments[aidx])
-                        add_float_to_header(hdr, self._zperr_keys[aidx], zperr[aidx], self._zperr_comments[aidx])
-                    add_float_to_header(hdr, self._zp_avg_key, float(np.mean(zp)), self._zp_avg_comment)
-                    add_float_to_header(hdr, self._zpstd_avg_key, float(np.std(zp)), self._zpstd_avg_comment)
-                    add_float_to_header(hdr, self._zp_auto_key, zp_auto, self._zp_auto_comments)
-                    add_float_to_header(hdr, self._zperr_auto_key, zperr_auto, self._zperr_auto_comment)
-
-                    # Create new output table
-                    cat[tidx] = fits.BinTableHDU(data=tab, header=hdr)
+                for tidx, tab in zip(self.data_hdu[idx_file], tabs_out):
+                    cat[tidx] = tab
 
                 # Write to disk
                 cat.writeto(outpaths[-1], overwrite=self.setup["misc"]["overwrite"])
