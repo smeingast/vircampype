@@ -12,7 +12,7 @@ from itertools import zip_longest
 
 # Define objects in this module
 __all__ = ["run_cmds", "run_command_bash", "module_exists", "which", "read_setup", "remove_file", "copy_file",
-           "make_folder", "yml2config", "get_resource_path"]
+           "make_folder", "yml2config", "get_resource_path", "notify"]
 
 
 def run_cmds(cmds, n_processes=1, silent=True):
