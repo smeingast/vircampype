@@ -209,3 +209,11 @@ def get_resource_path(package, resource):
 
     # Return path to resource
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
+
+
+def notify(title, subtitle, message):
+    """ macOS notification wrapper """
+    t = "-title {!r}".format(title)
+    s = "-subtitle {!r}".format(subtitle)
+    m = "-message {!r}".format(message)
+    os.system("terminal-notifier {}".format(" ".join([m, t, s])))
