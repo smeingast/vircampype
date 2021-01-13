@@ -211,9 +211,13 @@ def get_resource_path(package, resource):
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
 
 
-def notify(title="", subtitle="", message=""):
-    """ macOS notification wrapper """
-    t = "-title {!r}".format(title)
-    s = "-subtitle {!r}".format(subtitle)
-    m = "-message {!r}".format(message)
-    os.system("terminal-notifier {}".format(" ".join([m, t, s])))
+def notify(message, title=None, subtitle=None, sound="default", open_url=None, ignore_dnd=False):
+    """ macOS notification wrapper built around terminal-notifier """
+    me = "-message {!r}".format(message)
+    ti = "-title {!r}".format(title) if title is not None else ""
+    su = "-subtitle {!r}".format(subtitle) if subtitle is not None else ""
+    so = "-sound {!r}".format(sound) if sound is not None else ""
+    op = "-open {!r}".format(open_url) if open_url is not None else ""
+    ig = "-ignoreDnD" if ignore_dnd else ""
+    print("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
+    os.system("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
