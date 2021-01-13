@@ -397,8 +397,9 @@ class SextractorCatalogs(SourceCatalogs):
             tables = self.file2table(file_index=i)
 
             # Clean tables
-            kwargs_clean = dict(snr_limit=o["SAMPLE_MINSN"], min_fwhm=o["SAMPLE_FWHMRANGE"][0], nndis_limit=5,
-                                max_fwhm=o["SAMPLE_FWHMRANGE"][1], max_ellipticity=o["SAMPLE_MAXELLIP"])
+            fwhm_range = [float(x) for x in o["SAMPLE_FWHMRANGE"].split(",")]
+            kwargs_clean = dict(snr_limit=o["SAMPLE_MINSN"], nndis_limit=5, max_ellipticity=o["SAMPLE_MAXELLIP"],
+                                min_fwhm=fwhm_range[0], max_fwhm=fwhm_range[1])
             tables = [clean_source_table(table=t, **kwargs_clean) for t in tables]
 
             # Loop over each HDU
