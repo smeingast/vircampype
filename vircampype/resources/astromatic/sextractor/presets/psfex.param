@@ -5,6 +5,7 @@ FLUX_RADIUS              # Fraction-of-light radii                              
 FLUX_APER                # Flux vector within fixed circular aperture(s)             [count]
 FLUXERR_APER             # RMS error vector for aperture flux(es)                    [count]
 MAG_AUTO                 # Kron-like elliptical aperture magnitude                   [mag]
-ELONGATION               # A_IMAGE/B_IMAGE                                          
-FLAGS                    # Extraction flags                                         
+FWHM_IMAGE               # FWHM assuming a gaussian core                             [pixel]
+ELONGATION               # A_IMAGE/B_IMAGE
+FLAGS                    # Extraction flags
 SNR_WIN                  # Gaussian-weighted SNR                                    
