@@ -1159,7 +1159,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     return stat
 
 
-def upscale_image(image, new_size, method="spline", order=3):
+def upscale_image(image, new_size, method="pil", order=3):
     """
     Resizes a 2D array to tiven new size.
 
