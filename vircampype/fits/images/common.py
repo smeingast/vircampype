@@ -942,9 +942,13 @@ class FitsImages(FitsFiles):
                     path_tables_clean.append(pt)
 
         # Look for local weights
+        # TODO: Rearrange weight finding (1: local files with .weight.fits, 2: image weights, 3: global weights)
         master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
+
+        # TODO: First search for image weights, only then global weights
+        # If no master image weights are available, fetch global weights
         if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            master_weight_paths = self.get_master_weight().full_paths
+            master_weight_paths = self.get_master_weight_global().full_paths
 
         # Set some common variables
         kwargs_yml = dict(path=self._path_sex_yml(preset=preset), parameters_name=self._path_sex_param(preset=preset),
@@ -953,7 +957,7 @@ class FitsImages(FitsFiles):
                           back_filtersize=self.setup["astromatic"]["back_filtersize_sex"])
 
         # Read setup based on preset
-        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex"):
+        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex") | (preset == "master-weight"):
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "superflat":
             ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
@@ -991,7 +995,7 @@ class FitsImages(FitsFiles):
         message_finished(tstart=tstart, silent=silent)
 
         # Select return class based on preset
-        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex"):
+        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex") | (preset == "master-weight"):
             cls = SextractorCatalogs
         elif (preset == "superflat") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
