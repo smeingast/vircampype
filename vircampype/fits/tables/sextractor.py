@@ -572,7 +572,7 @@ class SextractorCatalogs(SourceCatalogs):
                                              conv=True, weights=tab["SNR_WIN"], upscale=False, kernel_size=2)
 
                     # Rescale to given size
-                    apc_grid = upscale_image(apc_grid, new_size=output_size, method="spline", order=2)
+                    apc_grid = upscale_image(apc_grid, new_size=output_size, method="pil")
 
                     # Get weighted mean aperture correction
                     apc_average = np.average(mag, weights=tab["SNR_WIN"])
