@@ -569,7 +569,7 @@ class SextractorCatalogs(SourceCatalogs):
                     # Grid
                     apc_grid = grid_value_2d(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], value=mag, x_min=0, y_min=0,
                                              x_max=hdr["NAXIS1"], y_max=hdr["NAXIS2"], nx=n_bins_x, ny=n_bins_y,
-                                             conv=True, weights=tab["SNR_WIN"], upscale=False, kernel_size=2)
+                                             weights=tab["SNR_WIN"], upscale=False, conv=True, kernel_size=1)
 
                     # Rescale to given size
                     apc_grid = upscale_image(apc_grid, new_size=output_size, method="pil")
