@@ -444,7 +444,7 @@ class FitsImages(FitsFiles):
         from vircampype.fits.images.flat import MasterFlat
         return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
 
-    def get_master_weight(self):
+    def get_master_weight_global(self):
         """
         Get for each file in self the corresponding MasterWeight.
 
@@ -456,7 +456,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_filter(match_to=self.get_master_images().weight,
+        return self.match_filter(match_to=self.get_master_images().weight_global,
                                  max_lag=self.setup["master"]["max_lag_flat"])
 
     # def get_unique_master_weights(self):
@@ -1512,7 +1512,7 @@ class MasterImages(FitsImages):
         return MasterSky(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
 
     @property
-    def weight(self):
+    def weight_global(self):
         """
         Retrieves all MasterWeight images.
 
@@ -1527,7 +1527,7 @@ class MasterImages(FitsImages):
         from vircampype.fits.images.flat import MasterWeight
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT"]
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-GLOBAL"]
 
         return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
 
