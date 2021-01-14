@@ -558,8 +558,8 @@ class SextractorCatalogs(SourceCatalogs):
 
                     # Determine number of bins (with given radius at least 10 sources)
                     stacked = np.stack([tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]]).T
-                    dis, _ = NearestNeighbors(n_neighbors=11, algorithm="auto").fit(stacked).kneighbors(stacked)
-                    maxdis = np.percentile(dis[:, -1], 95)
+                    dis, _ = NearestNeighbors(n_neighbors=6, algorithm="auto").fit(stacked).kneighbors(stacked)
+                    maxdis = np.percentile(dis[:, -1], 99)
                     n_bins_x, n_bins_y = int(hdr["NAXIS1"] / maxdis), int(hdr["NAXIS2"] / maxdis)
 
                     # Minimum size of 3
