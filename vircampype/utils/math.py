@@ -17,7 +17,7 @@ from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
 from vircampype.utils.miscellaneous import str2func
 from scipy.interpolate import SmoothBivariateSpline
-from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve
+from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve, interpolate_replace_nans
 
 
 # Define objects in this module
@@ -1064,8 +1064,8 @@ def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     return gridded
 
 
-def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
-                  conv=True, kernel_size=2, weights=None, upscale=True):
+def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
+                  kernel_size=2, weights=None, upscale=True, interpolate_nan=True):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1097,6 +1097,8 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
         Optionally provide weights for weighted average.
     upscale : bool, optional
         If True, rescale outout to (x_max - x_min, y_max  - y_min). Default it True.
+    interpolate_nan : bool, optional
+        In case there are NaN values in the grid, interpolate them before returning.
 
     Returns
     -------
@@ -1151,6 +1153,9 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
     # Smooth
     if conv:
         stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=kernel_size), boundary="extend")
+
+    if interpolate_nan:
+        stat = interpolate_replace_nans(stat, kernel=Gaussian2DKernel(2))
 
     # Upscale with spline
     if upscale:
