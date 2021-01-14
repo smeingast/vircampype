@@ -584,7 +584,7 @@ class SextractorCatalogs(SourceCatalogs):
                     # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
                     # kwargs = dict(cmap="RdYlBu", norm=simple_norm(apc_grid, min_percent=1, percent=98))
                     # im = ax.imshow(apc_grid, origin="lower", extent=[0, hdr["NAXIS1"], 0, hdr["NAXIS2"]], **kwargs)
-                    # ax.scatter(tab["XWIN_IMAGE"], tab["YWIN_IMAGE"], c=mag, lw=0.5, ec="black", s=30, **kwargs)
+                    # ax.scatter(tab["XWIN_IMAGE"], tab["YWIN_IMAGE"], c=mag, lw=0.5, ec="black", s=5, **kwargs)
                     # plt.colorbar(im)
                     # plt.show()
                     # exit()
