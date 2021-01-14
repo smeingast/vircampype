@@ -8,7 +8,6 @@ from vircampype.utils.math import *
 from vircampype.utils.plots import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
-from sklearn.neighbors import NearestNeighbors
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
@@ -452,73 +451,74 @@ class FlatImages(FitsImages):
         # Return master weights
         return MasterWeight(setup=self.setup, file_paths=outpaths)
 
-    def build_master_weight_coadd(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-WEIGHT-COADD", right=None,
-                                           silent=self.setup["misc"]["silent"])
-
-        # Get unique Master flats
-        master_weights = self.get_unique_master_weights()
-
-        # Generate outpaths
-        outpaths = [x.replace("MASTER-WEIGHT", "MASTER-WEIGHT-COADD") for x in master_weights.full_paths]
-
-        # Loop over files and apply calibration
-        for idx in range(len(master_weights)):
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[idx], silent=self.setup["misc"]["silent"]) \
-                    and not self.setup["misc"]["overwrite"]:
-                continue
-
-            # Print processing info
-            if not self.setup["misc"]["silent"]:
-                message_calibration(n_current=idx + 1, n_total=len(master_weights),
-                                    name=outpaths[idx], d_current=None, d_total=None)
-
-            # Read file into cube
-            cube = master_weights.file2cube(file_index=idx, hdu_index=None, dtype=None)
-
-            # Edge arrays
-            e1 = np.array([np.full(cube.shape[1], fill_value=0, dtype=int),
-                           np.arange(0, cube.shape[2], 1).astype(int)])
-            e2 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
-                           np.full(cube.shape[2], fill_value=0, dtype=int)])
-            e3 = np.array([np.full(cube.shape[1], fill_value=cube.shape[1], dtype=int),
-                           np.arange(0, cube.shape[2], 1).astype(int)])
-            e4 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
-                           np.full(cube.shape[2], fill_value=cube.shape[2], dtype=int)])
-            edges_stacked = np.hstack([e1, e2, e3, e4])
-
-            # Create coorainate array for entire image
-            coo_image_x, coo_image_y = np.meshgrid(np.arange(cube.shape[1]), np.arange(cube.shape[2]))
-            coo_stacked = np.stack([coo_image_x.ravel(), coo_image_y.ravel()])
-
-            dis, _ = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(edges_stacked.T).kneighbors(coo_stacked.T)
-            dis = dis[:, -1].reshape(cube.shape[1], cube.shape[2])
-
-            # Create weight
-            weight = dis / self.setup["weight"]["coadd_edge_gradient"]
-
-            # Mask too large weights in center of image
-            weight[weight > 1] = 1.
-
-            # Modify ipout weight
-            cube.cube *= weight
-
-            # Modify type in primary header
-            prime_header = master_weights.headers_primary[idx].copy()
-            prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-COADD"
-
-            # Write to file
-            cube.write_mef(path=outpaths[idx], prime_header=prime_header, data_headers=master_weights.headers_data[idx])
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return master weights
-        return MasterWeightCoadd(setup=self.setup, file_paths=outpaths)
+    # def build_master_weight_coadd(self):
+    #
+    #     # Processing info
+    #     tstart = message_mastercalibration(master_type="MASTER-WEIGHT-COADD", right=None,
+    #                                        silent=self.setup["misc"]["silent"])
+    #
+    #     # Get unique Master flats
+    #     master_weights = self.get_unique_master_weights()
+    #
+    #     # Generate outpaths
+    #     outpaths = [x.replace("MASTER-WEIGHT", "MASTER-WEIGHT-COADD") for x in master_weights.full_paths]
+    #
+    #     # Loop over files and apply calibration
+    #     for idx in range(len(master_weights)):
+    #
+    #         # Check if the file is already there and skip if it is
+    #         if check_file_exists(file_path=outpaths[idx], silent=self.setup["misc"]["silent"]) \
+    #                 and not self.setup["misc"]["overwrite"]:
+    #             continue
+    #
+    #         # Print processing info
+    #         if not self.setup["misc"]["silent"]:
+    #             message_calibration(n_current=idx + 1, n_total=len(master_weights),
+    #                                 name=outpaths[idx], d_current=None, d_total=None)
+    #
+    #         # Read file into cube
+    #         cube = master_weights.file2cube(file_index=idx, hdu_index=None, dtype=None)
+    #
+    #         # Edge arrays
+    #         e1 = np.array([np.full(cube.shape[1], fill_value=0, dtype=int),
+    #                        np.arange(0, cube.shape[2], 1).astype(int)])
+    #         e2 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
+    #                        np.full(cube.shape[2], fill_value=0, dtype=int)])
+    #         e3 = np.array([np.full(cube.shape[1], fill_value=cube.shape[1], dtype=int),
+    #                        np.arange(0, cube.shape[2], 1).astype(int)])
+    #         e4 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
+    #                        np.full(cube.shape[2], fill_value=cube.shape[2], dtype=int)])
+    #         edges_stacked = np.hstack([e1, e2, e3, e4])
+    #
+    #         # Create coorainate array for entire image
+    #         coo_image_x, coo_image_y = np.meshgrid(np.arange(cube.shape[1]), np.arange(cube.shape[2]))
+    #         coo_stacked = np.stack([coo_image_x.ravel(), coo_image_y.ravel()])
+    #
+    #         dis, _ = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(edges_stacked.T).kneighbors(coo_stacked.T)
+    #         dis = dis[:, -1].reshape(cube.shape[1], cube.shape[2])
+    #
+    #         # Create weight
+    #         weight = dis / self.setup["weight"]["coadd_edge_gradient"]
+    #
+    #         # Mask too large weights in center of image
+    #         weight[weight > 1] = 1.
+    #
+    #         # Modify ipout weight
+    #         cube.cube *= weight
+    #
+    #         # Modify type in primary header
+    #         prime_header = master_weights.headers_primary[idx].copy()
+    #         prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-COADD"
+    #
+    #         # Write to file
+    #         cube.write_mef(path=outpaths[idx], prime_header=prime_header,
+    #                        data_headers=master_weights.headers_data[idx])
+    #
+    #     # Print time
+    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+    #
+    #     # Return master weights
+    #     return MasterWeightCoadd(setup=self.setup, file_paths=outpaths)
 
 
 class WeightImages(FitsImages):

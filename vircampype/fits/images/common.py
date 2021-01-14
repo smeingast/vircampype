@@ -459,25 +459,25 @@ class FitsImages(FitsFiles):
         return self.match_filter(match_to=self.get_master_images().weight,
                                  max_lag=self.setup["master"]["max_lag_flat"])
 
-    def get_unique_master_weights(self):
-        """ Returns unique MasterWeights as MasterWeights instance. """
-        from vircampype.fits.images.flat import MasterWeight
-        return MasterWeight(setup=self.setup, file_paths=list(set(self.get_master_weight().full_paths)))
+    # def get_unique_master_weights(self):
+    #     """ Returns unique MasterWeights as MasterWeights instance. """
+    #     from vircampype.fits.images.flat import MasterWeight
+    #     return MasterWeight(setup=self.setup, file_paths=list(set(self.get_master_weight().full_paths)))
 
-    def get_master_weight_coadd(self):
-        """
-        Get for each file in self the corresponding MasterWeightCoadd.
-
-        Returns
-        -------
-        MasterWeightCoadd
-            MasterWeightCoadd instance holding for each file in self the corresponding MasterWeightCoadd file.
-
-        """
-
-        # Match and return
-        return self.match_filter(match_to=self.get_master_images().weight_coadd,
-                                 max_lag=self.setup["master"]["max_lag_flat"])
+    # def get_master_weight_coadd(self):
+    #     """
+    #     Get for each file in self the corresponding MasterWeightCoadd.
+    #
+    #     Returns
+    #     -------
+    #     MasterWeightCoadd
+    #         MasterWeightCoadd instance holding for each file in self the corresponding MasterWeightCoadd file.
+    #
+    #     """
+    #
+    #     # Match and return
+    #     return self.match_filter(match_to=self.get_master_images().weight_coadd,
+    #                              max_lag=self.setup["master"]["max_lag_flat"])
 
     def get_master_sky(self):
         """
