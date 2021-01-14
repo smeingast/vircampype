@@ -4,6 +4,7 @@
 import sys
 import argparse
 
+from vircampype.utils.system import notify
 from vircampype.fits.images.vircam import VircamImages
 from vircampype.utils.miscellaneous import print_done
 from vircampype.utils.eso import make_phase3_pawprints, make_phase3_tile
