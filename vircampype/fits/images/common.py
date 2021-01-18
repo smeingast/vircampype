@@ -446,7 +446,7 @@ class FitsImages(FitsFiles):
 
     def get_master_weight_global(self):
         """
-        Get for each file in self the corresponding MasterWeight.
+        Get for each file in self the corresponding global MasterWeight.
 
         Returns
         -------
@@ -454,10 +454,20 @@ class FitsImages(FitsFiles):
             MasterWeight instance holding for each file in self the corresponding MasterWeight file.
 
         """
-
-        # Match and return
         return self.match_filter(match_to=self.get_master_images().weight_global,
                                  max_lag=self.setup["master"]["max_lag_flat"])
+
+    def get_master_weight_image(self):
+        """
+        Get for each file in self the corresponding image MasterWeight.
+
+        Returns
+        -------
+        MasterWeight
+            MasterWeight instance holding for each file in self the corresponding MasterWeight file.
+
+        """
+        return self.match_mjd(match_to=self.get_master_images().weight_image, max_lag=1 / 86400)
 
     # def get_unique_master_weights(self):
     #     """ Returns unique MasterWeights as MasterWeights instance. """
@@ -1518,12 +1528,12 @@ class MasterImages(FitsImages):
     @property
     def weight_global(self):
         """
-        Retrieves all MasterWeight images.
+        Retrieves all global MasterWeight images.
 
         Returns
         -------
         MasterWeight
-            All MasterWeight images as a MasterSky instance.
+            All MasterWeight images as a MasterWeight instance.
 
         """
 
@@ -1532,6 +1542,26 @@ class MasterImages(FitsImages):
 
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-GLOBAL"]
+
+        return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def weight_image(self):
+        """
+        Retrieves all MasterWeight images at the image level.
+
+        Returns
+        -------
+        MasterWeight
+            All MasterWeight images as a MasterWeight instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterWeight
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-IMAGE"]
 
         return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
 
