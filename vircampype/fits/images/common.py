@@ -951,12 +951,14 @@ class FitsImages(FitsFiles):
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
-        # Look for local weights
-        # TODO: Rearrange weight finding (1: local files with .weight.fits, 2: image weights, 3: global weights)
+        # Look for global weights
         master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
 
-        # TODO: First search for image weights, only then global weights
-        # If no master image weights are available, fetch global weights
+        # If no local paths are found, go and get image weights
+        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
+            master_weight_paths = self.get_master_weight_image().full_paths
+
+        # If still not all images are covered, go and fetch global weights
         if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
             master_weight_paths = self.get_master_weight_global().full_paths
 
