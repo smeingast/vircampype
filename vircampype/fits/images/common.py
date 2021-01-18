@@ -469,6 +469,43 @@ class FitsImages(FitsFiles):
         """
         return self.match_mjd(match_to=self.get_master_images().weight_image, max_lag=1 / 86400)
 
+    def get_master_weights(self):
+        """
+        Searches for MasterWeights in the following order:
+        1. Local files with extention *.weight.fits
+        2. Global weight maps that match the MJD criteria
+        3. Image weight maps that match the MJD criterium
+
+        Returns
+        -------
+        MasterWeight
+            MasterWeight instance.
+
+        Raises
+        ------
+        ValueError
+            When not all images have an associated weight.
+
+        """
+
+        # Look for global weights
+        master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
+
+        # If no local paths are found, go and get image weights
+        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
+            master_weight_paths = self.get_master_weight_image().full_paths
+
+        # If still not all images are covered, go and fetch global weights
+        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
+            master_weight_paths = self.get_master_weight_global().full_paths
+
+        # If still not all images have weights, raise error
+        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
+            raise ValueError("Not all images have weights")
+
+        from vircampype.fits.images.flat import MasterWeight
+        return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
+
     # def get_unique_master_weights(self):
     #     """ Returns unique MasterWeights as MasterWeights instance. """
     #     from vircampype.fits.images.flat import MasterWeight
@@ -951,21 +988,6 @@ class FitsImages(FitsFiles):
                 if not os.path.isfile(pt):
                     path_tables_clean.append(pt)
 
-        # Look for global weights
-        master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
-
-        # If no local paths are found, go and get image weights
-        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            master_weight_paths = self.get_master_weight_image().full_paths
-
-        # If still not all images are covered, go and fetch global weights
-        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            master_weight_paths = self.get_master_weight_global().full_paths
-
-        # If still not all images have weights, raise error
-        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            raise ValueError("Not all images have weights")
-
         # Set some common variables
         kwargs_yml = dict(path=self._path_sex_yml(preset=preset), parameters_name=self._path_sex_param(preset=preset),
                           filter_name=self._sex_default_filter, satur_key=self.setup["keywords"]["saturate"],
@@ -986,7 +1008,8 @@ class FitsImages(FitsFiles):
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
                 "".format(self._bin_sex, self._sex_default_config, image, self._sex_default_nnw, catalog, weight, ss)
-                for image, catalog, weight in zip(self.full_paths, path_tables_clean, master_weight_paths)]
+                for image, catalog, weight in zip(self.full_paths, path_tables_clean,
+                                                  self.get_master_weights().full_paths)]
 
         # Add PSF models to commands
         if preset == "full":
