@@ -962,6 +962,10 @@ class FitsImages(FitsFiles):
         if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
             master_weight_paths = self.get_master_weight_global().full_paths
 
+        # If still not all images have weights, raise error
+        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
+            raise ValueError("Not all images have weights")
+
         # Set some common variables
         kwargs_yml = dict(path=self._path_sex_yml(preset=preset), parameters_name=self._path_sex_param(preset=preset),
                           filter_name=self._sex_default_filter, satur_key=self.setup["keywords"]["saturate"],
