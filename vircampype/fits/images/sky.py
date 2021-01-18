@@ -1,5 +1,6 @@
 # =========================================================================== #
 # Import
+import os
 import warnings
 import numpy as np
 
@@ -379,6 +380,69 @@ class SkyImages(FitsImages):
     # =========================================================================== #
     # Master
     # =========================================================================== #
+    def build_master_weight_image(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="MASTER-WEIGHT-IMAGE",
+                                           silent=self.setup["misc"]["silent"], right=None)
+
+        # Build commands for MaxiMask
+        cmds = ["maximask.py {0} --single_mask True --n_jobs 1".format(n) for n in self.full_paths]
+
+        # Clean commands
+        paths_masks = [x.replace(".fits", ".masks.fits") for x in self.full_paths]
+        cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
+
+        # Run MaxiMask
+        if len(cmds) > 0:
+            print_message("Running MaxiMask on {0} files".format(len(cmds)), color=None)
+        run_cmds(cmds=cmds, n_processes=self.setup["misc"]["n_jobs"], silent=False)
+
+        # Put masks into FitsImages object
+        masks = FitsImages(setup=self.setup, file_paths=paths_masks)
+
+        # Fetch global weight for each file
+        weight_global = self.get_master_weight_global()
+
+        # Generate outpaths
+        outpaths = ["{0}MASTER-WEIGHT-IMAGE_MJD_{1:0.5f}.fits".format(self.path_master_object, mjd) for mjd in self.mjd]
+
+        # Loop over files and create image weights
+        for idx_file in range(len(self)):
+
+            # Set current outputh path
+            outpath = outpaths[idx_file]
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print processing info
+            if not self.setup["misc"]["silent"]:
+                message_calibration(n_current=idx_file + 1, n_total=len(self),
+                                    name=outpaths[idx_file], d_current=None, d_total=None)
+
+            # Read global weights
+            wg = weight_global.file2cube(file_index=idx_file)
+
+            # Read mask
+            mm = masks.file2cube(file_index=idx_file)
+
+            # Add masks for current file
+            wg.cube[(mm < 256) & (mm > 0)] = 0
+
+            # Make new primary header
+            prime_header = fits.Header()
+            prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-IMAGE"
+            prime_header[self.setup["keywords"]["date_mjd"]] = \
+                self.headers_primary[idx_file][self.setup["keywords"]["date_mjd"]]
+
+            # Write image weight
+            wg.write_mef(path=outpath, prime_header=prime_header, dtype=np.float32)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
     # noinspection DuplicatedCode
     def build_master_sky(self):
         """
