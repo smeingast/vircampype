@@ -15,7 +15,7 @@ from astropy.stats import sigma_clipped_stats
 __all__ = ["message_mastercalibration", "message_finished", "message_calibration", "make_cards", "make_card",
            "str2func", "check_file_exists", "check_card_value", "function_to_string", "flat_list", "prune_list",
            "str2list", "skycoo2visionsid", "split_epoch", "BColors", "print_colors_bash", "print_done",
-           "message_qc_astrometry", "list2str", "sort_vircam_science", "sort_vircam_calibration"]
+           "message_qc_astrometry", "list2str", "sort_vircam_science", "sort_vircam_calibration", "print_message"]
 
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
