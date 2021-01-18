@@ -417,7 +417,7 @@ class VircamScienceImages(ScienceImages):
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
                 "".format(self.bin_swarp, self._swarp_default_config, path_image, weight, self.path_resampled, ss)
-                for path_image, weight in zip(self.full_paths, self.get_master_weight().full_paths)]
+                for path_image, weight in zip(self.full_paths, self.get_master_weights().full_paths)]
 
         # Run for each individual image and make MEF
         for idx in range(len(self)):
