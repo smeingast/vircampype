@@ -456,8 +456,8 @@ class SkyImages(FitsImages):
         # Loop over files
         for idx_file in range(self.n_files):
 
-            # Create Masterbpm name
-            outpath = self.build_master_path(basename="MASTER-SOURCE-MASK", mjd=True)
+            # Create output path
+            outpath = "{0}MASTER-SOURCE-MASK.MJD_{1:0.5f}.fits".format(self.path_master_object, self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
