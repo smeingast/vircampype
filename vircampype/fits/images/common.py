@@ -569,6 +569,18 @@ class FitsImages(FitsFiles):
 
         return master_psf_files
 
+    def get_master_source_mask(self):
+        """
+        Fetches the corresponding master source mask files, based on a MJD match.
+
+        Returns
+        -------
+        MasterSourceMask
+            MasterSourceMask instance holding all matches for the current instance.
+
+        """
+        return self.match_mjd(match_to=self.get_master_images().source_mask, max_lag=1 / 86400)
+
     # =========================================================================== #
     # Master tables
     # =========================================================================== #
