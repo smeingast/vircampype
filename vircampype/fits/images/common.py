@@ -1633,3 +1633,14 @@ class MasterImages(FitsImages):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SUPERFLAT"]
 
         return MasterSuperflat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+
+    @property
+    def source_mask(self):
+
+        # Import
+        from vircampype.fits.images.sky import MasterSourceMask
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SOURCE-MASK"]
+
+        return MasterSourceMask(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
