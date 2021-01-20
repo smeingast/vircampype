@@ -910,3 +910,9 @@ class MasterSky(MasterImages):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(path, bbox_inches="tight")
             plt.close("all")
+
+
+class MasterSourceMask(MasterImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterSourceMask, self).__init__(setup=setup, file_paths=file_paths)
