@@ -1409,7 +1409,7 @@ class FitsImages(FitsFiles):
         """
 
         # Common name
-        if ("sky" in basename.lower()) | ("photometry" in basename.lower()) | ("source-mask" in basename.lower()):
+        if ("sky" in basename.lower()) | ("photometry" in basename.lower()):
             path = self.path_master_object + basename
         else:
             path = self.path_master_common + basename
