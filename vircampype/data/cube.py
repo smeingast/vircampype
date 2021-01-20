@@ -573,8 +573,8 @@ class ImageCube(object):
         self.cube = sigma_clip(data=self.cube, sigma_level=sigma_level, sigma_iter=sigma_iter,
                                center_metric=center_metric, axis=0)
 
-    def apply_masks(self, bpm=None, mask_min=False, mask_max=False, mask_below=None, mask_above=None,
-                    sigma_level=None, sigma_iter=1):
+    def apply_masks(self, bpm=None, sources=None, mask_min=False, mask_max=False, mask_below=None,
+                    mask_above=None, sigma_level=None, sigma_iter=1):
         """
         Applies the above given masking methods to instance cube.
 
@@ -582,6 +582,8 @@ class ImageCube(object):
         ----------
         bpm : ImageCube, optional
             Bad pixel mask as ImageCube instance. Must have same shape as self
+        sources: ImageCube, optional
+            Similar to the bad pixel mask, a cube that holds a mask where sources are located.
         mask_min : bool, optional
             Whether the minimum in the stack should be masked
         mask_max : bool, optional
@@ -600,6 +602,9 @@ class ImageCube(object):
         # Mask bad pixels
         if bpm is not None:
             self._mask_badpix(bpm=bpm)
+
+        if sources is not None:
+            self._mask_badpix(bpm=sources)
 
         # Mask minimum in cube
         if mask_min:
