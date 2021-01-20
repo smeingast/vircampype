@@ -443,6 +443,81 @@ class SkyImages(FitsImages):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
+    def build_master_source_mask(self):
+
+        # Processing info
+        tstart = message_mastercalibration(master_type="MASTER-SOURCE-MASK", silent=self.setup["misc"]["silent"])
+
+        # Fetch the Masterfiles
+        master_dark = self.get_master_dark()  # type: MasterDark
+        master_flat = self.get_master_flat()  # type: MasterFlat
+        master_linearity = self.get_master_linearity()  # type: MasterLinearity
+
+        # Loop over files
+        for idx_file in range(self.n_files):
+
+            # Create Masterbpm name
+            outpath = self.build_master_path(basename="MASTER-SOURCE-MASK", mjd=True)
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Read file into cube
+            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+
+            # Get master calibration
+            dark = master_dark.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+            flat = master_flat.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+            lin = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
+
+            # Do raw calibration
+            cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=self.ndit_norm[idx_file])
+
+            # Apply source masks
+            cube.mask_sources(threshold=self.setup["source_mask"]["mask_sources_thresh"],
+                              minarea=self.setup["source_mask"]["mask_sources_min_area"],
+                              maxarea=self.setup["source_mask"]["mask_sources_max_area"],
+                              mesh_size=self.setup["sky"]["background_mesh_size"],
+                              mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"])
+
+            # Create source mask
+            good = np.isfinite(cube.cube)
+            cube.cube = np.uint8(cube.cube)
+            cube.cube[:] = 0
+            cube.cube[~good] = 1
+
+            # Create header cards
+            cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"],
+                                         self.setup["keywords"]["date_ut"],
+                                         self.setup["keywords"]["object"],
+                                         "HIERARCH PYPE MASK THRESH",
+                                         "HIERARCH PYPE MASK MINAREA",
+                                         "HIERARCH PYPE MASK MAXAREA",
+                                         "HIERARCH PYPE MASK BGSIZE",
+                                         "HIERARCH PYPE MASK BGFSIZE"],
+                               values=[self.mjd[idx_file],
+                                       self.time_obs[idx_file],
+                                       "MASTER-SOURCE-MASK",
+                                       self.setup["source_mask"]["mask_sources_thresh"],
+                                       self.setup["source_mask"]["mask_sources_min_area"],
+                                       self.setup["source_mask"]["mask_sources_max_area"],
+                                       self.setup["sky"]["background_mesh_size"],
+                                       self.setup["sky"]["background_mesh_filter_size"]])
+
+            # Make primary header
+            prime_header = fits.Header(cards=cards)
+
+            # Write to disk
+            cube.write_mef(path=outpath, prime_header=prime_header)
+
+        # Print time
+        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+
     # noinspection DuplicatedCode
     def build_master_sky(self):
         """
