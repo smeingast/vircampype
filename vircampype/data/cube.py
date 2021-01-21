@@ -623,7 +623,7 @@ class ImageCube(object):
             self._mask_above(value=mask_above)
 
         # Sigma clipping
-        if sigma_level is not None:
+        if (sigma_level is not None) & (sigma_iter > 0):
             self._sigma_clip(sigma_level=sigma_level, sigma_iter=sigma_iter, center_metric=np.nanmedian)
 
     def apply_masks_plane(self, sigma_level, sigma_iter):
