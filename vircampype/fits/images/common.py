@@ -1111,13 +1111,13 @@ class FitsImages(FitsFiles):
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
 
-    def build_master_psf(self):
+    def build_master_psf(self, psfvar_degrees=3):
 
         # Run Sextractor with PSFEX preset
         sources_psfex = self.sextractor(preset="psfex")
 
         # Run PSFEX
-        sources_psfex.psfex()
+        sources_psfex.psfex(psfvar_degrees=psfvar_degrees)
 
     # def build_master_psf_photutils(self):
     #

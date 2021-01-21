@@ -366,7 +366,7 @@ class SextractorCatalogs(SourceCatalogs):
         else:
             return names
 
-    def psfex(self):
+    def psfex(self, psfvar_degrees):
 
         # Processing info
         tstart = message_mastercalibration(master_type="PSFEX", silent=self.setup["misc"]["silent"],
@@ -405,37 +405,13 @@ class SextractorCatalogs(SourceCatalogs):
             tables = [clean_source_table(table=t, **kwargs_clean) for t in tables]
 
             # Loop over each HDU
-            psf_var_hdu, fwhm_hdu = [], []
-            for t in tables:
-
-                # Determine PSF_VAR based on number of sources
-                if len(t) < 500:
-                    psf_var = 2
-                elif len(t) < 5000:
-                    psf_var = 3
-                elif len(t) < 20000:
-                    psf_var = 4
-                elif len(t) < 50000:
-                    psf_var = 5
-                elif len(t) < 100000:
-                    psf_var = 6
-                else:
-                    psf_var = 7
-
-                psf_var_hdu.append(psf_var)
-                fwhm_hdu.append(np.nanmedian(t["FWHM_IMAGE"]))
-
-            # Take minimum across all HDUs but at least 2
-            psfvar_degrees = min(psf_var_hdu) if min(psf_var_hdu) > 2 else 2
-
-            # Set degree of PSF variability (it actually would make more sense to select PSFVAR_DEGREES and not N_SNAP
-            n_snap = psfvar_degrees * 10
+            fwhm_hdu = [np.nanmedian(t["FWHM_IMAGE"]) for t in tables]
 
             # Determine sample FWHM range
             sample_fwhmrange = [0.7 * np.min(fwhm_hdu), 2.0 * np.max(fwhm_hdu)]
 
             # Construct PSFEx options for current file
-            options.append(yml2config(nthreads=1, psfvar_degrees=psfvar_degrees, psfvar_nsnap=n_snap,
+            options.append(yml2config(nthreads=1, psfvar_degrees=psfvar_degrees, psfvar_nsnap=psfvar_degrees * 5,
                                       checkplot_type=self._psfex_checkplot_types(joined=True),
                                       checkplot_name=self._psfex_checkplot_names(joined=True),
                                       checkimage_type=self._psfex_checkimage_types(joined=True),
