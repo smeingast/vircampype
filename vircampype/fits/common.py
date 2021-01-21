@@ -479,7 +479,7 @@ class FitsFiles:
         # Return values
         return [[[e[k] for e in h] for h in headers_data] for k in keywords]
 
-    def _get_dataheaders_sequence(self, keyword):
+    def _get_dataheaders_sequence(self, keyword, start_index=0):
         """
         Retrieves values from dataheaders that are atored in a sequence like 'keyword 0' - 'keyword 1' - ...
 
@@ -495,7 +495,7 @@ class FitsFiles:
 
         """
 
-        idx, temp = 0, []
+        idx, temp = start_index, []
         while True:
             try:
                 temp.append(self.dataheaders_get_keys(keywords=["{0} {1}".format(keyword, idx)])[0])
