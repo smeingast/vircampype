@@ -1015,7 +1015,8 @@ class ImageCube(object):
         # Replace values
         self.cube[np.isnan(self.cube)] = value
 
-    def mask_sources(self, threshold=1.5, minarea=5, maxarea=None, mesh_size=128, mesh_filtersize=3):
+    def mask_sources(self, threshold=1.5, minarea=5, maxarea=None, mesh_size=128,
+                     mesh_filtersize=3, return_labels=False):
         """
         Masks sources in the cube. Sources are detected with an adaptive threshold technique
 
@@ -1031,6 +1032,8 @@ class ImageCube(object):
             Background mesh size (default = 128)
         mesh_filtersize : int, optional
             2D median filter size for meshes (default = 3)
+        return_labels : bool, optional
+            If set, returns the source mask as ImageCube and leaves the input cube as is. Default is False.
 
         """
 
@@ -1039,6 +1042,12 @@ class ImageCube(object):
 
         # Make the threshold cube (to avoid an editor warning I use np.add here)
         thresh_map = np.add(background, threshold * noise)
+
+        # Make empty new cube if only labels should be returned
+        if return_labels:
+            cube_labels = np.full_like(self.cube, dtype=np.uint8, fill_value=0)
+        else:
+            cube_labels = None
 
         # Loop over cube planes and
         for idx in range(len(self)):
@@ -1069,7 +1078,14 @@ class ImageCube(object):
             labels = labels.astype(np.bool)
 
             # Apply mask
-            self.cube[:][idx][labels] = np.nan
+            if return_labels:
+                cube_labels[:][idx][labels] = 1
+            else:
+                self.cube[:][idx][labels] = np.nan
+
+        # Return labels
+        if return_labels:
+            return ImageCube(cube=cube_labels, setup=self.setup)
 
     # =========================================================================== #
     # Properties
