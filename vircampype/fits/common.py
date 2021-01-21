@@ -847,6 +847,9 @@ class FitsFiles:
         # if self.__class__.__mro__[-2] != match_to.__class__.__mro__[-2]:
         #     raise ValueError("Input objects are not FitsFiles class")
 
+        if len(match_to) == 0:
+            return match_to.__class__(setup=self.setup, file_paths=[])
+
         # Loop through each file
         matched = []
         for mjd in self.mjd:
