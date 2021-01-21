@@ -5,12 +5,15 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from itertools import repeat
 from vircampype.utils.wcs import *
 from vircampype.utils.math import *
 from vircampype.utils.plots import *
+from joblib import Parallel, delayed
 from vircampype.utils.system import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
+from astropy.stats import sigma_clipped_stats
 from vircampype.fits.images.flat import MasterFlat
 from vircampype.fits.images.dark import MasterDark
 from vircampype.fits.images.bpm import MasterBadPixelMask
@@ -553,6 +556,7 @@ class SkyImages(FitsImages):
             master_darks = files.get_master_dark()  # type: MasterDark
             master_flat = files.get_master_flat()  # type: MasterFlat
             master_linearity = files.get_master_linearity()  # type: MasterLinearity
+            master_mask = files.get_master_source_mask()
 
             # Instantiate output
             sky, noise = [], []
@@ -573,32 +577,32 @@ class SkyImages(FitsImages):
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
                 flat = master_flat.hdu2cube(hdu_index=d, dtype=np.float32)
+                sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
                 lin = master_linearity.hdu2coeff(hdu_index=d)
                 norm_before = files.ndit_norm
 
                 # Do calibration
                 cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=norm_before)
 
-                # Apply source masks if set
-                if self.setup["sky"]["mask_sources"]:
-                    cube.mask_sources(threshold=self.setup["sky"]["mask_sources_thresh"],
-                                      minarea=self.setup["sky"]["mask_sources_min_area"],
-                                      maxarea=self.setup["sky"]["mask_sources_max_area"],
-                                      mesh_size=self.setup["sky"]["background_mesh_size"],
-                                      mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"])
+                # Apply masks to the normalized cube
+                cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup["sky"]["mask_min"],
+                                 mask_max=self.setup["sky"]["mask_max"], sigma_level=self.setup["sky"]["sigma_level"],
+                                 sigma_iter=self.setup["sky"]["sigma_iter"])
 
                 # Determine median sky level in each plane
-                s, n = cube.background_planes()
-                sky.append(s)
-                noise.append(n)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    """ Need to use threading here to suppress warnings """
+                    with Parallel(n_jobs=self.setup["misc"]["n_jobs"], backend="threading") as parallel:
+                        background = parallel(delayed(sigma_clipped_stats)(a, b, c, d, e, f, g) for a, b, c, d, e, f, g
+                                              in zip(cube.cube, repeat(None), repeat(None), repeat(3.0),
+                                                     repeat(None), repeat(None), repeat(2)))
+                _, s, n = list(zip(*background))
+                sky.append(np.array(s))
+                noise.append(np.array(n))
 
                 # Subtract sky level from each plane
                 cube.cube -= sky[-1][:, np.newaxis, np.newaxis]
-
-                # Apply masks to the normalized cube
-                cube.apply_masks(bpm=bpm, mask_min=self.setup["sky"]["mask_min"],
-                                 mask_max=self.setup["sky"]["mask_max"], sigma_level=self.setup["sky"]["sigma_level"],
-                                 sigma_iter=self.setup["sky"]["sigma_iter"])
 
                 # Collapse extensions
                 collapsed = cube.flatten(metric=str2func(self.setup["sky"]["metric"]))
