@@ -899,16 +899,8 @@ class ImageCube(object):
             if self.shape != flat.shape:
                 raise ValueError("Shapes do not match")
 
-            # Apply as background model
-            if self.setup["sky"]["mode"] == "background":
-                self.cube -= sky.cube
-
-            # Apply as superflat
-            elif self.setup["sky"]["mode"] == "superflat":
-                raise NotImplementedError("Superflat not implemented")
-
-            else:
-                raise ValueError("Background mode '{0}' not implemented".format(self.setup["sky"]["mode"]))
+            # Subtract background
+            self.cube -= sky.cube
 
         # Normalize
         if norm_after is not None:
