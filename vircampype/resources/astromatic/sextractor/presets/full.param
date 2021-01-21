@@ -126,7 +126,7 @@ MAGERR_PSF               # RMS magnitude error from PSF-fitting                 
 
 FWHMPSF_IMAGE            # FWHM of the local PSF model                               [pixel]
 FWHMPSF_WORLD            # FWHM of the local PSF model (world units)                 [deg]
-SPREAD_MODEL             # Spread parameter from model-fitting                      
+#SPREAD_MODEL             # Spread parameter from model-fitting
 
 NITER_PSF                # Number of iterations for PSF-fitting                     
 CHI2_PSF                 # Reduced chi2 from PSF-fitting                            
