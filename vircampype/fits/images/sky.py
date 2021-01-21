@@ -479,17 +479,12 @@ class SkyImages(FitsImages):
             cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=self.ndit_norm[idx_file])
 
             # Apply source masks
-            cube.mask_sources(threshold=self.setup["source_mask"]["mask_sources_thresh"],
-                              minarea=self.setup["source_mask"]["mask_sources_min_area"],
-                              maxarea=self.setup["source_mask"]["mask_sources_max_area"],
-                              mesh_size=self.setup["sky"]["background_mesh_size"],
-                              mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"])
-
-            # Create source mask
-            good = np.isfinite(cube.cube)
-            cube.cube = np.uint8(cube.cube)
-            cube.cube[:] = 0
-            cube.cube[~good] = 1
+            cube_sources = cube.mask_sources(threshold=self.setup["source_mask"]["mask_sources_thresh"],
+                                             minarea=self.setup["source_mask"]["mask_sources_min_area"],
+                                             maxarea=self.setup["source_mask"]["mask_sources_max_area"],
+                                             mesh_size=self.setup["sky"]["background_mesh_size"],
+                                             mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"],
+                                             return_labels=True)
 
             # Create header cards
             cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"],
@@ -513,7 +508,7 @@ class SkyImages(FitsImages):
             prime_header = fits.Header(cards=cards)
 
             # Write to disk
-            cube.write_mef(path=outpath, prime_header=prime_header)
+            cube_sources.write_mef(path=outpath, prime_header=prime_header)
 
         # Print time
         message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
