@@ -1073,8 +1073,7 @@ def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
 
 def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
-                  kernel_size=2, weights=None, upscale=True, interpolate_nan=True,
-                  statistic=np.nanmedian):
+                  kernel_size=2, weights=None, upscale=True, interpolate_nan=True):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
