@@ -1065,7 +1065,8 @@ def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
 
 
 def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
-                  kernel_size=2, weights=None, upscale=True, interpolate_nan=True):
+                  kernel_size=2, weights=None, upscale=True, interpolate_nan=True,
+                  statistic=np.nanmedian):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -1099,6 +1100,8 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
         If True, rescale outout to (x_max - x_min, y_max  - y_min). Default it True.
     interpolate_nan : bool, optional
         In case there are NaN values in the grid, interpolate them before returning.
+    statistic : string or callable, optional
+        Passed on to binned_statistic_2d. Default is nanmedian.
 
     Returns
     -------
@@ -1116,7 +1119,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
 
         # noinspection PyTypeChecker
         stat, xe, ye, (nbx, nby) = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nx, ny],
-                                                       range=[(x_min, x_max), (y_min, y_max)], statistic=np.nanmedian,
+                                                       range=[(x_min, x_max), (y_min, y_max)], statistic=statistic,
                                                        expand_binnumbers=True)
 
         # Convert bin number to index
