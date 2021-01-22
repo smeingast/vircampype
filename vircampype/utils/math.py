@@ -15,6 +15,7 @@ from scipy.interpolate import griddata
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
+from astropy.stats import sigma_clipped_stats
 from vircampype.utils.miscellaneous import str2func
 from scipy.interpolate import SmoothBivariateSpline
 from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve, interpolate_replace_nans
@@ -24,7 +25,14 @@ from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convol
 __all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
            "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
            "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata", "point_density", "upscale_image"]
+           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata", "point_density", "upscale_image",
+           "clipped_median"]
+
+
+# noinspection PyUnresolvedReferences
+def clipped_median(data):
+    """ Hlper function to return the clipped median of an array via astropy. """
+    return sigma_clipped_stats(data)[1]
 
 
 def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
@@ -1100,8 +1108,6 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
         If True, rescale outout to (x_max - x_min, y_max  - y_min). Default it True.
     interpolate_nan : bool, optional
         In case there are NaN values in the grid, interpolate them before returning.
-    statistic : string or callable, optional
-        Passed on to binned_statistic_2d. Default is nanmedian.
 
     Returns
     -------
@@ -1119,7 +1125,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
 
         # noinspection PyTypeChecker
         stat, xe, ye, (nbx, nby) = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nx, ny],
-                                                       range=[(x_min, x_max), (y_min, y_max)], statistic=statistic,
+                                                       range=[(x_min, x_max), (y_min, y_max)], statistic=clipped_median,
                                                        expand_binnumbers=True)
 
         # Convert bin number to index
