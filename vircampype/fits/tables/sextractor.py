@@ -613,6 +613,65 @@ class SextractorCatalogs(SourceCatalogs):
         return self.get_aperture_correction(diameter=None)
 
     # =========================================================================== #
+    # Map catalog parameters to images
+    # =========================================================================== #
+    def map2image(self, name, xname="XWIN_IMAGE", yname="YWIN_IMAGE", nx=None, ny=None):
+
+        # Loop over files
+        for idx_file in range(len(self)):
+
+            # Generate path of output
+            # path_out = "{0}{1}.fwhm.fits".format(self.path_image_quality, self.file_names[idx_file])
+
+            # Read all tables from current file
+            hdrs_image = self.image_headers[idx_file]
+            tables_file = [clean_source_table(table=t, image_header=hdr)
+                           for t, hdr in zip(self.file2table(file_index=idx_file), hdrs_image)]
+
+            # Loop over HDUs
+            hdu_out = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            for idx in range(len(tables_file)):
+
+                hdr_hdu = hdrs_image[idx]
+
+                # Shrink original image header and keep only WCS info
+                ohdr = resize_header(header=hdr_hdu, factor=0.5)
+                naxis1, naxis2 = ohdr["NAXIS1"], ohdr["NAXIS2"]
+                ohdr = awcs.WCS(ohdr).to_header()
+                ohdr["NAXIS1"], ohdr["NAXIS2"], ohdr["NAXIS"] = naxis1, naxis2, 2
+
+                # Extract coordinates and parameter to be mapped
+                xx, yy, par = tables_file[idx][xname], tables_file[idx][yname], tables_file[idx][name]
+
+                # Determine number of bins if not set
+                if (nx is None) | (ny is None):
+
+                    # Determine number of bins based on available sources
+                    stacked = np.stack([xx, yy]).T
+                    dis, _ = NearestNeighbors(n_neighbors=21, algorithm="auto").fit(stacked).kneighbors(stacked)
+
+                    maxdis = np.percentile(dis[:, -1], 99)
+                    nx, ny = int(hdr_hdu["NAXIS1"] / maxdis), int(hdr_hdu["NAXIS2"] / maxdis)
+
+                    # Minimum size of 3
+                    nx = 3 if nx < 3 else nx
+                    ny = 3 if ny < 3 else ny
+
+                # Grid data to image
+                grid = grid_value_2d(x=xx, y=yy, value=par, x_min=0, y_min=0, nx=nx, ny=ny, x_max=hdr_hdu["NAXIS1"],
+                                     y_max=hdr_hdu["NAXIS2"], upscale=False, conv=True, kernel_size=0.5)
+
+                # Upscale
+                grid = upscale_image(image=grid, new_size=(ohdr["NAXIS1"], ohdr["NAXIS2"]), method="pil")
+
+                # Append to output
+                # noinspection PyTypeChecker
+                hdu_out.append(fits.ImageHDU(data=grid, header=ohdr))
+
+            # hdu_out.writeto("/Users/stefan/Desktop/test.fits", overwrite=True)
+            # exit()
+
+    # =========================================================================== #
     # Coordinates
     # =========================================================================== #
     _ra_all = None
