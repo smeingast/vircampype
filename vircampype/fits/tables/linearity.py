@@ -4,8 +4,9 @@ import warnings
 import numpy as np
 
 from typing import List
-from vircampype.utils.math import *
 from vircampype.utils.plots import *
+from vircampype.utils.messaging import *
+from vircampype.utils.mathtools import *
 from vircampype.utils.miscellaneous import *
 from vircampype.fits.tables.common import MasterTables
 
@@ -37,7 +38,7 @@ class MasterLinearity(MasterTables):
             return self._nl10000
 
         # Retrieve values and return
-        self._nl10000 = self.dataheaders_get_keys(keywords=["HIERARCH PYPE QC NL10000"])[0]
+        self._nl10000 = self.read_from_data_headers(keywords=["HIERARCH PYPE QC NL10000"])[0]
         return self._nl10000
 
     _coeff_poly = None
@@ -166,7 +167,7 @@ class MasterLinearity(MasterTables):
         """
 
         if hdu_index is None:
-            hdu_index = self.data_hdu[file_index]
+            hdu_index = self.iter_data_hdu[file_index]
 
         # Need -1 here since the coefficients do not take an empty primary header into account
         return [self.coeff_linear[file_index][idx-1] for idx in hdu_index]
@@ -177,7 +178,7 @@ class MasterLinearity(MasterTables):
     def paths_qc_plots(self, paths):
 
         if paths is None:
-            return ["{0}{1}.pdf".format(self.path_qc_linearity, fp) for fp in self.file_names]
+            return ["{0}{1}.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
         else:
             return paths
 
@@ -213,24 +214,20 @@ class MasterLinearity(MasterTables):
             if check_file_exists(file_path=path, silent=True) and not overwrite:
                 continue
 
-            # Read focal play array layout and saturation levels from instance setup
-            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
-            saturation_levels = str2list(self.setup["data"]["saturation_levels"])
-
             # Get plot grid
-            fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
 
             # Helpers
             alldit, allflux = [i for s in dit for i in s], [i for s in flux for i in s]
             xmax = 1.05 * np.max(alldit)
-            ymax = 1.10 * np.max(saturation_levels)
+            ymax = 1.10 * np.max(self.setup.saturation_levels)
 
             # Plot
             for idx in range(len(dit)):
 
                 # Get those above the saturation
-                bad = np.array(flux[idx]) > saturation_levels[idx]
+                bad = np.array(flux[idx]) > self.setup.saturation_levels[idx]
 
                 # Add axis
                 ax = axes[idx]
@@ -252,7 +249,7 @@ class MasterLinearity(MasterTables):
                 ax.scatter(np.array(dit[idx])[~bad], lin, c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
 
                 # Saturation
-                ax.hlines(saturation_levels[idx], 0, ceil_value(xmax, value=5),
+                ax.hlines(self.setup.saturation_levels[idx], 0, ceil_value(xmax, value=5),
                           linestyles="dashed", colors="#7F7F7F", lw=1)
 
                 # Annotate non-linearity and detector ID

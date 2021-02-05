@@ -1,73 +1,20 @@
-# =========================================================================== #
 import os
 import sys
 import yaml
 import shutil
-import importlib
 import subprocess
+import importlib
 
-from pkgutil import iter_modules
 from itertools import zip_longest
 
-
-# Define objects in this module
-__all__ = ["run_cmds", "run_command_bash", "module_exists", "which", "read_setup", "remove_file", "copy_file",
-           "make_folder", "yml2config", "get_resource_path", "notify"]
+__all__ = ["make_folder", "which", "read_yml", "yml2config", "run_cmds", "run_command_bash", "get_resource_path",
+           "copy_file"]
 
 
-def run_cmds(cmds, n_processes=1, silent=True):
-    """
-    Runs a list of shell commands
-
-    Parameters
-    ----------
-    cmds : list
-        List of shell commands#
-    n_processes : int, optional
-        Number of parallel processes.
-    silent : bool, optional
-        Whether or not to print information about the process. Default is True.
-
-    Returns
-    -------
-
-    """
-
-    if silent:
-        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL) for cmd in cmds)] * n_processes
-    else:
-        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh") for cmd in cmds)] * n_processes
-
-    # Run processes
-    for processes in zip_longest(*groups):  # run len(processes) == limit at a time
-        for p in filter(None, processes):
-            p.wait()
-
-
-def run_command_bash(cmd, silent=False):
-    if silent:
-        subprocess.run(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    else:
-        subprocess.run(cmd, shell=True, executable="/bin/zsh")
-
-
-def module_exists(module_name):
-    """
-    Check if module exists.
-
-    Parameters
-    ----------
-    module_name : str
-        Module name to check for.
-
-    Returns
-    -------
-    bool
-        True or False depending on whether module is installed,
-
-    """
-    return module_name in (name for loader, name, ispkg in iter_modules())
+def make_folder(path):
+    """ Creates folder at specified path. """
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
 def which(program):
@@ -78,9 +25,6 @@ def which(program):
     ----------
     program : str
         Shell binary name
-
-    Returns
-    -------
 
     """
     import os
@@ -113,39 +57,23 @@ def which(program):
     return None
 
 
-def read_setup(path_yaml: str):
+def read_yml(path_yml: str):
 
     # Read YAML
-    with open(path_yaml, "r") as stream:
+    with open(path_yml, "r") as stream:
         try:
             return yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
 
 
-def remove_file(path):
-    try:
-        os.remove(path)
-    except OSError:
-        pass
-
-
-def copy_file(a, b):
-    shutil.copy2(a, b)
-
-
-def make_folder(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-
-def yml2config(path, skip=None, **kwargs):
+def yml2config(path_yml, skip=None, **kwargs):
     """
     Reads a YML file at a given path and converts the entries to a string that can be passed to astromatic tools.
 
     Parameters
     ----------
-    path : str
+    path_yml : str
         Path to YML file.
     skip : list, optional
         If set, ignore the given keywords in the list
@@ -159,7 +87,7 @@ def yml2config(path, skip=None, **kwargs):
 
     """
 
-    setup = read_setup(path_yaml=path)
+    setup = read_yml(path_yml=path_yml)
 
     # Loop over setup and construct command
     s = ""
@@ -184,6 +112,40 @@ def yml2config(path, skip=None, **kwargs):
             s += "-{0} {1} ".format(key.upper(), val)
 
     return s
+
+
+def run_cmds(cmds, n_processes=1, silent=True):
+    """
+    Runs a list of shell commands
+
+    Parameters
+    ----------
+    cmds : list
+        List of shell commands#
+    n_processes : int, optional
+        Number of parallel processes.
+    silent : bool, optional
+        Whether or not to print information about the process. Default is True.
+
+    """
+
+    if silent:
+        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL) for cmd in cmds)] * n_processes
+    else:
+        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh") for cmd in cmds)] * n_processes
+
+    # Run processes
+    for processes in zip_longest(*groups):  # run len(processes) == limit at a time
+        for p in filter(None, processes):
+            p.wait()
+
+
+def run_command_bash(cmd, silent=False):
+    if silent:
+        subprocess.run(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        subprocess.run(cmd, shell=True, executable="/bin/zsh")
 
 
 def get_resource_path(package, resource):
@@ -211,13 +173,5 @@ def get_resource_path(package, resource):
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
 
 
-def notify(message, title=None, subtitle=None, sound="default", open_url=None, ignore_dnd=False):
-    """ macOS notification wrapper built around terminal-notifier """
-    me = "-message {!r}".format(message)
-    ti = "-title {!r}".format(title) if title is not None else ""
-    su = "-subtitle {!r}".format(subtitle) if subtitle is not None else ""
-    so = "-sound {!r}".format(sound) if sound is not None else ""
-    op = "-open {!r}".format(open_url) if open_url is not None else ""
-    ig = "-ignoreDnD" if ignore_dnd else ""
-    print("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
-    os.system("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
+def copy_file(a, b):
+    shutil.copy2(a, b)

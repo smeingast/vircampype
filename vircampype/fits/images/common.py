@@ -1,36 +1,15 @@
-# =========================================================================== #
-# Import
 import os
-import glob
 import numpy as np
 
 from astropy.io import fits
-from astropy import wcs as awcs
-from vircampype.utils.system import *
-from vircampype.utils.fitstools import *
 from vircampype.data.cube import ImageCube
-from vircampype.utils.miscellaneous import *
 from vircampype.fits.common import FitsFiles
-from astropy.wcs.utils import proj_plane_pixel_scales
-from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
 
 
 class FitsImages(FitsFiles):
 
     def __init__(self, setup, file_paths=None):
-        """
-        Class for Fits images based on FitsFiles. Contains specific methods and functions applicable only to images
-
-        Parameters
-        ----------
-        setup : str, dict
-            YML setup. Can be either path to setup, or a dictionary.
-
-        Returns
-        -------
-
-        """
-
+        """ Class for Fits images that includees specific methods and functions applicable only to images. """
         super(FitsImages, self).__init__(setup=setup, file_paths=file_paths)
 
     _dit = None
@@ -51,7 +30,7 @@ class FitsImages(FitsFiles):
         if self._dit is not None:
             return self._dit
 
-        self._dit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["dit"]])[0]
+        self._dit = self.read_from_prime_headers(keywords=[self.setup.keywords.dit])[0]
         return self._dit
 
     _ndit = None
@@ -74,28 +53,16 @@ class FitsImages(FitsFiles):
 
         # If available, read it, else set 1 for all files
         try:
-            self._ndit = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["ndit"]])[0]
+            self._ndit = self.read_from_prime_headers(keywords=[self.setup.keywords.ndit])[0]
         except KeyError:
             self._ndit = [1] * self.n_files
 
         return self._ndit
 
-    @property
-    def ndit_norm(self):
-        """
-        Convenience method for retrieving the NDITs of the current instance as ndarray.
-
-        Returns
-        -------
-
-        """
-
-        return np.array(self.ndit)
-
-    _filter = None
+    _passband = None
 
     @property
-    def filter(self):
+    def passband(self):
         """
         Property to return the filter entries from the main header
 
@@ -107,1208 +74,18 @@ class FitsImages(FitsFiles):
         """
 
         # Check if already determined
-        if self._filter is not None:
-            return self._filter
+        if self._passband is not None:
+            return self._passband
 
-        self._filter = self.primeheaders_get_keys(keywords=[self.setup["keywords"]["filter"]])[0]
-        return self._filter
-
-    _dtypes = None
+        self._passband = self.read_from_prime_headers(keywords=[self.setup.keywords.filter_name])[0]
+        return self._passband
 
     @property
-    def dtypes(self):
-        """
-        Gets the data type info from the fits headers. For each file and each extension the data type is extracted.
-
-        Returns
-        -------
-        iterable
-            List of lists of data types for each FitsImage entry and each extension
-
-        """
-
-        # Get bitpix keyword
-        bitpix = [x[0] for x in self.dataheaders_get_keys(keywords=["BITPIX"])[0]]
-
-        # Loop through everything and set types
-        dtypes = []
-        for bp in bitpix:
-            if bp == 8:
-                app = np.uint8
-            elif bp == 16:
-                app = np.uint16
-            elif bp in (-32, 32):
-                app = np.float32
-            # elif "float32" in dtype:
-            #     dtypes[tidx][bidx] = np.float32
-            else:
-                raise NotImplementedError("Data type '{0}' not implemented!".format(bp))
-
-            dtypes.append(app)
-
-        self._dtypes = dtypes
-        return self._dtypes
-
-    @property
-    def paths_processed(self):
-        """
-        Generates paths for processed images.
-
-        Returns
-        -------
-        iterable
-            List with paths for each file.
-        """
-        return ["{0}{1}.proc{2}".format(self.path_processed, n, e) for n, e
-                in zip(self.file_names, self.file_extensions)]
-
-    @property
-    def paths_superflatted(self):
-        """
-        Generates paths for superflatted images.
-
-        Returns
-        -------
-        iterable
-            List with paths for each file.
-        """
-        return ["{0}{1}.sf{2}".format(self.path_superflatted, n, e) for n, e
-                in zip(self.file_names, self.file_extensions)]
-
-    @property
-    def _paths_aheaders(self):
-        """
-        Generates path for aheads (if any).
-
-        Returns
-        -------
-        iterable
-            List with aheader paths.
-
-        """
-
-        return [x.replace(".fits", ".ahead") for x in self.full_paths]
-
-    # =========================================================================== #
-    # I/O
-    # =========================================================================== #
-    def get_pixel_value(self, skycoo, file_index, hdu_index):
-        """
-        Fetches the pixel value directly from image based on coordinates.
-
-        Parameters
-        ----------
-        skycoo : SkyCoord
-            Input astropy SkyCoord object for which the aperture correction should be obtained.
-        file_index : int
-            Index of file in self.
-        hdu_index : int
-            Index of HDU
-
-        Returns
-        -------
-        ndarray
-            Array with pixel values
-
-        """
-
-        # Get data and header for given file and HDU
-        data, header = fits.getdata(filename=self.full_paths[file_index], header=True, ext=hdu_index)
-
-        # Read pixel coordinate
-        return get_value_image(ra=skycoo.icrs.ra.deg, dec=skycoo.icrs.dec.deg, data=data, header=header)
-
-    def hdu2arrays(self, hdu_index=0):
-        """
-        Reads data from a given HDU from all files in self into a list of arrays.
-
-        Parameters
-        ----------
-        hdu_index : int, optional
-            HDU index to read
-
-        Returns
-        -------
-        iterable
-            List of arrays
-
-        """
-        arraylist = []
-        for path in self:
-            with fits.open(path) as hdulist:
-                arraylist.append(hdulist[hdu_index].data)
-        return arraylist
-
-    def hdu2cube(self, hdu_index=0, dtype=None):
-        """
-        Reads a given extension from all files in the given instance into a numpy array
-
-        Parameters
-        ----------
-        hdu_index : int, optional
-            Iterable of hdu indices to load, default is to load all HDUs with data
-        dtype : dtype, optional
-            Data type (e.g. np.float32)
-
-        Returns
-        -------
-        ImageCube
-            ImageCube instance containing data for a given extension for all files
-
-        """
-
-        # The specified extension must be in the range of existing ones
-        if hdu_index > min(self.n_hdu) - 1:
-            raise ValueError("The specified extension is out of range!")
-
-        # Data type
-        if dtype is None:
-            dtype = np.float32
-
-        # Read header of first file and given extension
-        header = self.headers[0][hdu_index]
-
-        # Create empty numpy cube
-        cube = np.empty((self.n_files, header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
-
-        # Fill cube with data
-        for path, plane in zip(self.full_paths, cube):
-            with fits.open(path) as f:
-                plane[:] = f[hdu_index].data
-
-        # Return
-        return ImageCube(setup=self.setup, cube=cube)
-
-    def file2cube(self, file_index=0, hdu_index=None, dtype=None):
-        """
-        Reads all extensions of a given file into a numpy array.
-
-        Parameters
-        ----------
-        file_index : int
-            Integer index of the file in the current FitsFiles instance.
-        hdu_index : iterable
-            Iterable of hdu indices to load, default is to load all HDUs with data.
-        dtype : optional, dtype
-            Data type (e.g. np.float32).
-
-        Returns
-        -------
-        ImageCube
-            ImageCube instance containing data of the requested file.
-
-        """
-
-        if hdu_index is None:
-            hdu_index = self.data_hdu[file_index]
-
-        # Data type
-        if dtype is None:
-            dtype = self.dtypes[file_index]
-
-        # Read header of requested file and first extension
-        header = self.headers_data[file_index][0]
-
-        # Create empty cube
-        cube = np.empty((len(hdu_index), header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
-
-        # Fill cube with data
-        with fits.open(name=self.full_paths[file_index]) as f:
-            for plane, idx in zip(cube, hdu_index):
-                plane[:] = f[idx].data
-
-        # Return
-        return ImageCube(setup=self.setup, cube=cube)
-
-    def file2list(self, file_index):
-        """
-        Reads all extensions of a given file into a list. As opposed to the file2cube method, this works with varying
-        image shapes across the extensions.
-
-        Parameters
-        ----------
-        file_index : int
-            Integer index of the file in the current FitsFiles instance.
-
-        Returns
-        -------
-        iterable, list
-            List of arrays with data for each extension.
-
-        """
-        with fits.open(self.full_paths[file_index]) as file:
-            data = [file[ei].data for ei in self.data_hdu[file_index]]
-        return data
-
-    # =========================================================================== #
-    # Splitter
-    # =========================================================================== #
-    def split_filter(self):
-        """
-        Splits self files based on unique filter entries in the FITS headers.
-
-        Returns
-        -------
-        iterable
-            List if FitsImages.
-
-        """
-
-        # Filter keyword must be present!
-        return self.split_keywords(keywords=[self.setup["keywords"]["filter"]])
-
-    def split_exposure(self):
-        """
-        Splits input files based on unique exposure sequences (DIT and NDIT) entries in the FITS headers.
-
-        Returns
-        -------
-        ImageList
-            ImageList instance with split FitsImages entries based on unique exposure sequences (DIT and NDIT).
-
-        """
-
-        # When the keyword is present, we can just use the standard method
-        """ Removing this break compatibility with non-ESO data. """
-        # try:
-        return self.split_keywords(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"]])
-
-        # Otherwise, we set NDIT to 1
-        # except KeyError:
-        #
-        #     # Construct list of tuples for DIT and NDIT
-        #     tup = [(i, k) for i, k in zip(self.dit, self.ndit)]
-        #
-        #     # Find unique entries
-        #     utup = set(tup)
-        #
-        #     # Get the split indices
-        #     split_indices = [[i for i, j in enumerate(tup) if j == k] for k in utup]
-        #
-        #     split_list = []
-        #     for s_idx in split_indices:
-        #         split_list.append(self.__class__([self.file_paths[idx] for idx in s_idx]))
-        #
-        #     return split_list
-
-    # =========================================================================== #
-    # Master images
-    # =========================================================================== #
-    def get_master_bpm(self):
-        """
-        Get for each file in self the corresponding MasterBadPixelMask.
-
-        Returns
-        -------
-        MasterBadPixelMask
-            MasterBadPixelMask instance holding for each file in self the corresponding MasterBadPixelMask file.
-
-        """
-
-        # Match and return
-        return self.match_mjd(match_to=self.get_master_images().bpm,
-                              max_lag=self.setup["master"]["max_lag_bpm"])
-
-    def get_master_dark(self):
-        """
-        Get for each file in self the corresponding MasterDark.
-
-        Returns
-        -------
-        MasterDark
-            MasterDark instance holding for each file in self the corresponding MasterDark file.
-
-        """
-
-        # Match DIT and NDIT and MJD
-        return self._match_exposure(match_to=self.get_master_images().dark,
-                                    max_lag=self.setup["master"]["max_lag_dark"])
-
-    def get_master_flat(self):
-        """
-        Get for each file in self the corresponding MasterFlat.
-
-        Returns
-        -------
-        MasterFlat
-            MasterFlat instance holding for each file in self the corresponding Masterflat file.
-
-        """
-
-        # Match and return
-        return self.match_filter(match_to=self.get_master_images().flat,
-                                 max_lag=self.setup["master"]["max_lag_flat"])
-
-    def get_unique_master_flats(self):
-        """ Returns unique Master Flats as MasterFlat instance. """
-        from vircampype.fits.images.flat import MasterFlat
-        return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().full_paths)))
-
-    def get_master_weight_global(self):
-        """
-        Get for each file in self the corresponding global MasterWeight.
-
-        Returns
-        -------
-        MasterWeight
-            MasterWeight instance holding for each file in self the corresponding MasterWeight file.
-
-        """
-        return self.match_filter(match_to=self.get_master_images().weight_global,
-                                 max_lag=self.setup["master"]["max_lag_flat"])
-
-    def get_master_weight_image(self):
-        """
-        Get for each file in self the corresponding image MasterWeight.
-
-        Returns
-        -------
-        MasterWeight
-            MasterWeight instance holding for each file in self the corresponding MasterWeight file.
-
-        """
-        return self.match_mjd(match_to=self.get_master_images().weight_image, max_lag=1 / 86400)
-
-    def get_master_weights(self):
-        """
-        Searches for MasterWeights in the following order:
-        1. Local files with extention *.weight.fits
-        2. Global weight maps that match the MJD criteria
-        3. Image weight maps that match the MJD criterium
-
-        Returns
-        -------
-        MasterWeight
-            MasterWeight instance.
-
-        Raises
-        ------
-        ValueError
-            When not all images have an associated weight.
-
-        """
-
-        # Look for global weights
-        master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
-
-        # If no local paths are found, go and get image weights
-        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            master_weight_paths = self.get_master_weight_image().full_paths
-
-        # If still not all images are covered, go and fetch global weights
-        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            master_weight_paths = self.get_master_weight_global().full_paths
-
-        # If still not all images have weights, raise error
-        if sum([os.path.isfile(x) for x in master_weight_paths]) != len(self):
-            raise ValueError("Not all images have weights")
-
-        from vircampype.fits.images.flat import MasterWeight
-        return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
-
-    # def get_unique_master_weights(self):
-    #     """ Returns unique MasterWeights as MasterWeights instance. """
-    #     from vircampype.fits.images.flat import MasterWeight
-    #     return MasterWeight(setup=self.setup, file_paths=list(set(self.get_master_weight().full_paths)))
-
-    # def get_master_weight_coadd(self):
-    #     """
-    #     Get for each file in self the corresponding MasterWeightCoadd.
-    #
-    #     Returns
-    #     -------
-    #     MasterWeightCoadd
-    #         MasterWeightCoadd instance holding for each file in self the corresponding MasterWeightCoadd file.
-    #
-    #     """
-    #
-    #     # Match and return
-    #     return self.match_filter(match_to=self.get_master_images().weight_coadd,
-    #                              max_lag=self.setup["master"]["max_lag_flat"])
-
-    def get_master_sky(self):
-        """
-        Get for each file in self the corresponding Mastersky.
-
-        Returns
-        -------
-        MasterSky
-            MasterSky instance holding for each file in self the corresponding MasterSky file.
-
-        """
-
-        # Match and return
-        return self.match_filter(match_to=self.get_master_images().sky,
-                                 max_lag=self.setup["master"]["max_lag_sky"] / 1440.)
-
-    def get_master_superflat(self):
-        """
-        Get for all files in self the corresponding MasterSuperflat (split by minutes from setup).
-
-        Returns
-        -------
-        MasterSuperflat
-            MasterSuperflat instance holding for all files in self the corresponding MasterSuperflat images.
-
-        """
-        return self.match_filter(match_to=self.get_master_images().superflat,
-                                 max_lag=self.setup["master"]["max_lag_superflat"] / 1440.)
-
-    def get_master_psf(self):
-
-        # Get all master psf files
-        master_psf_paths = glob.glob(self.path_master_object + "*.psfex")
-        master_psf_names = [os.path.basename(x) for x in master_psf_paths]
-
-        # Loop over files
-        master_psf_files = []
-        for fn in self.file_names:
-
-            # Find match for current file
-            master_psf_files.append(master_psf_paths[[fn in mpsf for mpsf in master_psf_names].index(True)])
-
-        return master_psf_files
-
-    def get_master_source_mask(self):
-        """
-        Fetches the corresponding master source mask files, based on a MJD match.
-
-        Returns
-        -------
-        MasterSourceMask
-            MasterSourceMask instance holding all matches for the current instance.
-
-        """
-        return self.match_mjd(match_to=self.get_master_images().source_mask, max_lag=1 / 86400)
-
-    # =========================================================================== #
-    # Master tables
-    # =========================================================================== #
-    def get_master_linearity(self):
-        """
-        Get for each file in self the corresponding Masterlinearity table.
-
-        Returns
-        -------
-        MasterLinearity
-            MasterLinearity instance holding for each file in self the corresponding Masterlinearity table.
-
-        """
-
-        # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().linearity,
-                              max_lag=self.setup["master"]["max_lag_linearity"])
-
-    def get_master_gain(self):
-        """
-        Get for each file in self the corresponding MasterGain table.
-
-        Returns
-        -------
-        MasterGain
-            MasterGain instance holding for each file in self the corresponding Masterlinearity table.
-
-        """
-
-        # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().gain,
-                              max_lag=self.setup["master"]["max_lag_gain"])
-
-    # =========================================================================== #
-    # Matcher
-    # =========================================================================== #
-    # noinspection PyTypeChecker
-    def _match_exposure(self, match_to, max_lag=None, ignore_dit=False, ignore_ndit=False):
-        """
-        Matches all entries in the current instance with the match_to instance so that DIT and NDIT fit. In case there
-        are multiple matches, will return the closest in time!
-
-        Parameters
-        ----------
-        match_to : FitsImages
-            FitsImages (or any child) instance out of which the matches should be drawn.
-        max_lag : int, float, optional
-            Maximum allowed time difference for matching in days. Default is None.
-        ignore_dit : bool, optional
-            Whether to ignore DIT values in matching. Default is False.
-        ignore_ndit: bool, optional
-            Whether to ignore NDIT values in matching. Default is False.
-
-        """
-
-        # Check if input is indeed of FitsImages class
-        if not isinstance(match_to, FitsImages):
-            raise ValueError("Input objects are not FitsImages class")
-
-        # Fetch DIT and NDIT information for filtering options
-        dit_a = [1 for _ in self.dit] if ignore_dit else self.dit
-        ndit_a = [1 for _ in self.ndit] if ignore_ndit else self.ndit
-        dit_b = [1 for _ in match_to.dit] if ignore_dit else match_to.dit
-        ndit_b = [1 for _ in match_to.ndit] if ignore_ndit else match_to.ndit
-
-        # Construct list of tuples for easier matching
-        pair_a = [(i, k) for i, k in zip(dit_a, ndit_a)]
-        pair_b = [(i, k) for i, k in zip(dit_b, ndit_b)]
-
-        # Get matching indices (for each entry in pair_a get the indices in pair_b)
-        indices = [[i for i, j in enumerate(pair_b) if j == k] for k in pair_a]
-
-        # Create list for output
-        matched = []
-
-        # Now get the closest in time for each entry
-        for f, idx in zip(self, indices):
-
-            # Construct FitsFiles class
-            a = self.__class__(setup=self.setup, file_paths=[f])
-            b = match_to.__class__(setup=self.setup, file_paths=[match_to.file_paths[i] for i in idx])
-
-            # Raise error if nothing is found
-            if len(a) < 1 or len(b) < 1:
-                raise ValueError("No matching exposure found.")
-
-            # Get the closest in time
-            matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).full_paths)
-
-        # Return
-        return match_to.__class__(setup=self.setup, file_paths=matched)
-
-    # noinspection PyTypeChecker
-    def match_filter(self, match_to, max_lag=None):
-        """
-        Matches all entries in the current instance with the match_to instance so that the filters match. In case there
-        are multiple matches, will return the closest in time!
-
-        Parameters
-        ----------
-        match_to : FitsImages
-            FitsImages (or any child) instance out of which the matches should be drawn.
-        max_lag : int, float, optional
-            Maximum allowed time difference for matching in days. Default is None.
-
-        Returns
-        -------
-
-        """
-
-        # Check if input is indeed of FitsImages class
-        if not isinstance(match_to, FitsImages):
-            raise ValueError("Input objects are not FitsImages class")
-
-        # Get matching indices (for each entry in pair_a get the indices in pair_b)
-        indices = [[i for i, j in enumerate(match_to.filter) if j == k] for k in self.filter]
-
-        # Create list for output
-        matched = []
-
-        # Now get the closest in time for each entry
-        for f, idx in zip(self, indices):
-
-            # Issue error if no files can be found
-            if len(idx) < 1:
-                raise ValueError(BColors.FAIL + "Could not find matching filter" + BColors.ENDC)
-
-            # Otherwise append closest in time
-            else:
-
-                # Construct FitsFiles class
-                a = self.__class__(setup=self.setup, file_paths=[f])
-                b = match_to.__class__(setup=match_to.setup, file_paths=[match_to.file_paths[i] for i in idx])
-
-                # Get the closest in time
-                matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).full_paths)
-
-        # Return
-        return match_to.__class__(setup=match_to.setup, file_paths=matched)
-
-    # =========================================================================== #
-    # Main data calibration
-    # =========================================================================== #
-    def process_raw(self):
-        """ Main science calibration method. All options are set in the setup. """
-        # TODO: Write better docstring
-
-        # import
-        from vircampype.fits.images.sky import MasterSky
-        from vircampype.fits.images.dark import MasterDark
-        from vircampype.fits.images.flat import MasterFlat
-        from vircampype.fits.tables.gain import MasterGain
-        from vircampype.fits.images.bpm import MasterBadPixelMask
-        from vircampype.fits.tables.linearity import MasterLinearity
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="PROCESSING RAW", silent=self.setup["misc"]["silent"], right="")
-
-        # Fetch the Masterfiles
-        master_bpm = self.get_master_bpm()  # type: MasterBadPixelMask
-        master_dark = self.get_master_dark()  # type: MasterDark
-        master_flat = self.get_master_flat()  # type: MasterFlat
-        master_gain = self.get_master_gain()  # type: MasterGain
-        master_sky = self.get_master_sky()  # type: MasterSky
-        master_linearity = self.get_master_linearity()  # type: MasterLinearity
-
-        # Loop over files and apply calibration
-        for idx in range(self.n_files):
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=self.paths_processed[idx], silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print processing info
-            message_calibration(n_current=idx + 1, n_total=self.n_files, name=self.paths_processed[idx],
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-
-            # Read file into cube
-            calib_cube = self.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
-
-            # Get master calibration
-            bpm = master_bpm.file2cube(file_index=idx, hdu_index=None, dtype=np.uint8)
-            dark = master_dark.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
-            flat = master_flat.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
-            sky = master_sky.file2cube(file_index=idx, hdu_index=None, dtype=np.float32)
-            lin = master_linearity.file2coeff(file_index=idx, hdu_index=None)
-
-            # Add Gain, read noise, and saturation limit to headers
-            for h, g, r, s in zip(self.headers_data[idx], master_gain.gain[idx],
-                                  master_gain.rdnoise[idx], str2list(self.setup["data"]["saturation_levels"])):
-                h[self.setup["keywords"]["gain"]] = (np.round(g, decimals=3), "Gain (e-/ADU)")
-                h[self.setup["keywords"]["rdnoise"]] = (np.round(r, decimals=3), "Read noise (e-)")
-                h[self.setup["keywords"]["saturate"]] = (s, "Saturation level (ADU)")
-
-            # Do calibration
-            calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx])
-
-            # Apply cosmetics
-            if self.setup["cosmetics"]["mask_cosmics"]:
-                calib_cube.mask_cosmics(bpm=bpm, gain=master_gain.gain[idx], readnoise=master_gain.rdnoise[idx],
-                                        satlevel=self.setup["data"]["saturate"], sepmed=False, cleantype="medmask")
-            if self.setup["interpolation"]["interpolate_nan"]:
-                calib_cube.interpolate_nan()
-            if self.setup["cosmetics"]["destripe"]:
-                calib_cube.destripe()
-
-            # Add file info to main header
-            phdr = self.headers_primary[idx].copy()
-            phdr["BPMFILE"] = master_bpm.file_names[idx]
-            phdr["DARKFILE"] = master_dark.file_names[idx]
-            phdr["FLATFILE"] = master_flat.file_names[idx]
-            phdr["SKYFILE"] = master_sky.file_names[idx]
-            phdr["LINFILE"] = master_linearity.file_names[idx]
-
-            # Write to disk
-            calib_cube.write_mef(path=self.paths_processed[idx], prime_header=phdr,
-                                 data_headers=self.headers_data[idx], dtype="float32")
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return new instance of calibrated images
-        return self.__class__(setup=self.setup, file_paths=self.paths_processed)
-
-    def apply_superflat(self):
-        """ Applies superflat to (processed) images. """
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="APPLYING SUPERFLAT",
-                                           silent=self.setup["misc"]["silent"], right="")
-
-        # Build paths for aheaders (need to be copied too for resampling)
-        path_aheaders = [x.replace(".fits", ".ahead") for x in self.paths_superflatted]
-
-        # Fetch superflat for each image in self
-        superflats = self.get_master_superflat()
-
-        # Loop over self and superflats
-        for idx_file in range(len(self)):
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=self.paths_superflatted[idx_file], silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=self.paths_superflatted[idx_file],
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-
-            # Read data
-            cube_self = self.file2cube(file_index=idx_file)
-            cube_flat = superflats.file2cube(file_index=idx_file)
-
-            # Determine cube background
-            background = cube_self.background(mesh_size=256)[0]
-
-            # Apply background
-            cube_self -= background
-
-            # Normalize
-            cube_self /= cube_flat
-
-            # Add background back in
-            cube_self += background
-
-            # Write back to disk
-            cube_self.write_mef(self.paths_superflatted[idx_file], prime_header=self.headers_primary[idx_file],
-                                data_headers=self.headers_data[idx_file])
-
-            # Copy aheader for swarping
-            copy_file(self._paths_aheaders[idx_file], path_aheaders[idx_file])
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return new instance of calibrated images
-        return self.__class__(setup=self.setup, file_paths=self.paths_superflatted)
-
-    # =========================================================================== #
-    # Sextractor
-    # =========================================================================== #
-    @property
-    def _bin_sex(self):
-        return which(self.setup["astromatic"]["bin_sex"])
-
-    @property
-    def _sex_default_config(self):
-        """
-        Searches for default config file in resources.
-
-        Returns
-        -------
-        str
-            Path to default config
-
-        """
-        return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="default.config")
-
-    @property
-    def _sex_preset_package(self):
-        """
-        Internal package preset path for sextractor.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "vircampype.resources.astromatic.sextractor.presets"
-
-    @property
-    def _sex_default_filter(self):
-        """
-        Path for default convolution filter.
-
-        Returns
-        -------
-        str
-            Path to file.
-        """
-
-        return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="gauss_2.5_5x5.conv")
-
-    @property
-    def _sex_default_nnw(self):
-        """
-        Path for default nnw file.
-
-        Returns
-        -------
-        str
-            Path to file.
-        """
-
-        return get_resource_path(package="vircampype.resources.astromatic.sextractor", resource="default.nnw")
-
-    def _sex_paths_tables(self, prefix=""):
-        """
-        Path to sextractor tables for files in instance.
-
-        Returns
-        -------
-        iterable
-            List with table names.
-        """
-
-        if prefix is None:
-            prefix = ""
-
-        return [x.replace(".fits", ".{0}.sources.fits".format(prefix)).replace("..", ".") for x in self.full_paths]
-
-    def _path_sex_param(self, preset):
-        """
-        Returns path to sextractor param file, given preset.
-
-        Parameters
-        ----------
-        preset : str
-            Which preset to use.
-
-        Returns
-        -------
-        str
-            Path to preset param.
-        """
-
-        return get_resource_path(package=self._sex_preset_package, resource="{0}.param".format(preset))
-
-    def _path_sex_yml(self, preset):
-        """
-        Returns path to sextractor yml file, given preset.
-
-        Parameters
-        ----------
-        preset : str
-            Which preset to use.
-
-        Returns
-        -------
-        str
-            Path to preset yml.
-        """
-
-        return get_resource_path(package=self._sex_preset_package, resource="{0}.yml".format(preset))
-
-    def sextractor(self, preset="scamp", silent=None, **kwargs):
-        """
-        Runs sextractor based on given presets.
-
-        Parameters
-        ----------
-        preset : str
-            Preset name.
-        silent : bool, optional
-            Can overrides setup on messaging.
-
-        Returns
-        -------
-        SextractorCatalogs
-            SextractorCatalog instance with the generated catalogs.
-
-        """
-
-        if silent is None:
-            silent = self.setup["misc"]["silent"]
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="SOURCE DETECTION", silent=silent,
-                                           left="Running Sextractor with preset '{0}' on {1} files"
-                                                "".format(preset, len(self)), right=None)
-
-        # Check for existing files
-        path_tables_clean = []
-        if not self.setup["misc"]["overwrite"]:
-            for pt in self._sex_paths_tables(prefix=preset):
-                check_file_exists(file_path=pt, silent=silent)
-                if not os.path.isfile(pt):
-                    path_tables_clean.append(pt)
-
-        # Set some common variables
-        kwargs_yml = dict(path=self._path_sex_yml(preset=preset), parameters_name=self._path_sex_param(preset=preset),
-                          filter_name=self._sex_default_filter, satur_key=self.setup["keywords"]["saturate"],
-                          gain_key=self.setup["keywords"]["gain"], back_size=self.setup["astromatic"]["back_size_sex"],
-                          back_filtersize=self.setup["astromatic"]["back_filtersize_sex"])
-
-        # Read setup based on preset
-        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex") | (preset == "master-weight"):
-            ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
-        elif preset == "superflat":
-            ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
-        elif preset == "full":
-            ss = yml2config(phot_apertures=self.setup["photometry"]["apertures"].replace(", ", ","), seeing_fwhm=0,
-                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
-        else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
-
-        # Construct commands for source extraction
-        cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
-                "".format(self._bin_sex, self._sex_default_config, image, self._sex_default_nnw, catalog, weight, ss)
-                for image, catalog, weight in zip(self.full_paths, path_tables_clean,
-                                                  self.get_master_weights().full_paths)]
-
-        # Add PSF models to commands
-        if preset == "full":
-            mpsf_paths = self.get_master_psf()
-            for idx_file in range(len(cmds)):
-                cmds[idx_file] += "-PSF_NAME {0}".format(mpsf_paths[idx_file])
-
-        # Add kwargs to commands
-        for key, val in kwargs.items():
-            for cmd_idx in range(len(cmds)):
-                cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
-
-        # Run Sextractor
-        run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
-
-        # Add some keywords to primary header
-        for cat, img in zip(path_tables_clean, self.full_paths):
-            copy_keywords(path_1=cat, path_2=img, hdu_1=0, hdu_2=0,
-                          keywords=[self.setup["keywords"]["object"], self.setup["keywords"]["filter"]])
-
-        # Print time
-        message_finished(tstart=tstart, silent=silent)
-
-        # Select return class based on preset
-        if (preset == "scamp") | (preset == "fwhm") | (preset == "psfex") | (preset == "master-weight"):
-            cls = SextractorCatalogs
-        elif (preset == "superflat") | (preset == "full"):
-            cls = AstrometricCalibratedSextractorCatalogs
-        else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
-
-        # Return Table instance
-        return cls(setup=self.setup, file_paths=self._sex_paths_tables(prefix=preset))
-
-    # =========================================================================== #
-    # Image quality
-    # =========================================================================== #
-    def set_image_quality(self):
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="IMAGE QUALITY", silent=self.setup["misc"]["silent"], right="")
-
-        # Run Sextractor with preset for image quality
-        catalogs = self.sextractor(preset="fwhm", silent=True)
-
-        # Set variables to None for faster skipping if this step has already been done
-        psf_fwhm, pixel_scales = None, None
-
-        # Loop over self and set put values into headers
-        for idx_file in range(len(self)):
-
-            # Check if keyword was already added
-            if "PSF_FWHM" in self.headers_data[idx_file][0]:
-                print(BColors.WARNING + "{0} already modified."
-                                        "".format(os.path.basename(self.full_paths[idx_file])) + BColors.ENDC)
-                continue
-
-            # Estimate FWHM from measurements and read pixel scales from headers if necessary
-            if (psf_fwhm is None) & (pixel_scales is None):
-                psf_fwhm = catalogs.fwhm_from_columns()
-                pixel_scales = self.pixel_scale()
-
-            # Open current file
-            with fits.open(self.full_paths[idx_file], mode="update") as hdul:
-
-                # Print processing info
-                message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=self.full_paths[idx_file],
-                                    d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-
-                for idx_hdu, idx_arr in zip(self.data_hdu[idx_file], range(len(self.data_hdu[idx_file]))):
-
-                    # Get current value
-                    psf_fwhm_hdu = psf_fwhm[idx_file][idx_arr][0] * pixel_scales[idx_file][idx_arr][0]
-
-                    # Modify header
-                    add_float_to_header(hdul[idx_hdu].header, "PSF_FWHM", psf_fwhm_hdu, "PSF FWHM (arcsec)")
-
-                # Write changes
-                hdul.flush()
-
-            # Delete temp header
-            self.delete_headers_temp(file_index=idx_file)
-
-        # Flush headers for so that they are regenerated next time they are accessed
-        self._headers = None
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    def build_master_psf(self, psfvar_degrees=3):
-
-        # Run Sextractor with PSFEX preset
-        sources_psfex = self.sextractor(preset="psfex")
-
-        # Run PSFEX
-        sources_psfex.psfex(psfvar_degrees=psfvar_degrees)
-
-    # def build_master_psf_photutils(self):
-    #
-    #     # Find and instantiate weights
-    #     from vircampype.fits.images.obspar import MasterPSF
-    #     from vircampype.fits.images.flat import WeightImages
-    #     from vircampype.fits.tables.sextractor import SextractorCatalogs
-    #
-    #     # Get Weight images
-    #     paths_weights = [x.replace(".sources.", ".weight.") for x in self.full_paths]
-    #     weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
-    #
-    #     # Get source catalogs
-    #     source_tables = SextractorCatalogs(setup=self.setup, file_paths=self._sex_paths_tables())
-    #
-    #     # Processing info
-    #     tstart = message_mastercalibration(master_type="PSF", silent=self.setup["misc"]["silent"],
-    #                                        right=None)
-    #
-    #     # Loop over files
-    #     for idx_file in range(len(self)):
-    #
-    #         # Create master dark name
-    #         outpath = self.path_master_object + "MASTER-PSF.{0}".format(self.base_names[idx_file])
-    #
-    #         # Check if the file is already there and skip if it is
-    #         if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-    #             continue
-    #
-    #         # Print processing info
-    #         message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
-    #                             d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-    #
-    #         # Instantiate output
-    #         masterpsf = ImageCube(setup=self.setup)
-    #
-    #         # Read all extensions
-    #         data_img = self.file2list(file_index=idx_file)
-    #         data_wei = weight_images.file2list(file_index=idx_file)
-    #         data_src = source_tables.file2table(file_index=idx_file)
-    #
-    #         # Clean source tables
-    #         data_src = [clean_source_table(table=t, image_header=hdr, snr_limit=self.setup["psf"]["snr_min"],
-    #                                        nndis_limit=15) for t, hdr in zip(data_src, self.headers_data[idx_file])]
-    #
-    #         # Build PSF
-    #         with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
-    #             mp = parallel(delayed(build_psf)(da, we, src, si, ov, mi) for da, we, src, si, ov, mi in
-    #                           zip(data_img, data_wei, data_src, repeat(self.setup["psf"]["size"]),
-    #                               repeat(self.setup["psf"]["oversampling"]), repeat(self.setup["psf"]["maxiters"])))
-    #             masterpsf.extend(data=np.array(mp).astype(np.float32))
-    #
-    #         # Construct data header
-    #         data_headers = []
-    #         for idx in range(len(mp)):
-    #             hdr = fits.Header()
-    #             hdr["NSOURCES"] = (len(data_src[idx]), "Number of used sources to build PSF")
-    #             data_headers.append(hdr)
-    #
-    #         # Make primary header
-    #         prime_header = fits.Header()
-    #         prime_header[self.setup["keywords"]["object"]] = "MASTER-PSF"
-    #         prime_header[self.setup["keywords"]["date_mjd"]] = self.mjd[idx_file]
-    #         prime_header["PSF_SIZE"] = (self.setup["psf"]["size"], "PSF size in pixels")
-    #         prime_header["OVERSAMP"] = (self.setup["psf"]["oversampling"], "EPSF oversampling factor")
-    #         prime_header["MAXITERS"] = (self.setup["psf"]["maxiters"], "Maximum number of iterations")
-    #         prime_header["SNR_MIN"] = (self.setup["psf"]["snr_min"], "Minimum S/N to be PSF star")
-    #
-    #         # Write to disk
-    #         masterpsf.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
-    #
-    #         # QC plot
-    #         if self.setup["misc"]["qc_plots"]:
-    #             msf = MasterPSF(setup=self.setup, file_paths=outpath)
-    #             msf.qc_plot_psf()
-    #
-    #     # Print time
-    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    # def homogenize_psf(self):
-    #     raise NotImplementedError
-
-        # # Get all PSFs
-        # self.build_master_psf()
-        #
-        # # Processing info
-        # tstart = message_mastercalibration(master_type="PSF HOMOGENIZATION", silent=self.setup["misc"]["silent"],
-        #                                    right=None)
-        #
-        # # Find weights
-        # # from vircampype.fits.images.flat import WeightImages
-        # # paths_weights = [x.replace(".fits", ".weight.fits") for x in self.full_paths]
-        #
-        # # Dummy check weights
-        # # check = [os.path.exists(p) for p in paths_weights]
-        # # if np.sum(check) != len(self):
-        # #     raise ValueError("Not all files have associated weights! n_images = {0}; n_weight = {1}"
-        # #                      "".format(len(self), np.sum(check)))
-        #
-        # # Read weights into new instance
-        # # weight_images = WeightImages(setup=self.setup, file_paths=paths_weights)
-        #
-        # # Read Master PSF
-        # master_psf = self.get_master_psf()
-        #
-        # # Alright, now we find the worst image quality
-        # psf_fwhm_all = np.array(self.dataheaders_get_keys(keywords=["PSF_FWHM"])[0])
-        # idx_bad = np.argmax(psf_fwhm_all)
-        # idx_bad_all = np.indices(psf_fwhm_all.shape)
-        # idx_bad_img, idx_bad_ext = idx_bad_all[0].ravel()[idx_bad], idx_bad_all[1].ravel()[idx_bad]
-        #
-        # # Get PSF that others need to be matched to
-        # psf_match_to = fits.getdata(master_psf.full_paths[idx_bad_img], idx_bad_ext)
-        #
-        # # Generate output paths
-        # outpaths = ["{0}{1}.homo{2}".format(self.path_homo, fn, fw)
-        #             for fn, fw in zip(self.file_names, self.file_extensions)]
-        #
-        # # Now loop over each file and create matching kernel
-        # window = CosineBellWindow(alpha=0.35)
-        # for idx_file in range(len(self)):
-        #
-        #     # Get current putput path
-        #     outpath = outpaths[idx_file]
-        #
-        #     # Check if the file is already there and skip if it is
-        #     if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-        #         continue
-        #
-        #     # Print processing info
-        #     message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=os.path.basename(outpath),
-        #                         d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
-        #
-        #     # Create matching kernel
-        #     master_psf_cube = master_psf.file2cube(file_index=idx_file)
-        #     kernels = [create_matching_kernel(d, psf_match_to, window=window) for d in master_psf_cube]
-        #
-        #     # Resize matching kernels for convolution
-        #     kernels = [resize_psf(k, input_pixel_scale=1, output_pixel_scale=2*self.setup["psf"]["oversampling"])
-        #                for k in kernels]
-        #
-        #     # Read image data
-        #     cube_img = self.file2list(file_index=idx_file)
-        #     # cube_wei = weight_images.file2list(file_index=idx_file)
-        #
-        #     # for idx in range(len(cube_img)):
-        #     #     cube_img[idx][cube_wei[idx] <= 0.0001] = np.nan
-        #
-        #     # Convolve
-        #     with Parallel(n_jobs=16) as parallel:
-        #         mp = parallel(delayed(convolve)(d, k, b) for d, k, b in zip(cube_img, kernels, repeat("extend")))
-        #
-        #     # Put back bad values
-        #     # for idx in range(len(mp)):
-        #     #     mp[idx][cube_wei[idx] <= 0.0001] = np.nan
-        #
-        #     # Replace data and write new file with old headers
-        #     hdul = fits.open(self.full_paths[idx_file])
-        #     for ei, nd in zip(self.data_hdu[idx_file], mp):
-        #         hdul[ei] = fits.ImageHDU(nd, header=(delete_keyword(header=hdul[ei].header, keyword="PSF_FWHM")))
-        #
-        #     hdul.writeto(outpath, overwrite=True)
-        #
-        # # Print time
-        # message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-        #
-        # # Return new instance of calibrated images
-        # return self.__class__(setup=self.setup, file_paths=outpaths)
-
-    # =========================================================================== #
-    # Other methods
-    # =========================================================================== #
-    def pixel_scale(self):
-        """
-        Computes pixel scales for each detector and for each file in X/Y in arcseconds.
-
-        Returns
-        -------
-        iterable
-            Stacked list. First level: files, second levels: HDUs. Each HDU then contains a tuple for the pixel scale
-            in arcseconds in X and Y.
-
-        """
-        ps_files = []
-        for hdrs_file in self.headers_data:
-            ps_hdus = []
-            for hdr_hdu in hdrs_file:
-                w = awcs.WCS(hdr_hdu)
-                ps_hdus.append(tuple(proj_plane_pixel_scales(w) * 3600))
-            ps_files.append(ps_hdus)
-        return ps_files
+    def ndit_norm(self):
+        """ Convenience method for retrieving the NDITs of the current instance as ndarray. """
+        return np.array(self.ndit)
+
+    _filter = None
 
     def check_compatibility(self, n_files_min=None, n_files_max=None, n_hdu_min=None, n_hdu_max=None, n_dit_min=None,
                             n_dit_max=None, n_ndit_min=None, n_ndit_max=None, n_filter_min=None, n_filter_max=None):
@@ -1384,88 +161,469 @@ class FitsImages(FitsFiles):
 
         # Check filters
         if n_filter_min is not None:
-            if len(set(self.filter)) < n_filter_min:
+            if len(set(self.passband)) < n_filter_min:
                 raise ValueError("Found {0:0g} different filters; "
-                                 "min = {1:0g}".format(len(set(self.filter)), n_filter_min))
+                                 "min = {1:0g}".format(len(set(self.passband)), n_filter_min))
         if n_filter_max is not None:
-            if len(set(self.filter)) > n_filter_max:
+            if len(set(self.passband)) > n_filter_max:
                 raise ValueError("Found {0:0g} different filters; "
-                                 "max = {1:0g}".format(len(set(self.filter)), n_filter_min))
+                                 "max = {1:0g}".format(len(set(self.passband)), n_filter_min))
 
-    def build_master_path(self, basename, idx=0, dit=False, ndit=False, mjd=False, filt=False, table=False):
+    _dtypes = None
+
+    @property
+    def dtypes(self):
         """
-        Build the path for master calibration files based on information in the FITS header
-
-        Parameters
-        ----------
-        basename : str
-            The generated filename will start with this string
-        idx : int
-            Index of entry in fits headers of self (default = 0).
-        dit : bool, optional
-            Whether the DIT should be mentioned in the filename.
-        ndit : bool, optional
-            Whether the NDIT should be mentioned in the filename.
-        mjd : bool, optional
-            Whether the MJD should be mentioned in the filename.
-        filt : bool, optional
-            Whether the Filter should be mentioned in the filename.
-        table : bool, optional
-            If set, append '.tab' to the end of the filename.
+        Gets the data type info from the fits headers. For each file and each extension the data type is extracted.
 
         Returns
         -------
-        str
-            Master calibration file path.
+        iterable
+            List of lists of data types for each FitsImage entry and each extension
 
         """
 
-        # Common name
-        if ("sky" in basename.lower()) | ("photometry" in basename.lower()):
-            path = self.path_master_object + basename
-        else:
-            path = self.path_master_common + basename
+        # Get bitpix keyword
+        bitpix = [x[0] for x in self.read_from_data_headers(keywords=["BITPIX"])[0]]
 
-        # Append options
-        if dit:
-            path += ".DIT_" + str(self.dit[idx])
-        if ndit:
-            path += ".NDIT_" + str(self.ndit[idx])
-        if mjd:
-            path += ".MJD_" + str(np.round(self.mjd_mean, decimals=4))
-        if filt:
-            path += ".FIL_" + self.filter[idx]
+        # Loop through everything and set types
+        dtypes = []
+        for bp in bitpix:
+            if bp == 8:
+                app = np.uint8
+            elif bp == 16:
+                app = np.uint16
+            elif bp in (-32, 32):
+                app = np.float32
+            else:
+                raise NotImplementedError("Data type '{0}' not implemented!".format(bp))
 
-        # File extensions
-        path += ".fits"
+            dtypes.append(app)
 
-        if table:
-            path += ".tab"
+        self._dtypes = dtypes
+        return self._dtypes
+
+    # =========================================================================== #
+    # Data splitting
+    # =========================================================================== #
+    def split_types(self):
+        """
+        Basic file splitting routine for raw VIRCAM data.
+
+        Returns
+        -------
+        dict
+            Dictionary with subtypes.
+
+        """
+
+        # Import
+        from vircampype.fits.images.dark import DarkImages
+        from vircampype.fits.images.sky import RawScienceImages, RawOffsetImages, RawStdImages
+        from vircampype.fits.images.flat import FlatTwilight, FlatLampLin, FlatLampCheck, FlatLampGain
+
+        # Get the type, and category from the primary header
+        types, category = self.read_from_prime_headers([self.setup.keywords.type, self.setup.keywords.category])
+
+        # Extract the various data types for VIRCAM
+        science_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                         c == "SCIENCE" and "OBJECT" in t]
+        science = None if len(science_index) < 1 else \
+            RawScienceImages(setup=self.setup, file_paths=[self.paths_full[i] for i in science_index])
+
+        offset_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                        c == "SCIENCE" and "SKY" in t]
+        offset = None if len(offset_index) < 1 else \
+            RawOffsetImages(setup=self.setup, file_paths=[self.paths_full[i] for i in offset_index])
+
+        dark_science_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                              c == "CALIB" and t == "DARK"]
+        dark_science = None if len(dark_science_index) < 1 else \
+            DarkImages(setup=self.setup, file_paths=[self.paths_full[i] for i in dark_science_index])
+
+        flat_twilight_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                               c == "CALIB" and t == "FLAT,TWILIGHT"]
+        flat_twilight = None if len(flat_twilight_index) < 1 else \
+            FlatTwilight(setup=self.setup, file_paths=[self.paths_full[i] for i in flat_twilight_index])
+
+        dark_lin_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                          c == "CALIB" and t == "DARK,LINEARITY"]
+        dark_lin = None if len(dark_lin_index) < 1 else \
+            DarkImages(setup=self.setup, file_paths=[self.paths_full[i] for i in dark_lin_index])
+
+        flat_lamp_lin_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                               c == "CALIB" and t == "FLAT,LAMP,LINEARITY"]
+        flat_lamp_lin = None if len(flat_lamp_lin_index) < 1 else \
+            FlatLampLin(setup=self.setup, file_paths=[self.paths_full[i] for i in flat_lamp_lin_index])
+
+        flat_lamp_check_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                                 c == "CALIB" and t == "FLAT,LAMP,CHECK"]
+        flat_lamp_check = None if len(flat_lamp_check_index) < 1 else \
+            FlatLampCheck(setup=self.setup, file_paths=[self.paths_full[i] for i in flat_lamp_check_index])
+
+        dark_gain_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                           c == "CALIB" and t == "DARK,GAIN"]
+        dark_gain = None if len(dark_gain_index) < 1 else \
+            DarkImages(setup=self.setup, file_paths=[self.paths_full[i] for i in dark_gain_index])
+
+        flat_lamp_gain_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                                c == "CALIB" and t == "FLAT,LAMP,GAIN"]
+        flat_lamp_gain = None if len(flat_lamp_gain_index) < 1 else \
+            FlatLampGain(setup=self.setup, file_paths=[self.paths_full[i] for i in flat_lamp_gain_index])
+
+        std_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                     c == "CALIB" and t == "STD,FLUX"]
+        std = None if len(std_index) < 1 else \
+            RawStdImages(setup=self.setup, file_paths=[self.paths_full[i] for i in std_index])
+
+        return dict(science=science, offset=offset, std=std, dark_science=dark_science, dark_lin=dark_lin,
+                    dark_gain=dark_gain, flat_twilight=flat_twilight, flat_lamp_lin=flat_lamp_lin,
+                    flat_lamp_check=flat_lamp_check, flat_lamp_gain=flat_lamp_gain)
+
+    # =========================================================================== #
+    # I/O
+    # =========================================================================== #
+    def hdu2cube(self, hdu_index=0, dtype=None):
+        """
+        Reads a given extension from all files in the given instance into a numpy array
+
+        Parameters
+        ----------
+        hdu_index : int, optional
+            Iterable of hdu indices to load, default is to load all HDUs with data
+        dtype : dtype, optional
+            Data type (e.g. np.float32)
+
+        Returns
+        -------
+        ImageCube
+            ImageCube instance containing data for a given extension for all files
+
+        """
+
+        # The specified extension must be in the range of existing ones
+        if hdu_index > min(self.n_hdu) - 1:
+            raise ValueError("The specified extension is out of range!")
+
+        # Data type
+        if dtype is None:
+            dtype = np.float32
+
+        # Read header of first file and given extension
+        header = self.headers[0][hdu_index]
+
+        # Create empty numpy cube
+        cube = np.empty((self.n_files, header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
+
+        # Fill cube with data
+        for path, plane in zip(self.paths_full, cube):
+            with fits.open(path) as f:
+                plane[:] = f[hdu_index].data
 
         # Return
-        return path
+        return ImageCube(setup=self.setup, cube=cube)
 
-    def get_saturation_hdu(self, hdu_index):
+    def file2cube(self, file_index=0, hdu_index=None, dtype=None):
         """
+        Reads all extensions of a given file into a numpy array.
 
         Parameters
         ----------
-        hdu_index : int
-            Integer index of HDU for which the saturation should be returned
+        file_index : int
+            Integer index of the file in the current FitsFiles instance.
+        hdu_index : iterable
+            Iterable of hdu indices to load, default is to load all HDUs with data.
+        dtype : optional, dtype
+            Data type (e.g. np.float32).
 
         Returns
         -------
-        float
-            Saturation of requested hdu from self.setup
+        ImageCube
+            ImageCube instance containing data of the requested file.
 
         """
 
-        # Need -1 here since the coefficients do not take an empty primary header into account
-        if hdu_index-1 < 0:
-            raise ValueError("HDU with index {0} does not exits".format(hdu_index-1))
+        if hdu_index is None:
+            hdu_index = self.iter_data_hdu[file_index]
 
-        # Return HDU saturation limit
-        return str2list(self.setup["data"]["saturation_levels"])[hdu_index-1]
+        # Data type
+        if dtype is None:
+            dtype = self.dtypes[file_index]
+
+        # Read header of requested file and first extension
+        header = self.headers_data[file_index][0]
+
+        # Create empty cube
+        cube = np.empty((len(hdu_index), header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
+
+        # Fill cube with data
+        with fits.open(name=self.paths_full[file_index]) as f:
+            for plane, idx in zip(cube, hdu_index):
+                plane[:] = f[idx].data
+
+        # Return
+        return ImageCube(setup=self.setup, cube=cube)
+
+    # =========================================================================== #
+    # Matching
+    # =========================================================================== #
+    def _match_exposure(self, match_to, max_lag=None, ignore_dit=False, ignore_ndit=False):
+        """
+        Matches all entries in the current instance with the match_to instance so that DIT and NDIT fit. In case there
+        are multiple matches, will return the closest in time!
+
+        Parameters
+        ----------
+        match_to : FitsImages
+            FitsImages (or any child) instance out of which the matches should be drawn.
+        max_lag : int, float, optional
+            Maximum allowed time difference for matching in days. Default is None.
+        ignore_dit : bool, optional
+            Whether to ignore DIT values in matching. Default is False.
+        ignore_ndit: bool, optional
+            Whether to ignore NDIT values in matching. Default is False.
+
+        """
+
+        # Check if input is indeed of FitsImages class
+        if not isinstance(match_to, FitsImages):
+            raise ValueError("Input objects are not FitsImages class")
+
+        # Fetch DIT and NDIT information for filtering options
+        dit_a = [1 for _ in self.dit] if ignore_dit else self.dit
+        ndit_a = [1 for _ in self.ndit] if ignore_ndit else self.ndit
+        dit_b = [1 for _ in match_to.dit] if ignore_dit else match_to.dit
+        ndit_b = [1 for _ in match_to.ndit] if ignore_ndit else match_to.ndit
+
+        # Construct list of tuples for easier matching
+        pair_a = [(i, k) for i, k in zip(dit_a, ndit_a)]
+        pair_b = [(i, k) for i, k in zip(dit_b, ndit_b)]
+
+        # Get matching indices (for each entry in pair_a get the indices in pair_b)
+        indices = [[i for i, j in enumerate(pair_b) if j == k] for k in pair_a]
+
+        # Create list for output
+        matched = []
+
+        # Now get the closest in time for each entry
+        for f, idx in zip(self, indices):
+
+            # Construct FitsFiles class
+            a = self.__class__(setup=self.setup, file_paths=[f])
+            b = match_to.__class__(setup=self.setup, file_paths=[match_to.paths_full[i] for i in idx])
+
+            # Raise error if nothing is found
+            if len(a) < 1 or len(b) < 1:
+                raise ValueError("No matching exposure found.")
+
+            # Get the closest in time
+            matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).paths_full)
+
+        # Return
+        return match_to.__class__(setup=self.setup, file_paths=matched)
+
+    # noinspection PyTypeChecker
+    def match_passband(self, match_to, max_lag=None):
+        """
+        Matches all entries in the current instance with the match_to instance so that the filters match. In case there
+        are multiple matches, will return the closest in time!
+
+        Parameters
+        ----------
+        match_to : FitsImages
+            FitsImages (or any child) instance out of which the matches should be drawn.
+        max_lag : int, float, optional
+            Maximum allowed time difference for matching in days. Default is None.
+
+        Returns
+        -------
+
+        """
+
+        # Check if input is indeed of FitsImages class
+        if not isinstance(match_to, FitsImages):
+            raise ValueError("Input objects are not FitsImages class")
+
+        # Get matching indices (for each entry in pair_a get the indices in pair_b)
+        indices = [[i for i, j in enumerate(match_to.passband) if j == k] for k in self.passband]
+
+        # Create list for output
+        matched = []
+
+        # Now get the closest in time for each entry
+        for f, idx in zip(self, indices):
+
+            # Issue error if no files can be found
+            if len(idx) < 1:
+                raise ValueError("Could not find matching filter")
+
+            # Otherwise append closest in time
+            else:
+
+                # Construct FitsFiles class
+                a = self.__class__(setup=self.setup, file_paths=[f])
+                b = match_to.__class__(setup=match_to.setup, file_paths=[match_to.paths_full[i] for i in idx])
+
+                # Get the closest in time
+                matched.extend(a.match_mjd(match_to=b, max_lag=max_lag).paths_full)
+
+        # Return
+        return match_to.__class__(setup=match_to.setup, file_paths=matched)
+
+    # =========================================================================== #
+    # Master images
+    # =========================================================================== #
+    def get_master_bpm(self):
+        """
+        Get for each file in self the corresponding MasterBadPixelMask.
+
+        Returns
+        -------
+        MasterBadPixelMask
+            MasterBadPixelMask instance holding for each file in self the corresponding MasterBadPixelMask file.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self.get_master_images().bpm, max_lag=self.setup.max_lag_bpm)
+
+    def get_master_dark(self):
+        """
+        Get for each file in self the corresponding MasterDark.
+
+        Returns
+        -------
+        MasterDark
+            MasterDark instance holding for each file in self the corresponding MasterDark file.
+
+        """
+
+        # Match DIT and NDIT and MJD
+        return self._match_exposure(match_to=self.get_master_images().dark, max_lag=self.setup.max_lag_dark)
+
+    def get_master_flat(self):
+        """
+        Get for each file in self the corresponding MasterFlat.
+
+        Returns
+        -------
+        MasterFlat
+            MasterFlat instance holding for each file in self the corresponding Masterflat file.
+
+        """
+
+        # Match and return
+        return self.match_passband(match_to=self.get_master_images().flat, max_lag=self.setup.max_lag_flat)
+
+    def get_unique_master_flats(self):
+        """ Returns unique Master Flats as MasterFlat instance. """
+        from vircampype.fits.images.flat import MasterFlat
+        return MasterFlat(setup=self.setup, file_paths=list(set(self.get_master_flat().paths_full)))
+
+    def get_master_source_mask(self):
+        """
+        Fetches the corresponding master source mask files, based on a MJD match.
+
+        Returns
+        -------
+        MasterSourceMask
+            MasterSourceMask instance holding all matches for the current instance.
+
+        """
+        return self.match_mjd(match_to=self.get_master_images().source_mask, max_lag=1 / 86400)
+
+    def get_master_sky(self):
+        """
+        Get for each file in self the corresponding Mastersky.
+
+        Returns
+        -------
+        MasterSky
+            MasterSky instance holding for each file in self the corresponding MasterSky file.
+
+        """
+
+        # Match and return
+        return self.match_passband(match_to=self.get_master_images().sky, max_lag=self.setup.max_lag_sky / 1440.)
+
+    def get_master_weights(self):
+        """
+        Searches for MasterWeights in the following order:
+        1. Local files with extention *.weight.fits
+        2. Weight maps in the master folder
+
+        Returns
+        -------
+        MasterWeight
+            MasterWeight instance.
+
+        Raises
+        ------
+        ValueError
+            When not all images have an associated weight.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterWeight
+
+        # Look for weights in same folder with fitting name
+        master_weight_paths = [x.replace(".fits", ".weight.fits") for x in self.paths_full]
+        if sum([os.path.isfile(x) for x in master_weight_paths]) == len(self):
+            return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
+
+        # If no local paths are found, fetch image weights
+        master_weight_paths = self.match_passband(match_to=self.get_master_images().weight,
+                                                  max_lag=self.setup.max_lag_weight).paths_full
+        if sum([os.path.isfile(x) for x in master_weight_paths]) == len(self):
+            return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
+
+        # If not all images have associated weights now, then something went wrong
+        raise ValueError("Not all images have weights")
+
+    def get_master_superflat(self):
+        """
+        Get for all files in self the corresponding MasterSuperflat (split by minutes from setup).
+
+        Returns
+        -------
+        MasterSuperflat
+            MasterSuperflat instance holding for all files in self the corresponding MasterSuperflat images.
+
+        """
+        return self.match_passband(match_to=self.get_master_images().superflat,
+                                   max_lag=self.setup.max_lag_superflat / 1440.)
+
+    # =========================================================================== #
+    # Master tables
+    # =========================================================================== #
+    def get_master_linearity(self):
+        """
+        Get for each file in self the corresponding Masterlinearity table.
+
+        Returns
+        -------
+        MasterLinearity
+            MasterLinearity instance holding for each file in self the corresponding Masterlinearity table.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self.get_master_tables().linearity, max_lag=self.setup.max_lag_linearity)
+
+    def get_master_gain(self):
+        """
+        Get for each file in self the corresponding MasterGain table.
+
+        Returns
+        -------
+        MasterGain
+            MasterGain instance holding for each file in self the corresponding Masterlinearity table.
+
+        """
+
+        # Match and return
+        return self.match_mjd(match_to=self.get_master_tables().gain, max_lag=self.setup.max_lag_gain)
 
 
 class MasterImages(FitsImages):
@@ -1484,7 +642,7 @@ class MasterImages(FitsImages):
             Ordered list of calibration types
         """
 
-        return self.primeheaders_get_keys([self.setup["keywords"]["object"]])[0]
+        return self.read_from_prime_headers([self.setup.keywords.object])[0]
 
     @property
     def bpm(self):
@@ -1504,7 +662,7 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-BPM"]
 
-        return MasterBadPixelMask(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterBadPixelMask(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
     def dark(self):
@@ -1524,7 +682,7 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-DARK"]
 
-        return MasterDark(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterDark(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
     def flat(self):
@@ -1544,7 +702,18 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-FLAT"]
 
-        return MasterFlat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterFlat(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+
+    @property
+    def source_mask(self):
+
+        # Import
+        from vircampype.fits.images.sky import MasterSourceMask
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SOURCE-MASK"]
+
+        return MasterSourceMask(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
     def sky(self):
@@ -1564,10 +733,10 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"]
 
-        return MasterSky(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterSky(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
-    def weight_global(self):
+    def weight(self):
         """
         Retrieves all global MasterWeight images.
 
@@ -1582,49 +751,10 @@ class MasterImages(FitsImages):
         from vircampype.fits.images.flat import MasterWeight
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-GLOBAL"]
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT"]
 
-        return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
-
-    @property
-    def weight_image(self):
-        """
-        Retrieves all MasterWeight images at the image level.
-
-        Returns
-        -------
-        MasterWeight
-            All MasterWeight images as a MasterWeight instance.
-
-        """
-
-        # Import
-        from vircampype.fits.images.flat import MasterWeight
-
-        # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-IMAGE"]
-
-        return MasterWeight(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
-
-    @property
-    def weight_coadd(self):
-        """
-        Retrieves all MasterWeightCoadd images.
-
-        Returns
-        -------
-        MasterWeightCoadd
-            All MasterWeightCoadd images as a MasterSky instance.
-
-        """
-
-        # Import
-        from vircampype.fits.images.flat import MasterWeightCoadd
-
-        # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-COADD"]
-
-        return MasterWeightCoadd(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        # Return MasterWeight instance
+        return MasterWeight(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
     def superflat(self):
@@ -1644,15 +774,4 @@ class MasterImages(FitsImages):
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SUPERFLAT"]
 
-        return MasterSuperflat(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
-
-    @property
-    def source_mask(self):
-
-        # Import
-        from vircampype.fits.images.sky import MasterSourceMask
-
-        # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SOURCE-MASK"]
-
-        return MasterSourceMask(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterSuperflat(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])

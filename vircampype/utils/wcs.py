@@ -1,19 +1,11 @@
-# =========================================================================== #
-# Import
 import numpy as np
 
 from astropy import wcs
 from astropy.io import fits
-from vircampype.utils.math import *
-from astropy.coordinates import SkyCoord, ICRS, Galactic
+from vircampype.utils.mathtools import *
+from astropy.coordinates import ICRS, Galactic
 
-# Define objects in this module
-__all__ = ["header2wcs", "header_reset_wcs", "skycoord2header", "resize_header"]
-
-
-def header2wcs(header):
-    """ Returns WCS instance from FITS header """
-    return wcs.WCS(header=header)
+__all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header"]
 
 
 def header_reset_wcs(header):
@@ -72,6 +64,11 @@ def header_reset_wcs(header):
     return oheader
 
 
+def header2wcs(header):
+    """ Returns WCS instance from FITS header """
+    return wcs.WCS(header=header)
+
+
 def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enlarge=1.02, silent=True, **kwargs):
     """
     Create an astropy Header instance from a given dataset (longitude/latitude). The world coordinate system can be
@@ -103,7 +100,7 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
     """
 
     # Define projection
-    skycoord_centroid = centroid_sphere_skycoord(skycoord)
+    skycoord_centroid = centroid_sphere(skycoord)
 
     # Determine if allsky should be forced
     sep = skycoord.separation(skycoord_centroid)

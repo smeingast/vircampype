@@ -1,135 +1,23 @@
-# =========================================================================== #
-# Import
 import warnings
 import itertools
 import numpy as np
 
-# noinspection PyUnresolvedReferences
-# from astroscrappy.astroscrappy import detect_cosmics
-
-from itertools import repeat
-from fractions import Fraction
 from astropy.units import Unit
+from fractions import Fraction
 from joblib import Parallel, delayed
-from scipy.interpolate import griddata
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
+from vircampype.utils.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
-from vircampype.utils.miscellaneous import str2func
+from sklearn.neighbors import NearestNeighbors
 from scipy.interpolate import SmoothBivariateSpline
-from astropy.convolution import Gaussian2DKernel, Kernel2D, CustomKernel, convolve, interpolate_replace_nans
+from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel2D, interpolate_replace_nans
 
-
-# Define objects in this module
-__all__ = ["estimate_background", "sigma_clip", "cuberoot", "squareroot", "linearize_data", "ceil_value", "floor_value",
-           "interpolate_image", "chop_image", "merge_chopped", "meshgrid", "background_cube", "apply_along_axes",
-           "distance_sky", "distance_euclid2d", "connected_components", "centroid_sphere", "centroid_sphere_skycoord",
-           "haversine", "fraction2float", "grid_value_2d", "grid_value_2d_griddata", "point_density", "upscale_image",
-           "clipped_median"]
-
-
-# noinspection PyUnresolvedReferences
-def clipped_median(data):
-    """ Hlper function to return the clipped median of an array via astropy. """
-    return sigma_clipped_stats(data)[1]
-
-
-def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
-    """
-    Estimates the background sky level based on an iterative 3-sigma clipping algorithm. In principle the data are
-    iterativley clipped around the median. At each iteration the mean of the clipped histogram is calculated. If the
-    change from one iteration to the next is less than 1%, estimates for the background and standard deviation in the
-    background are returned. Here, we return the mean if the last iteration did not show more than 20% relative change
-    compared to the fist iteration. Otherwise, the field is assumed to be crowded and the mode is estimated with
-    2.5 * median - 1.5 * mean (see SExtractor doc). Ultimatley at the 'max_iter' iteration, the mode estimate is
-    always returned.
-
-    Parameters
-    ----------
-    array : np.ndarray
-        Input data
-    max_iter : int, optional
-        Maximum iterations. If convergence is not reached, return an estimate of the background
-    force_clipping : bool, optional
-        If set, then even without convergence, the result will be returned after max_iter.
-    axis : int, tuple, optional
-        The axis along which the sky background should be analaysed
-
-    Returns
-    -------
-    tuple
-        Sky background and sky sigma estimates
-
-    """
-
-    # Check for integer data
-    if "int" in str(array.dtype).lower():
-        raise TypeError("integer data not supported")
-
-    masked, idx, sky_save, sky_ini = array.copy(), 0, None, None
-    while True:
-
-        # 3-sigma clip each plane around the median
-        med = np.nanmedian(masked, axis=axis)
-        std = np.nanstd(masked, axis=axis)
-
-        # Expand dimensions if required
-        if axis is not None:
-
-            # If its an integer, we just expand once
-            if isinstance(axis, int):
-                med = np.expand_dims(med, axis=axis)
-                std = np.expand_dims(std, axis=axis)
-
-            # If it's a tuple, we need to iteratively add axes
-            if isinstance(axis, tuple):
-                for i in axis:
-                    med = np.expand_dims(med, axis=i)
-                    std = np.expand_dims(std, axis=i)
-
-        # Mask everything outside 3-sigma around the median in each plane
-        with np.errstate(invalid="ignore"):
-            masked[(masked < med - 3 * std) | (masked > med + 3 * std)] = np.nan
-
-        # Estimate the sky and sigma with the mean of the clipped histogram
-        sky, skysig = np.nanmean(masked, axis=axis), np.nanstd(masked, axis=axis)
-
-        # Save this value in first iteration
-        if idx == 0:
-            sky_ini = sky.copy()
-
-        # Only upon the second iteration we evaluate
-        elif idx > 0:
-
-            # If we have no change within 2% of previous iteration we return
-            if np.mean(np.abs(sky_save / sky - 1)) < 0.02:
-
-                # If (compared to the initial value) the mean has changed by less than 20%, the field is not crowded
-                if np.mean(np.abs(sky / sky_ini - 1)) < 0.2 or force_clipping is True:
-                    return sky, skysig
-
-                # Otherwise the field is crowded and we return an estimate of the mode
-                else:
-                    return 2.5 * np.nanmedian(masked, axis=axis) - 1.5 * np.nanmean(masked, axis=axis), skysig
-
-            # Otherwise we do one more iteration
-            else:
-                pass
-
-        # If we have no convergence after 10 iterations, we return an estimate
-        elif idx > max_iter:
-
-            if force_clipping is True:
-                return sky, skysig
-            else:
-                return 2.5 * np.nanmedian(masked, axis=axis) - 1.5 * np.nanmean(masked, axis=axis), skysig
-
-        # For the iterations between 1 and 10 when no convergence is reached
-        sky_save = sky.copy()
-
-        # Increase loop index
-        idx += 1
+__all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
+           "ceil_value", "floor_value", "meshgrid", "background_cube", "estimate_background", "upscale_image",
+           "centroid_sphere", "clipped_median", "clipped_stdev", "grid_value_2d", "get_binsize", "fraction2float",
+           "round_decimals_up", "round_decimals_down"]
 
 
 def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -176,6 +64,18 @@ def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, ax
 
     # Return the clipped array
     return data
+
+
+# noinspection PyUnresolvedReferences
+def clipped_median(data, **kwargs):
+    """ Hlper function to return the clipped median of an array via astropy. """
+    return sigma_clipped_stats(data, **kwargs)[1]
+
+
+# noinspection PyUnresolvedReferences
+def clipped_stdev(data, **kwargs):
+    """ Hlper function to return the clipped median of an array via astropy. """
+    return sigma_clipped_stats(data, **kwargs)[2]
 
 
 def cuberoot(a, b, c, d, return_real=False):
@@ -296,40 +196,55 @@ def linearize_data(data, coeff):
     return (np.min(np.abs([r - coeff[-1] + coeff_copy[-1] for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
 
 
-def ceil_value(data, value):
+def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
     """
-    Round data to a given value.
+    Destripes arbitrary input arrays.
 
     Parameters
     ----------
-    data : int, float, np.ndarray
-    value : in, float
+    array : np.ndarray
+        Array to destripe.
+    method : callable
+        Method to apply along given axes. Default is np.nanmedian.
+    axis : int, tuple[int]
+        Axes along which to destripe.
+    norm : bool, optional
+        Whether to normalize the data.
+    copy : bool, optional
+        Whether the data should be copied. If false, the original array will be overwritten.
 
     Returns
     -------
-    int, float, np.ndarray
-        Rounded data.
+    ndarray
+        Modified array.
+
     """
 
-    return np.ceil(data / value) * value
+    # Create copy if set
+    if copy:
+        array = array.copy()
 
+    # Fetch function
+    func = string2func(method)
 
-def floor_value(data, value):
-    """
-    Round data to a given value.
+    # Calculate median along axis
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
+        med = func(array, axis=axis)
 
-    Parameters
-    ----------
-    data : int, float, np.ndarray
-    value : in, float
+    # Expand dimensions in case of tuple for array broadcasting
+    if axis is not None:
+        if isinstance(axis, tuple):
+            for ax in axis:
+                med = np.expand_dims(med, ax)
+        else:
+            med = np.expand_dims(med, axis=axis)
 
-    Returns
-    -------
-    int, float, np.ndarray
-        Rounded data.
-    """
-
-    return np.floor(data / value) * value
+    # Normalize if set
+    if norm:
+        return array - med + func(array)
+    else:
+        return array - med
 
 
 def interpolate_image(data, kernel=None, max_bad_neighbors=None):
@@ -556,6 +471,42 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
     return merged
 
 
+def ceil_value(data, value):
+    """
+    Round data to a given value.
+
+    Parameters
+    ----------
+    data : int, float, np.ndarray
+    value : in, float
+
+    Returns
+    -------
+    int, float, np.ndarray
+        Rounded data.
+    """
+
+    return np.ceil(data / value) * value
+
+
+def floor_value(data, value):
+    """
+    Round data to a given value.
+
+    Parameters
+    ----------
+    data : int, float, np.ndarray
+    value : in, float
+
+    Returns
+    -------
+    int, float, np.ndarray
+        Rounded data.
+    """
+
+    return np.floor(data / value) * value
+
+
 def meshgrid(array, size=128):
     """
     Generates a pixel coordinate grid from an array with given mesh sizes. The mesh size is approximated when the
@@ -594,11 +545,11 @@ def meshgrid(array, size=128):
         return np.uint32((np.mgrid[0:array.shape[0] - 1:complex(n[0])]))
     if array.ndim == 2:
         return np.uint32((np.mgrid[0:array.shape[0] - 1:complex(n[0]),
-                                   0:array.shape[1] - 1:complex(n[1])]))
+                          0:array.shape[1] - 1:complex(n[1])]))
     if array.ndim == 3:
         return np.uint32((np.mgrid[0:array.shape[0] - 1:complex(n[0]),
-                                   0:array.shape[1] - 1:complex(n[1]),
-                                   0:array.shape[2] - 1:complex(n[2])]))
+                          0:array.shape[1] - 1:complex(n[1]),
+                          0:array.shape[2] - 1:complex(n[2])]))
     else:
         raise ValueError("{0:d}-dimensional data not supported".format(array.ndim))
 
@@ -658,7 +609,8 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
     elif n_threads > 1:
         with Parallel(n_jobs=n_threads) as parallel:
             mp = parallel(delayed(estimate_background)(s, i, mi, a)
-                          for s, i, mi, a in zip(sub, repeat(max_iter), repeat(True), repeat((1, 2))))
+                          for s, i, mi, a in zip(sub, itertools.repeat(max_iter), itertools.repeat(True),
+                                                 itertools.repeat((1, 2))))
 
     else:
         raise ValueError("'n_threads' not correctly set (n_threads = {0})".format(n_threads))
@@ -684,257 +636,164 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
     # Scale back to original size
     with Parallel(n_jobs=n_threads) as parallel:
         cube_background = parallel(delayed(upscale_image)(i, j, k, l) for i, j, k, l
-                                   in zip(background, repeat(cube.shape[1:]), repeat("spline"), repeat(2)))
+                                   in zip(background, itertools.repeat(cube.shape[1:]), itertools.
+                                          repeat("spline"), itertools.repeat(2)))
         cube_noise = parallel(delayed(upscale_image)(i, j, k, l) for i, j, k, l
-                              in zip(noise, repeat(cube.shape[1:]), repeat("spline"), repeat(2)))
+                              in zip(noise, itertools.repeat(cube.shape[1:]), itertools.repeat("spline"),
+                                     itertools.repeat(2)))
 
     # Return scaled cubes
     return np.array(cube_background), np.array(cube_noise)
 
 
-def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
+def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
     """
-    Destripes arbitrary input arrays.
+    Estimates the background sky level based on an iterative 3-sigma clipping algorithm. In principle the data are
+    iterativley clipped around the median. At each iteration the mean of the clipped histogram is calculated. If the
+    change from one iteration to the next is less than 1%, estimates for the background and standard deviation in the
+    background are returned. Here, we return the mean if the last iteration did not show more than 20% relative change
+    compared to the fist iteration. Otherwise, the field is assumed to be crowded and the mode is estimated with
+    2.5 * median - 1.5 * mean (see SExtractor doc). Ultimatley at the 'max_iter' iteration, the mode estimate is
+    always returned.
 
     Parameters
     ----------
     array : np.ndarray
-        Array to destripe.
-    method : callable
-        Method to apply along given axes. Default is np.nanmedian.
-    axis : int, tuple[int]
-        Axes along which to destripe.
-    norm : bool, optional
-        Whether to normalize the data.
-    copy : bool, optional
-        Whether the data should be copied. If false, the original array will be overwritten.
-
-    Returns
-    -------
-    ndarray
-        Modified array.
-
-    """
-
-    # Create copy if set
-    if copy:
-        array = array.copy()
-
-    # Fetch function
-    func = str2func(method)
-
-    # Calculate median along axis
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="All-NaN slice encountered")
-        med = func(array, axis=axis)
-
-    # Expand dimensions in case of tuple for array broadcasting
-    if axis is not None:
-        if isinstance(axis, tuple):
-            for ax in axis:
-                med = np.expand_dims(med, ax)
-        else:
-            med = np.expand_dims(med, axis=axis)
-
-    # Normalize if set
-    if norm:
-        return array - med + func(array)
-    else:
-        return array - med
-
-
-def distance_sky(lon1, lat1, lon2, lat2, unit="radians"):
-    """
-    Returns the distance between two objects on a sphere. Also works with arrays.
-
-    Parameters
-    ----------
-    lon1 : int, float, np.ndarray
-        Longitude (e.g. Right Ascension) of first object
-    lat1 : int, float, np.ndarray
-        Latitude (e.g. Declination) of first object
-    lon2 : int, float, np.ndarray
-        Longitude of object to calculate the distance to.
-    lat2 : int, float, np.ndarray
-        Longitude of object to calculate the distance to.
-    unit : str, optional
-        The unit in which the coordinates are given. Either 'radians' or 'degrees'. Default is 'radians'. Output will
-        be in the same units.
-
-    Returns
-    -------
-    float, np.ndarray
-        On-sky distances between given objects.
-
-    """
-
-    # Calculate distance on sphere
-    if "rad" in unit:
-
-        # Spherical law of cosines (not so suitable for very small numbers)
-        # dis = np.arccos(np.sin(lat1) * np.sin(lat2) + np.cos(lat1) * np.cos(lat2) * np.cos(lon1 - lon2))
-
-        # Haversine distance (better for small numbers)
-        dis = 2 * np.arcsin(np.sqrt(np.sin((lat1 - lat2) / 2.) ** 2 +
-                                    np.cos(lat1) * np.cos(lat2) * np.sin((lon1 - lon2) / 2.) ** 2))
-
-    elif "deg" in unit:
-
-        # Spherical law of cosines (not so suitable for very small numbers)
-        # dis = np.degrees(np.arccos(np.sin(np.radians(lat1)) * np.sin(np.radians(lat2)) +
-        #                            np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) *
-        #                            np.cos(np.radians(lon1 - lon2))))
-
-        # Haversine distance (better for small numbers)
-        dis = 2 * np.degrees(np.arcsin(np.sqrt(np.sin((np.radians(lat1) - np.radians(lat2)) / 2.) ** 2 +
-                                               np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) *
-                                               np.sin((np.radians(lon1) - np.radians(lon2)) / 2.) ** 2)))
-
-    # If given unit is not supported.
-    else:
-        raise ValueError("Unit {0:s} not supported".format(unit))
-
-    # Return distance
-    return dis
-
-
-def distance_euclid2d(x1, y1, x2, y2):
-    """
-    For the very lazy ones a convenience function to calculate the euclidean distance between points.
-
-    Parameters
-    ----------
-    x1 : int, float
-        X coordinate of first object
-    y1 : int, float
-        Y coordinate of first object
-    x2 : int, float, np.ndarray
-        X coordinate of second object
-    y2 : int, float, np.ndarray
-        Y coordinate of second object
-
-    Returns
-    -------
-    float, np.ndarray
-        Distances between the data points.
-
-    """
-
-    return np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-
-
-def connected_components(xarr, yarr, max_distance, metric="euclidean", units="degrees"):
-    """
-    Calculate connected groups separated by a maximum distance. Available metrics are euclidean and haversine.
-
-    Parameters
-    ----------
-    xarr : np.array
-        X coordinates of data.
-    yarr : np.array
-        Y coordinates of data.
-    max_distance : float
-        Maximum allowed distance within a group.
-    metric : str, optional
-        Distance metric. Either 'euclidean' or 'haversine'. Default is 'metric'.
-    units : str, optional
-        Units of input in case of haversine metric.
-
-    Returns
-    -------
-    list
-        List with the same length as input. Contains for each object the group it was assigned to.
-
-    """
-
-    # Start with as many groups as object
-    groups = np.arange(len(xarr))
-
-    # Loop over all coordinates
-    for x, y in zip(xarr, yarr):
-
-        # Calculate distance to all other data points
-        if "euclid" in metric:
-            dis = distance_euclid2d(x1=x, y1=y, x2=xarr, y2=yarr)
-        elif metric == "haversine":
-            dis = distance_sky(lon1=x, lat1=y, lon2=xarr, lat2=yarr, unit=units)
-        else:
-            raise ValueError("Metric {0:s} not suppoerted".format(metric))
-
-        # Get index of those which are within the given limits
-        idx = np.where(dis <= max_distance)[0]
-
-        # If there is no other object, we continue
-        if len(idx) == 0:
-            continue
-
-        # Set common group for all within the limits
-        for i in idx:
-            groups[groups == groups[i]] = min(groups[idx])
-
-    # Rewrite labels starting with 0
-    for old, new in zip(set(groups), range(len(set(groups)))):
-        idx = [i for i, j in enumerate(groups) if j == old]
-        groups[idx] = new
-
-    # Return groups for each object
-    return list(groups)
-
-
-def centroid_sphere(lon, lat, units="radian"):
-    """
-    Calcualte the centroid on a sphere. Strictly valid only for a unit sphere and for a coordinate system with latitudes
-    from -90 to 90 degrees and longitudes from 0 to 360 degrees.
-
-    Parameters
-    ----------
-    lon : list, np.array
-        Input longitudes
-    lat : list, np.array
-        Input latitudes
-    units : str, optional
-        Input units. Either 'radian' or 'degree'. Default is 'radian'.
+        Input data
+    max_iter : int, optional
+        Maximum iterations. If convergence is not reached, return an estimate of the background
+    force_clipping : bool, optional
+        If set, then even without convergence, the result will be returned after max_iter.
+    axis : int, tuple, optional
+        The axis along which the sky background should be analaysed
 
     Returns
     -------
     tuple
-        Tuple with (lon, lat) of centroid
+        Sky background and sky sigma estimates
 
     """
 
-    # Convert to radians if degrees
-    if "deg" in units.lower():
-        mlon, mlat = np.radians(lon), np.radians(lat)
+    # Check for integer data
+    if "int" in str(array.dtype).lower():
+        raise TypeError("integer data not supported")
+
+    masked, idx, sky_save, sky_ini = array.copy(), 0, None, None
+    while True:
+
+        # 3-sigma clip each plane around the median
+        med = np.nanmedian(masked, axis=axis)
+        std = np.nanstd(masked, axis=axis)
+
+        # Expand dimensions if required
+        if axis is not None:
+
+            # If its an integer, we just expand once
+            if isinstance(axis, int):
+                med = np.expand_dims(med, axis=axis)
+                std = np.expand_dims(std, axis=axis)
+
+            # If it's a tuple, we need to iteratively add axes
+            if isinstance(axis, tuple):
+                for i in axis:
+                    med = np.expand_dims(med, axis=i)
+                    std = np.expand_dims(std, axis=i)
+
+        # Mask everything outside 3-sigma around the median in each plane
+        with np.errstate(invalid="ignore"):
+            masked[(masked < med - 3 * std) | (masked > med + 3 * std)] = np.nan
+
+        # Estimate the sky and sigma with the mean of the clipped histogram
+        sky, skysig = np.nanmean(masked, axis=axis), np.nanstd(masked, axis=axis)
+
+        # Save this value in first iteration
+        if idx == 0:
+            sky_ini = sky.copy()
+
+        # Only upon the second iteration we evaluate
+        elif idx > 0:
+
+            # If we have no change within 2% of previous iteration we return
+            if np.mean(np.abs(sky_save / sky - 1)) < 0.02:
+
+                # If (compared to the initial value) the mean has changed by less than 20%, the field is not crowded
+                if np.mean(np.abs(sky / sky_ini - 1)) < 0.2 or force_clipping is True:
+                    return sky, skysig
+
+                # Otherwise the field is crowded and we return an estimate of the mode
+                else:
+                    return 2.5 * np.nanmedian(masked, axis=axis) - 1.5 * np.nanmean(masked, axis=axis), skysig
+
+            # Otherwise we do one more iteration
+            else:
+                pass
+
+        # If we have no convergence after 10 iterations, we return an estimate
+        elif idx > max_iter:
+
+            if force_clipping is True:
+                return sky, skysig
+            else:
+                return 2.5 * np.nanmedian(masked, axis=axis) - 1.5 * np.nanmean(masked, axis=axis), skysig
+
+        # For the iterations between 1 and 10 when no convergence is reached
+        sky_save = sky.copy()
+
+        # Increase loop index
+        idx += 1
+
+
+def upscale_image(image, new_size, method="pil", order=3):
+    """
+    Resizes a 2D array to tiven new size.
+
+    An example of how to upscale with PIL:
+    apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]), resample=Image.LANCZOS))
+
+    Parameters
+    ----------
+    image : array_like
+        numpy 2D array.
+    new_size : tuple
+        New size (xsize, ysize)
+    method : str, optional
+        Method to use for scaling. Either 'splines' or 'pil'.
+    order : int
+        Order for spline fit.
+
+    Returns
+    -------
+    array_like
+        Resized image.
+
+    """
+
+    if "pil" in method.lower():
+        from PIL import Image
+        return np.array(Image.fromarray(image).resize(size=new_size, resample=Image.LANCZOS))
+    elif "spline" in method.lower():
+
+        # Detemrine edge coordinates of input wrt output size
+        xedge, yedge = np.linspace(0, new_size[0], image.shape[0]+1), np.linspace(0, new_size[1], image.shape[1]+1)
+
+        # Determine pixel center coordinates
+        xcenter, ycenter = (xedge[1:] + xedge[:-1]) / 2, (yedge[1:] + yedge[:-1]) / 2
+
+        # Make coordinate grid
+        xcenter, ycenter = np.meshgrid(xcenter, ycenter)
+
+        # Fit spline to grid
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
+
+            # Return interplated spline
+            return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
     else:
-        mlon, mlat = lon, lat
-
-    # Convert to cartesian coordinates
-    x, y, z = np.cos(mlat) * np.cos(mlon), np.cos(mlat) * np.sin(mlon), np.sin(mlat)
-
-    # 3D centroid
-    xcen, ycen, zcen = np.sum(x) / len(x), np.sum(y) / len(y), np.sum(z) / len(z)
-
-    # Push centroid to triangle surface
-    cenlen = np.sqrt(xcen**2 + ycen**2 + zcen**2)
-    xsur, ysur, zsur = xcen / cenlen, ycen / cenlen, zcen / cenlen
-
-    # Convert back to spherical coordinates and return
-    outlon = np.arctan2(ysur, xsur)
-
-    # Convert back to 0-2pi range if necessary
-    if outlon < 0:
-        outlon += 2 * np.pi
-    outlat = np.arcsin(zsur)
-
-    # Return
-    if "deg" in units.lower():
-        return np.degrees(outlon), np.degrees(outlat)
-    else:
-        return outlon, outlat
+        raise ValueError("Method '{0}' not supported".format(method))
 
 
-# TODO: Centroiding methods should be unified
-def centroid_sphere_skycoord(skycoord):
+def centroid_sphere(skycoord):
     """
     Calculate the centroid on a sphere. Strictly valid only for a unit sphere and for a coordinate system with latitudes
     from -90 to 90 degrees and longitudes from 0 to 360 degrees.
@@ -972,104 +831,6 @@ def centroid_sphere_skycoord(skycoord):
     outlat = np.arcsin(zsur)
 
     return SkyCoord(outlon, outlat, frame=skycoord.frame)
-
-
-def haversine(theta, units="radian"):
-    """
-    Haversine function.
-
-    Parameters
-    ----------
-    theta : int, float, np.ndarray
-        Angle(s)
-    units : stro, optional
-        Either 'radian' or 'degree'. Default is 'radian'.
-
-    Returns
-    -------
-
-    """
-
-    if "rad" in units.lower():
-        return np.sin(theta / 2.)**2
-    elif "deg" in units.lower():
-        return np.degrees(np.sin(np.radians(theta) / 2.)**2)
-
-
-def fraction2float(fraction):
-    """
-    Converts a fraction given by a string to a float
-
-    Parameters
-    ----------
-    fraction : str
-        String. e.g. '1/3'.
-
-    Returns
-    -------
-    float
-        Converted fraction
-    """
-    return float(Fraction(fraction))
-
-
-def grid_value_2d_griddata(x, y, value, x_min, y_min, x_max, y_max, nx, ny,
-                           conv=True, kernel_scale=0.1, method="cubic"):
-
-    """
-    Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
-
-    Parameters
-    ----------
-    x : iterable, ndarray
-        X coordinates
-    y : iterable, ndarray
-        Y coordinates
-    value : iterable, ndarray
-        Values for the X/Y coordinates
-    x_min : int, float
-        Minimum X position for grid.
-    x_max : int, float
-        Maximum X position for grid.
-    y_min : int, float
-        Minimum Y position for grid.
-    y_max : int, float
-        Maximum Y position for grid.
-    nx : int
-        Number of pixels for grid in X.
-    ny : int
-        Number of pixels for grid in Y.
-    conv : bool, optional
-        If set, convolve the grid before resampling to final size.
-    kernel_scale : float, optional
-        Convolution kernel scale relative to initial grid size.
-    method : {"linear", "nearest", "cubic"}, optional
-        Method of interpolation.
-
-    Returns
-    -------
-    ndarray
-        2D array with gridded data.
-
-    """
-
-    # Filter infinite values
-    good = np.isfinite(x) & np.isfinite(y) & np.isfinite(value)
-
-    # Make grid
-    xg, yg = np.meshgrid(np.linspace(x_min, x_max, nx), np.linspace(y_min, y_max, ny))
-
-    # Map ZPs onto grid
-    gridded = griddata(points=np.stack([x[good], y[good]], axis=1), values=value[good],
-                       xi=(xg, yg), method=method)
-
-    # Smooth
-    if conv:
-        gridded = convolve(gridded, kernel=Gaussian2DKernel(x_stddev=np.mean([nx, ny]) * kernel_scale),
-                           boundary="extend")
-
-    # Rescale
-    return gridded
 
 
 def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
@@ -1172,100 +933,51 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     return stat
 
 
-def upscale_image(image, new_size, method="pil", order=3):
-    """
-    Resizes a 2D array to tiven new size.
+def get_binsize(table, n_neighbors, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
+    # Determine bin size based on X/Y distribution
+    stacked = np.stack([table[key_x], table[key_y]]).T
+    dis, _ = NearestNeighbors(n_neighbors=n_neighbors+1, algorithm="auto").fit(stacked).kneighbors(stacked)
+    return np.percentile(dis[:, -1], 99)
 
-    An example of how to upscale with PIL:
-    apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]), resample=Image.LANCZOS))
+
+def fraction2float(fraction):
+    """
+    Converts a fraction given by a string to a float
 
     Parameters
     ----------
-    image : array_like
-        numpy 2D array.
-    new_size : tuple
-        New size (xsize, ysize)
-    method : str, optional
-        Method to use for scaling. Either 'splines' or 'pil'.
-    order : int
-        Order for spline fit.
+    fraction : str
+        String. e.g. '1/3'.
 
     Returns
     -------
-    array_like
-        Resized image.
-
+    float
+        Converted fraction
     """
-
-    if "pil" in method.lower():
-        from PIL import Image
-        return np.array(Image.fromarray(image).resize(size=new_size, resample=Image.LANCZOS))
-    elif "spline" in method.lower():
-
-        # Detemrine edge coordinates of input wrt output size
-        xedge, yedge = np.linspace(0, new_size[0], image.shape[0]+1), np.linspace(0, new_size[1], image.shape[1]+1)
-
-        # Determine pixel center coordinates
-        xcenter, ycenter = (xedge[1:] + xedge[:-1]) / 2, (yedge[1:] + yedge[:-1]) / 2
-
-        # Make coordinate grid
-        xcenter, ycenter = np.meshgrid(xcenter, ycenter)
-
-        # Fit spline to grid
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
-
-            # Return interplated spline
-            return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
-    else:
-        raise ValueError("Method '{0}' not supported".format(method))
+    return float(Fraction(fraction))
 
 
-def _point_density(x, y, xdata, ydata, xsize, ysize):
-    """ Parallelisation method for point_average function. """
+def round_decimals_up(number: float, decimals: int = 2):
+    """ Returns a value rounded up to a specific number of decimal places. """
+    if not isinstance(decimals, int):
+        raise TypeError("decimal places must be an integer")
+    elif decimals < 0:
+        raise ValueError("decimal places has to be 0 or more")
+    elif decimals == 0:
+        return np.ceil(number)
 
-    d = (xdata > x - xsize / 2.) & \
-        (xdata < x + xsize / 2.) & \
-        (ydata > y - ysize / 2.) & \
-        (ydata < y + ysize / 2.)
-
-    return np.sum(d)
+    factor = 10 ** decimals
+    return np.ceil(number * factor) / factor
 
 
-def point_density(xdata, ydata, xsize, ysize, norm=False, njobs=None):
-    """ Compute singe point density. """
+def round_decimals_down(number: float, decimals: int = 2):
+    """ Returns a value rounded down to a specific number of decimal places. """
+    if not isinstance(decimals, int):
+        raise TypeError("decimal places must be an integer")
+    elif decimals < 0:
+        raise ValueError("decimal places has to be 0 or more")
+    elif decimals == 0:
+        return np.floor(number)
 
-    # Import
-    from joblib import Parallel, delayed, cpu_count
-
-    # Create outarray
-    out_dens = np.array([xdata]).reshape(-1)
-
-    # Clean from NaNs
-    goodindex = np.isfinite(xdata) & np.isfinite(ydata)
-
-    # Apply to data
-    xdata = xdata[goodindex]
-    ydata = ydata[goodindex]
-
-    # Set parallel jobs
-    njobs = cpu_count() // 2 if njobs is None else njobs
-
-    # Run
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        with Parallel(n_jobs=njobs) as parallel:
-            mp = parallel(delayed(_point_density)(a, b, c, d, e, f) for a, b, c, d, e, f in
-                          zip(xdata, ydata, repeat(xdata), repeat(ydata),
-                              repeat(xsize), repeat(ysize)))
-
-    # Fill indices
-    out_dens[goodindex] = np.array(mp)
-    out_dens[~goodindex] = np.nan
-
-    # Return
-    if norm:
-        return out_dens / np.nanmax(out_dens)
-    else:
-        return out_dens
+    factor = 10 ** decimals
+    return np.floor(number * factor) / factor

@@ -1,19 +1,177 @@
-# =========================================================================== #
-# Import
+import re
 import warnings
 import numpy as np
 
-from astropy import wcs
 from astropy.io import fits
+from vircampype.utils.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 
-# Define objects in this module
-__all__ = ["make_image_mef", "merge_headers", "hdr2imagehdu", "add_key_primaryhdu", "get_value_image", "add_keys_hdu",
-           "delete_keys_hdu", "add_key_file", "copy_keywords", "delete_keyword", "compress_fits", "add_float_to_header",
-           "write_header"]
+__all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
+           "merge_headers", "add_float_to_header", "convert_bitpix_image", "delete_keyword_from_header"]
 
 
-def make_image_mef(paths_input, path_output, primeheader=None, add_constant=None, overwrite=False):
+def check_card_value(value):
+    """
+    Checks if the given value for a FITS header entry is valid and transforms it to a writeable parameter.
+
+    Parameters
+    ----------
+    value
+        The value to check
+
+    Returns
+    -------
+    Checked value
+
+    """
+
+    # If the value is a callable:
+    val = func2string(value) if hasattr(value, "__call__") else value
+
+    # Convert to string if necessary
+    if not (isinstance(val, str)) | (isinstance(val, (np.floating, float))) | (isinstance(val, (np.integer, int))):
+        val = str(val)
+
+    # Return
+    return val
+
+
+def make_card(keyword, value, comment=None, upper=True):
+    """
+    Create a FITS header card based on keyword, value, and comment.
+
+    Parameters
+    ----------
+    keyword : str
+        The keyword for the FITS card.
+    value
+        The value to write for the given keyword
+    comment : optional, str
+        Optionally, a comment to write.
+    upper : optional, bool
+        Whether to conert the keyword to upper case.
+
+    Returns
+    -------
+    FITS Card
+
+    """
+
+    # Make upper case if set
+    kw = keyword.upper() if upper else keyword
+
+    # Remove double spaces
+    kw = re.sub(" +", " ", kw)
+
+    # Check value
+    val = check_card_value(value=value)
+
+    # TODO: Try to return nothing if line is too long (>80 chars)
+    # Return nothing if too long
+    lcom = len(comment) if comment is not None else 0
+    if len(kw) + len(str(val)) + lcom > 80:
+        return
+
+    # Return card
+    return fits.Card(keyword=kw, value=val, comment=comment)
+
+
+def make_cards(keywords, values, comments=None):
+    """
+    Creates a list of FITS header cards from given keywords, values, and comments
+
+    Parameters
+    ----------
+    keywords : list[str]
+        List of keywords.
+    values : list
+        List of values.
+    comments : list[str], optional
+        List of comments.
+    Returns
+    -------
+    iterable
+        List containing FITS header cards.
+
+    """
+
+    # Length of input must match
+    if not isinstance(keywords, list) | isinstance(values, list):
+        raise TypeError("keywords and values must be lists")
+
+    # Length must be the same for keywords and values
+    if len(keywords) != len(values):
+        raise ValueError("Keywords and Values don't match")
+
+    # If comments are supplied, they must match
+    if comments is not None:
+        if len(comments) != len(keywords):
+            raise ValueError("Comments don't match input")
+    # If nothing is supplied we just have None
+    else:
+        comments = [None for _ in range(len(keywords))]
+
+    # Create FITS header cards
+    cards = []
+    for kw, val, cm in zip(keywords, values, comments):
+        cards.append(make_card(keyword=kw, value=val, comment=cm))
+
+    # Return
+    return cards
+
+
+def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
+    """
+    Copies specific keywords from file 2 to file 1. Also both HDUs can be specified. Default are primary HDUs.
+
+    Parameters
+    ----------
+    path_1 : str
+        Path to file where the keywords should be copied to.
+    path_2 : str
+        Path to file where the keywords should be copied from.
+    keywords : iterable
+        List of keywords to copy.
+    hdu_1 : int, optional
+        Extension number where to copy to. Default is 0 (primary).
+    hdu_2 : int, optional
+        Extension number where to copy from. Default is 0 (primary).
+
+    """
+
+    # Get HDUlists for both files
+    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
+
+        # Loop over files and update header
+        for k in keywords:
+            hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
+
+
+def add_key_primary_hdu(path, key, value, comment=None):
+    """
+    Add key/value/comment to primary HDU.
+
+    Parameters
+    ----------
+    path : str
+        Path to file.
+    key : str
+        Key to be added/modified.
+    value : str, int, float
+        Value of card to be added.
+    comment : str, optional
+        If set, also write a comment
+
+    """
+
+    with fits.open(path, "update") as file:
+        if comment is not None:
+            file[0].header[key] = (value, comment)
+        else:
+            file[0].header[key] = value
+
+
+def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None, overwrite=False):
     """
     Creates an MEF image file from multiple input image file.
 
@@ -115,180 +273,68 @@ def merge_headers(path_1, path_2, primary_only=False):
         hdulist_1.flush()
 
 
-def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
+def add_float_to_header(header, key, value, decimals=3, comment=None, remove_before=True):
     """
-    Copies specific keywords from file 2 to file 1. Also both HDUs can be specified. Default are primary HDUs.
-
-    Parameters
-    ----------
-    path_1 : str
-        Path to file where the keywords should be copied to.
-    path_2 : str
-        Path to file where the keywords should be copied from.
-    keywords : iterable
-        List of keywords to copy.
-    hdu_1 : int, optional
-        Extension number where to copy to. Default is 0 (primary).
-    hdu_2 : int, optional
-        Extension number where to copy from. Default is 0 (primary).
-
-    """
-
-    # Get HDUlists for both files
-    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
-
-        # Loop over files and update header
-        for k in keywords:
-            hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
-
-
-# noinspection PyTypeChecker
-def hdr2imagehdu(header, fill_value, dtype=None):
-    """
-    Takes a header and creates an image HDU based on naxis1/2 and a constant fill value.
+    Adds float to header with fixed format.
 
     Parameters
     ----------
     header : fits.Header
-        Astropy fits header.
-    fill_value : int, float
-        Value to fill array with.
-    dtype
-        data type of output.
-
-    Returns
-    -------
-    fits.ImageHDU
-        Astropy ImageHDU instance.
-
-    """
-    return fits.ImageHDU(header=header, data=np.full(shape=(header["NAXIS2"], header["NAXIS1"]),
-                                                     fill_value=fill_value, dtype=dtype))
-
-
-def add_key_primaryhdu(path, key, value, comment=None):
-    """
-    Add key/value/comment to primary HDU.
-
-    Parameters
-    ----------
-    path : str
-        Path to file.
+        FITS header to be modified.
     key : str
-        Key to be added/modified.
-    value : str, int, float
-        Value of card to be added.
+        Key of header entry.
+    value : float
+        Value of header entry.
+    decimals : int, optional
+        How many decimals to write
     comment : str, optional
-        If set, also write a comment
+        Comment of header entry.
+    remove_before : bool, optional
+        If set, removes all occurences of 'key' from header. Default is true
 
     """
+    # If the key is already there, remove it
+    if remove_before:
+        try:
+            header.remove(key, remove_all=True)
+        except KeyError:
+            pass
 
-    with fits.open(path, "update") as file:
-        if comment is not None:
-            file[0].header[key] = (value, comment)
-        else:
-            file[0].header[key] = value
+    if decimals == 1:
+        c = fits.Card.fromstring("{0:8}= {1:0.1f}".format(key, value))
+    elif decimals == 2:
+        c = fits.Card.fromstring("{0:8}= {1:0.2f}".format(key, value))
+    elif decimals == 3:
+        c = fits.Card.fromstring("{0:8}= {1:0.3f}".format(key, value))
+    elif decimals == 4:
+        c = fits.Card.fromstring("{0:8}= {1:0.4f}".format(key, value))
+    elif decimals == 5:
+        c = fits.Card.fromstring("{0:8}= {1:0.5f}".format(key, value))
+    else:
+        raise ValueError("Add mot options for decimals")
+    c.comment = comment
+    header.append(c)
 
 
-def add_keys_hdu(path, hdu, keys, values, comments=None):
+def convert_bitpix_image(path, new_type):
     """
-    Add multiple keys/values/comments to a given HDU.
+    Converts image data to the requested data type across all HDUs.
 
     Parameters
     ----------
     path : str
-        Path to file.
-    hdu : int
-        Which HDU to edit.
-    keys : iterable
-        List of keys.
-    values : iterable
-        List of values.
-    comments : iterable, optional
-        List of comments
+        Path to FITS file.
+    new_type
+        New data type.
 
     """
-
-    if comments is None:
-        comments = ["" for _ in keys]
-
-    if len(keys) != len(values):
-        raise ValueError("Length of keys and values must be the same")
-
-    with fits.open(path, "update") as file:
-        for k, v, c in zip(keys, values, comments):
-            file[hdu].header[k] = v, c
+    with fits.open(path, mode="update") as hdul:
+        for hdu in hdul:
+            if hasattr(hdu.data, "__len__"):
+                hdu.data = hdu.data.astype(new_type)
 
 
-def add_key_file(path, key, values, comments=None, hdu_data=None):
-    """
-    Adds key to all (or a given set) of HDUs and updates fits file.
-
-    Parameters
-    ----------
-    path : str
-        Path to file.
-    key : str
-        Key to add.
-    values : iterable
-        values to add. Must match data format exactly.
-    comments : iterable, optional
-        If set, comments to add.
-    hdu_data : iterable
-        If set, an iterable of HDUs where to add the values.
-
-    """
-
-    with fits.open(path, mode="update") as hdulist:
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-
-            if hdu_data is not None:
-                hdulist = [hdulist[idx] for idx in hdu_data]
-
-            if len(hdulist) == 1:
-                if len(values) != 1:
-                    raise ValueError("For only primary hdu, provide one value in list!")
-            else:
-                if len(hdulist) != len(values):
-                    raise ValueError("Must provide values for each extension")
-
-            # Make dummy comments if not set
-            if comments is None:
-                comments = ["" for _ in values]
-            else:
-                if len(values) != len(comments):
-                    raise ValueError("Must provide comments for each value")
-
-            # Loop over HDUs
-            for h, v, c in zip(hdulist, values, comments):
-                h.header[key] = (v, c)
-
-
-def delete_keys_hdu(path, hdu, keys):
-    """
-    Delete specific keywords in specific HDU.
-
-    Parameters
-    ----------
-    path : str
-        Path to file.
-    hdu : int
-        In which HDU the entry should be deleted.
-    keys : iterable
-        List of keys to be deleted.
-
-    """
-    with fits.open(path, "update") as file:
-        for k in keys:
-            try:
-                del file[hdu].header[k]
-            except KeyError:
-                pass
-
-
-def delete_keyword(header, keyword):
+def delete_keyword_from_header(header, keyword):
     """
     Deletes given keyword from header.
 
@@ -310,118 +356,3 @@ def delete_keyword(header, keyword):
     except KeyError:
         pass
     return header
-
-
-def get_value_image(ra, dec, data, header):
-    """
-    Obtains data value given a set of coordinates.
-
-    Parameters
-    ----------
-    ra : int, float, ndarray
-        Input right ascension.
-    dec : int, float, ndarray
-        Input declination.
-    data : ndarray
-        Data array.
-    header : fits.Header
-        Fits header (must contain WCS)
-
-    Returns
-    -------
-    ndarray
-        Array with data values for given coordinates.
-
-    """
-
-    # Obtain wcs from header
-    cwcs = wcs.WCS(header=header)
-
-    # Convert to X/Y
-    xx, yy = cwcs.wcs_world2pix(ra, dec, 0)
-
-    # Get value from data array
-    return data[yy.astype(int), xx.astype(int)]
-
-
-def compress_fits(paths, binary="fpack", quantize_level=32, delete_original=False, silent=True):
-    """
-    Compresses a fits file with the RICE algorithm. THis is not using the astropy builtin version (e.g. CompImageHDU
-    because this produces lots are artifacts.
-
-    Parameters
-    ----------
-    paths : iterable
-        List of paths.
-    binary : str, optional
-        name of executable
-    quantize_level : int, optional
-        Quantization level. Default is 32.
-    delete_original : bool, optional
-        Whether the input file should be removed after compression.
-    silent : bool, optional
-        Whether to run silent or not.
-
-    """
-
-    # Import
-    from vircampype.utils.system import run_command_bash, remove_file, which
-
-    # Make list if string is given
-    if isinstance(paths, str):
-        paths = [paths]
-
-    # Find binary to run
-    binary_comp = which(binary)
-
-    # Construct and run compression command
-    for path in paths:
-        run_command_bash(cmd="{0} -q {1} {2}".format(binary_comp, quantize_level, path), silent=silent)
-
-        # Delete original
-        if delete_original:
-            remove_file(path)
-
-
-def add_float_to_header(header, key, value, comment=None, remove_before=True):
-    """
-    Adds float to header with fixed format.
-
-    Parameters
-    ----------
-    header : fits.Header
-        FITS header to be modified.
-    key : str
-        Key of header entry.
-    value : float
-        Value of header entry.
-    comment : str, optional
-        Comment of header entry.
-    remove_before : bool, optional
-        If set, removes all occurences of 'key' from header. Default is true
-
-    """
-    # If the key is already there, remove it
-    if remove_before:
-        try:
-            header.remove(key, remove_all=True)
-        except KeyError:
-            pass
-
-    c = fits.Card.fromstring("{0:8}= {1:0.4f}".format(key, value))
-    c.comment = comment
-    header.append(c)
-
-
-def write_header(header, path):
-    """
-    Writes fits header to into a textfile.
-
-    Parameters
-    ----------
-    header : Header
-        Astropy fits header.
-    path : str
-        Path where it should be written.
-    """
-    header.totextfile(path, overwrite=True)

@@ -1,14 +1,15 @@
-# =========================================================================== #
-# Import
+import time
 import warnings
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils.math import *
 from vircampype.utils.plots import *
+from vircampype.utils.messaging import *
+from vircampype.utils.mathtools import *
+from vircampype.utils.fitstools import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
-from vircampype.fits.images.dark import MasterDark
+from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity
 from vircampype.fits.images.common import FitsImages, MasterImages
@@ -19,227 +20,12 @@ class FlatImages(FitsImages):
     def __init__(self, setup, file_paths=None):
         super(FlatImages, self).__init__(setup=setup, file_paths=file_paths)
 
-    # =========================================================================== #
-    # Master Bad Pixel Mask
-    # =========================================================================== #
-    def build_master_bpm(self):
-        """ Builds a Bad pixel mask from image data. """
 
-        # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-BPM", silent=self.setup["misc"]["silent"])
+class FlatTwilight(FlatImages):
 
-        # Split files based on maximum time lag is set
-        split = self.split_lag(max_lag=self.setup["bpm"]["max_lag"])
+    def __init__(self, setup, file_paths=None):
+        super(FlatTwilight, self).__init__(setup=setup, file_paths=file_paths)
 
-        # Now loop through separated files and build Masterbpm
-        for files, idx_print in zip(split, range(1, len(split) + 1)):
-
-            # Check sequence compatibility
-            files.check_compatibility(n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3)
-
-            # Create Masterbpm name
-            outpath = files.build_master_path(basename="MASTER-BPM", ndit=True, mjd=True)
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
-                    and not self.setup["misc"]["overwrite"]:
-                continue
-
-            # Instantiate output
-            master_cube = ImageCube(setup=self.setup)
-
-            # Start looping over detectors
-            data_headers = []
-            for d in files.data_hdu[0]:
-
-                # Print processing info
-                if not self.setup["misc"]["silent"]:
-                    message_calibration(n_current=idx_print, n_total=len(split), name=outpath,
-                                        d_current=d, d_total=len(files.data_hdu[0]))
-
-                # Get data
-                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
-
-                # Mask low and high absolute values
-                cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
-
-                # Sigma clipping per plane
-                cube.apply_masks_plane(sigma_level=self.setup["bpm"]["sigma_level"],
-                                       sigma_iter=self.setup["bpm"]["sigma_iter"])
-
-                # Collapse cube with median
-                flat = cube.flatten(metric=str2func(self.setup["bpm"]["metric"]), axis=0)
-
-                # Normalize cube with flattened data
-                cube.cube = cube.cube / flat
-
-                # Mask low and high relative values
-                cube.apply_masks(mask_below=self.setup["bpm"]["rel_lo"], mask_above=self.setup["bpm"]["rel_hi"])
-
-                # Count how many bad pixels there are in the stack and normalize to the number of input images
-                nbad_pix = np.sum(~np.isfinite(cube.cube), axis=0) / files.n_files
-
-                # Get those pixels where the number of bad pixels is greater than the given input threshold
-                bpm = np.array(nbad_pix > self.setup["bpm"]["frac"], dtype=np.uint8)
-
-                # Make header cards
-                cards = make_cards(keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
-                                   values=[np.int(np.sum(bpm)), np.round(np.sum(bpm) / bpm.size, decimals=5)],
-                                   comments=["Number of bad pixels", "Fraction of bad pixels"])
-                data_headers.append(fits.Header(cards=cards))
-
-                # Append HDU
-                master_cube.extend(data=bpm)
-
-            # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
-                                               self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
-                                     values=[files.dit[0], files.ndit[0],
-                                             files.mjd_mean, files.time_obs_mean,
-                                             "MASTER-BPM", len(files)])
-            prime_header = fits.Header(cards=prime_cards)
-
-            # Write to disk
-            master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
-
-            # QC plot
-            if self.setup["misc"]["qc_plots"]:
-                mbpm = MasterBadPixelMask(setup=self.setup, file_paths=outpath)
-                mbpm.qc_plot_bpm(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    # =========================================================================== #
-    # Master Linearity
-    # =========================================================================== #
-    # noinspection DuplicatedCode
-    def build_master_linearity(self):
-        """ Calculates the non-linearity coefficients based on a series of dome flats. """
-
-        # Order can't be greater than 3 at the moment
-        if self.setup["linearity"]["order"] not in [2, 3]:
-            raise NotImplementedError("Order not supported")
-
-        # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-LINEARITY", silent=self.setup["misc"]["silent"])
-
-        # Split based on lag and filter
-        split = self.split_filter()
-        split = flat_list([s.split_lag(max_lag=self.setup["gain"]["max_lag"]) for s in split])
-
-        # Now loop through separated files and build the Masterdarks
-        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: FlatImages, int
-
-            # Check sequence suitability for linearity (same nHDU, at least five different exposure times and same NDIT)
-            files.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
-
-            # Create master name
-            outpath = files.build_master_path(basename="MASTER-LINEARITY", idx=0, mjd=True, table=True)
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Fetch the Masterfiles
-            master_bpms = files.get_master_bpm()  # type: MasterBadPixelMask
-            master_darks = files.get_master_dark()  # type: MasterDark
-
-            # initialize empty lists
-            table_hdus = []
-
-            # Start looping over detectors
-            for d in files.data_hdu[0]:
-
-                # Print processing info
-                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
-
-                # Get data
-                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
-
-                # Get master calibration
-                bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
-                dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
-                sat = self.get_saturation_hdu(hdu_index=d)
-                norm_before = files.ndit_norm
-
-                # Do calibration
-                cube.process_raw(dark=dark, norm_before=norm_before)
-
-                # Apply BPM
-                cube.apply_masks(bpm=bpm)
-
-                # Estimate flux for each plane as the median
-                flux = cube.median(axis=(1, 2))
-
-                # Get flux filter
-                badflux = flux > sat
-
-                # Get dit
-                dit = np.array(files.dit)
-
-                # Fit a polynomial through good fluxes
-                coeff = np.polyfit(dit[~badflux], flux[~badflux], deg=self.setup["linearity"]["order"])
-
-                # The coefficients now must be scaled (check VISTA DR library design document for an explanation)
-                coeff_norm = np.divide(coeff, coeff[-2] ** np.arange(self.setup["linearity"]["order"] + 1)[::-1])
-
-                # Round coefficients
-                coeff, coeff_norm = list(np.around(coeff, decimals=12)), list(np.around(coeff_norm, decimals=12))
-
-                # Determine non-linearity@10000ADU
-                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm) / 10000 - 1)[0] * 100
-                nl10000 = np.round(nl10000, decimals=5)
-
-                # Make fits cards for coefficients
-                cards_poly_coeff, cards_norm_coeff = [], []
-                for cidx in range(len(coeff)):
-                    cards_poly_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF POLY {0}".format(cidx),
-                                                      value=coeff[cidx],
-                                                      comment="Polynomial coefficient {0}".format(cidx)))
-                    cards_norm_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF LINEAR {0}".format(cidx),
-                                                      value=coeff_norm[cidx],
-                                                      comment="Linearity coefficient {0}".format(cidx)))
-
-                # Make header cards
-                cards = make_cards(keywords=["HIERARCH PYPE QC NL10000", "HIERARCH PYPE QC SATURATION",
-                                             "HIERARCH PYPE LIN ORDER"],
-                                   values=[nl10000, sat, self.setup["linearity"]["order"]],
-                                   comments=["Non-linearity at 10000 ADU in %", "Saturation limit (ADU)",
-                                             "Order of linearity fit"])
-
-                # Merge cards
-                cards = cards + cards_poly_coeff + cards_norm_coeff
-
-                # Add dit and flux to another HDU
-                table_hdus.append(fits.TableHDU.from_columns(columns=[fits.Column(name="dit", format="D", array=dit),
-                                                                      fits.Column(name="flux", format="D", array=flux)],
-                                                             header=fits.Header(cards=cards)))
-
-            # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
-                                     values=[files.mjd_mean, files.time_obs_mean,
-                                             "MASTER-LINEARITY", len(files)])
-            prime_header = fits.Header(cards=prime_cards)
-
-            # Save table
-            thdulist = fits.HDUList([fits.PrimaryHDU(header=prime_header)] + table_hdus)
-            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
-
-            # Initialize plot if set
-            if self.setup["misc"]["qc_plots"]:
-                mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
-                mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
-
-        # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-    # =========================================================================== #
-    # Master Flat
-    # =========================================================================== #
     # noinspection DuplicatedCode
     def build_master_flat(self):
         """
@@ -251,40 +37,46 @@ class FlatImages(FitsImages):
         """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-FLAT", silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-FLAT", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
 
         # Split based on lag and filter
-        split = self.split_filter()
+        split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
         split = flat_list([s.split_lag(max_lag=self.setup["flat"]["max_lag"]) for s in split])
 
         # Now loop through separated files and build the Masterdarks
-        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: FlatImages, int
+        for files, fidx in zip(split, range(1, len(split) + 1)):
 
             # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
             files.check_compatibility(n_files_min=3, n_hdu_max=1, n_ndit_max=1, n_filter_max=1)
 
-            # Create master name
-            outpath = files.build_master_path(basename="MASTER-FLAT", idx=0, mjd=True, filt=True, table=False)
+            # Create Master name
+            outpath = "{0}MASTER-FLAT.MJD_{1:0.4f}.FIL_{2}.fits" \
+                      "".format(files.setup.folders["master_common"], files.mjd_mean, files.passband[0])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
                 continue
 
             # Fetch the Masterfiles
-            master_bpms = files.get_master_bpm()  # type: MasterBadPixelMask
-            master_darks = files.get_master_dark()  # type: MasterDark
-            master_linearity = files.get_master_linearity()  # type: MasterLinearity
+            master_bpms = files.get_master_bpm()
+            master_darks = files.get_master_dark()
+            master_linearity = files.get_master_linearity()
+
+            for master in [master_bpms, master_darks, master_linearity]:
+                if len(master) != len(files):
+                    raise ValueError("Fetched Master sequences do not match")
 
             # initialize empty lists and data structures
             master_flat, flux = ImageCube(setup=self.setup, cube=None), []
 
             # Start looping over detectors
             data_headers = []
-            for d in files.data_hdu[0]:
+            for d in files.iter_data_hdu[0]:
 
                 # Print processing info
                 message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
 
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
@@ -293,7 +85,7 @@ class FlatImages(FitsImages):
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
                 lin = master_linearity.hdu2coeff(hdu_index=d)
-                sat = files.get_saturation_hdu(hdu_index=d)
+                sat = self.setup.saturation_levels[d-1]
                 norm_before = files.ndit_norm
 
                 # Do calibration
@@ -353,14 +145,16 @@ class FlatImages(FitsImages):
             master_flat.cube *= np.array(gainscale)[:, np.newaxis, np.newaxis]
 
             # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
-                                               self.setup["keywords"]["filter"],
-                                               self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
+            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
+                                               self.setup.keywords.filter_name,
+                                               self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                               self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
                                      values=[files.dit[0], files.ndit[0],
-                                             files.filter[0],
+                                             files.passband[0],
                                              files.mjd_mean, files.time_obs_mean,
                                              "MASTER-FLAT", len(files)])
+
+            # Make primary header
             prime_header = fits.Header(cards=prime_cards)
 
             # Add gainscale to data headers
@@ -376,12 +170,12 @@ class FlatImages(FitsImages):
                 mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
     # =========================================================================== #
     # Master Weight
     # =========================================================================== #
-    def build_master_weight_global(self):
+    def build_master_weight(self):
         """
         Creates master weights from master flats. The difference between them is that NaNs are replaced with 0s and
         there is an additional option to mask relative and absolute values.
@@ -389,14 +183,14 @@ class FlatImages(FitsImages):
         """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-WEIGHT-GLOBAL",
-                                           silent=self.setup["misc"]["silent"], right=None)
+        print_header(header="MASTER-WEIGHT", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
 
         # Get unique Master flats
         master_flats = self.get_unique_master_flats()
 
         # Generate outpaths
-        outpaths = [x.replace("MASTER-FLAT", "MASTER-WEIGHT-GLOBAL") for x in master_flats.full_paths]
+        outpaths = [x.replace("MASTER-FLAT", "MASTER-WEIGHT") for x in master_flats.paths_full]
 
         # Loop over files and apply calibration
         for idx in range(len(master_flats)):
@@ -440,91 +234,359 @@ class FlatImages(FitsImages):
 
             # Modify type in primary header
             prime_header = master_flats.headers_primary[idx].copy()
-            prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-GLOBAL"
+            prime_header[self.setup.keywords.object] = "MASTER-WEIGHT"
 
             # Write to file
             cube.write_mef(path=outpaths[idx], prime_header=prime_header, data_headers=master_flats.headers_data[idx])
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-
-        # Return master weights
-        return MasterWeight(setup=self.setup, file_paths=outpaths)
-
-    # def build_master_weight_coadd(self):
-    #
-    #     # Processing info
-    #     tstart = message_mastercalibration(master_type="MASTER-WEIGHT-COADD", right=None,
-    #                                        silent=self.setup["misc"]["silent"])
-    #
-    #     # Get unique Master flats
-    #     master_weights = self.get_unique_master_weights()
-    #
-    #     # Generate outpaths
-    #     outpaths = [x.replace("MASTER-WEIGHT", "MASTER-WEIGHT-COADD") for x in master_weights.full_paths]
-    #
-    #     # Loop over files and apply calibration
-    #     for idx in range(len(master_weights)):
-    #
-    #         # Check if the file is already there and skip if it is
-    #         if check_file_exists(file_path=outpaths[idx], silent=self.setup["misc"]["silent"]) \
-    #                 and not self.setup["misc"]["overwrite"]:
-    #             continue
-    #
-    #         # Print processing info
-    #         if not self.setup["misc"]["silent"]:
-    #             message_calibration(n_current=idx + 1, n_total=len(master_weights),
-    #                                 name=outpaths[idx], d_current=None, d_total=None)
-    #
-    #         # Read file into cube
-    #         cube = master_weights.file2cube(file_index=idx, hdu_index=None, dtype=None)
-    #
-    #         # Edge arrays
-    #         e1 = np.array([np.full(cube.shape[1], fill_value=0, dtype=int),
-    #                        np.arange(0, cube.shape[2], 1).astype(int)])
-    #         e2 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
-    #                        np.full(cube.shape[2], fill_value=0, dtype=int)])
-    #         e3 = np.array([np.full(cube.shape[1], fill_value=cube.shape[1], dtype=int),
-    #                        np.arange(0, cube.shape[2], 1).astype(int)])
-    #         e4 = np.array([np.arange(0, cube.shape[1], 1).astype(int),
-    #                        np.full(cube.shape[2], fill_value=cube.shape[2], dtype=int)])
-    #         edges_stacked = np.hstack([e1, e2, e3, e4])
-    #
-    #         # Create coorainate array for entire image
-    #         coo_image_x, coo_image_y = np.meshgrid(np.arange(cube.shape[1]), np.arange(cube.shape[2]))
-    #         coo_stacked = np.stack([coo_image_x.ravel(), coo_image_y.ravel()])
-    #
-    #         dis, _ = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(edges_stacked.T).kneighbors(coo_stacked.T)
-    #         dis = dis[:, -1].reshape(cube.shape[1], cube.shape[2])
-    #
-    #         # Create weight
-    #         weight = dis / self.setup["weight"]["coadd_edge_gradient"]
-    #
-    #         # Mask too large weights in center of image
-    #         weight[weight > 1] = 1.
-    #
-    #         # Modify ipout weight
-    #         cube.cube *= weight
-    #
-    #         # Modify type in primary header
-    #         prime_header = master_weights.headers_primary[idx].copy()
-    #         prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-COADD"
-    #
-    #         # Write to file
-    #         cube.write_mef(path=outpaths[idx], prime_header=prime_header,
-    #                        data_headers=master_weights.headers_data[idx])
-    #
-    #     # Print time
-    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-    #
-    #     # Return master weights
-    #     return MasterWeightCoadd(setup=self.setup, file_paths=outpaths)
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class WeightImages(FitsImages):
+class FlatLampLin(FlatImages):
 
     def __init__(self, setup, file_paths=None):
-        super(WeightImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(FlatLampLin, self).__init__(setup=setup, file_paths=file_paths)
+
+    # =========================================================================== #
+    # Master Linearity
+    # =========================================================================== #
+    # noinspection DuplicatedCode
+    def build_master_linearity(self):
+        """ Calculates the non-linearity coefficients based on a series of dome flats. """
+
+        # Order can't be greater than 3 at the moment
+        if self.setup["linearity"]["order"] not in [2, 3]:
+            raise NotImplementedError("Order not supported")
+
+        # Processing info
+        print_header(header="MASTER-LINEARITY", silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Split based on lag and filter
+        split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
+        split = flat_list([s.split_lag(max_lag=self.setup["gain"]["max_lag"]) for s in split])
+
+        # Now loop through separated files and build the Masterdarks
+        for files, fidx in zip(split, range(1, len(split) + 1)):
+
+            # Check sequence suitability for linearity (same nHDU, at least five different exposure times and same NDIT)
+            files.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
+
+            # Create Master name
+            outpath = "{0}MASTER-LINEARITY.MJD_{1:0.4f}.fits.tab" \
+                      "".format(files.setup.folders["master_common"], files.mjd_mean)
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Fetch the Masterfiles
+            master_bpms = files.get_master_bpm()
+            master_darks = files.get_master_dark()
+
+            # initialize empty lists
+            table_hdus = []
+
+            # Start looping over detectors
+            for d in files.iter_data_hdu[0]:
+
+                # Print processing info
+                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
+
+                # Get data
+                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
+
+                # Get master calibration
+                bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
+                dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
+                sat = self.setup.saturation_levels[d-1]
+                norm_before = files.ndit_norm
+
+                # Do calibration
+                cube.process_raw(dark=dark, norm_before=norm_before)
+
+                # Apply BPM
+                cube.apply_masks(bpm=bpm)
+
+                # Estimate flux for each plane as the median
+                flux = cube.median(axis=(1, 2))
+
+                # Get flux filter
+                badflux = flux > sat
+
+                # Get dit
+                dit = np.array(files.dit)
+
+                # Fit a polynomial through good fluxes
+                coeff = np.polyfit(dit[~badflux], flux[~badflux], deg=self.setup["linearity"]["order"])
+
+                # The coefficients now must be scaled (check VISTA DR library design document for an explanation)
+                coeff_norm = np.divide(coeff, coeff[-2] ** np.arange(self.setup["linearity"]["order"] + 1)[::-1])
+
+                # Round coefficients
+                coeff, coeff_norm = list(np.around(coeff, decimals=12)), list(np.around(coeff_norm, decimals=12))
+
+                # Determine non-linearity@10000ADU
+                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm) / 10000 - 1)[0] * 100
+                nl10000 = np.round(nl10000, decimals=5)
+
+                # Make fits cards for coefficients
+                cards_poly_coeff, cards_norm_coeff = [], []
+                for cidx in range(len(coeff)):
+                    cards_poly_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF POLY {0}".format(cidx),
+                                                      value=coeff[cidx],
+                                                      comment="Polynomial coefficient {0}".format(cidx)))
+                    cards_norm_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF LINEAR {0}".format(cidx),
+                                                      value=coeff_norm[cidx],
+                                                      comment="Linearity coefficient {0}".format(cidx)))
+
+                # Make header cards
+                cards = make_cards(keywords=["HIERARCH PYPE QC NL10000", "HIERARCH PYPE QC SATURATION",
+                                             "HIERARCH PYPE LIN ORDER"],
+                                   values=[nl10000, sat, self.setup["linearity"]["order"]],
+                                   comments=["Non-linearity at 10000 ADU in %", "Saturation limit (ADU)",
+                                             "Order of linearity fit"])
+
+                # Merge cards
+                cards = cards + cards_poly_coeff + cards_norm_coeff
+
+                # Add dit and flux to another HDU
+                table_hdus.append(fits.TableHDU.from_columns(columns=[fits.Column(name="dit", format="D", array=dit),
+                                                                      fits.Column(name="flux", format="D", array=flux)],
+                                                             header=fits.Header(cards=cards)))
+
+            # Make cards for primary headers
+            prime_cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                               self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
+                                     values=[files.mjd_mean, files.time_obs_mean,
+                                             "MASTER-LINEARITY", len(files)])
+            prime_header = fits.Header(cards=prime_cards)
+
+            # Save table
+            thdulist = fits.HDUList([fits.PrimaryHDU(header=prime_header)] + table_hdus)
+            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
+
+            # Initialize plot if set
+            if self.setup["misc"]["qc_plots"]:
+                mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
+                mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+
+class FlatLampCheck(FlatImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(FlatLampCheck, self).__init__(setup=setup, file_paths=file_paths)
+
+    # =========================================================================== #
+    # Master Bad Pixel Mask
+    # =========================================================================== #
+    def build_master_bpm(self):
+        """ Builds a Bad pixel mask from image data. """
+
+        # Processing info
+        print_header(header="MASTER-BPM", silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Split files based on maximum time lag is set
+        split = self.split_lag(max_lag=self.setup["bpm"]["max_lag"])
+
+        # Now loop through separated files and build Masterbpm
+        for files, idx_print in zip(split, range(1, len(split) + 1)):
+
+            # Check sequence compatibility
+            files.check_compatibility(n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3)
+
+            # Create Master name
+            outpath = "{0}MASTER-BPM.NDIT_{1}.MJD_{2:0.4f}.fits" \
+                      "".format(files.setup.folders["master_common"], files.ndit[0], files.mjd_mean)
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Instantiate output
+            master_cube = ImageCube(setup=self.setup)
+
+            # Start looping over detectors
+            data_headers = []
+            for d in files.iter_data_hdu[0]:
+
+                # Print processing info
+                if not self.setup["misc"]["silent"]:
+                    message_calibration(n_current=idx_print, n_total=len(split), name=outpath,
+                                        d_current=d, d_total=len(files.iter_data_hdu[0]))
+
+                # Get data
+                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
+
+                # Mask low and high absolute values
+                cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
+
+                # Sigma clipping per plane
+                cube.apply_masks_plane(sigma_level=self.setup["bpm"]["sigma_level"],
+                                       sigma_iter=self.setup["bpm"]["sigma_iter"])
+
+                # Collapse cube with median
+                flat = cube.flatten(metric=string2func(self.setup["bpm"]["metric"]), axis=0)
+
+                # Normalize cube with flattened data
+                cube.cube = cube.cube / flat
+
+                # Mask low and high relative values
+                cube.apply_masks(mask_below=self.setup["bpm"]["rel_lo"], mask_above=self.setup["bpm"]["rel_hi"])
+
+                # Count how many bad pixels there are in the stack and normalize to the number of input images
+                nbad_pix = np.sum(~np.isfinite(cube.cube), axis=0) / files.n_files
+
+                # Get those pixels where the number of bad pixels is greater than the given input threshold
+                bpm = np.array(nbad_pix > self.setup["bpm"]["frac"], dtype=np.uint8)
+
+                # Make header cards
+                cards = make_cards(keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
+                                   values=[np.int(np.sum(bpm)), np.round(np.sum(bpm) / bpm.size, decimals=5)],
+                                   comments=["Number of bad pixels", "Fraction of bad pixels"])
+                data_headers.append(fits.Header(cards=cards))
+
+                # Append HDU
+                master_cube.extend(data=bpm)
+
+            # Make cards for primary headers
+            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
+                                               self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                               self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
+                                     values=[files.dit[0], files.ndit[0],
+                                             files.mjd_mean, files.time_obs_mean.fits,
+                                             "MASTER-BPM", len(files)])
+            prime_header = fits.Header(cards=prime_cards)
+
+            # Write to disk
+            master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                mbpm = MasterBadPixelMask(setup=self.setup, file_paths=outpath)
+                mbpm.qc_plot_bpm(paths=None, axis_size=5)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+
+class FlatLampGain(FlatImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(FlatLampGain, self).__init__(setup=setup, file_paths=file_paths)
+
+    def build_master_gain(self, darks):
+        """
+        Preliminary (not universal) routine to calculate gain and Flat tables. For the moment only works with VIRCAM and
+        maybe not even under all circumstance. The gain and read noise are calculated using Janesick's method.
+
+        See e.g. Hand book of CCD astronomy.
+
+        Parameters
+        ----------
+        darks : DarkImages
+            Corresponding dark images for the method.
+
+
+        """
+
+        # Processing info
+        print_header(header="MASTER-GAIN", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Split based on lag
+        split_flats = self.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
+        split_darks = darks.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
+
+        if len(split_flats) != len(split_darks):
+            raise ValueError("Provided darks do not match to input flats!")
+
+        # Now loop through separated files and build the Gain Table
+        for idx in range(len(split_flats)):
+
+            # Grab files
+            flats, darks = split_flats[idx], split_darks[idx]
+
+            # Check sequence suitability for Dark (same number of HDUs and NDIT)
+            flats.check_compatibility(n_hdu_max=1, n_ndit_max=1, n_filter_max=1)
+            if len(flats) != len(flats):
+                raise ValueError("Gain sequence not compatible!")
+
+            # Also DITs must match
+            if (np.sum(np.abs(np.array(flats.dit) - np.array(darks.dit)) < 0.001)) != len(flats):
+                raise ValueError("Gain sequence not compatible!")
+
+            # Create master  name
+            outpath = "{0}MASTER-GAIN.NDIT_{1}.MJD_{2:0.4f}.fits.tab" \
+                      "".format(flats.setup.folders["master_common"], flats.ndit[0], flats.mjd_mean)
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Print processing info
+            if not self.setup["misc"]["silent"]:
+                message_calibration(n_current=idx+1, n_total=len(split_flats),
+                                    name=outpath, d_current=None, d_total=None)
+
+            # Get BPM
+            mbpms = flats.get_master_bpm()
+
+            # Read data
+            f0 = flats.file2cube(file_index=0, dtype=np.float32)
+            f1 = flats.file2cube(file_index=1, dtype=np.float32)
+            d0 = darks.file2cube(file_index=0, dtype=np.float32)
+            d1 = darks.file2cube(file_index=1, dtype=np.float32)
+            m0 = mbpms.file2cube(file_index=0, dtype=np.uint8)
+            m1 = mbpms.file2cube(file_index=1, dtype=np.uint8)
+
+            # Mask bad pixels
+            f0.apply_masks(bpm=m0), f1.apply_masks(bpm=m1)
+            d0.apply_masks(bpm=m0), d1.apply_masks(bpm=m1)
+
+            # Get variance in difference images
+            fvar, dvar = (f0 - f1).var(axis=(1, 2)), (d0 - d1).var(axis=(1, 2))
+
+            # Calculate gain
+            gain = ((f0.mean(axis=(1, 2)) + f1.mean(axis=(1, 2))) -
+                    (d0.mean(axis=(1, 2)) + d1.mean(axis=(1, 2)))) / (fvar - dvar)
+
+            # Calculate readout noise
+            rdnoise = gain * np.sqrt(dvar) / np.sqrt(2)
+
+            # Make header cards
+            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
+                                               self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                               self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
+                                     values=[flats.dit[0], flats.ndit[0],
+                                             flats.mjd_mean, flats.time_obs_mean,
+                                             "MASTER-GAIN", len(flats)])
+            prhdu = fits.PrimaryHDU(header=fits.Header(cards=prime_cards))
+
+            # Create table HDU for output
+            tbhdu = fits.TableHDU.from_columns([fits.Column(name="gain", format="D", array=gain),
+                                                fits.Column(name="rdnoise", format="D", array=rdnoise)])
+            thdulist = fits.HDUList([prhdu, tbhdu])
+
+            # Write
+            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
+
+            # QC plot
+            if self.setup["misc"]["qc_plots"]:
+                mgain = MasterGain(setup=self.setup, file_paths=outpath)
+                mgain.qc_plot_gain(paths=None, axis_size=5)
+                mgain.qc_plot_rdnoise(paths=None, axis_size=5)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
 class MasterFlat(MasterImages):
@@ -588,7 +650,7 @@ class MasterFlat(MasterImages):
             List of gainscales.
 
         """
-        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE FLAT SCALE"])[0]
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE FLAT SCALE"])[0]
 
     def paths_qc_plots(self, paths):
         """
@@ -606,7 +668,7 @@ class MasterFlat(MasterImages):
         """
 
         if paths is None:
-            return ["{0}{1}.pdf".format(self.path_qc_flat, fp) for fp in self.file_names]
+            return ["{0}{1}.pdf".format(self.setup.folders["qc_flat"], fp) for fp in self.basenames]
         else:
             return paths
 
@@ -639,11 +701,8 @@ class MasterFlat(MasterImages):
             if check_file_exists(file_path=path, silent=True) and not overwrite:
                 continue
 
-            # Read focal play array layout
-            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
-
             # Get plot grid
-            fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
 
             # Helpers
@@ -668,11 +727,11 @@ class MasterFlat(MasterImages):
                             xy=(0.04, 0.04), xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx < fpa_layout[1]:
+                if idx < self.setup.fpa_layout[1]:
                     ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % fpa_layout[0] == fpa_layout[0] - 1:
+                if idx % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
@@ -699,6 +758,12 @@ class MasterFlat(MasterImages):
             plt.close("all")
 
 
+class MasterWeight(MasterImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterWeight, self).__init__(setup=setup, file_paths=file_paths)
+
+
 class MasterSuperflat(MasterImages):
 
     def __init__(self, setup, file_paths=None):
@@ -706,11 +771,11 @@ class MasterSuperflat(MasterImages):
 
     @property
     def nsources(self):
-        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE SFLAT NSOURCES"])[0]
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE SFLAT NSOURCES"])[0]
 
     @property
     def flx_std(self):
-        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE SFLAT STD"])[0]
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE SFLAT STD"])[0]
 
     def qc_plot_superflat(self, paths=None, axis_size=4):
 
@@ -721,28 +786,28 @@ class MasterSuperflat(MasterImages):
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}.pdf".format(self.path_qc_superflat, fp) for fp in self.file_names]
+            paths = ["{0}{1}.pdf".format(self.setup.folders["qc_superflat"], fp) for fp in self.basenames]
 
-        for idx_file in range(len(self)):
-
-            # Read focal play array layout
-            fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
+        for idx_file in range(self.n_files):
 
             # Create figure
-            fig, ax_file = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+            fig, ax_file = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
             ax_file = ax_file.ravel()
             cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
 
             # Read data
             cube = self.file2cube(file_index=idx_file)
 
-            for idx_hdu in range(len(self.data_hdu[idx_file])):
+            # Determine vmin/vmax
+            vmin, vmax = np.percentile(cube, 0.1), np.percentile(cube, 99.9)
+
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
 
                 # Fetch current axes
                 ax = ax_file[idx_hdu]
 
                 # Draw image
-                im = ax.imshow(cube[idx_hdu], vmin=0.85, vmax=1.15, cmap=get_cmap("RdYlBu_r", 30), origin="lower")
+                im = ax.imshow(cube[idx_hdu], vmin=vmin, vmax=vmax, cmap=get_cmap("RdYlBu_r", 30), origin="lower")
 
                 # Add colorbar
                 cbar = plt.colorbar(mappable=im, cax=cax, orientation="horizontal", label="Relative Flux")
@@ -762,11 +827,11 @@ class MasterSuperflat(MasterImages):
                             xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
-                if idx_hdu < fpa_layout[1]:
+                if idx_hdu < self.setup.fpa_layout[1]:
                     ax.set_xlabel("X (pix)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx_hdu % fpa_layout[0] == fpa_layout[0] - 1:
+                if idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
                     ax.set_ylabel("Y (pix)")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
@@ -785,15 +850,3 @@ class MasterSuperflat(MasterImages):
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(paths[idx_file], bbox_inches="tight")
             plt.close("all")
-
-
-class MasterWeight(MasterImages):
-
-    def __init__(self, setup, file_paths=None):
-        super(MasterWeight, self).__init__(setup=setup, file_paths=file_paths)
-
-
-class MasterWeightCoadd(MasterImages):
-
-    def __init__(self, setup, file_paths=None):
-        super(MasterWeightCoadd, self).__init__(setup=setup, file_paths=file_paths)

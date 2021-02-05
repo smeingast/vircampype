@@ -1,22 +1,14 @@
-# =========================================================================== #
-# Import
 import os
 import glob
 import pickle
 import warnings
 import numpy as np
 
-from typing import Dict
 from astropy.io import fits
-from joblib import cpu_count
 from astropy.time import Time
-from vircampype.setup import *
-from vircampype.utils.wcs import *
-from vircampype.utils.system import *
-from vircampype.utils.fitstools import *
-from vircampype.utils.exceptions import *
-from vircampype.utils.miscellaneous import *
-from astropy.io.fits.hdu.image import ImageHDU, PrimaryHDU
+from vircampype.pipeline.misc import *
+from vircampype.pipeline.setup import Setup
+from vircampype.utils.wcs import header_reset_wcs
 
 
 class FitsFiles:
@@ -27,185 +19,68 @@ class FitsFiles:
 
         Parameters
         ----------
-        setup : Dict[str, Dict[str, Any]]
-            YML setup. Can be either path to setup, or a dictionary.
+        setup : str, Setup
+            Setup dictionary or Setup instance passed from the pipeline instance.
         file_paths : iterable, optional.
             Paths to FITS files.
+
         """
 
-        # Setup
-        if isinstance(setup, str):
-            self.setup = read_setup(path_yaml=setup)
-        elif isinstance(setup, dict):
-            self.setup = setup
-        else:
-            raise ValueError("Please provide a pipeline setup")
+        # Set setup
+        self.setup = Setup.load_pipeline_setup(setup)
 
+        # Make sure the paths are in a list and sorted
         if file_paths is None:
-            self.file_paths = []
+            file_paths = []
         elif isinstance(file_paths, str):
-            self.file_paths = [file_paths]
+            file_paths = [file_paths]
         else:
-            self.file_paths = sorted(file_paths)
-
-        # Some checks
-        if not isinstance(self.file_paths, list):
-            raise ValueError("file_paths must be non-empty list")
-
-        # Check setup
-        self.__check_setup()
+            file_paths = sorted(file_paths)
 
         # Paths and properties
-        self.base_names = [os.path.basename(x) for x in self.file_paths]
-        self.file_names = [os.path.splitext(x)[0] for x in self.base_names]
-        self.file_extensions = [os.path.splitext(x)[1] for x in self.base_names]
-        self.full_paths = [os.path.abspath(x) for x in self.file_paths]
-        self.file_directories = [os.path.dirname(x) + "/" for x in self.full_paths]
-        self.n_files = len(self.file_paths)
+        self.paths_full = [os.path.abspath(x) for x in file_paths]
+        self.basenames = [os.path.basename(x) for x in self.paths_full]
+        self.names = [os.path.splitext(x)[0] for x in self.basenames]
+        self.extensions = [os.path.splitext(x)[1] for x in self.basenames]
+        self.directories = [os.path.dirname(x) + "/" for x in self.paths_full]
 
-        # Set name for current batch
-        self.name = self.setup["paths"]["name"]
-
-        # Initialize folders and set attributes manually
-        self.path_pype = self.setup["paths"]["pype"]
-        self.path_object = "{0}{1}/".format(self.path_pype, self.name)
-        self.path_temp = "{0}{1}/".format(self.path_object, "temp")
-        self.path_headers = "{0}{1}/".format(self.path_object, "headers")
-        self.path_processed = "{0}{1}/".format(self.path_object, "processed")
-        self.path_superflatted = "{0}{1}/".format(self.path_object, "superflatted")
-        self.path_resampled = "{0}{1}/".format(self.path_object, "resampled")
-        self.path_homo = "{0}{1}/".format(self.path_object, "homo")
-
-        # Coadd paths
-        self.path_coadd = "{0}{1}/".format(self.path_object, "coadd")
-        self.coadd_name = self.setup["paths"]["name"]
-        self.path_coadd_image = "{0}{1}.fits".format(self.path_coadd, self.coadd_name)
-        self.path_coadd_weight = self.path_coadd_image.replace(".fits", ".weight.fits")
-        self.path_coadd_header = self.path_coadd_image.replace(".fits", ".ahead")
-
-        # Obs parameters
-        self.path_obspar = "{0}{1}/".format(self.path_object, "obspar")
-        self.path_apcor = "{0}{1}/".format(self.path_obspar, "apcor")
-
-        # Master paths
-        self.path_master_common = "{0}{1}/".format(self.path_pype, "master")
-        self.path_master_object = "{0}{1}/".format(self.path_object, "master")
-
-        # QC
-        self.path_qc_object = "{0}{1}/".format(self.path_object, "qc")
-
-        # Common QC
-        self.path_qc_bpm = "{0}{1}/".format(self.path_qc_object, "bpm")
-        self.path_qc_dark = "{0}{1}/".format(self.path_qc_object, "dark")
-        self.path_qc_gain = "{0}{1}/".format(self.path_qc_object, "gain")
-        self.path_qc_linearity = "{0}{1}/".format(self.path_qc_object, "linearity")
-        self.path_qc_flat = "{0}{1}/".format(self.path_qc_object, "flat")
-
-        # Sequence specific QC
-        self.path_qc_sky = "{0}{1}/".format(self.path_qc_object, "sky")
-        self.path_qc_photometry = "{0}{1}/".format(self.path_qc_object, "photometry")
-        self.path_qc_astrometry = "{0}{1}/".format(self.path_qc_object, "astrometry")
-        self.path_qc_apcor = "{0}{1}/".format(self.path_qc_object, "aperture_correction")
-        self.path_qc_superflat = "{0}{1}/".format(self.path_qc_object, "superflat")
-        self.path_qc_psf = "{0}{1}/".format(self.path_qc_object, "psf")
-
-        # ESO
-        self.path_phase3 = "{0}{1}/{2}/".format(self.path_object, "phase3", self.name)
-
-        # Common paths
-        paths_common = [self.path_pype, self.path_headers, self.path_master_common, self.path_object]
-
-        # calibration-specific paths
-        paths_cal = [self.path_qc_bpm, self.path_qc_dark, self.path_qc_gain, self.path_qc_linearity, self.path_qc_flat]
-
-        # Object-specific paths
-        paths_obj = [self.path_temp, self.path_processed, self.path_resampled, self.path_coadd, self.path_obspar,
-                     self.path_apcor, self.path_master_object, self.path_qc_object, self.path_qc_sky,
-                     self.path_qc_photometry, self.path_qc_astrometry, self.path_qc_apcor, self.path_phase3,
-                     self.path_qc_superflat, self.path_superflatted, self.path_qc_psf]
-
-        # Generate common paths
-        for path in paths_common:
-            make_folder(path)
-
-        # Create common calibration path only if we run a calibration unit
-        if "calibration" in self.name.lower():
-            for path in paths_cal:
-                make_folder(path=path)
-
-        # Other wise make object paths
-        else:
-            for path in paths_obj:
-                make_folder(path=path)
-
-        # Generate paths
-        self._header_paths = ["{0}{1}.header".format(self.path_headers, x) for x in self.base_names]
-
-    # =========================================================================== #
-    # Setup check
-    # =========================================================================== #
-    def __check_setup(self):
-        """ Makes some consitency checks in setup. """
-
-        # Only single threads for python are allowed at the moment
-        # if self.setup["misc"]["n_jobs"] != 1:
-        #     raise SetupError(BColors.FAIL +
-        #                      "Multiple threads in Python are not supported at the moment, "
-        #                      "'n_jobs' = " "{0}".format(self.setup["misc"]["n_jobs"])
-        #                      + BColors.ENDC)
-
-        # Raise error when more threads than available are requested
-        # if self.setup["misc"]["n_jobs"] > cpu_count():
-        #     raise SetupError(BColors.FAIL +
-        #                      "More threads reuqested than available. {0} > {1}"
-        #                      "".format(self.setup["misc"]["n_jobs"], cpu_count())
-        #                      + BColors.ENDC)
-
-        # Raise error when more threads than available are requested
-        if self.setup["misc"]["n_jobs"] > cpu_count():
-            raise SetupError(BColors.FAIL +
-                             "More threads reuqested than available. {0} > {1}"
-                             "".format(self.setup["misc"]["n_jobs"], cpu_count())
-                             + BColors.ENDC)
-
-        # Check if astroscrappy is installed when found in setup
-        # if self.setup["cosmetics"]["mask_cosmics"]:
-        #     if not module_exists("astroscrappy"):
-        #         raise SystemError("For cosmic ray detection, you need 'astroscrappy' installed.")
+    @property
+    def n_files(self):
+        return len(self.paths_full)
 
     # =========================================================================== #
     #   Magic methods
     # =========================================================================== #
     def __str__(self):
-        return str(self.full_paths)
+        return str(self.paths_full)
 
     def __repr__(self):
-        return str(self.full_paths)
+        return str(self.paths_full)
 
     def __iter__(self):
-        return iter(self.full_paths)
+        return iter(self.paths_full)
 
     def __setitem__(self, key, item):
         # Only if file exists
         if os.path.isfile(item):
-            self.full_paths[key] = item
+            self.paths_full[key] = item
         else:
             raise FileNotFoundError("The specified file '{0}' does not exist.".format(item))
 
     def __getitem__(self, key):
-        return self.__class__(setup=self.setup, file_paths=self.full_paths[key])
+        return self.__class__(setup=self.setup, file_paths=self.paths_full[key])
 
     def __len__(self):
         return self.n_files
 
     def __add__(self, other):
-        return self.__class__(setup=self.setup, file_paths=self.full_paths + other.full_paths)
+        return self.__class__(setup=self.setup, file_paths=self.paths_full + other.paths_full)
 
     def __iadd__(self, other):
-        return self.__class__(setup=self.setup, file_paths=self.full_paths + other.full_paths)
+        return self.__class__(setup=self.setup, file_paths=self.paths_full + other.paths_full)
 
     # =========================================================================== #
-    #   I/O
+    # I/O
     # =========================================================================== #
     @classmethod
     def from_folder(cls, path, setup, pattern=None, exclude=None):
@@ -216,8 +91,8 @@ class FitsFiles:
         ----------
         path : str
             Path to folder.
-        setup : str, dict
-            YML setup. Can be either path to setup, or a dictionary.
+        setup : str, Setup
+            Pipeline setup.
         pattern : str, optional
             Substring to identify FITS files. Default is None, which loads all files in the folder.
         exclude : str, optional
@@ -244,35 +119,13 @@ class FitsFiles:
         # Return new instance
         return cls(setup=setup, file_paths=file_paths)
 
-    @classmethod
-    def from_setup(cls, setup):
-        """
-        Creates instance by reading paths from setup
-
-        Parameters
-        ----------
-        setup : str, dict
-            YML setup. Can be either path to setup, or a dictionary.
-
-        Returns
-        -------
-            Instance with the found files built from the requested class.
-
-        """
-
-        # Read setup
-        setup = read_setup(path_yaml=setup)
-
-        # Fix path if necessary
-        path = setup["paths"]["data"]
-        if not path.endswith("/"):
-            path += "/"
-
-        return cls(setup=setup, file_paths=glob.glob(path + setup["paths"]["pattern"]))
-
     # =========================================================================== #
     # Headers
     # =========================================================================== #
+    @property
+    def paths_headers(self):
+        return ["{0}{1}.header".format(self.setup.folders["headers"], x) for x in self.basenames]
+
     _headers = None
 
     # noinspection DuplicatedCode
@@ -288,7 +141,7 @@ class FitsFiles:
 
             # Try to read the database
             try:
-                with open(self._header_paths[idx], "rb") as f:
+                with open(self.paths_headers[idx], "rb") as f:
 
                     # If the file is there, load the headers...
                     headers.append(pickle.load(f))
@@ -299,7 +152,7 @@ class FitsFiles:
             # If not found we move on to read the headers from the fits file
             except FileNotFoundError:
 
-                with fits.open(self.full_paths[idx]) as hdulist:
+                with fits.open(self.paths_full[idx]) as hdulist:
 
                     fileheaders = []
                     for hdu in hdulist:
@@ -307,7 +160,7 @@ class FitsFiles:
                         # Load header
                         hdr = hdu.header
 
-                        if self.setup["data"]["fix_vircam_header"]:
+                        if self.setup.fix_vircam_header:
                             try:
                                 hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
                             except KeyError:
@@ -320,10 +173,10 @@ class FitsFiles:
                             fixed = False
 
                         # Reset WCS if set
-                        if self.setup["data"]["reset_wcs"] and not fixed:
+                        if self.setup.reset_wcs and not fixed:
 
                             # Save Target coordinate
-                            if isinstance(hdu, PrimaryHDU):
+                            if isinstance(hdu, fits.PrimaryHDU):
 
                                 try:
                                     tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
@@ -355,7 +208,7 @@ class FitsFiles:
                                 except KeyError:
                                     field_ra, field_de = None, None
 
-                            if isinstance(hdu, ImageHDU):
+                            if isinstance(hdu, fits.ImageHDU):
 
                                 # Overwrite with consistently working keyword
                                 try:
@@ -370,7 +223,7 @@ class FitsFiles:
                                     hdr["HIERARCH PYPE WCS RESET"] = True
 
                         # Remove useless keywords if set
-                        if self.setup["data"]["clean_headers"]:
+                        if self.setup.purge_headers:
                             all_keys = prime_keywords_noboby_needs + extension_keywords_noboby_needs
                             [hdr.remove(kw, ignore_missing=True, remove_all=True) for kw in all_keys]
 
@@ -378,7 +231,7 @@ class FitsFiles:
                         fileheaders.append(hdr)
 
                 # When done for all headers dump them into the designated database
-                with open(self._header_paths[idx], "wb") as d:
+                with open(self.paths_headers[idx], "wb") as d:
                     pickle.dump(fileheaders, d)
 
                 headers.append(fileheaders)
@@ -401,7 +254,7 @@ class FitsFiles:
 
         return [hdrs[0] for hdrs in self.headers]
 
-    def primeheaders_get_keys(self, keywords):
+    def read_from_prime_headers(self, keywords):
         """
         Simple method to return a list with lists for the individual values of the supplied keys from the primary
         headers
@@ -442,9 +295,9 @@ class FitsFiles:
 
         """
 
-        return [[hdrs[i] for i in idx] for hdrs, idx in zip(self.headers, self.data_hdu)]
+        return [[hdrs[i] for i in idx] for hdrs, idx in zip(self.headers, self.iter_data_hdu)]
 
-    def dataheaders_get_keys(self, keywords, file_index=None):
+    def read_from_data_headers(self, keywords, file_index=None):
         """
         Method to return a list with lists for the individual values of the supplied keys from the data headers
 
@@ -498,7 +351,7 @@ class FitsFiles:
         idx, temp = start_index, []
         while True:
             try:
-                temp.append(self.dataheaders_get_keys(keywords=["{0} {1}".format(keyword, idx)])[0])
+                temp.append(self.read_from_data_headers(keywords=["{0} {1}".format(keyword, idx)])[0])
                 idx += 1
             except KeyError:
                 break
@@ -506,51 +359,23 @@ class FitsFiles:
         temp = np.rollaxis(np.array(temp), axis=1)
         return [t.T.tolist() for t in temp]
 
-    def delete_headers_temp(self, file_index=None):
-        """ Removes temporary header files. """
-
-        if file_index is not None:
-            remove_file(path=self._header_paths[file_index])
-        else:
-            for p in self._header_paths:
-                remove_file(path=p)
-
-    def add_dataheader_key(self, key, values, comments=None):
-        """
-        Add key/values to dataheaders. Values lists must match the data format exactly. i.e. top list must match length
-        of self. Nested lists must correspond to data hdus.
-
-        Parameters
-        ----------
-        key : str
-            Which keyword to add.
-        values : iterable
-            Values to add to each data HDU.
-        comments : iterable, optional
-            If set, comments to add
-
-        """
-
-        # Dummy check
-        if len(self) != len(values):
-            raise ValueError("Values must be provided for each image")
-
-        # Values must also match for all extensions
-        for d, v in zip(self.data_hdu, values):
-            if len(d) != len(v):
-                raise ValueError("Values must be provided for each extension")
-
-        # Loop over files and add values
-        for idx in range(len(self)):
-            add_key_file(path=self.full_paths[idx], key=key, values=values[idx], comments=comments,
-                         hdu_data=self.data_hdu[idx])
-
-            # Force removing temp header
-            self.delete_headers_temp(file_index=idx)
-
     # =========================================================================== #
-    # Data properties
+    # Some properties
     # =========================================================================== #
+    @property
+    def iter_data_hdu(self):
+        """
+        Property which holds an iterator for each file containing the indices for data access. In general it is assumed
+        here that the primary HDU always has index 0. If there is only one HDU, then this is assumed to be the primary
+        HDU which also contains data. If there are extensions, then the primary HDU is not assumed to contain data!
+
+        Returns
+        -------
+        iterable
+            List of iterators for header indices of HDUs which hold data.
+        """
+        return [range(0, 1) if len(hdrs) == 1 else range(1, len(hdrs)) for hdrs in self.headers]
+
     _n_hdu = None
 
     @property
@@ -576,45 +401,40 @@ class FitsFiles:
     _time_obs = None
 
     @property
-    def data_hdu(self):
+    def time_obs(self):
         """
-        Property which holds an iterator for each file containing the indices for data access. In general it is assumed
-        here that the primary HDU always has index 0. If there is only one HDU, then this is assumed to be the primary
-        HDU which also contains data. If there are extensions, then the primary HDU is not assumed to contain data!
+        Returns obstime as Time instance.
 
         Returns
         -------
-        iterable
-            List of iterators for header indices of HDUs which hold data.
-        """
-        return [range(0, 1) if len(hdrs) == 1 else range(1, len(hdrs)) for hdrs in self.headers]
+        Time
+            Time instance covering all input files.
 
-    @property
-    def time_obs(self):
+        """
 
         # Check if already determined
         if self._time_obs is not None:
             return self._time_obs
         else:
             pass
-        self._time_obs = Time(self.primeheaders_get_keys([self.setup["keywords"]["date_mjd"]])[0],
+        self._time_obs = Time(self.read_from_prime_headers([self.setup.keywords.date_mjd])[0],
                               scale="utc", format="mjd")
 
         return self._time_obs
 
     @property
     def time_obs_mean(self):
-        return Time(self.mjd_mean, format="mjd").fits
+        return Time(self.mjd_mean, format="mjd")
 
     @property
     def mjd(self):
         """
-        Property to hold all MJDs for the observations in a list.
+        Property that holds all MJDs for the observations in a list.
 
         Returns
         -------
         iterable
-            List of MJDs for all files
+            List of MJDs for all files.
 
         """
 
@@ -633,68 +453,9 @@ class FitsFiles:
 
         return np.mean(self.mjd)
 
-    @property
-    def mjd_range(self):
-        """
-        MJD range of instance (max - min)
-
-        Returns
-        -------
-        float
-            MJD difference.
-        """
-
-        return self.mjd.max() - self.mjd.min()
-
-    def sort_by_mjd(self):
-        """
-        Sorts input by MJD and returns new instance.
-
-        Returns
-        -------
-            Same class as input, but sorted by MJD.
-
-        """
-        sorted_paths = [x for _, x in sorted(zip(self.mjd, self.full_paths))]
-        return self.__class__(setup=self.setup, file_paths=sorted_paths)
-
     # =========================================================================== #
-    # Data splitter
+    # Splitting
     # =========================================================================== #
-    def split_keywords(self, keywords):
-        """
-        General file-splitting method for any keywords in the primary FITS header.
-
-        Parameters
-        ----------
-        keywords : list[str]
-            List of header keywords
-
-        Returns
-        -------
-        iterable
-            List with split FitsFiles entries based on unique keyword-value combinations.
-
-        """
-
-        # Get the entries for the keywords
-        entries = self.primeheaders_get_keys(keywords=keywords)
-
-        # Construct list of tuples with the keywords
-        tup = [tuple(i) for i in zip(*entries)]
-
-        # Find unique entries
-        utup = set(tup)
-
-        # Get the split indices
-        split_indices = [[i for i, j in enumerate(tup) if j == k] for k in utup]
-
-        split_list = []
-        for s_idx in split_indices:
-            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[idx] for idx in s_idx]))
-
-        return split_list
-
     def split_lag(self, max_lag, sort_mjd=False):
         """
         Splitting function which splits the input files based on a given maximum time difference.
@@ -716,7 +477,7 @@ class FitsFiles:
         # Sort input by MJD
         mjd_sorted = sorted(self.mjd)
         sort_index = sorted(range(self.n_files), key=lambda k: self.mjd[k])
-        sorted_paths = [self.file_paths[i] for i in sort_index]
+        sorted_paths = [self.paths_full[i] for i in sort_index]
 
         # Get for all files the integer hour relative to the start and the time between
         hour = [(m - min(mjd_sorted)) * 24 for m in mjd_sorted]
@@ -784,38 +545,43 @@ class FitsFiles:
         # Create FitsFiles entries for list
         split_list = []
         for s_idx in split_indices:
-            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[idx] for idx in s_idx]))
+            split_list.append(self.__class__(setup=self.setup, file_paths=[self.paths_full[idx] for idx in s_idx]))
 
         # Return List
         return split_list
 
-    def split_values(self, values):
+    def split_keywords(self, keywords):
         """
-        Split self based on some given value. The length of the value iterable must match the length of self.
+        General file-splitting method for any keywords in the primary FITS header.
 
         Parameters
         ----------
-        values : iterable
-            Some value list or array. Unique entries will be split into different instances.
+        keywords : list[str]
+            List of header keywords
 
         Returns
         -------
-        List
-            List holding individual FitsFiles instance based on determined splits.
+        iterable
+            List with split FitsFiles entries based on unique keyword-value combinations.
 
         """
 
-        if len(self) != len(values):
-            raise ValueError("Split value must be provided for every file in self.")
+        # Get the entries for the keywords
+        entries = self.read_from_prime_headers(keywords=keywords)
 
-        # Get split indices for unique parameters
-        split_indices = [[i for i, j in enumerate(values) if j == u] for u in list(set(values))]
+        # Construct list of tuples with the keywords
+        tup = [tuple(i) for i in zip(*entries)]
+
+        # Find unique entries
+        utup = set(tup)
+
+        # Get the split indices
+        split_indices = [[i for i, j in enumerate(tup) if j == k] for k in utup]
 
         split_list = []
         for s_idx in split_indices:
-            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[idx] for idx in s_idx]))
+            split_list.append(self.__class__(setup=self.setup, file_paths=[self.paths_full[idx] for idx in s_idx]))
 
-        # Return List
         return split_list
 
     # =========================================================================== #
@@ -864,7 +630,7 @@ class FitsFiles:
                                      .format(max_lag, np.round(np.min(mjd_diff), decimals=4)))
 
             # Get minimum index and append files
-            matched.append(match_to.full_paths[mjd_diff.index(min(mjd_diff))])
+            matched.append(match_to.paths_full[mjd_diff.index(min(mjd_diff))])
 
         # Return
         return match_to.__class__(setup=self.setup, file_paths=matched)
@@ -890,7 +656,8 @@ class FitsFiles:
         from vircampype.fits.images.common import MasterImages
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master_common + "*.fits") + glob.glob(self.path_master_object + "*.fits")
+        paths = (glob.glob(self.setup.folders["master_common"] + "*.fits") +
+                 glob.glob(self.setup.folders["master_object"] + "*.fits"))
 
         # If there is nothing, issue error
         if len(paths) < 1:
@@ -916,7 +683,8 @@ class FitsFiles:
         from vircampype.fits.tables.common import MasterTables
 
         # Get paths in the master calibration directory
-        paths = glob.glob(self.path_master_common + "*.fits.tab") + glob.glob(self.path_master_object + "*.fits.tab")
+        paths = (glob.glob(self.setup.folders["master_common"] + "*.fits.tab") +
+                 glob.glob(self.setup.folders["master_object"] + "*.fits.tab"))
 
         # If there is nothing, issue error
         if len(paths) < 1:
@@ -924,42 +692,6 @@ class FitsFiles:
 
         return MasterTables(setup=self.setup, file_paths=paths)
 
-    def get_aperture_correction(self, diameter=None):
-        """
-        Fetches all aperture correction images in the obspar directory.
-
-        Parameters
-        ----------
-        diameter : int, float, optional
-            If given, return only aperture correction files for given aperture.
-
-        Returns
-        -------
-        ApcorImages
-            ApcorImages instance with all aperture correction files.
-
-        """
-
-        # Import
-        from vircampype.fits.images.obspar import ApcorImages
-
-        # Get aperture correction files matching the file name exactly
-        if diameter is None:
-            paths = flat_list([glob.glob("{0}{1}*apcor*.fits".format(self.path_apcor, fn))
-                               for fn in self.file_names])
-        else:
-            paths = flat_list([glob.glob("{0}{1}*apcor{2}.fits".format(self.path_apcor, fn, diameter))
-                               for fn in self.file_names])
-
-        # Remove weights
-        paths = [p for p in paths if ".weight.fits" not in p]
-
-        # Return matched aperture correction files
-        return ApcorImages(setup=self.setup, file_paths=paths)
-
-    # =========================================================================== #
-    # Master tables
-    # =========================================================================== #
     def get_master_photometry(self):
         """
         Get for all files in self the corresponding MasterPhotometry table.

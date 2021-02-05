@@ -1,16 +1,4 @@
-__all__ = ["kwargs_column_mag", "kwargs_column_coo", "kwargs_column_flags",
-           "kwargs_column_el", "kwargs_column_fwhm", "kwargs_column_class",
-           "prime_keywords_noboby_needs", "extension_keywords_noboby_needs"]
-
-# =========================================================================== #
-# Table format
-# =========================================================================== #
-kwargs_column_mag = dict(disp="F8.4", unit="mag")
-kwargs_column_coo = dict(format="1D", disp="F11.7", unit="deg")
-kwargs_column_flags = dict(format="1I", disp="I3")
-kwargs_column_el = dict(format="1E", disp="F8.3")
-kwargs_column_fwhm = dict(format="1E", disp="F7.4", unit="deg")
-kwargs_column_class = dict(format="1E", disp="F6.3")
+__all__ = ["prime_keywords_noboby_needs", "extension_keywords_noboby_needs"]
 
 
 # =========================================================================== #

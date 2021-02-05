@@ -1,5 +1,3 @@
-# =========================================================================== #
-# Import packages
 from astropy.units import Unit
 from astroquery.vizier import Vizier
 from astropy.coordinates import SkyCoord
@@ -8,16 +6,24 @@ from astropy.coordinates import SkyCoord
 __all__ = ["download_2mass"]
 
 
-def download_2mass(lon, lat, radius):
+def download_2mass(skycoord, radius):
+    """
+    Downloads 2MASS data.
 
-    # Skycoord
-    sc = SkyCoord(lon * Unit("deg"), lat * Unit("deg"), frame="icrs")
+    Parameters
+    ----------
+    skycoord : SkyCoord
+        SkyCoord instance.
+    radius : int, float
+        Radius in degrees.
+
+    """
 
     # Setup for Vizier
     v = Vizier(columns=["*", "+_r"], catalog="II/246/out", row_limit=-1)
 
     # Submit query
-    result = v.query_region(sc, radius=radius * Unit("deg"), catalog="II/246/out")[0]
+    result = v.query_region(skycoord, radius=radius * Unit("deg"), catalog="II/246/out")[0]
     del result.meta["description"]
     result.meta["NAME"] = "2MASS"
 

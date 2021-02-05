@@ -1,16 +1,11 @@
-# =========================================================================== #
-# Import
 import warnings
 import numpy as np
-
-from vircampype.utils.miscellaneous import *
 from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
 
-# Define objects in this module
 __all__ = ["plot_value_detector", "get_plotgrid"]
 
 
-def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axis_size=5, overwrite=True):
+def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axis_size=5):
     """
     Generates a plot to display a single statistical value (e.g. dark current or gain) for each detector.
 
@@ -28,17 +23,11 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
         Limits for Y axis.
     axis_size : optional, int
         Axis size. Default is 5.
-    overwrite : optional, bool
-        Whether an exisiting plot should be overwritten. Default is False.
 
     """
 
     # Import matplotlib after launch
     import matplotlib.pyplot as plt
-
-    # Check if plot already exits
-    if check_file_exists(file_path=path, silent=True) and not overwrite:
-        return
 
     # Get y axis range
     if yrange is None:

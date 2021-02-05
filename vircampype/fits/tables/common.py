@@ -40,7 +40,7 @@ class FitsTables(FitsFiles):
         if self._types is not None:
             return self._types
 
-        self._types = self.primeheaders_get_keys(["OBJECT"])[0]
+        self._types = self.read_from_prime_headers(["OBJECT"])[0]
         return self._types
 
     # =========================================================================== #
@@ -65,7 +65,7 @@ class FitsTables(FitsFiles):
 
         # Find match for each file in self
         match_idx = []
-        for bn in self.base_names:
+        for bn in self.basenames:
             match_idx.append(master_zp_all_prov.index(bn))
 
         # Return exact match
@@ -93,7 +93,7 @@ class FitsTables(FitsFiles):
 
         """
 
-        return Table.read(self.full_paths[file_index], hdu=hdu_index)
+        return Table.read(self.paths_full[file_index], hdu=hdu_index)
 
     def file2table(self, file_index):
         """
@@ -111,7 +111,7 @@ class FitsTables(FitsFiles):
 
         """
 
-        return [Table.read(self.full_paths[file_index], hdu=h) for h in self.data_hdu[file_index]]
+        return [Table.read(self.paths_full[file_index], hdu=h) for h in self.iter_data_hdu[file_index]]
 
     def hdu2table(self, hdu_index):
         """
@@ -128,7 +128,7 @@ class FitsTables(FitsFiles):
             List of astropy Table instances.
 
         """
-        return [Table.read(f, hdu=hdu_index) for f in self.full_paths]
+        return [Table.read(f, hdu=hdu_index) for f in self.paths_full]
 
     def get_column_hdu(self, idx_hdu, column_name):
         """
@@ -147,7 +147,7 @@ class FitsTables(FitsFiles):
             List of Columns for all files in instance.
 
         """
-        return [Table.read(f, hdu=idx_hdu)[column_name] for f in self.full_paths]
+        return [Table.read(f, hdu=idx_hdu)[column_name] for f in self.paths_full]
 
     def get_columns(self, column_name):
         """
@@ -164,7 +164,7 @@ class FitsTables(FitsFiles):
         """
 
         data_files = []
-        for file, dhus in zip(self.full_paths, self.data_hdu):
+        for file, dhus in zip(self.paths_full, self.iter_data_hdu):
             data_hdus = []
             with fits.open(file) as f:
                 for hdu in dhus:
@@ -190,9 +190,9 @@ class FitsTables(FitsFiles):
             List of arrays for given column.
 
         """
-        with fits.open(self.full_paths[idx_file]) as f:
+        with fits.open(self.paths_full[idx_file]) as f:
             columns = []
-            for hdu in self.data_hdu[idx_file]:
+            for hdu in self.iter_data_hdu[idx_file]:
                 columns.append(f[hdu].data[column_name])
         return columns
 
@@ -212,10 +212,10 @@ class FitsTables(FitsFiles):
             List of extracted data for each column name [column_name1[hdu1,...], column_name2[hdu1, ...], ...]
 
         """
-        with fits.open(self.full_paths[idx_file]) as f:
+        with fits.open(self.paths_full[idx_file]) as f:
 
             # Read file
-            data_hdus = [f[hdu].data for hdu in self.data_hdu[idx_file]]
+            data_hdus = [f[hdu].data for hdu in self.iter_data_hdu[idx_file]]
 
             # Store data and return
             columns = []
@@ -248,7 +248,7 @@ class MasterTables(FitsTables):
         # Get the masterlinearity files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-LINEARITY"]
 
-        return MasterLinearity(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterLinearity(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
     def gain(self):
@@ -267,26 +267,7 @@ class MasterTables(FitsTables):
         # Get the mastergain files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-GAIN"]
 
-        return MasterGain(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
-
-    @property
-    def zeropoint(self):
-        """
-        Holds all MasterZeroPoint tables.
-
-        Returns
-        -------
-        MasterZeroPoint
-            All MasterZeroPoint tables as a MasterZeroPoint instance.
-
-        """
-        # Import
-        from vircampype.fits.tables.zeropoint import MasterZeroPoint
-
-        # Get the mastergain files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-ZEROPOINT"]
-
-        return MasterZeroPoint(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        return MasterGain(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
     def photometry(self):
@@ -307,7 +288,7 @@ class MasterTables(FitsTables):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
 
         # Return photometry catalog
-        if self.setup["photometry"]["reference"] == "2mass":
-            return MasterPhotometry2Mass(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+        if self.setup.reference == "2mass":
+            return MasterPhotometry2Mass(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
         else:
-            return MasterPhotometry(setup=self.setup, file_paths=[self.file_paths[idx] for idx in index])
+            return MasterPhotometry(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])

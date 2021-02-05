@@ -1,23 +1,27 @@
-# =========================================================================== #
-# Import
 import os
+import copy
+import time
+import glob
 import warnings
 import numpy as np
 
 from astropy.io import fits
 from itertools import repeat
+from astropy.table import Table
 from vircampype.utils.wcs import *
-from vircampype.utils.math import *
 from vircampype.utils.plots import *
 from joblib import Parallel, delayed
 from vircampype.utils.system import *
+from vircampype.utils.fitstools import *
+from vircampype.utils.messaging import *
+from vircampype.utils.mathtools import *
+from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
-from vircampype.fits.images.flat import MasterFlat
-from vircampype.fits.images.dark import MasterDark
-from vircampype.fits.images.bpm import MasterBadPixelMask
-from vircampype.fits.tables.linearity import MasterLinearity
+from vircampype.utils.vizier import download_2mass
+from vircampype.utils.astromatic import SwarpSetup
+from vircampype.utils.astromatic import SextractorSetup
 from vircampype.fits.images.common import FitsImages, MasterImages
 
 
@@ -27,7 +31,7 @@ class SkyImages(FitsImages):
         super(SkyImages, self).__init__(setup=setup, file_paths=file_paths)
 
     # =========================================================================== #
-    # Properties
+    # Coordinates
     # =========================================================================== #
     _wcs = None
 
@@ -51,32 +55,34 @@ class SkyImages(FitsImages):
         self._wcs = [[header2wcs(header=hdr) for hdr in h] for h in self.headers_data]
         return self._wcs
 
-    @property
-    def corners_all_lon(self):
-        """
-        Contains longitudes of all corners across all detectors
-
-        Returns
-        -------
-        ndarray
-
-        """
-        return np.array(self.footprints)[:, :, :, 0].ravel()
+    _footprints = None
 
     @property
-    def corners_all_lat(self):
-        """
-        Contains latitudes of all corners across all detectors
+    def footprints(self):
+        """ Return footprints for all detectors of all files in instance. """
+        if self._footprints is not None:
+            return self._footprints
 
-        Returns
-        -------
-        ndarray
+        self._footprints = [[SkyCoord(w.calc_footprint(), unit="deg") for w in ww] for ww in self.wcs]
+        return self._footprints
 
-        """
-        return np.array(self.footprints)[:, :, :, 1].ravel()
+    _footprints_flat = None
 
     @property
-    def centers_detectors_world(self):
+    def footprints_flat(self):
+        """ Return flat """
+        if self._footprints_flat is not None:
+            return self._footprints_flat
+
+        self._footprints_flat = SkyCoord(flat_list(self.footprints))
+        return self._footprints_flat
+
+    @property
+    def centroid_all(self):
+        return centroid_sphere(skycoord=self.footprints_flat)
+
+    @property
+    def centers_detectors(self):
         """
         Computes the centers for each detector.
 
@@ -92,375 +98,226 @@ class SkyImages(FitsImages):
             temp = []
             for w in ww:
                 # noinspection PyProtectedMember
-                temp.append([x.tolist() for x in
-                             w.wcs_pix2world(w._naxis[0] / 2, w._naxis[1] / 2, 0)])
+                temp.append(SkyCoord(*w.wcs_pix2world(w._naxis[0] / 2, w._naxis[1] / 2, 0), unit="deg"))
             centers.append(temp)
 
         return centers
 
-    @property
-    def centers_detectors_lon(self):
-        """ Returns longitudes of centers. """
-        return [[x[0] for x in y] for y in self.centers_detectors_world]
-
-    @property
-    def centers_detectors_lat(self):
-        """ Returns longitudes of centers. """
-        return [[x[1] for x in y] for y in self.centers_detectors_world]
-
-    @property
-    def centers_world(self):
-        """ Returns latitudes of centers. """
-        return [centroid_sphere(lon=ll, lat=bb, units="degree") for ll, bb in
-                zip(self.centers_detectors_lon, self.centers_detectors_lat)]
-
-    @property
-    def centers_lon(self):
-        """ Center longitudes for all detectors. """
-        return [x[0] for x in self.centers_world]
-
-    @property
-    def centers_lat(self):
-        """ Center latitudes for all detectors. """
-        return [x[1] for x in self.centers_world]
-
-    @property
-    def centroids(self):
-        """ Return centroid positions for all files in instance individually. """
-        return [centroid_sphere(lon=ll, lat=bb, units="degree") for ll, bb in zip(self.centers_detectors_lon,
-                                                                                  self.centers_detectors_lat)]
-
-    @property
-    def centroid_total(self):
-        """ Return centroid positions for all files in instance together. """
-        return centroid_sphere(lon=self.centers_lon, lat=self.centers_lat, units="degree")
-
-    @property
-    def footprints(self):
-        """ Return footprints for all detectors of all files in instance. """
-        return [[w.calc_footprint() for w in ww] for ww in self.wcs]
-
-    @property
-    def extent_total(self):
-        """ Returns a tuple of the extent of all data in instance containing the extent in (lon, lat). """
-
-        # Get corners for everything
-        corners_lon, corners_lat = np.array([np.array(flat_list(f)) for f in self.footprints]).T
-        corners_lon, corners_lat = corners_lon.ravel(), corners_lat.ravel()
-
-        # Compute distance from centroid
-        # dis = distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
-        #                    lon2=corners_lon, lat2=corners_lat, unit="degree")
-
-        # Get the coordinates of the maximum distance for longitude/latitude
-        s = (np.max(np.rad2deg(4. *
-                               np.arcsin(np.sqrt(haversine(theta=np.deg2rad(corners_lon - self.centroid_total[0])))) *
-                               np.cos(np.deg2rad(corners_lat)))),
-             2 * np.max(np.abs(corners_lat - self.centroid_total[1])))
-
-        # Return maximum distance
-        return s
-
-    @property
-    def cd11(self):
-        """
-        CD1_1 values from headers.
-
-        Returns
-        -------
-        float
-
-        """
-        return self.dataheaders_get_keys(keywords=["CD1_1"])
-
-    @property
-    def cd12(self):
-        """
-        CD1_2 values from headers.
-
-        Returns
-        -------
-        float
-
-        """
-        return self.dataheaders_get_keys(keywords=["CD1_2"])
-
-    @property
-    def cd21(self):
-        """
-        CD2_1 values from headers.
-
-        Returns
-        -------
-        float
-
-        """
-
-        return self.dataheaders_get_keys(keywords=["CD2_1"])
-
-    @property
-    def cd22(self):
-        """
-        CD2_2 values from headers.
-
-        Returns
-        -------
-        float
-
-        """
-
-        return self.dataheaders_get_keys(keywords=["CD2_2"])
-
-    @property
-    def crot_mean(self):
-        """
-        Mean rotation from headers.
-
-        Returns
-        -------
-        float
-
-        """
-        return np.mean(np.arctan(np.divide(self.cd21, self.cd11)))
-
-    @property
-    def cdelt1_mean(self):
-        """
-        Mean CDELT1.
-
-        Returns
-        -------
-        float
-
-        """
-
-        return np.mean(np.divide(self.cd11, np.cos(self.crot_mean)))
-
-    @property
-    def cdelt2_mean(self):
-        """
-        Mean CDELT1.
-
-        Returns
-        -------
-        float
-
-        """
-        return np.mean(np.divide(self.cd22, np.cos(self.crot_mean)))
-
     # =========================================================================== #
-    # Swarping
+    # Sextractor
     # =========================================================================== #
-    @property
-    def bin_swarp(self):
-        return which(self.setup["astromatic"]["bin_swarp"])
-
-    @property
-    def _swarp_preset_package(self):
+    def paths_source_tables(self, preset=""):
         """
-        Internal package preset path for swarp.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "vircampype.resources.astromatic.swarp.presets"
-
-    @property
-    def _swarp_default_config(self):
-        """
-        Searches for default config file in resources.
-
-        Returns
-        -------
-        str
-            Path to default config.
-
-        """
-        return get_resource_path(package="vircampype.resources.astromatic.swarp", resource="default.config")
-
-    @property
-    def _swarp_resample_suffix(self):
-        """
-        Returns resample suffix.Y
-
-        Returns
-        -------
-        str
-            Resample suffix.
-        """
-        return ".resamp.fits"
-
-    @property
-    def _swarp_preset_pawprints_path(self):
-        """
-        Obtains path to pawprint preset for swarp.
-
-        Returns
-        -------
-        str
-            Path to preset.
-        """
-        return get_resource_path(package=self._swarp_preset_package, resource="pawprint.yml")
-
-    @property
-    def _swarp_preset_coadd_path(self):
-        """
-        Obtains path to coadd preset for swarp.
-
-        Returns
-        -------
-        str
-            Path to preset.
-        """
-        return get_resource_path(package=self._swarp_preset_package, resource="coadd.yml")
-
-    @property
-    def _swarp_paths_resampled(self):
-        """
-        Constructs a list of paths for the resampled images.
+        Path to sextractor tables for files in instance.
 
         Returns
         -------
         iterable
-            List with paths.
-
+            List with table names.
         """
-        return ["{0}{1}{2}".format(self.path_resampled, fn, self._swarp_resample_suffix) for fn in self.file_names]
 
-    @property
-    def _swarp_paths_resampled_weight(self):
+        if preset is None:
+            preset = ""
+
+        return [x.replace(".fits", ".{0}.fits.tab".format(preset)).replace("..", ".") for x in self.paths_full]
+
+    def sextractor(self, preset="scamp", silent=None, return_cmds=False, **kwargs):
         """
-        Constructs a list of paths for the resampled image weights.
-
-        Returns
-        -------
-        iterable
-            List with paths.
-
-        """
-        return [x.replace(".fits", ".weight.fits") for x in self._swarp_paths_resampled]
-
-    # =========================================================================== #
-    # Splitter
-    # =========================================================================== #
-    def split_sky(self, max_distance):
-        """
-        Splits images based on pointings. The algorithm searches for clusters of observations within a maximum distance
-        defined by 'max_distance'. A cluster-cutoff will only occur if no further observation is within this distance
-        limit of any of the cluster components.
+        Runs sextractor based on given presets.
 
         Parameters
         ----------
-        max_distance : int, float
-            Maximum distance in degrees between connected components.
-
-        Returns
-        -------
-        List
-            List with split instances.
+        preset : str
+            Preset name.
+        silent : bool, optional
+            Can overrides setup on messaging.
+        return_cmds : bool, optional
+            Return list of sextractor shell commands instead of running them.
 
         """
 
-        # Split into clusters
-        groups = connected_components(xarr=self.centers_lon, yarr=self.centers_lat, metric="haversine", units="degrees",
-                                      max_distance=max_distance)
+        # Load Sextractor setup
+        sxs = SextractorSetup(setup=self.setup)
 
-        # Load files into separate instances
-        split_list = []
-        for g in set(groups):
-
-            # Get indices of files in current group
-            idx = [i for i, j in enumerate(groups) if g == j]
-
-            # Load files into new instance
-            split_list.append(self.__class__(setup=self.setup, file_paths=[self.file_paths[i] for i in idx]))
-
-        return split_list
-
-    # =========================================================================== #
-    # Master
-    # =========================================================================== #
-    def build_master_weight_image(self):
+        if silent is None:
+            silent = self.setup["misc"]["silent"]
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-WEIGHT-IMAGE",
-                                           silent=self.setup["misc"]["silent"], right=None)
+        print_header(header="SOURCE DETECTION", left="Running Sextractor with preset '{0}' on {1} files"
+                                                     "".format(preset, len(self)), right=None, silent=silent)
+        tstart = time.time()
 
-        # Build commands for MaxiMask
-        cmds = ["maximask.py {0} --single_mask True --n_jobs 1".format(n) for n in self.full_paths]
+        # Check for existing files
+        path_tables_clean = []
+        if not self.setup["misc"]["overwrite"]:
+            for pt in self.paths_source_tables(preset=preset):
+                check_file_exists(file_path=pt, silent=silent)
+                if not os.path.isfile(pt):
+                    path_tables_clean.append(pt)
 
-        # Clean commands
-        paths_masks = [x.replace(".fits", ".masks.fits") for x in self.full_paths]
-        cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
+        # Set some common variables
+        kwargs_yml = dict(path_yml=sxs.path_yml(preset=preset),
+                          filter_name=sxs.default_filter,
+                          parameters_name=sxs.path_param(preset=preset),
+                          gain_key=self.setup.keywords.gain,
+                          satur_key=self.setup.keywords.saturate,
+                          back_size=self.setup["astromatic"]["back_size_sex"],
+                          back_filtersize=self.setup["astromatic"]["back_filtersize_sex"])
 
-        # Run MaxiMask
-        if len(cmds) > 0:
-            print_message("Running MaxiMask on {0} files".format(len(cmds)), color=None)
-        run_cmds(cmds=cmds, n_processes=self.setup["misc"]["n_jobs"], silent=False)
+        # Read setup based on preset
+        if (preset == "scamp") | (preset == "master-weight"):
+            ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
+        elif preset == "class_star":
+            ss = yml2config(skip=["catalog_name", "weight_image", "seeing_fwhm", "starnnw_name"], **kwargs_yml)
+        elif preset == "superflat":
+            ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
+        elif preset == "full":
+            ss = yml2config(phot_apertures=",".join([str(ap) for ap in self.setup.apertures]), seeing_fwhm=2.5,
+                            skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
+        else:
+            raise ValueError("Preset '{0}' not supported".format(preset))
 
-        # Put masks into FitsImages object
-        masks = FitsImages(setup=self.setup, file_paths=paths_masks)
+        # Construct commands for source extraction
+        cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
+                "".format(sxs.bin, sxs.default_config, image, sxs.default_nnw, catalog, weight, ss)
+                for image, catalog, weight in zip(self.paths_full, path_tables_clean,
+                                                  self.get_master_weights().paths_full)]
 
-        # Fetch global weight for each file
-        weight_global = self.get_master_weight_global()
+        # Add kwargs to commands
+        for key, val in kwargs.items():
+            for cmd_idx in range(len(cmds)):
+                try:
+                    cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
+                except IndexError:
+                    cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val)
 
-        # Generate outpaths
-        outpaths = ["{0}MASTER-WEIGHT-IMAGE_MJD_{1:0.5f}.fits".format(self.path_master_object, mjd) for mjd in self.mjd]
+        # Return commands if set
+        if return_cmds:
+            return cmds
 
-        # Loop over files and create image weights
-        for idx_file in range(len(self)):
+        # Run Sextractor
+        run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
 
-            # Set current outputh path
-            outpath = outpaths[idx_file]
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-                continue
-
-            # Print processing info
-            if not self.setup["misc"]["silent"]:
-                message_calibration(n_current=idx_file + 1, n_total=len(self),
-                                    name=outpaths[idx_file], d_current=None, d_total=None)
-
-            # Read global weights
-            wg = weight_global.file2cube(file_index=idx_file)
-
-            # Read mask
-            mm = masks.file2cube(file_index=idx_file)
-
-            # Add masks for current file
-            wg.cube[(mm < 256) & (mm > 0)] = 0
-
-            # Make new primary header
-            prime_header = fits.Header()
-            prime_header[self.setup["keywords"]["object"]] = "MASTER-WEIGHT-IMAGE"
-            prime_header[self.setup["keywords"]["date_mjd"]] = \
-                self.headers_primary[idx_file][self.setup["keywords"]["date_mjd"]]
-
-            # Write image weight
-            wg.write_mef(path=outpath, prime_header=prime_header, dtype=np.float32)
+        # Add some keywords to primary header
+        for cat, img in zip(path_tables_clean, self.paths_full):
+            copy_keywords(path_1=cat, path_2=img, hdu_1=0, hdu_2=0,
+                          keywords=[self.setup.keywords.object, self.setup.keywords.filter_name])
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        if not silent:
+            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def build_master_source_mask(self):
+        # Select return class based on preset
+        from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
+        if (preset == "scamp") | (preset == "class_star"):
+            cls = SextractorCatalogs
+        elif (preset == "superflat") | (preset == "full"):
+            cls = AstrometricCalibratedSextractorCatalogs
+        else:
+            raise ValueError("Preset '{0}' not supported".format(preset))
+
+        # Return Table instance
+        return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
+
+    def build_class_star_library(self):
+
+        # Import
+        from vircampype.fits.tables.sextractor import SextractorCatalogs
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-SOURCE-MASK", silent=self.setup["misc"]["silent"])
+        print_header(header="CLASSIFICATION", left="File", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
 
-        # Fetch the Masterfiles
-        master_dark = self.get_master_dark()  # type: MasterDark
-        master_flat = self.get_master_flat()  # type: MasterFlat
-        master_linearity = self.get_master_linearity()  # type: MasterLinearity
+        # Determine seeing values to be probed
+        seeing_fwhm = self.setup.seeing_test_range
 
         # Loop over files
         for idx_file in range(self.n_files):
 
-            # Create output path
-            outpath = "{0}MASTER-SOURCE-MASK.MJD_{1:0.5f}.fits".format(self.path_master_object, self.mjd[idx_file])
+            # Create output paths
+            outpath = self.paths_full[idx_file].replace(".fits", ".cs.fits.tab")
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Construct sextractor commands
+            cmds = [self.sextractor(preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True)[idx_file]
+                    for ss in seeing_fwhm]
+
+            # Replace output catalog path and save the paths
+            catalog_paths = []
+            for idx in (range(len(cmds))):
+                cmds[idx] = cmds[idx].replace(".class_star.fits.tab",
+                                              ".class_star{0:4.2f}.fits.tab".format(seeing_fwhm[idx]))
+                catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
+
+            # Run Sextractor
+            run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
+
+            # Load catalogs with different input seeing
+            catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
+
+            # Make output HDUList
+            tables_out = [Table() for _ in self.iter_data_hdu[idx_file]]
+
+            # Loop over files
+            for idx_seeing in range(catalogs.n_files):
+
+                # Read tables for current seeing
+                tables_seeing = catalogs.file2table(file_index=idx_seeing)
+
+                # Add classifier and coordinates for all HDUs
+                for tidx in range(len(tables_seeing)):
+
+                    # Add coordinates only on first iteration
+                    if idx_seeing == 0:
+                        tables_out[tidx]["XWIN_IMAGE"] = tables_seeing[tidx]["XWIN_IMAGE"]
+                        tables_out[tidx]["YWIN_IMAGE"] = tables_seeing[tidx]["YWIN_IMAGE"]
+
+                    # Add classifier
+                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(seeing_fwhm[idx_seeing])
+                    tables_out[tidx][cs_column_name] = tables_seeing[tidx]["CLASS_STAR"]
+
+            # Make FITS table
+            hdul = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            [hdul.append(fits.BinTableHDU(t)) for t in tables_out]
+            hdul.writeto(outpath, overwrite=True)
+
+            # Remove sextractor catalog
+            [os.remove(f) for f in catalogs.paths_full]
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+
+class RawSkyImages(SkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(RawSkyImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    def build_master_source_mask(self):
+
+        # Processing info
+        print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Fetch the Masterfiles
+        master_dark = self.get_master_dark()
+        master_flat = self.get_master_flat()
+        master_linearity = self.get_master_linearity()
+
+        # Loop over files
+        for idx_file in range(self.n_files):
+
+            # Create master name
+            outpath = "{0}MASTER-SOURCE-MASK.MJD_{1:0.5f}.fits" \
+                      "".format(self.setup.folders["master_object"], self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
@@ -482,28 +339,22 @@ class SkyImages(FitsImages):
             cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=self.ndit_norm[idx_file])
 
             # Apply source masks
-            cube_sources = cube.mask_sources(threshold=self.setup["source_mask"]["mask_sources_thresh"],
-                                             minarea=self.setup["source_mask"]["mask_sources_min_area"],
-                                             maxarea=self.setup["source_mask"]["mask_sources_max_area"],
+            cube_sources = cube.mask_sources(threshold=self.setup.mask_sources_thresh,
+                                             minarea=self.setup.mask_sources_min_area,
+                                             maxarea=self.setup.mask_sources_max_area,
                                              mesh_size=self.setup["sky"]["background_mesh_size"],
                                              mesh_filtersize=self.setup["sky"]["background_mesh_filter_size"],
                                              return_labels=True)
 
             # Create header cards
-            cards = make_cards(keywords=[self.setup["keywords"]["date_mjd"],
-                                         self.setup["keywords"]["date_ut"],
-                                         self.setup["keywords"]["object"],
-                                         "HIERARCH PYPE MASK THRESH",
-                                         "HIERARCH PYPE MASK MINAREA",
-                                         "HIERARCH PYPE MASK MAXAREA",
+            cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                         self.setup.keywords.object, "HIERARCH PYPE MASK THRESH",
+                                         "HIERARCH PYPE MASK MINAREA", "HIERARCH PYPE MASK MAXAREA",
                                          "HIERARCH PYPE MASK BGSIZE",
                                          "HIERARCH PYPE MASK BGFSIZE"],
-                               values=[self.mjd[idx_file],
-                                       self.time_obs[idx_file],
-                                       "MASTER-SOURCE-MASK",
-                                       self.setup["source_mask"]["mask_sources_thresh"],
-                                       self.setup["source_mask"]["mask_sources_min_area"],
-                                       self.setup["source_mask"]["mask_sources_max_area"],
+                               values=[self.mjd[idx_file], self.time_obs[idx_file],
+                                       "MASTER-SOURCE-MASK", self.setup.mask_sources_thresh,
+                                       self.setup.mask_sources_min_area, self.setup.mask_sources_max_area,
                                        self.setup["sky"]["background_mesh_size"],
                                        self.setup["sky"]["background_mesh_filter_size"]])
 
@@ -514,7 +365,7 @@ class SkyImages(FitsImages):
             cube_sources.write_mef(path=outpath, prime_header=prime_header)
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
     # noinspection DuplicatedCode
     def build_master_sky(self):
@@ -525,10 +376,11 @@ class SkyImages(FitsImages):
         """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-SKY", silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-SKY", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
 
         # Split based on filter and interval
-        split = self.split_filter()
+        split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
         split = flat_list([s.split_window(window=self.setup["sky"]["window"], remove_duplicates=True)
                            for s in split])
 
@@ -545,17 +397,18 @@ class SkyImages(FitsImages):
             files.check_compatibility(n_files_min=self.setup["sky"]["n_min"], n_hdu_max=1, n_filter_max=1)
 
             # Create master name
-            outpath = files.build_master_path(basename="MASTER-SKY", idx=0, mjd=True, filt=True, table=False)
+            outpath = "{0}MASTER-SKY.MJD_{1:0.4f}.FIL_{2}.fits" \
+                      "".format(files.setup.folders["master_object"], files.mjd_mean, files.passband[0])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
                 continue
 
             # Fetch the Masterfiles
-            master_bpms = files.get_master_bpm()  # type: MasterBadPixelMask
-            master_darks = files.get_master_dark()  # type: MasterDark
-            master_flat = files.get_master_flat()  # type: MasterFlat
-            master_linearity = files.get_master_linearity()  # type: MasterLinearity
+            master_bpms = files.get_master_bpm()
+            master_darks = files.get_master_dark()
+            master_flat = files.get_master_flat()
+            master_linearity = files.get_master_linearity()
             master_mask = files.get_master_source_mask()
 
             # Instantiate output
@@ -564,11 +417,11 @@ class SkyImages(FitsImages):
 
             # Start looping over detectors
             data_headers = []
-            for d in files.data_hdu[0]:
+            for d in files.iter_data_hdu[0]:
 
                 # Print processing info
                 message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.data_hdu[0]), silent=self.setup["misc"]["silent"])
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
 
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
@@ -605,7 +458,7 @@ class SkyImages(FitsImages):
                 cube.cube -= sky[-1][:, np.newaxis, np.newaxis]
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=str2func(self.setup["sky"]["metric"]))
+                collapsed = cube.flatten(metric=string2func(self.setup["sky"]["metric"]))
 
                 # Create header with sky measurements
                 cards_sky = []
@@ -631,12 +484,12 @@ class SkyImages(FitsImages):
             flat_err = np.round(100. * np.mean(det_err), decimals=2)
 
             # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
-                                               self.setup["keywords"]["filter"], self.setup["keywords"]["date_mjd"],
-                                               self.setup["keywords"]["date_ut"], self.setup["keywords"]["object"],
+            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
+                                               self.setup.keywords.filter_name, self.setup.keywords.date_mjd,
+                                               self.setup.keywords.date_ut, self.setup.keywords.object,
                                                "HIERARCH PYPE N_FILES", "HIERARCH PYPE SKY FLATERR"],
                                      values=[files.dit[0], files.ndit[0],
-                                             files.filter[0], files.mjd_mean,
+                                             files.passband[0], files.mjd_mean,
                                              files.time_obs_mean, "MASTER-SKY",
                                              len(files), flat_err])
 
@@ -649,85 +502,521 @@ class SkyImages(FitsImages):
                 msky.qc_plot_sky(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    # =========================================================================== #
-    # Reference catalog
-    # =========================================================================== #
-    # def build_master_photometry(self):
-    #
-    #     # Processing info
-    #     tstart = message_mastercalibration(master_type="MASTER-PHOTOMETRY", right=None,
-    #                                        silent=self.setup["misc"]["silent"])
-    #
-    #     # Construct outpath
-    #     outpath = self.build_master_path(basename="MASTER-PHOTOMETRY", idx=0, table=True)
-    #
-    #     # Print processing info
-    #     message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-    #                         d_total=None, silent=self.setup["misc"]["silent"])
-    #
-    #     # Check if the file is already there and skip if it is
-    #     if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
-    #
-    #         # Obtain field size
-    #         size = np.max(distance_sky(lon1=self.centroid_total[0], lat1=self.centroid_total[1],
-    #                                    lon2=self.corners_all_lon, lat2=self.corners_all_lat, unit="deg")) * 1.01
-    #
-    #         # Download catalog
-    #         if self.setup["photometry"]["reference"] == "2mass":
-    #             table = download_2mass(lon=self.centroid_total[0], lat=self.centroid_total[1], radius=2 * size)
-    #
-    #         else:
-    #             raise ValueError("Catalog '{0}' not supported".format(self.setup["photometry"]["reference"]))
-    #
-    #         # Save catalog
-    #         table.write(outpath, format="fits", overwrite=True)
-    #
-    #         # Add object info to primary header
-    #         add_key_primaryhdu(path=outpath, key=self.setup["keywords"]["object"], value="MASTER-PHOTOMETRY")
-    #
-    #     # Print time
-    #     message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
-    #
-    #     # Return photometry catalog
-    #     if self.setup["photometry"]["reference"] == "2mass":
-    #         return MasterPhotometry2Mass(setup=self.setup, file_paths=[outpath])
-    #     else:
-    #         return MasterPhotometry(setup=self.setup, file_paths=[outpath])
+    def process_raw(self):
+        """ Main processing method. """
 
-    # =========================================================================== #
-    # Resample
-    # =========================================================================== #
-    @property
-    def header_coadd(self):
-        """ Reads the data header from disk. """
+        # Processing info
+        print_header(header="PROCESSING RAW", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
 
-        # Try to read coadd header from disk
-        try:
-            return fits.Header.fromtextfile(self.path_coadd_header)
+        # Fetch the Masterfiles
+        master_dark = self.get_master_dark()
+        master_flat = self.get_master_flat()
+        master_gain = self.get_master_gain()
+        master_sky = self.get_master_sky()
+        master_linearity = self.get_master_linearity()
 
-        # If not found, construct from scamp headers
-        except FileNotFoundError:
-            raise FileNotFoundError("Astrometric calibration not done yet!")
+        # Loop over files and apply calibration
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            outpath = "{0}{1}.proc{2}".format(self.setup.folders["processed"],
+                                              self.names[idx_file], self.extensions[idx_file])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Read file into cube
+            calib_cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+
+            # Get master calibration
+            dark = master_dark.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+            flat = master_flat.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+            sky = master_sky.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+            lin = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
+
+            # Do calibration
+            calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx_file])
+
+            # Apply cosmetics
+            if self.setup["interpolation"]["interpolate_nan"]:
+                calib_cube.interpolate_nan()
+            if self.setup.destripe:
+                calib_cube.destripe()
+
+            # Add Gain, read noise, and saturation limit to headers
+            for h, g, r, s in zip(self.headers_data[idx_file], master_gain.gain[idx_file],
+                                  master_gain.rdnoise[idx_file], self.setup.saturation_levels):
+                add_float_to_header(header=h, key=self.setup.keywords.gain,
+                                    value=g * self.ndit_norm[idx_file], decimals=2, comment="Gain (e-/ADU)")
+                add_float_to_header(header=h, key=self.setup.keywords.rdnoise,
+                                    value=r, decimals=2, comment="Read noise (e-)")
+                add_float_to_header(header=h, key=self.setup.keywords.saturate,
+                                    value=s, decimals=1, comment="Saturation level (ADU)")
+
+            # Add file info to main header
+            phdr = self.headers_primary[idx_file].copy()
+            phdr["DARKFILE"] = master_dark.basenames[idx_file]
+            phdr["FLATFILE"] = master_flat.basenames[idx_file]
+            phdr["SKYFILE"] = master_sky.basenames[idx_file]
+            phdr["LINFILE"] = master_linearity.basenames[idx_file]
+
+            # Write to disk
+            calib_cube.write_mef(path=outpath, prime_header=phdr,
+                                 data_headers=self.headers_data[idx_file], dtype="float32")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class ScienceImages(SkyImages):
+class ProcessedSkyImages(SkyImages):
 
     def __init__(self, setup, file_paths=None):
-        super(ScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(ProcessedSkyImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    def apply_superflat(self):
+        """ Applies superflat to (processed) images. """
+
+        # Processing info
+        print_header(header="APPLYING SUPERFLAT", silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Fetch superflat for each image in self
+        superflats = self.get_master_superflat()
+        sourcemasks = self.get_master_source_mask()
+
+        # Loop over self and superflats
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            outpath = "{0}{1}.sf{2}".format(self.setup.folders["superflat"],
+                                            self.names[idx_file], self.extensions[idx_file])
+
+            # Check for ahead file
+            path_ahead = self.paths_full[idx_file].replace(".fits", ".ahead")
+            path_ahead_sf = outpath.replace(".fits", ".ahead")
+            if not os.path.isfile(path_ahead):
+                raise ValueError("External header not found")
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Read data
+            cube_self = self.file2cube(file_index=idx_file)
+            cube_flat = superflats.file2cube(file_index=idx_file)
+            cube_mask = sourcemasks.file2cube(file_index=idx_file)
+
+            # Modify read noise, gain, and saturation keywords in headers
+            for idx_hdr in range(len(self.headers_data[idx_file])):
+
+                # Modification factor is the mean for the current superflat
+                mod = np.median(cube_flat[idx_hdr])
+
+                # Add modification factor
+                # noinspection PyTypeChecker
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                    key="HIERARCH PYPE SUPERFLAT FACTOR",
+                                    value=mod,
+                                    comment="Median superflat modification factor", remove_before=True)
+
+                # Adapt keywords
+                keywords = [self.setup.keywords.rdnoise, self.setup.keywords.gain, self.setup.keywords.saturate]
+                mod_func = [np.divide, np.multiply, np.divide]
+                for kw, func in zip(keywords, mod_func):
+
+                    # Read comment
+                    comment = self.headers_data[idx_file][idx_hdr].comments[kw]
+
+                    # First save old keyword
+                    add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                        key="HIERARCH PYPE BACKUP {0}".format(kw),
+                                        value=self.headers_data[idx_file][idx_hdr][kw], decimals=2,
+                                        comment="Value before super flat", remove_before=True)
+
+                    # Now add new keyword and delete old one
+                    add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                        key=kw,
+                                        value=func(self.headers_data[idx_file][idx_hdr][kw], mod), decimals=2,
+                                        comment=comment, remove_before=True)
+
+            # Copy self for background mask
+            cube_self_copy = copy.deepcopy(cube_self)
+            cube_self_copy.apply_masks(sources=cube_mask)
+            background = cube_self_copy.background(mesh_size=128)[0]
+
+            # Apply background
+            cube_self -= background
+
+            # Normalize
+            cube_self /= cube_flat
+            background /= np.median(cube_flat, axis=(1, 2))[:, np.newaxis, np.newaxis]
+
+            # Add background back in
+            cube_self += background
+
+            # Write back to disk
+            cube_self.write_mef(outpath, prime_header=self.headers_primary[idx_file],
+                                data_headers=self.headers_data[idx_file])
+
+            # Copy aheader for swarping
+            copy_file(path_ahead, path_ahead_sf)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class OffsetImages(SkyImages):
+class RawScienceImages(RawSkyImages):
 
     def __init__(self, setup, file_paths=None):
-        super(OffsetImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(RawScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    def build_master_photometry(self):
+
+        # Processing info
+        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Construct outpath
+        outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
+
+        # Check if the file is already there and skip if it is
+        if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                                d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Determine size to download
+            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
+
+            # Download catalog
+            if self.setup.reference.lower() == "2mass":
+                table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
+            else:
+                raise ValueError("Catalog '{0}' not supported".format(self.setup.reference))
+
+            # Save catalog
+            table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def build_tile_header(self):
+
+        # Processing info
+        print_header(header="TILE-HEADER", right=None, silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Print processing info
+        message_calibration(n_current=1, n_total=1, name=self.setup.path_tile_header, d_current=None,
+                            d_total=None, silent=self.setup["misc"]["silent"])
+
+        # Get optimal rotation of frame
+        rotation_test = np.arange(0, 360, 0.2)
+        area = []
+        for rot in rotation_test:
+            hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
+                                  enlarge=1.02, cdelt=self.setup.pixel_scale_degrees)
+            area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+
+        # Return final header with optimized rotation
+        rotation = rotation_test[np.argmin(area)]
+        header_tile = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=1.002,
+                                      rotation=np.deg2rad(np.round(rotation, 2)), cdelt=self.setup.pixel_scale_degrees)
+
+        # Dummy check
+        if (header_tile["NAXIS1"] > 100000.) or (header_tile["NAXIS2"] > 100000.):
+            raise ValueError("Double check if the image size is correcti")
+
+        # Write coadd header to disk
+        header_tile.totextfile(self.setup.path_tile_header, overwrite=True)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class StdImages(SkyImages):
+class ProcessedScienceImages(ProcessedSkyImages):
 
     def __init__(self, setup, file_paths=None):
-        super(StdImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(ProcessedScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    def resample(self):
+        """ Resamples images. """
+
+        # Processing info
+        print_header(header="RESAMPLING", silent=self.setup["misc"]["silent"])
+        tstart = time.time()
+
+        # Load Swarp setup
+        sws = SwarpSetup(setup=self.setup)
+
+        # Read YML and override defaults
+        ss = yml2config(path_yml=sws.preset_pawprints,
+                        imageout_name=self.setup.path_tile, weightout_name=self.setup.path_tile_weight,
+                        nthreads=self.setup["misc"]["n_jobs"], resample_suffix=sws.resample_suffix,
+                        gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
+                        back_size=self.setup["astromatic"]["back_size_swarp"],
+                        skip=["weight_image", "weight_thresh", "resample_dir"])
+
+        # Construct commands for source extraction
+        cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
+                "".format(sws.bin, sws.default_config, path_image, weight, self.setup.folders["resampled"], ss)
+                for path_image, weight in zip(self.paths_full, self.get_master_weights().paths_full)]
+
+        # Run for each individual image and make MEF
+        for idx_file in range(self.n_files):
+
+            # Construct output path
+            outpath = "{0}{1}{2}".format(self.setup.folders["resampled"], self.names[idx_file], sws.resample_suffix)
+            outpath_weight = outpath.replace(".fits", ".weight.fits")
+
+            # Check if file already exits
+            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath,
+                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+
+            # Run Swarp
+            run_command_bash(cmd=cmds[idx_file], silent=True)
+
+            # Find images generated by swarp.
+            paths_images = glob.glob("{0}{1}*{2}".format(self.setup.folders["resampled"], self.names[idx_file],
+                                                         sws.resample_suffix))
+            paths_weights = [p.replace(".fits", ".weight.fits") for p in paths_images]
+
+            # Construct MEF from resampled detectors
+            make_mef_image(paths_input=sorted(paths_images), overwrite=self.setup["misc"]["overwrite"],
+                           path_output=outpath, primeheader=self.headers_primary[idx_file])
+            make_mef_image(paths_input=sorted(paths_weights), overwrite=self.setup["misc"]["overwrite"],
+                           path_output=outpath_weight, primeheader=self.headers_primary[idx_file])
+
+            # Remove intermediate files
+            [os.remove(x) for x in paths_images]
+            [os.remove(x) for x in paths_weights]
+
+            # Copy header entries from original file
+            merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+
+class ResampledScienceImages(ProcessedSkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(ResampledScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    def coadd_pawprints(self):
+
+        # Processing info
+        print_header(header="CREATING TILE", silent=self.setup["misc"]["silent"],
+                     left=os.path.basename(self.setup.path_tile), right=None)
+        tstart = time.time()
+
+        # Load Swarp setup
+        sws = SwarpSetup(setup=self.setup)
+
+        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=self.setup.path_tile,
+                        weightout_name=self.setup.path_tile_weight,
+                        gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
+                        nthreads=self.setup["misc"]["n_jobs"], skip=["weight_thresh", "weight_image"])
+
+        # Construct commands for source extraction
+        cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
+
+        # Run Swarp
+        if not check_file_exists(file_path=self.setup.path_tile, silent=self.setup["misc"]["silent"]) \
+                and not self.setup["misc"]["overwrite"]:
+            run_command_bash(cmd=cmd, silent=True)
+
+            # Copy primary header from first entry of input
+            copy_keywords(path_1=self.setup.path_tile, path_2=self.paths_full[0], hdu_1=0, hdu_2=0,
+                          keywords=[self.setup.keywords.object, self.setup.keywords.filter_name])
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def _coadd_statistics(self, imageout_name, weight_images, combine_type):
+
+        # Load Swarp setup
+        sws = SwarpSetup(setup=self.setup)
+
+        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=imageout_name, weight_image=",".join(weight_images),
+                        weightout_name=imageout_name.replace(".fits", ".weight.fits"), combine_type=combine_type,
+                        gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
+                        nthreads=self.setup["misc"]["n_jobs"], skip=["weight_thresh", "weight_suffix"])
+
+        # Construct commands for source extraction
+        cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
+
+        # Run Swarp
+        if not check_file_exists(file_path=imageout_name, silent=self.setup["misc"]["silent"]) \
+                and not self.setup["misc"]["overwrite"]:
+            print_message(message="Coadding {0}".format(os.path.basename(imageout_name)))
+            run_command_bash(cmd=cmd, silent=True)
+
+    # noinspection PyTypeChecker
+    def build_tile_statistics(self):
+
+        # Processing info
+        print_header(header="TILE STATISTICS", silent=self.setup["misc"]["silent"],
+                     left=os.path.basename(self.setup.path_tile), right=None)
+        tstart = time.time()
+
+        # Find weights
+        master_weights = self.get_master_weights()
+
+        # Create temporary output paths
+        temp_nimages = [self.setup.folders["temp"] + bn.replace(".fits", "_nimages.fits") for bn in self.basenames]
+        temp_exptime = [self.setup.folders["temp"] + bn.replace(".fits", "_exptime.fits") for bn in self.basenames]
+        temp_mjdeff = [self.setup.folders["temp"] + bn.replace(".fits", "_mjdeff.fits") for bn in self.basenames]
+        temp_weight = [self.setup.folders["temp"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
+
+        # Loop over files
+        mjd_offset = 0
+        for idx_file in range(self.n_files):
+
+            """
+            We have to cheat here to get a 64bit MJD value in the coadd
+            Swarp only produces 32 bit coadds for some reason, even if all input files (inlcuding weights) are
+            passed as 64bit images and the coadd header include BITPIX=-64.
+            """
+            if idx_file == 0:
+                mjd_offset = int(self.mjd[idx_file])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=temp_weight[idx_file], silent=self.setup["misc"]["silent"]) \
+                    and not self.setup["misc"]["overwrite"]:
+                continue
+
+            # Create output HDULists
+            hdul_nimages = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            hdul_exptime = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            hdul_mjdeff = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU()])
+
+            # Loop over extensions
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+
+                # Read header
+                header_original = self.headers_data[idx_file][idx_hdu]
+
+                # Resize header and convert to WCS
+                wcs_resized = header2wcs(resize_header(header=header_original, factor=0.2))
+
+                # Resize header
+                header_resized = wcs_resized.to_header()
+
+                # Create image statistics arrays
+                arr_nimages = np.full(wcs_resized.pixel_shape[::-1], fill_value=1, dtype=np.uint16)
+                arr_exptime = np.full(wcs_resized.pixel_shape[::-1], dtype=np.float32,
+                                      fill_value=self.dit[idx_file] * self.ndit[idx_file])
+                arr_mjdeff = np.full(wcs_resized.pixel_shape[::-1], fill_value=self.mjd[idx_file] - mjd_offset,
+                                     dtype=np.float32)
+
+                # Read weight
+                weight_hdu = fits.getdata(master_weights.paths_full[idx_file], idx_hdu)
+
+                # Resize weight
+                arr_weight = upscale_image(weight_hdu, new_size=wcs_resized.pixel_shape, method="pil")
+
+                # Extend HDULists
+                hdul_nimages.append(fits.ImageHDU(data=arr_nimages, header=header_resized))
+                hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))
+                hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized))
+                hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))
+
+            # Write to disk
+            hdul_nimages.writeto(temp_nimages[idx_file], overwrite=True)
+            hdul_exptime.writeto(temp_exptime[idx_file], overwrite=True)
+            hdul_mjdeff.writeto(temp_mjdeff[idx_file], overwrite=True)
+            hdul_weights.writeto(temp_weight[idx_file], overwrite=True)
+
+        # Resize tile header
+        header_tile = resize_header(fits.Header.fromtextfile(self.setup.path_tile_header), factor=0.2)
+
+        # Coadd nimages
+        nimages = ResampledScienceImages(setup=self.setup, file_paths=temp_nimages)
+        imageout_name = self.setup.path_tile.replace(".fits", ".nimages.fits")
+        header_tile.totextfile(imageout_name.replace(".fits", ".ahead"), overwrite=True)
+        nimages._coadd_statistics(imageout_name=imageout_name, weight_images=temp_weight, combine_type="sum")
+        convert_bitpix_image(path=imageout_name, new_type=np.uint16)
+        [os.remove(x) for x in temp_nimages]
+
+        # Coadd exptime
+        exptime = ResampledScienceImages(setup=self.setup, file_paths=temp_exptime)
+        imageout_name = self.setup.path_tile.replace(".fits", ".exptime.fits")
+        header_tile.totextfile(imageout_name.replace(".fits", ".ahead"), overwrite=True)
+        exptime._coadd_statistics(imageout_name=imageout_name, weight_images=temp_weight, combine_type="sum")
+        convert_bitpix_image(path=imageout_name, new_type=np.float32)
+        [os.remove(x) for x in temp_exptime]
+
+        # Coadd mjd
+        mjdeff = ResampledScienceImages(setup=self.setup, file_paths=temp_mjdeff)
+        imageout_name = self.setup.path_tile.replace(".fits", ".mjdeff.fits")
+        header_tile.totextfile(imageout_name.replace(".fits", ".ahead"), overwrite=True)
+        mjdeff._coadd_statistics(imageout_name=imageout_name, weight_images=temp_weight, combine_type="median")
+        [os.remove(x) for x in temp_mjdeff]
+
+        # Add offset to MJD coadd and convert to 64 bit
+        with fits.open(imageout_name, mode="update") as hdul:
+            hdul[0].header["BITPIX"] = -64
+            hdul[0].data = hdul[0].data.astype(np.float64) + mjd_offset
+            hdul.flush()
+
+        # Remove weights
+        [os.remove(x) for x in temp_weight]
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+
+class Tile(SkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(Tile, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class RawOffsetImages(RawSkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(RawOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class ProcessedOffsetImages(ProcessedSkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(ProcessedOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class RawStdImages(RawSkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(RawStdImages, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class ProcessedStdImages(ProcessedSkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(ProcessedStdImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class MasterSky(MasterImages):
@@ -817,7 +1106,7 @@ class MasterSky(MasterImages):
         """
 
         if paths is None:
-            return ["{0}{1}.pdf".format(self.path_qc_sky, fp) for fp in self.file_names]
+            return ["{0}{1}.pdf".format(self.setup.folders["qc_sky"], fp) for fp in self.basenames]
         else:
             return paths
 
@@ -844,9 +1133,6 @@ class MasterSky(MasterImages):
         # Plot paths
         paths = self.paths_qc_plots(paths=paths)
 
-        # Fetch FPA layout
-        fpa_layout = str2list(self.setup["data"]["fpa_layout"], dtype=int)
-
         for sky, noise, mjd, path in zip(self.sky, self.noise, self.sky_mjd, paths):
 
             # Check if plot already exits
@@ -854,7 +1140,7 @@ class MasterSky(MasterImages):
                 continue
 
             # Get plot grid
-            fig, axes = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
 
             # Helpers
@@ -880,11 +1166,11 @@ class MasterSky(MasterImages):
                             ha="left", va="bottom")
 
                 # Modify axes
-                if idx < fpa_layout[1]:
+                if idx < self.setup.fpa_layout[1]:
                     ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % fpa_layout[0] == fpa_layout[0] - 1:
+                if idx % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])

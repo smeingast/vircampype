@@ -1,4 +1,3 @@
-.idea
-test.py
-vircampype.egg-info
+# Local files
 vircampype/local
+.idea

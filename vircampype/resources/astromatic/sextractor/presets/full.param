@@ -80,8 +80,8 @@ ELONGATION               # A_IMAGE/B_IMAGE
 # =========================================================================== #
 # Flux
 # =========================================================================== #
-FLUX_APER[5]             # Flux vector within fixed circular aperture(s)             [count]
-FLUXERR_APER[5]          # RMS error vector for aperture flux(es)                    [count]
+FLUX_APER[22]             # Flux vector within fixed circular aperture(s)             [count]
+FLUXERR_APER[22]          # RMS error vector for aperture flux(es)                    [count]
 FLUX_MAX                 # Peak flux above background                                [count]
 FLUX_RADIUS              # Fraction-of-light radii                                   [pixel]
 FLUX_AUTO                # Flux within a Kron-like elliptical aperture               [count]
@@ -99,8 +99,8 @@ FLUXERR_PETRO            # RMS error for PETROsian flux                         
 # =========================================================================== #
 # Magnitudes
 # =========================================================================== #
-MAG_APER[5]              # Fixed aperture magnitude vector                           [mag]
-MAGERR_APER[5]           # RMS error vector for fixed aperture mag.                  [mag]
+MAG_APER[22]              # Fixed aperture magnitude vector                           [mag]
+MAGERR_APER[22]           # RMS error vector for fixed aperture mag.                  [mag]
 KRON_RADIUS              # Kron apertures in units of A or B                        
 MAG_AUTO                 # Kron-like elliptical aperture magnitude                   [mag]
 MAGERR_AUTO              # RMS error for AUTO magnitude                              [mag]
@@ -113,20 +113,3 @@ MAGERR_ISOCOR            # RMS error for corrected isophotal magnitude          
 MAG_PETRO                # Petrosian-like elliptical aperture magnitude              [mag]
 MAGERR_PETRO             # RMS error for PETROsian magnitude                         [mag]
 PETRO_RADIUS             # Petrosian apertures in units of A or B                   
-
-
-
-# =========================================================================== #
-# PSF
-# =========================================================================== #
-FLUX_PSF                 # Flux from PSF-fitting                                     [count]
-FLUXERR_PSF              # RMS flux error for PSF-fitting                            [count]
-MAG_PSF                  # Magnitude from PSF-fitting                                [mag]
-MAGERR_PSF               # RMS magnitude error from PSF-fitting                      [mag]
-
-FWHMPSF_IMAGE            # FWHM of the local PSF model                               [pixel]
-FWHMPSF_WORLD            # FWHM of the local PSF model (world units)                 [deg]
-#SPREAD_MODEL             # Spread parameter from model-fitting
-
-NITER_PSF                # Number of iterations for PSF-fitting                     
-CHI2_PSF                 # Reduced chi2 from PSF-fitting                            

@@ -1,12 +1,14 @@
-# =========================================================================== #
-# Import
+import time
 import numpy as np
 
 from astropy.io import fits
+from vircampype.utils.plots import *
+from vircampype.utils.messaging import *
+from vircampype.utils.fitstools import *
 from vircampype.data.cube import ImageCube
 from vircampype.utils.miscellaneous import *
-from vircampype.utils.plots import plot_value_detector
-from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.fits.images.common import FitsImages
+from vircampype.fits.images.common import MasterImages
 
 
 class DarkImages(FitsImages):
@@ -18,11 +20,11 @@ class DarkImages(FitsImages):
         """ Create master darks. """
 
         # Processing info
-        tstart = message_mastercalibration(master_type="MASTER-DARK", silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-DARK", silent=self.setup["misc"]["silent"])
+        tstart = time.time()
 
-        """ This does not work with Dark normalisation. There has to be a set for each DIT/NDIT combination! """
         # Split files first on DIT and NDIT, then on lag
-        split = self.split_exposure()
+        split = self.split_keywords(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit])
         split = flat_list([s.split_lag(max_lag=self.setup["dark"]["max_lag"]) for s in split])
 
         # Now loop through separated files and build the Masterdarks
@@ -31,8 +33,9 @@ class DarkImages(FitsImages):
             # Check sequence suitability for Dark (same number of HDUs and NDIT)
             files.check_compatibility(n_hdu_max=1, n_ndit_max=1)
 
-            # Create master dark name
-            outpath = files.build_master_path(basename="MASTER-DARK", idx=0, dit=True, ndit=True, mjd=True)
+            # Create Mastedark name
+            outpath = "{0}MASTER-DARK.DIT_{1}.NDIT_{2}.MJD_{3:0.4f}.fits" \
+                      "".format(files.setup.folders["master_common"], files.dit[0], files.ndit[0], files.mjd_mean)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
@@ -47,12 +50,12 @@ class DarkImages(FitsImages):
 
             # Start looping over detectors
             data_headers = []
-            for d in files.data_hdu[0]:
+            for d in files.iter_data_hdu[0]:
 
                 # Print processing info
                 if not self.setup["misc"]["silent"]:
                     message_calibration(n_current=fidx, n_total=len(split), name=outpath,
-                                        d_current=d, d_total=max(files.data_hdu[0]))
+                                        d_current=d, d_total=max(files.iter_data_hdu[0]))
 
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
@@ -66,7 +69,7 @@ class DarkImages(FitsImages):
                                  sigma_iter=self.setup["dark"]["sigma_iter"], bpm=bpm)
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=str2func(self.setup["dark"]["metric"]))
+                collapsed = cube.flatten(metric=string2func(self.setup["dark"]["metric"]))
 
                 # Determine dark current as median
                 dc = np.nanmedian(collapsed) / (files.dit[0] * files.ndit[0])
@@ -80,9 +83,9 @@ class DarkImages(FitsImages):
                 master_cube.extend(data=collapsed.astype(np.float32))
 
             # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup["keywords"]["dit"], self.setup["keywords"]["ndit"],
-                                               self.setup["keywords"]["date_mjd"], self.setup["keywords"]["date_ut"],
-                                               self.setup["keywords"]["object"], "HIERARCH PYPE N_FILES"],
+            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
+                                               self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                               self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
                                      values=[files.dit[0], files.ndit[0],
                                              files.mjd_mean, files.time_obs_mean,
                                              "MASTER-DARK", len(files)])
@@ -94,10 +97,10 @@ class DarkImages(FitsImages):
             # QC plot
             if self.setup["misc"]["qc_plots"]:
                 mdark = MasterDark(setup=self.setup, file_paths=outpath)
-                mdark.qc_plot_dark(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+                mdark.qc_plot_dark(paths=None, axis_size=5)
 
         # Print time
-        message_finished(tstart=tstart, silent=self.setup["misc"]["silent"])
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
 class MasterDark(MasterImages):
@@ -107,9 +110,9 @@ class MasterDark(MasterImages):
 
     @property
     def darkcurrent(self):
-        return self.dataheaders_get_keys(keywords=["HIERARCH PYPE DC"])[0]
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE DC"])[0]
 
-    def qc_plot_dark(self, paths=None, axis_size=5, overwrite=False):
+    def qc_plot_dark(self, paths=None, axis_size=5):
         """
         Generates a simple QC plot for BPMs.
 
@@ -119,16 +122,13 @@ class MasterDark(MasterImages):
             Paths of the QC plot files. If None (default), use relative paths.
         axis_size : int, float, optional
             Axis size. Default is 5.
-        overwrite : optional, bool
-            Whether an exisiting plot should be overwritten. Default is False.
 
         """
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}.pdf".format(self.path_qc_dark, fp) for fp in self.file_names]
+            paths = ["{0}{1}.pdf".format(self.setup.folders["qc_dark"], fp) for fp in self.basenames]
 
         # Loop over files and create plots
         for dc, path in zip(self.darkcurrent, paths):
-            plot_value_detector(values=dc, path=path, ylabel="Dark Current (e-/s)",
-                                axis_size=axis_size, overwrite=overwrite)
+            plot_value_detector(values=dc, path=path, ylabel="Dark Current (e-/s)", axis_size=axis_size)

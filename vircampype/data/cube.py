@@ -2,13 +2,13 @@
 # Import
 import warnings
 import numpy as np
-import scipy.ndimage.measurements
 
+from scipy import ndimage
 from astropy.io import fits
 from itertools import repeat
-from vircampype.utils.math import *
 from joblib import Parallel, delayed
-from vircampype.utils.system import *
+from vircampype.utils.mathtools import *
+from vircampype.pipeline.setup import Setup
 from astropy.convolution import Gaussian2DKernel
 
 
@@ -18,19 +18,14 @@ class ImageCube(object):
         """
         Parameters
         ----------
-        setup : str, dict
-            YML setup. Can be either path to setup, or a dictionary.
+        setup : str, Setup
+            Setup dictionary passed from the pipeline instance.
         cube : np.ndarray, optional
 
         """
 
-        # Setup
-        if isinstance(setup, str):
-            self.setup = read_setup(path_yaml=setup)
-        elif isinstance(setup, dict):
-            self.setup = setup
-        else:
-            raise ValueError("Need to supply setup")
+        # Set setup
+        self.setup = Setup.load_pipeline_setup(setup)
 
         # Check supplied data and load into attribute
         if cube is not None:
@@ -830,8 +825,8 @@ class ImageCube(object):
         """ Destripes the cube along a given axis (e.g. for VIRCAM axis=2) """
 
         # Apply metric along given axis
-        self.cube = apply_along_axes(self.cube, method=self.setup["cosmetics"]["destripe_method"],
-                                     axis=self.setup["cosmetics"]["destripe_axis"], norm=True, copy=False)
+        self.cube = apply_along_axes(self.cube, method=self.setup.destripe_metric, axis=self.setup.destripe_axis,
+                                     norm=True, copy=False)
 
     def process_raw(self, dark=None, flat=None, linearize=None, sky=None, norm_before=None, norm_after=None):
         """
@@ -905,45 +900,6 @@ class ImageCube(object):
         # Normalize
         if norm_after is not None:
             self.normalize(norm=norm_after)
-
-    def mask_cosmics(self, bpm=None, **kwargs):
-        """
-        Mask cosmics (and hot pixels) based on the L.A.Cosmic algorithm using astroscrappy.
-
-        Parameters
-        ----------
-        bpm : ImageCube
-            Bad pixel input mask cube.
-        kwargs
-            detect_cosmic kwargs. Here, we are only using basic arguments, though (check code).
-
-        """
-
-        if bpm is not None:
-            raise ValueError("BPM not supported during cosmic ray detection")
-
-        # Import astroscrappy
-        from astroscrappy.astroscrappy import detect_cosmics
-
-        # Loop over layery in cube
-        for idx in range(len(self)):
-
-            # Get detector characteristics
-            gain = kwargs["gain"][idx] if "gain" in kwargs else None
-            readnoise = kwargs["readnoise"][idx] if "readnoise" in kwargs else None
-            satlevel = kwargs["satlevel"][idx] if "satlevel" in kwargs else None
-
-            # Get input mask
-            bpm = None if bpm is not None else None  # For now force no BPM.
-            # noinspection PyUnresolvedReferences
-            inmask = bpm[idx] if bpm is not None else None
-
-            # Apply cosmic detection algorithm
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="invalid value encountered")
-                self.cube[idx] = detect_cosmics(self.cube[idx], inmask=inmask, gain=gain, readnoise=readnoise,
-                                                satlevel=satlevel, sepmed=True, cleantype="meanmask",
-                                                sigclip=2.5, objlim=8.0)[1] / gain
 
     def interpolate_nan(self):
         """
@@ -1050,14 +1006,14 @@ class ImageCube(object):
                 sources = self.cube[idx] > thresh_map[idx]
 
             # Label regions
-            labels, n_labels = scipy.ndimage.measurements.label(input=sources, structure=np.ones(shape=(3, 3)))
+            labels, n_labels = ndimage.measurements.label(input=sources, structure=np.ones(shape=(3, 3)))
 
             # If there are no sources, continue
             if n_labels < 1:
                 continue
 
             # Measure region sizes
-            sizes = scipy.ndimage.measurements.sum(input=sources, labels=labels, index=range(1, n_labels + 1))
+            sizes = ndimage.measurements.sum(input=sources, labels=labels, index=range(1, n_labels + 1))
 
             # Find those sources outside the given thresholds and set to 0
             bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
