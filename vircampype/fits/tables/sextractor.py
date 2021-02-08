@@ -214,7 +214,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         from vircampype.fits.images.flat import MasterSuperflat
 
         # Processing info
-        print_header(header="MASTER-SUPERFLAT", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-SUPERFLAT", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on passband and interval
@@ -235,7 +235,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             outpath = self.setup.folders["master_object"] + "MASTER-SUPERFLAT_{0:11.5f}.fits".format(files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Grab current passband
@@ -253,7 +253,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Print processing info
                 message_calibration(n_current=idx_print, n_total=len(split), name=outpath, d_current=idx_hdr + 1,
-                                    d_total=len(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
+                                    d_total=len(files.iter_data_hdu[0]), silent=self.setup.silent)
 
                 # Read current HDU for all files into a single table
                 tab = vstack(files.hdu2table(hdu_index=idx_hdu))
@@ -346,7 +346,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
     def crunch_source_catalogs(self):
 
         # Processing info
-        print_header(header="PHOTOMETRY", silent=self.setup["misc"]["silent"], right=None)
+        print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
         tstart = time.time()
 
         # Get master photometry catalog
@@ -365,13 +365,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             outpath = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Load and clean table
             tables_file = self.file2table(file_index=idx_file)
@@ -454,7 +454,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         from vircampype.fits.images.common import FitsImages
 
         # Processing info
-        print_header(header="ADDING STATISTICS", silent=self.setup["misc"]["silent"], right=None)
+        print_header(header="ADDING STATISTICS", silent=self.setup.silent, right=None)
         tstart = time.time()
 
         for idx_file in range(self.n_files):

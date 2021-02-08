@@ -37,7 +37,7 @@ class FlatTwilight(FlatImages):
         """
 
         # Processing info
-        print_header(header="MASTER-FLAT", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-FLAT", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on lag and filter
@@ -55,7 +55,7 @@ class FlatTwilight(FlatImages):
                       "".format(files.setup.folders["master_common"], files.mjd_mean, files.passband[0])
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Fetch the Masterfiles
@@ -76,7 +76,7 @@ class FlatTwilight(FlatImages):
 
                 # Print processing info
                 message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup.silent)
 
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
@@ -183,7 +183,7 @@ class FlatTwilight(FlatImages):
         """
 
         # Processing info
-        print_header(header="MASTER-WEIGHT", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-WEIGHT", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Get unique Master flats
@@ -196,12 +196,12 @@ class FlatTwilight(FlatImages):
         for idx in range(len(master_flats)):
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpaths[idx], silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpaths[idx], silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Print processing info
-            if not self.setup["misc"]["silent"]:
+            if not self.setup.silent:
                 message_calibration(n_current=idx + 1, n_total=len(master_flats),
                                     name=outpaths[idx], d_current=None, d_total=None)
 
@@ -260,7 +260,7 @@ class FlatLampLin(FlatImages):
             raise NotImplementedError("Order not supported")
 
         # Processing info
-        print_header(header="MASTER-LINEARITY", silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on lag and filter
@@ -278,7 +278,7 @@ class FlatLampLin(FlatImages):
                       "".format(files.setup.folders["master_common"], files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Fetch the Masterfiles
@@ -293,7 +293,7 @@ class FlatLampLin(FlatImages):
 
                 # Print processing info
                 message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup.silent)
 
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
@@ -389,7 +389,7 @@ class FlatLampCheck(FlatImages):
         """ Builds a Bad pixel mask from image data. """
 
         # Processing info
-        print_header(header="MASTER-BPM", silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-BPM", silent=self.setup.silent)
         tstart = time.time()
 
         # Split files based on maximum time lag is set
@@ -406,7 +406,7 @@ class FlatLampCheck(FlatImages):
                       "".format(files.setup.folders["master_common"], files.ndit[0], files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
@@ -418,7 +418,7 @@ class FlatLampCheck(FlatImages):
             for d in files.iter_data_hdu[0]:
 
                 # Print processing info
-                if not self.setup["misc"]["silent"]:
+                if not self.setup.silent:
                     message_calibration(n_current=idx_print, n_total=len(split), name=outpath,
                                         d_current=d, d_total=len(files.iter_data_hdu[0]))
 
@@ -498,7 +498,7 @@ class FlatLampGain(FlatImages):
         """
 
         # Processing info
-        print_header(header="MASTER-GAIN", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-GAIN", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on lag
@@ -528,12 +528,12 @@ class FlatLampGain(FlatImages):
                       "".format(flats.setup.folders["master_common"], flats.ndit[0], flats.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Print processing info
-            if not self.setup["misc"]["silent"]:
+            if not self.setup.silent:
                 message_calibration(n_current=idx+1, n_total=len(split_flats),
                                     name=outpath, d_current=None, d_total=None)
 

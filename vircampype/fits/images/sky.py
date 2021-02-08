@@ -140,7 +140,7 @@ class SkyImages(FitsImages):
         sxs = SextractorSetup(setup=self.setup)
 
         if silent is None:
-            silent = self.setup["misc"]["silent"]
+            silent = self.setup.silent
 
         # Processing info
         print_header(header="SOURCE DETECTION", left="Running Sextractor with preset '{0}' on {1} files"
@@ -225,7 +225,7 @@ class SkyImages(FitsImages):
         from vircampype.fits.tables.sextractor import SextractorCatalogs
 
         # Processing info
-        print_header(header="CLASSIFICATION", left="File", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="CLASSIFICATION", left="File", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Determine seeing values to be probed
@@ -238,13 +238,13 @@ class SkyImages(FitsImages):
             outpath = self.paths_full[idx_file].replace(".fits", ".cs.fits.tab")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Construct sextractor commands
             cmds = [self.sextractor(preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True)[idx_file]
@@ -304,7 +304,9 @@ class RawSkyImages(SkyImages):
     def build_master_source_mask(self):
 
         # Processing info
-        print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup["misc"]["silent"])
+        # print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
+        print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
+        exit()
         tstart = time.time()
 
         # Fetch the Masterfiles
@@ -320,12 +322,12 @@ class RawSkyImages(SkyImages):
                       "".format(self.setup.folders["master_object"], self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
@@ -376,7 +378,7 @@ class RawSkyImages(SkyImages):
         """
 
         # Processing info
-        print_header(header="MASTER-SKY", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-SKY", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on filter and interval
@@ -401,7 +403,7 @@ class RawSkyImages(SkyImages):
                       "".format(files.setup.folders["master_object"], files.mjd_mean, files.passband[0])
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Fetch the Masterfiles
@@ -421,7 +423,7 @@ class RawSkyImages(SkyImages):
 
                 # Print processing info
                 message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup["misc"]["silent"])
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup.silent)
 
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
@@ -508,7 +510,7 @@ class RawSkyImages(SkyImages):
         """ Main processing method. """
 
         # Processing info
-        print_header(header="PROCESSING RAW", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="PROCESSING RAW", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Fetch the Masterfiles
@@ -526,12 +528,12 @@ class RawSkyImages(SkyImages):
                                               self.names[idx_file], self.extensions[idx_file])
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read file into cube
             calib_cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
@@ -585,7 +587,7 @@ class ProcessedSkyImages(SkyImages):
         """ Applies superflat to (processed) images. """
 
         # Processing info
-        print_header(header="APPLYING SUPERFLAT", silent=self.setup["misc"]["silent"])
+        print_header(header="APPLYING SUPERFLAT", silent=self.setup.silent)
         tstart = time.time()
 
         # Fetch superflat for each image in self
@@ -606,12 +608,12 @@ class ProcessedSkyImages(SkyImages):
                 raise ValueError("External header not found")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read data
             cube_self = self.file2cube(file_index=idx_file)
@@ -685,18 +687,18 @@ class RawScienceImages(RawSkyImages):
     def build_master_photometry(self):
 
         # Processing info
-        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Construct outpath
         outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
 
         # Check if the file is already there and skip if it is
-        if not check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]):
+        if not check_file_exists(file_path=outpath, silent=self.setup.silent):
 
             # Print processing info
             message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-                                d_total=None, silent=self.setup["misc"]["silent"])
+                                d_total=None, silent=self.setup.silent)
 
             # Determine size to download
             size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
@@ -719,12 +721,12 @@ class RawScienceImages(RawSkyImages):
     def build_tile_header(self):
 
         # Processing info
-        print_header(header="TILE-HEADER", right=None, silent=self.setup["misc"]["silent"])
+        print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Print processing info
         message_calibration(n_current=1, n_total=1, name=self.setup.path_tile_header, d_current=None,
-                            d_total=None, silent=self.setup["misc"]["silent"])
+                            d_total=None, silent=self.setup.silent)
 
         # Get optimal rotation of frame
         rotation_test = np.arange(0, 360, 0.2)
@@ -759,7 +761,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         """ Resamples images. """
 
         # Processing info
-        print_header(header="RESAMPLING", silent=self.setup["misc"]["silent"])
+        print_header(header="RESAMPLING", silent=self.setup.silent)
         tstart = time.time()
 
         # Load Swarp setup
@@ -786,13 +788,13 @@ class ProcessedScienceImages(ProcessedSkyImages):
             outpath_weight = outpath.replace(".fits", ".weight.fits")
 
             # Check if file already exits
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath,
-                                d_current=None, d_total=None, silent=self.setup["misc"]["silent"])
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Run Swarp
             run_command_bash(cmd=cmds[idx_file], silent=True)
@@ -827,7 +829,7 @@ class ResampledScienceImages(ProcessedSkyImages):
     def coadd_pawprints(self):
 
         # Processing info
-        print_header(header="CREATING TILE", silent=self.setup["misc"]["silent"],
+        print_header(header="CREATING TILE", silent=self.setup.silent,
                      left=os.path.basename(self.setup.path_tile), right=None)
         tstart = time.time()
 
@@ -843,7 +845,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
 
         # Run Swarp
-        if not check_file_exists(file_path=self.setup.path_tile, silent=self.setup["misc"]["silent"]) \
+        if not check_file_exists(file_path=self.setup.path_tile, silent=self.setup.silent) \
                 and not self.setup["misc"]["overwrite"]:
             run_command_bash(cmd=cmd, silent=True)
 
@@ -868,7 +870,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
 
         # Run Swarp
-        if not check_file_exists(file_path=imageout_name, silent=self.setup["misc"]["silent"]) \
+        if not check_file_exists(file_path=imageout_name, silent=self.setup.silent) \
                 and not self.setup["misc"]["overwrite"]:
             print_message(message="Coadding {0}".format(os.path.basename(imageout_name)))
             run_command_bash(cmd=cmd, silent=True)
@@ -877,7 +879,7 @@ class ResampledScienceImages(ProcessedSkyImages):
     def build_tile_statistics(self):
 
         # Processing info
-        print_header(header="TILE STATISTICS", silent=self.setup["misc"]["silent"],
+        print_header(header="TILE STATISTICS", silent=self.setup.silent,
                      left=os.path.basename(self.setup.path_tile), right=None)
         tstart = time.time()
 
@@ -903,7 +905,7 @@ class ResampledScienceImages(ProcessedSkyImages):
                 mjd_offset = int(self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=temp_weight[idx_file], silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=temp_weight[idx_file], silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 

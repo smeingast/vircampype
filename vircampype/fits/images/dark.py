@@ -20,7 +20,7 @@ class DarkImages(FitsImages):
         """ Create master darks. """
 
         # Processing info
-        print_header(header="MASTER-DARK", silent=self.setup["misc"]["silent"])
+        print_header(header="MASTER-DARK", silent=self.setup.silent)
         tstart = time.time()
 
         # Split files first on DIT and NDIT, then on lag
@@ -38,7 +38,7 @@ class DarkImages(FitsImages):
                       "".format(files.setup.folders["master_common"], files.dit[0], files.ndit[0], files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup["misc"]["silent"]) \
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
                     and not self.setup["misc"]["overwrite"]:
                 continue
 
@@ -53,7 +53,7 @@ class DarkImages(FitsImages):
             for d in files.iter_data_hdu[0]:
 
                 # Print processing info
-                if not self.setup["misc"]["silent"]:
+                if not self.setup.silent:
                     message_calibration(n_current=fidx, n_total=len(split), name=outpath,
                                         d_current=d, d_total=max(files.iter_data_hdu[0]))
 
