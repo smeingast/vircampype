@@ -39,7 +39,7 @@ class DarkImages(FitsImages):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Instantiate output
@@ -95,7 +95,7 @@ class DarkImages(FitsImages):
             master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 mdark = MasterDark(setup=self.setup, file_paths=outpath)
                 mdark.qc_plot_dark(paths=None, axis_size=5)
 

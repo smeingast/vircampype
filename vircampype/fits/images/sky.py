@@ -149,7 +149,7 @@ class SkyImages(FitsImages):
 
         # Check for existing files
         path_tables_clean = []
-        if not self.setup["misc"]["overwrite"]:
+        if not self.setup.overwrite:
             for pt in self.paths_source_tables(preset=preset):
                 check_file_exists(file_path=pt, silent=silent)
                 if not os.path.isfile(pt):
@@ -239,7 +239,7 @@ class SkyImages(FitsImages):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Print processing info
@@ -496,9 +496,9 @@ class RawSkyImages(SkyImages):
             master_cube.write_mef(path=outpath, prime_header=fits.Header(cards=prime_cards), data_headers=data_headers)
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 msky = MasterSky(setup=self.setup, file_paths=outpath)
-                msky.qc_plot_sky(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+                msky.qc_plot_sky(paths=None, axis_size=5, overwrite=self.setup.overwrite)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -786,7 +786,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
 
             # Check if file already exits
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Print processing info
@@ -802,9 +802,9 @@ class ProcessedScienceImages(ProcessedSkyImages):
             paths_weights = [p.replace(".fits", ".weight.fits") for p in paths_images]
 
             # Construct MEF from resampled detectors
-            make_mef_image(paths_input=sorted(paths_images), overwrite=self.setup["misc"]["overwrite"],
+            make_mef_image(paths_input=sorted(paths_images), overwrite=self.setup.overwrite,
                            path_output=outpath, primeheader=self.headers_primary[idx_file])
-            make_mef_image(paths_input=sorted(paths_weights), overwrite=self.setup["misc"]["overwrite"],
+            make_mef_image(paths_input=sorted(paths_weights), overwrite=self.setup.overwrite,
                            path_output=outpath_weight, primeheader=self.headers_primary[idx_file])
 
             # Remove intermediate files
@@ -843,7 +843,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
         # Run Swarp
         if not check_file_exists(file_path=self.setup.path_tile, silent=self.setup.silent) \
-                and not self.setup["misc"]["overwrite"]:
+                and not self.setup.overwrite:
             run_command_bash(cmd=cmd, silent=True)
 
             # Copy primary header from first entry of input
@@ -868,7 +868,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
         # Run Swarp
         if not check_file_exists(file_path=imageout_name, silent=self.setup.silent) \
-                and not self.setup["misc"]["overwrite"]:
+                and not self.setup.overwrite:
             print_message(message="Coadding {0}".format(os.path.basename(imageout_name)))
             run_command_bash(cmd=cmd, silent=True)
 
@@ -903,7 +903,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=temp_weight[idx_file], silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Create output HDULists

@@ -336,7 +336,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             superflat.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 msf = MasterSuperflat(setup=self.setup, file_paths=outpath)
                 msf.qc_plot_superflat(paths=None, axis_size=5)
 
@@ -366,7 +366,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Print processing info
@@ -434,13 +434,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                             key=key, value=val, comment=comment, decimals=4)
 
             # Write to new output file
-            table_hdulist.writeto(outpath, overwrite=self.setup["misc"]["overwrite"])
+            table_hdulist.writeto(outpath, overwrite=self.setup.overwrite)
 
             # Close original file
             table_hdulist.close()
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 csc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
                 csc.plot_qc_zp(axis_size=5)
                 csc.plot_qc_ref(axis_size=5)

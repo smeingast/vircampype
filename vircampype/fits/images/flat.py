@@ -165,9 +165,9 @@ class FlatTwilight(FlatImages):
             master_flat.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 mflat = MasterFlat(setup=self.setup, file_paths=outpath)
-                mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+                mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup.overwrite)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -197,7 +197,7 @@ class FlatTwilight(FlatImages):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpaths[idx], silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Print processing info
@@ -366,12 +366,12 @@ class FlatLampLin(FlatImages):
 
             # Save table
             thdulist = fits.HDUList([fits.PrimaryHDU(header=prime_header)] + table_hdus)
-            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
+            thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
 
             # Initialize plot if set
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
-                mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup["misc"]["overwrite"])
+                mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup.overwrite)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -407,7 +407,7 @@ class FlatLampCheck(FlatImages):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Instantiate output
@@ -469,7 +469,7 @@ class FlatLampCheck(FlatImages):
             master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 mbpm = MasterBadPixelMask(setup=self.setup, file_paths=outpath)
                 mbpm.qc_plot_bpm(paths=None, axis_size=5)
 
@@ -529,7 +529,7 @@ class FlatLampGain(FlatImages):
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup["misc"]["overwrite"]:
+                    and not self.setup.overwrite:
                 continue
 
             # Print processing info
@@ -577,10 +577,10 @@ class FlatLampGain(FlatImages):
             thdulist = fits.HDUList([prhdu, tbhdu])
 
             # Write
-            thdulist.writeto(fileobj=outpath, overwrite=self.setup["misc"]["overwrite"])
+            thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
 
             # QC plot
-            if self.setup["misc"]["qc_plots"]:
+            if self.setup.qc_plots:
                 mgain = MasterGain(setup=self.setup, file_paths=outpath)
                 mgain.qc_plot_gain(paths=None, axis_size=5)
                 mgain.qc_plot_rdnoise(paths=None, axis_size=5)

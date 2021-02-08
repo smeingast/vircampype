@@ -211,7 +211,7 @@ class Pipeline:
         if self.science_raw is not None:
             if not self.status.master_sky:
                 # Mix offset frames with science frames if set
-                if (self.setup["sky"]["mix_science"]) and (self.offset_raw is not None):
+                if self.setup.sky_mix_science and (self.offset_raw is not None):
                     mixed = self.science_raw + self.offset_raw
                     mixed.build_master_sky()
 
