@@ -885,7 +885,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         master_weights = self.get_master_weights()
 
         # Create temporary output paths
-        temp_nimages = [self.setup.folders["temp"] + bn.replace(".fits", "_nimages.fits") for bn in self.basenames]
+        temp_ndet = [self.setup.folders["temp"] + bn.replace(".fits", "_ndet.fits") for bn in self.basenames]
         temp_exptime = [self.setup.folders["temp"] + bn.replace(".fits", "_exptime.fits") for bn in self.basenames]
         temp_mjdeff = [self.setup.folders["temp"] + bn.replace(".fits", "_mjdeff.fits") for bn in self.basenames]
         temp_weight = [self.setup.folders["temp"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
@@ -908,7 +908,7 @@ class ResampledScienceImages(ProcessedSkyImages):
                 continue
 
             # Create output HDULists
-            hdul_nimages = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            hdul_ndet = fits.HDUList(hdus=[fits.PrimaryHDU()])
             hdul_exptime = fits.HDUList(hdus=[fits.PrimaryHDU()])
             hdul_mjdeff = fits.HDUList(hdus=[fits.PrimaryHDU()])
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU()])
@@ -926,7 +926,7 @@ class ResampledScienceImages(ProcessedSkyImages):
                 header_resized = wcs_resized.to_header()
 
                 # Create image statistics arrays
-                arr_nimages = np.full(wcs_resized.pixel_shape[::-1], fill_value=1, dtype=np.uint16)
+                arr_ndet = np.full(wcs_resized.pixel_shape[::-1], fill_value=1, dtype=np.uint16)
                 arr_exptime = np.full(wcs_resized.pixel_shape[::-1], dtype=np.float32,
                                       fill_value=self.dit[idx_file] * self.ndit[idx_file])
                 arr_mjdeff = np.full(wcs_resized.pixel_shape[::-1], fill_value=self.mjd[idx_file] - mjd_offset,
@@ -939,13 +939,13 @@ class ResampledScienceImages(ProcessedSkyImages):
                 arr_weight = upscale_image(weight_hdu, new_size=wcs_resized.pixel_shape, method="pil")
 
                 # Extend HDULists
-                hdul_nimages.append(fits.ImageHDU(data=arr_nimages, header=header_resized))
+                hdul_ndet.append(fits.ImageHDU(data=arr_ndet, header=header_resized))
                 hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))
                 hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized))
                 hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))
 
             # Write to disk
-            hdul_nimages.writeto(temp_nimages[idx_file], overwrite=True)
+            hdul_ndet.writeto(temp_ndet[idx_file], overwrite=True)
             hdul_exptime.writeto(temp_exptime[idx_file], overwrite=True)
             hdul_mjdeff.writeto(temp_mjdeff[idx_file], overwrite=True)
             hdul_weights.writeto(temp_weight[idx_file], overwrite=True)
@@ -953,31 +953,31 @@ class ResampledScienceImages(ProcessedSkyImages):
         # Resize tile header
         header_tile = resize_header(fits.Header.fromtextfile(self.setup.path_tile_header), factor=0.2)
 
-        # Coadd nimages
-        nimages = ResampledScienceImages(setup=self.setup, file_paths=temp_nimages)
-        imageout_name = self.setup.path_tile.replace(".fits", ".nimages.fits")
-        header_tile.totextfile(imageout_name.replace(".fits", ".ahead"), overwrite=True)
-        nimages._coadd_statistics(imageout_name=imageout_name, weight_images=temp_weight, combine_type="sum")
-        convert_bitpix_image(path=imageout_name, new_type=np.uint16)
-        [os.remove(x) for x in temp_nimages]
+        # Coadd ndet
+        ndet = ResampledScienceImages(setup=self.setup, file_paths=temp_ndet)
+        outpath_ndet = self.setup.path_tile.replace(".fits", ".ndet.fits")
+        header_tile.totextfile(outpath_ndet.replace(".fits", ".ahead"), overwrite=True)
+        ndet._coadd_statistics(imageout_name=outpath_ndet, weight_images=temp_weight, combine_type="sum")
+        convert_bitpix_image(path=outpath_ndet, new_type=np.uint16)
+        [os.remove(x) for x in temp_ndet]
 
         # Coadd exptime
         exptime = ResampledScienceImages(setup=self.setup, file_paths=temp_exptime)
-        imageout_name = self.setup.path_tile.replace(".fits", ".exptime.fits")
-        header_tile.totextfile(imageout_name.replace(".fits", ".ahead"), overwrite=True)
-        exptime._coadd_statistics(imageout_name=imageout_name, weight_images=temp_weight, combine_type="sum")
-        convert_bitpix_image(path=imageout_name, new_type=np.float32)
+        outpath_exptime = self.setup.path_tile.replace(".fits", ".exptime.fits")
+        header_tile.totextfile(outpath_exptime.replace(".fits", ".ahead"), overwrite=True)
+        exptime._coadd_statistics(imageout_name=outpath_exptime, weight_images=temp_weight, combine_type="sum")
+        convert_bitpix_image(path=outpath_exptime, new_type=np.float32)
         [os.remove(x) for x in temp_exptime]
 
         # Coadd mjd
         mjdeff = ResampledScienceImages(setup=self.setup, file_paths=temp_mjdeff)
-        imageout_name = self.setup.path_tile.replace(".fits", ".mjdeff.fits")
-        header_tile.totextfile(imageout_name.replace(".fits", ".ahead"), overwrite=True)
-        mjdeff._coadd_statistics(imageout_name=imageout_name, weight_images=temp_weight, combine_type="median")
+        outpath_mjdeff = self.setup.path_tile.replace(".fits", ".mjdeff.fits")
+        header_tile.totextfile(outpath_mjdeff.replace(".fits", ".ahead"), overwrite=True)
+        mjdeff._coadd_statistics(imageout_name=outpath_mjdeff, weight_images=temp_weight, combine_type="median")
         [os.remove(x) for x in temp_mjdeff]
 
         # Add offset to MJD coadd and convert to 64 bit
-        with fits.open(imageout_name, mode="update") as hdul:
+        with fits.open(outpath_mjdeff, mode="update") as hdul:
             hdul[0].header["BITPIX"] = -64
             hdul[0].data = hdul[0].data.astype(np.float64) + mjd_offset
             hdul.flush()

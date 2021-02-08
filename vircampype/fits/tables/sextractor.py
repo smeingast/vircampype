@@ -464,11 +464,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                                   pattern="*.mjdeff.fits", setup=self.setup)
             exptime_image = FitsImages.from_folder(path=self.directories[idx_file],
                                                    pattern="*.exptime.fits", setup=self.setup)
-            number_image = FitsImages.from_folder(path=self.directories[idx_file],
-                                                  pattern="*.nimages.fits", setup=self.setup)
+            ndet_image = FitsImages.from_folder(path=self.directories[idx_file],
+                                                pattern="*.ndet.fits", setup=self.setup)
 
             # There can only be one match
-            if mjdeff_image.n_files * exptime_image.n_files * number_image.n_files != 1:
+            if mjdeff_image.n_files * exptime_image.n_files * ndet_image.n_files != 1:
                 raise ValueError("Matches for image statistics are not unique")
 
             # Open current table file
@@ -482,7 +482,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Read stats
                 mjdeff = fits.getdata(mjdeff_image.paths_full[0], idx_hdu_stats)
                 exptime = fits.getdata(exptime_image.paths_full[0], idx_hdu_stats)
-                nimages = fits.getdata(number_image.paths_full[0], idx_hdu_stats)
+                ndet = fits.getdata(ndet_image.paths_full[0], idx_hdu_stats)
                 weight = fits.getdata(mjdeff_image.paths_full[0].replace(".fits", ".weight.fits"), idx_hdu_stats)
                 weight /= np.median(weight)
 
@@ -495,20 +495,20 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Get values for each source from data arrays
                 mjdeff_sources = mjdeff[yy.astype(int), xx.astype(int)]
                 exptime_sources = exptime[yy.astype(int), xx.astype(int)]
-                number_sources = nimages[yy.astype(int), xx.astype(int)]
+                ndet_sources = ndet[yy.astype(int), xx.astype(int)]
                 weight_sources = weight[yy.astype(int), xx.astype(int)]
 
                 # Mask bad sources
                 bad = weight_sources < 0.0001
                 mjdeff_sources[bad] = np.nan
                 exptime_sources[bad] = 0
-                number_sources[bad] = 0
+                ndet_sources[bad] = 0
 
                 # Append new columns
                 orig_cols = hdul[idx_hdu_self].data.columns
                 new_cols = fits.ColDefs([fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
                                          fits.Column(name='EXPTIME', format="J", array=exptime_sources, unit="seconds"),
-                                         fits.Column(name='NOBS', format="J", array=number_sources)])
+                                         fits.Column(name='NOBS', format="J", array=ndet_sources)])
 
                 # Replace HDU
                 try:
