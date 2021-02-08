@@ -19,6 +19,14 @@ class Setup(dict):
         # Make folder structure
         self.__create_folder_tree()
 
+        # Set attributes so that they the setup can override them
+        self.__purge_headers = None
+        self.__reset_wcs = None
+
+        # Try to override property from setup
+        for key, val in self.items():
+            setattr(self, key, val)
+
     @property
     def path_tile(self):
         return "{0}{1}.fits".format(self.folders["tile"], self["name"])
@@ -161,12 +169,19 @@ class Setup(dict):
         Whether the WCS info in the original headers should be reset.
         This is necessary because sometimes the data flow does not propagate WCS keywords to all images.
         """
-        return True
+        return self.__reset_wcs
+
+    @reset_wcs.setter
+    def reset_wcs(self, reset_wcs):
+        self.__reset_wcs = reset_wcs
 
     @property
     def purge_headers(self):
-        """ Whether the headers the pipeline produces as intermediate products should be purged"""
-        return True
+        return self.__purge_headers
+
+    @purge_headers.setter
+    def purge_headers(self, purge_headers):
+        self.__purge_headers = purge_headers
 
     # =========================================================================== #
     # Keywords
