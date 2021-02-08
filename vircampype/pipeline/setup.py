@@ -24,7 +24,7 @@ class Setup(dict):
 
         # Data setup
         self.__purge_headers = True
-        self.__reset_wcs = None
+        self.__reset_wcs = True
 
         # Astromatic
         self.__bin_sex = "sex"
