@@ -381,11 +381,10 @@ class RawSkyImages(SkyImages):
 
         # Split based on filter and interval
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_window(window=self.setup["sky"]["window"], remove_duplicates=True)
-                           for s in split])
+        split = flat_list([s.split_window(window=self.setup.sky_window, remove_duplicates=True) for s in split])
 
         # Remove too short entries
-        split = prune_list(split, n_min=self.setup["sky"]["n_min"])
+        split = prune_list(split, n_min=self.setup.sky_n_min)
 
         if len(split) == 0:
             raise ValueError("No suitable sequence found for sky images.")
@@ -394,7 +393,7 @@ class RawSkyImages(SkyImages):
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
 
             # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
-            files.check_compatibility(n_files_min=self.setup["sky"]["n_min"], n_hdu_max=1, n_filter_max=1)
+            files.check_compatibility(n_files_min=self.setup.sky_n_min, n_hdu_max=1, n_filter_max=1)
 
             # Create master name
             outpath = "{0}MASTER-SKY.MJD_{1:0.4f}.FIL_{2}.fits" \
@@ -438,9 +437,9 @@ class RawSkyImages(SkyImages):
                 cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=norm_before)
 
                 # Apply masks to the normalized cube
-                cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup["sky"]["mask_min"],
-                                 mask_max=self.setup["sky"]["mask_max"], sigma_level=self.setup["sky"]["sigma_level"],
-                                 sigma_iter=self.setup["sky"]["sigma_iter"])
+                cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup.sky_mask_min,
+                                 mask_max=self.setup.sky_mask_max, sigma_level=self.setup.sky_sigma_level,
+                                 sigma_iter=self.setup.sky_sigma_iter)
 
                 # Determine median sky level in each plane
                 with warnings.catch_warnings():
@@ -458,7 +457,7 @@ class RawSkyImages(SkyImages):
                 cube.cube -= sky[-1][:, np.newaxis, np.newaxis]
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=string2func(self.setup["sky"]["metric"]))
+                collapsed = cube.flatten(metric=string2func(self.setup.sky_metric))
 
                 # Create header with sky measurements
                 cards_sky = []
