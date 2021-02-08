@@ -69,7 +69,7 @@ def header2wcs(header):
     return wcs.WCS(header=header)
 
 
-def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enlarge=1.02, silent=True, **kwargs):
+def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enlarge=0, silent=True, **kwargs):
     """
     Create an astropy Header instance from a given dataset (longitude/latitude). The world coordinate system can be
     chosen between galactic and equatorial; all WCS projections are supported. Very useful for creating a quick WCS
@@ -86,7 +86,7 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
     rotation : float, optional
         Rotation of frame in radian.
     enlarge : float, optional
-        Optional enlargement factor for calculated field size. Default is 1.05. Set to 1 if no enlargement is wanted.
+        Optional enlargement factor in arcmin. Default is 0.
     silent : bool, optional
         If False, print some messages when applicable.
     kwargs
@@ -154,8 +154,9 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
     # Determine extent of data for this projection
     x, y = wcs.WCS(header).wcs_world2pix(skycoord.spherical.lon, skycoord.spherical.lat, 1)
 
-    naxis1 = (np.ceil((x.max()) - np.floor(x.min())) * enlarge).astype(int)
-    naxis2 = (np.ceil((y.max()) - np.floor(y.min())) * enlarge).astype(int)
+    # Apply enlargement
+    naxis1 = (np.ceil((x.max()) - np.floor(x.min())) + enlarge / 60 / cdelt).astype(int)
+    naxis2 = (np.ceil((y.max()) - np.floor(y.min())) + enlarge / 60 / cdelt).astype(int)
 
     # Calculate pixel shift relative to centroid (caused by anisotropic distribution of sources)
     xdelta = (x.min() + x.max()) / 2
