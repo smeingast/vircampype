@@ -288,7 +288,7 @@ class MasterTables(FitsTables):
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
 
         # Return photometry catalog
-        if self.setup.reference == "2mass":
+        if self.setup.reference_catalog == "2mass":
             return MasterPhotometry2Mass(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
         else:
             return MasterPhotometry(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])

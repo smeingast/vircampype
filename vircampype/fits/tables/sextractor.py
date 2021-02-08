@@ -219,11 +219,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Split based on passband and interval
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_window(window=self.setup["superflat"]["window"], remove_duplicates=True)
-                           for s in split])
+        split = flat_list([s.split_window(window=self.setup.superflat_window, remove_duplicates=True) for s in split])
 
         # Remove too short entries
-        split = prune_list(split, n_min=self.setup["superflat"]["n_min"])
+        split = prune_list(split, n_min=self.setup.superflat_n_min)
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()
@@ -654,7 +653,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Modify axes
                 if idx_hdu < self.setup.fpa_layout[1]:
-                    ax.set_xlabel("{0} {1} (mag)".format(self.setup.reference.upper(), self.passband[idx_file]))
+                    ax.set_xlabel("{0} {1} (mag)".format(self.setup.reference_catalog.upper(), self.passband[idx_file]))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
                 if idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:

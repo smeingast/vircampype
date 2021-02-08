@@ -701,10 +701,10 @@ class RawScienceImages(RawSkyImages):
             size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
 
             # Download catalog
-            if self.setup.reference.lower() == "2mass":
+            if self.setup.reference_catalog.lower() == "2mass":
                 table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
             else:
-                raise ValueError("Catalog '{0}' not supported".format(self.setup.reference))
+                raise ValueError("Catalog '{0}' not supported".format(self.setup.reference_catalog))
 
             # Save catalog
             table.write(outpath, format="fits", overwrite=True)

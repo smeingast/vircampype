@@ -233,7 +233,7 @@ class Setup(dict):
         return 25
 
     @property
-    def reference(self):
+    def reference_catalog(self):
         """ Reference catalog to be used. """
         return "2mass"
 
