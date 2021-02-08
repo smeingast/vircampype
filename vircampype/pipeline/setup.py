@@ -253,6 +253,16 @@ class Setup(dict):
         """ Metric used in destriping. """
         return "median"
 
+    @property
+    def interpolate_nan(self):
+        """ Whether to interpolate NaN values. """
+        return True
+
+    @property
+    def interpolate_max_bad_neighbors(self):
+        """ How many bad neighbors a NaN can have so that it still gets interpolated. """
+        return 3
+
     # =========================================================================== #
     # Source masks
     @property
@@ -271,6 +281,62 @@ class Setup(dict):
         return 250000
 
     # =========================================================================== #
+    # Sky
+    @property
+    def sky_mix_science(self):
+        return True
+
+    @property
+    def sky_window(self):
+        """ Window in minutes around which sky images are created. """
+        return 180
+
+    @property
+    def sky_n_min(self):
+        """ Minimum number of images to merge to an offset image. """
+        return 5
+
+    @property
+    def sky_mask_min(self):
+        return False
+
+    @property
+    def sky_mask_max(self):
+        return True
+
+    @property
+    def sky_sigma_level(self):
+        return 3
+
+    @property
+    def sky_sigma_iter(self):
+        return 1
+
+    @property
+    def sky_background_mesh_size(self):
+        return 256
+
+    @property
+    def sky_background_mesh_filter_size(self):
+        return 3
+
+    @property
+    def sky_metric(self):
+        return "median"
+
+    # =========================================================================== #
+    # Superflat
+    @property
+    def superflat_window(self):
+        """ Superflat window in minutes centered on each image. """
+        return 60
+
+    @property
+    def superflat_n_min(self):
+        """ Minimum number of files that need to go into a superflat. """
+        return 5
+
+    # =========================================================================== #
     # Other
     @property
     def seeing_test_range(self):
@@ -283,6 +349,21 @@ class Setup(dict):
     @property
     def pixel_scale_degrees(self):
         return self.pixel_scale_arcsec / 3600.
+
+    @property
+    def silent(self):
+        """ Whether the pipeline should operatre in silent mode. """
+        return False
+
+    @property
+    def overwrite(self):
+        """ Whether the pipeline overwrites existing files. """
+        return False
+
+    @property
+    def qc_plots(self):
+        """ Whether QC plots should be generated. """
+        return True
 
 
 class HeaderKeywords:
