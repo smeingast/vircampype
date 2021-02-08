@@ -20,7 +20,7 @@ class Setup(dict):
         self.__create_folder_tree()
 
         # =========================================================================== #
-        # Set attributes so that they the setup can override them
+        # Set default attribute values
 
         # Data setup
         self.__purge_headers = True
