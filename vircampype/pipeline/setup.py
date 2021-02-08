@@ -255,7 +255,7 @@ class Setup(dict):
         return "median"
 
     @property
-    def interpolate_nan(self):
+    def interpolate_nan_bool(self):
         """ Whether to interpolate NaN values. """
         return True
 
