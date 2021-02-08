@@ -36,12 +36,13 @@ class Setup(dict):
 
         # Start adding folder structure to setup
         self["folders"] = dict()
-        self["folders"]["pype"] = self["paths"]["pype"]
-        self["folders"]["object"] = "{0}{1}/".format(self["folders"]["pype"], self["name"])
+        self["folders"]["pype"] = self["path_pype"]
+        self["folders"]["raw"] = self["path_data"]
+        self["folders"]["object"] = "{0}{1}/".format(self["path_pype"], self["name"])
         self["folders"]["headers"] = "{0}{1}/".format(self["folders"]["object"], "headers")
 
         # Master paths
-        self["folders"]["master_common"] = "{0}{1}/".format(self["folders"]["pype"], "master")
+        self["folders"]["master_common"] = "{0}{1}/".format(self["path_pype"], "master")
         self["folders"]["master_object"] = "{0}{1}/".format(self["folders"]["object"], "master")
 
         # Processing folders
@@ -70,7 +71,7 @@ class Setup(dict):
         self["folders"]["tile"] = "{0}{1}/".format(self["folders"]["object"], "tile")
 
         # Phase 3
-        self["folders"]["phase3"] = "{0}{1}{2}/".format(self["folders"]["pype"], "phase3/", self["name"])
+        self["folders"]["phase3"] = "{0}{1}{2}/".format(self["path_pype"], "phase3/", self["name"])
 
     def __create_folder_tree(self):
         """ Creates the folder tree for the pipeline"""
