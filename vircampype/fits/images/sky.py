@@ -545,7 +545,7 @@ class RawSkyImages(SkyImages):
             calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx_file])
 
             # Apply cosmetics
-            if self.setup["interpolation"]["interpolate_nan"]:
+            if self.setup.interpolate_nan:
                 calib_cube.interpolate_nan()
             if self.setup.destripe:
                 calib_cube.destripe()
