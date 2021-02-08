@@ -223,8 +223,8 @@ class Setup(dict):
         Aperture diameters used in photometric calibration.
         All apertures will be matched to the last in the list.
         """
-        return [3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13,
-                14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+        return [3.0, 4.0, 5.0, 6.0, 9.0,
+                12.0, 15.0, 18.0, 21.0, 24.0]
 
     @property
     def target_zp(self):
