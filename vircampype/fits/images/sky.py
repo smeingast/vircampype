@@ -775,8 +775,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
                         imageout_name=self.setup.path_tile, weightout_name=self.setup.path_tile_weight,
                         nthreads=self.setup["n_jobs"], resample_suffix=sws.resample_suffix,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
-                        back_size=self.setup["astromatic"]["back_size_swarp"],
-                        skip=["weight_image", "weight_thresh", "resample_dir"])
+                        back_size=self.setup.swarp_back_size, skip=["weight_image", "weight_thresh", "resample_dir"])
 
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
