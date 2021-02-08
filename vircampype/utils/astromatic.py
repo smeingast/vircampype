@@ -240,7 +240,7 @@ class ScampSetup:
             Path to scamp executable.
 
         """
-        return which(self.setup["astromatic"]["bin_scamp"])
+        return which(self.setup.bin_scamp)
 
     @property
     def package(self):
