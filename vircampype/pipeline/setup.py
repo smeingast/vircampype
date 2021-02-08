@@ -26,6 +26,10 @@ class Setup(dict):
         self.__purge_headers = True
         self.__reset_wcs = True
 
+        # Superflat
+        self.__superflat_window = 60
+        self.__superflat_n_min = 5
+
         # Astromatic
         self.__bin_sex = "sex"
         self.__bin_scamp = "scamp"
@@ -356,12 +360,20 @@ class Setup(dict):
     @property
     def superflat_window(self):
         """ Superflat window in minutes centered on each image. """
-        return 60
+        return self.__superflat_window
+
+    @superflat_window.setter
+    def superflat_window(self, superflat_window):
+        self.__superflat_window = superflat_window
 
     @property
     def superflat_n_min(self):
         """ Minimum number of files that need to go into a superflat. """
-        return 5
+        return self.__superflat_n_min
+
+    @superflat_n_min.setter
+    def superflat_n_min(self, superflat_n_min):
+        self.__superflat_n_min = superflat_n_min
 
     # =========================================================================== #
     # Astromatic
