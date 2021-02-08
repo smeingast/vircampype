@@ -19,9 +19,20 @@ class Setup(dict):
         # Make folder structure
         self.__create_folder_tree()
 
+        # =========================================================================== #
         # Set attributes so that they the setup can override them
-        self.__purge_headers = None
+
+        # Data setup
+        self.__purge_headers = True
         self.__reset_wcs = None
+
+        # Astromatic
+        self.__bin_sex = "sex"
+        self.__bin_scamp = "scamp"
+        self.__bin_swarp = "swarp"
+        self.__swarp_back_size = 128
+        self.__sex_back_size = 64
+        self.__sex_back_filtersize = 3
 
         # Try to override property from setup
         for key, val in self.items():
@@ -351,6 +362,56 @@ class Setup(dict):
     def superflat_n_min(self):
         """ Minimum number of files that need to go into a superflat. """
         return 5
+
+    # =========================================================================== #
+    # Astromatic
+    @property
+    def bin_sex(self):
+        return self.__bin_sex
+
+    @bin_sex.setter
+    def bin_sex(self, bin_sex):
+        self.__bin_sex = bin_sex
+
+    @property
+    def bin_scamp(self):
+        return self.__bin_scamp
+
+    @bin_scamp.setter
+    def bin_scamp(self, bin_scamp):
+        self.__bin_scamp = bin_scamp
+
+    @property
+    def bin_swarp(self):
+        return self.__bin_swarp
+
+    @bin_swarp.setter
+    def bin_swarp(self, bin_swarp):
+        self.__bin_swarp = bin_swarp
+
+    @property
+    def swarp_back_size(self):
+        return self.__swarp_back_size
+
+    @swarp_back_size.setter
+    def swarp_back_size(self, swarp_back_size):
+        self.__swarp_back_size = swarp_back_size
+
+    @property
+    def sex_back_size(self):
+        return self.__sex_back_size
+
+    @sex_back_size.setter
+    def sex_back_size(self, sex_back_size):
+        self.__sex_back_size = sex_back_size
+
+    @property
+    def sex_back_filtersize(self):
+        return self.__sex_back_filtersize
+
+    @sex_back_filtersize.setter
+    def sex_back_filtersize(self, sex_back_filtersize):
+        self.__sex_back_filtersize = sex_back_filtersize
 
     # =========================================================================== #
     # Other
