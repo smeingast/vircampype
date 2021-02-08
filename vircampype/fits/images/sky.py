@@ -161,8 +161,8 @@ class SkyImages(FitsImages):
                           parameters_name=sxs.path_param(preset=preset),
                           gain_key=self.setup.keywords.gain,
                           satur_key=self.setup.keywords.saturate,
-                          back_size=self.setup["astromatic"]["back_size_sex"],
-                          back_filtersize=self.setup["astromatic"]["back_filtersize_sex"])
+                          back_size=self.setup.sex_back_size,
+                          back_filtersize=self.setup.sex_back_filtersize)
 
         # Read setup based on preset
         if (preset == "scamp") | (preset == "master-weight"):
