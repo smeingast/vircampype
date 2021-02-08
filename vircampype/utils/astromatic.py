@@ -12,7 +12,7 @@ class SextractorSetup:
 
     @property
     def bin(self):
-        return which(self.setup["astromatic"]["bin_sex"])
+        return which(self.setup.bin_sex)
 
     @property
     def package(self):
