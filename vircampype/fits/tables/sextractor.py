@@ -116,7 +116,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Load preset
         options = yml2config(path_yml=get_resource_path(package=scs.package_presets, resource="scamp.yml"),
-                             nthreads=self.setup["misc"]["n_jobs"],
+                             nthreads=self.setup["n_jobs"],
                              checkplot_type=scs.qc_types(joined=True),
                              checkplot_name=scs.qc_names(joined=True),
                              skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_BAND"])
@@ -383,7 +383,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Add smoothed stats to tables
             parameters = ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR"]
-            with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
+            with Parallel(n_jobs=self.setup["n_jobs"]) as parallel:
                 tables_file = parallel(delayed(add_smoothed_value)(i, j, k) for i, j, k
                                        in zip(tables_file, image_headers_file, repeat(parameters)))
 
@@ -391,7 +391,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             tables_class_file = tables_class.file2table(file_index=idx_file)
 
             # Interpolate classification in parallel for each extension
-            with Parallel(n_jobs=self.setup["misc"]["n_jobs"]) as parallel:
+            with Parallel(n_jobs=self.setup["n_jobs"]) as parallel:
                 tables_file = parallel(delayed(interpolate_classification)(i, j, k) for i, j, k
                                        in zip(tables_file, tables_class_file, repeat(self.setup.seeing_test_range)))
 

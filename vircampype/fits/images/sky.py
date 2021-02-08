@@ -196,7 +196,7 @@ class SkyImages(FitsImages):
             return cmds
 
         # Run Sextractor
-        run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
+        run_cmds(cmds=cmds, silent=True, n_processes=self.setup["n_jobs"])
 
         # Add some keywords to primary header
         for cat, img in zip(path_tables_clean, self.paths_full):
@@ -258,7 +258,7 @@ class SkyImages(FitsImages):
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
 
             # Run Sextractor
-            run_cmds(cmds=cmds, silent=True, n_processes=self.setup["misc"]["n_jobs"])
+            run_cmds(cmds=cmds, silent=True, n_processes=self.setup["n_jobs"])
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
@@ -446,7 +446,7 @@ class RawSkyImages(SkyImages):
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
                     """ Need to use threading here to suppress warnings """
-                    with Parallel(n_jobs=self.setup["misc"]["n_jobs"], backend="threading") as parallel:
+                    with Parallel(n_jobs=self.setup["n_jobs"], backend="threading") as parallel:
                         background = parallel(delayed(sigma_clipped_stats)(a, b, c, d, e, f, g) for a, b, c, d, e, f, g
                                               in zip(cube.cube, repeat(None), repeat(None), repeat(3.0),
                                                      repeat(None), repeat(None), repeat(2)))
@@ -768,7 +768,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         # Read YML and override defaults
         ss = yml2config(path_yml=sws.preset_pawprints,
                         imageout_name=self.setup.path_tile, weightout_name=self.setup.path_tile_weight,
-                        nthreads=self.setup["misc"]["n_jobs"], resample_suffix=sws.resample_suffix,
+                        nthreads=self.setup["n_jobs"], resample_suffix=sws.resample_suffix,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                         back_size=self.setup["astromatic"]["back_size_swarp"],
                         skip=["weight_image", "weight_thresh", "resample_dir"])
@@ -837,7 +837,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         ss = yml2config(path_yml=sws.preset_coadd, imageout_name=self.setup.path_tile,
                         weightout_name=self.setup.path_tile_weight,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
-                        nthreads=self.setup["misc"]["n_jobs"], skip=["weight_thresh", "weight_image"])
+                        nthreads=self.setup["n_jobs"], skip=["weight_thresh", "weight_image"])
 
         # Construct commands for source extraction
         cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
@@ -862,7 +862,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         ss = yml2config(path_yml=sws.preset_coadd, imageout_name=imageout_name, weight_image=",".join(weight_images),
                         weightout_name=imageout_name.replace(".fits", ".weight.fits"), combine_type=combine_type,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
-                        nthreads=self.setup["misc"]["n_jobs"], skip=["weight_thresh", "weight_suffix"])
+                        nthreads=self.setup["n_jobs"], skip=["weight_thresh", "weight_suffix"])
 
         # Construct commands for source extraction
         cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
