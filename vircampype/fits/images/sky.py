@@ -623,6 +623,12 @@ class ProcessedSkyImages(SkyImages):
                 # Modification factor is the mean for the current superflat
                 mod = np.median(cube_flat[idx_hdr])
 
+                # Add target ZP to header
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                    key="HIERARCH PYPE SETUP TARGET ZP",
+                                    value=self.setup.target_zp,
+                                    comment="Target ZP for scaling", remove_before=True)
+
                 # Add modification factor
                 # noinspection PyTypeChecker
                 add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
