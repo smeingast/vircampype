@@ -121,7 +121,7 @@ class SwarpSetup:
 
     @property
     def bin(self):
-        return which(self.setup["astromatic"]["bin_swarp"])
+        return which(self.setup.bin_swarp)
 
     @property
     def package(self):
