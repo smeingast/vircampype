@@ -304,9 +304,7 @@ class RawSkyImages(SkyImages):
     def build_master_source_mask(self):
 
         # Processing info
-        # print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
         print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
-        exit()
         tstart = time.time()
 
         # Fetch the Masterfiles
