@@ -736,12 +736,12 @@ class RawScienceImages(RawSkyImages):
         area = []
         for rot in rotation_test:
             hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
-                                  enlarge=1, cdelt=self.setup.pixel_scale_degrees)
+                                  enlarge=0.5, cdelt=self.setup.pixel_scale_degrees)
             area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
 
         # Return final header with optimized rotation
         rotation = rotation_test[np.argmin(area)]
-        header_tile = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=1,
+        header_tile = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5,
                                       rotation=np.deg2rad(np.round(rotation, 2)), cdelt=self.setup.pixel_scale_degrees)
 
         # Dummy check
