@@ -1,5 +1,6 @@
 import os
 import numpy as np
+
 from vircampype.utils.system import *
 from vircampype.pipeline.errors import *
 
@@ -11,6 +12,12 @@ class Setup(dict):
 
         # Initialize dict
         super(Setup, self).__init__(*arg, **kw)
+
+        # Check that no bad setup parameter is passed
+        attributes = [k for k, v in self.__class__.__dict__.items() if not k.startswith("_")]
+        for k, _ in kw.items():
+            if k not in attributes:
+                raise PipelineError("Incorrect setup parameter used: '{0}'".format(k))
 
         # =========================================================================== #
         # Set default attribute values
