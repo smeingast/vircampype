@@ -39,7 +39,6 @@ class Setup(dict):
         self.__sex_back_filtersize = 3
 
         # Try to override property from setup
-        # TODO: Replace all ["xxx"] calls from setup
         for key, val in self.items():
             setattr(self, key, val)
 
