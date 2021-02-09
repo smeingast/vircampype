@@ -9,8 +9,8 @@ from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCal
 
 class Pipeline:
 
-    def __init__(self, setup):
-        self.setup = Setup.load_pipeline_setup(setup)
+    def __init__(self, setup, **kwargs):
+        self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
         # Read status
         self.path_status = "{0}{1}".format(self.setup.folders["temp"], "pipeline_status.p")
