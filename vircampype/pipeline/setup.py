@@ -47,7 +47,10 @@ class Setup(dict):
 
         # Try to override property from setup
         for key, val in self.items():
-            setattr(self, key, val)
+            try:
+                setattr(self, key, val)
+            except AttributeError:
+                raise PipelineError("Can't set attribute '{0}'. Implement property setter!".format(key))
 
         # Check basic setup
         if self.name is None:
