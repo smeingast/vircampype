@@ -349,6 +349,12 @@ class Setup(dict):
         return "mean"
 
     # =========================================================================== #
+    # Gain
+    @property
+    def gain_max_lag(self):
+        return 1
+
+    # =========================================================================== #
     # Master
     @property
     def master_max_lag_bpm(self):

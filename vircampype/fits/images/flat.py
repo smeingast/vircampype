@@ -501,8 +501,8 @@ class FlatLampGain(FlatImages):
         tstart = time.time()
 
         # Split based on lag
-        split_flats = self.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
-        split_darks = darks.split_lag(max_lag=self.setup["gain"]["max_lag"], sort_mjd=True)
+        split_flats = self.split_lag(max_lag=self.setup.gain_max_lag, sort_mjd=True)
+        split_darks = darks.split_lag(max_lag=self.setup.gain_max_lag, sort_mjd=True)
 
         if len(split_flats) != len(split_darks):
             raise ValueError("Provided darks do not match to input flats!")
