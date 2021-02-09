@@ -42,7 +42,7 @@ class FlatTwilight(FlatImages):
 
         # Split based on lag and filter
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_lag(max_lag=self.setup["flat"]["max_lag"]) for s in split])
+        split = flat_list([s.split_lag(max_lag=self.setup.flat_max_lag) for s in split])
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):
@@ -101,20 +101,19 @@ class FlatTwilight(FlatImages):
                 cube.cube /= flux[-1][:, np.newaxis, np.newaxis]
 
                 # After flux scaling we can also safely apply the remaining masks
-                cube.apply_masks(mask_min=self.setup["flat"]["mask_min"], mask_max=self.setup["flat"]["mask_min"],
-                                 mask_below=self.setup["flat"]["rel_lo"], mask_above=self.setup["flat"]["rel_hi"],
-                                 sigma_level=self.setup["flat"]["sigma_level"],
-                                 sigma_iter=self.setup["flat"]["sigma_iter"])
+                cube.apply_masks(mask_min=self.setup.flat_mask_min, mask_max=self.setup.flat_mask_max,
+                                 mask_below=self.setup.flat_rel_lo, mask_above=self.setup.flat_rel_hi,
+                                 sigma_level=self.setup.flat_sigma_level, sigma_iter=self.setup.flat_sigma_iter)
 
                 # Create weights if needed
-                if self.setup["flat"]["metric"] == "weighted":
+                if self.setup.flat_metric == "weighted":
                     weights = np.empty_like(cube.cube)
                     weights[:] = flux[-1][:, np.newaxis, np.newaxis]
                 else:
                     weights = None
 
                 # Flatten data
-                flat = cube.flatten(metric=self.setup["flat"]["metric"], axis=0, weights=weights, dtype=None)
+                flat = cube.flatten(metric=self.setup.flat_metric, axis=0, weights=weights, dtype=None)
 
                 # Create header with flux measurements
                 cards_flux = []

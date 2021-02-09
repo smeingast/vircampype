@@ -365,6 +365,40 @@ class Setup(dict):
         return 1
 
     # =========================================================================== #
+    # Flat
+    @property
+    def flat_max_lag(self):
+        return 1
+
+    @property
+    def flat_mask_min(self):
+        return False
+
+    @property
+    def flat_mask_max(self):
+        return False
+
+    @property
+    def flat_rel_lo(self):
+        return 0.3
+
+    @property
+    def flat_rel_hi(self):
+        return 1.7
+
+    @property
+    def flat_sigma_level(self):
+        return 3
+
+    @property
+    def flat_sigma_iter(self):
+        return 1
+
+    @property
+    def flat_metric(self):
+        return "weighted"
+
+    # =========================================================================== #
     # Master
     @property
     def master_max_lag_bpm(self):
