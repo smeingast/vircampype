@@ -256,7 +256,7 @@ class FlatLampLin(FlatImages):
         """ Calculates the non-linearity coefficients based on a series of dome flats. """
 
         # Order can't be greater than 3 at the moment
-        if self.setup["linearity"]["order"] not in [2, 3]:
+        if self.setup.linearity_order not in [2, 3]:
             raise NotImplementedError("Order not supported")
 
         # Processing info
@@ -265,7 +265,7 @@ class FlatLampLin(FlatImages):
 
         # Split based on lag and filter
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_lag(max_lag=self.setup["linearity"]["max_lag"]) for s in split])
+        split = flat_list([s.split_lag(max_lag=self.setup.linearity_max_lag) for s in split])
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):
@@ -320,10 +320,10 @@ class FlatLampLin(FlatImages):
                 dit = np.array(files.dit)
 
                 # Fit a polynomial through good fluxes
-                coeff = np.polyfit(dit[~badflux], flux[~badflux], deg=self.setup["linearity"]["order"])
+                coeff = np.polyfit(dit[~badflux], flux[~badflux], deg=self.setup.linearity_order)
 
                 # The coefficients now must be scaled (check VISTA DR library design document for an explanation)
-                coeff_norm = np.divide(coeff, coeff[-2] ** np.arange(self.setup["linearity"]["order"] + 1)[::-1])
+                coeff_norm = np.divide(coeff, coeff[-2] ** np.arange(self.setup.linearity_order + 1)[::-1])
 
                 # Round coefficients
                 coeff, coeff_norm = list(np.around(coeff, decimals=12)), list(np.around(coeff_norm, decimals=12))
@@ -345,7 +345,7 @@ class FlatLampLin(FlatImages):
                 # Make header cards
                 cards = make_cards(keywords=["HIERARCH PYPE QC NL10000", "HIERARCH PYPE QC SATURATION",
                                              "HIERARCH PYPE LIN ORDER"],
-                                   values=[nl10000, sat, self.setup["linearity"]["order"]],
+                                   values=[nl10000, sat, self.setup.linearity_order],
                                    comments=["Non-linearity at 10000 ADU in %", "Saturation limit (ADU)",
                                              "Order of linearity fit"])
 

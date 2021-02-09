@@ -355,6 +355,16 @@ class Setup(dict):
         return 1
 
     # =========================================================================== #
+    # Linearity
+    @property
+    def linearity_order(self):
+        return 2
+
+    @property
+    def linearity_max_lag(self):
+        return 1
+
+    # =========================================================================== #
     # Master
     @property
     def master_max_lag_bpm(self):
