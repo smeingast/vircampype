@@ -25,7 +25,7 @@ class DarkImages(FitsImages):
 
         # Split files first on DIT and NDIT, then on lag
         split = self.split_keywords(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit])
-        split = flat_list([s.split_lag(max_lag=self.setup.max_lag_dark for s in split])
+        split = flat_list([s.split_lag(max_lag=self.setup["dark"]["max_lag"]) for s in split])
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
