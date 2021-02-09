@@ -7,7 +7,6 @@ from typing import List
 from vircampype.utils.plots import *
 from vircampype.utils.messaging import *
 from vircampype.utils.mathtools import *
-from vircampype.utils.miscellaneous import *
 from vircampype.fits.tables.common import MasterTables
 
 
@@ -259,11 +258,11 @@ class MasterLinearity(MasterTables):
                             xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
-                if idx < fpa_layout[1]:
+                if idx < self.setup.fpa_layout[1]:
                     ax.set_xlabel("DIT (s)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % fpa_layout[0] == fpa_layout[0] - 1:
+                if idx % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
