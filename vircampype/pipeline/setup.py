@@ -399,6 +399,24 @@ class Setup(dict):
         return "weighted"
 
     # =========================================================================== #
+    # Weight
+    @property
+    def weight_mask_abs_max(self):
+        return 1.7
+
+    @property
+    def weight_mask_abs_min(self):
+        return 0.3
+
+    @property
+    def weight_mask_rel_max(self):
+        return 1.5
+
+    @property
+    def weight_mask_rel_min(self):
+        return 0.5
+
+    # =========================================================================== #
     # Master
     @property
     def master_max_lag_bpm(self):

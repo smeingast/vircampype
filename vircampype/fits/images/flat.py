@@ -208,8 +208,7 @@ class FlatTwilight(FlatImages):
             cube = master_flats.file2cube(file_index=idx, hdu_index=None, dtype=None)
 
             # Apply absolute masks
-            cube.apply_masks(mask_below=self.setup["weight"]["mask_abs_min"],
-                             mask_above=self.setup["weight"]["mask_abs_max"])
+            cube.apply_masks(mask_below=self.setup.weight_mask_abs_min, mask_above=self.setup.weight_mask_abs_max)
 
             # Get median for each plane
             median = cube.median(axis=(1, 2))[:, np.newaxis, np.newaxis]
@@ -218,8 +217,7 @@ class FlatTwilight(FlatImages):
             cube /= median
 
             # Mask relative values
-            cube.apply_masks(mask_below=self.setup["weight"]["mask_rel_min"],
-                             mask_above=self.setup["weight"]["mask_rel_max"])
+            cube.apply_masks(mask_below=self.setup.weight_mask_rel_min, mask_above=self.setup.weight_mask_rel_max)
 
             # Scale back to original
             cube *= median
