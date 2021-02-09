@@ -297,32 +297,32 @@ class Setup(dict):
         return 10
 
     @property
-    def max_lag_flat(self):
+    def master_max_lag_flat(self):
         """ Maximum time difference to MasterFlat in days. """
         return 10
 
     @property
-    def max_lag_superflat(self):
+    def master_max_lag_superflat(self):
         """ Maximum time difference to MasterSuperflat in minutes. """
         return 60
 
     @property
-    def max_lag_sky(self):
+    def master_max_lag_sky(self):
         """ Maximum time difference to MasterSky in minutes. """
         return 60
 
     @property
-    def max_lag_gain(self):
+    def master_max_lag_gain(self):
         """ Maximum time difference to MasterGain in days. """
         return 10
 
     @property
-    def max_lag_weight(self):
+    def master_max_lag_weight(self):
         """ Maximum time difference to MasterWeight in days. """
         return 10
 
     @property
-    def max_lag_linearity(self):
+    def master_max_lag_linearity(self):
         """ Maximum time difference to MasterLinearity in days. """
         return 10
 

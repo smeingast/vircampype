@@ -513,7 +513,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_passband(match_to=self.get_master_images().flat, max_lag=self.setup.max_lag_flat)
+        return self.match_passband(match_to=self.get_master_images().flat, max_lag=self.setup.master_max_lag_flat)
 
     def get_unique_master_flats(self):
         """ Returns unique Master Flats as MasterFlat instance. """
@@ -544,7 +544,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_passband(match_to=self.get_master_images().sky, max_lag=self.setup.max_lag_sky / 1440.)
+        return self.match_passband(match_to=self.get_master_images().sky, max_lag=self.setup.master_max_lag_sky / 1440.)
 
     def get_master_weights(self):
         """
@@ -574,7 +574,7 @@ class FitsImages(FitsFiles):
 
         # If no local paths are found, fetch image weights
         master_weight_paths = self.match_passband(match_to=self.get_master_images().weight,
-                                                  max_lag=self.setup.max_lag_weight).paths_full
+                                                  max_lag=self.setup.master_max_lag_weight).paths_full
         if sum([os.path.isfile(x) for x in master_weight_paths]) == len(self):
             return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
 
@@ -592,7 +592,7 @@ class FitsImages(FitsFiles):
 
         """
         return self.match_passband(match_to=self.get_master_images().superflat,
-                                   max_lag=self.setup.max_lag_superflat / 1440.)
+                                   max_lag=self.setup.master_max_lag_superflat / 1440.)
 
     # =========================================================================== #
     # Master tables
@@ -609,7 +609,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().linearity, max_lag=self.setup.max_lag_linearity)
+        return self.match_mjd(match_to=self.get_master_tables().linearity, max_lag=self.setup.master_max_lag_linearity)
 
     def get_master_gain(self):
         """
@@ -623,7 +623,7 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_mjd(match_to=self.get_master_tables().gain, max_lag=self.setup.max_lag_gain)
+        return self.match_mjd(match_to=self.get_master_tables().gain, max_lag=self.setup.master_max_lag_gain)
 
 
 class MasterImages(FitsImages):
