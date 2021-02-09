@@ -804,19 +804,19 @@ class ImageCube(object):
             cff = repeat(coeff)
 
         # Only launch Pool if more than one thread is requested
-        if self.setup["n_jobs"] == 1:
+        if self.setup.n_jobs == 1:
             mp = []
             for p, c in zip(self.cube, cff):
                 mp.append(linearize_data(data=p, coeff=c))
 
-        elif self.setup["n_jobs"] > 1:
+        elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
-            with Parallel(n_jobs=self.setup["n_jobs"]) as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                 mp = parallel(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
 
         else:
             raise ValueError("'n_threads' not correctly set (n_threads = {0})"
-                             .format(self.setup["n_jobs"]))
+                             .format(self.setup.n_jobs))
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
@@ -926,24 +926,24 @@ class ImageCube(object):
         for plane in self:
 
             # Chop in smaller sub-regions for better performance
-            chopped, loc = chop_image(array=plane, npieces=self.setup["n_jobs"] * 2,
+            chopped, loc = chop_image(array=plane, npieces=self.setup.n_jobs * 2,
                                       axis=chop_ax, overlap=overlap)
 
             # Do interpolation
-            if self.setup["n_jobs"] == 1:
+            if self.setup.n_jobs == 1:
                 mp = []
                 for ch in chopped:
                     mp.append(interpolate_image(data=ch, kernel=kernel,
                                                 max_bad_neighbors=self.setup.interpolate_max_bad_neighbors))
 
-            elif self.setup["n_jobs"] > 1:
-                with Parallel(n_jobs=self.setup["n_jobs"]) as parallel:
+            elif self.setup.n_jobs > 1:
+                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                     mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
                                   zip(chopped, repeat(kernel), repeat(self.setup.interpolate_max_bad_neighbors)))
 
             else:
                 raise ValueError(
-                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup["n_jobs"]))
+                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup.n_jobs))
 
             # Merge back into plane and put into cube
             plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)
@@ -1188,4 +1188,4 @@ class ImageCube(object):
         """
 
         return background_cube(cube=self.cube, mesh_size=mesh_size, max_iter=10,
-                               mesh_filtersize=mesh_filtersize, n_threads=self.setup["n_jobs"])
+                               mesh_filtersize=mesh_filtersize, n_threads=self.setup.n_jobs)
