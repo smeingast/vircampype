@@ -265,7 +265,7 @@ class FlatLampLin(FlatImages):
 
         # Split based on lag and filter
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_lag(max_lag=self.setup["gain"]["max_lag"]) for s in split])
+        split = flat_list([s.split_lag(max_lag=self.setup["linearity"]["max_lag"]) for s in split])
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):
