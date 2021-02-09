@@ -25,7 +25,7 @@ class DarkImages(FitsImages):
 
         # Split files first on DIT and NDIT, then on lag
         split = self.split_keywords(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit])
-        split = flat_list([s.split_lag(max_lag=self.setup["dark"]["max_lag"]) for s in split])
+        split = flat_list([s.split_lag(max_lag=self.setup.dark_max_lag) for s in split])
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
@@ -64,12 +64,12 @@ class DarkImages(FitsImages):
                 bpm = master_bpm.hdu2cube(hdu_index=d, dtype=np.uint8)
 
                 # Masking methods
-                cube.apply_masks(mask_min=self.setup["dark"]["mask_min"], mask_max=self.setup["dark"]["mask_max"],
-                                 sigma_level=self.setup["dark"]["sigma_level"],
-                                 sigma_iter=self.setup["dark"]["sigma_iter"], bpm=bpm)
+                cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max,
+                                 sigma_level=self.setup.dark_sigma_level,
+                                 sigma_iter=self.setup.dark_sigma_iter, bpm=bpm)
 
                 # Collapse extensions
-                collapsed = cube.flatten(metric=string2func(self.setup["dark"]["metric"]))
+                collapsed = cube.flatten(metric=string2func(self.setup.dark_metric))
 
                 # Determine dark current as median
                 dc = np.nanmedian(collapsed) / (files.dit[0] * files.ndit[0])

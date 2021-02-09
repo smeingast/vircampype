@@ -323,6 +323,32 @@ class Setup(dict):
         return "median"
 
     # =========================================================================== #
+    # Dark
+    @property
+    def dark_max_lag(self):
+        return 1
+
+    @property
+    def dark_mask_min(self):
+        return False
+
+    @property
+    def dark_mask_max(self):
+        return False
+
+    @property
+    def dark_sigma_level(self):
+        return 3
+
+    @property
+    def dark_sigma_iter(self):
+        return 1
+
+    @property
+    def dark_metric(self):
+        return "mean"
+
+    # =========================================================================== #
     # Master
     @property
     def master_max_lag_bpm(self):
