@@ -451,7 +451,7 @@ class ImageCube(object):
 
         # Create cube with bad columns and set the columns to a finite value temporarily
         if np.sum(self.bad_columns) > 0:
-            bad = np.empty_like(self.cube, dtype=np.bool)
+            bad = np.empty_like(self.cube, dtype=bool)
             bad[:] = self.bad_columns[np.newaxis, :, :]
             self.cube[bad] = 1
         else:
@@ -477,7 +477,7 @@ class ImageCube(object):
 
         # Create cube with bad columns and set the columns to a finite value temporarily
         if np.sum(self.bad_columns) > 0:
-            bad = np.empty_like(self.cube, dtype=np.bool)
+            bad = np.empty_like(self.cube, dtype=bool)
             bad[:] = self.bad_columns[np.newaxis, :, :]
             self.cube[bad] = 1
         else:
@@ -1022,7 +1022,7 @@ class ImageCube(object):
 
             # Set background to 0, sources to 1 and convert to 8bit unsigned integer
             labels[labels > 0], labels[labels < 0] = 1, 0
-            labels = labels.astype(np.bool)
+            labels = labels.astype(bool)
 
             # Apply mask
             if return_labels:
