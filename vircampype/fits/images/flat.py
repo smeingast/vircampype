@@ -448,7 +448,7 @@ class FlatLampCheck(FlatImages):
 
                 # Make header cards
                 cards = make_cards(keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
-                                   values=[np.int(np.sum(bpm)), np.round(np.sum(bpm) / bpm.size, decimals=5)],
+                                   values=[int(np.sum(bpm)), np.round(np.sum(bpm) / bpm.size, decimals=5)],
                                    comments=["Number of bad pixels", "Fraction of bad pixels"])
                 data_headers.append(fits.Header(cards=cards))
 
