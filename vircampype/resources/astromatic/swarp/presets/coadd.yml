@@ -21,13 +21,13 @@ WEIGHT_THRESH:         ""                # Bad pixel weight-threshold
 #------------------------------- Co-addition ----------------------------------
 
 COMBINE:                Y              # Combine resampled images (Y/N)?
-COMBINE_TYPE:           MEDIAN        # MEDIAN,AVERAGE,MIN,MAX,WEIGHTED,CLIPPED
+COMBINE_TYPE:           CLIPPED        # MEDIAN,AVERAGE,MIN,MAX,WEIGHTED,CLIPPED
                                        # CHI-OLD,CHI-MODE,CHI-MEAN,SUM,
                                        # WEIGHTED_WEIGHT,MEDIAN_WEIGHT,
                                        # AND,NAND,OR or NOR
 CLIP_AMPFRAC:           0.3             # Fraction of flux variation allowed
                                        # with clipping
-CLIP_SIGMA:             4.0             # RMS error multiple variation allowed
+CLIP_SIGMA:             2.0             # RMS error multiple variation allowed
                                        # with clipping
 CLIP_WRITELOG:          N               # Write output file with coordinates of
                                        # clipped pixels (Y/N)
