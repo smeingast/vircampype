@@ -47,7 +47,7 @@ class Setup(dict):
             raise PipelineError("Pipeline setup needs a name")
         if (self.path_data is None) | (os.path.exists(self.path_data) is False):
             raise PipelineError("Please provide valid path to data")
-        if (self.path_pype is None) | (os.path.exists(self.path_pype) is False):
+        if self.path_pype is None:
             raise PipelineError("Please provide valid path for pipeline output")
 
         # =========================================================================== #
