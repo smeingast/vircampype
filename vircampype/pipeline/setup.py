@@ -1,5 +1,7 @@
+import os
 import numpy as np
 from vircampype.utils.system import *
+from vircampype.pipeline.errors import *
 
 
 class Setup(dict):
@@ -10,17 +12,15 @@ class Setup(dict):
         # Initialize dict
         super(Setup, self).__init__(*arg, **kw)
 
-        # Add folder structure to self
-        self.__add_folder_tree()
-
-        # Add folder attribute
-        self.folders = self["folders"]
-
-        # Make folder structure
-        self.__create_folder_tree()
-
         # =========================================================================== #
         # Set default attribute values
+        self.__name = None
+        self.__path_data = None
+        self.__path_pype = None
+        self.__n_jobs = 4
+        self.__silent = False
+        self.__overwrite = False
+        self.__qc_plots = True
 
         # Data setup
         self.__purge_headers = True
@@ -39,12 +39,31 @@ class Setup(dict):
         self.__sex_back_filtersize = 3
 
         # Try to override property from setup
+        # TODO: Replace all ["xxx"] calls from setup
         for key, val in self.items():
             setattr(self, key, val)
 
+        # Check basic setup
+        if self.name is None:
+            raise PipelineError("Pipeline setup needs a name")
+        if (self.path_data is None) | (os.path.exists(self.path_data) is False):
+            raise PipelineError("Please provide valid path to data")
+        if (self.path_pype is None) | (os.path.exists(self.path_pype) is False):
+            raise PipelineError("Please provide valid path for pipeline output")
+
+        # =========================================================================== #
+        # Add folder structure to self
+        self.__add_folder_tree()
+
+        # Add folder attribute
+        self.folders = self["folders"]
+
+        # Make folder structure
+        self.__create_folder_tree()
+
     @property
     def path_tile(self):
-        return "{0}{1}.fits".format(self.folders["tile"], self["name"])
+        return "{0}{1}.fits".format(self.folders["tile"], self.name)
 
     @property
     def path_tile_weight(self):
@@ -59,13 +78,13 @@ class Setup(dict):
 
         # Start adding folder structure to setup
         self["folders"] = dict()
-        self["folders"]["pype"] = self["path_pype"]
-        self["folders"]["raw"] = self["path_data"]
-        self["folders"]["object"] = "{0}{1}/".format(self["path_pype"], self["name"])
+        self["folders"]["pype"] = self.path_pype
+        self["folders"]["raw"] = self.path_data
+        self["folders"]["object"] = "{0}{1}/".format(self.path_pype, self.name)
         self["folders"]["headers"] = "{0}{1}/".format(self["folders"]["object"], "headers")
 
         # Master paths
-        self["folders"]["master_common"] = "{0}{1}/".format(self["path_pype"], "master")
+        self["folders"]["master_common"] = "{0}{1}/".format(self.path_pype, "master")
         self["folders"]["master_object"] = "{0}{1}/".format(self["folders"]["object"], "master")
 
         # Processing folders
@@ -94,7 +113,7 @@ class Setup(dict):
         self["folders"]["tile"] = "{0}{1}/".format(self["folders"]["object"], "tile")
 
         # Phase 3
-        self["folders"]["phase3"] = "{0}{1}{2}/".format(self["path_pype"], "phase3/", self["name"])
+        self["folders"]["phase3"] = "{0}{1}{2}/".format(self.path_pype, "phase3/", self.name)
 
     def __create_folder_tree(self):
         """ Creates the folder tree for the pipeline"""
@@ -118,7 +137,7 @@ class Setup(dict):
             make_folder(path)
 
         # Create common calibration path only if we run a calibration unit
-        if "calibration" in self["name"].lower():
+        if "calibration" in self.name.lower():
             for path in folders_cal:
                 make_folder(path=path)
 
@@ -128,7 +147,7 @@ class Setup(dict):
                 make_folder(path=path)
 
     @classmethod
-    def load_pipeline_setup(cls, setup):
+    def load_pipeline_setup(cls, setup, **kwargs):
         """
         Load a setup instance.
 
@@ -146,7 +165,7 @@ class Setup(dict):
 
         # If given as string, load YML
         if isinstance(setup, str):
-            return cls(read_yml(path_yml=setup))
+            return cls(read_yml(path_yml=setup), **kwargs)
 
         # If given as Setup instance, just return it again
         elif isinstance(setup, cls):
@@ -158,6 +177,67 @@ class Setup(dict):
 
     # =========================================================================== #
     # Hard-coded pipeline setup
+    # =========================================================================== #
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, name):
+        self.__name = name
+
+    @property
+    def path_data(self):
+        return self.__path_data
+
+    @path_data.setter
+    def path_data(self, path_data):
+        self.__path_data = path_data
+
+    @property
+    def path_pype(self):
+        return self.__path_pype
+
+    @path_pype.setter
+    def path_pype(self, path_pype):
+        self.__path_pype = path_pype
+
+    @property
+    def n_jobs(self):
+        """ Number of parallel jobs (when available). """
+        return self.__n_jobs
+
+    @n_jobs.setter
+    def n_jobs(self, n_jobs):
+        self.__n_jobs = n_jobs
+
+    @property
+    def silent(self):
+        """ Whether the pipeline should operatre in silent mode. """
+        return self.__silent
+
+    @silent.setter
+    def silent(self, silent):
+        self.__silent = silent
+
+    @property
+    def overwrite(self):
+        """ Whether the pipeline overwrites existing files. """
+        return self.__overwrite
+
+    @overwrite.setter
+    def overwrite(self, overwrite):
+        self.__overwrite = overwrite
+
+    @property
+    def qc_plots(self):
+        """ Whether QC plots should be generated. """
+        return self.__qc_plots
+
+    @qc_plots.setter
+    def qc_plots(self, qc_plots):
+        self.__qc_plots = qc_plots
+
     # =========================================================================== #
     # Data setup
     @property
@@ -438,21 +518,6 @@ class Setup(dict):
     @property
     def pixel_scale_degrees(self):
         return self.pixel_scale_arcsec / 3600.
-
-    @property
-    def silent(self):
-        """ Whether the pipeline should operatre in silent mode. """
-        return False
-
-    @property
-    def overwrite(self):
-        """ Whether the pipeline overwrites existing files. """
-        return False
-
-    @property
-    def qc_plots(self):
-        """ Whether QC plots should be generated. """
-        return True
 
 
 class HeaderKeywords:
