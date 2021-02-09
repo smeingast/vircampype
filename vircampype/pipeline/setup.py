@@ -287,12 +287,12 @@ class Setup(dict):
     # =========================================================================== #
     # Master
     @property
-    def max_lag_bpm(self):
+    def master_max_lag_bpm(self):
         """ Maximum time difference to MasterBPM in days. """
         return 10
 
     @property
-    def max_lag_dark(self):
+    def master_max_lag_dark(self):
         """ Maximum time difference to MasterDark in days. """
         return 10
 
