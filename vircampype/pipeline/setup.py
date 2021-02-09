@@ -285,6 +285,44 @@ class Setup(dict):
         return HeaderKeywords()
 
     # =========================================================================== #
+    # BPM
+    @property
+    def bpm_max_lag(self):
+        return 1
+
+    @property
+    def bpm_abs_lo(self):
+        return 0.1
+
+    @property
+    def bpm_abs_hi(self):
+        return 20000
+
+    @property
+    def bpm_rel_lo(self):
+        return 0.97
+
+    @property
+    def bpm_rel_hi(self):
+        return 1.03
+
+    @property
+    def bpm_sigma_level(self):
+        return 4
+
+    @property
+    def bpm_sigma_iter(self):
+        return 1
+
+    @property
+    def bpm_frac(self):
+        return 0.2
+
+    @property
+    def bpm_metric(self):
+        return "median"
+
+    # =========================================================================== #
     # Master
     @property
     def master_max_lag_bpm(self):

@@ -393,7 +393,7 @@ class FlatLampCheck(FlatImages):
         tstart = time.time()
 
         # Split files based on maximum time lag is set
-        split = self.split_lag(max_lag=self.setup["bpm"]["max_lag"])
+        split = self.split_lag(max_lag=self.setup.bpm_max_lag)
 
         # Now loop through separated files and build Masterbpm
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -426,26 +426,25 @@ class FlatLampCheck(FlatImages):
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
 
                 # Mask low and high absolute values
-                cube.apply_masks(mask_below=self.setup["bpm"]["abs_lo"], mask_above=self.setup["bpm"]["abs_hi"])
+                cube.apply_masks(mask_below=self.setup.bpm_abs_lo, mask_above=self.setup.bpm_abs_hi)
 
                 # Sigma clipping per plane
-                cube.apply_masks_plane(sigma_level=self.setup["bpm"]["sigma_level"],
-                                       sigma_iter=self.setup["bpm"]["sigma_iter"])
+                cube.apply_masks_plane(sigma_level=self.setup.bpm_sigma_level, sigma_iter=self.setup.bpm_sigma_iter)
 
                 # Collapse cube with median
-                flat = cube.flatten(metric=string2func(self.setup["bpm"]["metric"]), axis=0)
+                flat = cube.flatten(metric=string2func(self.setup.bpm_metric), axis=0)
 
                 # Normalize cube with flattened data
                 cube.cube = cube.cube / flat
 
                 # Mask low and high relative values
-                cube.apply_masks(mask_below=self.setup["bpm"]["rel_lo"], mask_above=self.setup["bpm"]["rel_hi"])
+                cube.apply_masks(mask_below=self.setup.bpm_rel_lo, mask_above=self.setup.bpm_rel_hi)
 
                 # Count how many bad pixels there are in the stack and normalize to the number of input images
                 nbad_pix = np.sum(~np.isfinite(cube.cube), axis=0) / files.n_files
 
                 # Get those pixels where the number of bad pixels is greater than the given input threshold
-                bpm = np.array(nbad_pix > self.setup["bpm"]["frac"], dtype=np.uint8)
+                bpm = np.array(nbad_pix > self.setup.bpm_frac, dtype=np.uint8)
 
                 # Make header cards
                 cards = make_cards(keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
