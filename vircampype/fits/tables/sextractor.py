@@ -315,6 +315,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 superflat.extend(data=fscl.astype(np.float32))
 
                 # Create extension header cards
+                # TODO: Change this to add_float_to_header
                 data_cards = make_cards(keywords=["HIERARCH PYPE SFLAT NSOURCES", "HIERARCH PYPE SFLAT STD"],
                                         values=[nn, float(str(np.round(np.nanstd(fscl), decimals=2)))],
                                         comments=["Number of sources used", "Standard deviation in relative flux"])

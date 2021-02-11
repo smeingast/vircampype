@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+"""
+Either install vircampype or add root to PYTHONPATH via
+export PYTHONPATH="/Users/stefan/Dropbox/Projects/vircampype/":$PYTHONPATH}
+"""
 import sys
 import argparse
-sys.path.append("/Users/stefan/Dropbox/Projects/vircampype")
 from vircampype.pipeline.main import Pipeline
 
 # Setup parser
