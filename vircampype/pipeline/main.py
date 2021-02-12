@@ -194,13 +194,13 @@ class Pipeline:
             else:
                 print_message(message="MASTER-FLAT already created", kind="warning", end=None)
 
-    def build_master_weight(self):
+    def build_master_weight_global(self):
         if self.flat_twilight is not None:
-            if not self.status.master_weight:
-                self.flat_twilight.build_master_weight()
-                self.update_status(path=self.path_status, master_weight=True)
+            if not self.status.master_weight_global:
+                self.flat_twilight.build_master_weight_global()
+                self.update_status(path=self.path_status, master_weight_global=True)
             else:
-                print_message(message="MASTER-WEIGHT already created", kind="warning", end=None)
+                print_message(message="MASTER-WEIGHT-GLOBAL already created", kind="warning", end=None)
 
     def build_master_source_mask(self):
         if self.science_raw is not None:
@@ -255,7 +255,7 @@ class Pipeline:
         self.build_master_gain()
         self.build_master_linearity()
         self.build_master_flat()
-        self.build_master_weight()
+        self.build_master_weight_global()
         self.build_master_source_mask()
         self.build_master_sky()
         self.build_master_photometry()
@@ -374,7 +374,7 @@ class Pipeline:
 
 class PipelineStatus:
     def __init__(self, master_bpm=False, master_dark=False, master_gain=False, master_linearity=False,
-                 master_flat=False, master_weight=False, master_source_mask=False, master_sky=False,
+                 master_flat=False, master_weight_global=False, master_source_mask=False, master_sky=False,
                  processed_raw=False, astrometry=False, master_photometry=False, tile_header=False, superflat=False,
                  image_weights=False, resampled=False, classification_pawprints=False, photometry_pawprints=False,
                  classification_tile=False, tile_statistics=False, tile=False, photometry_tile=False):
@@ -385,7 +385,7 @@ class PipelineStatus:
         self.master_gain = master_gain
         self.master_linearity = master_linearity
         self.master_flat = master_flat
-        self.master_weight = master_weight
+        self.master_weight_global = master_weight_global
         self.master_source_mask = master_source_mask
         self.master_sky = master_sky
         self.master_photometry = master_photometry
@@ -410,7 +410,7 @@ class PipelineStatus:
 
     @staticmethod
     def __attributes():
-        return ["master_bpm", "master_dark", "master_gain", "master_linearity", "master_flat", "master_weight",
+        return ["master_bpm", "master_dark", "master_gain", "master_linearity", "master_flat", "master_weight_global",
                 "master_source_mask", "master_sky", "master_photometry", "tile_header", "processed_raw", "astrometry",
                 "superflat", "image_weights", "resampled", "classification_pawprints", "photometry_pawprints",
                 "classification_tile", "tile", "tile_statistics", "photometry_tile"]

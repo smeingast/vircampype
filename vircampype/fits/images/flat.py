@@ -174,7 +174,7 @@ class FlatTwilight(FlatImages):
     # =========================================================================== #
     # Master Weight
     # =========================================================================== #
-    def build_master_weight(self):
+    def build_master_weight_global(self):
         """
         Creates master weights from master flats. The difference between them is that NaNs are replaced with 0s and
         there is an additional option to mask relative and absolute values.
@@ -182,14 +182,14 @@ class FlatTwilight(FlatImages):
         """
 
         # Processing info
-        print_header(header="MASTER-WEIGHT", right=None, silent=self.setup.silent)
+        print_header(header="MASTER-WEIGHT-GLOBAL", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Get unique Master flats
         master_flats = self.get_unique_master_flats()
 
         # Generate outpaths
-        outpaths = [x.replace("MASTER-FLAT", "MASTER-WEIGHT") for x in master_flats.paths_full]
+        outpaths = [x.replace("MASTER-FLAT", "MASTER-WEIGHT-GLOBAL") for x in master_flats.paths_full]
 
         # Loop over files and apply calibration
         for idx in range(len(master_flats)):
@@ -231,7 +231,7 @@ class FlatTwilight(FlatImages):
 
             # Modify type in primary header
             prime_header = master_flats.headers_primary[idx].copy()
-            prime_header[self.setup.keywords.object] = "MASTER-WEIGHT"
+            prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-GLOBAL"
 
             # Write to file
             cube.write_mef(path=outpaths[idx], prime_header=prime_header, data_headers=master_flats.headers_data[idx])

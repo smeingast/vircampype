@@ -546,7 +546,7 @@ class FitsImages(FitsFiles):
         # Match and return
         return self.match_passband(match_to=self.get_master_images().sky, max_lag=self.setup.master_max_lag_sky / 1440.)
 
-    def get_master_weights(self):
+    def get_master_weights_global(self):
         """
         Searches for MasterWeights in the following order:
         1. Local files with extention *.weight.fits
@@ -573,7 +573,7 @@ class FitsImages(FitsFiles):
             return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
 
         # If no local paths are found, fetch image weights
-        master_weight_paths = self.match_passband(match_to=self.get_master_images().weight,
+        master_weight_paths = self.match_passband(match_to=self.get_master_images().weight_global,
                                                   max_lag=self.setup.master_max_lag_weight).paths_full
         if sum([os.path.isfile(x) for x in master_weight_paths]) == len(self):
             return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
@@ -747,7 +747,7 @@ class MasterImages(FitsImages):
         return MasterSky(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
-    def weight(self):
+    def weight_global(self):
         """
         Retrieves all global MasterWeight images.
 
@@ -762,7 +762,7 @@ class MasterImages(FitsImages):
         from vircampype.fits.images.flat import MasterWeight
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT"]
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-GLOBAL"]
 
         # Return MasterWeight instance
         return MasterWeight(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])

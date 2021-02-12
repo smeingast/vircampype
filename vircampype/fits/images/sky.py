@@ -165,7 +165,7 @@ class SkyImages(FitsImages):
                           back_filtersize=self.setup.sex_back_filtersize)
 
         # Read setup based on preset
-        if (preset == "scamp") | (preset == "master-weight"):
+        if preset == "scamp":
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "class_star":
             ss = yml2config(skip=["catalog_name", "weight_image", "seeing_fwhm", "starnnw_name"], **kwargs_yml)
@@ -181,7 +181,7 @@ class SkyImages(FitsImages):
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
                 "".format(sxs.bin, sxs.default_config, image, sxs.default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.paths_full, path_tables_clean,
-                                                  self.get_master_weights().paths_full)]
+                                                  self.get_master_weights_global().paths_full)]
 
         # Add kwargs to commands
         for key, val in kwargs.items():
@@ -768,7 +768,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         tstart = time.time()
 
         # Fetch master
-        master_weights = self.get_master_weights()
+        master_weights = self.get_master_weights_global()
         master_source_masks = self.get_master_source_mask()
 
         # Loop over files
@@ -945,7 +945,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         tstart = time.time()
 
         # Find weights
-        master_weights = self.get_master_weights()
+        master_weights = self.get_master_weights_global()
 
         # Create temporary output paths
         temp_ndet = [self.setup.folders["temp"] + bn.replace(".fits", "_ndet.fits") for bn in self.basenames]
