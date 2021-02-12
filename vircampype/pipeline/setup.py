@@ -67,11 +67,12 @@ class Setup(dict):
         # Add folder structure to self
         self.__add_folder_tree()
 
-        # Add folder attribute
-        self.folders = self["folders"]
-
         # Make folder structure
         self.__create_folder_tree()
+
+    @property
+    def folders(self):
+        return self["folders"]
 
     @property
     def path_coadd(self):
@@ -165,8 +166,8 @@ class Setup(dict):
 
         Parameters
         ----------
-        setup : str, Setup
-            Either a string pointing to the location of a pipeline YML, or a Setup instance
+        setup : str, dict, Setup
+            Either a string pointing to the location of a pipeline YML, or a dict, or a Setup instance.
 
         Returns
         -------
@@ -178,6 +179,9 @@ class Setup(dict):
         # If given as string, load YML
         if isinstance(setup, str):
             return cls(read_yml(path_yml=setup), **kwargs)
+
+        elif isinstance(setup, dict):
+            return cls(**setup)
 
         # If given as Setup instance, just return it again
         elif isinstance(setup, cls):
