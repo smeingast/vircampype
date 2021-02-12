@@ -1042,6 +1042,7 @@ class ImageCube(object):
 
             # Label regions
             labels, n_labels = ndimage.measurements.label(input=sources, structure=np.ones(shape=(3, 3)))
+            assert isinstance(labels, np.ndarray)
 
             # If there are no sources, continue
             if n_labels < 1:
