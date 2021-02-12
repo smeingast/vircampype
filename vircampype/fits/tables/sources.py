@@ -203,8 +203,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         else:
             raise ValueError("Passband '{0}' not defined".format(passband))
 
-    @staticmethod
-    def mag_lim(passband):
+    def mag_lim(self, passband):
         """
         Fetches magnitude limits in setup.
 
@@ -213,6 +212,10 @@ class MasterPhotometry2Mass(MasterPhotometry):
         tuple
             Tuple with upper and lower magnitude limits.
         """
+        if self.setup.reference_mag_lim is not None:
+            return self.setup.mag_lim_ref
+
+        # In case this is not given in the setup, default to standard values for bands
         if "j" in passband.lower():
             return 12.0, 15.0
         elif "h" in passband.lower():

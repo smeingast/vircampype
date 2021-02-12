@@ -45,6 +45,9 @@ class Setup(dict):
         self.__sex_back_size = 64
         self.__sex_back_filtersize = 3
 
+        # Photometry
+        self.__reference_mag_lim = None
+
         # Try to override property from setup
         for key, val in self.items():
             try:
@@ -487,6 +490,14 @@ class Setup(dict):
     def reference_catalog(self):
         """ Reference catalog to be used. """
         return "2mass"
+
+    @property
+    def reference_mag_lim(self):
+        return self.__reference_mag_lim
+
+    @reference_mag_lim.setter
+    def reference_mag_lim(self, reference_mag_lim):
+        self.__reference_mag_lim = reference_mag_lim
 
     # =========================================================================== #
     # Cosmetics
