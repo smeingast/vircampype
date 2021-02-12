@@ -2,7 +2,7 @@ import time
 import numpy as np
 
 from astropy.io import fits
-from vircampype.tools.plots import *
+from vircampype.tools.plottools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
 from vircampype.data.cube import ImageCube

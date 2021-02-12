@@ -278,7 +278,7 @@ class Pipeline:
     def phase3(self):
 
         # Import
-        from vircampype.tools.eso import make_phase3_pawprints, make_phase3_tile
+        from vircampype.tools.esotools import make_phase3_pawprints, make_phase3_tile
 
         # Generate phase 3 comliant pawprints
         # make_phase3_pawprints(pawprint_images=self.resampled, pawprint_catalogs=self.resampled_sources_crunched)

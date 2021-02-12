@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from vircampype.tools.system import *
+from vircampype.tools.systemtools import *
 from vircampype.pipeline.errors import *
 
 

@@ -1,4 +1,4 @@
-from vircampype.tools.plots import *
+from vircampype.tools.plottools import *
 from vircampype.fits.tables.common import MasterTables
 
 
