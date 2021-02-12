@@ -181,7 +181,7 @@ class SkyImages(FitsImages):
         cmds = ["{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
                 "".format(sxs.bin, sxs.default_config, image, sxs.default_nnw, catalog, weight, ss)
                 for image, catalog, weight in zip(self.paths_full, path_tables_clean,
-                                                  self.get_master_weights_global().paths_full)]
+                                                  self.get_master_weight_global().paths_full)]
 
         # Add kwargs to commands
         for key, val in kwargs.items():
@@ -760,7 +760,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
     def __init__(self, setup, file_paths=None):
         super(ProcessedScienceImages, self).__init__(setup=setup, file_paths=file_paths)
 
-    def build_image_weights(self):
+    def build_master_weight_image(self):
         """ This is unfortunately necessary since sometimes detector 16 in particular is weird."""
 
         # Processing info
@@ -768,7 +768,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         tstart = time.time()
 
         # Fetch master
-        master_weights = self.get_master_weights_global()
+        master_weights = self.get_master_weight_global()
         master_source_masks = self.get_master_source_mask()
 
         # Loop over files
@@ -839,7 +839,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
                 "".format(sws.bin, sws.default_config, path_image, weight, self.setup.folders["resampled"], ss)
-                for path_image, weight in zip(self.paths_full, self.get_master_image_weights().paths_full)]
+                for path_image, weight in zip(self.paths_full, self.get_master_weight_image().paths_full)]
 
         # Run for each individual image and make MEF
         for idx_file in range(self.n_files):
@@ -945,7 +945,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         tstart = time.time()
 
         # Find weights
-        master_weights = self.get_master_weights_global()
+        master_weights = self.get_master_weight_global()
 
         # Create temporary output paths
         temp_ndet = [self.setup.folders["temp"] + bn.replace(".fits", "_ndet.fits") for bn in self.basenames]

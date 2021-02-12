@@ -546,7 +546,7 @@ class FitsImages(FitsFiles):
         # Match and return
         return self.match_passband(match_to=self.get_master_images().sky, max_lag=self.setup.master_max_lag_sky / 1440.)
 
-    def get_master_weights_global(self):
+    def get_master_weight_global(self):
         """
         Searches for MasterWeights in the following order:
         1. Local files with extention *.weight.fits
@@ -581,7 +581,7 @@ class FitsImages(FitsFiles):
         # If not all images have associated weights now, then something went wrong
         raise ValueError("Not all images have weights")
 
-    def get_master_image_weights(self):
+    def get_master_weight_image(self):
 
         # Import
         from vircampype.fits.images.flat import MasterWeight

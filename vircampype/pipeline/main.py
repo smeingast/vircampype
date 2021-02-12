@@ -267,7 +267,7 @@ class Pipeline:
         self.process_raw_science()
         self.calibrate_astrometry()
         self.superflat()
-        self.build_image_weights()
+        self.build_master_weight_image()
         self.resample()
         self.classification_pawprints()
         self.photometry_pawprints()
@@ -312,12 +312,12 @@ class Pipeline:
         else:
             print_message(message="SUPERFLAT already applied", kind="warning", end=None)
 
-    def build_image_weights(self):
-        if not self.status.image_weights:
-            self.superflatted.build_image_weights()
-            self.update_status(path=self.path_status, image_weights=True)
+    def build_master_weight_image(self):
+        if not self.status.master_weight_image:
+            self.superflatted.build_master_weight_image()
+            self.update_status(path=self.path_status, master_weight_image=True)
         else:
-            print_message(message="IMAGE WEIGHTS already built", kind="warning", end=None)
+            print_message(message="MASTER WEIGHT IMAGE already built", kind="warning", end=None)
 
     def resample(self):
         if not self.status.resampled:
@@ -376,7 +376,7 @@ class PipelineStatus:
     def __init__(self, master_bpm=False, master_dark=False, master_gain=False, master_linearity=False,
                  master_flat=False, master_weight_global=False, master_source_mask=False, master_sky=False,
                  processed_raw=False, astrometry=False, master_photometry=False, tile_header=False, superflat=False,
-                 image_weights=False, resampled=False, classification_pawprints=False, photometry_pawprints=False,
+                 master_weight_image=False, resampled=False, classification_pawprints=False, photometry_pawprints=False,
                  classification_tile=False, tile_statistics=False, tile=False, photometry_tile=False):
 
         # Set status attributes
@@ -393,7 +393,7 @@ class PipelineStatus:
         self.processed_raw = processed_raw
         self.astrometry = astrometry
         self.superflat = superflat
-        self.image_weights = image_weights
+        self.master_weight_image = master_weight_image
         self.resampled = resampled
         self.classification_pawprints = classification_pawprints
         self.photometry_pawprints = photometry_pawprints
@@ -412,7 +412,7 @@ class PipelineStatus:
     def __attributes():
         return ["master_bpm", "master_dark", "master_gain", "master_linearity", "master_flat", "master_weight_global",
                 "master_source_mask", "master_sky", "master_photometry", "tile_header", "processed_raw", "astrometry",
-                "superflat", "image_weights", "resampled", "classification_pawprints", "photometry_pawprints",
+                "superflat", "master_weight_image", "resampled", "classification_pawprints", "photometry_pawprints",
                 "classification_tile", "tile", "tile_statistics", "photometry_tile"]
 
     @property
