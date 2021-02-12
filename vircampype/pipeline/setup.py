@@ -180,12 +180,12 @@ class Setup(dict):
         if isinstance(setup, str):
             return cls(read_yml(path_yml=setup), **kwargs)
 
-        elif isinstance(setup, dict):
-            return cls(**setup)
-
         # If given as Setup instance, just return it again
         elif isinstance(setup, cls):
             return setup
+
+        elif isinstance(setup, dict):
+            return cls(**setup)
 
         # If something else was provided
         else:
