@@ -74,16 +74,16 @@ class Setup(dict):
         self.__create_folder_tree()
 
     @property
-    def path_tile(self):
+    def path_coadd(self):
         return "{0}{1}.fits".format(self.folders["tile"], self.name)
 
     @property
-    def path_tile_weight(self):
-        return self.path_tile.replace(".fits", ".weight.fits")
+    def path_coadd_weight(self):
+        return self.path_coadd.replace(".fits", ".weight.fits")
 
     @property
-    def path_tile_header(self):
-        return self.path_tile.replace(".fits", ".ahead")
+    def path_coadd_header(self):
+        return self.path_coadd.replace(".fits", ".ahead")
 
     def __add_folder_tree(self):
         """ Adds pipeline folder tree to setup. """

@@ -728,7 +728,7 @@ class RawScienceImages(RawSkyImages):
         tstart = time.time()
 
         # Print processing info
-        message_calibration(n_current=1, n_total=1, name=self.setup.path_tile_header, d_current=None,
+        message_calibration(n_current=1, n_total=1, name=self.setup.path_coadd_header, d_current=None,
                             d_total=None, silent=self.setup.silent)
 
         # Get optimal rotation of frame
@@ -749,7 +749,7 @@ class RawScienceImages(RawSkyImages):
             raise ValueError("Double check if the image size is correcti")
 
         # Write coadd header to disk
-        header_tile.totextfile(self.setup.path_tile_header, overwrite=True)
+        header_tile.totextfile(self.setup.path_coadd_header, overwrite=True)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -772,7 +772,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
 
         # Read YML and override defaults
         ss = yml2config(path_yml=sws.preset_pawprints,
-                        imageout_name=self.setup.path_tile, weightout_name=self.setup.path_tile_weight,
+                        imageout_name=self.setup.path_coadd, weightout_name=self.setup.path_coadd_weight,
                         nthreads=self.setup.n_jobs, resample_suffix=sws.resample_suffix,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                         back_size=self.setup.swarp_back_size, skip=["weight_image", "weight_thresh", "resample_dir"])
@@ -832,14 +832,14 @@ class ResampledScienceImages(ProcessedSkyImages):
 
         # Processing info
         print_header(header="CREATING TILE", silent=self.setup.silent,
-                     left=os.path.basename(self.setup.path_tile), right=None)
+                     left=os.path.basename(self.setup.path_coadd), right=None)
         tstart = time.time()
 
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
 
-        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=self.setup.path_tile,
-                        weightout_name=self.setup.path_tile_weight,
+        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=self.setup.path_coadd,
+                        weightout_name=self.setup.path_coadd_weight,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                         nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_image"])
 
@@ -847,12 +847,12 @@ class ResampledScienceImages(ProcessedSkyImages):
         cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
 
         # Run Swarp
-        if not check_file_exists(file_path=self.setup.path_tile, silent=self.setup.silent) \
+        if not check_file_exists(file_path=self.setup.path_coadd, silent=self.setup.silent) \
                 and not self.setup.overwrite:
             run_command_bash(cmd=cmd, silent=True)
 
             # Copy primary header from first entry of input
-            copy_keywords(path_1=self.setup.path_tile, path_2=self.paths_full[0], hdu_1=0, hdu_2=0,
+            copy_keywords(path_1=self.setup.path_coadd, path_2=self.paths_full[0], hdu_1=0, hdu_2=0,
                           keywords=[self.setup.keywords.object, self.setup.keywords.filter_name])
 
         # Print time
@@ -882,7 +882,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
         # Processing info
         print_header(header="TILE STATISTICS", silent=self.setup.silent,
-                     left=os.path.basename(self.setup.path_tile), right=None)
+                     left=os.path.basename(self.setup.path_coadd), right=None)
         tstart = time.time()
 
         # Find weights
@@ -955,11 +955,11 @@ class ResampledScienceImages(ProcessedSkyImages):
             hdul_weights.writeto(temp_weight[idx_file], overwrite=True)
 
         # Resize tile header
-        header_tile = resize_header(fits.Header.fromtextfile(self.setup.path_tile_header), factor=0.2)
+        header_tile = resize_header(fits.Header.fromtextfile(self.setup.path_coadd_header), factor=0.2)
 
         # Coadd ndet
         ndet = ResampledScienceImages(setup=self.setup, file_paths=temp_ndet)
-        outpath_ndet = self.setup.path_tile.replace(".fits", ".ndet.fits")
+        outpath_ndet = self.setup.path_coadd.replace(".fits", ".ndet.fits")
         header_tile.totextfile(outpath_ndet.replace(".fits", ".ahead"), overwrite=True)
         ndet._coadd_statistics(imageout_name=outpath_ndet, weight_images=temp_weight, combine_type="sum")
         convert_bitpix_image(path=outpath_ndet, new_type=np.uint16)
@@ -967,7 +967,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
         # Coadd exptime
         exptime = ResampledScienceImages(setup=self.setup, file_paths=temp_exptime)
-        outpath_exptime = self.setup.path_tile.replace(".fits", ".exptime.fits")
+        outpath_exptime = self.setup.path_coadd.replace(".fits", ".exptime.fits")
         header_tile.totextfile(outpath_exptime.replace(".fits", ".ahead"), overwrite=True)
         exptime._coadd_statistics(imageout_name=outpath_exptime, weight_images=temp_weight, combine_type="sum")
         convert_bitpix_image(path=outpath_exptime, new_type=np.float32)
@@ -975,7 +975,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
         # Coadd mjd
         mjdeff = ResampledScienceImages(setup=self.setup, file_paths=temp_mjdeff)
-        outpath_mjdeff = self.setup.path_tile.replace(".fits", ".mjdeff.fits")
+        outpath_mjdeff = self.setup.path_coadd.replace(".fits", ".mjdeff.fits")
         header_tile.totextfile(outpath_mjdeff.replace(".fits", ".ahead"), overwrite=True)
         mjdeff._coadd_statistics(imageout_name=outpath_mjdeff, weight_images=temp_weight, combine_type="median")
         [os.remove(x) for x in temp_mjdeff]

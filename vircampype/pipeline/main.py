@@ -93,7 +93,7 @@ class Pipeline:
     @property
     def tile(self):
         from vircampype.fits.images.sky import Tile
-        return Tile(setup=self.setup, file_paths=self.setup.path_tile)
+        return Tile(setup=self.setup, file_paths=self.setup.path_coadd)
 
     @property
     def tile_sources_full(self):
