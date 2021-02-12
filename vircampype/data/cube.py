@@ -413,7 +413,7 @@ class ImageCube(object):
             Data headers.
         overwrite : bool, optional
             Whether existing files should be overwritten.
-        dtype : str, optional
+        dtype
             Optionally force certain data type. e.g. 'float32'.
 
         """
