@@ -213,7 +213,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
             Tuple with upper and lower magnitude limits.
         """
         if self.setup.reference_mag_lim is not None:
-            return self.setup.mag_lim_ref
+            return self.setup.reference_mag_lim
 
         # In case this is not given in the setup, default to standard values for bands
         if "j" in passband.lower():
