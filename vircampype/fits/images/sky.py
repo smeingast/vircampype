@@ -721,7 +721,7 @@ class RawScienceImages(RawSkyImages):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def build_tile_header(self):
+    def build_coadd_header(self):
 
         # Processing info
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)

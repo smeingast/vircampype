@@ -240,10 +240,10 @@ class Pipeline:
             else:
                 print_message(message="MASTER-PHOTOMETRY already created", kind="warning", end=None)
 
-    def build_tile_header(self):
+    def build_coadd_header(self):
         if self.science_raw is not None:
             if not self.status.tile_header:
-                self.science_raw.build_tile_header()
+                self.science_raw.build_coadd_header()
                 self.update_status(path=self.path_status, tile_header=True)
             else:
                 print_message(message="TILE HEADER already built", kind="warning", end=None)
@@ -259,7 +259,7 @@ class Pipeline:
         self.build_master_source_mask()
         self.build_master_sky()
         self.build_master_photometry()
-        self.build_tile_header()
+        self.build_coadd_header()
 
     def process_science(self):
         """ Sequentially process science data. """
