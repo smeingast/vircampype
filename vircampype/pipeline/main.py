@@ -2,7 +2,6 @@ import pickle
 from vircampype.utils.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
-from vircampype.fits.images.sky import ProcessedScienceImages, ResampledScienceImages, Tile
 from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs, \
     PhotometricCalibratedSextractorCatalogs
 
@@ -52,6 +51,7 @@ class Pipeline:
 
     @property
     def processed(self):
+        from vircampype.fits.images.sky import ProcessedScienceImages
         return ProcessedScienceImages.from_folder(path=self.setup.folders["processed"],
                                                   pattern="*.proc.fits", setup=self.setup, exclude=None)
 
@@ -68,11 +68,13 @@ class Pipeline:
 
     @property
     def superflatted(self):
+        from vircampype.fits.images.sky import ProcessedScienceImages
         return ProcessedScienceImages.from_folder(path=self.setup.folders["superflat"],
                                                   pattern="*.proc.sf.fits", setup=self.setup, exclude=None)
 
     @property
     def resampled(self):
+        from vircampype.fits.images.sky import ResampledScienceImages
         return ResampledScienceImages.from_folder(path=self.setup.folders["resampled"],
                                                   pattern="*.resamp.fits", setup=self.setup, exclude=None)
 
@@ -90,6 +92,7 @@ class Pipeline:
 
     @property
     def tile(self):
+        from vircampype.fits.images.sky import Tile
         return Tile(setup=self.setup, file_paths=self.setup.path_tile)
 
     @property
