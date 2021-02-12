@@ -62,7 +62,7 @@ def read_yml(path_yml: str):
     # Read YAML
     with open(path_yml, "r") as stream:
         try:
-            return yaml.safe_load(stream)
+            return yaml.full_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
 
