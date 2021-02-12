@@ -581,6 +581,17 @@ class FitsImages(FitsFiles):
         # If not all images have associated weights now, then something went wrong
         raise ValueError("Not all images have weights")
 
+    def get_master_image_weights(self):
+
+        # Import
+        from vircampype.fits.images.flat import MasterWeight
+
+        # If no local paths are founds, try to get a weight for each image
+        master_weight_paths = self.match_mjd(match_to=self.get_master_images().weight_image,
+                                             max_lag=self.setup.master_max_lag_weight).paths_full
+        if sum([os.path.isfile(x) for x in master_weight_paths]) == len(self):
+            return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
+
     def get_master_superflat(self):
         """
         Get for all files in self the corresponding MasterSuperflat (split by minutes from setup).
@@ -752,6 +763,27 @@ class MasterImages(FitsImages):
 
         # Get the masterbpm files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT"]
+
+        # Return MasterWeight instance
+        return MasterWeight(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+
+    @property
+    def weight_image(self):
+        """
+        Retrieves all global MasterWeight images.
+
+        Returns
+        -------
+        MasterWeight
+            All MasterWeight images as a MasterWeight instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.flat import MasterWeight
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-WEIGHT-IMAGE"]
 
         # Return MasterWeight instance
         return MasterWeight(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
