@@ -118,15 +118,21 @@ def clean_source_table(table, image_header=None, return_filter=False, snr_limit=
 def add_smoothed_value(table, image_header, parameters):
 
     # Clean table
-    table_clean = clean_source_table(table=table, image_header=image_header,
-                                     nndis_limit=10, border_pix=25, min_fwhm=1.0, max_fwhm=4.5)
+    table_clean = clean_source_table(table=table, image_header=image_header, border_pix=25, min_fwhm=1.0,
+                                     max_fwhm=np.nanpercentile(table["FWHM_IMAGE"], 50),
+                                     max_ellipticity=np.nanpercentile(table["ELLIPTICITY"], 50))
 
     # Find nearest neighbors between cleaned and raw input catalog
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
     stacked_clean = np.stack([table_clean["XWIN_IMAGE"], table_clean["YWIN_IMAGE"]]).T
 
-    # Get 50 nearet neighbors
-    nn_dis, nn_idx = NearestNeighbors(n_neighbors=50).fit(stacked_clean).kneighbors(stacked_raw)
+    # Try to get 50 nearest neighbors
+    n_nn = 50
+    if len(table_clean) < 50:
+        n_nn = len(table_clean)
+
+    # Get nearest neighbors
+    nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_nn).fit(stacked_clean).kneighbors(stacked_raw)
     """ Using KNeighborsRegressor is actually not OK here because this then computes a (weighted) mean. """
 
     # Mask everyting beyond the 20th nearest neighbor that's farther away than 3 arcmin (540 pix)
