@@ -1,5 +1,5 @@
 import pickle
-from vircampype.utils.messaging import *
+from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs, \
@@ -278,7 +278,7 @@ class Pipeline:
     def phase3(self):
 
         # Import
-        from vircampype.utils.eso import make_phase3_pawprints, make_phase3_tile
+        from vircampype.tools.eso import make_phase3_pawprints, make_phase3_tile
 
         # Generate phase 3 comliant pawprints
         # make_phase3_pawprints(pawprint_images=self.resampled, pawprint_catalogs=self.resampled_sources_crunched)

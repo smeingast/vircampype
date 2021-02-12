@@ -8,7 +8,7 @@ from joblib import Parallel, delayed
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
-from vircampype.utils.miscellaneous import *
+from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
 from sklearn.neighbors import NearestNeighbors
 from scipy.interpolate import SmoothBivariateSpline

@@ -2,7 +2,7 @@ import numpy as np
 
 from astropy import wcs
 from astropy.io import fits
-from vircampype.utils.mathtools import *
+from vircampype.tools.mathtools import *
 from astropy.coordinates import ICRS, Galactic
 
 __all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header"]

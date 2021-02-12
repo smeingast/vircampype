@@ -5,10 +5,10 @@ from astropy.io import fits
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
 from sklearn.neighbors import NearestNeighbors
-from vircampype.utils.mathtools import clipped_median
-from vircampype.utils.photometry import get_zeropoint
+from vircampype.tools.mathtools import clipped_median
+from vircampype.tools.photometry import get_zeropoint
 from astropy.stats import sigma_clip as astropy_sigma_clip
-from vircampype.utils.miscellaneous import convert_dtype, numpy2fits
+from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 
 __all__ = ["clean_source_table", "add_smoothed_value", "add_zp_2mass", "table2bintablehdu",
            "interpolate_classification"]

@@ -1,5 +1,5 @@
 from astropy.io import fits
-from vircampype.utils.system import *
+from vircampype.tools.system import *
 from vircampype.pipeline.main import Setup
 
 __all__ = ["sextractor2imagehdr", "SextractorSetup", "SwarpSetup", "ScampSetup"]

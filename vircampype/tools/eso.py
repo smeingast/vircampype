@@ -6,13 +6,13 @@ import numpy as np
 from astropy.io import fits
 from vircampype import __version__
 from astropy.coordinates import SkyCoord
-from vircampype.utils.messaging import *
-from vircampype.utils.photometry import *
-from vircampype.utils.miscellaneous import *
-from vircampype.utils.mathtools import clipped_median
-from vircampype.utils.fitstools import add_float_to_header
+from vircampype.tools.messaging import *
+from vircampype.tools.photometry import *
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.mathtools import clipped_median
+from vircampype.tools.fitstools import add_float_to_header
 from vircampype.fits.images.sky import ResampledScienceImages
-from vircampype.utils.fitstools import delete_keyword_from_header
+from vircampype.tools.fitstools import delete_keyword_from_header
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
 __all__ = ["make_phase3_pawprints", "make_phase3_tile"]

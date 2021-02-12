@@ -3,12 +3,12 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils.plots import *
-from vircampype.utils.messaging import *
-from vircampype.utils.mathtools import *
-from vircampype.utils.fitstools import *
+from vircampype.tools.plots import *
+from vircampype.tools.messaging import *
+from vircampype.tools.mathtools import *
+from vircampype.tools.fitstools import *
 from vircampype.data.cube import ImageCube
-from vircampype.utils.miscellaneous import *
+from vircampype.tools.miscellaneous import *
 from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.tables.linearity import MasterLinearity

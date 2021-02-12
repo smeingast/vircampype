@@ -8,20 +8,20 @@ import numpy as np
 from astropy.io import fits
 from itertools import repeat
 from astropy.table import Table
-from vircampype.utils.wcs import *
-from vircampype.utils.plots import *
+from vircampype.tools.wcs import *
+from vircampype.tools.plots import *
 from joblib import Parallel, delayed
-from vircampype.utils.system import *
-from vircampype.utils.fitstools import *
-from vircampype.utils.messaging import *
-from vircampype.utils.mathtools import *
+from vircampype.tools.system import *
+from vircampype.tools.fitstools import *
+from vircampype.tools.messaging import *
+from vircampype.tools.mathtools import *
 from astropy.coordinates import SkyCoord
 from vircampype.data.cube import ImageCube
-from vircampype.utils.miscellaneous import *
+from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
-from vircampype.utils.vizier import download_2mass
-from vircampype.utils.astromatic import SwarpSetup
-from vircampype.utils.astromatic import SextractorSetup
+from vircampype.tools.vizier import download_2mass
+from vircampype.tools.astromatic import SwarpSetup
+from vircampype.tools.astromatic import SextractorSetup
 from vircampype.fits.images.common import FitsImages, MasterImages
 
 

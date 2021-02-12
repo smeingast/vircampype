@@ -9,19 +9,19 @@ from itertools import repeat
 from astropy.time import Time
 from astropy.table import vstack
 from joblib import Parallel, delayed
-from vircampype.utils.plots import *
-from vircampype.utils.system import *
-from vircampype.utils.tables import *
+from vircampype.tools.plots import *
+from vircampype.tools.system import *
+from vircampype.tools.tables import *
 from astropy.coordinates import SkyCoord
-from vircampype.utils.messaging import *
-from vircampype.utils.fitstools import *
-from vircampype.utils.mathtools import *
-from vircampype.utils.astromatic import *
-from vircampype.utils.photometry import *
+from vircampype.tools.messaging import *
+from vircampype.tools.fitstools import *
+from vircampype.tools.mathtools import *
+from vircampype.tools.astromatic import *
+from vircampype.tools.photometry import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
-from vircampype.utils.miscellaneous import *
-from vircampype.utils.tables import add_zp_2mass
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.tables import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 
 

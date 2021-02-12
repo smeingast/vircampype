@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.pipeline.misc import *
 from vircampype.pipeline.setup import Setup
-from vircampype.utils.wcs import header_reset_wcs
+from vircampype.tools.wcs import header_reset_wcs
 
 
 class FitsFiles:

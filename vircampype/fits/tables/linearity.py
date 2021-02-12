@@ -4,9 +4,9 @@ import warnings
 import numpy as np
 
 from typing import List
-from vircampype.utils.plots import *
-from vircampype.utils.messaging import *
-from vircampype.utils.mathtools import *
+from vircampype.tools.plots import *
+from vircampype.tools.messaging import *
+from vircampype.tools.mathtools import *
 from vircampype.fits.tables.common import MasterTables
 
 

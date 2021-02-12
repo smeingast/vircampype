@@ -2,11 +2,11 @@ import time
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils.plots import *
-from vircampype.utils.messaging import *
-from vircampype.utils.fitstools import *
+from vircampype.tools.plots import *
+from vircampype.tools.messaging import *
+from vircampype.tools.fitstools import *
 from vircampype.data.cube import ImageCube
-from vircampype.utils.miscellaneous import *
+from vircampype.tools.miscellaneous import *
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.common import MasterImages
 

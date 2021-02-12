@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from vircampype.utils.miscellaneous import *
+from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
