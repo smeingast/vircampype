@@ -760,6 +760,65 @@ class ProcessedScienceImages(ProcessedSkyImages):
     def __init__(self, setup, file_paths=None):
         super(ProcessedScienceImages, self).__init__(setup=setup, file_paths=file_paths)
 
+    def build_image_weights(self):
+        """ This is unfortunately necessary since sometimes detector 16 in particular is weird."""
+
+        # Processing info
+        print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
+        tstart = time.time()
+
+        # Fetch master
+        master_weights = self.get_master_weights()
+        master_source_masks = self.get_master_source_mask()
+
+        # Loop over files
+        for idx_file in range(self.n_files):
+
+            # Create Mastedark name
+            outpath = "{0}MASTER-WEIGHT-IMAGE.MJD_{1:0.4f}.fits" \
+                      "".format(self.setup.folders["master_object"], self.mjd[idx_file])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
+                    and not self.setup.overwrite:
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup.silent)
+
+            # Load data
+            master_weight = master_weights.file2cube(file_index=idx_file)
+            master_mask = master_source_masks.file2cube(file_index=idx_file)
+            cube = self.file2cube(file_index=idx_file)
+
+            # Read stats (for some reason astroscrappy crashed when I also pass the saturation limit)
+            gain, rdnoise = self.read_from_data_headers(file_index=idx_file, keywords=["GAIN", "RDNOISE"])
+            gain, rdnoise = gain[0], rdnoise[0]
+
+            # Build cosmics/glitch mask
+            glitches = cube.mask_cosmics(gain=gain, rdnoise=rdnoise, return_mask=True)
+
+            # Apply some masks
+            cube.apply_masks(sources=master_mask, bpm=glitches)
+
+            # Get background statistics
+            bg_rms = cube.background(mesh_size=256, mesh_filtersize=3)[1]
+
+            # Mask anything above threshold rms and mask glitches
+            master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
+            master_weight.cube[glitches.cube] = 0
+
+            # Make primary header
+            prime_header = self.headers_primary[idx_file]
+            prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
+
+            # Write to disk
+            master_weight.write_mef(path=outpath, prime_header=prime_header, data_headers=self.headers_data[idx_file])
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
     def resample(self):
         """ Resamples images. """
 
@@ -780,7 +839,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
                 "".format(sws.bin, sws.default_config, path_image, weight, self.setup.folders["resampled"], ss)
-                for path_image, weight in zip(self.paths_full, self.get_master_weights().paths_full)]
+                for path_image, weight in zip(self.paths_full, self.get_master_image_weights().paths_full)]
 
         # Run for each individual image and make MEF
         for idx_file in range(self.n_files):
