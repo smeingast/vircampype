@@ -126,7 +126,7 @@ def add_smoothed_value(table, image_header, parameters):
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
     stacked_clean = np.stack([table_clean["XWIN_IMAGE"], table_clean["YWIN_IMAGE"]]).T
 
-    # Try to get 50 nearest neighbors
+    # Try to get 50 nearest neighbors, otherwise use full table
     n_nn = 50
     if len(table_clean) < 50:
         n_nn = len(table_clean)
