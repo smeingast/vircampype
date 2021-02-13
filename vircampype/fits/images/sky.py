@@ -752,9 +752,10 @@ class RawScienceImages(RawSkyImages):
                                            round_crval=True, projection=self.setup.projection,
                                            rotation=np.deg2rad(np.round(rotation, 2)),
                                            cdelt=self.setup.pixel_scale_degrees)
+
         # Dummy check
-        if (header_coadd["NAXIS1"] > 100000.) or (header_coadd["NAXIS2"] > 100000.):
-            raise ValueError("Double check if the image size is correcti")
+        if (header_coadd["NAXIS1"] > 250000.) or (header_coadd["NAXIS2"] > 250000.):
+            raise ValueError("Double check if the image size is correct")
 
         # Write coadd header to disk
         header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
