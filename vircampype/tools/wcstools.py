@@ -5,7 +5,8 @@ from astropy.io import fits
 from vircampype.tools.mathtools import *
 from astropy.coordinates import ICRS, Galactic
 
-__all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header"]
+__all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header", "pixelscale_from_header",
+           "rotationangle_from_header"]
 
 
 def header_reset_wcs(header):
@@ -213,3 +214,20 @@ def resize_header(header, factor):
 
     # Return new header
     return header_out
+
+
+def pixelscale_from_header(header):
+    """ Calculates pixel scale from CD matrix. """
+    assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
+    return np.sqrt(header["CD1_1"]**2 + header["CD2_1"]**2)
+
+
+def rotationangle_from_header(header, degrees=True):
+    """ Calcualtes rotation angle from CD matrix. """
+    assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
+    angle = np.arctan2(header["CD2_1"], header["CD1_1"])
+
+    if degrees:
+        return np.rad2deg(angle)
+    else:
+        return angle
