@@ -770,7 +770,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         # MaxiMasking
         if self.setup.maximasking:
             # Build commands for MaxiMask
-            cmds = ["maximask.py {0} --single_mask True --n_jobs 2".format(n) for n in self.paths_full]
+            cmds = ["maximask.py {0} --single_mask True --n_jobs 1".format(n) for n in self.paths_full]
 
             # Clean commands
             paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
