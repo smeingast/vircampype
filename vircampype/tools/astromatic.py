@@ -175,16 +175,16 @@ class SwarpSetup:
         return ".resamp.fits"
 
     @property
-    def preset_pawprints(self):
+    def preset_resampling(self):
         """
-        Obtains path to pawprint preset for swarp.
+        Obtains path to resampling preset for swarp.
 
         Returns
         -------
         str
             Path to preset.
         """
-        return get_resource_path(package=self.package_presets, resource="pawprint.yml")
+        return get_resource_path(package=self.package_presets, resource="resampling.yml")
 
     @property
     def preset_coadd(self):

@@ -853,7 +853,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         sws = SwarpSetup(setup=self.setup)
 
         # Read YML and override defaults
-        ss = yml2config(path_yml=sws.preset_pawprints,
+        ss = yml2config(path_yml=sws.preset_resampling,
                         imageout_name=self.setup.path_coadd, weightout_name=self.setup.path_coadd_weight,
                         nthreads=self.setup.n_jobs, resample_suffix=sws.resample_suffix,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
