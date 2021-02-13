@@ -70,7 +70,8 @@ def header2wcs(header):
     return wcs.WCS(header=header)
 
 
-def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enlarge=0, silent=True, **kwargs):
+def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0,
+                    enlarge=0, silent=True, round_crval=False, **kwargs):
     """
     Create an astropy Header instance from a given dataset (longitude/latitude). The world coordinate system can be
     chosen between galactic and equatorial; all WCS projections are supported. Very useful for creating a quick WCS
@@ -90,6 +91,8 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
         Optional enlargement factor in arcmin. Default is 0.
     silent : bool, optional
         If False, print some messages when applicable.
+    round_crval : bool, optional
+        If set, rounds the CRVAL values to 2 digits
     kwargs
         Additional projection parameters (e.g. pv2_1=-30)
 
@@ -102,6 +105,12 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0, enl
 
     # Define projection
     skycoord_centroid = centroid_sphere(skycoord)
+
+    # If round is set
+    if round_crval:
+        skycoord_centroid = skycoord_centroid.__class__(np.round(skycoord_centroid.spherical.lon.degree, 2),
+                                                        np.round(skycoord_centroid.spherical.lat.degree, 2),
+                                                        frame=skycoord_centroid.frame, unit="degree")
 
     # Determine if allsky should be forced
     sep = skycoord.separation(skycoord_centroid)
