@@ -12,6 +12,12 @@ class Projection:
     def __init__(self, header):
         self.header = header
 
+    def __str__(self):
+        return self.wcs.__str__()
+
+    def __repr__(self):
+        return self.wcs.__repr__()
+
     @property
     def headerpackage(self):
         return "vircampype.visions.headers"
