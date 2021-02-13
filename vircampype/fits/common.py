@@ -19,8 +19,8 @@ class FitsFiles:
 
         Parameters
         ----------
-        setup : str, Setup
-            Setup dictionary or Setup instance passed from the pipeline instance.
+        setup : str, dict, Setup
+            Either a string pointing to the location of a pipeline YML, or a dict, or a Setup instance.
         file_paths : iterable, optional.
             Paths to FITS files.
 
