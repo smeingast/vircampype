@@ -248,43 +248,6 @@ class Pipeline:
             else:
                 print_message(message="TILE HEADER already built", kind="warning", end=None)
 
-    def build_master_calibration(self):
-        """ Sequentially build master calibration files. """
-        self.build_master_bpm()
-        self.build_master_dark()
-        self.build_master_gain()
-        self.build_master_linearity()
-        self.build_master_flat()
-        self.build_master_weight_global()
-        self.build_master_source_mask()
-        self.build_master_sky()
-        self.build_master_photometry()
-        self.build_coadd_header()
-
-    def process_science(self):
-        """ Sequentially process science data. """
-        self.build_master_calibration()
-        self.process_raw_science()
-        self.calibrate_astrometry()
-        self.superflat()
-        self.build_master_weight_image()
-        self.resample()
-        self.classification_pawprints()
-        self.photometry_pawprints()
-        self.build_tile()
-        self.build_tile_statistics()
-        self.classification_tile()
-        self.photometry_tile()
-
-    def phase3(self):
-
-        # Import
-        from vircampype.tools.esotools import make_phase3_pawprints, make_phase3_tile
-
-        # Generate phase 3 comliant pawprints
-        make_phase3_pawprints(pawprint_images=self.resampled, pawprint_catalogs=self.resampled_sources_crunched)
-        make_phase3_tile(tile_image=self.tile, tile_catalog=self.tile_sources_crunched, pawprint_images=self.resampled)
-
     def process_raw_science(self):
         if self.science_raw is not None:
             if not self.status.processed_raw:
@@ -370,6 +333,43 @@ class Pipeline:
             self.update_status(path=self.path_status, photometry_tile=True)
         else:
             print_message(message="TILE PHOTOMETRY already done", kind="warning", end=None)
+
+    def build_master_calibration(self):
+        """ Sequentially build master calibration files. """
+        self.build_master_bpm()
+        self.build_master_dark()
+        self.build_master_gain()
+        self.build_master_linearity()
+        self.build_master_flat()
+        self.build_master_weight_global()
+        self.build_master_source_mask()
+        self.build_master_sky()
+        self.build_master_photometry()
+        self.build_coadd_header()
+
+    def process_science(self):
+        """ Sequentially process science data. """
+        self.build_master_calibration()
+        self.process_raw_science()
+        self.calibrate_astrometry()
+        self.superflat()
+        self.build_master_weight_image()
+        self.resample()
+        self.classification_pawprints()
+        self.photometry_pawprints()
+        self.build_tile()
+        self.build_tile_statistics()
+        self.classification_tile()
+        self.photometry_tile()
+
+    def phase3(self):
+
+        # Import
+        from vircampype.tools.esotools import make_phase3_pawprints, make_phase3_tile
+
+        # Generate phase 3 comliant pawprints
+        make_phase3_pawprints(pawprint_images=self.resampled, pawprint_catalogs=self.resampled_sources_crunched)
+        make_phase3_tile(tile_image=self.tile, tile_catalog=self.tile_sources_crunched, pawprint_images=self.resampled)
 
 
 class PipelineStatus:
