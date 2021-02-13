@@ -183,8 +183,11 @@ class Setup(dict):
         if isinstance(setup, str):
             return cls(read_yml(path_yml=setup), **kwargs)
 
+        # Override passed setup with kwargs
+        setup = {**setup, **kwargs}
+
         # If given as Setup instance, just return it again
-        elif isinstance(setup, cls):
+        if isinstance(setup, cls):
             return setup
 
         elif isinstance(setup, dict):
