@@ -776,10 +776,10 @@ class ProcessedScienceImages(ProcessedSkyImages):
             paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
             cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
 
-        # Run MaxiMask
-        if len(cmds) > 0:
-            print_message("Running MaxiMask on {0} files".format(len(cmds)))
-        run_cmds(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
+            # Run MaxiMask
+            if len(cmds) > 0:
+                print_message("Running MaxiMask on {0} files".format(len(cmds)))
+            run_cmds(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
 
             # Put masks into FitsImages object
             masks = FitsImages(setup=self.setup, file_paths=paths_masks)
