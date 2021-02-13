@@ -105,3 +105,22 @@ class CoronaAustralisProjection(Projection):
         """
 
         return get_resource_path(package=self.headerpackage, resource="CrA.header")
+
+
+class OphiuchusProjection(Projection):
+
+    def __init__(self):
+        super(OphiuchusProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        """
+        Internal path for header.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return get_resource_path(package=self.headerpackage, resource="Ophiuchus.header")
