@@ -32,6 +32,7 @@ class Setup(dict):
         # Data setup
         self.__purge_headers = True
         self.__reset_wcs = True
+        self.__maximasking = False
 
         # Superflat
         self.__superflat_window = 60
@@ -674,6 +675,14 @@ class Setup(dict):
     @property
     def pixel_scale_degrees(self):
         return self.pixel_scale_arcsec / 3600.
+
+    @property
+    def maximasking(self):
+        return self.__maximasking
+
+    @maximasking.setter
+    def maximasking(self, maximasking):
+        self.__maximasking = maximasking
 
 
 class HeaderKeywords:
