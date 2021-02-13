@@ -6,7 +6,7 @@ from vircampype.tools.wcstools import *
 from vircampype.tools.systemtools import get_resource_path
 
 
-__all__ = ["CoronaAustralisProjection"]
+__all__ = ["Projection", "CoronaAustralisProjection"]
 
 
 class Projection:
