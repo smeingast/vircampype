@@ -793,21 +793,23 @@ class ProcessedScienceImages(ProcessedSkyImages):
             cube = self.file2cube(file_index=idx_file)
 
             # Read stats (for some reason astroscrappy crashed when I also pass the saturation limit)
-            gain, rdnoise = self.read_from_data_headers(file_index=idx_file, keywords=["GAIN", "RDNOISE"])
-            gain, rdnoise = gain[0], rdnoise[0]
+            # gain, rdnoise = self.read_from_data_headers(file_index=idx_file, keywords=["GAIN", "RDNOISE"])
+            # gain, rdnoise = gain[0], rdnoise[0]
 
             # Build cosmics/glitch mask
-            glitches = cube.mask_cosmics(gain=gain, rdnoise=rdnoise, return_mask=True)
+            """ This just randomly crashes too often. """
+            # glitches = cube.mask_cosmics(gain=gain, rdnoise=rdnoise, return_mask=True)
 
             # Apply some masks
-            cube.apply_masks(sources=master_mask, bpm=glitches)
+            # cube.apply_masks(sources=master_mask, bpm=glitches)
+            cube.apply_masks(sources=master_mask)
 
             # Get background statistics
             bg_rms = cube.background(mesh_size=256, mesh_filtersize=3)[1]
 
             # Mask anything above threshold rms and mask glitches
             master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
-            master_weight.cube[glitches.cube] = 0
+            # master_weight.cube[glitches.cube] = 0
 
             # Make primary header
             prime_header = self.headers_primary[idx_file]
