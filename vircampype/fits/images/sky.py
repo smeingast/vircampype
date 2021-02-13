@@ -767,6 +767,21 @@ class ProcessedScienceImages(ProcessedSkyImages):
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
         tstart = time.time()
 
+        # Build commands for MaxiMask
+        cmds = ["maximask.py {0} --single_mask True --n_jobs 2".format(n) for n in self.paths_full]
+
+        # Clean commands
+        paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
+        cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
+
+        # Run MaxiMask
+        if len(cmds) > 0:
+            print_message("Running MaxiMask on {0} files".format(len(cmds)))
+        run_cmds(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
+
+        # Put masks into FitsImages object
+        masks = FitsImages(setup=self.setup, file_paths=paths_masks)
+
         # Fetch master
         master_weights = self.get_master_weight_global()
         master_source_masks = self.get_master_source_mask()
@@ -779,8 +794,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
                       "".format(self.setup.folders["master_object"], self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup.overwrite:
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
                 continue
 
             # Print processing info
@@ -792,31 +806,24 @@ class ProcessedScienceImages(ProcessedSkyImages):
             master_mask = master_source_masks.file2cube(file_index=idx_file)
             cube = self.file2cube(file_index=idx_file)
 
-            # Read stats (for some reason astroscrappy crashed when I also pass the saturation limit)
-            # gain, rdnoise = self.read_from_data_headers(file_index=idx_file, keywords=["GAIN", "RDNOISE"])
-            # gain, rdnoise = gain[0], rdnoise[0]
-
-            # Build cosmics/glitch mask
-            """ This just randomly crashes too often. """
-            # glitches = cube.mask_cosmics(gain=gain, rdnoise=rdnoise, return_mask=True)
-
-            # Apply some masks
-            # cube.apply_masks(sources=master_mask, bpm=glitches)
-            cube.apply_masks(sources=master_mask)
-
             # Get background statistics
+            cube.apply_masks(sources=master_mask)
             bg_rms = cube.background(mesh_size=256, mesh_filtersize=3)[1]
+
+            # Read maximask
+            mask = masks.file2cube(file_index=idx_file)
 
             # Mask anything above threshold rms and mask glitches
             master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
-            # master_weight.cube[glitches.cube] = 0
+            master_weight.cube[(mask > 0) & (mask < 256)] = 0
 
             # Make primary header
-            prime_header = self.headers_primary[idx_file]
+            prime_header = fits.Header()
             prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
+            prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][self.setup.keywords.date_mjd]
 
             # Write to disk
-            master_weight.write_mef(path=outpath, prime_header=prime_header, data_headers=self.headers_data[idx_file])
+            master_weight.write_mef(path=outpath, prime_header=prime_header)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
