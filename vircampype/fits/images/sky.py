@@ -767,20 +767,24 @@ class ProcessedScienceImages(ProcessedSkyImages):
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
         tstart = time.time()
 
-        # Build commands for MaxiMask
-        cmds = ["maximask.py {0} --single_mask True --n_jobs 2".format(n) for n in self.paths_full]
+        # MaxiMasking
+        if self.setup.maximasking:
+            # Build commands for MaxiMask
+            cmds = ["maximask.py {0} --single_mask True --n_jobs 2".format(n) for n in self.paths_full]
 
-        # Clean commands
-        paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
-        cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
+            # Clean commands
+            paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
+            cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
 
         # Run MaxiMask
         if len(cmds) > 0:
             print_message("Running MaxiMask on {0} files".format(len(cmds)))
         run_cmds(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
 
-        # Put masks into FitsImages object
-        masks = FitsImages(setup=self.setup, file_paths=paths_masks)
+            # Put masks into FitsImages object
+            masks = FitsImages(setup=self.setup, file_paths=paths_masks)
+        else:
+            masks = None
 
         # Fetch master
         master_weights = self.get_master_weight_global()
@@ -810,16 +814,18 @@ class ProcessedScienceImages(ProcessedSkyImages):
             cube.apply_masks(sources=master_mask)
             bg_rms = cube.background(mesh_size=256, mesh_filtersize=3)[1]
 
-            # Read maximask
-            mask = masks.file2cube(file_index=idx_file)
+            # Read and apply maximask
+            if isinstance(masks, FitsImages):
+                mask = masks.file2cube(file_index=idx_file)
+                master_weight.cube[(mask > 0) & (mask < 256)] = 0
 
             # Mask anything above threshold rms and mask glitches
             master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
-            master_weight.cube[(mask > 0) & (mask < 256)] = 0
 
             # Make primary header
             prime_header = fits.Header()
             prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
+            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = self.setup.maximasking
             prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][self.setup.keywords.date_mjd]
 
             # Write to disk
