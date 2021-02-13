@@ -345,7 +345,6 @@ class Pipeline:
         self.build_master_source_mask()
         self.build_master_sky()
         self.build_master_photometry()
-        self.build_coadd_header()
 
     def process_science(self):
         """ Sequentially process science data. """
@@ -354,6 +353,7 @@ class Pipeline:
         self.calibrate_astrometry()
         self.superflat()
         self.build_master_weight_image()
+        self.build_coadd_header()
         self.resample()
         self.classification_pawprints()
         self.photometry_pawprints()
