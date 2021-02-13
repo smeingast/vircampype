@@ -1,8 +1,9 @@
 import os
 import numpy as np
 
-from vircampype.tools.systemtools import *
 from vircampype.pipeline.errors import *
+from vircampype.tools.systemtools import *
+from vircampype.visions.projections import *
 
 
 class Setup(dict):
@@ -33,6 +34,7 @@ class Setup(dict):
         self.__purge_headers = True
         self.__reset_wcs = True
         self.__maximasking = False
+        self.__projection = None
 
         # Superflat
         self.__superflat_window = 60
@@ -683,6 +685,17 @@ class Setup(dict):
     @maximasking.setter
     def maximasking(self, maximasking):
         self.__maximasking = maximasking
+
+    @property
+    def projection(self):
+        return self.__projection
+
+    @projection.setter
+    def projection(self, projection):
+        if ("cra" in projection.lower()) | ("corona" in projection.lower()) | ("australis" in projection.lower()):
+            self.__projection = CoronaAustralisProjection()
+        else:
+            self.__projection = None
 
 
 class HeaderKeywords:
