@@ -10,7 +10,6 @@ from joblib import Parallel, delayed
 from vircampype.tools.mathtools import *
 from vircampype.pipeline.setup import Setup
 from astropy.convolution import Gaussian2DKernel
-from astroscrappy.astroscrappy import detect_cosmics
 
 
 class ImageCube(object):
@@ -652,6 +651,9 @@ class ImageCube(object):
             Whether the mask should be returned. Default is False.
 
         """
+
+        # Import
+        from astroscrappy.astroscrappy import detect_cosmics
 
         # Run in parallel
         with warnings.catch_warnings():
