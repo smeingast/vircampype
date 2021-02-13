@@ -49,7 +49,7 @@ class Projection:
     def pixelscale(self):
         return pixelscale_from_header(header=self.header)
 
-    def header_from_skycoord(self, skycoord, enlarge=0):
+    def subheader_from_skycoord(self, skycoord, enlarge=0):
         """
         Experimental routine that recomputes an image header, given the projection and a bunch of sky coordinates.
 
