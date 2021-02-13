@@ -741,7 +741,7 @@ class RawScienceImages(RawSkyImages):
 
         # Return final header with optimized rotation
         rotation = rotation_test[np.argmin(area)]
-        header_tile = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5,
+        header_tile = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5, round_crval=True,
                                       rotation=np.deg2rad(np.round(rotation, 2)), cdelt=self.setup.pixel_scale_degrees)
 
         # Dummy check
