@@ -731,25 +731,33 @@ class RawScienceImages(RawSkyImages):
         message_calibration(n_current=1, n_total=1, name=self.setup.path_coadd_header, d_current=None,
                             d_total=None, silent=self.setup.silent)
 
-        # Get optimal rotation of frame
-        rotation_test = np.arange(0, 360, 0.2)
-        area = []
-        for rot in rotation_test:
-            hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
-                                  enlarge=0.5, cdelt=self.setup.pixel_scale_degrees)
-            area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+        # Construct header from projection if set
+        if self.setup.projection is not None:
+            header_coadd = self.setup.projection.subheader_from_skycoord(skycoord=self.footprints_flat, enlarge=0.5)
 
-        # Return final header with optimized rotation
-        rotation = rotation_test[np.argmin(area)]
-        header_tile = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5, round_crval=True,
-                                      rotation=np.deg2rad(np.round(rotation, 2)), cdelt=self.setup.pixel_scale_degrees)
+        # Otherwise construct from input
+        else:
 
+            # Get optimal rotation of frame
+            rotation_test = np.arange(0, 360, 0.2)
+            area = []
+            for rot in rotation_test:
+                hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
+                                      enlarge=0.5, cdelt=self.setup.pixel_scale_degrees)
+                area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+
+            # Return final header with optimized rotation
+            rotation = rotation_test[np.argmin(area)]
+            header_coadd = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5,
+                                           round_crval=True, projection=self.setup.projection,
+                                           rotation=np.deg2rad(np.round(rotation, 2)),
+                                           cdelt=self.setup.pixel_scale_degrees)
         # Dummy check
-        if (header_tile["NAXIS1"] > 100000.) or (header_tile["NAXIS2"] > 100000.):
+        if (header_coadd["NAXIS1"] > 100000.) or (header_coadd["NAXIS2"] > 100000.):
             raise ValueError("Double check if the image size is correcti")
 
         # Write coadd header to disk
-        header_tile.totextfile(self.setup.path_coadd_header, overwrite=True)
+        header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
