@@ -692,10 +692,15 @@ class Setup(dict):
 
     @projection.setter
     def projection(self, projection):
-        if ("cra" in projection.lower()) | ("corona" in projection.lower()) | ("australis" in projection.lower()):
-            self.__projection = CoronaAustralisProjection()
-        else:
+        if isinstance(projection, Projection):
+            self.__projection = projection
+        elif projection is None:
             self.__projection = None
+        elif isinstance(projection, str):
+            if ("cra" in projection.lower()) | ("corona" in projection.lower()) | ("australis" in projection.lower()):
+                self.__projection = CoronaAustralisProjection()
+        else:
+            raise PipelineError("Projection must be provided as string or Projection instance")
 
 
 class HeaderKeywords:
