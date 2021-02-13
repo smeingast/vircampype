@@ -749,9 +749,8 @@ class RawScienceImages(RawSkyImages):
             # Return final header with optimized rotation
             rotation = rotation_test[np.argmin(area)]
             header_coadd = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5,
-                                           round_crval=True, projection=self.setup.projection,
-                                           rotation=np.deg2rad(np.round(rotation, 2)),
-                                           cdelt=self.setup.pixel_scale_degrees)
+                                           projection=self.setup.projection, rotation=np.deg2rad(np.round(rotation, 2)),
+                                           cdelt=self.setup.pixel_scale_degrees, round_crval=True)
 
         # Dummy check
         if (header_coadd["NAXIS1"] > 250000.) or (header_coadd["NAXIS2"] > 250000.):
