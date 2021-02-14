@@ -10,7 +10,7 @@ files2 = glob.glob(path_base + "Oph*/*.fits")
 files = files1 + files2
 
 # Set dummy pipeline setup
-setup = dict(name="dummy",
+setup = dict(name="Ophiuchus_wide",
              path_data="/dev/null",
              path_pype="/Users/stefan/Dropbox/Data/VISIONS/test/vircampype/",
              projection=None)

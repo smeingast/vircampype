@@ -9,7 +9,7 @@ path_base = "/Volumes/Data/VISIONS/198C-2009A/data_wide/"
 files = glob.glob(path_base + "CrA*/**/*.fits")
 
 # Set dummy pipeline setup
-setup = dict(name="dummy",
+setup = dict(name="CrA_wide",
              path_data="/dev/null",
              path_pype="/Users/stefan/Dropbox/Data/VISIONS/test/vircampype/",
              n_jobs=6)
