@@ -10,7 +10,6 @@ CD1_2   = -5.9764600715180E-05
 CD2_1   = -5.9764600715180E-05                                                  
 CD2_2   = 7.07218545032076E-05                                                  
 RADESYS = 'ICRS    '                                                            
-HIERARCH projection =                                                           
 NAXIS1  =                84496                                                  
 NAXIS2  =               158056                                                  
 CRPIX1  =              42419.5                                                  
