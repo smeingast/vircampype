@@ -16,7 +16,7 @@ setup = dict(name="Ophiuchus_wide",
              projection=None)
 
 # Instantiate files
-images = RawScienceImages(setup=setup, file_paths=files)[::1]
+images = RawScienceImages(setup=setup, file_paths=files)
 
 # Build header
 images.build_coadd_header()
