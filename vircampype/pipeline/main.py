@@ -2,8 +2,6 @@ import pickle
 from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
-from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs, \
-    PhotometricCalibratedSextractorCatalogs
 
 
 class Pipeline:
@@ -57,11 +55,13 @@ class Pipeline:
 
     @property
     def processed_sources_scamp(self):
+        from vircampype.fits.tables.sextractor import SextractorCatalogs
         return SextractorCatalogs.from_folder(path=self.setup.folders["processed"],
                                               pattern="*.proc.scamp.fits.tab", setup=self.setup, exclude=None)
 
     @property
     def processed_sources_superflat(self):
+        from vircampype.fits.tables.sextractor import AstrometricCalibratedSextractorCatalogs
         return AstrometricCalibratedSextractorCatalogs.from_folder(path=self.setup.folders["processed"],
                                                                    pattern="*.superflat.fits.tab",
                                                                    setup=self.setup, exclude=None)
@@ -80,12 +80,14 @@ class Pipeline:
 
     @property
     def resampled_sources_full(self):
+        from vircampype.fits.tables.sextractor import AstrometricCalibratedSextractorCatalogs
         return AstrometricCalibratedSextractorCatalogs.from_folder(path=self.setup.folders["resampled"],
                                                                    pattern="*full.fits.tab",
                                                                    setup=self.setup, exclude=None)
 
     @property
     def resampled_sources_crunched(self):
+        from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
         return PhotometricCalibratedSextractorCatalogs.from_folder(path=self.setup.folders["resampled"],
                                                                    pattern="*full.fits.ctab",
                                                                    setup=self.setup, exclude=None)
@@ -97,12 +99,14 @@ class Pipeline:
 
     @property
     def tile_sources_full(self):
+        from vircampype.fits.tables.sextractor import AstrometricCalibratedSextractorCatalogs
         return AstrometricCalibratedSextractorCatalogs.from_folder(path=self.setup.folders["tile"],
                                                                    pattern="*full.fits.tab",
                                                                    setup=self.setup, exclude=None)
 
     @property
     def tile_sources_crunched(self):
+        from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
         return PhotometricCalibratedSextractorCatalogs.from_folder(path=self.setup.folders["tile"],
                                                                    pattern="*full.fits.ctab",
                                                                    setup=self.setup, exclude=None)
