@@ -5,14 +5,54 @@ from vircampype.pipeline.main import Setup
 __all__ = ["sextractor2imagehdr", "SextractorSetup", "SwarpSetup", "ScampSetup"]
 
 
-class SextractorSetup:
+def sextractor2imagehdr(path):
+    """
+    Obtains image headers from sextractor catalogs.
 
+    Parameters
+    ----------
+    path : str
+        Path to Sextractor FITS table.
+
+    Returns
+    -------
+    iterable
+        List of image headers found in file.
+
+    """
+
+    # Read image headers into tables
+    with fits.open(path) as hdulist:
+        headers = [fits.Header.fromstring("\n".join(hdulist[i].data["Field Header Card"][0]), sep="\n")
+                   for i in range(1, len(hdulist), 2)]
+
+    # Convert to headers and return
+    return headers
+
+
+class AstromaticSetup:
     def __init__(self, setup):
         self.setup = Setup.load_pipeline_setup(setup)
+        if self.bin is None:
+            raise ValueError("Cannot find executable '{0}'".format(self.bin_name))
 
     @property
     def bin(self):
-        return which(self.setup.bin_sex)
+        return which(self.bin_name)
+
+    @property
+    def bin_name(self):
+        return ""
+
+
+class SextractorSetup(AstromaticSetup):
+
+    def __init__(self, setup):
+        super(SextractorSetup, self).__init__(setup=setup)
+
+    @property
+    def bin_name(self):
+        return self.setup.bin_sex
 
     @property
     def package(self):
@@ -114,14 +154,14 @@ class SextractorSetup:
         return get_resource_path(package=self.package_presets, resource="{0}.param".format(preset))
 
 
-class SwarpSetup:
+class SwarpSetup(AstromaticSetup):
 
     def __init__(self, setup):
-        self.setup = Setup.load_pipeline_setup(setup)
+        super(SwarpSetup, self).__init__(setup=setup)
 
     @property
-    def bin(self):
-        return which(self.setup.bin_swarp)
+    def bin_name(self):
+        return self.setup.bin_swarp
 
     @property
     def package(self):
@@ -199,48 +239,14 @@ class SwarpSetup:
         return get_resource_path(package=self.package_presets, resource="coadd.yml")
 
 
-def sextractor2imagehdr(path):
-    """
-    Obtains image headers from sextractor catalogs.
-
-    Parameters
-    ----------
-    path : str
-        Path to Sextractor FITS table.
-
-    Returns
-    -------
-    iterable
-        List of image headers found in file.
-
-    """
-
-    # Read image headers into tables
-    with fits.open(path) as hdulist:
-        headers = [fits.Header.fromstring("\n".join(hdulist[i].data["Field Header Card"][0]), sep="\n")
-                   for i in range(1, len(hdulist), 2)]
-
-    # Convert to headers and return
-    return headers
-
-
-class ScampSetup:
+class ScampSetup(AstromaticSetup):
 
     def __init__(self, setup):
-        self.setup = Setup.load_pipeline_setup(setup)
+        super(ScampSetup, self).__init__(setup=setup)
 
     @property
-    def bin(self):
-        """
-        Searches for scamp executable and returns path.
-
-        Returns
-        -------
-        str
-            Path to scamp executable.
-
-        """
-        return which(self.setup.bin_scamp)
+    def bin_name(self):
+        return self.setup.bin_scamp
 
     @property
     def package(self):
