@@ -182,28 +182,20 @@ class FitsFiles:
                                     tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
                                     tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
 
-                                    # Silly fix for short ALPHA/DELTA strings
-                                    if len(tra.split(".")[0]) == 5:
-                                        tra = "0" + tra
-                                    elif len(tra.split(".")[0]) == 4:
-                                        tra = "00" + tra
-                                    elif len(tra.split(".")[0]) == 3:
-                                        tra = "000" + tra
-                                    # TODO: This does not work when the string starts with a '-'
-                                    #  (but the astropy should throw and error as it can't read the string)
-                                    if len(tde.split(".")[0]) == 5:
-                                        tde = "0" + tde
-                                    elif len(tde.split(".")[0]) == 4:
-                                        tde = "00" + tde
-                                    elif len(tde.split(".")[0]) == 3:
-                                        tde = "000" + tde
-
-                                    field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
-
-                                    if tde[0].startswith("-"):
-                                        field_de = float(tde[:3]) - float(tde[3:5]) / 60 - float(tde[5:]) / 3600
+                                    # Get declination sign and truncate string if necessary
+                                    if tde.startswith("-"):
+                                        decsign = -1
+                                        tde = tde[1:]
                                     else:
-                                        field_de = float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600
+                                        decsign = 1
+
+                                    # Silly fix for short ALPHA/DELTA strings
+                                    tra = "0" * (6 - len(tra.split(".")[0])) + tra
+                                    tde = "0" * (6 - len(tde.split(".")[0])) + tde
+
+                                    # Compute field RA/DEC
+                                    field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
+                                    field_de = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
 
                                 except KeyError:
                                     field_ra, field_de = None, None
