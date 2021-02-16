@@ -739,7 +739,7 @@ class RawScienceImages(RawSkyImages):
         else:
 
             # Get optimal rotation of frame
-            rotation_test = np.arange(0, 360, 0.2)
+            rotation_test = np.arange(0, 360, 0.05)
             area = []
             for rot in rotation_test:
                 hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
