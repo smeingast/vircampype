@@ -21,6 +21,7 @@ pipeline = Pipeline(setup=args.setup)
 sys.stdout.write("\x1b]2;{0}\x07".format(pipeline.setup.name))
 
 # Run pipeline
-pipeline.build_master_calibration()
-# TODO: In case of a calibration script, this continues here and runs into an error at scamp
-pipeline.process_science()
+if "calibration" in pipeline.setup.name.lower():
+    pipeline.build_master_calibration()
+else:
+    pipeline.process_science()
