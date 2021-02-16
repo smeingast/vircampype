@@ -165,7 +165,7 @@ class SkyImages(FitsImages):
                           back_filtersize=self.setup.sex_back_filtersize)
 
         # Read setup based on preset
-        if preset == "scamp":
+        if (preset == "scamp") | (preset == "fwhm"):
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "class_star":
             ss = yml2config(skip=["catalog_name", "weight_image", "seeing_fwhm", "starnnw_name"], **kwargs_yml)
@@ -209,7 +209,7 @@ class SkyImages(FitsImages):
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
-        if (preset == "scamp") | (preset == "class_star"):
+        if (preset == "scamp") | (preset == "class_star") | (preset == "fwhm"):
             cls = SextractorCatalogs
         elif (preset == "superflat") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
