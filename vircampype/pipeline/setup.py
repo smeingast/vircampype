@@ -1,5 +1,4 @@
 import os
-import numpy as np
 
 from joblib import cpu_count
 from vircampype.pipeline.errors import *
@@ -669,10 +668,6 @@ class Setup(dict):
 
     # =========================================================================== #
     # Other
-    @property
-    def seeing_test_range(self):
-        return np.around(np.arange(0.5, 1.36, 0.05), decimals=2)
-
     @property
     def pixel_scale_arcsec(self):
         return 1/3
