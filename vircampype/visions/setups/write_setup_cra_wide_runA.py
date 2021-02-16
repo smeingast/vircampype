@@ -20,7 +20,7 @@ reference_mag_lim = 11.5, 14.5
 for udj in unique_directories:
     name = "{0}_{1}".format(udj.split("data_wide/")[1].split("/")[0], udj[-2])
     setup = dict(name=name, path_data=udj, path_pype=path_pype,
-                 reference_mag_lim=reference_mag_lim, projection="CrA")
+                 reference_mag_lim=reference_mag_lim, projection="Corona_Australis_wide")
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
