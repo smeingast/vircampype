@@ -1,6 +1,7 @@
 import os
 import numpy as np
 
+from joblib import cpu_count
 from vircampype.pipeline.errors import *
 from vircampype.tools.systemtools import *
 from vircampype.visions.projections import *
@@ -65,6 +66,8 @@ class Setup(dict):
             raise PipelineError("Please provide valid path to data")
         if self.path_pype is None:
             raise PipelineError("Please provide valid path for pipeline output")
+        if self.n_jobs > cpu_count():
+            raise ValueError("More parallel jobs than available CPUs requested.")
 
         # =========================================================================== #
         # Add folder structure to self
