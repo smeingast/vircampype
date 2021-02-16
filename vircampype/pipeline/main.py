@@ -17,16 +17,19 @@ class Pipeline:
         except FileNotFoundError:
             pass
 
+    # =========================================================================== #
     def __str__(self):
         return self.status.__str__()
 
     def __repr__(self):
         return self.status.__repr__()
 
+    # =========================================================================== #
     def update_status(self, path, **kwargs):
         self.status.update(**kwargs)
         self.status.save(path=path)
 
+    # =========================================================================== #
     @property
     def raw(self):
         return FitsImages.from_folder(path=self.setup.folders["raw"],  pattern="*.fits",
@@ -111,6 +114,7 @@ class Pipeline:
                                                                    pattern="*full.fits.ctab",
                                                                    setup=self.setup, exclude=None)
 
+    # =========================================================================== #
     @property
     def science_raw(self):
         return self.raw_split["science"]
@@ -158,6 +162,7 @@ class Pipeline:
     def flat_lamp_gain(self):
         return self.raw_split["flat_lamp_gain"]
 
+    # =========================================================================== #
     def build_master_bpm(self):
         if self.flat_lamp_check is not None:
             if not self.status.master_bpm:
