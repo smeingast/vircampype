@@ -24,7 +24,7 @@ path_pype = "/Volumes/Data/VISIONS/VHS/CrA/vircampype/"
 for udj in unique_directories_j:
     name = "{0}_{1}".format(udj.split("data_vhs/")[1].split("/")[0], "J")
     setup = dict(name=name, path_data=udj, path_pype=path_pype,
-                 reference_mag_lim=reference_mag_lim_j, projection="CrA")
+                 reference_mag_lim=reference_mag_lim_j, projection="Corona_Australis_wide")
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
@@ -35,7 +35,7 @@ for udj in unique_directories_j:
 for udks in unique_directories_ks:
     name = "{0}_{1}".format(udks.split("data_vhs/")[1].split("/")[0], "Ks")
     setup = dict(name=name, path_data=udks, path_pype=path_pype,
-                 reference_mag_lim=reference_mag_lim_ks, projection="CrA")
+                 reference_mag_lim=reference_mag_lim_ks, projection="Corona_Australis_wide")
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
