@@ -548,7 +548,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 continue
 
             # Create string to write from all scaling factor for current file
-            s = "\n".join(["FLXSCALE={0:0.5f}\nEND".format(x**100) for x in flx_scale[idx_file]])
+            s = "\n".join(["FLXSCALE={0:0.5f}\nEND".format(x) for x in flx_scale[idx_file]])
 
             # Write to disk
             with open(outpath, "w") as file:
