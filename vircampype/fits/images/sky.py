@@ -749,9 +749,12 @@ class RawScienceImages(RawSkyImages):
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
         tstart = time.time()
 
-        # TODO: Check if header exists
+        # Check if header exists
+        if check_file_exists(file_path=self.setup.path_coadd_header, silent=self.setup.silent)\
+                and not self.setup.overwrite:
+            return
 
-        # Print processing info
+        # Print message
         message_calibration(n_current=1, n_total=1, name=self.setup.path_coadd_header, d_current=None,
                             d_total=None, silent=self.setup.silent)
 
