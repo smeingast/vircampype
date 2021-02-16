@@ -322,6 +322,7 @@ class Pipeline:
 
     def build_tile(self):
         if not self.status.tile:
+            self.resampled_sources_crunched.write_coadd_flux_scale()
             self.resampled.coadd_pawprints()
             self.update_status(path=self.path_status, tile=True)
         else:
