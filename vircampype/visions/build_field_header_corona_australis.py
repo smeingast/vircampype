@@ -4,9 +4,7 @@ from vircampype.fits.images.sky import RawScienceImages
 
 # Set paths
 path_base = "/Volumes/Data/VISIONS/198C-2009A/data_wide/"
-
-# Find files
-files = glob.glob(path_base + "CrA*/**/*.fits")
+files = glob.glob(path_base + "CrA*/A/*.fits")
 
 # Set dummy pipeline setup
 setup = dict(name="CrA_wide",
