@@ -695,7 +695,7 @@ class Setup(dict):
         elif projection is None:
             self.__projection = None
         elif isinstance(projection, str):
-            if ("cra" in projection.lower()) | ("corona" in projection.lower()) | ("australis" in projection.lower()):
+            if "corona_australis_wide" == projection.lower():
                 self.__projection = CoronaAustralisWideProjection()
         else:
             raise PipelineError("Projection must be provided as string or Projection instance")
