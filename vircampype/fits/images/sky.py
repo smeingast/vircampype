@@ -16,6 +16,7 @@ from vircampype.tools.fitstools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.mathtools import *
 from astropy.coordinates import SkyCoord
+from vircampype.tools.tabletools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
@@ -228,8 +229,8 @@ class SkyImages(FitsImages):
         print_header(header="CLASSIFICATION", left="File", right=None, silent=self.setup.silent)
         tstart = time.time()
 
-        # Determine seeing values to be probed
-        seeing_fwhm = self.setup.seeing_test_range
+        # Run Sextractor with FWHM preset
+        fwhm_catalogs = self.sextractor(preset="fwhm")
 
         # Loop over files
         for idx_file in range(self.n_files):
@@ -238,23 +239,40 @@ class SkyImages(FitsImages):
             outpath = self.paths_full[idx_file].replace(".fits", ".cs.fits.tab")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup.overwrite:
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
                 continue
 
             # Print processing info
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
+            # Read and clean current fwhm catalog
+            fcs = [clean_source_table(x) for x in fwhm_catalogs.file2table(file_index=idx_file)]
+
+            # Get percentiles image quality measurements
+            fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
+            fwhms = sigma_clip(fwhms, sigma_level=5, sigma_iter=2, center_metric=np.nanmedian)
+
+            # Get percentiles
+            fwhm_lo = round_decimals_down(np.nanpercentile(fwhms, 2.5) * self.setup.pixel_scale_arcsec, decimals=2)
+            fwhm_hi = round_decimals_up(np.nanpercentile(fwhms, 97.5) * self.setup.pixel_scale_arcsec, decimals=2)
+
+            # Determine FWHM range
+            fwhm_range = np.arange(fwhm_lo, fwhm_hi + 0.05, 0.05)
+
+            # Safety net for fwhm range (18 entries max)
+            if len(fwhm_range) > 18:
+                fwhm_range = np.linspace(fwhm_lo, fwhm_hi, 18)
+
             # Construct sextractor commands
             cmds = [self.sextractor(preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True)[idx_file]
-                    for ss in seeing_fwhm]
+                    for ss in fwhm_range]
 
             # Replace output catalog path and save the paths
             catalog_paths = []
             for idx in (range(len(cmds))):
                 cmds[idx] = cmds[idx].replace(".class_star.fits.tab",
-                                              ".class_star{0:4.2f}.fits.tab".format(seeing_fwhm[idx]))
+                                              ".class_star{0:4.2f}.fits.tab".format(fwhm_range[idx]))
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
 
             # Run Sextractor
@@ -281,11 +299,15 @@ class SkyImages(FitsImages):
                         tables_out[tidx]["YWIN_IMAGE"] = tables_seeing[tidx]["YWIN_IMAGE"]
 
                     # Add classifier
-                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(seeing_fwhm[idx_seeing])
+                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(fwhm_range[idx_seeing])
                     tables_out[tidx][cs_column_name] = tables_seeing[tidx]["CLASS_STAR"]
 
             # Make FITS table
-            hdul = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            header_prime = fits.Header()
+            for fidx in range(len(fwhm_range)):
+                add_float_to_header(header=header_prime, key="HIERARCH PYPE CS FWHM {0}".format(fidx+1),
+                                    value=fwhm_range[fidx])
+            hdul = fits.HDUList(hdus=[fits.PrimaryHDU(header=header_prime)])
             [hdul.append(fits.BinTableHDU(t)) for t in tables_out]
             hdul.writeto(outpath, overwrite=True)
 
