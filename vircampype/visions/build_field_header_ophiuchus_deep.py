@@ -3,14 +3,11 @@ import glob
 from vircampype.fits.images.sky import RawScienceImages
 
 # Find files
-path_base = "/Volumes/Data/VISIONS/198C-2009A/data_wide/"
-files1 = glob.glob(path_base + "Oph*/*.fits")
-path_base = "/Volumes/Data/VISIONS/198C-2009B/data_wide/"
-files2 = glob.glob(path_base + "Oph*/*.fits")
-files = files1 + files2
+path_base = "/Volumes/Data/VISIONS/198C-2009A/data_deep/"
+files = glob.glob(path_base + "*/*.fits")
 
 # Set dummy pipeline setup
-setup = dict(name="Ophiuchus_wide",
+setup = dict(name="Ophiuchus_deep",
              path_data="/dev/null",
              path_pype="/Users/stefan/Dropbox/Data/VISIONS/test/vircampype/",
              projection=None)
@@ -18,5 +15,8 @@ setup = dict(name="Ophiuchus_wide",
 # Instantiate files
 images = RawScienceImages(setup=setup, file_paths=files)
 
+# Split science images
+science = images.split_types()["science"]
+
 # Build header
-images.build_coadd_header()
+science.build_coadd_header()
