@@ -219,12 +219,18 @@ def table2bintablehdu(table):
     return fits.BinTableHDU.from_columns(columns=cols_hdu)
 
 
-def interpolate_classification(source_table, classification_table, fwhm_range):
+def interpolate_classification(source_table, classification_table):
     """ Helper tool to interpolate classification from library """
 
     # Grab coordinates
     xx_source, yy_source = source_table["XWIN_IMAGE"], source_table["YWIN_IMAGE"]
     xx_class, yy_class = classification_table["XWIN_IMAGE"], classification_table["YWIN_IMAGE"]
+
+    # Determine FWHM range from available columns
+    fwhm_range = []
+    for key in classification_table.columns.keys():
+        if key.startswith("CLASS_STAR"):
+            fwhm_range.append(float(key.split("_")[-1]))
 
     # Sextractor may not deliver the same sources between classification and full mode, so we do a NN search
     stacked_source = np.stack([xx_source, yy_source]).T
