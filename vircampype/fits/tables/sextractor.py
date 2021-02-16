@@ -392,8 +392,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Interpolate classification in parallel for each extension
             with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-                tables_file = parallel(delayed(interpolate_classification)(i, j, k) for i, j, k
-                                       in zip(tables_file, tables_class_file, repeat(self.setup.seeing_test_range)))
+                tables_file = parallel(delayed(interpolate_classification)(i, j) for i, j
+                                       in zip(tables_file, tables_class_file))
 
             # Match apertures and add to table
             [t.add_column((t["MAG_APER"] - t["MAG_APER_COR_INTERP"]), name="MAG_APER_MATCHED")
