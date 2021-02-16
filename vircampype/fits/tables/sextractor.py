@@ -528,6 +528,32 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
     def __init__(self, setup, file_paths=None):
         super(PhotometricCalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
+    def write_coadd_flux_scale(self):
+        """ Constructs flux scale for coaddition from different zero points across all images and detectors. """
+
+        # Convert ZPs to flux scaling factor
+        flx_scale = 10**(np.array(self.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0]) / -2.5)
+
+        # Normalize the scaling across all input catalogs
+        flx_scale = (flx_scale / np.mean(flx_scale)).tolist()
+
+        # Loop over files and write to disk
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            outpath = self.paths_full[idx_file].replace(".full.fits.ctab", ".coadd_ahead")
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
+                continue
+
+            # Create string to write from all scaling factor for current file
+            s = "\n".join(["FLXSCALE={0:0.5f}\nEND".format(x**100) for x in flx_scale[idx_file]])
+
+            # Write to disk
+            with open(outpath, "w") as file:
+                file.write(s)
+
     def paths_qc_plots(self, paths, prefix=""):
 
         if paths is None:
