@@ -324,6 +324,7 @@ class FitsFiles:
         # Return values
         return [[[e[k] for e in h] for h in headers_data] for k in keywords]
 
+    # TODO: Reanme this method
     def _get_dataheaders_sequence(self, keyword, start_index=0):
         """
         Retrieves values from dataheaders that are atored in a sequence like 'keyword 0' - 'keyword 1' - ...
@@ -332,6 +333,8 @@ class FitsFiles:
         ----------
         keyword : str
             Keyword in header
+        start_index : int, optional
+            Starting index of header entries. Default is 0.
 
         Returns
         -------
