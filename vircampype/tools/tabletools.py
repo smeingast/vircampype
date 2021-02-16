@@ -219,7 +219,7 @@ def table2bintablehdu(table):
     return fits.BinTableHDU.from_columns(columns=cols_hdu)
 
 
-def interpolate_classification(source_table, classification_table, seeing_range):
+def interpolate_classification(source_table, classification_table, fwhm_range):
     """ Helper tool to interpolate classification from library """
 
     # Grab coordinates
@@ -233,7 +233,7 @@ def interpolate_classification(source_table, classification_table, seeing_range)
     dis, idx = dis[:, -1], idx[:, -1]
 
     # Read classifications in array
-    array_class = np.array([classification_table["CLASS_STAR_{0:4.2f}".format(s)][idx] for s in seeing_range])
+    array_class = np.array([classification_table["CLASS_STAR_{0:4.2f}".format(s)][idx] for s in fwhm_range])
 
     # Mulit-dimensional interpolation consumes far too much memory
     # f = interp1d(seeing_range, array_class, axis=0, fill_value="extrapolate")
@@ -242,7 +242,7 @@ def interpolate_classification(source_table, classification_table, seeing_range)
     # Loop over each source
     class_star_interp = []
     for sc, ac in zip(source_table["FWHM_WORLD_INTERP"] * 3600, array_class.T):
-        class_star_interp.append(interp1d(seeing_range, ac, fill_value="extrapolate")(sc))
+        class_star_interp.append(interp1d(fwhm_range, ac, fill_value="extrapolate")(sc))
     class_star_interp = np.array(class_star_interp, dtype=np.float32)
 
     # Mask bad values
