@@ -6,7 +6,7 @@ from vircampype.tools.wcstools import *
 from vircampype.tools.systemtools import get_resource_path
 
 
-__all__ = ["Projection", "CoronaAustralisProjection"]
+__all__ = ["Projection", "CoronaAustralisWideProjection"]
 
 
 class Projection:
@@ -88,39 +88,71 @@ class Projection:
         return header_new
 
 
-class CoronaAustralisProjection(Projection):
+class ChamaeleonWideProjection(Projection):
 
     def __init__(self):
-        super(CoronaAustralisProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(ChamaeleonWideProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
 
     @property
     def __header_file(self):
-        """
-        Internal path for header.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return get_resource_path(package=self.headerpackage, resource="CrA.header")
+        return get_resource_path(package=self.headerpackage, resource="Chamaeleon_wide.header")
 
 
-class OphiuchusProjection(Projection):
+class CoronaAustralisWideProjection(Projection):
 
     def __init__(self):
-        super(OphiuchusProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(CoronaAustralisWideProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
 
     @property
     def __header_file(self):
-        """
-        Internal path for header.
+        return get_resource_path(package=self.headerpackage, resource="Corona_Australis_wide.header")
 
-        Returns
-        -------
-        str
-            Package path.
-        """
 
-        return get_resource_path(package=self.headerpackage, resource="Ophiuchus.header")
+class LupusWideProjection(Projection):
+
+    def __init__(self):
+        super(LupusWideProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Lupus_wide.header")
+
+
+class MuscaWideProjection(Projection):
+
+    def __init__(self):
+        super(MuscaWideProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Musca_wide.header")
+
+
+class OphiuchusDeepProjection(Projection):
+
+    def __init__(self):
+        super(OphiuchusDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Ophiuchus_deep.header")
+
+
+class OphiuchusWideProjection(Projection):
+
+    def __init__(self):
+        super(OphiuchusWideProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Ophiuchus_wide.header")
+
+
+class OrionWideProjection(Projection):
+
+    def __init__(self):
+        super(OrionWideProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Orion_wide.header")
