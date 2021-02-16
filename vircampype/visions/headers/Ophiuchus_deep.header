@@ -1,0 +1,16 @@
+NAXIS   =                    2                                                  
+CTYPE1  = 'RA---ZEA'                                                            
+CTYPE2  = 'DEC--ZEA'                                                            
+CRVAL1  =               247.15                                                  
+CRVAL2  =               -23.95                                                  
+CUNIT1  = 'deg     '                                                            
+CUNIT2  = 'deg     '                                                            
+CD1_1   = -1.7588175139970E-05                                                  
+CD1_2   = -9.0906789065853E-05                                                  
+CD2_1   = -9.0906789065853E-05                                                  
+CD2_2   = 1.75881751399708E-05                                                  
+RADESYS = 'ICRS    '                                                            
+NAXIS1  =                26638                                                  
+NAXIS2  =                31924                                                  
+CRPIX1  =              13363.5                                                  
+CRPIX2  =              15974.5                                                  
