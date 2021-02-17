@@ -116,7 +116,7 @@ def yml2config(path_yml, skip=None, **kwargs):
 
 def run_cmds(cmds, n_processes=1, silent=True):
     """
-    Runs a list of shell commands
+    Runs a list of shell commands in parallel.
 
     Parameters
     ----------
