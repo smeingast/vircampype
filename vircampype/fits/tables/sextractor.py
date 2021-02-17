@@ -126,7 +126,7 @@ class SextractorCatalogs(SourceCatalogs):
                         self._scamp_header_paths(joined=True), band, options)
 
         # Run Scamp
-        run_command_bash(cmd, silent=False)
+        run_command_shell(cmd, silent=False)
 
     # =========================================================================== #
     # Other properties

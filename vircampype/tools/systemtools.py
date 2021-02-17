@@ -7,7 +7,7 @@ import importlib
 
 from itertools import zip_longest
 
-__all__ = ["make_folder", "which", "read_yml", "yml2config", "run_cmds", "run_command_bash", "get_resource_path",
+__all__ = ["make_folder", "which", "read_yml", "yml2config", "run_cmds", "run_command_shell", "get_resource_path",
            "copy_file"]
 
 
@@ -141,7 +141,7 @@ def run_cmds(cmds, n_processes=1, silent=True):
             p.wait()
 
 
-def run_command_bash(cmd, silent=False):
+def run_command_shell(cmd, silent=False):
     if silent:
         subprocess.run(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
