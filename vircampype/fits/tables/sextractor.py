@@ -3,7 +3,6 @@ import pickle
 import warnings
 import numpy as np
 
-from astropy import wcs
 from astropy.io import fits
 from itertools import repeat
 from astropy.time import Time
@@ -21,6 +20,7 @@ from vircampype.tools.photometry import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from vircampype.tools.miscellaneous import *
+from astropy.wcs import WCS, FITSFixedWarning
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 
@@ -487,19 +487,33 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 weight /= np.median(weight)
 
                 # Obtain wcs for statistics images (they all have the same projection)
-                wcs_stats = wcs.WCS(header=mjdeff_image.headers_data[0][idx_hdu_stats])
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", FITSFixedWarning)
+                    wcs_stats = WCS(header=mjdeff_image.headers_data[0][idx_hdu_stats])
 
                 # Convert to X/Y
                 xx, yy = wcs_stats.wcs_world2pix(table_hdu[self._key_ra], table_hdu[self._key_dec], 0)
+                xx_image, yy_image = xx.astype(int), yy.astype(int)
+
+                # Mark bad data
+                bad = (xx_image >= mjdeff.shape[1]) | (xx_image < 0) | \
+                      (yy_image >= mjdeff.shape[0]) | (yy_image < 0)
+
+                # Just to be sort of safe, let's say we can't have more than 100 sources affected by this
+                if sum(bad) > 100:
+                    raise ValueError("Too many sources are close to the image edge. Please check for issues.")
+
+                # Reset bad coordinates to 0/0
+                xx_image[bad], yy_image[bad] = 0, 0
 
                 # Get values for each source from data arrays
-                mjdeff_sources = mjdeff[yy.astype(int), xx.astype(int)]
-                exptime_sources = exptime[yy.astype(int), xx.astype(int)]
-                ndet_sources = ndet[yy.astype(int), xx.astype(int)]
-                weight_sources = weight[yy.astype(int), xx.astype(int)]
+                mjdeff_sources = mjdeff[yy_image, xx_image]
+                exptime_sources = exptime[yy_image, xx_image]
+                ndet_sources = ndet[yy_image, xx_image]
+                weight_sources = weight[yy_image, xx_image]
 
                 # Mask bad sources
-                bad = weight_sources < 0.0001
+                bad &= weight_sources < 0.0001
                 mjdeff_sources[bad] = np.nan
                 exptime_sources[bad] = 0
                 ndet_sources[bad] = 0
