@@ -107,7 +107,6 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Get passband
         bands = list(set(self.passband))
-        print(bands)
         if len(bands) != 1:
             raise ValueError("Sequence contains multiple filters")
         else:
