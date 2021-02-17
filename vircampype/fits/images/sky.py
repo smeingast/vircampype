@@ -260,9 +260,9 @@ class SkyImages(FitsImages):
             # Determine FWHM range
             fwhm_range = np.arange(fwhm_lo, fwhm_hi + 0.05, 0.05)
 
-            # Safety net for fwhm range (18 entries max)
+            # Safety check for fwhm range
             if len(fwhm_range) > 18:
-                fwhm_range = np.linspace(fwhm_lo, fwhm_hi, 18)
+                fwhm_range = np.around(np.arange(0.5, 1.36, 0.05), decimals=2)
 
             # Construct sextractor commands
             cmds = [self.sextractor(preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True)[idx_file]
