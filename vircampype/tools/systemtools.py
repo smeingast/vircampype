@@ -7,8 +7,8 @@ import importlib
 
 from itertools import zip_longest
 
-__all__ = ["make_folder", "which", "read_yml", "yml2config", "run_cmds", "run_command_shell", "get_resource_path",
-           "copy_file"]
+__all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
+           "get_resource_path", "copy_file"]
 
 
 def make_folder(path):
@@ -114,7 +114,7 @@ def yml2config(path_yml, skip=None, **kwargs):
     return s
 
 
-def run_cmds(cmds, n_processes=1, silent=True):
+def run_commands_shell_parallel(cmds, n_processes=1, silent=True):
     """
     Runs a list of shell commands in parallel.
 

@@ -197,7 +197,7 @@ class SkyImages(FitsImages):
             return cmds
 
         # Run Sextractor
-        run_cmds(cmds=cmds, silent=True, n_processes=self.setup.n_jobs)
+        run_commands_shell_parallel(cmds=cmds, silent=True, n_processes=self.setup.n_jobs)
 
         # Add some keywords to primary header
         for cat, img in zip(path_tables_clean, self.paths_full):
@@ -276,7 +276,7 @@ class SkyImages(FitsImages):
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
 
             # Run Sextractor
-            run_cmds(cmds=cmds, silent=True, n_processes=self.setup.n_jobs)
+            run_commands_shell_parallel(cmds=cmds, silent=True, n_processes=self.setup.n_jobs)
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
@@ -814,7 +814,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
             # Run MaxiMask
             if len(cmds) > 0:
                 print_message("Running MaxiMask on {0} files".format(len(cmds)))
-            run_cmds(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
+            run_commands_shell_parallel(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
 
             # Put masks into FitsImages object
             masks = FitsImages(setup=self.setup, file_paths=paths_masks)
