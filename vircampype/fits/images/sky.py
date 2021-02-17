@@ -230,7 +230,7 @@ class SkyImages(FitsImages):
         tstart = time.time()
 
         # Run Sextractor with FWHM preset
-        fwhm_catalogs = self.sextractor(preset="fwhm")
+        fwhm_catalogs = self.sextractor(preset="fwhm", silent=True)
 
         # Loop over files
         for idx_file in range(self.n_files):
