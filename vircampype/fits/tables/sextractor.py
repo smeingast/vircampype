@@ -498,8 +498,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 bad = (xx_image >= mjdeff.shape[1]) | (xx_image < 0) | \
                       (yy_image >= mjdeff.shape[0]) | (yy_image < 0)
 
-                # Just to be sort of safe, let's say we can't have more than 100 sources affected by this
-                if sum(bad) > 100:
+                # Just to be sort of safe, let's say we can't have more than 0.05% of sources at the edges
+                if sum(bad) > 0.0005 * len(bad):
                     raise ValueError("Too many sources are close to the image edge ({0}/{1}). "
                                      "Please check for issues.".format(sum(bad), len(bad)))
 
@@ -709,6 +709,133 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 ax.yaxis.set_minor_locator(AutoMinorLocator())
 
             # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpaths[-1], bbox_inches="tight")
+            plt.close("all")
+
+    def plot_qc_ref2d(self, axis_size=5):
+
+        # Import
+        from astropy.units import Unit
+        import matplotlib.pyplot as plt
+        from matplotlib.cm import get_cmap
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Generate output paths
+        outpaths = self.paths_qc_plots(paths=None, prefix="phot.2D")
+
+        for idx_file in range(self.n_files):
+
+            # Coadd mode
+            if len(self.iter_data_hdu[idx_file]) == 1:
+                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                ax_file = [ax_file]
+            else:
+                fig, ax_file = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
+                ax_file = ax_file.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Get passband
+            passband = self.passband[idx_file][0]
+
+            # Get master photometry catalog
+            master_phot = self.get_master_photometry()[0]
+            mkeep = master_phot.get_purge_index(passband=passband)
+
+            # Fetch magnitude and coordinates for master catalog
+            mag_master = master_phot.mag(passband=passband)[idx_file][0][mkeep]
+            master_skycoord = master_phot.skycoord()[idx_file][0][mkeep]
+
+            # Read sources table for current files
+            table_file = self.file2table(file_index=idx_file)
+
+            im = None
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+
+                # Grab axes
+                ax = ax_file[idx_hdu]
+
+                # Get current image header
+                header = self.image_headers[idx_file][idx_hdu]
+
+                # Grab current catalog
+                tab_hdu = table_file[idx_hdu]
+
+                # Clean table
+                tab_hdu = clean_source_table(table=tab_hdu)
+
+                # Construct skycoordinates
+                sc_hdu = SkyCoord(ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg")
+
+                # Xmatch science with reference
+                zp_idx, zp_d2d, _ = sc_hdu.match_to_catalog_sky(master_skycoord)
+
+                # Get good indices in reference catalog and in current field
+                idx_master = zp_idx[zp_d2d < 1 * Unit("arcsec")]
+                idx_final = np.arange(len(zp_idx))[zp_d2d < 1 * Unit("arcsec")]
+
+                # Apply indices filter
+                mag_hdu_match = tab_hdu["MAG_AUTO_CAL"][idx_final]
+                mag_master_match = mag_master[idx_master]
+
+                # Compute difference between reference and self
+                mag_delta = mag_master_match - mag_hdu_match
+
+                # Grab X/Y coordinates
+                x_hdu, y_hdu = tab_hdu["X_IMAGE"][idx_final], tab_hdu["Y_IMAGE"][idx_final]
+
+                # Grid value into image
+                mode = "pawprint"
+                if mode == "pawprint":
+                    nx, ny, kernel_scale = 3, 3, 0.2
+                elif mode == "tile":
+                    nx, ny, kernel_scale = 10, 10, 0.05
+                else:
+                    raise ValueError("Mode '{0}' not supported".format(mode))
+
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=mag_delta, x_min=0, x_max=header["NAXIS1"],
+                                     y_min=0, y_max=header["NAXIS2"], nx=nx, ny=ny, conv=False, upscale=False)
+
+                # Draw
+                kwargs = {"vmin": -0.2, "vmax": +0.2, "cmap": get_cmap("RdBu", 26)}
+                extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
+                im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
+                ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7, lw=0.5, ec="black", **kwargs)
+
+                # Annotate detector ID
+                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                            xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx_hdu < self.setup.fpa_layout[1]:
+                    ax_file[idx_hdu].set_xlabel("X (pix)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
+                    ax_file[idx_hdu].set_ylabel("Y (pix)")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Equal aspect ratio
+                ax.set_aspect("equal")
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Set limits
+                ax.set_xlim(1, header["NAXIS1"])
+                ax.set_ylim(1, header["NAXIS2"])
+
+            # Add colorbar
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
+            cbar.ax.xaxis.set_ticks_position("top")
+            cbar.ax.xaxis.set_label_position("top")
+
+            # # Save plot
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
                 fig.savefig(outpaths[-1], bbox_inches="tight")
