@@ -598,7 +598,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate output paths
-        outpaths_1d = self.paths_qc_plots(paths=None, prefix="phot.1D")
+        outpaths = self.paths_qc_plots(paths=None, prefix="phot.1D")
 
         for idx_file in range(len(self)):
 
@@ -711,5 +711,5 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Save plot
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
-                fig.savefig(outpaths_1d[-1], bbox_inches="tight")
+                fig.savefig(outpaths[-1], bbox_inches="tight")
             plt.close("all")
