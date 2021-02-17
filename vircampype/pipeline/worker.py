@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Either install vircampype or add root to PYTHONPATH via
+Either install vircampype or add root to PYTHONPATH via e.g.
 export PYTHONPATH="/Users/stefan/Dropbox/Projects/vircampype/":$PYTHONPATH}
 """
 import sys
