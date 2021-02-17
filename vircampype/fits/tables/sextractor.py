@@ -500,7 +500,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Just to be sort of safe, let's say we can't have more than 100 sources affected by this
                 if sum(bad) > 100:
-                    raise ValueError("Too many sources are close to the image edge. Please check for issues.")
+                    raise ValueError("Too many sources are close to the image edge ({0}/{1}). "
+                                     "Please check for issues.".format(sum(bad), len(bad)))
 
                 # Reset bad coordinates to 0/0
                 xx_image[bad], yy_image[bad] = 0, 0
