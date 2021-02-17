@@ -727,9 +727,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         for idx_file in range(self.n_files):
 
-            # Coadd mode
+            # Create figure for current file
             if len(self.iter_data_hdu[idx_file]) == 1:
-                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                fig, ax_file = plt.subplots(1, 1, gridspec_kw=dict(left=0.1, right=0.9, bottom=0.1, top=0.9),
+                                            **dict(figsize=(2 * axis_size, 2 * axis_size)))
                 ax_file = [ax_file]
             else:
                 fig, ax_file = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
