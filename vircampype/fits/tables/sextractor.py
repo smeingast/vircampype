@@ -443,6 +443,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 csc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
                 csc.plot_qc_zp(axis_size=5)
                 csc.plot_qc_ref1d(axis_size=5)
+                csc.plot_qc_ref2d(axis_size=5)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -743,7 +744,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[idx_file][0][mkeep]
-            master_skycoord = master_phot.skycoord()[idx_file][0][mkeep]
+            skycoord_master = master_phot.skycoord()[idx_file][0][mkeep]
+
+            # Keep only soruces within mag limit
+            mag_lim = master_phot.mag_lim(self.passband[idx_file])
+            keep = (mag_master >= mag_lim[0]) & (mag_master <= mag_lim[1])
+            mag_master, skycoord_master = mag_master[keep], skycoord_master[keep]
 
             # Read sources table for current files
             table_file = self.file2table(file_index=idx_file)
@@ -767,7 +773,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 sc_hdu = SkyCoord(ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg")
 
                 # Xmatch science with reference
-                zp_idx, zp_d2d, _ = sc_hdu.match_to_catalog_sky(master_skycoord)
+                zp_idx, zp_d2d, _ = sc_hdu.match_to_catalog_sky(skycoord_master)
 
                 # Get good indices in reference catalog and in current field
                 idx_master = zp_idx[zp_d2d < 1 * Unit("arcsec")]
