@@ -616,9 +616,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Read tables
             tab_file = self.file2table(file_index=idx_file)
 
-            # Clean tables
-            tab_file = [clean_source_table(table=t) for t in tab_file]
-
             # Make plot grid
             if len(self.iter_data_hdu[idx_file]) == 1:
                 fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
