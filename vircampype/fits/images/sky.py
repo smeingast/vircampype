@@ -855,6 +855,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
                 master_weight.cube[(mask > 0) & (mask < 256)] = 0
 
             # Mask anything above threshold rms and mask glitches
+            # TODO: Pehraps only apply this to detector 16...
             master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
 
             # Make primary header
