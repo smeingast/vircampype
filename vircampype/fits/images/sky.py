@@ -858,9 +858,13 @@ class ProcessedScienceImages(ProcessedSkyImages):
                 mask = masks.file2cube(file_index=idx_file)
                 master_weight.cube[(mask > 0) & (mask < 256)] = 0
 
-            # Mask anything above threshold rms and mask glitches
-            # TODO: Pehraps only apply this to detector 16...
-            master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
+            # Mask bad pixels
+            try:
+                # Try to just mask detector 16 (silly workaround)
+                master_weight.cube[15][bg_rms[15] > 1.5 * np.nanmedian(bg_rms)] = 0
+            except IndexError:
+                # Mask all detectors
+                master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
 
             # Make primary header
             prime_header = fits.Header()
