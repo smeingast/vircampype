@@ -849,11 +849,16 @@ class ProcessedScienceImages(ProcessedSkyImages):
             master_mask = master_source_masks.file2cube(file_index=idx_file)
             cube = self.file2cube(file_index=idx_file)
 
+            # Apply MaxiMask to image if set for better background determination
+            if isinstance(masks, FitsImages):
+                mask = masks.file2cube(file_index=idx_file)
+                cube.cube[mask > 0] = np.nan
+
             # Get background statistics
             cube.apply_masks(sources=master_mask)
             bg_rms = cube.background(mesh_size=256, mesh_filtersize=3)[1]
 
-            # Read and apply maximask
+            # Read and apply MaxiMask to weight
             if isinstance(masks, FitsImages):
                 mask = masks.file2cube(file_index=idx_file)
                 master_weight.cube[(mask > 0) & (mask < 256)] = 0
