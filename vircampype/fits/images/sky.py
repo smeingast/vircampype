@@ -805,11 +805,15 @@ class ProcessedScienceImages(ProcessedSkyImages):
         # MaxiMasking
         if self.setup.maximasking:
             # Build commands for MaxiMask
-            cmds = ["maximask.py {0} --single_mask True --n_jobs 1".format(n) for n in self.paths_full]
+            cmds = ["maximask.py {0} --single_mask True --n_jobs_intra 1 --n_jobs_inter 1".format(n)
+                    for n in self.paths_full]
 
             # Clean commands
             paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
             cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
+
+            if len(paths_masks) != len(self):
+                raise ValueError("Something went wrong with MaxiMask")
 
             # Run MaxiMask
             if len(cmds) > 0:
