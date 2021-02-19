@@ -33,7 +33,7 @@ class Setup(dict):
         # Data setup
         self.__purge_headers = True
         self.__reset_wcs = True
-        self.__maximasking = False
+        self.__maximasking = True
         self.__projection = None
 
         # Superflat
