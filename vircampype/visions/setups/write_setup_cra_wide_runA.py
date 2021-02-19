@@ -15,13 +15,18 @@ unique_directories = sorted(list(set([os.path.dirname(x) + "/" for x in files]))
 
 # Reference limits
 reference_mag_lim = 11.5, 14.5
+
+# Number of parallel jobs
 n_jobs = 12
+
+# Projection
+projection = "Corona_Australis_wide"
 
 # Generate setups and write them to disk
 for udj in unique_directories:
     name = "{0}_{1}".format(udj.split("data_wide/")[1].split("/")[0], udj[-2])
     setup = dict(name=name, path_data=udj, path_pype=path_pype, n_jobs=n_jobs,
-                 reference_mag_lim=reference_mag_lim, projection="Corona_Australis_wide")
+                 reference_mag_lim=reference_mag_lim, projection=projection)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
