@@ -25,7 +25,7 @@ class Setup(dict):
         self.__name = None
         self.__path_data = None
         self.__path_pype = None
-        self.__n_jobs = 6
+        self.__n_jobs = 12
         self.__silent = False
         self.__overwrite = False
         self.__qc_plots = True
