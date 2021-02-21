@@ -646,7 +646,7 @@ def background_cube(cube, mesh_size=128, mesh_filtersize=3, max_iter=10, n_threa
     return np.array(cube_background), np.array(cube_noise)
 
 
-def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
+def estimate_background(array, max_iter=20, force_clipping=False, axis=None):
     """
     Estimates the background sky level based on an iterative 3-sigma clipping algorithm. In principle the data are
     iterativley clipped around the median. At each iteration the mean of the clipped histogram is calculated. If the
