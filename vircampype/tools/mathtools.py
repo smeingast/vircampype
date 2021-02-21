@@ -711,7 +711,7 @@ def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
             sky_ini = sky.copy()
 
         # Only upon the second iteration we evaluate
-        elif idx > 0:
+        elif (idx > 0) & (idx < max_iter):
 
             # If we have no change within 2% of previous iteration we return
             if np.mean(np.abs(sky_save / sky - 1)) < 0.02:
@@ -729,7 +729,7 @@ def estimate_background(array, max_iter=10, force_clipping=False, axis=None):
                 pass
 
         # If we have no convergence after 10 iterations, we return an estimate
-        elif idx > max_iter:
+        elif idx >= max_iter:
 
             if force_clipping is True:
                 return sky, skysig
