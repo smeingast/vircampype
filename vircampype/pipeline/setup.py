@@ -442,17 +442,17 @@ class Setup(dict):
     @property
     def master_max_lag_bpm(self):
         """ Maximum time difference to MasterBPM in days. """
-        return 10
+        return 14
 
     @property
     def master_max_lag_dark(self):
         """ Maximum time difference to MasterDark in days. """
-        return 10
+        return 14
 
     @property
     def master_max_lag_flat(self):
         """ Maximum time difference to MasterFlat in days. """
-        return 10
+        return 14
 
     @property
     def master_max_lag_superflat(self):
@@ -467,17 +467,17 @@ class Setup(dict):
     @property
     def master_max_lag_gain(self):
         """ Maximum time difference to MasterGain in days. """
-        return 10
+        return 14
 
     @property
     def master_max_lag_weight(self):
         """ Maximum time difference to MasterWeight in days. """
-        return 10
+        return 14
 
     @property
     def master_max_lag_linearity(self):
         """ Maximum time difference to MasterLinearity in days. """
-        return 10
+        return 14
 
     # =========================================================================== #
     # Photometry
