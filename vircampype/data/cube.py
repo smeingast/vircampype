@@ -1061,6 +1061,9 @@ class ImageCube(object):
             labels[labels > 0], labels[labels < 0] = 1, 0
             labels = labels.astype(bool)
 
+            # Dilate the mask
+            labels = ndimage.binary_closing(labels, iterations=3)
+
             # Apply mask
             if return_labels:
                 cube_labels[:][idx][labels] = 1
