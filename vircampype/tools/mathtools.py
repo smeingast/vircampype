@@ -770,7 +770,7 @@ def upscale_image(image, new_size, method="pil", order=3):
 
     if "pil" in method.lower():
         from PIL import Image
-        return np.array(Image.fromarray(image).resize(size=new_size, resample=Image.LANCZOS))
+        return np.array(Image.fromarray(image).resize(size=new_size, resample=Image.BICUBIC))
     elif "spline" in method.lower():
 
         # Detemrine edge coordinates of input wrt output size
