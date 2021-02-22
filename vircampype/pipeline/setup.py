@@ -44,7 +44,8 @@ class Setup(dict):
         self.__bin_sex = "sex"
         self.__bin_scamp = "scamp"
         self.__bin_swarp = "swarp"
-        self.__swarp_back_size = 128
+        self.__swarp_back_size = 256
+        self.__swarp_back_filtersize = 3
         self.__sex_back_size = 64
         self.__sex_back_filtersize = 3
 
@@ -653,6 +654,14 @@ class Setup(dict):
     @swarp_back_size.setter
     def swarp_back_size(self, swarp_back_size):
         self.__swarp_back_size = swarp_back_size
+
+    @property
+    def swarp_back_filtersize(self):
+        return self.__swarp_back_filtersize
+
+    @swarp_back_filtersize.setter
+    def swarp_back_filtersize(self, swarp_back_filtersize):
+        self.__swarp_back_filtersize = swarp_back_filtersize
 
     @property
     def sex_back_size(self):
