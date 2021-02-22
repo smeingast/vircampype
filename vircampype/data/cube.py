@@ -1200,8 +1200,22 @@ class ImageCube(object):
         return estimate_background(array=self.cube[:], axis=(1, 2))
 
     def background(self, mesh_size=None, mesh_filtersize=None):
-        """ Creates background and noise cubes. """
+        """
+        Creates background and noise cubes.
 
+        Parameters
+        ----------
+        mesh_size : int, optional
+            Requested mesh size in pixels. Defaults to value in setup.
+        mesh_filtersize : int, optional
+            2D median filter size for meshes. Defaults to value in setup.
+
+        Returns
+        -------
+        ImageCube, ImageCube
+            Tuple of ImageCubes (background, noise)
+
+        """
         # Set defaults if not specified otherwise
         if mesh_size is None:
             mesh_size = self.setup.background_mesh_size
