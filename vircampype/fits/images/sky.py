@@ -816,7 +816,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
 
             # Run MaxiMask
             if len(cmds) > 0:
-                print_message("Running MaxiMask on {0} files".format(len(cmds)))
+                print_message("Running MaxiMask on {0} files with {1} threads".format(len(cmds), self.setup.n_jobs))
             run_commands_shell_parallel(cmds=cmds, n_processes=self.setup.n_jobs, silent=True)
 
             # Put masks into FitsImages object
