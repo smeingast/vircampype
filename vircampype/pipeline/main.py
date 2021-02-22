@@ -2,6 +2,7 @@ import pickle
 from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
+from vircampype.tools.systemtools import clean_directory
 
 
 class Pipeline:
@@ -344,6 +345,25 @@ class Pipeline:
         else:
             print_message(message="TILE PHOTOMETRY already done", kind="warning", end=None)
 
+    # =========================================================================== #
+    def shallow_clean(self):
+        """ Remove intermediate processing steps, but leave the most important files in the directory tree. """
+
+        # Remove all extracted headers
+        clean_directory(self.setup.folders["headers"])
+
+        # Remove processed raw frames, their source catalogs, and the astrometric solution
+        clean_directory(self.setup.folders["processed"])
+
+        # Remove all data except maximasks from the superflat directory
+        clean_directory(self.setup.folders["superflat"], pattern="*sf.ahead")
+        clean_directory(self.setup.folders["superflat"], pattern="*sf.fits")
+
+        # Remove intermediate source catalogs and coadd header
+        clean_directory(self.setup.folders["resampled"], pattern="*.tab")
+        clean_directory(self.setup.folders["resampled"], pattern="*ahead")
+
+    # =========================================================================== #
     def build_master_calibration(self):
         """ Sequentially build master calibration files. """
         self.build_master_bpm()
