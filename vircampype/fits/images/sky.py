@@ -366,14 +366,10 @@ class RawSkyImages(SkyImages):
             # Create header cards
             cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
                                          self.setup.keywords.object, "HIERARCH PYPE MASK THRESH",
-                                         "HIERARCH PYPE MASK MINAREA", "HIERARCH PYPE MASK MAXAREA",
-                                         "HIERARCH PYPE MASK BGSIZE",
-                                         "HIERARCH PYPE MASK BGFSIZE"],
+                                         "HIERARCH PYPE MASK MINAREA", "HIERARCH PYPE MASK MAXAREA"],
                                values=[self.mjd[idx_file], self.time_obs[idx_file],
                                        "MASTER-SOURCE-MASK", self.setup.mask_sources_thresh,
-                                       self.setup.mask_sources_min_area, self.setup.mask_sources_max_area,
-                                       self.setup.background_mesh_size,
-                                       self.setup.background_mesh_filtersize])
+                                       self.setup.mask_sources_min_area, self.setup.mask_sources_max_area])
 
             # Make primary header
             prime_header = fits.Header(cards=cards)
