@@ -360,13 +360,8 @@ class RawSkyImages(SkyImages):
             # Do raw calibration
             cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=self.ndit_norm[idx_file])
 
-            # Apply source masks
-            cube_sources = cube.mask_sources(threshold=self.setup.mask_sources_thresh,
-                                             minarea=self.setup.mask_sources_min_area,
-                                             maxarea=self.setup.mask_sources_max_area,
-                                             mesh_size=self.setup.sky_background_mesh_size,
-                                             mesh_filtersize=self.setup.sky_background_mesh_filter_size,
-                                             return_labels=True)
+            # Compute source masks
+            cube_sources = cube.build_source_masks()
 
             # Create header cards
             cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
