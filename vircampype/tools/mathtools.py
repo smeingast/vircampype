@@ -586,6 +586,10 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
     if "int" in str(array.dtype).lower():
         raise TypeError("integer data not supported")
 
+    # Immediately return if mostly bad input data
+    if np.sum(~np.isfinite(array)) > 0.9 * array.size:
+        return np.nan, np.nan
+
     masked, idx, sky_save, sky_ini = array.copy(), 0, None, None
     while True:
 
