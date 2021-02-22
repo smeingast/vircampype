@@ -998,39 +998,25 @@ class ImageCube(object):
         # Replace values
         self.cube[np.isnan(self.cube)] = value
 
-    def mask_sources(self, threshold=1.5, minarea=5, maxarea=None, mesh_size=128,
-                     mesh_filtersize=3, return_labels=False):
+    def build_source_masks(self):
         """
-        Masks sources in the cube. Sources are detected with an adaptive threshold technique
+        Create a source mask for current cube
 
-        Parameters
-        ----------
-        threshold : int, float, optional
-            Threshold in background sigmas (default = 1.5)
-        minarea : int, optional
-            Minimum area of detected sources (default = 5)
-        maxarea : int, optional
-            Maximum area of detected sources (default = None)
-        mesh_size : int, optional
-            Background mesh size (default = 128)
-        mesh_filtersize : int, optional
-            2D median filter size for meshes (default = 3)
-        return_labels : bool, optional
-            If set, returns the source mask as ImageCube and leaves the input cube as is. Default is False.
+        Returns
+        -------
+        ImageCube
+            Source mask.
 
         """
 
-        # Get background and noise map
-        background, noise = self.background(mesh_size=mesh_size, mesh_filtersize=mesh_filtersize)
+        # Get background and noise Cubes with a relatively large mesh size
+        cube_bg, cube_bg_std = self.background(mesh_size=128, mesh_filtersize=3)
 
         # Make the threshold cube (to avoid an editor warning I use np.add here)
-        thresh_map = np.add(background, threshold * noise)
+        thresh_cube = np.add(cube_bg.cube, self.setup.mask_sources_thresh * cube_bg_std.cube)
 
         # Make empty new cube if only labels should be returned
-        if return_labels:
-            cube_labels = np.full_like(self.cube, dtype=np.uint8, fill_value=0)
-        else:
-            cube_labels = None
+        cube_labels = np.full_like(self.cube, dtype=np.uint8, fill_value=0)
 
         # Loop over cube planes and
         for idx in range(len(self)):
@@ -1038,7 +1024,7 @@ class ImageCube(object):
             # Resize threshold map to image size and get pixels above threshold
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="invalid value encountered in greater")
-                sources = self.cube[idx] > thresh_map[idx]
+                sources = self.cube[idx] > thresh_cube[idx]
 
             # Label regions
             labels, n_labels = ndimage.measurements.label(input=sources, structure=np.ones(shape=(3, 3)))
@@ -1052,7 +1038,11 @@ class ImageCube(object):
             sizes = ndimage.measurements.sum(input=sources, labels=labels, index=range(1, n_labels + 1))
 
             # Find those sources outside the given thresholds and set to 0
-            bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
+            # bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
+            bad_sources = (sizes < self.setup.mask_sources_min_area) | (sizes > self.setup.mask_sources_max_area) \
+                if self.setup.mask_sources_max_area is not None else sizes < self.setup.mask_sources_min_area
+            assert isinstance(bad_sources, np.ndarray)
+
             # Only if there are bad sources
             if np.sum(bad_sources) > 0:
                 labels[bad_sources[labels-1]] = 0  # labels starts with 1
@@ -1065,14 +1055,13 @@ class ImageCube(object):
             labels = ndimage.binary_closing(labels, iterations=3)
 
             # Apply mask
-            if return_labels:
-                cube_labels[:][idx][labels] = 1
-            else:
-                self.cube[:][idx][labels] = np.nan
+            cube_labels[:][idx][labels] = 1
+
+            # Alternatively apply mask
+            # self.cube[:][idx][labels] = np.nan
 
         # Return labels
-        if return_labels:
-            return ImageCube(cube=cube_labels, setup=self.setup)
+        return ImageCube(cube=cube_labels, setup=self.setup)
 
     # =========================================================================== #
     # Properties
