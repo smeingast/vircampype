@@ -535,6 +535,10 @@ class Setup(dict):
         """ How many bad neighbors a NaN can have so that it still gets interpolated. """
         return 3
 
+    @property
+    def subtract_background(self):
+        return True
+
     # =========================================================================== #
     # Source masks
     @property
