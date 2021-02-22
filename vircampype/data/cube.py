@@ -1209,9 +1209,11 @@ class ImageCube(object):
             mesh_filtersize = self.setup.background_mesh_filtersize
 
         # Submit parallel jobs for background estimation in each cube plane
-        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-            mp = parallel(delayed(background_image)(a, b, c) for a, b, c
-                          in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+                mp = parallel(delayed(background_image)(a, b, c) for a, b, c
+                              in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
 
         # Unpack result, put into ImageCubes, and return
         bg, bg_std = list(zip(*mp))
