@@ -8,7 +8,7 @@ import importlib
 from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
-           "get_resource_path", "copy_file"]
+           "get_resource_path", "copy_file", "remove_file"]
 
 
 def make_folder(path):
@@ -175,3 +175,10 @@ def get_resource_path(package, resource):
 
 def copy_file(a, b):
     shutil.copy2(a, b)
+
+
+def remove_file(filepath):
+    try:
+        os.remove(filepath)
+    except OSError:
+        pass
