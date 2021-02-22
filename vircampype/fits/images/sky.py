@@ -533,6 +533,7 @@ class RawSkyImages(SkyImages):
         master_gain = self.get_master_gain()
         master_sky = self.get_master_sky()
         master_linearity = self.get_master_linearity()
+        master_source_mask = self.get_master_source_mask()
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
@@ -566,6 +567,13 @@ class RawSkyImages(SkyImages):
                 calib_cube.interpolate_nan()
             if self.setup.destripe:
                 calib_cube.destripe()
+            if self.setup.subtract_background:
+                sources = master_source_mask.file2cube(file_index=idx_file)
+                temp_cube = copy.deepcopy(calib_cube)
+                temp_cube.apply_masks(sources=sources)
+                bg = temp_cube.background()[0]
+                bg -= np.nanmedian(bg)
+                calib_cube -= bg
 
             # Add Gain, read noise, and saturation limit to headers
             for h, g, r, s in zip(self.headers_data[idx_file], master_gain.gain[idx_file],
