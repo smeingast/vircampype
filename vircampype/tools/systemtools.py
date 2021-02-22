@@ -185,9 +185,9 @@ def remove_file(filepath):
         pass
 
 
-def clean_directory(directorypath):
+def clean_directory(directorypath, pattern="*"):
+    """ Function to remove files in a directory, following a name pattern. """
     if not directorypath.endswith("/"):
         directorypath = directorypath + "/"
-    files = glob.glob(directorypath)
-    for f in files:
+    for f in glob.glob(directorypath + pattern):
         remove_file(f)
