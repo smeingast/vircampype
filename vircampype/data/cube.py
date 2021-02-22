@@ -1204,9 +1204,9 @@ class ImageCube(object):
 
         # Set defaults if not specified otherwise
         if mesh_size is None:
-            mesh_size = self.setup.sky_background_mesh_size
+            mesh_size = self.setup.background_mesh_size
         if mesh_filtersize is None:
-            mesh_filtersize = self.setup.sky_background_mesh_filter_size
+            mesh_filtersize = self.setup.background_mesh_filtersize
 
         # Submit parallel jobs for background estimation in each cube plane
         with Parallel(n_jobs=self.setup.n_jobs) as parallel:

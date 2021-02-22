@@ -372,8 +372,8 @@ class RawSkyImages(SkyImages):
                                values=[self.mjd[idx_file], self.time_obs[idx_file],
                                        "MASTER-SOURCE-MASK", self.setup.mask_sources_thresh,
                                        self.setup.mask_sources_min_area, self.setup.mask_sources_max_area,
-                                       self.setup.sky_background_mesh_size,
-                                       self.setup.sky_background_mesh_filter_size])
+                                       self.setup.background_mesh_size,
+                                       self.setup.background_mesh_filtersize])
 
             # Make primary header
             prime_header = fits.Header(cards=cards)
