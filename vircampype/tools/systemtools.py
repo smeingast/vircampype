@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import glob
 import shutil
 import subprocess
 import importlib
@@ -8,7 +9,7 @@ import importlib
 from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
-           "get_resource_path", "copy_file", "remove_file"]
+           "get_resource_path", "copy_file", "remove_file", "clean_directory"]
 
 
 def make_folder(path):
@@ -182,3 +183,11 @@ def remove_file(filepath):
         os.remove(filepath)
     except OSError:
         pass
+
+
+def clean_directory(directorypath):
+    if not directorypath.endswith("/"):
+        directorypath = directorypath + "/"
+    files = glob.glob(directorypath)
+    for f in files:
+        remove_file(f)
