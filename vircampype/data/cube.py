@@ -1210,22 +1210,20 @@ class ImageCube(object):
         # Calculate the sky values for each plane in the cube
         return estimate_background(array=self.cube[:], axis=(1, 2))
 
-    def background(self, mesh_size=128, mesh_filtersize=3):
-        """
-        Creates background and noise cubes.
+    def background(self, mesh_size=None, mesh_filtersize=None):
+        """ Creates background and noise cubes. """
 
-        Parameters
-        ----------
-        mesh_size : int, optional
-            Requested mesh size in pixels. Actual mesh size will vary depending on input shape (default = 128 pix).
-        mesh_filtersize : int, optional
-            2D median filter size for meshes (default = 3).
+        # Set defaults if not specified otherwise
+        if mesh_size is None:
+            mesh_size = self.setup.sky_background_mesh_size
+        if mesh_filtersize is None:
+            mesh_filtersize = self.setup.sky_background_mesh_filter_size
 
-        Returns
-        -------
-        ndarray, ndarray
+        # Submit parallel jobs for background estimation in each cube plane
+        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            mp = parallel(delayed(background_image)(a, b, c) for a, b, c
+                          in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
 
-        """
-
-        return background_cube(cube=self.cube, mesh_size=mesh_size, max_iter=10,
-                               mesh_filtersize=mesh_filtersize, n_threads=self.setup.n_jobs)
+        # Unpack result, put into ImageCubes, and return
+        bg, bg_std = list(zip(*mp))
+        return ImageCube(cube=np.array(bg), setup=self.setup), ImageCube(cube=np.array(bg_std), setup=self.setup)
