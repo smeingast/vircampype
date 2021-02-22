@@ -4,7 +4,6 @@ import numpy as np
 
 from astropy.units import Unit
 from fractions import Fraction
-from joblib import Parallel, delayed
 from scipy.ndimage import median_filter
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
@@ -15,9 +14,9 @@ from scipy.interpolate import SmoothBivariateSpline
 from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel2D, interpolate_replace_nans
 
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
-           "ceil_value", "floor_value", "meshgrid", "background_cube", "estimate_background", "upscale_image",
-           "centroid_sphere", "clipped_median", "clipped_stdev", "grid_value_2d", "get_binsize", "fraction2float",
-           "round_decimals_up", "round_decimals_down"]
+           "ceil_value", "floor_value", "meshgrid", "estimate_background", "upscale_image", "centroid_sphere",
+           "clipped_median", "clipped_stdev", "grid_value_2d", "get_binsize", "fraction2float", "round_decimals_up",
+           "round_decimals_down", "background_image"]
 
 
 def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -653,6 +652,45 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
 
         # Increase loop index
         idx += 1
+
+
+# noinspection PyTypeChecker
+def background_image(image, mesh_size, mesh_filtersize=3):
+
+    # Image must be 2D
+    if len(image.shape) != 2:
+        raise ValueError("Please supply array with 2 dimensions. "
+                         "The given data has {0} dimensions".format(len(image.shape)))
+
+    # Back size and image dimensions must be compatible
+    if (image.shape[0] % mesh_size != 0) | (image.shape[1] % mesh_size != 0):
+        raise ValueError("Image dimensions {0} must be multiple of backsize mesh size ({1})"
+                         "".format(image.shape, mesh_size))
+
+    # Tile image
+    tiles = [image[x:x + mesh_size, y:y + mesh_size] for x in
+             range(0, image.shape[0], mesh_size) for y in range(0, image.shape[1], mesh_size)]
+
+    # Estimate background for each tile
+    bg, bg_std = list(zip(*[estimate_background(t, max_iter=50, force_clipping=True) for t in tiles]))
+
+    # Scale back to 2D array
+    n_tiles_x, n_tiles_y = image.shape[1] // mesh_size, image.shape[0] // mesh_size
+    bg, bg_std = np.array(bg).reshape(n_tiles_y, n_tiles_x), np.array(bg_std).reshape(n_tiles_y, n_tiles_x)
+
+    # Interpolate NaN values in grid
+    bg = interpolate_replace_nans(bg, kernel=Gaussian2DKernel(1))
+    bg_std = interpolate_replace_nans(bg_std, kernel=Gaussian2DKernel(1))
+
+    # Apply median filter
+    bg, bg_std = median_filter(input=bg, size=mesh_filtersize), median_filter(input=bg_std, size=mesh_filtersize)
+
+    # Convolve
+    bg = convolve(bg, kernel=Gaussian2DKernel(1), boundary="extend")
+    bg_std = convolve(bg_std, kernel=Gaussian2DKernel(1), boundary="extend")
+
+    # Return upscaled data
+    return upscale_image(bg, new_size=image.shape), upscale_image(bg_std, new_size=image.shape)
 
 
 def upscale_image(image, new_size, method="pil", order=3):
