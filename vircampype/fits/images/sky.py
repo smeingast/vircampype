@@ -680,7 +680,7 @@ class ProcessedSkyImages(SkyImages):
             # Copy self for background mask
             cube_self_copy = copy.deepcopy(cube_self)
             cube_self_copy.apply_masks(sources=cube_mask)
-            background = cube_self_copy.background(mesh_size=128)[0]
+            background = cube_self_copy.background(mesh_size=128, mesh_filtersize=3)[0]
 
             # Apply background
             cube_self -= background
