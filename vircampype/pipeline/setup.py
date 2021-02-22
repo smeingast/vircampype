@@ -586,7 +586,7 @@ class Setup(dict):
 
     @property
     def sky_background_mesh_size(self):
-        return 256
+        return 64
 
     @property
     def sky_background_mesh_filter_size(self):
