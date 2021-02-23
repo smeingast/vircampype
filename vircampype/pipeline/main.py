@@ -1,10 +1,9 @@
-import time
 import pickle
 
 from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
-from vircampype.tools.systemtools import clean_directory
+from vircampype.tools.systemtools import clean_directory, remove_file
 
 
 class Pipeline:
@@ -364,6 +363,15 @@ class Pipeline:
         # Remove intermediate source catalogs and coadd header
         clean_directory(self.setup.folders["resampled"], pattern="*.tab")
         clean_directory(self.setup.folders["resampled"], pattern="*ahead")
+
+        # Remove temporary tables and additional headers from tile directory
+        clean_directory(self.setup.folders["tile"], pattern="*.tab")
+        clean_directory(self.setup.folders["tile"], pattern="*.ahead")
+
+    def deepclean(self):
+        """ Runs a shallow clean followed by deleting also the pipeline status"""
+        self.shallow_clean()
+        remove_file(filepath=self.path_status)
 
     # =========================================================================== #
     def build_master_calibration(self):
