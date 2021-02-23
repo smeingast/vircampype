@@ -1,6 +1,7 @@
 import os
+import time
 
-__all__ = ["print_message", "print_header", "message_calibration", "check_file_exists"]
+__all__ = ["print_message", "print_header", "message_calibration", "check_file_exists", "print_end", "print_start"]
 
 
 class BColors:
@@ -71,8 +72,23 @@ def print_message(message, kind=None, end=""):
         print(BColors.FAIL + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
     elif kind.lower() == "okblue":
         print(BColors.OKBLUE + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+    elif kind.lower() == "okgreen":
+        print(BColors.OKGREEN + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
     else:
         raise ValueError("Implement more types.")
+
+
+def print_start(obj=""):
+    print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
+    print(BColors.OKGREEN + "{0:^74}".format("{0}".format(obj)) + BColors.ENDC)
+    print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
+    return time.time()
+
+
+def print_end(tstart):
+    print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
+    print(BColors.OKGREEN + "{0:^74}".format("All done in {0:0.1f}s".format(time.time() - tstart)) + BColors.ENDC)
+    print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
 
 
 def message_calibration(n_current, n_total, name, d_current=None, d_total=None, silent=False, end=""):
