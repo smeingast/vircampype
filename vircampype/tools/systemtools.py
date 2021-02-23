@@ -9,7 +9,7 @@ import importlib
 from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
-           "get_resource_path", "copy_file", "remove_file", "clean_directory"]
+           "get_resource_path", "copy_file", "remove_file", "clean_directory", "notify"]
 
 
 def make_folder(path):
@@ -191,3 +191,15 @@ def clean_directory(directorypath, pattern="*"):
         directorypath = directorypath + "/"
     for f in glob.glob(directorypath + pattern):
         remove_file(f)
+
+
+def notify(message, title=None, subtitle=None, sound="default", open_url=None, ignore_dnd=False):
+    """ macOS notification wrapper built around terminal-notifier """
+    me = "-message {!r}".format(message)
+    ti = "-title {!r}".format(title) if title is not None else ""
+    su = "-subtitle {!r}".format(subtitle) if subtitle is not None else ""
+    so = "-sound {!r}".format(sound) if sound is not None else ""
+    op = "-open {!r}".format(open_url) if open_url is not None else ""
+    ig = "-ignoreDnD" if ignore_dnd else ""
+    print("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
+    os.system("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
