@@ -57,7 +57,7 @@ def print_header(header, silent=True, left="File", right="Extension"):
     if not silent:
         print()
         print(BColors.HEADER + header + BColors.ENDC)
-        print("{:-<80}".format(""))
+        print("{:‾<80}".format(""))
         if not (left == "") & (right == ""):
             print("{0:<55s}{1:>25s}".format(left, right))
 
