@@ -37,7 +37,7 @@ class Setup(dict):
         self.__projection = None
 
         # Superflat
-        self.__superflat_window = 90
+        self.__superflat_window = 120
         self.__superflat_n_min = 5
 
         # Astromatic
