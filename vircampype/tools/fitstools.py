@@ -7,7 +7,8 @@ from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
-           "merge_headers", "add_float_to_header", "convert_bitpix_image", "delete_keyword_from_header"]
+           "merge_headers", "add_float_to_header", "convert_bitpix_image", "delete_keyword_from_header",
+           "add_int_to_header"]
 
 
 def check_card_value(value):
@@ -312,6 +313,17 @@ def add_float_to_header(header, key, value, decimals=3, comment=None, remove_bef
         c = fits.Card.fromstring("{0:8}= {1:0.5f}".format(key, value))
     else:
         raise ValueError("Add mot options for decimals")
+    c.comment = comment
+    header.append(c)
+
+
+def add_int_to_header(header, key, value, comment=None, remove_before=True):
+    if remove_before:
+        try:
+            header.remove(key, remove_all=True)
+        except KeyError:
+            pass
+    c = fits.Card.fromstring("{0:8}= {1:0d}".format(key, value))
     c.comment = comment
     header.append(c)
 
