@@ -1,8 +1,10 @@
+import glob
 import pickle
 
 from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
+from vircampype.tools.systemtools import run_commands_shell_parallel
 from vircampype.tools.systemtools import clean_directory, remove_file
 
 
@@ -372,6 +374,35 @@ class Pipeline:
         """ Runs a shallow clean followed by deleting also the pipeline status"""
         self.shallow_clean()
         remove_file(filepath=self.path_status)
+
+    def archive(self):
+        """ First runs a deep clean and then compresses all remaining FITS images. """
+
+        # Deep clean
+        self.deepclean()
+
+        # Find all remaining files
+        fits_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fits"))
+
+        # Construct compression commands
+        cmds = ["fpack -D -Y -q {0} {1}".format(self.setup.fpack_quantization_factor, f) for f in fits_files]
+
+        # Run in parallel (maximum of 2 at a time)
+        n_jobs = 1 if self.setup.n_jobs == 1 else 2
+        run_commands_shell_parallel(cmds=cmds, n_processes=n_jobs, silent=True)
+
+    def unarchive(self):
+        """ Uncompresses all compressed files. """
+
+        # Find all compressed files
+        fz_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fz"))
+
+        # Construct compression commands
+        cmds = ["funpack -F {0}".format(f) for f in fz_files]
+
+        # Run in parallel (maximum of 2 at a time)
+        n_jobs = 1 if self.setup.n_jobs == 1 else 2
+        run_commands_shell_parallel(cmds=cmds, n_processes=n_jobs, silent=True)
 
     # =========================================================================== #
     def build_master_calibration(self):
