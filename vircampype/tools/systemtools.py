@@ -115,7 +115,7 @@ def yml2config(path_yml, skip=None, **kwargs):
     return s
 
 
-def run_commands_shell_parallel(cmds, n_processes=1, silent=True):
+def run_commands_shell_parallel(cmds, n_jobs=1, silent=True):
     """
     Runs a list of shell commands in parallel.
 
@@ -123,7 +123,7 @@ def run_commands_shell_parallel(cmds, n_processes=1, silent=True):
     ----------
     cmds : list
         List of shell commands#
-    n_processes : int, optional
+    n_jobs : int, optional
         Number of parallel processes.
     silent : bool, optional
         Whether or not to print information about the process. Default is True.
@@ -132,9 +132,9 @@ def run_commands_shell_parallel(cmds, n_processes=1, silent=True):
 
     if silent:
         groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL) for cmd in cmds)] * n_processes
+                                    stderr=subprocess.DEVNULL) for cmd in cmds)] * n_jobs
     else:
-        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh") for cmd in cmds)] * n_processes
+        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh") for cmd in cmds)] * n_jobs
 
     # Run processes
     for processes in zip_longest(*groups):  # run len(processes) == limit at a time

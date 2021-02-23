@@ -389,7 +389,7 @@ class Pipeline:
 
         # Run in parallel (maximum of 2 at a time)
         n_jobs = 1 if self.setup.n_jobs == 1 else 2
-        run_commands_shell_parallel(cmds=cmds, n_processes=n_jobs, silent=True)
+        run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
 
     def unarchive(self):
         """ Uncompresses all compressed files. """
@@ -402,7 +402,7 @@ class Pipeline:
 
         # Run in parallel (maximum of 2 at a time)
         n_jobs = 1 if self.setup.n_jobs == 1 else 2
-        run_commands_shell_parallel(cmds=cmds, n_processes=n_jobs, silent=True)
+        run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
 
     # =========================================================================== #
     def build_master_calibration(self):
