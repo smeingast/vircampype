@@ -1,4 +1,6 @@
+import time
 import pickle
+
 from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
@@ -378,6 +380,7 @@ class Pipeline:
 
     def process_science(self):
         """ Sequentially process science data. """
+        t0 = print_start(obj=self.setup.name)
         self.build_master_calibration()
         self.process_raw_science()
         self.calibrate_astrometry()
@@ -391,6 +394,7 @@ class Pipeline:
         self.build_tile_statistics()
         self.classification_tile()
         self.photometry_tile()
+        print_end(tstart=t0)
 
     def phase3(self):
 
