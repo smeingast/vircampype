@@ -1,7 +1,7 @@
 import numpy as np
 
 __all__ = ["string2list", "string2func", "func2string", "prune_list", "flat_list", "convert_dtype", "fits2numpy",
-           "numpy2fits", "skycoo2visionsid"]
+           "numpy2fits", "skycoord2visionsid"]
 
 
 convert_dtype = dict(int16="i2", int32="i4", int64="i8", float32="f4", float64="f8")
@@ -97,7 +97,7 @@ def prune_list(ll, n_min):
     return ll
 
 
-def skycoo2visionsid(skycoord):
+def skycoord2visionsid(skycoord):
     """
     Constructs the VISIONS ID from astropy sky coordinates.
 

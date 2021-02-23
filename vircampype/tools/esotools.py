@@ -323,7 +323,7 @@ def make_phase3_columns(data):
     col_magerr_aper = fits.Column(name="MAGERR_APER", array=magerr_aper, dim="({0})".format(ncol_mag_aper),
                                   format="{0}E".format(ncol_mag_aper), **_kwargs_column_mag)
     # TODO: MAG_AUTO?
-    col_id = fits.Column(name="ID", array=skycoo2visionsid(skycoord=skycoord), format="21A")
+    col_id = fits.Column(name="ID", array=skycoord2visionsid(skycoord=skycoord), format="21A")
     col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, **_kwargs_column_coo)
     col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **_kwargs_column_coo)
     col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"] * 3600, **_kwargs_column_fwhm)
