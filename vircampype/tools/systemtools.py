@@ -122,9 +122,9 @@ def run_commands_shell_parallel(cmds, n_jobs=1, silent=True):
     Parameters
     ----------
     cmds : list
-        List of shell commands#
+        List of shell commands
     n_jobs : int, optional
-        Number of parallel processes.
+        Number of parallel jobs.
     silent : bool, optional
         Whether or not to print information about the process. Default is True.
 
