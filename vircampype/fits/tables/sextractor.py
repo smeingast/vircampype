@@ -622,7 +622,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Make plot grid
             if len(self.iter_data_hdu[idx_file]) == 1:
-                fig, ax_file = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                fig, ax_file = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(8, 5)))
                 ax_file = [ax_file]
             else:
                 fig, ax_file = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size / 2)
@@ -694,11 +694,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 ax_kde.set_ylim(ylim)
 
                 # Modify axes
-                if idx_hdu < self.setup.fpa_layout[1]:
+                if (idx_hdu < self.setup.fpa_layout[1]) | (len(ax_file) == 1):
                     ax.set_xlabel("{0} {1} (mag)".format(self.setup.reference_catalog.upper(), self.passband[idx_file]))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
+                if (idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1) | (len(ax_file) == 1):
                     ax.set_ylabel(r"$\Delta${0} (mag)".format(self.passband[idx_file]))
                 else:
                     ax.axes.yaxis.set_ticklabels([])
