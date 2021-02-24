@@ -21,7 +21,6 @@ from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from vircampype.tools.miscellaneous import *
 from astropy.wcs import WCS, FITSFixedWarning
-from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 
@@ -789,16 +788,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Compute difference between reference and self
                 mag_delta = mag_master_match - mag_hdu_match
 
-                # Grab X/Y coordinates
-                x_hdu, y_hdu = tab_hdu["X_IMAGE"][idx_final], tab_hdu["Y_IMAGE"][idx_final]
-
-                # Require mostly 20 sources in one grid element, but at least 3
-                stacked = np.stack([x_hdu, y_hdu]).T
-                dis, _ = NearestNeighbors(n_neighbors=31, algorithm="auto").fit(stacked).kneighbors(stacked)
-                maxdis = np.percentile(dis[:, -1], 99)
+                maxdis = get_binsize(table=tab_hdu[idx_final], n_neighbors=30)
                 nx, ny = int(header["NAXIS1"] // maxdis), int(header["NAXIS2"] // maxdis)
                 nx = 3 if nx < 3 else nx
                 ny = 3 if ny < 3 else ny
+
+                # Grab X/Y coordinates
+                x_hdu, y_hdu = tab_hdu["X_IMAGE"][idx_final], tab_hdu["Y_IMAGE"][idx_final]
 
                 # Grid data
                 grid = grid_value_2d(x=x_hdu, y=y_hdu, value=mag_delta, x_min=0, x_max=header["NAXIS1"],
