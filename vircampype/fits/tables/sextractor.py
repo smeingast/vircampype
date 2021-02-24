@@ -21,6 +21,7 @@ from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from vircampype.tools.miscellaneous import *
 from astropy.wcs import WCS, FITSFixedWarning
+from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 
@@ -730,13 +731,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Create figure for current file
             if len(self.iter_data_hdu[idx_file]) == 1:
-                fig, ax_file = plt.subplots(1, 1, gridspec_kw=dict(left=0.1, right=0.9, bottom=0.1, top=0.9),
-                                            **dict(figsize=(2 * axis_size, 2 * axis_size)))
-                ax_file = [ax_file]
+                fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(9, 9)))
+                ax_file = [ax]
             else:
                 fig, ax_file = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
                 ax_file = ax_file.ravel()
-            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+            cax = fig.add_axes([0.25, 0.92, 0.5, 0.02])
 
             # Get passband
             passband = self.passband[idx_file][0]
@@ -792,20 +792,20 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Grab X/Y coordinates
                 x_hdu, y_hdu = tab_hdu["X_IMAGE"][idx_final], tab_hdu["Y_IMAGE"][idx_final]
 
-                # Grid value into image
-                mode = "pawprint"
-                if mode == "pawprint":
-                    nx, ny, kernel_scale = 3, 3, 0.2
-                elif mode == "tile":
-                    nx, ny, kernel_scale = 10, 10, 0.05
-                else:
-                    raise ValueError("Mode '{0}' not supported".format(mode))
+                # Require mostly 20 sources in one grid element, but at least 3
+                stacked = np.stack([x_hdu, y_hdu]).T
+                dis, _ = NearestNeighbors(n_neighbors=31, algorithm="auto").fit(stacked).kneighbors(stacked)
+                maxdis = np.percentile(dis[:, -1], 99)
+                nx, ny = int(header["NAXIS1"] // maxdis), int(header["NAXIS2"] // maxdis)
+                nx = 3 if nx < 3 else nx
+                ny = 3 if ny < 3 else ny
 
+                # Grid data
                 grid = grid_value_2d(x=x_hdu, y=y_hdu, value=mag_delta, x_min=0, x_max=header["NAXIS1"],
                                      y_min=0, y_max=header["NAXIS2"], nx=nx, ny=ny, conv=False, upscale=False)
 
                 # Draw
-                kwargs = {"vmin": -0.2, "vmax": +0.2, "cmap": get_cmap("RdBu", 26)}
+                kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": get_cmap("RdBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
                 ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7, lw=0.5, ec="black", **kwargs)
@@ -815,11 +815,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                             xycoords="axes fraction", ha="left", va="bottom")
 
                 # Modify axes
-                if idx_hdu < self.setup.fpa_layout[1]:
+                if (idx_hdu < self.setup.fpa_layout[1]) | (len(ax_file) == 1):
                     ax_file[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
+                if (idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1) | (len(ax_file) == 1):
                     ax_file[idx_hdu].set_ylabel("Y (pix)")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
@@ -838,7 +838,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 ax.set_ylim(1, header["NAXIS2"])
 
             # Add colorbar
-            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)")
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Zero Point (mag)",
+                                ticks=np.arange(-0.1, 0.11, 0.05))
             cbar.ax.xaxis.set_ticks_position("top")
             cbar.ax.xaxis.set_label_position("top")
 
