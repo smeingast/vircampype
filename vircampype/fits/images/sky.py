@@ -379,7 +379,6 @@ class RawSkyImages(SkyImages):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    # noinspection DuplicatedCode
     def build_master_sky(self):
         """
         Builds a sky frame from the given input data. After calibration and masking, the frames are normalized with
@@ -650,7 +649,6 @@ class ProcessedSkyImages(SkyImages):
                                     comment="Target ZP for scaling", remove_before=True)
 
                 # Add modification factor
-                # noinspection PyTypeChecker
                 add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
                                     key="HIERARCH PYPE SUPERFLAT FACTOR",
                                     value=mod,
@@ -999,7 +997,6 @@ class ResampledScienceImages(ProcessedSkyImages):
             print_message(message="Coadding {0}".format(os.path.basename(imageout_name)))
             run_command_shell(cmd=cmd, silent=True)
 
-    # noinspection PyTypeChecker
     def build_tile_statistics(self):
 
         # Processing info
@@ -1065,10 +1062,10 @@ class ResampledScienceImages(ProcessedSkyImages):
                 arr_weight = upscale_image(weight_hdu, new_size=wcs_resized.pixel_shape, method="pil")
 
                 # Extend HDULists
-                hdul_ndet.append(fits.ImageHDU(data=arr_ndet, header=header_resized))
-                hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))
-                hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized))
-                hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))
+                hdul_ndet.append(fits.ImageHDU(data=arr_ndet, header=header_resized))  # noqa
+                hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))  # noqa
+                hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized))  # noqa
+                hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))  # noqa
 
             # Write to disk
             hdul_ndet.writeto(temp_ndet[idx_file], overwrite=True)
@@ -1236,7 +1233,6 @@ class MasterSky(MasterImages):
         else:
             return paths
 
-    # noinspection DuplicatedCode
     def qc_plot_sky(self, paths=None, axis_size=5, overwrite=False):
         """
         Generates a simple QC plot for BPMs.
