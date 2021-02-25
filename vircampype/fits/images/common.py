@@ -422,7 +422,6 @@ class FitsImages(FitsFiles):
         # Return
         return match_to.__class__(setup=self.setup, file_paths=matched)
 
-    # noinspection PyTypeChecker
     def match_passband(self, match_to, max_lag=None):
         """
         Matches all entries in the current instance with the match_to instance so that the filters match. In case there
