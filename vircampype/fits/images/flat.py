@@ -247,7 +247,6 @@ class FlatLampLin(FlatImages):
     # =========================================================================== #
     # Master Linearity
     # =========================================================================== #
-    # noinspection DuplicatedCode
     def build_master_linearity(self):
         """ Calculates the non-linearity coefficients based on a series of dome flats. """
 
@@ -667,7 +666,6 @@ class MasterFlat(MasterImages):
         else:
             return paths
 
-    # noinspection DuplicatedCode
     def qc_plot_flat(self, paths=None, axis_size=4, overwrite=False):
         """
         Creates the QC plot for the flat fields. Should only be used together with the above method.
