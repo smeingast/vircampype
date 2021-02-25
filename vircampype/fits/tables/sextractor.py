@@ -233,8 +233,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             outpath = self.setup.folders["master_object"] + "MASTER-SUPERFLAT_{0:11.5f}.fits".format(files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            # if check_file_exists(file_path=outpath, silent=self.setup.silent):
-            #     continue
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
 
             # Grab current passband
             passband = files.passband[0]
