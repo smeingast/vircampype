@@ -128,7 +128,6 @@ class FitsFiles:
 
     _headers = None
 
-    # noinspection DuplicatedCode
     @property
     def headers(self):
 
