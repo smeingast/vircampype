@@ -11,12 +11,13 @@ from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
 from sklearn.neighbors import NearestNeighbors
 from scipy.interpolate import SmoothBivariateSpline
-from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel2D, interpolate_replace_nans
+from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel2D, interpolate_replace_nans, \
+    Box2DKernel
 
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
            "ceil_value", "floor_value", "meshgrid", "estimate_background", "upscale_image", "centroid_sphere",
            "clipped_median", "clipped_stdev", "grid_value_2d", "get_binsize", "fraction2float", "round_decimals_up",
-           "round_decimals_down", "background_image"]
+           "round_decimals_down", "background_image", "grid_value_2d_nn"]
 
 
 def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -881,6 +882,62 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
         return upscale_image(image=stat, new_size=(x_max - x_min, y_max - y_min))
 
     return stat
+
+
+# noinspection PyTypeChecker
+def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
+    """
+    Grids values to a 2D array based on nearest neighbor interpolation.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        X coordinates of input data.
+    y : np.ndarray
+        Y coordinates of input data.
+    values : np.ndarray
+        Values of datapoints.
+    nx : int
+        Number of gridpoints in x.
+    ny : int
+        Number of gridpoints in y.
+    nn : int
+        Number of nearest neighbors to use in interpolation.
+    ox : int
+        Output image size in x.
+    oy : int
+        Output image size in y.
+
+    Returns
+    -------
+    np.ndarray
+        Interpolated 2D array.
+
+    """
+
+    # Determine step size in grid in X and Y
+    step_x, step_y = ox / nx, oy / ny
+
+    # Create grid of pixel centers
+    xg, yg = np.meshgrid(np.linspace(step_x / 2, ox - step_x / 2, nx), np.linspace(step_y / 2, oy - step_y / 2, ny))
+
+    # Get nearest neighbors to grid pixel centers
+    stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
+    stacked_data = np.stack([x, y]).T
+    _, idx = NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
+
+    # Obtain median values at each grid pixel
+    _, gv, _ = sigma_clipped_stats(values[idx], axis=1)
+    gv = gv.reshape(nx, ny)
+
+    # Apply some filters
+    if np.sum(~np.isfinite(gv)) > 0:
+        gv = interpolate_replace_nans(gv, kernel=Box2DKernel(3))
+    gv = median_filter(gv, size=3)
+    gv = convolve(gv, kernel=Gaussian2DKernel(1), boundary="extend")
+
+    # Return upscaled image
+    return upscale_image(gv, new_size=(ox, oy))
 
 
 def get_binsize(table, n_neighbors, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
