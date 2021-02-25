@@ -26,7 +26,6 @@ class FlatTwilight(FlatImages):
     def __init__(self, setup, file_paths=None):
         super(FlatTwilight, self).__init__(setup=setup, file_paths=file_paths)
 
-    # noinspection DuplicatedCode
     def build_master_flat(self):
         """
         Builds a masterflat from the given flat fields. Also calculates a global gain harmonization which is applied
