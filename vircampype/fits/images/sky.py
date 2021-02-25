@@ -98,8 +98,7 @@ class SkyImages(FitsImages):
         for ww in self.wcs:
             temp = []
             for w in ww:
-                # noinspection PyProtectedMember
-                temp.append(SkyCoord(*w.wcs_pix2world(w._naxis[0] / 2, w._naxis[1] / 2, 0), unit="deg"))
+                temp.append(SkyCoord(*w.wcs_pix2world(w._naxis[0] / 2, w._naxis[1] / 2, 0), unit="deg"))  # noqa
             centers.append(temp)
 
         return centers
