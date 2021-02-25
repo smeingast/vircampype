@@ -66,16 +66,14 @@ def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, ax
     return data
 
 
-# noinspection PyUnresolvedReferences
 def clipped_median(data, **kwargs):
     """ Hlper function to return the clipped median of an array via astropy. """
-    return sigma_clipped_stats(data, **kwargs)[1]
+    return sigma_clipped_stats(data, **kwargs)[1]  # noqa
 
 
-# noinspection PyUnresolvedReferences
 def clipped_stdev(data, **kwargs):
     """ Hlper function to return the clipped median of an array via astropy. """
-    return sigma_clipped_stats(data, **kwargs)[2]
+    return sigma_clipped_stats(data, **kwargs)[2]  # noqa
 
 
 def cuberoot(a, b, c, d, return_real=False):
@@ -289,8 +287,7 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
         nans_conv = convolve(nans, kernel=nan_kernel, boundary="extend", normalize_kernel=False)
 
         # Get the ones with a maximum of 'max_bad_neighbors' bad neighbors
-        # noinspection PyTypeChecker
-        nans_fil = (nans_conv <= max_bad_neighbors) & (nans == 1)
+        nans_fil = (nans_conv <= max_bad_neighbors) & (nans == 1)  # noqa
 
         # If there are no NaNs at the stage, we return
         if np.sum(nans_fil) == 0:
@@ -313,8 +310,7 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     if kernel is None:
         kernel = Gaussian2DKernel(1)
     elif isinstance(kernel, np.ndarray):
-        # noinspection PyTypeChecker
-        kernel = CustomKernel(kernel)
+        kernel = CustomKernel(kernel)  # noqa
     else:
         if not isinstance(kernel, Kernel2D):
             raise ValueError("Supplied kernel not supported")
@@ -655,7 +651,6 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
         idx += 1
 
 
-# noinspection PyTypeChecker
 def background_image(image, mesh_size, mesh_filtersize=3):
 
     # Image must be 2D
@@ -680,8 +675,8 @@ def background_image(image, mesh_size, mesh_filtersize=3):
     bg, bg_std = np.array(bg).reshape(n_tiles_y, n_tiles_x), np.array(bg_std).reshape(n_tiles_y, n_tiles_x)
 
     # Interpolate NaN values in grid
-    bg = interpolate_replace_nans(bg, kernel=Gaussian2DKernel(1))
-    bg_std = interpolate_replace_nans(bg_std, kernel=Gaussian2DKernel(1))
+    bg = interpolate_replace_nans(bg, kernel=Gaussian2DKernel(1))  # noqa
+    bg_std = interpolate_replace_nans(bg_std, kernel=Gaussian2DKernel(1))  # noqa
 
     # Apply median filter
     bg, bg_std = median_filter(input=bg, size=mesh_filtersize), median_filter(input=bg_std, size=mesh_filtersize)
@@ -691,7 +686,7 @@ def background_image(image, mesh_size, mesh_filtersize=3):
     bg_std = convolve(bg_std, kernel=Gaussian2DKernel(1), boundary="extend")
 
     # Return upscaled data
-    return upscale_image(bg, new_size=image.shape), upscale_image(bg_std, new_size=image.shape)
+    return upscale_image(bg, new_size=image.shape), upscale_image(bg_std, new_size=image.shape)  # noqa
 
 
 def upscale_image(image, new_size, method="pil", order=3):
@@ -834,10 +829,9 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
 
-        # noinspection PyTypeChecker
         stat, xe, ye, (nbx, nby) = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nx, ny],
-                                                       range=[(x_min, x_max), (y_min, y_max)], statistic=clipped_median,
-                                                       expand_binnumbers=True)
+                                                       statistic=clipped_median, expand_binnumbers=True,
+                                                       range=[(x_min, x_max), (y_min, y_max)])  # noqa
 
         # Convert bin number to index
         nbx, nby = nbx - 1, nby - 1
