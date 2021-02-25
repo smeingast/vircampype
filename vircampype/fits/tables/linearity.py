@@ -181,7 +181,6 @@ class MasterLinearity(MasterTables):
         else:
             return paths
 
-    # noinspection DuplicatedCode
     def qc_plot_linearity(self, paths=None, axis_size=4, overwrite=False):
 
         """
