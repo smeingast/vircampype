@@ -235,7 +235,6 @@ def make_pawprint_prime_header(hdul_pawprint: fits.HDUList, image_or_catalog: st
     return hdr
 
 
-# noinspection PyTypeChecker
 def make_pawprint_header(hdu_pawprint, hdu_catalog, image_or_catalog: str, passband: str):
 
     # Calculate mean ZP
@@ -436,7 +435,6 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images):
     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-# noinspection PyTypeChecker
 def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, additional):
 
     # Grab stuff
