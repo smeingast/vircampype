@@ -666,8 +666,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Evaluate KDE
                 kde = KernelDensity(kernel="gaussian", bandwidth=0.1, metric="euclidean")
                 kde_grid = np.arange(np.floor(-1), np.ceil(1), 0.01)
-                # noinspection PyUnresolvedReferences
-                dens_zp = np.exp(kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))
+                dens_zp = \
+                    np.exp(kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(kde_grid.reshape(-1, 1)))  # noqa
 
                 # Draw KDE
                 ax_kde = ax.twiny()
