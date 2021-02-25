@@ -746,7 +746,6 @@ class ImageCube(object):
                 raise ValueError("Weights don't match input")
 
             # Calculate weighted average
-            # noinspection PyTypeChecker
             flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis, weights=weights)
             """:type : np.ma.MaskedArray"""
 
@@ -779,7 +778,6 @@ class ImageCube(object):
         """
 
         # If we have a float or integer
-        # noinspection PyUnresolvedReferences
         if (isinstance(norm, (int, np.integer))) | (isinstance(norm, (int, np.floating))):
             self.cube /= norm
 
