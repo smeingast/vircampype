@@ -884,7 +884,6 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     return stat
 
 
-# noinspection PyTypeChecker
 def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
     """
     Grids values to a 2D array based on nearest neighbor interpolation.
@@ -937,7 +936,7 @@ def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
     gv = convolve(gv, kernel=Gaussian2DKernel(1), boundary="extend")
 
     # Return upscaled image
-    return upscale_image(gv, new_size=(ox, oy))
+    return upscale_image(gv, new_size=(ox, oy))  # noqa
 
 
 def get_binsize(table, n_neighbors, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
