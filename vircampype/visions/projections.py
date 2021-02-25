@@ -32,10 +32,9 @@ class Projection:
     def footprint(self):
         return self.wcs.calc_footprint()
 
-    # noinspection PyUnresolvedReferences
     @property
     def __wcsprm(self):
-        return self.wcs.wcs
+        return self.wcs.wcs  # noqa
 
     @property
     def crval1(self):
