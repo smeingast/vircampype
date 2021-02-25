@@ -233,8 +233,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             outpath = self.setup.folders["master_object"] + "MASTER-SUPERFLAT_{0:11.5f}.fits".format(files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                continue
+            # if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            #     continue
 
             # Grab current passband
             passband = files.passband[0]
@@ -270,19 +270,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Remove all table entries without ZP entry
                 tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
 
-                binsize = get_binsize(table=tab, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE", n_neighbors=50)
-                n_bins_x, n_bins_y = int(header["NAXIS1"] / binsize), int(header["NAXIS1"] / binsize)
-
-                # Set minimum and maximum number of bins
-                n_bins_x = 3 if n_bins_x < 3 else n_bins_x
-                n_bins_y = 3 if n_bins_y < 3 else n_bins_y
-                n_bins_x = 15 if n_bins_x > 15 else n_bins_x
-                n_bins_y = 15 if n_bins_y > 15 else n_bins_y
-
-                # Grid values to detector size array
-                grid_zp = grid_value_2d(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], value=zp_all, x_min=0, y_min=0,
-                                        weights=None, x_max=header["NAXIS1"], y_max=header["NAXIS2"], nx=n_bins_x,
-                                        ny=n_bins_y, conv=True, kernel_size=1.0, upscale=True)
+                # Use a maximum of 100 nearest neighbors for ZP interpolation
+                nn = 100 if len(tab) > 100 else len(tab)
+                grid_zp = grid_value_2d_nn(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], values=zp_all, nx=25, ny=25,
+                                           nn=nn, ox=header["NAXIS1"], oy=header["NAXIS2"])
 
                 # Convert to flux scale
                 flx_scale.append(10**((grid_zp - self.setup.target_zp) / 2.5))
@@ -341,6 +332,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             if self.setup.qc_plots:
                 msf = MasterSuperflat(setup=self.setup, file_paths=outpath)
                 msf.qc_plot_superflat(paths=None, axis_size=5)
+            exit()
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
