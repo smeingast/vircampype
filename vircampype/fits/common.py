@@ -216,8 +216,11 @@ class FitsFiles:
                         # Add Airmass
                         if self.setup.set_airmass:
                             if isinstance(hdu, fits.ImageHDU):
-                                airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
-                                hdr[self.setup.keywords.airmass] = airmass
+                                try:
+                                    airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
+                                    hdr[self.setup.keywords.airmass] = airmass
+                                except KeyError:
+                                    pass
 
                         # Remove useless keywords if set
                         if self.setup.purge_headers:
