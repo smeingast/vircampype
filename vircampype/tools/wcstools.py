@@ -3,10 +3,10 @@ import numpy as np
 from astropy import wcs
 from astropy.io import fits
 from vircampype.tools.mathtools import *
-from astropy.coordinates import ICRS, Galactic
+from astropy.coordinates import ICRS, Galactic, AltAz, EarthLocation, SkyCoord
 
 __all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header", "pixelscale_from_header",
-           "rotationangle_from_header"]
+           "rotationangle_from_header", "get_airmass_from_header"]
 
 
 def header_reset_wcs(header):
@@ -240,3 +240,11 @@ def rotationangle_from_header(header, degrees=True):
         return np.rad2deg(angle)
     else:
         return angle
+
+
+def get_airmass_from_header(header, time, location="Paranal"):
+    # Get center position
+    sc = wcs.WCS(header).all_pix2world(header["NAXIS1"] / 2, header["NAXIS2"] / 2, 1)
+    sc = SkyCoord(*sc, frame="icrs", unit="deg")
+    # Return airmass
+    return sc.transform_to(AltAz(obstime=time, location=EarthLocation.of_site(location))).secz.value
