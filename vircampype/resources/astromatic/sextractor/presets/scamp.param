@@ -13,3 +13,4 @@ FWHM_IMAGE               # FWHM assuming a gaussian core                        
 ELLIPTICITY              # 1 - B_IMAGE/A_IMAGE                                      
 ISOAREA_IMAGE            # Isophotal area above Analysis threshold                   [pixel**2]
 FLAGS                    # Extraction flags                                         
+FLAGS_WEIGHT             # Weighted extraction flags                                
