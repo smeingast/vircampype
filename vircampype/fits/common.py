@@ -221,7 +221,6 @@ class FitsFiles:
                                     airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
                                     add_float_to_header(header=hdr, key=self.setup.keywords.airmass, value=airmass,
                                                         decimals=4, comment="Airmass at time of observation")
-                                    hdr[self.setup.keywords.airmass] = airmass
                                 except KeyError:
                                     pass
 
