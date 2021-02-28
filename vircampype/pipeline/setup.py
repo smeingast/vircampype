@@ -300,6 +300,10 @@ class Setup(dict):
     def purge_headers(self, purge_headers):
         self.__purge_headers = purge_headers
 
+    @property
+    def set_airmass(self):
+        return True
+
     # =========================================================================== #
     # Keywords
     @property
