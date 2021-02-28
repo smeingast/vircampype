@@ -8,6 +8,7 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.pipeline.misc import *
 from vircampype.pipeline.setup import Setup
+from vircampype.tools.fitstools import add_float_to_header
 from vircampype.tools.wcstools import header_reset_wcs, get_airmass_from_header
 
 
@@ -218,6 +219,8 @@ class FitsFiles:
                             if isinstance(hdu, fits.ImageHDU):
                                 try:
                                     airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
+                                    add_float_to_header(header=hdr, key=self.setup.keywords.airmass, value=airmass,
+                                                        decimals=4, comment="Airmass at time of observation")
                                     hdr[self.setup.keywords.airmass] = airmass
                                 except KeyError:
                                     pass
