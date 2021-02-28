@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.pipeline.misc import *
 from vircampype.pipeline.setup import Setup
-from vircampype.tools.wcstools import header_reset_wcs
+from vircampype.tools.wcstools import header_reset_wcs, get_airmass_from_header
 
 
 class FitsFiles:
@@ -212,6 +212,12 @@ class FitsFiles:
                                     warnings.filterwarnings("ignore")
                                     hdr = header_reset_wcs(hdr)
                                     hdr["HIERARCH PYPE WCS RESET"] = True
+
+                        # Add Airmass
+                        if self.setup.set_airmass:
+                            if isinstance(hdu, fits.ImageHDU):
+                                airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
+                                hdr[self.setup.keywords.airmass] = airmass
 
                         # Remove useless keywords if set
                         if self.setup.purge_headers:
