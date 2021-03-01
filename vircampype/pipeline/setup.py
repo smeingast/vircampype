@@ -626,6 +626,12 @@ class Setup(dict):
         self.__superflat_n_min = superflat_n_min
 
     # =========================================================================== #
+    # Astrometry
+    @property
+    def astr_reference_catalog(self):
+        return "GAIA"
+
+    # =========================================================================== #
     # Astromatic
     @property
     def bin_sex(self):
