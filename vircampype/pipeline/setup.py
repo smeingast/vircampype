@@ -49,6 +49,9 @@ class Setup(dict):
         self.__sex_back_size = 64
         self.__sex_back_filtersize = 3
 
+        # Astrometry
+        self.__astr_reference_catalog = "Gaia"
+
         # Photometry
         self.__reference_mag_lim = None
 
@@ -629,7 +632,11 @@ class Setup(dict):
     # Astrometry
     @property
     def astr_reference_catalog(self):
-        return "GAIA"
+        return self.__astr_reference_catalog
+
+    @astr_reference_catalog.setter
+    def astr_reference_catalog(self, astr_reference_catalog):
+        self.__astr_reference_catalog = astr_reference_catalog
 
     # =========================================================================== #
     # Astromatic
