@@ -120,7 +120,7 @@ class SextractorCatalogs(SourceCatalogs):
                              checkplot_name=scs.qc_names(joined=True),
                              skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_BAND"])
 
-        # Construct commands for source extraction
+        # Construct command for scamp
         cmd = "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_BAND {4} {5}" \
               "".format(scs.bin, self._scamp_catalog_paths, scs.default_config,
                         self._scamp_header_paths(joined=True), band, options)
@@ -569,6 +569,27 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             return ["{0}{1}.{2}.pdf".format(self.setup.folders["qc_photometry"], fp, prefix) for fp in self.basenames]
         else:
             return paths
+
+    def plot_qc_phot_interror2d(self):
+
+        from astropy import table
+
+        # Only works if there are multiple catalogs available
+        if len(self) <= 1:
+            raise ValueError("QC plot requires multiple catalogs as input")
+
+        # Stack all catalogs into a single large table
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            table_master = table.vstack(flat_list([self.file2table(file_index=i) for i in range(self.n_files)]))
+            table_master = clean_source_table(table=table_master)
+
+            from sklearn.neighbors import NearestNeighbors
+            stacked = np.stack([np.deg2rad(table_master["ALPHA_J2000"]), np.deg2rad(table_master["DELTA_J2000"])]).T
+            dis, idx = NearestNeighbors(n_neighbors=20, metric="haversine").fit(stacked).kneighbors(stacked)
+            dis_arsec = np.rad2deg(dis) * 3600
+            print(dis_arsec[:10, :3])
+            exit()
 
     def plot_qc_zp(self, paths=None, axis_size=5):
         """ Generates ZP QC plot. """
