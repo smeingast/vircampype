@@ -102,6 +102,13 @@ class SextractorCatalogs(SourceCatalogs):
 
     def scamp(self):
 
+        # Construct XML path
+        path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
+
+        # Check if XML is already there and just return if it is
+        if check_file_exists(file_path=path_xml, silent=self.setup.silent):
+            return
+
         # Load Scamp setup
         scs = ScampSetup(setup=self.setup)
 
@@ -128,9 +135,6 @@ class SextractorCatalogs(SourceCatalogs):
         else:
             raise ValueError("Astrometric reference catalog '{0}' not supported"
                              "".format(self.setup.astr_reference_catalog))
-
-        # Construct XML path
-        path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
 
         # Construct command for scamp
         cmd = "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_CATALOG {4} -ASTREF_BAND {5} -XML_NAME {6} {7}" \
