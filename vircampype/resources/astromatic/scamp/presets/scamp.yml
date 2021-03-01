@@ -25,7 +25,7 @@ ASTREFERR_KEYS:         ERRA_WORLD, ERRB_WORLD, ERRTHETA_WORLD
 ASTREFMAG_KEY:          MAG             # Local ref.cat. magnitude parameter
 ASTREFMAGERR_KEY:       MAGERR          # Local ref.cat. mag. error parameter
 ASTREFOBSDATE_KEY:      OBSDATE         # Local ref.cat. obs. date parameter
-ASTREFMAG_LIMITS:       9.0,18.0      # Select magnitude range in ASTREF_BAND
+ASTREFMAG_LIMITS:       10.0,20.0      # Select magnitude range in ASTREF_BAND
 SAVE_REFCATALOG:        N               # Save ref catalogs in FITS-LDAC format?
 REFOUT_CATPATH:         .               # Save path for reference catalogs
 
@@ -69,15 +69,15 @@ CROSSID_RADIUS:         2.5             # Cross-id initial radius (arcsec)
 SOLVE_ASTROM:           Y               # Compute astrometric solution (Y/N) ?
 PROJECTION_TYPE:        SAME            # SAME, TPV or TAN
 ASTRINSTRU_KEY:         FILTER   # FITS keyword(s) defining the astrom
-STABILITY_TYPE:         INSTRUMENT      # EXPOSURE, PRE-DISTORTED or INSTRUMENT
+STABILITY_TYPE:         EXPOSURE      # EXPOSURE, PRE-DISTORTED or INSTRUMENT
 CENTROID_KEYS:          XWIN_IMAGE,YWIN_IMAGE # Cat. parameters for centroiding
 CENTROIDERR_KEYS:       ERRAWIN_IMAGE,ERRBWIN_IMAGE,ERRTHETAWIN_IMAGE
                                        # Cat. params for centroid err ellipse
 DISTORT_KEYS:           XWIN_IMAGE,YWIN_IMAGE # Cat. parameters or FITS keywords
 DISTORT_GROUPS:         1,1             # Polynom group for each context key
 DISTORT_DEGREES:        4               # Polynom degree for each group
-FOCDISTORT_DEGREE:      2               # Polynom degree for focal plane coords
-ASTREF_WEIGHT:          1E3             # Relative weight of ref.astrom.cat.
+FOCDISTORT_DEGREE:      1               # Polynom degree for focal plane coords
+ASTREF_WEIGHT:          1.0             # Relative weight of ref.astrom.cat.
 ASTRACCURACY_TYPE:      SIGMA-PIXEL     # SIGMA-PIXEL, SIGMA-ARCSEC,
                                        # or TURBULENCE-ARCSEC
 ASTRACCURACY_KEY:       ASTRACCU        # FITS keyword for ASTR_ACCURACY param.
@@ -113,8 +113,8 @@ PHOT_IMAFLAGSMASK:      0x0             # Photometry rejection mask on IMAFLAGS
 
 SN_THRESHOLDS:          10.0,200.0      # S/N thresholds (in sigmas) for all and
                                        # high-SN sample
-FWHM_THRESHOLDS:        0.5,8.0       # FWHM thresholds (in pixels) for sources
-ELLIPTICITY_MAX:        0.5             # Max. source ellipticity
+FWHM_THRESHOLDS:        0.8,5.0       # FWHM thresholds (in pixels) for sources
+ELLIPTICITY_MAX:        0.2             # Max. source ellipticity
 FLAGS_MASK:             0x00f0          # Global rejection mask on SEx FLAGS
 WEIGHTFLAGS_MASK:       0x00ff          # Global rejec. mask on SEx FLAGS_WEIGHT
 IMAFLAGS_MASK:          0x0             # Global rejec. mask on SEx IMAFLAGS_ISO
