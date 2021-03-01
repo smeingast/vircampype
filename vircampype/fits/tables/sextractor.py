@@ -707,7 +707,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Modify axes
                 if (idx_hdu < self.setup.fpa_layout[1]) | (len(ax_file) == 1):
-                    ax.set_xlabel("{0} {1} (mag)".format(self.setup.reference_catalog.upper(), self.passband[idx_file]))
+                    ax.set_xlabel("{0} {1} (mag)".format(self.setup.phot_reference_catalog.upper(),
+                                                         self.passband[idx_file]))
                 else:
                     ax.axes.xaxis.set_ticklabels([])
                 if (idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1) | (len(ax_file) == 1):

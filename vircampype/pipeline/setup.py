@@ -501,7 +501,7 @@ class Setup(dict):
         return 25
 
     @property
-    def reference_catalog(self):
+    def phot_reference_catalog(self):
         """ Reference catalog to be used. """
         return "2mass"
 
