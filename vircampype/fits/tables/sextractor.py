@@ -6,17 +6,17 @@ import numpy as np
 from astropy.io import fits
 from itertools import repeat
 from astropy.time import Time
-from astropy.table import vstack
 from joblib import Parallel, delayed
+from astropy.table import vstack, Table
 from vircampype.tools.plottools import *
-from vircampype.tools.systemtools import *
-from vircampype.tools.tabletools import *
 from astropy.coordinates import SkyCoord
 from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
 from vircampype.tools.mathtools import *
+from vircampype.tools.tabletools import *
 from vircampype.tools.astromatic import *
 from vircampype.tools.photometry import *
+from vircampype.tools.systemtools import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from vircampype.tools.miscellaneous import *
@@ -105,28 +105,45 @@ class SextractorCatalogs(SourceCatalogs):
         # Load Scamp setup
         scs = ScampSetup(setup=self.setup)
 
-        # Get passband
-        bands = list(set(self.passband))
-        if len(bands) != 1:
-            raise ValueError("Sequence contains multiple filters")
-        else:
-            band = bands[0][0]  # This should only keep J,H, and K for 2MASS (First band and first letter)
-            band = "Ks" if "k" in band.lower() else band
-
         # Load preset
         options = yml2config(path_yml=get_resource_path(package=scs.package_presets, resource="scamp.yml"),
                              nthreads=self.setup.n_jobs,
                              checkplot_type=scs.qc_types(joined=True),
                              checkplot_name=scs.qc_names(joined=True),
-                             skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_BAND"])
+                             skip=["HEADER_NAME", "AHEADER_NAME", "ASTREF_CATALOG", "ASTREF_BAND",
+                                   "FLAGS_MASK", "WEIGHTFLAGS_MASK", "ASTR_FLAGSMASK", "XML_NAME"])
+
+        # Get passband
+        if "gaia" in self.setup.astr_reference_catalog.lower():
+            catalog_name = "GAIA-EDR3"
+            band_name = "G"
+        elif "2mass" in self.setup.astr_reference_catalog.lower():
+            catalog_name = "2MASS"
+            bands = list(set(self.passband))
+            if len(bands) != 1:
+                raise ValueError("Sequence contains multiple filters")
+            else:
+                band_name = bands[0][0]  # This should only keep J,H, and K for 2MASS (First band and first letter)
+                band_name = "Ks" if "k" in band_name.lower() else band_name
+        else:
+            raise ValueError("Astrometric reference catalog '{0}' not supported"
+                             "".format(self.setup.astr_reference_catalog))
+
+        # Construct XML path
+        path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
 
         # Construct command for scamp
-        cmd = "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_BAND {4} {5}" \
+        cmd = "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_CATALOG {4} -ASTREF_BAND {5} -XML_NAME {6} {7}" \
               "".format(scs.bin, self._scamp_catalog_paths, scs.default_config,
-                        self._scamp_header_paths(joined=True), band, options)
+                        self._scamp_header_paths(joined=True), catalog_name, band_name, path_xml, options)
 
         # Run Scamp
         run_command_shell(cmd, silent=False)
+
+        # Some basic QC on XML
+        xml = Table.read(path_xml, format="votable", table_id=1)
+        if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
+            raise ValueError("Astrometric solution may be crap, please check")
 
     # =========================================================================== #
     # Other properties
