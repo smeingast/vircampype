@@ -303,7 +303,9 @@ class ScampSetup(AstromaticSetup):
             List or str with QC checkplot types.
 
         """
-        types = ["FGROUPS", "DISTORTION", "ASTR_INTERROR2D", "ASTR_INTERROR1D", "ASTR_REFERROR2D", "ASTR_REFERROR1D"]
+        types = ["SKY_ALL", "FGROUPS", "DISTORTION", "ASTR_INTERROR1D", "ASTR_INTERROR2D", "ASTR_REFERROR1D",
+                 "ASTR_REFERROR2D", "ASTR_PIXERROR1D", "ASTR_SUBPIXERROR1D", "ASTR_CHI2", "ASTR_REFSYSMAP",
+                 "ASTR_XPIXERROR2D", "ASTR_YPIXERROR2D", "SHEAR_VS_AIRMASS"]
         if joined:
             return ",".join(types)
         else:
