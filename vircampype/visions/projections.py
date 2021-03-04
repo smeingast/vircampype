@@ -258,7 +258,8 @@ class OrionWideProjection(Projection):
 class PipeDeepProjection(Projection):
 
     def __init__(self):
-        super(PipeDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(PipeDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                 force_header=True)
 
     @property
     def __header_file(self):
@@ -268,7 +269,8 @@ class PipeDeepProjection(Projection):
 class PipeControlProjection(Projection):
 
     def __init__(self):
-        super(PipeControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(PipeControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                    force_header=True)
 
     @property
     def __header_file(self):
