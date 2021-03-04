@@ -6,7 +6,13 @@ from vircampype.tools.wcstools import *
 from vircampype.tools.systemtools import get_resource_path
 
 
-__all__ = ["Projection", "CoronaAustralisWideProjection"]
+__all__ = ["Projection", "ChamaeleonDeepProjection", "ChamaeleonWideProjection", "ChamaeleonControlProjection",
+           "CoronaAustralisDeepProjection", "CoronaAustralisWideProjection", "CoronaAustralisControlProjection",
+           "LupusDeepNProjection", "LupusDeepSProjection", "LupusWideProjection", "LupusControlNProjection",
+           "LupusControlSProjection", "MuscaWideProjection",
+           "OphiuchusDeepProjection", "OphiuchusWideProjection", "OphiuchusControlProjection",
+           "OrionWideProjection",
+           "PipeDeepProjection", "PipeControlProjection"]
 
 
 class Projection:
