@@ -147,6 +147,16 @@ class OphiuchusWideProjection(Projection):
         return get_resource_path(package=self.headerpackage, resource="Ophiuchus_wide.header")
 
 
+class OphiuchusControlProjection(Projection):
+
+    def __init__(self):
+        super(OphiuchusControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Ophiuchus_control.header")
+
+
 class OrionWideProjection(Projection):
 
     def __init__(self):
