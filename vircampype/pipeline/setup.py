@@ -727,6 +727,10 @@ class Setup(dict):
         elif isinstance(projection, str):
             if "corona_australis_wide" == projection.lower():
                 self.__projection = CoronaAustralisWideProjection()
+            elif "ophiuchus_deep" == projection.lower():
+                self.__projection = OphiuchusDeepProjection()
+            elif "ophiuchus_wide" == projection.lower():
+                self.__projection = OphiuchusWideProjection()
             elif "ophiuchus_control" == projection.lower():
                 self.__projection = OphiuchusControlProjection()
             else:
