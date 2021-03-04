@@ -245,3 +245,23 @@ class OrionWideProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(package=self.headerpackage, resource="Orion_wide.header")
+
+
+class PipeDeepProjection(Projection):
+
+    def __init__(self):
+        super(PipeDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Pipe_deep.header")
+
+
+class PipeControlProjection(Projection):
+
+    def __init__(self):
+        super(PipeControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Pipe_control.header")
