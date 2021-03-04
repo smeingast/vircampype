@@ -127,7 +127,8 @@ class ChamaeleonControlProjection(Projection):
 class CoronaAustralisDeepProjection(Projection):
 
     def __init__(self):
-        super(CoronaAustralisDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(CoronaAustralisDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                            force_header=True)
 
     @property
     def __header_file(self):
@@ -147,7 +148,8 @@ class CoronaAustralisWideProjection(Projection):
 class CoronaAustralisControlProjection(Projection):
 
     def __init__(self):
-        super(CoronaAustralisControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(CoronaAustralisControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                               force_header=True)
 
     @property
     def __header_file(self):
