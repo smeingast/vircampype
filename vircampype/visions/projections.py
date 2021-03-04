@@ -117,6 +117,16 @@ class ChamaeleonControlProjection(Projection):
         return get_resource_path(package=self.headerpackage, resource="Chamaeleon_control.header")
 
 
+class CoronaAustralisDeepProjection(Projection):
+
+    def __init__(self):
+        super(CoronaAustralisDeepProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Corona_Australis_deep.header")
+
+
 class CoronaAustralisWideProjection(Projection):
 
     def __init__(self):
@@ -125,6 +135,16 @@ class CoronaAustralisWideProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(package=self.headerpackage, resource="Corona_Australis_wide.header")
+
+
+class CoronaAustralisControlProjection(Projection):
+
+    def __init__(self):
+        super(CoronaAustralisControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Corona_Australis_control.header")
 
 
 class LupusWideProjection(Projection):
