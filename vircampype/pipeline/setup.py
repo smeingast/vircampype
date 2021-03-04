@@ -727,9 +727,10 @@ class Setup(dict):
         elif isinstance(projection, str):
             if "corona_australis_wide" == projection.lower():
                 self.__projection = CoronaAustralisWideProjection()
-        elif isinstance(projection, str):
-            if "ophiuchus_control" == projection.lower():
+            elif "ophiuchus_control" == projection.lower():
                 self.__projection = OphiuchusControlProjection()
+            else:
+                raise PipelineError("Projection '{0}' not supported".format(projection))
         else:
             raise PipelineError("Projection must be provided as string or Projection instance")
 
