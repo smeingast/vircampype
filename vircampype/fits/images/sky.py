@@ -798,6 +798,10 @@ class ProcessedScienceImages(ProcessedSkyImages):
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
         tstart = time.time()
 
+        # Generate weight outpaths
+        outpaths = ["{0}MASTER-WEIGHT-IMAGE.MJD_{1:0.4f}.fits".format(self.setup.folders["master_object"], mjd)
+                    for mjd in self.mjd]
+
         # MaxiMasking
         if self.setup.maximasking:
             # Build commands for MaxiMask
@@ -806,7 +810,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
 
             # Clean commands
             paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
-            cmds = [c for c, n in zip(cmds, paths_masks) if not os.path.exists(n)]
+            cmds = [c for c, n, o in zip(cmds, paths_masks, outpaths) if not (os.path.exists(n) | os.path.exists(o))]
 
             if len(paths_masks) != len(self):
                 raise ValueError("Something went wrong with MaxiMask")
@@ -828,16 +832,12 @@ class ProcessedScienceImages(ProcessedSkyImages):
         # Loop over files
         for idx_file in range(self.n_files):
 
-            # Create Mastedark name
-            outpath = "{0}MASTER-WEIGHT-IMAGE.MJD_{1:0.4f}.fits" \
-                      "".format(self.setup.folders["master_object"], self.mjd[idx_file])
-
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
+            if check_file_exists(file_path=outpaths[idx_file], silent=self.setup.silent) and not self.setup.overwrite:
                 continue
 
             # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpaths[idx_file],
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
             # Load data
@@ -874,7 +874,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
             prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][self.setup.keywords.date_mjd]
 
             # Write to disk
-            master_weight.write_mef(path=outpath, prime_header=prime_header)
+            master_weight.write_mef(path=outpaths[idx_file], prime_header=prime_header)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
