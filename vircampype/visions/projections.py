@@ -237,7 +237,8 @@ class OphiuchusWideProjection(Projection):
 class OphiuchusControlProjection(Projection):
 
     def __init__(self):
-        super(OphiuchusControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(OphiuchusControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                         force_header=True)
 
     @property
     def __header_file(self):
