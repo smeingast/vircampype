@@ -17,8 +17,9 @@ __all__ = ["Projection", "ChamaeleonDeepProjection", "ChamaeleonWideProjection",
 
 class Projection:
 
-    def __init__(self, header):
+    def __init__(self, header, force_header=False):
         self.header = header
+        self.force_header = force_header
 
     def __str__(self):
         return self.wcs.__str__()
