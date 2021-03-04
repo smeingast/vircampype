@@ -746,7 +746,7 @@ class RawScienceImages(RawSkyImages):
         tstart = time.time()
 
         # Check if header exists
-        if check_file_exists(file_path=self.setup.path_coadd_header, silent=self.setup.silent)\
+        if check_file_exists(file_path=self.setup.path_coadd_header, silent=self.setup.silent) \
                 and not self.setup.overwrite:
             return
 
@@ -756,7 +756,14 @@ class RawScienceImages(RawSkyImages):
 
         # Construct header from projection if set
         if self.setup.projection is not None:
-            header_coadd = self.setup.projection.subheader_from_skycoord(skycoord=self.footprints_flat, enlarge=0.5)
+
+            # Force the header in the setup, if set
+            if self.setup.projection.force_header:
+                header_coadd = self.setup.projection.header
+
+            # Otherwise construct image limits (CRPIX1/2, NAXIS1/2)
+            else:
+                header_coadd = self.setup.projection.subheader_from_skycoord(skycoord=self.footprints_flat, enlarge=0.5)
 
         # Otherwise construct from input
         else:
