@@ -147,6 +147,26 @@ class CoronaAustralisControlProjection(Projection):
         return get_resource_path(package=self.headerpackage, resource="Corona_Australis_control.header")
 
 
+class LupusDeepNProjection(Projection):
+
+    def __init__(self):
+        super(LupusDeepNProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Lupus_deep_n.header")
+
+
+class LupusDeepSProjection(Projection):
+
+    def __init__(self):
+        super(LupusDeepSProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Lupus_deep_s.header")
+
+
 class LupusWideProjection(Projection):
 
     def __init__(self):
@@ -155,6 +175,26 @@ class LupusWideProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(package=self.headerpackage, resource="Lupus_wide.header")
+
+
+class LupusControlNProjection(Projection):
+
+    def __init__(self):
+        super(LupusControlNProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Lupus_control_n.header")
+
+
+class LupusControlSProjection(Projection):
+
+    def __init__(self):
+        super(LupusControlSProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Lupus_control_s.header")
 
 
 class MuscaWideProjection(Projection):
