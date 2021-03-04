@@ -157,7 +157,8 @@ class CoronaAustralisControlProjection(Projection):
 class LupusDeepNProjection(Projection):
 
     def __init__(self):
-        super(LupusDeepNProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(LupusDeepNProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                   force_header=True)
 
     @property
     def __header_file(self):
@@ -167,7 +168,8 @@ class LupusDeepNProjection(Projection):
 class LupusDeepSProjection(Projection):
 
     def __init__(self):
-        super(LupusDeepSProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(LupusDeepSProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                   force_header=True)
 
     @property
     def __header_file(self):
@@ -187,7 +189,8 @@ class LupusWideProjection(Projection):
 class LupusControlNProjection(Projection):
 
     def __init__(self):
-        super(LupusControlNProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(LupusControlNProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                      force_header=True)
 
     @property
     def __header_file(self):
@@ -197,7 +200,8 @@ class LupusControlNProjection(Projection):
 class LupusControlSProjection(Projection):
 
     def __init__(self):
-        super(LupusControlSProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(LupusControlSProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                      force_header=True)
 
     @property
     def __header_file(self):
