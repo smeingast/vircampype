@@ -117,7 +117,8 @@ class ChamaeleonWideProjection(Projection):
 class ChamaeleonControlProjection(Projection):
 
     def __init__(self):
-        super(ChamaeleonControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file))
+        super(ChamaeleonControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                          force_header=True)
 
     @property
     def __header_file(self):
