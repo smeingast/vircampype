@@ -81,6 +81,11 @@ class FitsImages(FitsFiles):
         return self._passband
 
     @property
+    def dit_norm(self):
+        """ Convenience method for retrieving the DITs of the current instance as ndarray. """
+        return np.array(self.dit)
+
+    @property
     def ndit_norm(self):
         """ Convenience method for retrieving the NDITs of the current instance as ndarray. """
         return np.array(self.ndit)
