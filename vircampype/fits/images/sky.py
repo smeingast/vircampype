@@ -522,7 +522,7 @@ class RawSkyImages(SkyImages):
         tstart = time.time()
 
         # Fetch the Masterfiles
-        master_dark = self.get_master_dark()
+        master_dark = self.get_master_dark(ignore_dit=True)
         master_flat = self.get_master_flat()
         master_gain = self.get_master_gain()
         master_sky = self.get_master_sky()
@@ -548,10 +548,10 @@ class RawSkyImages(SkyImages):
             calib_cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
             # Get master calibration
-            dark = master_dark.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-            flat = master_flat.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-            sky = master_sky.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-            lin = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
+            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32) * self.dit_norm[idx_file]
+            flat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
+            sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+            lin = master_linearity.file2coeff(file_index=idx_file)
 
             # Do calibration
             calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx_file])
