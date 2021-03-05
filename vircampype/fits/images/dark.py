@@ -62,7 +62,7 @@ class DarkImages(FitsImages):
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
 
                 # Scale cube with DIT
-                cube /= files.dit_norm[:, np.newaxis, np.newaxis]
+                cube.scale_planes(scales=1/files.dit_norm)
 
                 # Get master calibration
                 bpm = master_bpm.hdu2cube(hdu_index=d, dtype=np.uint8)
