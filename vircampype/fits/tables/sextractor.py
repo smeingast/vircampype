@@ -627,8 +627,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         table_master = table_master[good]
 
         # Remove duplicates
-        table_master = remove_duplicates_wcs(table=table_master, sep=1, key_lon="ALPHA_J2000",
-                                             key_lat="DELTA_J2000", temp_dir=self.setup.folders["temp"])
+        table_master = remove_duplicates_wcs(table=table_master, sep=1, key_lon="ALPHA_J2000", key_lat="DELTA_J2000",
+                                             temp_dir=self.setup.folders["temp"], bin_name=self.setup.bin_stilts)
 
         # Create empty array to store all matched magnitudes
         matched_phot = np.full((len(table_master), len(tables_all)), fill_value=np.nan, dtype=np.float32)
