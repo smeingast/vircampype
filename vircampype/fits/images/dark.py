@@ -89,6 +89,8 @@ class DarkImages(FitsImages):
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
                     _, dc, dc_std = sigma_clipped_stats(collapsed)
+                    # Norm to 1s also via NDIT
+                    dc, dc_std = dc / files.ndit[0], dc_std / files.ndit[0]
 
                 # Write DC into data header
                 header = fits.Header()
