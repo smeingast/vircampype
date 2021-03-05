@@ -619,7 +619,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             table_master = table.vstack(tables_all)
 
         # Remove all sources without a match from the master table
-        stacked = np.stack([np.deg2rad(table_master["ALPHA_J2000"]), np.deg2rad(table_master["DELTA_J2000"])]).T
+        stacked = np.stack([np.deg2rad(table_master[self._key_ra]), np.deg2rad(table_master[self._key_dec])]).T
         dis, idx = NearestNeighbors(n_neighbors=2, metric="haversine").fit(stacked).kneighbors(stacked)
         dis_arsec = np.rad2deg(dis) * 3600
         dis_arcsec_nn = dis_arsec[:, 1]
@@ -627,7 +627,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         table_master = table_master[good]
 
         # Remove duplicates
-        table_master = remove_duplicates_wcs(table=table_master, sep=1, key_lon="ALPHA_J2000", key_lat="DELTA_J2000",
+        table_master = remove_duplicates_wcs(table=table_master, sep=1, key_lon=self._key_ra, key_lat=self._key_dec,
                                              temp_dir=self.setup.folders["temp"], bin_name=self.setup.bin_stilts)
 
         # Create empty array to store all matched magnitudes
@@ -637,10 +637,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Do NN search in parallel (this takes the most time in a loop)
         def __match_catalogs(t, m):
             return NearestNeighbors(n_neighbors=1, metric="haversine").fit(t).kneighbors(m)
-        stacked_master = np.stack([np.deg2rad(table_master["ALPHA_J2000"]),
-                                   np.deg2rad(table_master["DELTA_J2000"])]).T
-        stacked_table = [np.stack([np.deg2rad(tt["ALPHA_J2000"]),
-                                   np.deg2rad(tt["DELTA_J2000"])]).T for tt in tables_all]
+        stacked_master = np.stack([np.deg2rad(table_master[self._key_ra]),
+                                   np.deg2rad(table_master[self._key_dec])]).T
+        stacked_table = [np.stack([np.deg2rad(tt[self._key_ra]),
+                                   np.deg2rad(tt[self._key_dec])]).T for tt in tables_all]
         with Parallel(n_jobs=self.setup.n_jobs) as parallel:
             mp = parallel(delayed(__match_catalogs)(i, j) for i, j in zip(stacked_table, repeat(stacked_master)))
         dis_all, idx_all = list(zip(*mp))
