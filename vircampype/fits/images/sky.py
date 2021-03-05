@@ -416,7 +416,7 @@ class RawSkyImages(SkyImages):
 
             # Fetch the Masterfiles
             master_bpms = files.get_master_bpm()
-            master_darks = files.get_master_dark()
+            master_darks = files.get_master_dark(ignore_dit=True)
             master_flat = files.get_master_flat()
             master_linearity = files.get_master_linearity()
             master_mask = files.get_master_source_mask()
@@ -439,6 +439,7 @@ class RawSkyImages(SkyImages):
                 # Get master calibration
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
+                dark.scale_planes(scales=files.dit_norm)
                 flat = master_flat.hdu2cube(hdu_index=d, dtype=np.float32)
                 sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
                 lin = master_linearity.hdu2coeff(hdu_index=d)
