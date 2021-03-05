@@ -733,6 +733,8 @@ class Setup(dict):
                 self.__projection = OphiuchusWideProjection()
             elif "ophiuchus_control" == projection.lower():
                 self.__projection = OphiuchusControlProjection()
+            elif "orion_control" == projection.lower():
+                self.__projection = OrionControlProjection()
             else:
                 raise PipelineError("Projection '{0}' not supported".format(projection))
         else:

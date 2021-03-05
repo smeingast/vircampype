@@ -11,7 +11,7 @@ __all__ = ["Projection", "ChamaeleonDeepProjection", "ChamaeleonWideProjection",
            "LupusDeepNProjection", "LupusDeepSProjection", "LupusWideProjection", "LupusControlNProjection",
            "LupusControlSProjection", "MuscaWideProjection",
            "OphiuchusDeepProjection", "OphiuchusWideProjection", "OphiuchusControlProjection",
-           "OrionWideProjection",
+           "OrionWideProjection", "OrionControlProjection",
            "PipeDeepProjection", "PipeControlProjection"]
 
 
@@ -260,6 +260,17 @@ class OrionWideProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(package=self.headerpackage, resource="Orion_wide.header")
+
+
+class OrionControlProjection(Projection):
+
+    def __init__(self):
+        super(OrionControlProjection, self).__init__(header=fits.Header.fromtextfile(self.__header_file),
+                                                     force_header=True)
+
+    @property
+    def __header_file(self):
+        return get_resource_path(package=self.headerpackage, resource="Orion_control.header")
 
 
 class PipeDeepProjection(Projection):
