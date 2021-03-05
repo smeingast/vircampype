@@ -442,10 +442,9 @@ class RawSkyImages(SkyImages):
                 flat = master_flat.hdu2cube(hdu_index=d, dtype=np.float32)
                 sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
                 lin = master_linearity.hdu2coeff(hdu_index=d)
-                norm_before = files.ndit_norm
 
                 # Do calibration
-                cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=norm_before)
+                cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=files.ndit_norm)
 
                 # Apply masks to the normalized cube
                 cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup.sky_mask_min,
