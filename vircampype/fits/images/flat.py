@@ -59,7 +59,7 @@ class FlatTwilight(FlatImages):
 
             # Fetch the Masterfiles
             master_bpms = files.get_master_bpm()
-            master_darks = files.get_master_dark()
+            master_darks = files.get_master_dark(ignore_dit=True)
             master_linearity = files.get_master_linearity()
 
             for master in [master_bpms, master_darks, master_linearity]:
@@ -83,6 +83,7 @@ class FlatTwilight(FlatImages):
                 # Get master calibration
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
+                dark.scale_planes(scales=files.dit_norm)
                 lin = master_linearity.hdu2coeff(hdu_index=d)
                 sat = self.setup.saturation_levels[d-1]
                 norm_before = files.ndit_norm
