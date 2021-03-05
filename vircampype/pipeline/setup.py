@@ -55,6 +55,9 @@ class Setup(dict):
         # Photometry
         self.__reference_mag_lim = None
 
+        # Other
+        self.__bin_stilts = "stilts"
+
         # Try to override property from setup
         for key, val in self.items():
             try:
@@ -744,6 +747,14 @@ class Setup(dict):
     def fpack_quantization_factor(self):
         """ https://iopscience.iop.org/article/10.1086/656249/pdf """
         return 16
+
+    @property
+    def bin_stilts(self):
+        return self.__bin_stilts
+
+    @bin_stilts.setter
+    def bin_stilts(self, bin_stilts):
+        self.__bin_stilts = bin_stilts
 
 
 class HeaderKeywords:
