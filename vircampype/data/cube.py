@@ -918,7 +918,7 @@ class ImageCube(object):
             # Normalize dark also to NDIT=1
             if norm_before is not None:
                 dark.normalize(norm=norm_before)
-                """ This needs to be recoded if at some point DIT scaling is implemented for darks. """
+                # TODO: This needs to be recoded if at some point DIT scaling is implemented for darks.
 
             # Subtract dark
             self.cube -= dark.cube
