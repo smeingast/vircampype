@@ -571,7 +571,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         for idx_file in range(self.n_files):
 
             # Create output path
-            outpath = self.paths_full[idx_file].replace(".full.fits.ctab", ".coadd_ahead")
+            outpath = self.paths_full[idx_file].replace(".full.fits.ctab", ".ahead")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
