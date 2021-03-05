@@ -491,9 +491,14 @@ class FitsImages(FitsFiles):
         # Match and return
         return self.match_mjd(match_to=self.get_master_images().bpm, max_lag=self.setup.master_max_lag_bpm)
 
-    def get_master_dark(self):
+    def get_master_dark(self, ignore_dit=False):
         """
         Get for each file in self the corresponding MasterDark.
+
+        Parameters
+        ----------
+        ignore_dit : bool, optional
+            Whether to ignore DIT values. Default is False.
 
         Returns
         -------
@@ -503,7 +508,8 @@ class FitsImages(FitsFiles):
         """
 
         # Match DIT and NDIT and MJD
-        return self._match_exposure(match_to=self.get_master_images().dark, max_lag=self.setup.master_max_lag_dark)
+        return self._match_exposure(match_to=self.get_master_images().dark, max_lag=self.setup.master_max_lag_dark,
+                                    ignore_dit=ignore_dit)
 
     def get_master_flat(self):
         """
