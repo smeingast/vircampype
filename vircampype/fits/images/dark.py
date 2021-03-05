@@ -1,4 +1,5 @@
 import time
+import warnings
 import numpy as np
 
 from astropy.io import fits
@@ -7,6 +8,7 @@ from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
+from astropy.stats import sigma_clipped_stats
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.common import MasterImages
 
@@ -83,13 +85,19 @@ class DarkImages(FitsImages):
                 # Compute weighted average
                 collapsed = np.ma.average(cube.cube, weights=weights, axis=0).filled(fill_value=np.nan)
 
-                # Determine dark current as median
-                dc = np.nanmedian(collapsed) / files.ndit[0]
+                # Determine dark current and std
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    _, dc, dc_std = sigma_clipped_stats(collapsed)
 
                 # Write DC into data header
                 header = fits.Header()
+                add_int_to_header(header=header, key="HIERARCH PYPE DC NIMAGES", value=len(files),
+                                  comment="Number of darkframes used")
                 add_float_to_header(header=header, key="HIERARCH PYPE DC", value=dc,
                                     decimals=3, comment="Dark current in ADU/s")
+                add_float_to_header(header=header, key="HIERARCH PYPE DC STD", value=dc_std,
+                                    decimals=3, comment="Dark current standard deviation in ADU")
                 data_headers.append(header)
 
                 # Append to output
