@@ -278,7 +278,7 @@ class FlatLampLin(FlatImages):
 
             # Fetch the Masterfiles
             master_bpms = files.get_master_bpm()
-            master_darks = files.get_master_dark()
+            master_darks = files.get_master_dark(ignore_dit=True)
 
             # initialize empty lists
             table_hdus = []
@@ -296,6 +296,7 @@ class FlatLampLin(FlatImages):
                 # Get master calibration
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
+                dark.scale_planes(scales=files.dit_norm)
                 sat = self.setup.saturation_levels[d-1]
                 norm_before = files.ndit_norm
 
