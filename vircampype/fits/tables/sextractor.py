@@ -457,10 +457,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # QC plot
             if self.setup.qc_plots:
-                csc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
-                csc.plot_qc_phot_zp(axis_size=5)
-                csc.plot_qc_phot_ref1d(axis_size=5)
-                csc.plot_qc_phot_ref2d(axis_size=5)
+                pcsc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
+                pcsc.plot_qc_phot_zp(axis_size=5)
+                pcsc.plot_qc_phot_ref1d(axis_size=5)
+                pcsc.plot_qc_phot_ref2d(axis_size=5)
+                if len(pcsc) >= 2:
+                    pcsc.plot_qc_phot_interror()
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
