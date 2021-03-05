@@ -133,6 +133,14 @@ class MasterDark(MasterImages):
     def darkcurrent(self):
         return self.read_from_data_headers(keywords=["HIERARCH PYPE DC"])[0]
 
+    @property
+    def darkcurrent_std(self):
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE DC STD"])[0]
+
+    @property
+    def n_images(self):
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE DC NIMAGES"])[0]
+
     def qc_plot_dark(self, paths=None, axis_size=5):
         """
         Generates a simple QC plot for BPMs.
