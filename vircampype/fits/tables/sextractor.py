@@ -20,7 +20,9 @@ from vircampype.tools.systemtools import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
 from vircampype.tools.miscellaneous import *
+from astropy.stats import sigma_clipped_stats
 from astropy.wcs import WCS, FITSFixedWarning
+from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 
@@ -591,26 +593,126 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         else:
             return paths
 
-    def plot_qc_phot_interror2d(self):
-
-        from astropy import table
+    def plot_qc_phot_interror(self):
 
         # Only works if there are multiple catalogs available
         if len(self) <= 1:
             raise ValueError("QC plot requires multiple catalogs as input")
 
-        # Stack all catalogs into a single large table
+        # Import
+        from astropy import table
+        import matplotlib.pyplot as plt
+        from astropy.utils.metadata import MergeConflictWarning
+
+        # Construct output path name
+        outpath = "{0}{1}.phot.interror.pdf".format(self.setup.folders["qc_photometry"], self.setup.name)
+
+        # Read and clean all tables
+        tables_all = flat_list([self.file2table(file_index=i) for i in range(self.n_files)])
+        tables_all = [clean_source_table(t) for t in tables_all]
+
+        # Stack all tables into a single master table
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", MergeConflictWarning)
+            table_master = table.vstack(tables_all)
+
+        # Remove all sources without a match from the master table
+        stacked = np.stack([np.deg2rad(table_master["ALPHA_J2000"]), np.deg2rad(table_master["DELTA_J2000"])]).T
+        dis, idx = NearestNeighbors(n_neighbors=2, metric="haversine").fit(stacked).kneighbors(stacked)
+        dis_arsec = np.rad2deg(dis) * 3600
+        dis_arcsec_nn = dis_arsec[:, 1]
+        good = dis_arcsec_nn < 0.2
+        table_master = table_master[good]
+
+        # Remove duplicates
+        table_master = remove_duplicates_wcs(table=table_master, sep=1, key_lon="ALPHA_J2000",
+                                             key_lat="DELTA_J2000", temp_dir=self.setup.folders["temp"])
+
+        # Create empty array to store all matched magnitudes
+        matched_phot = np.full((len(table_master), len(tables_all)), fill_value=np.nan, dtype=np.float32)
+        matched_photerr = np.full((len(table_master), len(tables_all)), fill_value=np.nan, dtype=np.float32)
+
+        # Do NN search in parallel (this takes the most time in a loop)
+        def __match_catalogs(t, m):
+            return NearestNeighbors(n_neighbors=1, metric="haversine").fit(t).kneighbors(m)
+        stacked_master = np.stack([np.deg2rad(table_master["ALPHA_J2000"]),
+                                   np.deg2rad(table_master["DELTA_J2000"])]).T
+        stacked_table = [np.stack([np.deg2rad(tt["ALPHA_J2000"]),
+                                   np.deg2rad(tt["DELTA_J2000"])]).T for tt in tables_all]
+        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            mp = parallel(delayed(__match_catalogs)(i, j) for i, j in zip(stacked_table, repeat(stacked_master)))
+        dis_all, idx_all = list(zip(*mp))
+
+        # Now loop over all individual tables and find matches
+        for tidx in range(len(tables_all)):
+
+            # Grad current match
+            dis, idx = dis_all[tidx], idx_all[tidx]
+
+            # Determine bad matches
+            bad_dis = np.rad2deg(dis[:, 0]) * 3600 > 0.2
+
+            # Write nearest neighbor photometry into matched photometry array
+            matched_phot[:, tidx] = tables_all[tidx][idx[:, 0]]["MAG_AUTO_CAL"]
+            matched_photerr[:, tidx] = tables_all[tidx][idx[:, 0]]["MAGERR_AUTO"]
+
+            # Mask bad matches
+            matched_phot[bad_dis, tidx] = np.nan
+            matched_photerr[bad_dis, tidx] = np.nan
+
+        # Compute internal phot error
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            table_master = table.vstack(flat_list([self.file2table(file_index=i) for i in range(self.n_files)]))
-            table_master = clean_source_table(table=table_master)
+            _, phot_median, phot_err = sigma_clipped_stats(matched_phot, axis=1)
+            _, photerr_median, _ = sigma_clipped_stats(matched_photerr, axis=1)
 
-            from sklearn.neighbors import NearestNeighbors
-            stacked = np.stack([np.deg2rad(table_master["ALPHA_J2000"]), np.deg2rad(table_master["DELTA_J2000"])]).T
-            dis, idx = NearestNeighbors(n_neighbors=20, metric="haversine").fit(stacked).kneighbors(stacked)
-            dis_arsec = np.rad2deg(dis) * 3600
-            print(dis_arsec[:10, :3])
-            exit()
+        # Make 1D disperion histograms
+        mag_ranges = [0, 14, 15, 16, 17, 18, 25]
+        fig, ax_all = plt.subplots(nrows=2, ncols=3,
+                                   gridspec_kw=dict(hspace=0.4, wspace=0.3, left=0.06,
+                                                    right=0.97, bottom=0.1, top=0.97),
+                                   **dict(figsize=(14, 8)))
+        ax_all = ax_all.ravel()
+        for idx in range(len(mag_ranges) - 1):
+
+            # Grab current axes and sources
+            ax = ax_all[idx]
+            mag_lo, mag_hi = mag_ranges[idx], mag_ranges[idx + 1]
+            idx_phot = (phot_median >= mag_lo) & (phot_median < mag_hi)
+
+            # Get median photometric error for current bin
+            median_photerr_median = np.nanmedian(photerr_median[idx_phot])
+
+            # Remove axis is no sources are present
+            if np.sum(idx_phot) == 0:
+                ax.remove()
+
+            # Draw histogram
+            ax.hist(phot_err[idx_phot], bins=np.logspace(np.log10(0.0001), np.log10(2), 50),
+                    ec="black", histtype="step", lw=2)
+            ax.set_xscale("log")
+
+            # Draw median
+            ax.axvline(np.nanmedian(phot_err[idx_phot]), c="#1f77b4", lw=1.5)
+            ax.axvline(median_photerr_median, c="crimson", lw=1.5)
+
+            # Labels and annotations
+            ax.set_xlabel("Internal photometric dispersion (mag)")
+            ax.set_ylabel("Number of sources")
+            ax.annotate("[{0:0.1f},{1:0.1f}) mag".format(mag_lo, mag_hi), xy=(0.02, 0.99),
+                        xycoords="axes fraction", va="top", ha="left")
+            ax.annotate("N = {0}/{1}".format(np.sum(idx_phot), len(idx_phot)), xy=(0.98, 0.98),
+                        xycoords="axes fraction", ha="right", va="top")
+            ax.annotate("Internal photometric dispersion {0:0.4f} mag".format(np.nanmedian(phot_err[idx_phot])),
+                        xy=(0.01, 1.01), xycoords="axes fraction", ha="left", va="bottom", c="#1f77b4")
+            ax.annotate("Median photometric error {0:0.4f} mag".format(median_photerr_median),
+                        xy=(0.01, 1.07), xycoords="axes fraction", ha="left", va="bottom", c="crimson")
+
+        # Save plot
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+            fig.savefig(outpath, bbox_inches="tight")
+        plt.close("all")
 
     def plot_qc_zp(self, paths=None, axis_size=5):
         """ Generates ZP QC plot. """
