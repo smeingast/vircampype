@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 
 from scipy.stats import sem
@@ -290,22 +291,25 @@ def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "R
 
     """
 
-    temp_name = temp_dir + "temp_stilts_table.fits"
-    temp_name_clean = temp_dir + "temp_stilts_table_clean.fits"
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
 
-    # Write table to temp dir
-    table.write(temp_name, format="fits", overwrite=True)
+        temp_name = temp_dir + "temp_stilts_table.fits"
+        temp_name_clean = temp_dir + "temp_stilts_table_clean.fits"
 
-    # Run stilts
-    cmd = 'stilts tmatch1 matcher=sky values="{0} {1}" params={2} action=keep1 in={3} out={4}' \
-          ''.format(key_lon, key_lat, sep, temp_name, temp_name_clean)
-    run_command_shell(cmd=cmd, silent=silent)
+        # Write table to temp dir
+        table.write(temp_name, format="fits", overwrite=True)
 
-    # Read cleaned catalog
-    table_cleaned = Table.read(temp_name_clean)
+        # Run stilts
+        cmd = 'stilts tmatch1 matcher=sky values="{0} {1}" params={2} action=keep1 in={3} out={4}' \
+              ''.format(key_lon, key_lat, sep, temp_name, temp_name_clean)
+        run_command_shell(cmd=cmd, silent=silent)
 
-    # Delete temp files
-    remove_file(temp_name)
-    remove_file(temp_name_clean)
+        # Read cleaned catalog
+        table_cleaned = Table.read(temp_name_clean)
 
-    return table_cleaned
+        # Delete temp files
+        remove_file(temp_name)
+        remove_file(temp_name_clean)
+
+        return table_cleaned
