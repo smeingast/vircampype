@@ -676,6 +676,22 @@ class ImageCube(object):
     # =========================================================================== #
     # Data manipulation
     # =========================================================================== #
+    def scale_planes(self, scales):
+        """
+        Scales each plane by the given value.
+
+        Parameters
+        ----------
+        scales : np.ndarray
+            The scales for each plane. Must match length of cube
+
+        """
+        if len(scales) != len(self):
+            raise ValueError("Provide scales for each plane!")
+
+        # Apply scales along first axis
+        self.cube *= scales[:, np.newaxis, np.newaxis]
+
     def extend(self, data):
         """
         Extends the ImageCube instance with a new plane.
