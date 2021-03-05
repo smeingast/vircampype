@@ -5,7 +5,7 @@ from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
 __all__ = ["plot_value_detector", "get_plotgrid"]
 
 
-def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axis_size=5):
+def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axis_size=5, hlines=None):
     """
     Generates a plot to display a single statistical value (e.g. dark current or gain) for each detector.
 
@@ -23,6 +23,8 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
         Limits for Y axis.
     axis_size : optional, int
         Axis size. Default is 5.
+    hlines : optional, iterable, list
+        Optionally specify values where horizontal lines should be drawn.
 
     """
 
@@ -42,6 +44,11 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
     # Draw vertical dashed lines for each detector
     ax.vlines(np.arange(len(values)) + 1, ymin=yrange[0], ymax=yrange[1],
               linestyles="dashed", lw=0.5, colors="grey", zorder=0, alpha=0.8)
+
+    # Draw horizontal lines if requested
+    if hlines is not None:
+        for h in hlines:
+            ax.axhline(h, linestyle="solid", lw=0.5, c="grey", zorder=0, alpha=0.8)
 
     # Draw data
     if errors is not None:
