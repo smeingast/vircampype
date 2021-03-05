@@ -458,7 +458,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # QC plot
             if self.setup.qc_plots:
                 csc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
-                csc.plot_qc_zp(axis_size=5)
+                csc.plot_qc_phot_zp(axis_size=5)
                 csc.plot_qc_ref1d(axis_size=5)
                 csc.plot_qc_ref2d(axis_size=5)
 
@@ -714,7 +714,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             fig.savefig(outpath, bbox_inches="tight")
         plt.close("all")
 
-    def plot_qc_zp(self, paths=None, axis_size=5):
+    def plot_qc_phot_zp(self, paths=None, axis_size=5):
         """ Generates ZP QC plot. """
 
         for idx_file in range(self.n_files):
