@@ -92,8 +92,8 @@ class FitsFiles:
         ----------
         path : str
             Path to folder.
-        setup : str, Setup
-            Pipeline setup.
+        setup : str, dict, Setup
+            Either a string pointing to the location of a pipeline YML, or a dict, or a Setup instance.
         pattern : str, optional
             Substring to identify FITS files. Default is None, which loads all files in the folder.
         exclude : str, optional
