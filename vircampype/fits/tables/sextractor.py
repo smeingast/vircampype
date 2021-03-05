@@ -459,8 +459,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             if self.setup.qc_plots:
                 csc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
                 csc.plot_qc_phot_zp(axis_size=5)
-                csc.plot_qc_ref1d(axis_size=5)
-                csc.plot_qc_ref2d(axis_size=5)
+                csc.plot_qc_phot_ref1d(axis_size=5)
+                csc.plot_qc_phot_ref2d(axis_size=5)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -729,7 +729,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             plot_value_detector(values=zp_auto, errors=zperr_auto, path=path, ylabel="ZP AUTO (mag)",
                                 axis_size=axis_size, yrange=(np.median(zp_auto) - 0.1, np.median(zp_auto) + 0.1))
 
-    def plot_qc_ref1d(self, axis_size=5):
+    def plot_qc_phot_ref1d(self, axis_size=5):
 
         # Import
         from astropy.units import Unit
@@ -851,7 +851,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 fig.savefig(outpaths[-1], bbox_inches="tight")
             plt.close("all")
 
-    def plot_qc_ref2d(self, axis_size=5):
+    def plot_qc_phot_ref2d(self, axis_size=5):
 
         # Import
         from astropy.units import Unit
