@@ -11,7 +11,7 @@ from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.photometry import get_zeropoint
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
-from vircampype.tools.systemtools import run_command_shell, remove_file
+from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
 __all__ = ["clean_source_table", "add_smoothed_value", "add_zp_2mass", "table2bintablehdu",
            "interpolate_classification", "remove_duplicates_wcs"]
@@ -265,7 +265,8 @@ def interpolate_classification(source_table, classification_table):
 
 
 def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "RA",
-                          key_lat: str = "DEC", temp_dir: str = "/tmp/", silent: bool = True):
+                          key_lat: str = "DEC", temp_dir: str = "/tmp/", silent: bool = True,
+                          bin_name: str = "stilts"):
     """
     Removes duplicates from catalog via stilts.
 
@@ -283,6 +284,8 @@ def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "R
         Directory where temp tables are stored. Will be removed after matching.
     silent : bool, optional
         Whether stilts should run silently
+    bin_name : str, optional
+        Name of exectuable.
 
     Returns
     -------
@@ -301,8 +304,8 @@ def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "R
         table.write(temp_name, format="fits", overwrite=True)
 
         # Run stilts
-        cmd = 'stilts tmatch1 matcher=sky values="{0} {1}" params={2} action=keep1 in={3} out={4}' \
-              ''.format(key_lon, key_lat, sep, temp_name, temp_name_clean)
+        cmd = '{5} tmatch1 matcher=sky values="{0} {1}" params={2} action=keep1 in={3} out={4}' \
+              ''.format(key_lon, key_lat, sep, temp_name, temp_name_clean, which(bin_name))
         run_command_shell(cmd=cmd, silent=silent)
 
         # Read cleaned catalog
