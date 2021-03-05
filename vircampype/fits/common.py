@@ -218,6 +218,8 @@ class FitsFiles:
                         if self.setup.set_airmass:
                             if isinstance(hdu, fits.ImageHDU):
                                 try:
+                                    if (hdr["CTYPE1"].lower() == "pixel") | (hdr["CTYPE1"].lower() == "pixel"):
+                                        raise KeyError
                                     airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
                                     add_float_to_header(header=hdr, key=self.setup.keywords.airmass, value=airmass,
                                                         decimals=4, comment="Airmass at time of observation")
