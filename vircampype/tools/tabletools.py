@@ -2,6 +2,7 @@ import numpy as np
 
 from scipy.stats import sem
 from astropy.io import fits
+from astropy.table import Table
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
 from sklearn.neighbors import NearestNeighbors
@@ -9,9 +10,10 @@ from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.photometry import get_zeropoint
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
+from vircampype.tools.systemtools import run_command_shell, remove_file
 
 __all__ = ["clean_source_table", "add_smoothed_value", "add_zp_2mass", "table2bintablehdu",
-           "interpolate_classification"]
+           "interpolate_classification", "remove_duplicates_wcs"]
 
 
 def clean_source_table(table, image_header=None, return_filter=False, min_snr=10, nndis_limit=None,
@@ -259,3 +261,51 @@ def interpolate_classification(source_table, classification_table):
 
     # Return modified table
     return source_table
+
+
+def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "RA",
+                          key_lat: str = "DEC", temp_dir: str = "/tmp/", silent: bool = True):
+    """
+    Removes duplicates from catalog via stilts.
+
+    Parameters
+    ----------
+    table : Table
+        Astropy Table instance
+    sep : int, float, optional
+        Maximum allowed separation in arcseconds between sources.
+    key_lon : str, optional
+        Longitude key in catalog. Default is 'RA'.
+    key_lat : str, optional
+        Latitude key in catalog. Default is 'DEC'.
+    temp_dir : str, optional
+        Directory where temp tables are stored. Will be removed after matching.
+    silent : bool, optional
+        Whether stilts should run silently
+
+    Returns
+    -------
+    Table
+        Cleaned table instance.
+
+    """
+
+    temp_name = temp_dir + "temp_stilts_table.fits"
+    temp_name_clean = temp_dir + "temp_stilts_table_clean.fits"
+
+    # Write table to temp dir
+    table.write(temp_name, format="fits", overwrite=True)
+
+    # Run stilts
+    cmd = 'stilts tmatch1 matcher=sky values="{0} {1}" params={2} action=keep1 in={3} out={4}' \
+          ''.format(key_lon, key_lat, sep, temp_name, temp_name_clean)
+    run_command_shell(cmd=cmd, silent=silent)
+
+    # Read cleaned catalog
+    table_cleaned = Table.read(temp_name_clean)
+
+    # Delete temp files
+    remove_file(temp_name)
+    remove_file(temp_name_clean)
+
+    return table_cleaned
