@@ -23,8 +23,8 @@ class DarkImages(FitsImages):
         print_header(header="MASTER-DARK", silent=self.setup.silent)
         tstart = time.time()
 
-        # Split files first on DIT and NDIT, then on lag
-        split = self.split_keywords(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit])
+        # Split files first on NDIT, then on lag
+        split = self.split_keywords(keywords=[self.setup.keywords.ndit])
         split = flat_list([s.split_lag(max_lag=self.setup.dark_max_lag) for s in split])
 
         # Now loop through separated files and build the Masterdarks
@@ -34,12 +34,11 @@ class DarkImages(FitsImages):
             files.check_compatibility(n_hdu_max=1, n_ndit_max=1)
 
             # Create Mastedark name
-            outpath = "{0}MASTER-DARK.DIT_{1}.NDIT_{2}.MJD_{3:0.4f}.fits" \
-                      "".format(files.setup.folders["master_common"], files.dit[0], files.ndit[0], files.mjd_mean)
+            outpath = "{0}MASTER-DARK.NDIT_{1}.MJD_{2:0.4f}.fits" \
+                      "".format(files.setup.folders["master_common"], files.ndit[0], files.mjd_mean)
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
-                    and not self.setup.overwrite:
+            if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
                 continue
 
             # Instantiate output
@@ -60,24 +59,38 @@ class DarkImages(FitsImages):
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
 
+                # Scale cube with DIT
+                cube /= files.dit_norm[:, np.newaxis, np.newaxis]
+
                 # Get master calibration
                 bpm = master_bpm.hdu2cube(hdu_index=d, dtype=np.uint8)
 
                 # Masking methods
-                cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max,
-                                 sigma_level=self.setup.dark_sigma_level,
-                                 sigma_iter=self.setup.dark_sigma_iter, bpm=bpm)
+                cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max, bpm=bpm,
+                                 sigma_level=self.setup.dark_sigma_level, sigma_iter=self.setup.dark_sigma_iter)
 
-                # Collapse extensions
-                collapsed = cube.flatten(metric=string2func(self.setup.dark_metric))
+                # Extract mask
+                mask = ~np.isfinite(cube.cube)
+
+                # Fill masked cube with temporary values
+                cube.cube[mask] = 0.
+
+                # Make weight cube
+                weights = np.full_like(cube.cube, fill_value=1, dtype=np.float32)
+                weights[:] = files.dit_norm[:, np.newaxis, np.newaxis]
+                weights[mask] = 0.
+
+                # Compute weighted average
+                collapsed = np.ma.average(cube.cube, weights=weights, axis=0).filled(fill_value=np.nan)
 
                 # Determine dark current as median
-                dc = np.nanmedian(collapsed) / (files.dit[0] * files.ndit[0])
+                dc = np.nanmedian(collapsed) / files.ndit[0]
 
                 # Write DC into data header
-                cards = make_cards(keywords=["HIERARCH PYPE DC"], values=[np.round(dc, decimals=3)],
-                                   comments=["Dark current in ADU/s"])
-                data_headers.append(fits.Header(cards=cards))
+                header = fits.Header()
+                add_float_to_header(header=header, key="HIERARCH PYPE DC", value=dc,
+                                    decimals=3, comment="Dark current in ADU/s")
+                data_headers.append(header)
 
                 # Append to output
                 master_cube.extend(data=collapsed.astype(np.float32))
@@ -86,7 +99,7 @@ class DarkImages(FitsImages):
             prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
                                                self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
                                                self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
-                                     values=[files.dit[0], files.ndit[0],
+                                     values=[1, files.ndit[0],
                                              files.mjd_mean, files.time_obs_mean,
                                              "MASTER-DARK", len(files)])
             prime_header = fits.Header(cards=prime_cards)
