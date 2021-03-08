@@ -311,6 +311,8 @@ def add_float_to_header(header, key, value, decimals=3, comment=None, remove_bef
         c = fits.Card.fromstring("{0:8}= {1:0.4f}".format(key, value))
     elif decimals == 5:
         c = fits.Card.fromstring("{0:8}= {1:0.5f}".format(key, value))
+    elif decimals == 6:
+        c = fits.Card.fromstring("{0:8}= {1:0.6f}".format(key, value))
     else:
         raise ValueError("Add more options for decimals")
     c.comment = comment
