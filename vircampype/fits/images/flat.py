@@ -98,7 +98,7 @@ class FlatTwilight(FlatImages):
                 flux.append(cube.median(axis=(1, 2)))
 
                 # Scale the cube with the fluxes
-                cube.cube /= flux[-1][:, np.newaxis, np.newaxis]
+                cube.scale_planes(scales=1/np.array(flux[-1]))
 
                 # After flux scaling we can also safely apply the remaining masks
                 cube.apply_masks(mask_min=self.setup.flat_mask_min, mask_max=self.setup.flat_mask_max,
@@ -127,38 +127,43 @@ class FlatTwilight(FlatImages):
                 # Flatten cube
                 master_flat.extend(data=flat.astype(np.float32))
 
-            """The current masterflat contains for each detector the flattened data after scaling each plane with the
-            flux. Now we calculate a first order gain harmonization across the focal plane by calculating the relative
-            fluxes between the detectors"""
+            # Convert to array
+            flux = np.array(flux)
 
-            # Calculate an average exposure scale (scale for each image in the sequence preserving the relative flux)
-            exposure_scale = [sum(f) / len(f) for f in zip(*flux)]
+            # Determine exposure scale
+            scale_exposure = np.mean(flux, axis=0)
 
-            # Now scale all measurements with the exposure scale
-            flux_scaled = [[x / s for x, s in zip(f, exposure_scale)] for f in flux]
+            # Norm fluxes
+            flux_normed = flux / scale_exposure
 
-            # The gain harmonization factor is then the mean of all scaled exposures
-            gainscale = [sum(f) / len(f) for f in flux_scaled]
+            # Now we can determine the flat field error
+            flat_error = np.std(flux_normed, axis=1)
 
-            # Apply the gain harmonization
-            master_flat.cube *= np.array(gainscale)[:, np.newaxis, np.newaxis]
+            # And the global flat field coefficients
+            coeff_global = np.mean(flux_normed, axis=1)
 
-            # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
-                                               self.setup.keywords.filter_name,
-                                               self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
-                                               self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
-                                     values=[files.dit[0], files.ndit[0],
-                                             files.passband[0],
-                                             files.mjd_mean, files.time_obs_mean,
-                                             "MASTER-FLAT", len(files)])
+            # Finally, I apply the global coefficients to the normed master flat
+            master_flat.scale_planes(scales=coeff_global)
 
             # Make primary header
-            prime_header = fits.Header(cards=prime_cards)
+            prime_header = fits.Header()
+            add_float_to_header(header=prime_header, key=self.setup.keywords.dit,
+                                value=files.dit[0], decimals=2)
+            add_int_to_header(header=prime_header, key=self.setup.keywords.ndit,
+                              value=files.ndit[0])
+            prime_header[self.setup.keywords.filter_name] = files.passband[0]
+            add_float_to_header(header=prime_header, key=self.setup.keywords.date_mjd,
+                                value=files.mjd_mean, decimals=6)
+            prime_header[self.setup.keywords.date_ut] = files.time_obs_mean.fits
+            prime_header[self.setup.keywords.object] = "MASTER-FLAT"
+            add_int_to_header(header=prime_header, key="HIERARCH PYPE N_FILES", value=len(files))
 
-            # Add gainscale to data headers
-            for dh, gs in zip(data_headers, gainscale):
-                dh["HIERARCH PYPE FLAT SCALE"] = np.round(gs, decimals=4)
+            # Add global scale factors and flat field error to data headers
+            for dh, gs, fe in zip(data_headers, coeff_global, flat_error):
+                add_float_to_header(header=dh, key="HIERARCH PYPE FLAT SCALE",
+                                    value=gs, decimals=4)
+                add_float_to_header(header=dh, key="HIERARCH PYPE FLAT ERROR",
+                                    value=fe, decimals=4)
 
             # Write to disk
             master_flat.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
