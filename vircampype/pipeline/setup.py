@@ -376,6 +376,10 @@ class Setup(dict):
     def dark_sigma_iter(self):
         return 1
 
+    @property
+    def dark_metric(self):
+        return "weighted"
+
     # =========================================================================== #
     # Gain
     @property
