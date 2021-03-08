@@ -71,19 +71,16 @@ class DarkImages(FitsImages):
                 cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max, bpm=bpm,
                                  sigma_level=self.setup.dark_sigma_level, sigma_iter=self.setup.dark_sigma_iter)
 
-                # Extract mask
-                mask = ~np.isfinite(cube.cube)
+                # Create weights if needed
+                if self.setup.flat_metric == "weighted":
+                    weights = np.empty_like(cube.cube, dtype=np.float32)
+                    weights[:] = files.dit_norm[:, np.newaxis, np.newaxis]
+                    weights[~np.isfinite(cube.cube)] = 0.
+                else:
+                    weights = None
 
-                # Fill masked cube with temporary values
-                cube.cube[mask] = 0.
-
-                # Make weight cube
-                weights = np.full_like(cube.cube, fill_value=1, dtype=np.float32)
-                weights[:] = files.dit_norm[:, np.newaxis, np.newaxis]
-                weights[mask] = 0.
-
-                # Compute weighted average
-                collapsed = np.ma.average(cube.cube, weights=weights, axis=0).filled(fill_value=np.nan)
+                # Flatten data
+                collapsed = cube.flatten(metric=self.setup.dark_metric, axis=0, weights=weights, dtype=None)
 
                 # Determine dark current and std
                 with warnings.catch_warnings():
