@@ -109,6 +109,7 @@ class FlatTwilight(FlatImages):
                 if self.setup.flat_metric == "weighted":
                     weights = np.empty_like(cube.cube)
                     weights[:] = flux[-1][:, np.newaxis, np.newaxis]
+                    weights[~np.isfinite(cube.cube)] = 0.
                 else:
                     weights = None
 
