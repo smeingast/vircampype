@@ -16,7 +16,7 @@ from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel
 
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
            "ceil_value", "floor_value", "meshgrid", "estimate_background", "upscale_image", "centroid_sphere",
-           "clipped_median", "clipped_stdev", "grid_value_2d", "get_binsize", "fraction2float", "round_decimals_up",
+           "clipped_median", "clipped_stdev", "grid_value_2d", "fraction2float", "round_decimals_up",
            "round_decimals_down", "background_image", "grid_value_2d_nn"]
 
 
@@ -931,13 +931,6 @@ def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
 
     # Return upscaled image
     return upscale_image(gv, new_size=(ox, oy))  # noqa
-
-
-def get_binsize(table, n_neighbors, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
-    # Determine bin size based on X/Y distribution
-    stacked = np.stack([table[key_x], table[key_y]]).T
-    dis, _ = NearestNeighbors(n_neighbors=n_neighbors+1, algorithm="auto").fit(stacked).kneighbors(stacked)
-    return np.percentile(dis[:, -1], 99)
 
 
 def fraction2float(fraction):
