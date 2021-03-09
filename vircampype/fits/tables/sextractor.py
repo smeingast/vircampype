@@ -861,10 +861,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from matplotlib.cm import get_cmap
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
-        # Generate output paths
-        outpaths = self.paths_qc_plots(paths=None, prefix="phot.2D")
-
         for idx_file in range(self.n_files):
+
+            # Generate output path
+            outpath = self.paths_qc_plots(paths=None, prefix="phot.2D")[idx_file]
 
             # Create figure for current file
             if len(self.iter_data_hdu[idx_file]) == 1:
@@ -883,8 +883,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             mkeep = master_phot.get_purge_index(passband=passband)
 
             # Fetch magnitude and coordinates for master catalog
-            mag_master = master_phot.mag(passband=passband)[idx_file][0][mkeep]
-            skycoord_master = master_phot.skycoord()[idx_file][0][mkeep]
+            mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
+            skycoord_master = master_phot.skycoord()[0][0][mkeep]
 
             # Keep only soruces within mag limit
             mag_lim = master_phot.mag_lim(self.passband[idx_file])
@@ -926,23 +926,25 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Compute difference between reference and self
                 mag_delta = mag_master_match - mag_hdu_match
 
-                maxdis = get_binsize(table=tab_hdu[idx_final], n_neighbors=30)
-                nx, ny = int(header["NAXIS1"] // maxdis), int(header["NAXIS2"] // maxdis)
-                nx = 3 if nx < 3 else nx
-                ny = 3 if ny < 3 else ny
-
                 # Grab X/Y coordinates
                 x_hdu, y_hdu = tab_hdu["X_IMAGE"][idx_final], tab_hdu["Y_IMAGE"][idx_final]
 
-                # Grid data
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=mag_delta, x_min=0, x_max=header["NAXIS1"],
-                                     y_min=0, y_max=header["NAXIS2"], nx=nx, ny=ny, conv=False, upscale=False)
+                # Grid data with nearest neighbors
+                grid = grid_value_2d_nn(x=x_hdu, y=y_hdu, values=mag_delta, nx=25, ny=25,
+                                        nn=50, ox=header["NAXIS1"], oy=header["NAXIS2"])
 
                 # Draw
                 kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": get_cmap("RdBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
                 ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7, lw=0.5, ec="black", **kwargs)
+
+                # Draw contour
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", message="No contour levels were found within the data range")
+                    cs = ax.contour(grid, np.linspace(-0.1, 0.1, 21), colors="k",
+                                    origin="lower", extent=extent, vmin=-0.1, vmax=0.1)
+                    ax.clabel(cs, inline=True, fontsize=10, fmt="%0.2f")
 
                 # Annotate detector ID
                 ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
@@ -980,5 +982,5 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # # Save plot
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
-                fig.savefig(outpaths[-1], bbox_inches="tight")
+                fig.savefig(outpath, bbox_inches="tight")
             plt.close("all")
