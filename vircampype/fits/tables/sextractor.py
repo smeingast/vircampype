@@ -416,8 +416,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
              for t in tables_file]
 
             # Compute ZP and add calibrated photometry to catalog
-            columns_mag = ["MAG_APER_MATCHED", "MAG_AUTO", "MAG_ISO", "MAG_ISOCOR", "MAG_PETRO"]
-            columns_magerr = ["MAGERR_APER", "MAGERR_AUTO", "MAGERR_ISO", "MAGERR_ISOCOR", "MAGERR_PETRO"]
+            columns_mag = ["MAG_APER", "MAG_APER_MATCHED", "MAG_AUTO",
+                           "MAG_ISO", "MAG_ISOCOR", "MAG_PETRO"]
+            columns_magerr = ["MAGERR_APER", "MAGERR_APER", "MAGERR_AUTO",
+                              "MAGERR_ISO", "MAGERR_ISOCOR", "MAGERR_PETRO"]
 
             # Open input catalog
             table_hdulist = fits.open(self.paths_full[idx_file], mode="readonly")
