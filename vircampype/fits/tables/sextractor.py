@@ -433,7 +433,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 magerr_zp = np.array([table_hdu.zperr["HIERARCH PYPE ZP ERR MAG_APER_MATCHED {0}".format(i+1)]
                                       for i in range(len(self.setup.apertures))])
                 table_hdu["MAGERR_APER_MATCHED_TOT"] = np.sqrt(table_hdu["MAGERR_APER"]**2 +
-                                                               table_hdu["MAG_APER_COR_STDEV"]**2 +
+                                                               table_hdu["MAG_APER_COR_SEM"]**2 +
                                                                magerr_zp**2).astype(np.float32)
 
                 # Replace original HDU
