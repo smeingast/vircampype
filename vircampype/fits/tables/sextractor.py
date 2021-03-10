@@ -301,6 +301,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Convert to flux scale
                 flx_scale.append(10**((grid_zp - self.setup.target_zp) / 2.5))
 
+                # Save number of sources
+                n_sources.append(np.sum(np.isfinite(zp_all)))
+
                 # # Plot sources on top of superflat
                 # import matplotlib.pyplot as plt
                 # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=dict(top=0.98, right=0.99),
@@ -314,9 +317,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # plt.colorbar(im)
                 # plt.show()
                 # exit()
-
-                # Save number of sources
-                n_sources.append(np.sum(np.isfinite(zp_all)))
 
             # Instantiate output
             superflat = ImageCube(setup=self.setup)
