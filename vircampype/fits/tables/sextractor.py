@@ -568,10 +568,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         """ Constructs flux scale for coaddition from different zero points across all images and detectors. """
 
         # Convert ZPs to flux scaling factor
-        flx_scale = 10**(np.array(self.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0]) / -2.5)
-
-        # Normalize the scaling across all input catalogs
-        flx_scale = (flx_scale / np.mean(flx_scale)).tolist()
+        zps = np.array(self.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0])
+        flx_scale = (10**((zps - self.setup.target_zp) / 2.5)).tolist()
 
         # Loop over files and write to disk
         for idx_file in range(self.n_files):
