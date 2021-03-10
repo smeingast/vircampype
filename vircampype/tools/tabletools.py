@@ -160,7 +160,7 @@ def add_smoothed_value(table, image_header, parameters):
         mask = astropy_sigma_clip(table_clean[par].data[nn_idx], axis=1).mask
         temp = table_clean[par].data[nn_idx].copy()
         temp[mask] = np.nan
-        table.add_column(sem(temp, nan_policy="omit", axis=1).astype(np.float32), name=par + "_STDEV")
+        table.add_column(sem(temp, nan_policy="omit", axis=1).astype(np.float32), name=par + "_SEM")
 
     return table
 
