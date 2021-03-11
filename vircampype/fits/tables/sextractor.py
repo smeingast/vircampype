@@ -930,9 +930,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 x_hdu, y_hdu = tab_hdu["X_IMAGE"][idx_final], tab_hdu["Y_IMAGE"][idx_final]
 
                 # Grid data with nearest neighbors
-                nn = len(x_hdu) if len(x_hdu) < 50 else 50
-                grid = grid_value_2d_nn(x=x_hdu, y=y_hdu, values=mag_delta, nx=25, ny=25,
-                                        nn=nn, ox=header["NAXIS1"], oy=header["NAXIS2"])
+                grid = grid_value_2d_nn(x=x_hdu, y=y_hdu, values=mag_delta, nn=len(x_hdu) if len(x_hdu) < 50 else 50,
+                                        nx=header["NAXIS1"] // 100, ny=header["NAXIS2"] // 100,
+                                        ox=header["NAXIS1"], oy=header["NAXIS2"])
 
                 # Draw
                 kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": get_cmap("RdBu", 20)}
