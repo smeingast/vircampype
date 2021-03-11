@@ -1033,6 +1033,7 @@ class ResampledScienceImages(ProcessedSkyImages):
                 mjd_offset = int(self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
+            # TODO: Is this actually checking the right file?
             if check_file_exists(file_path=temp_weight[idx_file], silent=self.setup.silent) \
                     and not self.setup.overwrite:
                 continue
