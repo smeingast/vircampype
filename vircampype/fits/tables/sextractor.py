@@ -283,7 +283,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 header = files.image_headers[0][idx_hdr]
 
                 # Clean table
-                tab = clean_source_table(table=tab, image_header=header, flux_max=header["SEXSATLV"] / 2)
+                tab = clean_source_table(table=tab, image_header=header, flux_max=header["SEXSATLV"]/2, border_pix=20,
+                                         nndis_limit=None, min_fwhm=1.0, max_fwhm=5.0, max_ellipticity=0.2)
 
                 # Get difference to reference catalog magnitudes
                 zp_all = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
@@ -293,10 +294,14 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Remove all table entries without ZP entry
                 tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
 
-                # Use a maximum of 100 nearest neighbors for ZP interpolation
-                nn = 100 if len(tab) > 100 else len(tab)
-                grid_zp = grid_value_2d_nn(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], values=zp_all, nx=25, ny=25,
-                                           nn=nn, ox=header["NAXIS1"], oy=header["NAXIS2"])
+                # Grid with NN interpolation
+                grid_zp = grid_value_2d_nn(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], values=zp_all,
+                                           n_bins_x=header["NAXIS1"] // 100, n_bins_y=header["NAXIS2"] // 100,
+                                           x_min=1, y_min=1, x_max=header["NAXIS1"], y_max=header["NAXIS2"],
+                                           n_nearest_neighbors=100 if len(tab) > 100 else len(tab))
+
+                # Resize to original image size
+                grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="PIL")
 
                 # Convert to flux scale
                 flx_scale.append(10**((grid_zp - self.setup.target_zp) / 2.5))
