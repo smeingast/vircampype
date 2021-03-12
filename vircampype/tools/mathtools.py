@@ -878,7 +878,7 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     return stat
 
 
-def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
+def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y, x_min, x_max, y_min, y_max):
     """
     Grids values to a 2D array based on nearest neighbor interpolation.
 
@@ -890,16 +890,21 @@ def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
         Y coordinates of input data.
     values : np.ndarray
         Values of datapoints.
-    nx : int
-        Number of gridpoints in x.
-    ny : int
-        Number of gridpoints in y.
-    nn : int
+    n_nearest_neighbors : int
         Number of nearest neighbors to use in interpolation.
-    ox : int
-        Output image size in x.
-    oy : int
-        Output image size in y.
+    n_bins_x : int
+        Number of gridpoints in x.
+    n_bins_y : int
+        Number of gridpoints in y.
+    x_min : int, float
+        Minimum X coordinate of original data.
+    x_max : int, float
+        Maximum X coordinate of original data.
+    y_min : int, float
+        Minimum Y coordinate of original data.
+    y_max : int, float
+        Maximum Y coordinate of original data.
+
 
     Returns
     -------
@@ -909,28 +914,26 @@ def grid_value_2d_nn(x, y, values, nx, ny, nn, ox, oy):
     """
 
     # Determine step size in grid in X and Y
-    step_x, step_y = ox / nx, oy / ny
+    step_x, step_y = (x_max - x_min) / n_bins_x, (y_max - y_min) / n_bins_y
 
     # Create grid of pixel centers
-    xg, yg = np.meshgrid(np.linspace(step_x / 2, ox - step_x / 2, nx), np.linspace(step_y / 2, oy - step_y / 2, ny))
+    xg, yg = np.meshgrid(np.linspace(x_min + step_x / 2, x_max - step_x / 2, n_bins_x),
+                         np.linspace(y_min + step_y / 2, y_max - step_y / 2, n_bins_y))
 
     # Get nearest neighbors to grid pixel centers
     stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
     stacked_data = np.stack([x, y]).T
-    _, idx = NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
+    _, idx = NearestNeighbors(n_neighbors=n_nearest_neighbors).fit(stacked_data).kneighbors(stacked_grid)
 
     # Obtain median values at each grid pixel
     _, gv, _ = sigma_clipped_stats(values[idx], axis=1)
-    gv = gv.reshape(nx, ny)
+    gv = gv.reshape(n_bins_y, n_bins_x)
 
-    # Apply some filters
+    # Apply some filters and return
     if np.sum(~np.isfinite(gv)) > 0:
         gv = interpolate_replace_nans(gv, kernel=Box2DKernel(3))
     gv = median_filter(gv, size=3)
-    gv = convolve(gv, kernel=Gaussian2DKernel(1), boundary="extend")
-
-    # Return upscaled image
-    return upscale_image(gv, new_size=(ox, oy))  # noqa
+    return convolve(gv, kernel=Gaussian2DKernel(1), boundary="extend")
 
 
 def fraction2float(fraction):
