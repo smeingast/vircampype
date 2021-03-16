@@ -29,7 +29,7 @@ PHOTFLUXERR_KEY: FLUXERR_APER # Catalogue parameter for photometric error
 PSFVAR_KEYS:     XWIN_IMAGE,YWIN_IMAGE # Catalogue or FITS (preceded by :) params
 PSFVAR_GROUPS:   1,1             # Group tag for each context key
 PSFVAR_DEGREES:  2               # Polynom degree for each group
-PSFVAR_NSNAP:    9               # Number of PSF snapshots per axis
+PSFVAR_NSNAP:    21               # Number of PSF snapshots per axis
 HIDDENMEF_TYPE:  COMMON          # INDEPENDENT or COMMON
 STABILITY_TYPE:  EXPOSURE        # EXPOSURE or SEQUENCE
  
@@ -82,9 +82,9 @@ CHECKIMAGE_CUBE: N               # Save check-images as datacubes (Y/N) ?
 #----------------------------- Miscellaneous ---------------------------------
  
 PSF_DIR:                         # Where to write PSFs (empty=same as input)
-PSF_SUFFIX:      .psfex            # Filename extension for output PSF filename
+PSF_SUFFIX:      .psf            # Filename extension for output PSF filename
 VERBOSE_TYPE:    NORMAL          # can be QUIET,NORMAL,LOG or FULL
-WRITE_XML:       N               # Write XML file (Y/N)?
+WRITE_XML:       Y               # Write XML file (Y/N)?
 XML_NAME:        psfex.xml       # Filename for XML output
 XSL_URL:         file:///Users/stefan/Dropbox/Software/Astromatic/psfex-master/share/psfex/psfex.xsl
                                 # Filename for XSL style-sheet
