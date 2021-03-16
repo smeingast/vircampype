@@ -436,7 +436,7 @@ class PSFExSetup(AstromaticSetup):
             List or str with QC checkplot names.
 
         """
-        names = ["{0}psfex_checkplot_{1}".format(self.setup.folders["qc_psf"], ct.lower()) for ct in
+        names = ["{0}{1}".format(self.setup.folders["qc_psf"], ct.lower()) for ct in
                  self.checkplot_types(joined=False)]
         if joined:
             return ",".join(names)
@@ -480,7 +480,7 @@ class PSFExSetup(AstromaticSetup):
             List or str with QC check image names.
 
         """
-        names = ["{0}psfex_checkimage_{1}".format(self.setup.folders["qc_psf"], qt.lower()) for qt in
+        names = ["{0}{1}".format(self.setup.folders["qc_psf"], qt.lower()) for qt in
                  self.checkimage_types(joined=False)]
         if joined:
             return ",".join(names)
