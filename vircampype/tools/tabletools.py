@@ -122,6 +122,12 @@ def add_smoothed_value(table, image_header, parameters):
     table_clean = clean_source_table(table=table, image_header=image_header, border_pix=25, min_fwhm=1.0,
                                      max_fwhm=5.0, max_ellipticity=0.2, nndis_limit=10, min_snr=50)
 
+    # # Add choice of clean sources to table
+    # table_clean_idx = clean_source_table(table=table, image_header=image_header, border_pix=25, min_fwhm=1.0,
+    #                                      max_fwhm=5.0, max_ellipticity=0.2, nndis_limit=10, min_snr=50,
+    #                                      return_filter=True)
+    # table.add_column(table_clean_idx, name="CLEAN_SOURCE")
+
     # Find nearest neighbors between cleaned and raw input catalog
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
     stacked_clean = np.stack([table_clean["XWIN_IMAGE"], table_clean["YWIN_IMAGE"]]).T
