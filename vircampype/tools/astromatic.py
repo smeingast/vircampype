@@ -2,7 +2,7 @@ from astropy.io import fits
 from vircampype.tools.systemtools import *
 from vircampype.pipeline.main import Setup
 
-__all__ = ["sextractor2imagehdr", "SextractorSetup", "SwarpSetup", "ScampSetup"]
+__all__ = ["sextractor2imagehdr", "SextractorSetup", "SwarpSetup", "ScampSetup", "PSFExSetup"]
 
 
 def sextractor2imagehdr(path):
@@ -332,3 +332,52 @@ class ScampSetup(AstromaticSetup):
             return ",".join(names)
         else:
             return names
+
+
+class PSFExSetup(AstromaticSetup):
+
+    def __init__(self, setup):
+        super(PSFExSetup, self).__init__(setup=setup)
+
+    @property
+    def bin_name(self):
+        return self.setup.bin_psfex
+
+    @property
+    def package(self):
+        """
+        Internal package preset path for psfex.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return "vircampype.resources.astromatic.psfex"
+
+    @property
+    def package_presets(self):
+        """
+        Internal package preset path for psfex.
+
+        Returns
+        -------
+        str
+            Package path.
+        """
+
+        return "{0}.presets".format(self.package)
+
+    @property
+    def default_config(self):
+        """
+        Searches for default config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        return get_resource_path(package=self.package, resource="default.config")
