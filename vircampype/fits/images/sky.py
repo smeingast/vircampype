@@ -165,7 +165,7 @@ class SkyImages(FitsImages):
                           back_filtersize=self.setup.sex_back_filtersize)
 
         # Read setup based on preset
-        if (preset == "scamp") | (preset == "fwhm"):
+        if preset.lower() in ["scamp", "fwhm", "psfex"]:
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "class_star":
             ss = yml2config(skip=["catalog_name", "weight_image", "seeing_fwhm", "starnnw_name"], **kwargs_yml)
@@ -315,6 +315,14 @@ class SkyImages(FitsImages):
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def build_master_psf(self, psfvar_degrees=3):
+
+        # Run Sextractor with PSFEX preset
+        sources_psfex = self.sextractor(preset="psfex")
+
+        # Run PSFEX
+        sources_psfex.psfex(psfvar_degrees=psfvar_degrees)
 
 
 class RawSkyImages(SkyImages):
