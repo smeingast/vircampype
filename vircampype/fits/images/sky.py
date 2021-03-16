@@ -316,13 +316,13 @@ class SkyImages(FitsImages):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def build_master_psf(self, psfvar_degrees=3):
+    def build_master_psf(self, preset):
 
         # Run Sextractor with PSFEX preset
         sources_psfex = self.sextractor(preset="psfex")
 
         # Run PSFEX
-        sources_psfex.psfex(psfvar_degrees=psfvar_degrees)
+        sources_psfex.psfex(preset=preset)
 
 
 class RawSkyImages(SkyImages):
