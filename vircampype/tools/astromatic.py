@@ -398,3 +398,91 @@ class PSFExSetup(AstromaticSetup):
         """
 
         return get_resource_path(package=self.package_presets, resource="{0}.yml".format(preset))
+
+    @staticmethod
+    def checkplot_types(joined=False):
+        """
+        QC check plot types for psfex.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkplot types.
+
+        """
+        types = ["SELECTION_FWHM", "FWHM", "ELLIPTICITY", "COUNTS", "COUNT_FRACTION", "CHI2", "RESIDUALS"]
+        if joined:
+            return ",".join(types)
+        else:
+            return types
+
+    def checkplot_names(self, joined=False):
+        """
+        List or str containing psfex QC plot names.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkplot names.
+
+        """
+        names = ["{0}psfex_checkplot_{1}".format(self.setup.folders["qc_psf"], ct.lower()) for ct in
+                 self.checkplot_types(joined=False)]
+        if joined:
+            return ",".join(names)
+        else:
+            return names
+
+    @staticmethod
+    def checkimage_types(joined=False):
+        """
+        QC check image types for psfex.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC checkimage types.
+
+        """
+        types = ["SNAPSHOTS_IMRES", "SAMPLES", "RESIDUALS"]
+        if joined:
+            return ",".join(types)
+        else:
+            return types
+
+    def checkimage_names(self, joined=False):
+        """
+        List or str containing psfex check image names.
+
+        Parameters
+        ----------
+        joined : bool, optional
+            If set, list will be joined by ',' to make it readable for psfex.
+
+        Returns
+        -------
+        iterable, str
+            List or str with QC check image names.
+
+        """
+        names = ["{0}psfex_checkimage_{1}".format(self.setup.folders["qc_psf"], qt.lower()) for qt in
+                 self.checkimage_names(joined=False)]
+        if joined:
+            return ",".join(names)
+        else:
+            return names
