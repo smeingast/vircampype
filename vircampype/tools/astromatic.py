@@ -381,3 +381,20 @@ class PSFExSetup(AstromaticSetup):
 
         """
         return get_resource_path(package=self.package, resource="default.config")
+
+    def path_yml(self, preset):
+        """
+        Returns path to PSFEx yml file, given preset.
+
+        Parameters
+        ----------
+        preset : str
+            Which preset to use.
+
+        Returns
+        -------
+        str
+            Path to preset yml.
+        """
+
+        return get_resource_path(package=self.package_presets, resource="{0}.yml".format(preset))
