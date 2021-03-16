@@ -88,6 +88,7 @@ def yml2config(path_yml, skip=None, **kwargs):
 
     """
 
+    # Read file
     setup = read_yml(path_yml=path_yml)
 
     # Loop over setup and construct command
