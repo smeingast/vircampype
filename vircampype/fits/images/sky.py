@@ -209,7 +209,7 @@ class SkyImages(FitsImages):
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
-        if (preset == "scamp") | (preset == "class_star") | (preset == "fwhm"):
+        if preset.lower() in ["scamp", "class_star", "fwhm", "psfex"]:
             cls = SextractorCatalogs
         elif (preset == "superflat") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
