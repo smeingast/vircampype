@@ -481,7 +481,7 @@ class PSFExSetup(AstromaticSetup):
 
         """
         names = ["{0}psfex_checkimage_{1}".format(self.setup.folders["qc_psf"], qt.lower()) for qt in
-                 self.checkimage_names(joined=False)]
+                 self.checkimage_types(joined=False)]
         if joined:
             return ",".join(names)
         else:
