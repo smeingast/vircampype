@@ -116,7 +116,7 @@ def yml2config(path_yml, skip=None, **kwargs):
     return s
 
 
-def run_commands_shell_parallel(cmds, n_jobs=1, silent=True):
+def run_commands_shell_parallel(cmds, n_jobs: int = 1, shell: str = "zsh", silent: bool = True):
     """
     Runs a list of shell commands in parallel.
 
@@ -126,16 +126,18 @@ def run_commands_shell_parallel(cmds, n_jobs=1, silent=True):
         List of shell commands
     n_jobs : int, optional
         Number of parallel jobs.
+    shell : str
+        Shell name. Default is 'zsh'.
     silent : bool, optional
         Whether or not to print information about the process. Default is True.
 
     """
 
     if silent:
-        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL,
+        groups = [(subprocess.Popen(cmd, shell=True, executable=which(shell), stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL) for cmd in cmds)] * n_jobs
     else:
-        groups = [(subprocess.Popen(cmd, shell=True, executable="/bin/zsh") for cmd in cmds)] * n_jobs
+        groups = [(subprocess.Popen(cmd, shell=True, executable=which(shell)) for cmd in cmds)] * n_jobs
 
     # Run processes
     for processes in zip_longest(*groups):  # run len(processes) == limit at a time
@@ -143,11 +145,25 @@ def run_commands_shell_parallel(cmds, n_jobs=1, silent=True):
             p.wait()
 
 
-def run_command_shell(cmd, silent=False):
+def run_command_shell(cmd, shell: str = "zsh", silent: bool = False):
+    """
+    Runs a single shell command in the specified shell.
+
+    Parameters
+    ----------
+    cmd : str
+        Command to run.
+    shell : str
+        Shell executable name. Default is 'zsh'.
+    silent : bool
+        Whether to run silently.
+
+    """
     if silent:
-        subprocess.run(cmd, shell=True, executable="/bin/zsh", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(cmd, shell=True, executable=which(shell),
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        subprocess.run(cmd, shell=True, executable="/bin/zsh")
+        subprocess.run(cmd, shell=True, executable=which(shell))
 
 
 def get_resource_path(package, resource):
