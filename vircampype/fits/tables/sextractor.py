@@ -166,7 +166,7 @@ class SextractorCatalogs(SourceCatalogs):
         psfs = PSFExSetup(setup=self.setup)
 
         # Read setup based on preset
-        if preset.lower() in ["pawprints"]:
+        if preset.lower() in ["pawprints", "tile"]:
             ss = read_yml(path_yml=psfs.path_yml(preset=preset))
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
@@ -226,10 +226,6 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Clean commands
         cmds = [c for c, d in zip(cmds, done) if not d]
-
-        print(cmds)
-        print(len(cmds))
-        exit()
 
         # Set number of parallel jobs
         n_jobs_psfex = 1
