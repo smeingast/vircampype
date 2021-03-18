@@ -978,7 +978,7 @@ class ResampledScienceImages(ProcessedSkyImages):
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                         nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_image"])
 
-        # Construct commands for source extraction
+        # Construct commands for swarping
         cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
 
         # Run Swarp
