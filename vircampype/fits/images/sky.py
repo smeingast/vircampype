@@ -963,6 +963,75 @@ class ResampledScienceImages(ProcessedSkyImages):
     def __init__(self, setup, file_paths=None):
         super(ResampledScienceImages, self).__init__(setup=setup, file_paths=file_paths)
 
+    def build_stacks(self):
+
+        # Processing info
+        print_header(header="CREATING STACKS", silent=self.setup.silent,
+                     left=os.path.basename(self.setup.path_coadd), right=None)
+        tstart = time.time()
+
+        # Split based on Offset
+        split = self.split_keywords(["OFFSET_I"])
+
+        # Check sequence
+        if len(split) != 6:
+            raise ValueError("Sequence contains {0} offsets. Expected 6.")
+
+        for files in split:
+
+            # Load Swarp setup
+            sws = SwarpSetup(setup=files.setup)
+
+            # Get current OFFSET ID
+            oidx = files.read_from_prime_headers(keywords=["OFFSET_I"])[0][0]
+
+            # Construct output paths for current stack
+            path_stack = "{0}{1}_stack_{2:02d}.fits".format(self.setup.folders["stacks"], self.setup.name, oidx)
+            path_weight = path_stack.replace(".fits", ".weight.fits")
+
+            # Check if file already exists
+            if check_file_exists(file_path=path_stack, silent=self.setup.silent):
+                continue
+
+            # Loop over extensions
+            paths_temp_stacks, paths_temp_weights = [], []
+            for idx_hdu in files.iter_data_hdu[0]:
+
+                # Construct output path
+                paths_temp_stacks.append("{0}_{1:02d}.fits".format(path_stack, idx_hdu))
+                paths_temp_weights.append("{0}.weight.fits".format(os.path.splitext(paths_temp_stacks[-1])[0]))
+
+                # Build swarp options
+                ss = yml2config(path_yml=sws.preset_coadd, imageout_name=paths_temp_stacks[-1],
+                                weightout_name=paths_temp_weights[-1],
+                                gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
+                                nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_image"])
+
+                # Modify file paths with current extension
+                paths_full_mod = ["{0}[{1}]".format(x, idx_hdu) for x in files.paths_full]
+                cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".format(idx_hdu).join(paths_full_mod),
+                                                  sws.default_config, ss, idx_hdu)
+
+                # Run Swarp in bash (only bash understand the [ext] options, zsh does not)
+                run_command_shell(cmd=cmd, shell="bash", silent=False)
+
+            # Construct MEF from individual detectors
+            make_mef_image(paths_input=sorted(paths_temp_stacks), overwrite=self.setup.overwrite,
+                           path_output=path_stack, primeheader=files.headers_primary[0])
+            make_mef_image(paths_input=sorted(paths_temp_weights), overwrite=self.setup.overwrite,
+                           path_output=path_weight, primeheader=files.headers_primary[0])
+
+            # Remove intermediate files
+            [os.remove(x) for x in paths_temp_stacks]
+            [os.remove(x) for x in paths_temp_weights]
+
+            # Copy header entries from original file
+            # merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
+            # TODO: Make sure MJD (and other properties) are correctly set in headers
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
     def coadd_pawprints(self):
 
         # Processing info
