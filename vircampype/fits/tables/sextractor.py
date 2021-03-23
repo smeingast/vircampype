@@ -166,7 +166,7 @@ class SextractorCatalogs(SourceCatalogs):
         psfs = PSFExSetup(setup=self.setup)
 
         # Read setup based on preset
-        if preset.lower() in ["pawprints", "tile"]:
+        if preset.lower() in ["pawprint", "tile"]:
             ss = read_yml(path_yml=psfs.path_yml(preset=preset))
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
