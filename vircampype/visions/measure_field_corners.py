@@ -1,9 +1,14 @@
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.units import Unit
+from astropy.coordinates import ICRS, Galactic
 
 # Read header
-path_header = "/Users/stefan/Dropbox/Projects/vircampype/vircampype/visions/headers/Orion_control.header"
+path_header = "/Users/stefan/Dropbox/Projects/vircampype/vircampype/visions/headers/Corona_Australis_deep.header"
 header = fits.Header.fromtextfile(path_header)
 w = WCS(header)
 for x in w.calc_footprint():
-    print("{0:0.2f}, {1:0.2f}".format(*x))
+    # Transform to Galacit
+    gal = ICRS(*x * Unit("deg")).transform_to(Galactic())
+    # print("{0:0.2f}, {1:0.2f}".format(*x))
+    print("{0:0.2f}, {1:0.2f}".format(gal.l.degree, gal.b.degree))
