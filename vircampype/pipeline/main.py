@@ -128,6 +128,13 @@ class Pipeline:
         return self.raw_split["offset"]
 
     @property
+    def science_and_offset_raw(self):
+        if self.offset_raw is not None:
+            return self.science_raw + self.offset_raw
+        else:
+            return self.science_raw
+
+    @property
     def std_raw(self):
         return self.raw_split["std"]
 
@@ -216,9 +223,9 @@ class Pipeline:
                 print_message(message="MASTER-WEIGHT-GLOBAL already created", kind="warning", end=None)
 
     def build_master_source_mask(self):
-        if self.science_raw is not None:
+        if self.science_and_offset_raw is not None:
             if not self.status.master_source_mask:
-                self.science_raw.build_master_source_mask()
+                self.science_and_offset_raw.build_master_source_mask()
                 self.update_status(path=self.path_status, master_source_mask=True)
             else:
                 print_message(message="MASTER-SOURCE-MASK already created", kind="warning", end=None)
