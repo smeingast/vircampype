@@ -365,7 +365,8 @@ class RawSkyImages(SkyImages):
             lin = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
 
             # Do raw calibration
-            cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=self.ndit_norm[idx_file])
+            cube.process_raw(norm_before=self.ndit_norm[idx_file], dark=dark, flat=flat,
+                             linearize=(lin, np.repeat(self.dit[idx_file], len(cube))))
 
             # Compute source masks
             cube_sources = cube.build_source_masks()
@@ -453,7 +454,8 @@ class RawSkyImages(SkyImages):
                 lin = master_linearity.hdu2coeff(hdu_index=d)
 
                 # Do calibration
-                cube.process_raw(dark=dark, flat=flat, linearize=lin, norm_before=files.ndit_norm)
+                cube.process_raw(norm_before=files.ndit_norm, dark=dark, flat=flat,
+                                 linearize=(lin, files.dit))
 
                 # Apply masks to the normalized cube
                 cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup.sky_mask_min,
@@ -562,7 +564,8 @@ class RawSkyImages(SkyImages):
             lin = master_linearity.file2coeff(file_index=idx_file)
 
             # Do calibration
-            calib_cube.process_raw(dark=dark, flat=flat, linearize=lin, sky=sky, norm_before=self.ndit_norm[idx_file])
+            calib_cube.process_raw(norm_before=self.ndit_norm[idx_file], dark=dark, flat=flat, sky=sky,
+                                   linearize=(lin, np.repeat(self.dit[idx_file], len(calib_cube))))
 
             # Apply cosmetics
             if self.setup.interpolate_nan_bool:
