@@ -78,19 +78,19 @@ def clipped_stdev(data, **kwargs):
 
 def cuberoot(a, b, c, d, return_real=False):
     """
-    Function to return the roots of a cubic polynomial ax^3 + bx^2 + cx + d = 0
+    Function to return the roots of a cubic polynomial a + bx + cx^2 + dx^3 = 0
     Uses the general formula listed in Wikipedia.
 
     Parameters
     ----------
-    a : float, int
-        Cubic coefficient.
-    b : float, int
-        Square coefficient.
-    c : float, int
-        Linear coefficient.
-    d : np.ndarray, float, int
+    a : np.ndarray, float, int
         Intercept.
+    b : float, int
+        Linear coefficient.
+    c : float, int
+        Square coefficient.
+    d : float, int
+        Cubic coefficient.
     return_real : bool, optional
         If set, only return the real part of the solutions.
 
@@ -101,36 +101,39 @@ def cuberoot(a, b, c, d, return_real=False):
 
     """
 
-    # Transform to complex numbers
-    a, b, c = complex(a), complex(b), complex(c)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="invalid value encountered in true_divide")
 
-    # Calculate stuff to get the roots
-    delta0, delta1 = b ** 2. - 3. * a * c, 2. * b ** 3. - 9. * a * b * c + 27. * a ** 2. * d
-    z = ((delta1 + np.sqrt(delta1 ** 2. - 4. * delta0 ** 3.)) / 2.) ** (1. / 3.)
+        # Transform to complex numbers
+        d, c, b = complex(d), complex(c), complex(b)
 
-    u1, u2, u3 = 1., (- 1. + 1J * np.sqrt(3)) / 2., (- 1. - 1J * np.sqrt(3)) / 2.
+        # Calculate stuff to get the roots
+        delta0, delta1 = c ** 2. - 3. * d * b, 2. * c ** 3. - 9. * d * c * b + 27. * d ** 2. * a
+        z = ((delta1 + np.sqrt(delta1 ** 2. - 4. * delta0 ** 3.)) / 2.) ** (1. / 3.)
 
-    # Just return real part
-    if return_real:
-        return [(-(1. / (3. * a)) * (b + u * z + (delta0 / (u * z)))).real for u in [u1, u2, u3]]
+        u1, u2, u3 = 1., (- 1. + 1J * np.sqrt(3)) / 2., (- 1. - 1J * np.sqrt(3)) / 2.
 
-    # Return all solutions
-    else:
-        return [-(1. / (3. * a)) * (b + u * z + (delta0 / (u * z))) for u in [u1, u2, u3]]
+        # Just return real part
+        if return_real:
+            return [(-(1. / (3. * d)) * (c + u * z + (delta0 / (u * z)))).real for u in [u1, u2, u3]]
+
+        # Return all solutions
+        else:
+            return [-(1. / (3. * d)) * (c + u * z + (delta0 / (u * z))) for u in [u1, u2, u3]]
 
 
 def squareroot(a, b, c, return_real=False):
     """
-    Function to return the roots of a quadratic polynomial ax^2 + bx + c = 0
+    Function to return the roots of a quadratic polynomial a + bx + cx^2 = 0
 
     Parameters
     ----------
-    a : float, int
-        Square coefficient.
+    a : np.ndarray, float, int
+        Intercept.
     b : float, int
         Linear coefficient.
-    c : np.ndarray, float, int
-        Intercept.
+    c : float, int
+        Square coefficient.
     return_real : bool, optional
         If set, only return the real part of the solutions.
 
@@ -142,11 +145,11 @@ def squareroot(a, b, c, return_real=False):
     """
 
     # Transform to complex numbers
-    a, b = complex(a), complex(b)
+    c, b = complex(c), complex(b)
 
     # Calculate stuff to get the roots
-    delta = np.sqrt(b ** 2. - 4 * a * c)
-    x1, x2 = (-b + delta) / (2 * a), (-b - delta) / (2 * a)
+    delta = np.sqrt(b ** 2. - 4 * c * a)
+    x1, x2 = (-b + delta) / (2 * c), (-b - delta) / (2 * c)
 
     # Just return real part
     if return_real:
