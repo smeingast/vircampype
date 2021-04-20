@@ -327,7 +327,7 @@ class FlatLampLin(FlatImages):
                 dit = np.array(files.dit)
 
                 # Do curve fit
-                coeff, coeff_cov = curve_fit(fitfunc, dit[~badflux], flux[~badflux])
+                coeff, _ = curve_fit(fitfunc, dit[~badflux], flux[~badflux])
 
                 # Add zero order term
                 coeff = np.insert(coeff, 0, 0)
