@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from scipy.optimize import curve_fit
 from vircampype.tools.plottools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.mathtools import *
@@ -89,7 +90,7 @@ class FlatTwilight(FlatImages):
                 norm_before = files.ndit_norm
 
                 # Do calibration
-                cube.process_raw(dark=dark, linearize=lin, norm_before=norm_before)
+                cube.process_raw(dark=dark, linearize=(lin, files.dit), norm_before=norm_before)
 
                 # Apply masks (only BPM and saturation before scaling)
                 cube.apply_masks(bpm=bpm, mask_above=sat)
@@ -265,6 +266,10 @@ class FlatLampLin(FlatImages):
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
         tstart = time.time()
 
+        # Obtain fittiung function depending on order
+        fitfunc = linearity_fitfunc(order=self.setup.linearity_order,
+                                    reset_read_overhead=self.setup.reset_read_overhead)
+
         # Split based on lag and filter
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
         split = flat_list([s.split_lag(max_lag=self.setup.linearity_max_lag) for s in split])
@@ -322,17 +327,22 @@ class FlatLampLin(FlatImages):
                 # Get dit
                 dit = np.array(files.dit)
 
-                # Fit a polynomial through good fluxes
-                coeff = np.polyfit(dit[~badflux], flux[~badflux], deg=self.setup.linearity_order)
+                # Do curve fit
+                coeff, coeff_cov = curve_fit(fitfunc, dit[~badflux], flux[~badflux])
 
-                # The coefficients now must be scaled (check VISTA DR library design document for an explanation)
-                coeff_norm = np.divide(coeff, coeff[-2] ** np.arange(self.setup.linearity_order + 1)[::-1])
+                # Add zero order term
+                coeff = np.insert(coeff, 0, 0)
+
+                # Normalize coefficients
+                coeff_norm = np.divide(coeff, coeff[1] ** (np.arange(self.setup.linearity_order + 1)))
 
                 # Round coefficients
-                coeff, coeff_norm = list(np.around(coeff, decimals=12)), list(np.around(coeff_norm, decimals=12))
+                coeff_norm = list(np.around(coeff_norm, decimals=12))
 
                 # Determine non-linearity@10000ADU
-                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm) / 10000 - 1)[0] * 100
+                # TODO: The QC plot should reflect that the NL10000 parameter is for 1s DIT
+                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm, dit=1,
+                                          reset_read_overhead=self.setup.reset_read_overhead) / 10000 - 1)[0] * 100
                 nl10000 = np.round(nl10000, decimals=5)
 
                 # Make fits cards for coefficients
