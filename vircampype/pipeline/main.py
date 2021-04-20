@@ -448,7 +448,7 @@ class Pipeline:
         self.build_master_weight_image()
         self.build_coadd_header()
         self.resample()
-        self.build_stacks()
+        # self.build_stacks()
         self.classification_pawprints()
         self.photometry_pawprints()
         self.build_tile()
