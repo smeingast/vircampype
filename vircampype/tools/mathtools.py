@@ -172,7 +172,7 @@ def linearity_fitfunc(order, reset_read_overhead):
                    b2 * x**2 * ((1 + reset_read_overhead / x)**2 - (reset_read_overhead / x)**2) + \
                    b3 * x**3 * ((1 + reset_read_overhead / x)**3 - (reset_read_overhead / x)**3)
     else:
-        fitfunc = None
+        raise ValueError("Order '{0}' not supported. Choose either 2 or 3.")
     return fitfunc
 
 
