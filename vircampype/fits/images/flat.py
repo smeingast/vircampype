@@ -310,10 +310,9 @@ class FlatLampLin(FlatImages):
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
                 dark.scale_planes(scales=files.dit_norm)
                 sat = self.setup.saturation_levels[d-1]
-                norm_before = files.ndit_norm
 
                 # Do calibration
-                cube.process_raw(dark=dark, norm_before=norm_before)
+                cube.process_raw(dark=dark, norm_before=files.ndit_norm)
 
                 # Apply BPM
                 cube.apply_masks(bpm=bpm)
