@@ -824,7 +824,7 @@ class ImageCube(object):
         else:
             raise ValueError("Normalization not supported")
 
-    def linearize(self, coeff):
+    def linearize(self, coeff, dit):
         """
         Linearizes the data cube based on non-linearity coefficients. Will created multiple parallel processes (up to 4)
         for better performance.
@@ -835,6 +835,8 @@ class ImageCube(object):
             If a list of coefficients (floats), the same non-linear inversion will be applied to all planes of the cube
             If a list of lists with coefficients, it must have the length of the cube and each plane will be linearized
             with the corresponding coefficients.
+        dit : iterable
+            DIT for each plane in the cube.
 
         Returns
         -------
@@ -856,13 +858,14 @@ class ImageCube(object):
         # Only launch Pool if more than one thread is requested
         if self.setup.n_jobs == 1:
             mp = []
-            for p, c in zip(self.cube, cff):
-                mp.append(linearize_data(data=p, coeff=c))
+            for a, b, c in zip(self.cube, cff, dit):
+                mp.append(linearize_data(data=a, coeff=b, dit=c, reset_read_overhead=self.setup.reset_read_overhead))
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
             with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-                mp = parallel(delayed(linearize_data)(d, c) for d, c in zip(self.cube, cff))
+                mp = parallel(delayed(linearize_data)(a, b, c, d)
+                              for a, b, c, d in zip(self.cube, cff, dit, repeat(self.setup.reset_read_overhead)))
 
         else:
             raise ValueError("'n_threads' not correctly set (n_threads = {0})"
@@ -893,8 +896,8 @@ class ImageCube(object):
             The dark cube that should be subtracted.
         flat : ImageCube, optional
             The flat cube by which the data should be divided.
-        linearize : iterable, optional
-            The linearity coefficients when the cube should be linearized.
+        linearize : (iterable, (float, int)), optional
+            Tuple, holding the coefficients and the DIT.
         sky : ImageCube, optional
             Sky data when a background correction should be applied.
         norm_before : int, float, np.ndarray, optional
@@ -924,8 +927,10 @@ class ImageCube(object):
             self.cube -= dark.cube
 
         # Linearize cube
-        if linearize:
-            self.linearize(coeff=linearize)
+        if linearize is not None:
+            if len(linearize[0]) != len(linearize[1]):
+                raise ValueError("Make sure to supply the right linearization parameters")
+            self.linearize(coeff=linearize[0], dit=linearize[1])
 
         # Apply flat-field
         if flat is not None:
