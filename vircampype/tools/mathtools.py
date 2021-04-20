@@ -17,7 +17,7 @@ from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
            "ceil_value", "floor_value", "meshgrid", "estimate_background", "upscale_image", "centroid_sphere",
            "clipped_median", "clipped_stdev", "grid_value_2d", "fraction2float", "round_decimals_up",
-           "round_decimals_down", "background_image", "grid_value_2d_nn"]
+           "round_decimals_down", "background_image", "grid_value_2d_nn", "linearity_fitfunc"]
 
 
 def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -160,7 +160,23 @@ def squareroot(a, b, c, return_real=False):
         return [x1, x2]
 
 
-def linearize_data(data, coeff):
+def linearity_fitfunc(order, reset_read_overhead):
+
+    if order == 2:
+        def fitfunc(x, b1, b2):
+            return b1 * x + \
+                   b2 * x**2 * ((1 + reset_read_overhead / x)**2 - (reset_read_overhead / x)**2)
+    elif order == 3:
+        def fitfunc(x, b1, b2, b3):
+            return b1 * x + \
+                   b2 * x**2 * ((1 + reset_read_overhead / x)**2 - (reset_read_overhead / x)**2) + \
+                   b3 * x**3 * ((1 + reset_read_overhead / x)**3 - (reset_read_overhead / x)**3)
+    else:
+        fitfunc = None
+    return fitfunc
+
+
+def linearize_data(data, coeff, dit, reset_read_overhead):
     """
     General single-threaded linearization for arbitrary input data.
 
@@ -170,6 +186,10 @@ def linearize_data(data, coeff):
         Input data to be linearized.
     coeff : list[floats]
         List of coefficients.
+    dit : int, float
+        DIT of input data.
+    reset_read_overhead : float
+        Reset-read-overhead in seconds.
 
     Returns
     -------
@@ -178,12 +198,20 @@ def linearize_data(data, coeff):
 
     """
 
+    # Dummy check
+    if not isinstance(dit, (int, float)):
+        raise ValueError("DIT must be of type float or int.")
+
     # Determine order of fit
     order = len(coeff) - 1
 
-    # Prepare data
-    coeff_copy = coeff.copy()
-    coeff_copy[-1] -= data.ravel()
+    # Coefficient modification factor based on DIT and reset overhead
+    f = (1 + reset_read_overhead / dit)**np.arange(order + 1) - \
+        (reset_read_overhead / dit)**np.arange(order + 1)
+
+    # Copy, apply modification, and set intercept to data for inversion
+    coeff_copy = list(coeff.copy() * f)
+    coeff_copy[0] -= data.ravel()
 
     # Get the roots of all data points
     if order == 2:
@@ -194,7 +222,7 @@ def linearize_data(data, coeff):
         raise ValueError("Order '{0}' not supported".format(order))
 
     # Select closest value from the real roots, and return
-    return (np.min(np.abs([r - coeff[-1] + coeff_copy[-1] for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
+    return (np.min(np.abs([r - coeff[0] + coeff_copy[0] for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
 
 
 def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
