@@ -314,6 +314,10 @@ class Setup(dict):
     @property
     def set_airmass(self):
         return True
+    
+    @property
+    def reset_read_overhead(self):
+        return 1.0011
 
     # =========================================================================== #
     # Keywords
@@ -395,7 +399,7 @@ class Setup(dict):
     # Linearity
     @property
     def linearity_order(self):
-        return 2
+        return 3
 
     @property
     def linearity_max_lag(self):
