@@ -258,10 +258,6 @@ class FlatLampLin(FlatImages):
     def build_master_linearity(self):
         """ Calculates the non-linearity coefficients based on a series of dome flats. """
 
-        # Order can't be greater than 3 at the moment
-        if self.setup.linearity_order not in [2, 3]:
-            raise NotImplementedError("Order not supported")
-
         # Processing info
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
         tstart = time.time()
