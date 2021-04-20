@@ -230,10 +230,6 @@ class MasterLinearity(MasterTables):
                 # Add axis
                 ax = axes[idx]
 
-                # Polynomial fit
-                xdummy = np.arange(start=0, step=0.5, stop=xmax)
-                ax.plot(xdummy, np.polyval(pcff[idx], xdummy), color="#7F7F7F", lw=2, zorder=0)
-
                 # Good raw flux
                 ax.scatter(np.array(dit[idx])[~bad], np.array(flux[idx])[~bad],
                            c="#1f77b4", lw=0, s=40, alpha=0.7, zorder=1)
@@ -243,7 +239,9 @@ class MasterLinearity(MasterTables):
                            lw=1, s=40, facecolors="none", edgecolors="#1f77b4")
 
                 # Linearized good flux
-                lin = linearize_data(data=np.array(flux[idx])[~bad], coeff=lcff[idx])
+                lin = np.array([linearize_data(data=d, coeff=lcff[idx], dit=dit,
+                                               reset_read_overhead=self.setup.reset_read_overhead) for d, dit
+                                in zip(np.array(flux[idx])[~bad], np.array(dit[idx])[~bad])])
                 ax.scatter(np.array(dit[idx])[~bad], lin, c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
 
                 # Saturation
