@@ -160,20 +160,10 @@ def squareroot(a, b, c, return_real=False):
         return [x1, x2]
 
 
-def linearity_fitfunc(order, reset_read_overhead):
-
-    if order == 2:
-        def fitfunc(x, b1, b2):
-            return b1 * x + \
-                   b2 * x**2 * ((1 + reset_read_overhead / x)**2 - (reset_read_overhead / x)**2)
-    elif order == 3:
-        def fitfunc(x, b1, b2, b3):
-            return b1 * x + \
-                   b2 * x**2 * ((1 + reset_read_overhead / x)**2 - (reset_read_overhead / x)**2) + \
-                   b3 * x**3 * ((1 + reset_read_overhead / x)**3 - (reset_read_overhead / x)**3)
-    else:
-        raise ValueError("Order '{0}' not supported. Choose either 2 or 3.")
-    return fitfunc
+def linearity_fitfunc(x, b1, b2, b3):
+    """ Fitting function used for non-linearity correction. """
+    coeff, resettime = [b1, b2, b3], 1.0011
+    return np.sum([coeff[j-1] * x**j * ((1 + resettime/x)**j - (resettime/x)**j) for j in range(1, order + 1)], axis=0)
 
 
 def linearize_data(data, coeff, dit, reset_read_overhead):
