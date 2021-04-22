@@ -7,6 +7,7 @@ from scipy import ndimage
 from astropy.io import fits
 from itertools import repeat
 from joblib import Parallel, delayed
+from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
 from vircampype.pipeline.setup import Setup
 from astropy.convolution import Gaussian2DKernel
@@ -1205,7 +1206,7 @@ class ImageCube(object):
             # Return
             return np.nanmedian(np.abs(self.cube - med), axis)
 
-    def background_planes(self):
+    def background_planes(self, **kwargs):
         """
         Calculates sky level and noise estimates for each plane in the cube.
 
@@ -1215,8 +1216,19 @@ class ImageCube(object):
 
         """
 
+        # This is the loopy way
+        # back, back_sig = list(zip(*[mmm(sky_vector=c, **kwargs) for c in self.cube]))[:2]
+
         # Calculate the sky values for each plane in the cube
-        return estimate_background(array=self.cube[:], axis=(1, 2))
+        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            mp = parallel(delayed(mmm)(a, b, c, d, e, f, g)
+                          for a, b, c, d, e, f, g
+                          in zip(self.cube, repeat(False), repeat(False), repeat(False),
+                                 repeat(50), repeat(20), repeat(True)))
+
+        # Unpack and return
+        back, back_sig = list(zip(*mp))[:2]
+        return np.asarray(back), np.asarray(back_sig)
 
     def background(self, mesh_size=None, mesh_filtersize=None):
         """
