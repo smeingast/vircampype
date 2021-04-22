@@ -163,7 +163,8 @@ def squareroot(a, b, c, return_real=False):
 def linearity_fitfunc(x, b1, b2, b3):
     """ Fitting function used for non-linearity correction. """
     coeff, resettime = [b1, b2, b3], 1.0011
-    return np.sum([coeff[j-1] * x**j * ((1 + resettime/x)**j - (resettime/x)**j) for j in range(1, order + 1)], axis=0)
+    return np.sum([coeff[j-1] * x**j * ((1 + resettime/x)**j - (resettime/x)**j)
+                   for j in range(1, len(coeff) + 1)], axis=0)
 
 
 def linearize_data(data, coeff, dit, reset_read_overhead):
