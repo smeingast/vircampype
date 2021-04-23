@@ -1206,7 +1206,7 @@ class ImageCube(object):
             # Return
             return np.nanmedian(np.abs(self.cube - med), axis)
 
-    def background_planes(self, **kwargs):
+    def background_planes(self):
         """
         Calculates sky level and noise estimates for each plane in the cube.
 
@@ -1218,7 +1218,7 @@ class ImageCube(object):
 
         # Calculate the sky values for each plane in the cube
         if self.setup.n_jobs == 1:
-            back, back_sig = list(zip(*[mmm(sky_vector=c, **kwargs) for c in self.cube]))[:2]
+            back, back_sig = list(zip(*[mmm(sky_vector=c) for c in self.cube]))[:2]
         else:
             with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                 mp = parallel(delayed(mmm)(a, b, c, d, e, f, g)
