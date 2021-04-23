@@ -199,6 +199,8 @@ def linearize_data(data, coeff, dit, reset_read_overhead):
     # Coefficient modification factor based on DIT and reset overhead
     f = (1 + reset_read_overhead / dit)**np.arange(order + 1) - \
         (reset_read_overhead / dit)**np.arange(order + 1)
+    # TODO: Try also to set f = 1 and compare with VISION
+    # f = 1.
 
     # Copy, apply modification, and set intercept to data for inversion
     coeff_copy = list(coeff.copy() * f)
