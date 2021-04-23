@@ -860,13 +860,13 @@ class ImageCube(object):
         if self.setup.n_jobs == 1:
             mp = []
             for a, b, c in zip(self.cube, cff, dit):
-                mp.append(linearize_data(data=a, coeff=b, dit=c, reset_read_overhead=self.setup.reset_read_overhead))
+                mp.append(linearize_data(data=a, coeff=b, dit=c, reset_read_overhead=1.0011))
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
             with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                 mp = parallel(delayed(linearize_data)(a, b, c, d)
-                              for a, b, c, d in zip(self.cube, cff, dit, repeat(self.setup.reset_read_overhead)))
+                              for a, b, c, d in zip(self.cube, cff, dit, repeat(1.0011)))
 
         else:
             raise ValueError("'n_threads' not correctly set (n_threads = {0})"
