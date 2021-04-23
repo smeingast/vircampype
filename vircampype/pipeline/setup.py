@@ -398,10 +398,6 @@ class Setup(dict):
     # =========================================================================== #
     # Linearity
     @property
-    def linearity_order(self):
-        return 3
-
-    @property
     def linearity_max_lag(self):
         return 1
 
