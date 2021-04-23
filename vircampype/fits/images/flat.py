@@ -278,6 +278,10 @@ class FlatLampLin(FlatImages):
             outpath = "{0}MASTER-LINEARITY.MJD_{1:0.4f}.fits.tab" \
                       "".format(sflats.setup.folders["master_common"], sflats.mjd_mean)
 
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
             # Find BPMs
             master_bpm = sflats.get_master_bpm()
 
