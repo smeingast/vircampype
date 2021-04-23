@@ -328,6 +328,7 @@ class FlatLampLin(FlatImages):
                 coeff_norm = [coeff[i] / coeff[0]**(i+1) for i in range(0, len(coeff))]
 
                 # Add 0 order term
+                coeff = np.insert(coeff, 0, 0)
                 coeff_norm = np.insert(coeff_norm, 0, 0)
 
                 # Compute non-linearity at 10000 ADU for DIT=2
@@ -341,14 +342,17 @@ class FlatLampLin(FlatImages):
                 flux_lin = np.asarray(flux_lin)
 
                 # Make fits cards for coefficients
-                cards_coeff = []
+                cards_coeff, cards_poly = [], []
                 for cidx in range(len(coeff_norm)):
+                    cards_poly.append(fits.Card(keyword="HIERARCH PYPE COEFF POLY {0}".format(cidx),
+                                                value=coeff[cidx],
+                                                comment="Polynomial coefficient {0}".format(cidx)))
                     cards_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF LINEAR {0}".format(cidx),
                                                  value=coeff_norm[cidx],
                                                  comment="Linearity coefficient {0}".format(cidx)))
 
                 # Create header
-                hdr = fits.Header(cards=cards_coeff)
+                hdr = fits.Header(cards=cards_coeff + cards_poly)
 
                 # Add some more values
                 add_float_to_header(header=hdr, key="HIERARCH PYPE QC SATURATION", value=satlevel,
