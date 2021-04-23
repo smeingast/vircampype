@@ -226,10 +226,6 @@ class MasterLinearity(MasterTables):
                                                                          self.flux_linearized, self.nl10000,
                                                                          self.coeff, self.coeff_poly):
 
-            # Check if plot already exits
-            if check_file_exists(file_path=path, silent=True) and not overwrite:
-                continue
-
             # Get plot grid
             fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
