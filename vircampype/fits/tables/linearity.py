@@ -40,12 +40,33 @@ class MasterLinearity(MasterTables):
         self._nl10000 = self.read_from_data_headers(keywords=["HIERARCH PYPE QC NL10000"])[0]
         return self._nl10000
 
+    _coeff = None
+
+    @property
+    def coeff(self):
+        """
+        Extracts the linearity coefficients stored in the header for linearizing.
+
+        Returns
+        -------
+        List
+            List of coefficients
+
+        """
+
+        # Check if already determined
+        if self._coeff is not None:
+            return self._coeff
+
+        self._coeff = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF LINEAR")
+        return self._coeff
+
     _coeff_poly = None
 
     @property
     def coeff_poly(self):
         """
-        Extracts the linearity coefficients stored in the header for plotting.
+        Fitting coefficients
 
         Returns
         -------
@@ -60,27 +81,6 @@ class MasterLinearity(MasterTables):
 
         self._coeff_poly = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF POLY")
         return self._coeff_poly
-
-    _coeff_linear = None
-
-    @property
-    def coeff_linear(self):
-        """
-        Extracts the linearity coefficients stored in the header for linearizing.
-
-        Returns
-        -------
-        List
-            List of coefficients
-
-        """
-
-        # Check if already determined
-        if self._coeff_linear is not None:
-            return self._coeff_linear
-
-        self._coeff_linear = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF LINEAR")
-        return self._coeff_linear
 
     _linearity_dit = None
 
@@ -103,10 +103,10 @@ class MasterLinearity(MasterTables):
         self._linearity_dit = self.get_columns(column_name="dit")
         return self._linearity_dit
 
-    _linearity_flux = None
+    _flux = None
 
     @property
-    def linearity_flux(self):
+    def flux(self):
         """
         Extracts all Flux values measured in the linearity sequence.
 
@@ -118,11 +118,23 @@ class MasterLinearity(MasterTables):
         """
 
         # Check if already determined
-        if self._linearity_flux is not None:
-            return self._linearity_flux
+        if self._flux is not None:
+            return self._flux
 
-        self._linearity_flux = self.get_columns(column_name="flux")
-        return self._linearity_flux
+        self._flux = self.get_columns(column_name="flux")
+        return self._flux
+
+    _flux_linearized = None
+
+    @property
+    def flux_linearized(self):
+
+        # Check if already determined
+        if self._flux_linearized is not None:
+            return self._flux_linearized
+
+        self._flux_linearized = self.get_columns(column_name="flux_lin")
+        return self._flux_linearized
 
     # =========================================================================== #
     # I/O
@@ -146,7 +158,7 @@ class MasterLinearity(MasterTables):
         if hdu_index-1 < 0:
             raise ValueError("HDU with index {0} does not exits".format(hdu_index-1))
 
-        return [f[hdu_index-1] for f in self.coeff_linear]
+        return [f[hdu_index-1] for f in self.coeff]
 
     def file2coeff(self, file_index, hdu_index=None):
         """
@@ -169,7 +181,7 @@ class MasterLinearity(MasterTables):
             hdu_index = self.iter_data_hdu[file_index]
 
         # Need -1 here since the coefficients do not take an empty primary header into account
-        return [self.coeff_linear[file_index][idx-1] for idx in hdu_index]
+        return [self.coeff[file_index][idx - 1] for idx in hdu_index]
 
     # =========================================================================== #
     # Plots
@@ -206,11 +218,13 @@ class MasterLinearity(MasterTables):
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots
-        paths = self.paths_qc_plots(paths=paths)
+        if paths is None:
+            paths = ["{0}{1}_fit.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
 
         # Loop over files and create plots
-        for dit, flux, path, pcff, lcff, nl10k in zip(self.linearity_dit, self.linearity_flux, paths,
-                                                      self.coeff_poly, self.coeff_linear, self.nl10000):
+        for path, dit, flux, flux_lin, nl10000, coeff, coeff_poly in zip(paths, self.linearity_dit, self.flux,
+                                                                         self.flux_linearized, self.nl10000,
+                                                                         self.coeff, self.coeff_poly):
 
             # Check if plot already exits
             if check_file_exists(file_path=path, silent=True) and not overwrite:
@@ -243,17 +257,18 @@ class MasterLinearity(MasterTables):
                            lw=1, s=40, facecolors="none", edgecolors="#1f77b4")
 
                 # Linearized good flux
-                lin = np.array([linearize_data(data=d, coeff=lcff[idx], dit=dit,
-                                               reset_read_overhead=self.setup.reset_read_overhead) for d, dit
-                                in zip(np.array(flux[idx])[~bad], np.array(dit[idx])[~bad])])
-                ax.scatter(np.array(dit[idx])[~bad], lin, c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
+                ax.scatter(np.array(dit[idx])[~bad], np.array(flux_lin[idx])[~bad],
+                           c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
+
+                # Fit
+                ax.plot(dit[idx], linearity_fitfunc(dit[idx], *coeff_poly[idx][1:]), c="black", lw=0.8, zorder=0)
 
                 # Saturation
                 ax.hlines(self.setup.saturation_levels[idx], 0, ceil_value(xmax, value=5),
                           linestyles="dashed", colors="#7F7F7F", lw=1)
 
                 # Annotate non-linearity and detector ID
-                ax.annotate("NL$_{{10000}}=${}%".format(np.round(nl10k[idx], decimals=2)),
+                ax.annotate("NL$_{{10000}}$ (DIT=2s)$=${}%".format(np.round(nl10000[idx], decimals=2)),
                             xy=(0.03, 0.96), xycoords="axes fraction", ha="left", va="top")
                 ax.annotate("Det.ID: {0:0d}".format(idx + 1),
                             xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
