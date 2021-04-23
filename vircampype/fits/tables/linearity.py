@@ -174,14 +174,18 @@ class MasterLinearity(MasterTables):
     # =========================================================================== #
     # Plots
     # =========================================================================== #
-    def paths_qc_plots(self, paths):
+    def qc_plot_linearity_detector(self, paths=None, axis_size=5):
 
+        # Generate path for plots
         if paths is None:
-            return ["{0}{1}.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
-        else:
-            return paths
+            paths = ["{0}{1}_detector.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
 
-    def qc_plot_linearity(self, paths=None, axis_size=4, overwrite=False):
+        # Loop over files and create plots
+        for path, nl in zip(paths, self.nl10000):
+            plot_value_detector(values=nl, path=path, ylabel="Non-linearity @10000ADU/DIT=2 (%)",
+                                axis_size=axis_size, hlines=[0])
+
+    def qc_plot_linearity_fit(self, paths=None, axis_size=4, overwrite=False):
 
         """
         Create the QC plot for the linearity measurements. Should only be used together with the above method.
