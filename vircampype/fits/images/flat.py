@@ -255,121 +255,121 @@ class FlatLampLin(FlatImages):
     # =========================================================================== #
     # Master Linearity
     # =========================================================================== #
-    def build_master_linearity(self):
-        """ Calculates the non-linearity coefficients based on a series of dome flats. """
+    def build_master_linearity(self, darks):
 
         # Processing info
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
         tstart = time.time()
 
-        # Obtain fittiung function depending on order
-        fitfunc = linearity_fitfunc(order=self.setup.linearity_order,
-                                    reset_read_overhead=self.setup.reset_read_overhead)
-
         # Split based on lag and filter
-        split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_lag(max_lag=self.setup.linearity_max_lag) for s in split])
+        split_flat = self.split_lag(max_lag=self.setup.linearity_max_lag)
+        split_dark = darks.split_lag(max_lag=self.setup.linearity_max_lag)
 
-        # Now loop through separated files and build the Masterdarks
-        for files, fidx in zip(split, range(1, len(split) + 1)):
+        for sflats, sdarks, fidx in zip(split_flat, split_dark, range(len(split_flat))):
+
+            # Check exposure sequence
+            if (sflats.dit != sdarks.dit) | (sflats.ndit != sdarks.ndit):
+                raise ValueError("Linearity flat/dark sequence is broken")
 
             # Check sequence suitability for linearity (same nHDU, at least five different exposure times and same NDIT)
-            files.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
+            sflats.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
 
             # Create Master name
             outpath = "{0}MASTER-LINEARITY.MJD_{1:0.4f}.fits.tab" \
-                      "".format(files.setup.folders["master_common"], files.mjd_mean)
+                      "".format(sflats.setup.folders["master_common"], sflats.mjd_mean)
 
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                continue
+            # Find BPMs
+            master_bpm = sflats.get_master_bpm()
 
-            # Fetch the Masterfiles
-            master_bpms = files.get_master_bpm()
-            master_darks = files.get_master_dark(ignore_dit=True)
-
-            # initialize empty lists
+            # Initialize empty list for table HDUs
             table_hdus = []
 
-            # Start looping over detectors
-            for d in files.iter_data_hdu[0]:
+            # Start detector loop
+            for idx_hdu in sflats.iter_data_hdu[0]:
 
                 # Print processing info
-                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup.silent)
+                message_calibration(n_current=fidx+1, n_total=len(split_flat), name=outpath, d_current=idx_hdu,
+                                    d_total=max(sflats.iter_data_hdu[0]), silent=self.setup.silent)
 
-                # Get data
-                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
+                # Read data
+                cube_flat = sflats.hdu2cube(hdu_index=idx_hdu)
+                cube_dark = sdarks.hdu2cube(hdu_index=idx_hdu)
+                cube_bpm = master_bpm.hdu2cube(hdu_index=idx_hdu)
 
-                # Get master calibration
-                bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
-                dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
-                dark.scale_planes(scales=files.dit_norm)
-                sat = self.setup.saturation_levels[d-1]
+                # Subtract dark from flat
+                cube_flat -= cube_dark
 
-                # Do calibration
-                cube.process_raw(dark=dark, norm_before=files.ndit_norm)
+                # Mask bad pixels
+                cube_flat.apply_masks(bpm=cube_bpm)
 
-                # Apply BPM
-                cube.apply_masks(bpm=bpm)
+                # Determine flux and flux sigma
+                flux, flux_err = cube_flat.background_planes()
 
-                # Estimate flux for each plane as the median
-                flux = cube.median(axis=(1, 2))
+                # Grab saturation level
+                satlevel = self.setup.saturation_levels[idx_hdu-1]
 
-                # Get flux filter
-                badflux = flux > sat
+                # Find values above saturation limit
+                saturated = flux > satlevel
 
-                # Get dit
-                dit = np.array(files.dit)
+                # Grab clean DIT and clean flux
+                flux_clean, flux_err_clean = flux[~saturated], flux_err[~saturated]
+                dit = np.array(sflats.dit)
+                dit_clean = dit[~saturated]
 
                 # Do curve fit
-                coeff, _ = curve_fit(fitfunc, dit[~badflux], flux[~badflux])
+                coeff, _ = curve_fit(linearity_fitfunc, dit_clean, flux_clean,
+                                     sigma=flux_err_clean, absolute_sigma=True)
 
-                # Add zero order term
-                coeff = np.insert(coeff, 0, 0)
+                # Compute normalized final coefficients
+                coeff_norm = [coeff[i] / coeff[0]**(i+1) for i in range(0, len(coeff))]
 
-                # Normalize coefficients
-                coeff_norm = np.divide(coeff, coeff[1] ** (np.arange(self.setup.linearity_order + 1)))
+                # Add 0 order term
+                coeff_norm = np.insert(coeff_norm, 0, 0)
 
-                # Round coefficients
-                coeff_norm = list(np.around(coeff_norm, decimals=12))
+                # Compute non-linearity at 10000 ADU for DIT=2
+                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm, dit=2,
+                                          reset_read_overhead=1.0011) / 10000 - 1)[0] * 100
 
-                # Determine non-linearity@10000ADU
-                # TODO: The QC plot should reflect that the NL10000 parameter is for 1s DIT
-                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm, dit=1,
-                                          reset_read_overhead=self.setup.reset_read_overhead) / 10000 - 1)[0] * 100
-                nl10000 = np.round(nl10000, decimals=5)
+                # Linearize data
+                flux_lin = []
+                for f, t in zip(flux, dit):
+                    flux_lin.append(linearize_data(data=f, coeff=coeff_norm, dit=t, reset_read_overhead=1.0011))
+                flux_lin = np.asarray(flux_lin)
 
                 # Make fits cards for coefficients
-                cards_poly_coeff, cards_norm_coeff = [], []
-                for cidx in range(len(coeff)):
-                    cards_poly_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF POLY {0}".format(cidx),
-                                                      value=coeff[cidx],
-                                                      comment="Polynomial coefficient {0}".format(cidx)))
-                    cards_norm_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF LINEAR {0}".format(cidx),
-                                                      value=coeff_norm[cidx],
-                                                      comment="Linearity coefficient {0}".format(cidx)))
+                cards_coeff = []
+                for cidx in range(len(coeff_norm)):
+                    cards_coeff.append(fits.Card(keyword="HIERARCH PYPE COEFF LINEAR {0}".format(cidx),
+                                                 value=coeff_norm[cidx],
+                                                 comment="Linearity coefficient {0}".format(cidx)))
 
-                # Make header cards
-                cards = make_cards(keywords=["HIERARCH PYPE QC NL10000", "HIERARCH PYPE QC SATURATION",
-                                             "HIERARCH PYPE LIN ORDER"],
-                                   values=[nl10000, sat, self.setup.linearity_order],
-                                   comments=["Non-linearity at 10000 ADU in %", "Saturation limit (ADU)",
-                                             "Order of linearity fit"])
+                # Create header
+                hdr = fits.Header(cards=cards_coeff)
 
-                # Merge cards
-                cards = cards + cards_poly_coeff + cards_norm_coeff
+                # Add some more values
+                add_float_to_header(header=hdr, key="HIERARCH PYPE QC SATURATION", value=satlevel,
+                                    decimals=1, comment="Saturation limit (ADU)")
+                add_float_to_header(header=hdr, key="HIERARCH PYPE QC NL10000", value=nl10000,
+                                    decimals=3, comment="Non-linearity at 10000 ADU for DIT=2 in %")
 
-                # Add dit and flux to another HDU
-                table_hdus.append(fits.TableHDU.from_columns(columns=[fits.Column(name="dit", format="D", array=dit),
-                                                                      fits.Column(name="flux", format="D", array=flux)],
-                                                             header=fits.Header(cards=cards)))
+                # Linearize data
+                flux_clean_lin = []
+                for f, t in zip(flux_clean, dit_clean):
+                    flux_clean_lin.append(linearize_data(data=f, coeff=coeff_norm, dit=t,
+                                                         reset_read_overhead=1.0011))
+
+                # Add data to HDU
+                cdit = fits.Column(name="dit", format="D", array=dit)
+                cflux = fits.Column(name="flux", format="D", array=flux)
+                cflux_lin = fits.Column(name="flux_lin", format="D", array=flux_lin)
+                cmask = fits.Column(name="saturated", format="L", array=saturated)
+                table_hdus.append(fits.TableHDU.from_columns(columns=[cdit, cflux, cflux_lin, cmask], header=hdr))
 
             # Make cards for primary headers
             prime_cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
                                                self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
-                                     values=[files.mjd_mean, files.time_obs_mean,
-                                             "MASTER-LINEARITY", len(files)])
+                                     values=[sflats.mjd_mean, sflats.time_obs_mean,
+                                             "MASTER-LINEARITY", len(sflats)])
             prime_header = fits.Header(cards=prime_cards)
 
             # Save table
@@ -377,9 +377,11 @@ class FlatLampLin(FlatImages):
             thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
 
             # Initialize plot if set
-            if self.setup.qc_plots:
-                mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
-                mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup.overwrite)
+            # if self.setup.qc_plots:
+            #     mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
+            #     mlinearity.qc_plot_linearity_detector(paths=None, axis_size=5, overwrite=self.setup.overwrite)
+            #     mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup.overwrite)
+            #     mlinearity.qc_plot_linearity_2(paths=None, axis_size=5, overwrite=self.setup.overwrite)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
