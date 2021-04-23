@@ -315,10 +315,6 @@ class Setup(dict):
     def set_airmass(self):
         return True
     
-    @property
-    def reset_read_overhead(self):
-        return 1.0011
-
     # =========================================================================== #
     # Keywords
     @property
