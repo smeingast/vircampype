@@ -1216,18 +1216,19 @@ class ImageCube(object):
 
         """
 
-        # This is the loopy way
-        # back, back_sig = list(zip(*[mmm(sky_vector=c, **kwargs) for c in self.cube]))[:2]
-
         # Calculate the sky values for each plane in the cube
-        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-            mp = parallel(delayed(mmm)(a, b, c, d, e, f, g)
-                          for a, b, c, d, e, f, g
-                          in zip(self.cube, repeat(False), repeat(False), repeat(False),
-                                 repeat(50), repeat(20), repeat(True)))
+        if self.setup.n_jobs == 1:
+            back, back_sig = list(zip(*[mmm(sky_vector=c, **kwargs) for c in self.cube]))[:2]
+        else:
+            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+                mp = parallel(delayed(mmm)(a, b, c, d, e, f, g)
+                              for a, b, c, d, e, f, g
+                              in zip(self.cube, repeat(False), repeat(False), repeat(False),
+                                     repeat(50), repeat(20), repeat(True)))
+            # Unpack
+            back, back_sig = list(zip(*mp))[:2]
 
-        # Unpack and return
-        back, back_sig = list(zip(*mp))[:2]
+        # Return
         return np.asarray(back), np.asarray(back_sig)
 
     def background(self, mesh_size=None, mesh_filtersize=None):
