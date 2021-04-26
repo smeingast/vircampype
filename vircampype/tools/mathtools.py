@@ -139,7 +139,7 @@ def cuberoot_idl(c0: (int, float), c1: (int, float), c2: (int, float), c3: (int,
 
         # Get the one real root
         h = -rf / np.abs(rf) * (np.abs(rf) + np.sqrt(rf**2 - qf**3))**(1 / 3)
-        k = h
+        k = h.copy()
 
         zindex = np.isclose(h, 0, atol=1.E-5)
         cindex = ~zindex
