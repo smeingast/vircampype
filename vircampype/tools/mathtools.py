@@ -111,9 +111,7 @@ def cuberoot_idl(c0: (int, float), c1: (int, float), c2: (int, float), c3: (int,
     solution3 = np.full_like(c0, fill_value=np.nan)
 
     # Normalize to a + bx + cx^2 + x^3=0
-    c = c2/c3
-    b = c1/c3
-    a = c0/c3
+    a, b, c = c0/c3, c1/c3, c2/c3
 
     q = (c**2 - 3*b) / 9
     r = (2 * c**3 - 9 * c * b + 27 * a) / 54
@@ -283,7 +281,7 @@ def linearize_data(data, coeff, dit, reset_read_overhead):
     f = (1 + reset_read_overhead / dit)**np.arange(order + 1) - \
         (reset_read_overhead / dit)**np.arange(order + 1)
     # TODO: Try also to set f = 1 and compare with VISION
-    # f = 1.
+    # f[:] = 1.
 
     # Copy, apply modification, and set intercept to data for inversion
     coeff_copy = list(coeff.copy() * f)
@@ -293,7 +291,7 @@ def linearize_data(data, coeff, dit, reset_read_overhead):
     if order == 2:
         roots = squareroot(*coeff_copy, return_real=True)
     elif order == 3:
-        roots = cuberoot(*coeff_copy, return_real=True)
+        roots = cuberoot_idl(*coeff_copy)
     else:
         raise ValueError("Order '{0}' not supported".format(order))
 
