@@ -367,23 +367,15 @@ class Setup(dict):
 
     @property
     def dark_mask_min(self):
-        return False
+        return True
 
     @property
     def dark_mask_max(self):
-        return False
-
-    @property
-    def dark_sigma_level(self):
-        return 3
-
-    @property
-    def dark_sigma_iter(self):
-        return 1
+        return True
 
     @property
     def dark_metric(self):
-        return "weighted"
+        return "mean"
 
     # =========================================================================== #
     # Gain
