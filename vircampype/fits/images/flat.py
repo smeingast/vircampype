@@ -13,7 +13,6 @@ from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
 from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.bpm import MasterBadPixelMask
-from vircampype.fits.tables.linearity import MasterLinearity
 from vircampype.fits.images.common import FitsImages, MasterImages
 
 
@@ -547,8 +546,8 @@ class FlatLampGain(FlatImages):
                 raise ValueError("Gain sequence not compatible!")
 
             # Create master  name
-            outpath = "{0}MASTER-GAIN.NDIT_{1}.MJD_{2:0.4f}.fits.tab" \
-                      "".format(flats.setup.folders["master_common"], flats.ndit[0], flats.mjd_mean)
+            outpath = "{0}MASTER-GAIN.MJD_{1:0.4f}.fits.tab" \
+                      "".format(flats.setup.folders["master_common"], flats.mjd_mean)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) \
@@ -575,15 +574,21 @@ class FlatLampGain(FlatImages):
             f0.apply_masks(bpm=m0), f1.apply_masks(bpm=m1)
             d0.apply_masks(bpm=m0), d1.apply_masks(bpm=m1)
 
+            # Mask saturated pixels in flats
+            for idx_hdu in range(len(self.setup.saturation_levels)):
+                f0.cube[idx_hdu][f0.cube[idx_hdu] > self.setup.saturation_levels[idx_hdu]] = np.nan
+                f1.cube[idx_hdu][f1.cube[idx_hdu] > self.setup.saturation_levels[idx_hdu]] = np.nan
+
             # Get variance in difference images
             fvar, dvar = (f0 - f1).var(axis=(1, 2)), (d0 - d1).var(axis=(1, 2))
 
             # Calculate gain
-            gain = ((f0.mean(axis=(1, 2)) + f1.mean(axis=(1, 2))) -
-                    (d0.mean(axis=(1, 2)) + d1.mean(axis=(1, 2)))) / (fvar - dvar)
+            mf0, mf1 = f0.background_planes()[0], f1.background_planes()[0]
+            md0, md1 = d0.background_planes()[0], d1.background_planes()[0]
+            gain = ((mf0 + mf1) - (md0 + md1)) / (fvar - dvar)
 
             # Calculate readout noise
-            rdnoise = gain * np.sqrt(dvar) / np.sqrt(2)
+            rdnoise = gain * np.sqrt(dvar / 2)
 
             # Make header cards
             prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
