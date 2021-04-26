@@ -384,6 +384,7 @@ class FlatLampLin(FlatImages):
             thdulist = fits.HDUList([fits.PrimaryHDU(header=prime_header)] + table_hdus)
             thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
 
+            # TODO: Activate after testing
             # Initialize plot if set
             # if self.setup.qc_plots:
             #     mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
