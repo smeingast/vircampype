@@ -201,7 +201,7 @@ class Pipeline:
     def build_master_linearity(self):
         if self.flat_lamp_lin is not None:
             if not self.status.master_linearity:
-                self.flat_lamp_lin.build_master_linearity()
+                self.flat_lamp_lin.build_master_linearity(darks=self.dark_lin)
                 self.update_status(path=self.path_status, master_linearity=True)
             else:
                 print_message(message="MASTER-LINEARITY already created", kind="warning", end=None)
