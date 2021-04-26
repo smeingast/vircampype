@@ -76,6 +76,89 @@ def clipped_stdev(data, **kwargs):
     return sigma_clipped_stats(data, **kwargs)[2]  # noqa
 
 
+def cuberoot_idl(c0: (int, float), c1: (int, float), c2: (int, float), c3: (int, float)):
+    """
+    Copied from the IDL implementation.
+    Function to return the roots of a cubic polynomial c0 + c1*x + c2*x^2 + c3*x^3 = 0
+
+
+    Parameters
+    ----------
+    c0 : int, float
+        0th order polynomial coefficient.
+    c1 : int, float
+        1st order polynomial coefficient.
+    c2 : int, float
+        2nd order polynomial coefficient.
+    c3 : int, float
+        3rd order polynomial coefficient.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the three possible (real) solutions.
+
+    """
+
+    # Get data into shape
+    c1 = np.full_like(c0, fill_value=c1)
+    c2 = np.full_like(c0, fill_value=c2)
+    c3 = np.full_like(c0, fill_value=c3)
+
+    # Make solution arrays
+    solution1 = np.full_like(c0, fill_value=np.nan)
+    solution2 = np.full_like(c0, fill_value=np.nan)
+    solution3 = np.full_like(c0, fill_value=np.nan)
+
+    # Normalize to a + bx + cx^2 + x^3=0
+    c = c2/c3
+    b = c1/c3
+    a = c0/c3
+
+    q = (c**2 - 3*b) / 9
+    r = (2 * c**3 - 9 * c * b + 27 * a) / 54
+
+    index1 = r**2 < q**3
+    index2 = ~index1
+    count1, count2 = np.sum(index1), np.sum(index2)
+
+    # Filter case r^2 < q^3
+    if count1 > 0:
+        rf = r[index1]
+        qf = q[index1]
+        cf = c[index1]
+
+        theta = np.arccos(rf / qf**1.5)
+        solution1[index1] = -2 * np.sqrt(qf) * np.cos(theta / 3) - cf / 3
+        solution2[index1] = -2 * np.sqrt(qf) * np.cos((theta + 2 * np.pi) / 3) - cf / 3
+        solution3[index1] = -2 * np.sqrt(qf) * np.cos((theta - 2 * np.pi) / 3) - cf / 3
+
+    # All other cases
+    if count2 > 0:
+        rf = r[index2]
+        qf = q[index2]
+        cf = c[index2]
+
+        # Get the one real root
+        h = -rf / np.abs(rf) * (np.abs(rf) + np.sqrt(rf**2 - qf**3))**(1 / 3)
+        k = h
+
+        zindex = np.isclose(h, 0, atol=1.E-5)
+        cindex = ~zindex
+        zcount, ccount = np.sum(zindex), np.sum(cindex)
+        if zcount > 0:
+            k[zindex] = 0.
+        if ccount > 0:
+            k[cindex] = qf / h
+
+        solution1[index2] = (h + k) - cf / 3
+        solution2[index2] = np.nan
+        solution3[index2] = np.nan
+
+    # Return solutions
+    return solution1, solution2, solution3
+
+
 def cuberoot(a, b, c, d, return_real=False):
     """
     Function to return the roots of a cubic polynomial a + bx + cx^2 + dx^3 = 0
