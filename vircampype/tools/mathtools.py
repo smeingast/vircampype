@@ -256,7 +256,7 @@ def linearize_data(data, coeff, dit, reset_read_overhead):
     ----------
     data : np.ndarray
         Input data to be linearized.
-    coeff : list[floats]
+    coeff : list[floats], ndarray
         List of coefficients.
     dit : int, float
         DIT of input data.
