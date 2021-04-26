@@ -4,6 +4,7 @@ import numpy as np
 
 from astropy.io import fits
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 from vircampype.tools.plottools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.mathtools import *
@@ -331,15 +332,19 @@ class FlatLampLin(FlatImages):
                 coeff = np.insert(coeff, 0, 0)
                 coeff_norm = np.insert(coeff_norm, 0, 0)
 
-                # Compute non-linearity at 10000 ADU for DIT=2
-                nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm, dit=2,
-                                          reset_read_overhead=1.0011) / 10000 - 1)[0] * 100
-
                 # Linearize data
                 flux_lin = []
                 for f, t in zip(flux, dit):
                     flux_lin.append(linearize_data(data=f, coeff=coeff_norm, dit=t, reset_read_overhead=1.0011))
                 flux_lin = np.asarray(flux_lin)
+
+                # Compute non-linearity at 10000 ADU for DIT=2
+                # nl10000 = (linearize_data(data=np.array([10000]), coeff=coeff_norm, dit=2,
+                #                           reset_read_overhead=1.0011) / 10000 - 1)[0] * 100
+
+                # Interpolate non linearity at 10000 ADU
+                interp = interp1d(flux, flux_lin)
+                nl10000 = (interp(10000) / 10000 - 1) * 100
 
                 # Make fits cards for coefficients
                 cards_coeff, cards_poly = [], []
@@ -358,7 +363,7 @@ class FlatLampLin(FlatImages):
                 add_float_to_header(header=hdr, key="HIERARCH PYPE QC SATURATION", value=satlevel,
                                     decimals=1, comment="Saturation limit (ADU)")
                 add_float_to_header(header=hdr, key="HIERARCH PYPE QC NL10000", value=nl10000,
-                                    decimals=3, comment="Non-linearity at 10000 ADU for DIT=2 in %")
+                                    decimals=3, comment="Non-linearity at 10000 ADU (%)")
 
                 # Linearize data
                 flux_clean_lin = []
