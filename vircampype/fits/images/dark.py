@@ -3,12 +3,12 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from vircampype.external.mmm import mmm
 from vircampype.tools.plottools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.common import MasterImages
 
@@ -26,18 +26,21 @@ class DarkImages(FitsImages):
         tstart = time.time()
 
         # Split files first on NDIT, then on lag
-        split = self.split_keywords(keywords=[self.setup.keywords.ndit])
+        split = self.split_keywords(keywords=[self.setup.keywords.ndit, self.setup.keywords.dit])
         split = flat_list([s.split_lag(max_lag=self.setup.dark_max_lag) for s in split])
+
+        # Remove sequences with too few images
+        split = prune_list(split, n_min=self.setup.superflat_n_min)
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
 
             # Check sequence suitability for Dark (same number of HDUs and NDIT)
-            files.check_compatibility(n_hdu_max=1, n_ndit_max=1)
+            files.check_compatibility(n_hdu_max=1, n_ndit_max=1, n_dit_max=1)
 
             # Create Mastedark name
-            outpath = "{0}MASTER-DARK.NDIT_{1}.MJD_{2:0.4f}.fits" \
-                      "".format(files.setup.folders["master_common"], files.ndit[0], files.mjd_mean)
+            outpath = "{0}MASTER-DARK.DIT_{1}.NDIT_{2}.MJD_{3:0.4f}.fits" \
+                      "".format(files.setup.folders["master_common"], files.dit[0], files.ndit[0], files.mjd_mean)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
@@ -46,8 +49,8 @@ class DarkImages(FitsImages):
             # Instantiate output
             master_cube = ImageCube(setup=self.setup)
 
-            # Get Masterbpm if set
-            master_bpm = files.get_master_bpm()
+            # Get master linearity
+            master_linearity = files.get_master_linearity()
 
             # Start looping over detectors
             data_headers = []
@@ -61,34 +64,28 @@ class DarkImages(FitsImages):
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
 
-                # Scale cube with DIT
-                cube.scale_planes(scales=1/files.dit_norm)
+                # Read linearity coefficients
+                lcff = master_linearity.hdu2coeff(hdu_index=d)
 
-                # Get master calibration
-                bpm = master_bpm.hdu2cube(hdu_index=d, dtype=np.uint8)
+                # Scale cube with NDIT
+                cube.scale_planes(scales=1 / files.ndit_norm)
+
+                # Linearize data
+                cube.linearize(coeff=lcff, dit=files.dit)
 
                 # Masking methods
-                cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max, bpm=bpm,
-                                 sigma_level=self.setup.dark_sigma_level, sigma_iter=self.setup.dark_sigma_iter)
-
-                # Create weights if needed
-                if self.setup.flat_metric == "weighted":
-                    weights = np.empty_like(cube.cube, dtype=np.float32)
-                    weights[:] = files.dit_norm[:, np.newaxis, np.newaxis]
-                    weights[~np.isfinite(cube.cube)] = 0.
-                else:
-                    weights = None
+                cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max)
 
                 # Flatten data
-                collapsed = cube.flatten(metric=self.setup.dark_metric, axis=0, weights=weights, dtype=None)
+                collapsed = cube.flatten(metric=string2func(self.setup.dark_metric), axis=0, dtype=None)
 
                 # Determine dark current and std
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
-                    _, dc, dc_std = sigma_clipped_stats(collapsed)
+                    dc, dc_std, _ = mmm(collapsed)
 
-                # Norm to 1s also via NDIT
-                dc, dc_std = dc / files.ndit[0], dc_std / files.ndit[0]
+                # Norm to 1s also via DIT
+                dc, dc_std = dc / files.dit[0], dc_std / files.dit[0]
 
                 # Write DC into data header
                 header = fits.Header()
@@ -107,7 +104,7 @@ class DarkImages(FitsImages):
             prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
                                                self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
                                                self.setup.keywords.object, "HIERARCH PYPE N_FILES"],
-                                     values=[1, files.ndit[0],
+                                     values=[files.dit[0], files.ndit[0],
                                              files.mjd_mean, files.time_obs_mean,
                                              "MASTER-DARK", len(files)])
             prime_header = fits.Header(cards=prime_cards)
