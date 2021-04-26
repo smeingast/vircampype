@@ -763,7 +763,7 @@ class ImageCube(object):
                 raise ValueError("Weights don't match input")
 
             # Calculate weighted average
-            flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis, weights=weights)
+            flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis, weights=weights)  # noqa
             """:type : np.ma.MaskedArray"""
 
             # Fill NaNs back in and return
@@ -1258,6 +1258,7 @@ class ImageCube(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                # TODO: Replace this with MMM
                 mp = parallel(delayed(background_image)(a, b, c) for a, b, c
                               in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
 
