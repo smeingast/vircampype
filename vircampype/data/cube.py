@@ -914,6 +914,7 @@ class ImageCube(object):
             The normalization data applied after processing.
 
         """
+        # TODO: Delete this method
 
         # Normalize
         if norm_before is not None:
