@@ -360,13 +360,18 @@ class RawSkyImages(SkyImages):
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
             # Get master calibration
-            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32) * self.dit_norm[idx_file]
+            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
             flat = master_flat.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-            lin = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
+            lcff = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
 
-            # Do raw calibration
-            cube.process_raw(norm_before=self.ndit_norm[idx_file], dark=dark, flat=flat,
-                             linearize=(lin, np.repeat(self.dit[idx_file], len(cube))))
+            # Norm to NDIT=1
+            cube.normalize(norm=self.ndit[idx_file])
+
+            # Linearize
+            cube.linearize(coeff=lcff, dit=self.dit[idx_file])
+
+            # Process with dark and flat
+            cube = (cube - dark) / flat
 
             # Compute source masks
             cube_sources = cube.build_source_masks()
