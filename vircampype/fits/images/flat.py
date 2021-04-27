@@ -60,7 +60,7 @@ class FlatTwilight(FlatImages):
 
             # Fetch the Masterfiles
             master_bpms = files.get_master_bpm()
-            master_darks = files.get_master_dark(ignore_dit=True)
+            master_darks = files.get_master_dark()
             master_linearity = files.get_master_linearity()
 
             for master in [master_bpms, master_darks, master_linearity]:
@@ -84,22 +84,26 @@ class FlatTwilight(FlatImages):
                 # Get master calibration
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
-                dark.scale_planes(scales=files.dit_norm)
-                lin = master_linearity.hdu2coeff(hdu_index=d)
+                lcff = master_linearity.hdu2coeff(hdu_index=d)
                 sat = self.setup.saturation_levels[d-1]
-                norm_before = files.ndit_norm
 
-                # Do calibration
-                cube.process_raw(dark=dark, linearize=(lin, files.dit), norm_before=norm_before)
+                # Scale data to NDIT=1
+                cube.normalize(files.ndit)
+
+                # Linearize
+                cube.linearize(coeff=lcff, dit=files.dit)
+
+                # Subtract master dark
+                cube -= dark
 
                 # Apply masks (only BPM and saturation before scaling)
                 cube.apply_masks(bpm=bpm, mask_above=sat)
 
                 # Determine flux for each plane of the cube
-                flux.append(cube.median(axis=(1, 2)))
+                flux.append(cube.background_planes()[0])
 
                 # Scale the cube with the fluxes
-                cube.scale_planes(scales=1/np.array(flux[-1]))
+                cube.scale_planes(scales=1 / flux[-1])
 
                 # After flux scaling we can also safely apply the remaining masks
                 cube.apply_masks(mask_min=self.setup.flat_mask_min, mask_max=self.setup.flat_mask_max,
@@ -108,14 +112,16 @@ class FlatTwilight(FlatImages):
 
                 # Create weights if needed
                 if self.setup.flat_metric == "weighted":
+                    metric = "weighted"
                     weights = np.empty_like(cube.cube)
                     weights[:] = flux[-1][:, np.newaxis, np.newaxis]
                     weights[~np.isfinite(cube.cube)] = 0.
                 else:
+                    metric = string2func(self.setup.flat_metric)
                     weights = None
 
                 # Flatten data
-                flat = cube.flatten(metric=self.setup.flat_metric, axis=0, weights=weights, dtype=None)
+                flat = cube.flatten(metric=metric, axis=0, weights=weights, dtype=None)
 
                 # Create header with flux measurements
                 cards_flux = []
