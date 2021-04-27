@@ -589,7 +589,11 @@ class Setup(dict):
 
     @property
     def sky_sigma_iter(self):
-        return 1
+        return 2
+
+    @property
+    def sky_metric(self):
+        return "weighted"
 
     @property
     def background_mesh_size(self):
@@ -598,10 +602,6 @@ class Setup(dict):
     @property
     def background_mesh_filtersize(self):
         return 3
-
-    @property
-    def sky_metric(self):
-        return "median"
 
     # =========================================================================== #
     # Superflat
