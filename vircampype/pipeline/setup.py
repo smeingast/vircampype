@@ -397,11 +397,11 @@ class Setup(dict):
 
     @property
     def flat_mask_min(self):
-        return False
+        return True
 
     @property
     def flat_mask_max(self):
-        return False
+        return True
 
     @property
     def flat_rel_lo(self):
