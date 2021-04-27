@@ -5,6 +5,7 @@ import numpy as np
 from astropy.units import Unit
 from fractions import Fraction
 from scipy.ndimage import median_filter
+from vircampype.external.mmm import mmm
 from astropy.coordinates import SkyCoord
 from scipy.stats import binned_statistic_2d
 from vircampype.tools.miscellaneous import *
@@ -773,7 +774,7 @@ def background_image(image, mesh_size, mesh_filtersize=3):
              range(0, image.shape[0], mesh_size) for y in range(0, image.shape[1], mesh_size)]
 
     # Estimate background for each tile
-    bg, bg_std = list(zip(*[estimate_background(t, max_iter=50, force_clipping=True) for t in tiles]))
+    bg, bg_std, _ = list(zip(*[mmm(t) for t in tiles]))
 
     # Scale back to 2D array
     n_tiles_x, n_tiles_y = image.shape[1] // mesh_size, image.shape[0] // mesh_size
