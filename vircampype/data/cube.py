@@ -859,6 +859,10 @@ class ImageCube(object):
         else:
             cff = repeat(coeff)
 
+        # If just a single value for the dit is provided
+        if isinstance(dit, (int, float)):
+            dit = repeat(dit)
+
         # Only launch Pool if more than one thread is requested
         if self.setup.n_jobs == 1:
             mp = []
