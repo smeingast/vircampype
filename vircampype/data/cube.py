@@ -799,7 +799,10 @@ class ImageCube(object):
             self.cube /= norm
 
         # If we have an array...
-        elif isinstance(norm, np.ndarray):
+        elif isinstance(norm, (np.ndarray, list)):
+
+            if isinstance(norm, list):
+                norm = np.asarray(norm)
 
             # ...with one dimension
             if norm.ndim == 1:
