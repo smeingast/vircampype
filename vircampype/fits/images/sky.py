@@ -662,7 +662,7 @@ class ProcessedSkyImages(SkyImages):
                 # Add modification factor
                 add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
                                     key="HIERARCH PYPE SUPERFLAT FACTOR",
-                                    value=mod,
+                                    value=mod,  # noqa
                                     comment="Median superflat modification factor", remove_before=True)
 
                 # Adapt keywords
