@@ -1265,7 +1265,6 @@ class ImageCube(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                # TODO: Replace this with MMM
                 mp = parallel(delayed(background_image)(a, b, c) for a, b, c
                               in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
 
