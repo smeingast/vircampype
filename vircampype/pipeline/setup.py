@@ -560,7 +560,7 @@ class Setup(dict):
         return 250000
 
     # =========================================================================== #
-    # Sky
+    # Master Sky
     @property
     def sky_mix_science(self):
         return True
@@ -595,6 +595,8 @@ class Setup(dict):
     def sky_metric(self):
         return "weighted"
 
+    # =========================================================================== #
+    # Background mesh
     @property
     def background_mesh_size(self):
         return 64
