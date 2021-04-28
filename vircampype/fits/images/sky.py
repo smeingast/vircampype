@@ -6,20 +6,17 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from itertools import repeat
 from astropy.table import Table
 from vircampype.tools.wcstools import *
 from vircampype.tools.plottools import *
-from joblib import Parallel, delayed
-from vircampype.tools.systemtools import *
 from vircampype.tools.fitstools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.mathtools import *
 from astropy.coordinates import SkyCoord
 from vircampype.tools.tabletools import *
+from vircampype.tools.systemtools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
 from vircampype.tools.viziertools import download_2mass
 from vircampype.tools.astromatic import SwarpSetup
 from vircampype.tools.astromatic import SextractorSetup
@@ -436,7 +433,7 @@ class RawSkyImages(SkyImages):
             master_mask = files.get_master_source_mask()
 
             # Instantiate output
-            sky, noise = [], []
+            sky_all, noise_all = [], []
             master_cube = ImageCube(setup=self.setup, cube=None)
 
             # Start looping over detectors
@@ -453,46 +450,57 @@ class RawSkyImages(SkyImages):
                 # Get master calibration
                 bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
                 dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
-                dark.scale_planes(scales=files.dit_norm)
                 flat = master_flat.hdu2cube(hdu_index=d, dtype=np.float32)
                 sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
-                lin = master_linearity.hdu2coeff(hdu_index=d)
+                lcff = master_linearity.hdu2coeff(hdu_index=d)
 
-                # Do calibration
-                cube.process_raw(norm_before=files.ndit_norm, dark=dark, flat=flat,
-                                 linearize=(lin, files.dit))
+                # Norm to NDIT=1
+                cube.normalize(norm=files.ndit)
+
+                # Linearize
+                cube.linearize(coeff=lcff, dit=files.dit)
+
+                # Process with dark and flat
+                cube = (cube - dark) / flat
+
+                # Compute sky level in each plane
+                sky, sky_std = cube.background_planes()
+                sky_all.append(sky)
+                noise_all.append(sky_std)
+
+                # Normalize to same flux level
+                cube.normalize(norm=sky / np.mean(sky))
+
+                # Subtract (scaled) constant sky level from each plane
+                sky_scaled, noise_scaled = cube.background_planes()
+                cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
 
                 # Apply masks to the normalized cube
                 cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup.sky_mask_min,
                                  mask_max=self.setup.sky_mask_max, sigma_level=self.setup.sky_sigma_level,
                                  sigma_iter=self.setup.sky_sigma_iter)
 
-                # Determine median sky level in each plane
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore")
-                    """ Need to use threading here to suppress warnings """
-                    with Parallel(n_jobs=self.setup.n_jobs, backend="threading") as parallel:
-                        background = parallel(delayed(sigma_clipped_stats)(a, b, c, d, e, f, g) for a, b, c, d, e, f, g
-                                              in zip(cube.cube, repeat(None), repeat(None), repeat(3.0),
-                                                     repeat(None), repeat(None), repeat(2)))
-                _, s, n = list(zip(*background))
-                sky.append(np.array(s))
-                noise.append(np.array(n))
+                # Create weights if needed
+                if self.setup.flat_metric == "weighted":
+                    metric = "weighted"
+                    weights = np.empty_like(cube.cube)
+                    weights[:] = (1 / noise_scaled)[:, np.newaxis, np.newaxis]
+                    weights[~np.isfinite(cube.cube)] = 0.
+                else:
+                    metric = string2func(self.setup.flat_metric)
+                    weights = None
 
-                # Subtract sky level from each plane
-                cube.cube -= sky[-1][:, np.newaxis, np.newaxis]
-
-                # Collapse extensions
-                collapsed = cube.flatten(metric=string2func(self.setup.sky_metric))
+                # Collapse cube
+                collapsed = cube.flatten(metric=metric, axis=0, weights=weights, dtype=None)
 
                 # Create header with sky measurements
                 cards_sky = []
-                for cidx in range(len(sky[-1])):
+                for cidx in range(len(sky)):
                     cards_sky.append(make_cards(keywords=["HIERARCH PYPE SKY MEAN {0}".format(cidx),
                                                           "HIERARCH PYPE SKY NOISE {0}".format(cidx),
                                                           "HIERARCH PYPE SKY MJD {0}".format(cidx)],
-                                                values=[np.round(sky[-1][cidx], 2),
-                                                        np.round(noise[-1][cidx], 2),
+                                                values=[np.round(sky[cidx], 2),
+                                                        np.round(sky_std[cidx], 2),
                                                         np.round(files.mjd[cidx], 5)],
                                                 comments=["Measured sky (ADU)",
                                                           "Measured sky noise (ADU)",
@@ -503,7 +511,8 @@ class RawSkyImages(SkyImages):
                 master_cube.extend(data=collapsed.astype(np.float32))
 
             # Get the standard deviation vs the mean in the (flat-fielded and linearized) data for each detector.
-            det_err = [np.std([x[idx] for x in sky]) / np.mean([x[idx] for x in sky]) for idx in range(len(files))]
+            det_err = [np.std([x[idx] for x in sky_all]) / np.mean([x[idx] for x in sky_all])
+                       for idx in range(len(files))]
 
             # Mean flat field error
             flat_err = np.round(100. * np.mean(det_err), decimals=2)
