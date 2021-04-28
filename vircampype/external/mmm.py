@@ -103,10 +103,11 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
     nsky = len(sky_vector)  # Get number of sky elements
 
     if nsky < minsky:
-        sigma = -1.0
-        skew = 0.0
+        sigma = np.nan
+        skew = np.nan
         skymod = np.nan
-        print('ERROR -Input vector must contain at least ' + str(minsky) + ' elements')
+        if debug:
+            print('ERROR -Input vector must contain at least ' + str(minsky) + ' elements')
         return skymod, sigma, skew
 
     nlast = nsky - 1  # Subscript of last pixel in SKY array
