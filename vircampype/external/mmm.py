@@ -171,7 +171,8 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
         if niter > mxiter:
             sigma = -1.0
             skew = 0.0
-            print('ERROR - Too many (' + str(mxiter) + ') iterations,' + ' unable to compute sky')
+            if debug:
+                print('ERROR - Too many (' + str(mxiter) + ') iterations,' + ' unable to compute sky')
             #            import pdb; pdb.set_trace()
             return skymod, sigma, skew
 
@@ -179,7 +180,8 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
 
             sigma = -1.0
             skew = 0.0
-            print('ERROR - Too few (' + str(maximm - minimm) + ') valid sky elements, unable to compute sky')
+            if debug:
+                print('ERROR - Too few (' + str(maximm - minimm) + ') valid sky elements, unable to compute sky')
             return skymod, sigma, skew
 
         # Compute Chauvenet rejection criterion.
