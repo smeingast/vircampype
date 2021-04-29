@@ -130,10 +130,11 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
     ngood = len(good)
 
     if ngood == 0:
-        sigma = -1.0
-        skew = 0.0
-        skymod = 0.0
-        print('ERROR - No sky values fall within ' + str(cut1) + ' and ' + str(cut2))
+        sigma = np.nan
+        skew = np.nan
+        skymod = np.nan
+        if debug:
+            print('ERROR - No sky values fall within ' + str(cut1) + ' and ' + str(cut2))
         return skymod, sigma, skew
 
     delta = sky[good] - skymid  # Subtract median to improve arithmetic accuracy
@@ -169,8 +170,8 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
     while redo:
         niter = niter + 1
         if niter > mxiter:
-            sigma = -1.0
-            skew = 0.0
+            sigma = np.nan
+            skew = np.nan
             if debug:
                 print('ERROR - Too many (' + str(mxiter) + ') iterations,' + ' unable to compute sky')
             #            import pdb; pdb.set_trace()
@@ -276,9 +277,10 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
         #
         nsky = maximm - minimm
         if nsky < minsky:  # error?
-            sigma = -1.0
-            skew = 0.0
-            print('ERROR - Outlier rejection left too few sky elements')
+            sigma = np.nan
+            skew = np.nan
+            if debug:
+                print('ERROR - Outlier rejection left too few sky elements')
             return skymod, sigma, skew
 
         skymn = mysum / nsky
