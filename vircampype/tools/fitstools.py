@@ -370,3 +370,43 @@ def delete_keyword_from_header(header, keyword):
     except KeyError:
         pass
     return header
+
+
+def replace_data(file_a: str, file_b: str):
+    """
+    Copies all data from file A to file B, but leaves the headers untouched.
+
+    Parameters
+    ----------
+    file_a : str
+        Path to file A.
+    file_b : str
+        Path to file B.
+
+    """
+
+    # Open both files
+    hdul_a = fits.open(file_a)
+    hdul_b = fits.open(file_b, mode="update")
+
+    # Number of HDUs must be equal
+    if len(hdul_a) != len(hdul_b):
+        raise ValueError("Number of HDUs not equal. n(A)={0}; n(B)={1}".format(len(hdul_a), len(hdul_b)))
+
+    # Loop over HDUs:
+    for idx_hdu in range(len(hdul_a)):
+        hdu_a, hdu_b = hdul_a[idx_hdu], hdul_b[idx_hdu]
+
+        # Extension type must match
+        if hdu_a.__class__ != hdu_b.__class__:
+            raise ValueError("Extension types to not match")
+
+        # Copy data
+        hdu_b.data = hdu_a.data
+
+    # Flush data to file B
+    hdul_b.flush()
+
+    # Close files
+    hdul_a.close()
+    hdul_b.close()
