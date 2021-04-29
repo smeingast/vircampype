@@ -1189,7 +1189,7 @@ class ImageCube(object):
         # Submit parallel jobs for background estimation in each cube plane
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                 mp = parallel(delayed(background_image)(a, b, c) for a, b, c
                               in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
 
