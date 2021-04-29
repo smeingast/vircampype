@@ -8,7 +8,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
            "merge_headers", "add_float_to_header", "convert_bitpix_image", "delete_keyword_from_header",
-           "add_int_to_header"]
+           "add_int_to_header", "replace_data"]
 
 
 def check_card_value(value):
