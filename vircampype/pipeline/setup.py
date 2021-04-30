@@ -51,7 +51,7 @@ class Setup(dict):
         self.__sex_back_filtersize = 3
 
         # Astrometry
-        self.__astr_reference_catalog = "Gaia"
+        self.__astr_reference_catalog = "2MASS"
 
         # Photometry
         self.__reference_mag_lim = None
