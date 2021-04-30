@@ -569,30 +569,35 @@ class RawSkyImages(SkyImages):
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read file into cube
-            calib_cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
             # Get master calibration
-            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32) * self.dit_norm[idx_file]
+            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
             flat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
             sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
-            lin = master_linearity.file2coeff(file_index=idx_file)
+            lcff = master_linearity.file2coeff(file_index=idx_file)
 
-            # Do calibration
-            calib_cube.process_raw(norm_before=self.ndit_norm[idx_file], dark=dark, flat=flat, sky=sky,
-                                   linearize=(lin, np.repeat(self.dit[idx_file], len(calib_cube))))
+            # Norm to NDIT=1
+            cube.normalize(norm=self.ndit[idx_file])
+
+            # Linearize
+            cube.linearize(coeff=lcff, dit=self.dit[idx_file])
+
+            # Process with dark, flat, and sky
+            cube = (cube - dark) / flat - sky
 
             # Apply cosmetics
             if self.setup.interpolate_nan_bool:
-                calib_cube.interpolate_nan()
+                cube.interpolate_nan()
             if self.setup.destripe:
-                calib_cube.destripe()
+                cube.destripe()
             if self.setup.subtract_background:
                 sources = master_source_mask.file2cube(file_index=idx_file)
-                temp_cube = copy.deepcopy(calib_cube)
+                temp_cube = copy.deepcopy(cube)
                 temp_cube.apply_masks(sources=sources)
                 bg = temp_cube.background()[0]
                 bg -= np.nanmedian(bg)
-                calib_cube -= bg
+                cube -= bg
 
             # Add Gain, read noise, and saturation limit to headers
             for h, g, r, s in zip(self.headers_data[idx_file], master_gain.gain[idx_file],
@@ -612,8 +617,7 @@ class RawSkyImages(SkyImages):
             phdr["LINFILE"] = master_linearity.basenames[idx_file]
 
             # Write to disk
-            calib_cube.write_mef(path=outpath, prime_header=phdr,
-                                 data_headers=self.headers_data[idx_file], dtype="float32")
+            cube.write_mef(path=outpath, prime_header=phdr, data_headers=self.headers_data[idx_file], dtype="float32")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
