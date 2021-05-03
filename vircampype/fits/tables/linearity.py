@@ -197,7 +197,7 @@ class MasterLinearity(MasterTables):
             plot_value_detector(values=nl, path=path, ylabel="Non-linearity @10000ADU/DIT=2 (%)",
                                 axis_size=axis_size, hlines=[0])
 
-    def qc_plot_linearity_fit(self, paths=None, axis_size=4, overwrite=False):
+    def qc_plot_linearity_fit(self, paths=None, axis_size=4):
 
         """
         Create the QC plot for the linearity measurements. Should only be used together with the above method.
@@ -208,8 +208,6 @@ class MasterLinearity(MasterTables):
             Paths of the QC plot files. If None (default), use relative path
         axis_size : int, float, optional
             Axis size. Default is 5.
-        overwrite : optional, bool
-            Whether an exisiting plot should be overwritten. Default is False.
 
         """
 
@@ -222,9 +220,9 @@ class MasterLinearity(MasterTables):
             paths = ["{0}{1}_fit.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
 
         # Loop over files and create plots
-        for path, dit, flux, flux_lin, nl10000, coeff, coeff_poly in zip(paths, self.linearity_dit, self.flux,
-                                                                         self.flux_linearized, self.nl10000,
-                                                                         self.coeff, self.coeff_poly):
+        for path, dit, flux, flux_lin, nl10000, coeff, coeff_poly in \
+                zip(paths, self.linearity_dit, self.flux, self.flux_linearized,
+                    self.nl10000, self.coeff, self.coeff_poly):
 
             # Get plot grid
             fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
