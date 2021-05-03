@@ -266,6 +266,11 @@ class FitsImages(FitsFiles):
         flat_lamp_check = None if len(flat_lamp_check_index) < 1 else \
             FlatLampCheck(setup=self.setup, file_paths=[self.paths_full[i] for i in flat_lamp_check_index])
 
+        dark_check_index = [i for i, (c, t) in enumerate(zip(category, types)) if
+                            c == "CALIB" and t == "DARK,CHECK"]
+        dark_check = None if len(dark_check_index) < 1 else \
+            DarkImages(setup=self.setup, file_paths=[self.paths_full[i] for i in dark_check_index])
+
         dark_gain_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                            c == "CALIB" and t == "DARK,GAIN"]
         dark_gain = None if len(dark_gain_index) < 1 else \
@@ -282,8 +287,8 @@ class FitsImages(FitsFiles):
             RawStdImages(setup=self.setup, file_paths=[self.paths_full[i] for i in std_index])
 
         return dict(science=science, offset=offset, std=std, dark_science=dark_science, dark_lin=dark_lin,
-                    dark_gain=dark_gain, flat_twilight=flat_twilight, flat_lamp_lin=flat_lamp_lin,
-                    flat_lamp_check=flat_lamp_check, flat_lamp_gain=flat_lamp_gain)
+                    dark_gain=dark_gain, dark_check=dark_check, flat_twilight=flat_twilight,
+                    flat_lamp_lin=flat_lamp_lin, flat_lamp_check=flat_lamp_check, flat_lamp_gain=flat_lamp_gain)
 
     # =========================================================================== #
     # I/O
