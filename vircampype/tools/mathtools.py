@@ -134,6 +134,7 @@ def cuberoot_idl(c0: (int, float), c1: (int, float), c2: (int, float), c3: (int,
 
     # All other cases
     if count2 > 0:
+        # TODO: Perhaps mask these? They are all bad solutions actually as far as I have seen so far
         rf = r[index2]
         qf = q[index2]
         cf = c[index2]
