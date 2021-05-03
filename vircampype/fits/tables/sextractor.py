@@ -672,6 +672,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         zps = np.array(self.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0])
         flx_scale = (10**((zps - self.setup.target_zp) / 2.5)).tolist()
 
+        # TODO Should be like this, but produces worse results
+        # flx_scale = (10**((self.setup.target_zp - zps) / 2.5)).tolist()
+
         # Loop over files and write to disk
         for idx_file in range(self.n_files):
 
