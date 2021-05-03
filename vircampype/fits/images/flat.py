@@ -735,10 +735,6 @@ class MasterFlat(MasterImages):
 
         for flux, mjd, gs, path in zip(self.flux, self.flux_mjd, self.gainscale, paths):
 
-            # Check if plot already exits
-            if check_file_exists(file_path=path, silent=True):
-                continue
-
             # Get plot grid
             fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
             axes = axes.ravel()
