@@ -181,7 +181,7 @@ class Pipeline:
     def build_master_bpm(self):
         if self.flat_lamp_check is not None:
             if not self.status.master_bpm:
-                self.flat_lamp_check.build_master_bpm()
+                self.flat_lamp_check.build_master_bpm(darks=self.dark_check)
                 self.update_status(path=self.path_status, master_bpm=True)
             else:
                 print_message(message="MASTER-BPM already created", kind="warning", end=None)
