@@ -150,6 +150,7 @@ def cuberoot_idl(c0: (int, float), c1: (int, float), c2: (int, float), c3: (int,
         if ccount > 0:
             k[cindex] = qf / h
 
+        # TODO: Double-check this solution with IDL
         solution1[index2] = (h + k) - cf / 3
         solution2[index2] = np.nan
         solution3[index2] = np.nan
