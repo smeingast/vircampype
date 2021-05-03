@@ -394,13 +394,13 @@ class FlatLampLin(FlatImages):
             thdulist = fits.HDUList([fits.PrimaryHDU(header=prime_header)] + table_hdus)
             thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
 
-            # TODO: Activate after testing
-            # Initialize plot if set
-            # if self.setup.qc_plots:
-            #     mlinearity = MasterLinearity(setup=self.setup, file_paths=outpath)
-            #     mlinearity.qc_plot_linearity_detector(paths=None, axis_size=5, overwrite=self.setup.overwrite)
-            #     mlinearity.qc_plot_linearity(paths=None, axis_size=5, overwrite=self.setup.overwrite)
-            #     mlinearity.qc_plot_linearity_2(paths=None, axis_size=5, overwrite=self.setup.overwrite)
+            # Make QC plots if set
+            if self.setup.qc_plots:
+                from vircampype.fits.tables.linearity import MasterLinearity
+                ml = MasterLinearity(setup=self.setup, file_paths=outpath)
+                ml.qc_plot_linearity_detector(paths=None, axis_size=5)
+                ml.qc_plot_linearity_fit(paths=None, axis_size=5)
+                ml.qc_plot_linearity_delta(paths=None, axis_size=5)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
