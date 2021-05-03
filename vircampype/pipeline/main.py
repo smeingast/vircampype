@@ -147,6 +147,10 @@ class Pipeline:
         return self.raw_split["dark_lin"]
 
     @property
+    def dark_check(self):
+        return self.raw_split["dark_check"]
+
+    @property
     def dark_gain(self):
         return self.raw_split["dark_gain"]
 
