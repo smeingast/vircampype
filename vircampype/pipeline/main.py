@@ -433,9 +433,9 @@ class Pipeline:
     def build_master_calibration(self):
         """ Sequentially build master calibration files. """
         self.build_master_bpm()
+        self.build_master_linearity()
         self.build_master_dark()
         self.build_master_gain()
-        self.build_master_linearity()
         self.build_master_flat()
         self.build_master_weight_global()
         self.build_master_source_mask()
