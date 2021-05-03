@@ -507,7 +507,6 @@ class FlatLampCheck(FlatImages):
             if self.setup.qc_plots:
                 mbpm = MasterBadPixelMask(setup=self.setup, file_paths=outpath)
                 mbpm.qc_plot_bpm(paths=None, axis_size=5)
-            exit()
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
