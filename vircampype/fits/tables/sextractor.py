@@ -433,7 +433,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Add data to header
                 add_int_to_header(header=data_header, key="HIERARCH PYPE SFLAT NSOURCES", value=nn,
                                   comment="Number of sources used")
-                add_float_to_header(header=data_header, key="HIERARCH PYPE SFLAT STD", value=np.nanstd(fscl),
+                add_float_to_header(header=data_header, key="HIERARCH PYPE SFLAT STD", value=np.nanstd(fscl),  # noqa
                                     decimals=4, comment="Standard deviation in relative flux")
 
                 # Append header
