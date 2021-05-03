@@ -1339,7 +1339,7 @@ class MasterSky(MasterImages):
         else:
             return paths
 
-    def qc_plot_sky(self, paths=None, axis_size=5, overwrite=False):
+    def qc_plot_sky(self, paths=None, axis_size=5):
         """
         Generates a simple QC plot for BPMs.
 
@@ -1349,8 +1349,6 @@ class MasterSky(MasterImages):
             Paths of the QC plot files. If None (default), use relative paths.
         axis_size : int, float, optional
             Axis size. Default is 5.
-        overwrite : optional, bool
-            Whether an exisiting plot should be overwritten. Default is False.
 
         """
 
@@ -1362,10 +1360,6 @@ class MasterSky(MasterImages):
         paths = self.paths_qc_plots(paths=paths)
 
         for sky, noise, mjd, path in zip(self.sky, self.noise, self.sky_mjd, paths):
-
-            # Check if plot already exits
-            if check_file_exists(file_path=path, silent=True) and not overwrite:
-                continue
 
             # Get plot grid
             fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
