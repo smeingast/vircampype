@@ -344,6 +344,10 @@ class MasterLinearity(MasterTables):
                 # 1:1 line
                 ax.axhline(0, c="black", lw=1, zorder=0)
 
+                # Annotate Detector ID
+                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1),
+                            xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
+
                 # Modify axes
                 if idx_hdu < self.setup.fpa_layout[1]:
                     ax.set_xlabel("Data input (ADU)")
