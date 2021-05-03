@@ -326,9 +326,9 @@ class FlatLampLin(FlatImages):
                 dit = np.array(sflats.dit)
                 dit_clean = dit[~saturated]
 
-                # Do curve fit
-                coeff, _ = curve_fit(linearity_fitfunc, dit_clean, flux_clean,
-                                     sigma=flux_err_clean, absolute_sigma=True)
+                # Do curve fit (force positive in first order term, negative in second order term)
+                coeff, _ = curve_fit(linearity_fitfunc, dit_clean, flux_clean, p0=[1, -1, -0.001],
+                                     bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]))
 
                 # Compute normalized final coefficients
                 coeff_norm = [coeff[i] / coeff[0]**(i+1) for i in range(0, len(coeff))]
