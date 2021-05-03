@@ -5,7 +5,6 @@ import numpy as np
 
 from typing import List
 from vircampype.tools.plottools import *
-from vircampype.tools.messaging import *
 from vircampype.tools.mathtools import *
 from vircampype.fits.tables.common import MasterTables
 
@@ -291,6 +290,91 @@ class MasterLinearity(MasterTables):
                 xticks, yticks = ax.xaxis.get_major_ticks(), ax.yaxis.get_major_ticks()
                 xticks[0].set_visible(False)
                 yticks[0].set_visible(False)
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(path, bbox_inches="tight")
+            plt.close("all")
+
+    def qc_plot_linearity_delta(self, paths=None, axis_size=4):
+
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Generate path for plots
+        if paths is None:
+            paths = ["{0}{1}_delta.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
+
+        # Loop over files and create plots
+        for idx_file in range(self.n_files):
+
+            # Get plot grid
+            fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
+            axes = axes.ravel()
+
+            # Grab variable for current file
+            coeff_file = self.coeff[idx_file]
+            path = paths[idx_file]
+
+            for idx_hdu in range(len(coeff_file)):
+
+                # Grab stuff for current HDU
+                ax = axes[idx_hdu]
+                coeff_hdu = coeff_file[idx_hdu]
+
+                # Generate test data
+                # data = np.linspace(1, self.setup.saturation_levels[idx_hdu] + 5000, 150)
+                data = np.linspace(1, 50000, 5000)
+
+                # Sample a few DITs
+                dits = [2, 5, 10]
+                data_lin = [linearize_data(data=data, coeff=coeff_hdu, dit=d, reset_read_overhead=1.0011) for d in dits]
+
+                # Draw
+                for idx_dit in range(len(dits)):
+                    ax.plot(data, data_lin[idx_dit] - data, lw=2, alpha=0.8,
+                            label="DIT={0}".format(dits[idx_dit]))
+
+                # Draw saturation level
+                ax.axvline(self.setup.saturation_levels[idx_hdu], ls="dashed", c="#7F7F7F",
+                           lw=1, zorder=0, label="Saturation")
+
+                # 1:1 line
+                ax.axhline(0, c="black", lw=1, zorder=0)
+
+                # Modify axes
+                if idx_hdu < self.setup.fpa_layout[1]:
+                    ax.set_xlabel("Data input (ADU)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
+                    ax.set_ylabel(r"Linearized - Input (ADU)")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Set ranges
+                ax.set_xlim(1, 50000)
+                ax.set_ylim(1, 50000)
+
+                # Logscale
+                ax.set_yscale("log")
+
+                # Set ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                # ax.yaxis.set_major_locator(MaxNLocator(5))
+                # ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Hide first tick label
+                xticks, yticks = ax.xaxis.get_major_ticks(), ax.yaxis.get_major_ticks()
+                xticks[0].set_visible(False)
+                yticks[0].set_visible(False)
+
+            # Set label on last iteration
+            ax.legend(loc="lower left", bbox_to_anchor=(0.01, 1.02), ncol=5,  # noqa
+                      fancybox=False, shadow=False, frameon=False)
 
             # Save plot
             with warnings.catch_warnings():
