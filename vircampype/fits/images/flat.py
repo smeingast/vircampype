@@ -179,7 +179,7 @@ class FlatTwilight(FlatImages):
             # QC plot
             if self.setup.qc_plots:
                 mflat = MasterFlat(setup=self.setup, file_paths=outpath)
-                mflat.qc_plot_flat(paths=None, axis_size=5, overwrite=self.setup.overwrite)
+                mflat.qc_plot_flat(paths=None, axis_size=5)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -713,7 +713,7 @@ class MasterFlat(MasterImages):
         else:
             return paths
 
-    def qc_plot_flat(self, paths=None, axis_size=4, overwrite=False):
+    def qc_plot_flat(self, paths=None, axis_size=4):
         """
         Creates the QC plot for the flat fields. Should only be used together with the above method.
 
@@ -723,8 +723,6 @@ class MasterFlat(MasterImages):
             Paths of the QC plot files. If None (default), use relative path
         axis_size : int, float, optional
             Axis size. Default is 4.
-        overwrite : optional, bool
-            Whether an exisiting plot should be overwritten. Default is False.
 
         """
 
@@ -738,7 +736,7 @@ class MasterFlat(MasterImages):
         for flux, mjd, gs, path in zip(self.flux, self.flux_mjd, self.gainscale, paths):
 
             # Check if plot already exits
-            if check_file_exists(file_path=path, silent=True) and not overwrite:
+            if check_file_exists(file_path=path, silent=True):
                 continue
 
             # Get plot grid
