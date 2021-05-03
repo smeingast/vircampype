@@ -414,7 +414,7 @@ class FlatLampCheck(FlatImages):
     # =========================================================================== #
     # Master Bad Pixel Mask
     # =========================================================================== #
-    def build_master_bpm(self):
+    def build_master_bpm(self, darks):
         """ Builds a Bad pixel mask from image data. """
 
         # Processing info
@@ -439,8 +439,11 @@ class FlatLampCheck(FlatImages):
                     and not self.setup.overwrite:
                 continue
 
+            # Find corresponding dark file
+            master_dark = files.match_mjd(match_to=darks, max_lag=1)
+
             # Instantiate output
-            master_cube = ImageCube(setup=self.setup)
+            master_bpm = ImageCube(setup=self.setup)
 
             # Start looping over detectors
             data_headers = []
@@ -454,26 +457,30 @@ class FlatLampCheck(FlatImages):
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
 
-                # Mask low and high absolute values
-                cube.apply_masks(mask_below=self.setup.bpm_abs_lo, mask_above=self.setup.bpm_abs_hi)
+                # Read dark
+                dark = master_dark.hdu2cube(hdu_index=d)
 
-                # Sigma clipping per plane
-                cube.apply_masks_plane(sigma_level=self.setup.bpm_sigma_level, sigma_iter=self.setup.bpm_sigma_iter)
+                # Subtract dark from cube
+                cube -= dark
 
                 # Collapse cube with median
-                flat = cube.flatten(metric=string2func(self.setup.bpm_metric), axis=0)
+                mflat = cube.flatten(metric=np.nanmedian, axis=0)
+
+                # Replace values close to 0 with NaN
+                mflat[np.abs(mflat) < 0.001] = np.nan
 
                 # Normalize cube with flattened data
-                cube.cube = cube.cube / flat
+                cube.cube = cube.cube / mflat
 
                 # Mask low and high relative values
-                cube.apply_masks(mask_below=self.setup.bpm_rel_lo, mask_above=self.setup.bpm_rel_hi)
+                cube.apply_masks(mask_below=1 - self.setup.bpm_rel_threshold,
+                                 mask_above=1 + self.setup.bpm_rel_threshold)
 
                 # Count how many bad pixels there are in the stack and normalize to the number of input images
                 nbad_pix = np.sum(~np.isfinite(cube.cube), axis=0) / files.n_files
 
                 # Get those pixels where the number of bad pixels is greater than the given input threshold
-                bpm = np.array(nbad_pix > self.setup.bpm_frac, dtype=np.uint8)
+                bpm = np.array(nbad_pix >= self.setup.bpm_frac, dtype=np.uint8)
 
                 # Make header cards
                 cards = make_cards(keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
@@ -482,7 +489,7 @@ class FlatLampCheck(FlatImages):
                 data_headers.append(fits.Header(cards=cards))
 
                 # Append HDU
-                master_cube.extend(data=bpm)
+                master_bpm.extend(data=bpm)
 
             # Make cards for primary headers
             prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
@@ -494,12 +501,13 @@ class FlatLampCheck(FlatImages):
             prime_header = fits.Header(cards=prime_cards)
 
             # Write to disk
-            master_cube.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
+            master_bpm.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
             # QC plot
             if self.setup.qc_plots:
                 mbpm = MasterBadPixelMask(setup=self.setup, file_paths=outpath)
                 mbpm.qc_plot_bpm(paths=None, axis_size=5)
+            exit()
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
