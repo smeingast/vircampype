@@ -7,8 +7,8 @@ from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
-           "merge_headers", "add_float_to_header", "convert_bitpix_image", "delete_keyword_from_header",
-           "add_int_to_header", "replace_data"]
+           "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image",
+           "delete_keyword_from_header", "add_int_to_header", "replace_data"]
 
 
 def check_card_value(value):
@@ -328,6 +328,17 @@ def add_int_to_header(header, key, value, comment=None, remove_before=True):
     c = fits.Card.fromstring("{0:8}= {1:0d}".format(key, value))
     c.comment = comment
     header.append(c)
+
+
+def add_str_to_header(header, key, value, comment=None, remove_before=True):
+    if remove_before:
+        try:
+            header.remove(key, remove_all=True)
+        except KeyError:
+            pass
+    if comment is None:
+        comment = ""
+    header[key] = (value, comment)
 
 
 def convert_bitpix_image(path, new_type):
