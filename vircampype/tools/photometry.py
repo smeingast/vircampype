@@ -5,7 +5,7 @@ from scipy.stats import sem
 from astropy.units import Unit
 from astropy.stats import sigma_clip, sigma_clipped_stats
 
-__all__ = ["get_zeropoint", "vega2ab"]
+__all__ = ["get_zeropoint", "vega2ab", "get_default_extinction"]
 
 
 def get_zeropoint(skycoord_cal, mag_cal, skycoord_ref, mag_ref, mag_limits_ref=None,
@@ -165,3 +165,16 @@ def vega2ab(mag, passband):
         raise ValueError("Filter {0} not supported".format(passband))
 
     return mag + cor
+
+
+def get_default_extinction(passband: str):
+    if "j" in passband.lower():
+        key = "j"
+    elif "h" in passband.lower():
+        key = "h"
+    elif "k" in passband.lower():
+        key = "ks"
+    else:
+        raise ValueError("Passband '{0}' not supported".format(passband))
+    dextinct = dict(j=0.11, h=0.06, ks=0.07)
+    return dextinct[key]
