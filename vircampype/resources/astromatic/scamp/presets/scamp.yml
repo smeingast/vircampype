@@ -92,15 +92,15 @@ ASTR_IMAFLAGSMASK:      0x0             # Astrometry rejection mask on IMAFLAGS
 
 #---------------------------- Photometric solution ----------------------------
 
-SOLVE_PHOTOM:           N               # Compute photometric solution (Y/N) ?
+SOLVE_PHOTOM:           Y               # Compute photometric solution (Y/N) ?
 MAGZERO_OUT:            0.0             # Magnitude zero-point(s) in output
 MAGZERO_INTERR:         0.01            # Internal mag.zero-point accuracy
 MAGZERO_REFERR:         0.03            # Photom.field mag.zero-point accuracy
 PHOTINSTRU_KEY:         OFFSET_I,FILTER # FITS keyword(s) defining the photom.
-MAGZERO_KEY:            PHOT_C          # FITS keyword for the mag zero-point
+MAGZERO_KEY:            NONE          # FITS keyword for the mag zero-point
 EXPOTIME_KEY:           EXPTIME         # FITS keyword for the exposure time (s)
 AIRMASS_KEY:            AIRMASS         # FITS keyword for the airmass
-EXTINCT_KEY:            PHOT_K          # FITS keyword for the extinction coeff
+EXTINCT_KEY:            DEXTINCT          # FITS keyword for the extinction coeff
 PHOTOMFLAG_KEY:         PHOTFLAG        # FITS keyword for the photometry flag
 PHOTFLUX_KEY:           FLUX_AUTO       # Catalog param. for the flux measurement
 PHOTFLUXERR_KEY:        FLUXERR_AUTO    # Catalog parameter for the flux error
