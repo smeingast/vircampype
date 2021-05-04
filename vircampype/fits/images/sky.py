@@ -593,12 +593,27 @@ class RawSkyImages(SkyImages):
             if self.setup.destripe:
                 cube.destripe()
             if self.setup.subtract_background:
+
+                # Load source mask
                 sources = master_source_mask.file2cube(file_index=idx_file)
+
+                # Apply mask
                 temp_cube = copy.deepcopy(cube)
                 temp_cube.apply_masks(sources=sources)
-                bg = temp_cube.background()[0]
+
+                # Compute background and sigma
+                bg, bgsig = temp_cube.background()
+
+                # Save sky level
+                sky, skysig = bg.median(axis=(1, 2)), bgsig.median(axis=(1, 2))
+
+                # Subtract normalized background level
                 bg -= np.nanmedian(bg)
                 cube -= bg
+
+            # Otherwise just calculate the sky level
+            else:
+                sky, skysig = cube.background_planes()
 
             # Add stuff to headers
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
@@ -637,6 +652,10 @@ class RawSkyImages(SkyImages):
                 add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="DEXTINCT",
                                     value=get_default_extinction(passband=self.passband[idx_file]),
                                     decimals=2, comment="Default extinction (mag)")
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="SKY",
+                                    value=sky[idx_hdu], comment="Original sky value (ADU)")
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="SKYSIG",
+                                    value=skysig[idx_hdu], comment="Standard deviation of sky value (ADU)")
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
