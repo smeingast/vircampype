@@ -20,6 +20,7 @@ from vircampype.tools.miscellaneous import *
 from vircampype.tools.viziertools import download_2mass
 from vircampype.tools.astromatic import SwarpSetup
 from vircampype.tools.astromatic import SextractorSetup
+from vircampype.tools.photometry import get_default_extinction
 from vircampype.fits.images.common import FitsImages, MasterImages
 
 
@@ -599,15 +600,43 @@ class RawSkyImages(SkyImages):
                 bg -= np.nanmedian(bg)
                 cube -= bg
 
-            # Add Gain, read noise, and saturation limit to headers
-            for h, g, r, s in zip(self.headers_data[idx_file], master_gain.gain[idx_file],
-                                  master_gain.rdnoise[idx_file], self.setup.saturation_levels):
-                add_float_to_header(header=h, key=self.setup.keywords.gain,
-                                    value=g * self.ndit_norm[idx_file], decimals=2, comment="Gain (e-/ADU)")
-                add_float_to_header(header=h, key=self.setup.keywords.rdnoise,
-                                    value=r, decimals=2, comment="Read noise (e-)")
-                add_float_to_header(header=h, key=self.setup.keywords.saturate,
-                                    value=s, decimals=1, comment="Saturation level (ADU)")
+            # Add stuff to headers
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+
+                # Grab parameters
+                gain = master_gain.gain[idx_file][idx_hdu - 1]
+                rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
+                saturate = self.setup.saturation_levels[idx_hdu]
+                offseti = self.headers_primary[idx_file]["OFFSET_I"]
+                noffsets = self.headers_primary[idx_file]["NOFFSETS"]
+                jitteri = self.headers_primary[idx_file]["JITTER_I"]
+                njitter = self.headers_primary[idx_file]["NJITTER"]
+                chipid = self.headers_data[idx_file][idx_hdu]["HIERARCH ESO DET CHIP NO"]
+                photstab = offseti + noffsets * (chipid - 1)
+
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.gain,
+                                    value=gain * self.ndit_norm[idx_file], decimals=2, comment="Gain (e-/ADU)")
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.rdnoise,
+                                    value=rdnoise, decimals=2, comment="Read noise (e-)")
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.saturate,
+                                    value=saturate, decimals=1, comment="Saturation level (ADU)")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NOFFSETS",
+                                  value=noffsets, comment="Total number of offsets")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="OFFSET_I",
+                                  value=offseti, comment="Current offset iteration")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NJITTER",
+                                  value=njitter, comment="Total number of jitter positions")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="JITTER_I",
+                                  value=jitteri, comment="Current jitter iteration")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="PHOTSTAB",
+                                  value=photstab, comment="Photometric stability ID")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="SCMPPHOT",
+                                  value=offseti, comment="Photometric stability ID for Scamp")
+                add_str_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.filter_name,
+                                  value=self.passband[idx_file], comment="Passband")
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="DEXTINCT",
+                                    value=get_default_extinction(passband=self.passband[idx_file]),
+                                    decimals=2, comment="Default extinction (mag)")
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
