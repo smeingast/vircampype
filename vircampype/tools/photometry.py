@@ -140,7 +140,7 @@ def get_zeropoint(skycoord_cal, mag_cal, skycoord_ref, mag_ref, mag_limits_ref=N
 def vega2ab(mag, passband):
     """
     Converts Vega to AB magnitudes for the 2MASS system.
-    http://iopscience.iop.org/article/10.1086/429803/pdf (Blanton 2005)
+    https://iopscience.iop.org/article/10.1086/429803/pdf (Blanton 2005)
 
     Parameters
     ----------
