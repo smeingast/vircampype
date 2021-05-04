@@ -533,7 +533,7 @@ class RawSkyImages(SkyImages):
             # QC plot
             if self.setup.qc_plots:
                 msky = MasterSky(setup=self.setup, file_paths=outpath)
-                msky.qc_plot_sky(paths=None, axis_size=5, overwrite=self.setup.overwrite)
+                msky.qc_plot_sky(paths=None, axis_size=5)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
