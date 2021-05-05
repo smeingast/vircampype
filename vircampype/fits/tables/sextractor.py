@@ -529,12 +529,15 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                        in zip(tables_file, image_headers_file, repeat(parameters)))
 
             # Load classification table for current file
-            tables_class_file = tables_class.file2table(file_index=idx_file)
+            try:
+                tables_class_file = tables_class.file2table(file_index=idx_file)
 
-            # Interpolate classification in parallel for each extension
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-                tables_file = parallel(delayed(interpolate_classification)(i, j) for i, j
-                                       in zip(tables_file, tables_class_file))
+                # Interpolate classification in parallel for each extension
+                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+                    tables_file = parallel(delayed(interpolate_classification)(i, j) for i, j
+                                           in zip(tables_file, tables_class_file))
+            except FileNotFoundError:
+                pass
 
             # Match apertures and add to table
             [t.add_column((t["MAG_APER"] - t["MAG_APER_COR_INTERP"]), name="MAG_APER_MATCHED")
