@@ -18,7 +18,7 @@ from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
            "ceil_value", "floor_value", "meshgrid", "estimate_background", "upscale_image", "centroid_sphere",
            "clipped_median", "clipped_stdev", "grid_value_2d", "fraction2float", "round_decimals_up",
-           "round_decimals_down", "background_image", "grid_value_2d_nn", "linearity_fitfunc"]
+           "round_decimals_down", "background_image", "grid_value_2d_nn", "linearity_fitfunc", "destripe_helper"]
 
 
 def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -1085,3 +1085,11 @@ def round_decimals_down(number: float, decimals: int = 2):
 
     factor = 10 ** decimals
     return np.floor(number * factor) / factor
+
+
+def destripe_helper(array):
+    """ Destripe helper for parallelisation. """
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        med = np.expand_dims(clipped_median(array, axis=1, sigma_lower=3, sigma_upper=2), axis=1)
+        return array - med + clipped_median(array, sigma_lower=3, sigma_upper=2)
