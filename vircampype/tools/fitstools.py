@@ -3,12 +3,13 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from astropy.time import Time
 from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
            "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image",
-           "delete_keyword_from_header", "add_int_to_header", "replace_data"]
+           "delete_keyword_from_header", "add_int_to_header", "replace_data", "mjd2dateobs"]
 
 
 def check_card_value(value):
@@ -421,3 +422,20 @@ def replace_data(file_a: str, file_b: str):
     # Close files
     hdul_a.close()
     hdul_b.close()
+
+
+def mjd2dateobs(mjd):
+    """
+    Convert MJD to fits date-obs format.
+
+    Parameters
+    ----------
+    mjd : float
+
+    Returns
+    -------
+    str
+        DATE-OBS string.
+
+    """
+    return Time(mjd, format="mjd").fits
