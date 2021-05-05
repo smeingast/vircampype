@@ -1042,6 +1042,10 @@ class ResampledScienceImages(ProcessedSkyImages):
         # Split based on Offset
         split = self.split_keywords(["OFFSET_I"])
 
+        # Sort by mean MJD (just for convenience
+        sidx = np.argsort([s.mjd_mean for s in split])
+        split = [split[i] for i in sidx]
+
         # Check sequence
         if len(split) != 6:
             raise ValueError("Sequence contains {0} offsets. Expected 6.")
@@ -1062,12 +1066,17 @@ class ResampledScienceImages(ProcessedSkyImages):
             if check_file_exists(file_path=path_stack, silent=self.setup.silent):
                 continue
 
+            # Read fits header info from input files
+            cpkw = ["NOFFSETS", "OFFSET_I", "NJITTER", "PHOTSTAB", "DEXTINCT", "SKY", "SKYSIG", "MJD-OBS", "AIRMASS"]
+            cpkw_data = files.read_from_data_headers(keywords=cpkw)
+            cpkw_dict = dict(zip(cpkw, cpkw_data))
+
             # Loop over extensions
             paths_temp_stacks, paths_temp_weights = [], []
-            for idx_hdu in files.iter_data_hdu[0]:
+            for idx_data_hdu, idx_iter_hdu in zip(files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))):
 
                 # Construct output path
-                paths_temp_stacks.append("{0}_{1:02d}.fits".format(path_stack, idx_hdu))
+                paths_temp_stacks.append("{0}_{1:02d}.fits".format(path_stack, idx_data_hdu))
                 paths_temp_weights.append("{0}.weight.fits".format(os.path.splitext(paths_temp_stacks[-1])[0]))
 
                 # Build swarp options
@@ -1077,26 +1086,42 @@ class ResampledScienceImages(ProcessedSkyImages):
                                 nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_image"])
 
                 # Modify file paths with current extension
-                paths_full_mod = ["{0}[{1}]".format(x, idx_hdu) for x in files.paths_full]
-                cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".format(idx_hdu).join(paths_full_mod),
-                                                  sws.default_config, ss, idx_hdu)
+                paths_full_mod = ["{0}[{1}]".format(x, idx_data_hdu) for x in files.paths_full]
+                cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".format(idx_data_hdu).join(paths_full_mod),
+                                                  sws.default_config, ss, idx_data_hdu)
 
                 # Run Swarp in bash (only bash understand the [ext] options, zsh does not)
-                run_command_shell(cmd=cmd, shell="bash", silent=False)
+                run_command_shell(cmd=cmd, shell="bash", silent=True)
+
+                # Modify FITS header of combined image
+                with fits.open(paths_temp_stacks[-1], mode="update") as hdul:
+
+                    # Read FITS header data for current HDU
+                    for kw in cpkw:
+                        vals = [x[idx_iter_hdu] for x in cpkw_dict[kw]]
+                        hdul[0].header[kw] = np.mean(vals).astype(vals[0].__class__)
+
+                        if "mjd" in kw.lower():
+                            dateobs = mjd2dateobs(np.mean(vals))  # noqa
+                            hdul[0].header["DATE-OBS"] = dateobs
+
+                    hdul.flush()
+
+            # Start with empty primary header
+            prhdr = fits.Header()
+            prhdr["MJD-OBS"] = files.mjd_mean
+            prhdr["DATE-OBS"] = mjd2dateobs(files.mjd_mean)
+            prhdr[self.setup.keywords.filter_name] = files.passband[0]
 
             # Construct MEF from individual detectors
             make_mef_image(paths_input=sorted(paths_temp_stacks), overwrite=self.setup.overwrite,
-                           path_output=path_stack, primeheader=files.headers_primary[0])
+                           path_output=path_stack, primeheader=prhdr)
             make_mef_image(paths_input=sorted(paths_temp_weights), overwrite=self.setup.overwrite,
-                           path_output=path_weight, primeheader=files.headers_primary[0])
+                           path_output=path_weight, primeheader=prhdr)
 
             # Remove intermediate files
             [os.remove(x) for x in paths_temp_stacks]
             [os.remove(x) for x in paths_temp_weights]
-
-            # Copy header entries from original file
-            # merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
-            # TODO: Make sure MJD (and other properties) are correctly set in headers
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
