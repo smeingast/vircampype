@@ -883,11 +883,11 @@ class ImageCube(object):
         self.cube = np.stack(mp, axis=0)
 
     def destripe(self):
-        """ Destripes the cube along a given axis (e.g. for VIRCAM axis=2) """
-
-        # Apply metric along given axis
-        self.cube = apply_along_axes(self.cube, method=self.setup.destripe_metric, axis=self.setup.destripe_axis,
-                                     norm=True, copy=False)
+        """ Destripes VIRCAM images """
+        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            mp = parallel(delayed(destripe_helper)(i) for i in self.cube)
+        # Set new data cube
+        self.cube = np.squeeze(np.array(mp))
 
     def interpolate_nan(self):
         """
