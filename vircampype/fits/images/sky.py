@@ -1111,6 +1111,7 @@ class ResampledScienceImages(ProcessedSkyImages):
             prhdr = fits.Header()
             prhdr["MJD-OBS"] = files.mjd_mean
             prhdr["DATE-OBS"] = mjd2dateobs(files.mjd_mean)
+            prhdr[self.setup.keywords.object] = files.headers_primary[0][self.setup.keywords.object]
             prhdr[self.setup.keywords.filter_name] = files.passband[0]
 
             # Construct MEF from individual detectors
