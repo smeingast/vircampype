@@ -495,16 +495,6 @@ class Setup(dict):
         return True
 
     @property
-    def destripe_axis(self):
-        """ Axis along which to destripe. """
-        return 2
-
-    @property
-    def destripe_metric(self):
-        """ Metric used in destriping. """
-        return "median"
-
-    @property
     def interpolate_nan_bool(self):
         """ Whether to interpolate NaN values. """
         return True
