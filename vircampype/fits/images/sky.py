@@ -979,7 +979,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
                         nthreads=self.setup.n_jobs, resample_suffix=sws.resample_suffix,
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                         back_size=self.setup.swarp_back_size,  back_filtersize=self.setup.swarp_back_filtersize,
-                        skip=["weight_image", "weight_thresh", "resample_dir"])
+                        fscale_keyword="FSCLSTCK", skip=["weight_image", "weight_thresh", "resample_dir"])
 
         # Construct commands for source extraction
         cmds = ["{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
