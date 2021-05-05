@@ -4,6 +4,7 @@ import pickle
 import warnings
 import numpy as np
 
+from shutil import copyfile
 from astropy.io import fits
 from itertools import repeat
 from astropy.time import Time
@@ -151,6 +152,30 @@ class SextractorCatalogs(SourceCatalogs):
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
+
+        # Normalize FLXSCALE across all headers
+        flxscale = []
+        for path_ahead in self._scamp_header_paths():
+            hdrs = read_aheaders(path=path_ahead)
+            flxscale.extend([h["FLXSCALE"] for h in hdrs])
+
+            # Make a backup
+            path_backup = path_ahead + ".backup"
+            if not os.path.isfile(path_backup):
+                copyfile(path_ahead, path_backup)
+
+        # Compute norm
+        flxscale_norm = np.mean(flxscale)
+
+        # Loop again and rewrite this time
+        for path_ahead in self._scamp_header_paths():
+            hdrs = read_aheaders(path=path_ahead)
+            for h in hdrs:
+                h["ORGFLXSC"] = (h["FLXSCALE"], "Original scamp flux scale")
+                h["FLXSCALE"] = (h["FLXSCALE"] / flxscale_norm, "SCAMP relative flux scale ")
+
+            # Rewrite file with new scale
+            write_aheaders(headers=hdrs, path=path_ahead)
 
     # =========================================================================== #
     # PSFEx
