@@ -1,8 +1,10 @@
 from astropy.io import fits
+from collections.abc import Iterable
 from vircampype.tools.systemtools import *
 from vircampype.pipeline.main import Setup
 
-__all__ = ["sextractor2imagehdr", "SextractorSetup", "SwarpSetup", "ScampSetup", "PSFExSetup"]
+__all__ = ["sextractor2imagehdr", "read_aheaders", "write_aheaders",
+           "SextractorSetup", "SwarpSetup", "ScampSetup", "PSFExSetup"]
 
 
 def sextractor2imagehdr(path):
@@ -28,6 +30,81 @@ def sextractor2imagehdr(path):
 
     # Convert to headers and return
     return headers
+
+
+def read_aheaders(path: str):
+    """
+    Reads aheader files created by scamp into FITS header instances.
+
+    Parameters
+    ----------
+    path : str
+        Path to aheader file
+
+    Returns
+    -------
+    list
+        List containing each extension as a fits Header.
+
+    """
+
+    # Create empty list of output headers
+    headers = []
+
+    # Open file
+    with open(path, "r") as file:
+
+        # Read textfile
+        data = file.read()
+
+    # Split into HDUs
+    hdus = data.split("END")
+
+    # Loop over HDUs
+    for hdu in hdus:
+
+        # Skip if only whitespace
+        if hdu.isspace():
+            continue
+
+        # Create cards
+        cards = [fits.Card.fromstring(x) for x in hdu.split("\n")]
+
+        # Verify cards
+        [c.verify(option="silentfix+ignore") for c in cards]
+
+        # Clean cards
+        cards = [c for c in cards if not c.is_blank]
+
+        # Create hedaer from cards
+        headers.append(fits.Header(cards))
+
+    # Return list of headers
+    return headers
+
+
+def write_aheaders(headers: Iterable, path: str):
+    """
+    Write a list of FITS headers into the astromatic aheader format.
+
+    Parameters
+    ----------
+    headers : Iterable
+        List of headers.
+    path : str
+        File path to write to.
+
+    """
+
+    # Convert to strings
+    headers_str = [h.tostring(endcard=True, padding=False, sep="\n") for h in headers]
+
+    # Join all extentions together
+    ss = "\n".join(headers_str)
+
+    # Write to disk
+    with open(path, "w") as file:
+        file.write(ss)
 
 
 class AstromaticSetup:
