@@ -171,8 +171,9 @@ class SextractorCatalogs(SourceCatalogs):
         for path_ahead in self._scamp_header_paths():
             hdrs = read_aheaders(path=path_ahead)
             for h in hdrs:
-                h["ORGFLXSC"] = (h["FLXSCALE"], "Original scamp flux scale")
-                h["FLXSCALE"] = (h["FLXSCALE"] / flxscale_norm, "SCAMP relative flux scale ")
+                h["FSCLORIG"] = (h["FLXSCALE"], "Original scamp flux scale")
+                h["FSCLSTCK"] = (h["FLXSCALE"] / flxscale_norm, "SCAMP relative flux scale for stacks")
+                del h["FLXSCALE"]
 
             # Rewrite file with new scale
             write_aheaders(headers=hdrs, path=path_ahead)
@@ -698,10 +699,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Convert ZPs to flux scaling factor
         zps = np.array(self.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0])
-        flx_scale = (10**((zps - self.setup.target_zp) / 2.5)).tolist()
+        # flx_scale = (10**((zps - self.setup.target_zp) / 2.5)).tolist()
 
         # TODO Should be like this, but produces worse results
-        # flx_scale = (10**((self.setup.target_zp - zps) / 2.5)).tolist()
+        flx_scale = (10**((self.setup.target_zp - zps) / 2.5)).tolist()
 
         # Loop over files and write to disk
         for idx_file in range(self.n_files):
