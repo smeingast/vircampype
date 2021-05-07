@@ -8,6 +8,7 @@ from astropy.io import fits
 from astropy.time import Time
 from vircampype.pipeline.misc import *
 from vircampype.pipeline.setup import Setup
+from vircampype.tools.systemtools import remove_file
 from vircampype.tools.fitstools import add_float_to_header
 from vircampype.tools.wcstools import header_reset_wcs, get_airmass_from_header
 
@@ -365,6 +366,14 @@ class FitsFiles:
 
         temp = np.rollaxis(np.array(temp), axis=1)
         return [t.T.tolist() for t in temp]
+
+    def delete_headers(self, idx_file=None):
+        """ Removes all extracted header files from the header directory. """
+
+        if idx_file is None:
+            [remove_file(filepath=p) for p in self.paths_headers]
+        else:
+            remove_file(filepath=self.paths_headers[idx_file])
 
     # =========================================================================== #
     # Some properties
