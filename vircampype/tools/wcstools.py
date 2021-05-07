@@ -55,12 +55,13 @@ def header_reset_wcs(header):
     except KeyError:
         return header
 
-    # Try to delete the polynomial distortion keys
-    for kw in ["PV2_1", "PV2_2", "PV2_3", "PV2_4", "PV2_5"]:
-        try:
-            oheader.remove(kw)
-        except KeyError:
-            pass
+        # Try to delete the polynomial distortion keys for VIRCAM default projection
+    if "ZPN" in header["CTYPE1"]:
+        for kw in ["PV2_1", "PV2_2", "PV2_3", "PV2_4", "PV2_5"]:
+            try:
+                oheader.remove(kw)
+            except KeyError:
+                pass
 
     return oheader
 
