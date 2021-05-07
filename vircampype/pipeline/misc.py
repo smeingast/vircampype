@@ -407,9 +407,4 @@ extension_keywords_noboby_needs = ["ESO DET CHIP ID",
                                    "ESO DET WIN NY",
                                    "ESO DET WIN STARTX",
                                    "ESO DET WIN STARTY",
-                                   "ESO DET WIN TYPE",
-                                   "PV2_1",
-                                   "PV2_2",
-                                   "PV2_3",
-                                   "PV2_4",
-                                   "PV2_5"]
+                                   "ESO DET WIN TYPE"]
