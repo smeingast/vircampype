@@ -12,13 +12,13 @@ __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell
            "get_resource_path", "copy_file", "remove_file", "clean_directory", "notify"]
 
 
-def make_folder(path):
+def make_folder(path: str):
     """ Creates folder at specified path. """
     if not os.path.exists(path):
         os.makedirs(path)
 
 
-def which(program):
+def which(program: str):
     """
     Returns the path for an arbitrary executable shell program defined in the PAHT environment variable.
 
@@ -68,7 +68,7 @@ def read_yml(path_yml: str):
             print(exc)
 
 
-def yml2config(path_yml, skip=None, **kwargs):
+def yml2config(path_yml: str, skip=None, **kwargs):
     """
     Reads a YML file at a given path and converts the entries to a string that can be passed to astromatic tools.
 
@@ -166,7 +166,7 @@ def run_command_shell(cmd, shell: str = "zsh", silent: bool = False):
         subprocess.run(cmd, shell=True, executable=which(shell))
 
 
-def get_resource_path(package, resource):
+def get_resource_path(package: str, resource: str):
     """
     Returns the path to an included resource.
 
@@ -195,14 +195,14 @@ def copy_file(a, b):
     shutil.copy2(a, b)
 
 
-def remove_file(filepath):
+def remove_file(filepath: str):
     try:
         os.remove(filepath)
     except OSError:
         pass
 
 
-def clean_directory(directorypath, pattern="*"):
+def clean_directory(directorypath: str, pattern: str = "*"):
     """ Function to remove files in a directory, following a name pattern. """
     if not directorypath.endswith("/"):
         directorypath = directorypath + "/"
