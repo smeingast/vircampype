@@ -783,8 +783,8 @@ def background_image(image, mesh_size, mesh_filtersize=3):
     bg, bg_std = np.array(bg).reshape(n_tiles_y, n_tiles_x), np.array(bg_std).reshape(n_tiles_y, n_tiles_x)
 
     # Interpolate NaN values in grid
-    bg = interpolate_replace_nans(bg, kernel=Gaussian2DKernel(1))  # noqa
-    bg_std = interpolate_replace_nans(bg_std, kernel=Gaussian2DKernel(1))  # noqa
+    bg = interpolate_replace_nans(bg, kernel=Gaussian2DKernel(3), boundary="extend")
+    bg_std = interpolate_replace_nans(bg_std, kernel=Gaussian2DKernel(3), boundary="extend")
 
     # Apply median filter
     bg, bg_std = median_filter(input=bg, size=mesh_filtersize), median_filter(input=bg_std, size=mesh_filtersize)
