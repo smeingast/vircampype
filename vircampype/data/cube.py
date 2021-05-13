@@ -3,13 +3,14 @@
 import warnings
 import numpy as np
 
-from scipy import ndimage
 from astropy.io import fits
 from itertools import repeat
 from joblib import Parallel, delayed
 from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
+from skimage import measure as skmeasure
 from vircampype.pipeline.setup import Setup
+from skimage import morphology as skmorphology
 from astropy.convolution import Gaussian2DKernel
 
 
@@ -986,6 +987,7 @@ class ImageCube(object):
         cube_labels = np.full_like(self.cube, dtype=np.uint8, fill_value=0)
 
         # Loop over cube planes and
+        # TODO: This loop could be parallelized
         for idx in range(len(self)):
 
             # Resize threshold map to image size and get pixels above threshold
@@ -994,15 +996,53 @@ class ImageCube(object):
                 sources = self.cube[idx] > thresh_cube[idx]
 
             # Label regions
-            labels, n_labels = ndimage.measurements.label(input=sources, structure=np.ones(shape=(3, 3)))
-            assert isinstance(labels, np.ndarray)
+            labels, n_labels = skmeasure.label(sources, return_num=True)
+
+            # Generate regionprops
+            regionprops = skmeasure.regionprops(labels)
 
             # If there are no sources, continue
             if n_labels < 1:
                 continue
 
-            # Measure region sizes
-            sizes = ndimage.measurements.sum(input=sources, labels=labels, index=range(1, n_labels + 1))
+            # Measure size of regions
+            sizes = np.array([r.area for r in regionprops])
+
+            # Get index of large labels
+            idx_large_all = [i for i, x in enumerate(sizes > 250) if x]
+
+            # Empty list to store masks
+            masks_large = []
+
+            # Create large region circular masks
+            if len(idx_large_all) > 0:
+
+                # Loop over large sources
+                for idx_large in idx_large_all:
+
+                    # Skip if eccentricity is too large (e.g. bad rows or columns)
+                    if regionprops[idx_large].eccentricity > 0.75:
+                        continue
+
+                    # Grab current size and coordinates
+                    csize = sizes[idx_large]
+
+                    # Approximate radius of circular mask with radius
+                    crad = np.sqrt(csize/np.pi)
+
+                    # Determine centroid
+                    centroid = regionprops[idx_large].centroid
+
+                    # Construct mask for current source
+                    base = np.full_like(labels, fill_value=0, dtype=float)
+                    mm = circular_mask(array=base, coordinates=centroid, radius=np.ceil(2 * crad).astype(int))
+                    base[mm] = 1
+
+                    # Save current source mask
+                    masks_large.append(base)
+
+                # Collapse masks
+                masks_large = np.sum(masks_large, axis=0)
 
             # Find those sources outside the given thresholds and set to 0
             # bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
@@ -1019,7 +1059,11 @@ class ImageCube(object):
             labels = labels.astype(bool)
 
             # Dilate the mask
-            labels = ndimage.binary_closing(labels, iterations=3)
+            labels = skmorphology.binary_dilation(skmorphology.binary_closing(labels))
+
+            # Apply large region mask
+            if len(masks_large) > 0:
+                cube_labels[:][idx][masks_large > 0] = 1
 
             # Apply mask
             cube_labels[:][idx][labels] = 1
