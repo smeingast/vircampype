@@ -495,7 +495,7 @@ class Setup(dict):
     @property
     def mask_sources_thresh(self):
         """ Significance threshold above background for pixels to be masked. """
-        return 2
+        return 3
 
     @property
     def mask_sources_min_area(self):
