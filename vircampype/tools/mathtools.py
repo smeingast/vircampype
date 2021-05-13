@@ -1087,9 +1087,29 @@ def round_decimals_down(number: float, decimals: int = 2):
     return np.floor(number * factor) / factor
 
 
-def destripe_helper(array):
-    """ Destripe helper for parallelisation. """
+def destripe_helper(array, mask=None):
+    """
+    Destripe helper for parallelisation.
+
+    Parameters
+    ----------
+    array : ndarray
+    mask : ndarray, optional
+
+    """
+
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
-        med = np.expand_dims(clipped_median(array, axis=1, sigma_lower=3, sigma_upper=2), axis=1)
+
+        # Do destriping on masked array if set
+        if mask is not None:
+            array_copy = array.copy()
+            array_copy[mask > 0] = np.nan
+            med = np.expand_dims(clipped_median(array_copy, axis=1, sigma_lower=3, sigma_upper=2), axis=1)
+
+        # Otherwise on full array
+        else:
+            med = np.expand_dims(clipped_median(array, axis=1, sigma_lower=3, sigma_upper=2), axis=1)
+
+        # Return destriped array
         return array - med + clipped_median(array, sigma_lower=3, sigma_upper=2)
