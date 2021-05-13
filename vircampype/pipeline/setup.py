@@ -36,10 +36,6 @@ class Setup(dict):
         self.__maximasking = False
         self.__projection = None
 
-        # Superflat
-        self.__superflat_window = 120
-        self.__superflat_n_min = 5
-
         # Astromatic
         self.__bin_sex = "sex"
         self.__bin_scamp = "scamp"
@@ -116,7 +112,6 @@ class Setup(dict):
         # Processing folders
         self["folders"]["temp"] = "{0}{1}/".format(self["folders"]["object"], "temp")
         self["folders"]["processed"] = "{0}{1}/".format(self["folders"]["object"], "processed")
-        self["folders"]["superflat"] = "{0}{1}/".format(self["folders"]["object"], "superflatted")
         self["folders"]["resampled"] = "{0}{1}/".format(self["folders"]["object"], "resampled")
 
         # QC
@@ -132,9 +127,7 @@ class Setup(dict):
         # Sequence specific QC
         self["folders"]["qc_sky"] = "{0}{1}/".format(self["folders"]["qc"], "sky")
         self["folders"]["qc_astrometry"] = "{0}{1}/".format(self["folders"]["qc"], "astrometry")
-        self["folders"]["qc_superflat"] = "{0}{1}/".format(self["folders"]["qc"], "superflat")
         self["folders"]["qc_photometry"] = "{0}{1}/".format(self["folders"]["qc"], "photometry")
-        self["folders"]["qc_psf"] = "{0}{1}/".format(self["folders"]["qc"], "psf")
 
         # Stacks path
         self["folders"]["stacks"] = "{0}{1}/".format(self["folders"]["object"], "stacks")
@@ -158,9 +151,8 @@ class Setup(dict):
 
         # Object-specific paths
         folders_object = [self["folders"]["master_object"], self["folders"]["qc"], self["folders"]["qc_sky"],
-                          self["folders"]["processed"], self["folders"]["qc_astrometry"], self["folders"]["superflat"],
-                          self["folders"]["qc_superflat"], self["folders"]["resampled"], self["folders"]["stacks"],
-                          self["folders"]["tile"], self["folders"]["qc_photometry"], self["folders"]["qc_psf"]]
+                          self["folders"]["processed"], self["folders"]["qc_astrometry"], self["folders"]["resampled"],
+                          self["folders"]["stacks"], self["folders"]["tile"], self["folders"]["qc_photometry"]]
 
         # Generate common paths
         for path in folders_common:
@@ -435,11 +427,6 @@ class Setup(dict):
         return 14
 
     @property
-    def master_max_lag_superflat(self):
-        """ Maximum time difference to MasterSuperflat in minutes. """
-        return 60
-
-    @property
     def master_max_lag_sky(self):
         """ Maximum time difference to MasterSky in minutes. """
         return 60
@@ -570,26 +557,6 @@ class Setup(dict):
     @property
     def background_mesh_filtersize(self):
         return 3
-
-    # =========================================================================== #
-    # Superflat
-    @property
-    def superflat_window(self):
-        """ Superflat window in minutes centered on each image. """
-        return self.__superflat_window
-
-    @superflat_window.setter
-    def superflat_window(self, superflat_window):
-        self.__superflat_window = superflat_window
-
-    @property
-    def superflat_n_min(self):
-        """ Minimum number of files that need to go into a superflat. """
-        return self.__superflat_n_min
-
-    @superflat_n_min.setter
-    def superflat_n_min(self, superflat_n_min):
-        self.__superflat_n_min = superflat_n_min
 
     # =========================================================================== #
     # Astrometry
