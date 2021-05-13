@@ -940,6 +940,7 @@ class ResampledScienceImages(ProcessedSkyImages):
     def build_stacks(self):
 
         # Processing info
+        # TODO: This should print stack info in the loop
         print_header(header="CREATING STACKS", silent=self.setup.silent,
                      left=os.path.basename(self.setup.path_coadd), right=None)
         tstart = time.time()
