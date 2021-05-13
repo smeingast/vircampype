@@ -882,10 +882,25 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def destripe(self):
-        """ Destripes VIRCAM images """
+    def destripe(self, masks=None):
+        """
+        Destripes VIRCAM images
+
+        Parameters
+        ----------
+        masks : ImageCube
+            Cube instance containing masks
+
+        """
+
+        # Set masks to iterable if not set
+        if masks is None:
+            masks = repeat(None)
+
+        # Destripe in parallel
         with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-            mp = parallel(delayed(destripe_helper)(i) for i in self.cube)
+            mp = parallel(delayed(destripe_helper)(a, b) for a, b in zip(self.cube, masks))
+
         # Set new data cube
         self.cube = np.squeeze(np.array(mp))
 
