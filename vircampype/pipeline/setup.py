@@ -457,11 +457,6 @@ class Setup(dict):
         return [4.0, 6.0, 12.0, 18.0, 24.0, 30.0]
 
     @property
-    def target_zp(self):
-        """ All data will be scaled to approximately match this zero-point """
-        return 25
-
-    @property
     def phot_reference_catalog(self):
         """ Reference catalog to be used. """
         return "2mass"
