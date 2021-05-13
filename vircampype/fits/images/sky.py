@@ -587,11 +587,16 @@ class RawSkyImages(SkyImages):
             # Process with dark, flat, and sky
             cube = (cube - dark) / flat - sky
 
-            # Apply cosmetics
+            # Bad pixel interpolation
             if self.setup.interpolate_nan_bool:
                 cube.interpolate_nan()
+
+            # Destriping
             if self.setup.destripe:
-                cube.destripe()
+                sources = master_source_mask.file2cube(file_index=idx_file)
+                cube.destripe(masks=sources)
+
+            # Background subtraction
             if self.setup.subtract_background:
 
                 # Load source mask
