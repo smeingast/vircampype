@@ -1009,7 +1009,7 @@ class ImageCube(object):
             sizes = np.array([r.area for r in regionprops])
 
             # Get index of large labels
-            idx_large_all = [i for i, x in enumerate(sizes > 250) if x]
+            idx_large_all = [i for i, x in enumerate((sizes > 250) & (sizes < self.setup.mask_sources_max_area)) if x]
 
             # Empty list to store masks
             masks_large = []
