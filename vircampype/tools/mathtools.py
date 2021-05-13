@@ -17,7 +17,7 @@ from astropy.convolution import convolve, Gaussian2DKernel, CustomKernel, Kernel
 
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "chop_image", "interpolate_image", "merge_chopped",
            "ceil_value", "floor_value", "meshgrid", "estimate_background", "upscale_image", "centroid_sphere",
-           "clipped_median", "clipped_stdev", "grid_value_2d", "fraction2float", "round_decimals_up",
+           "clipped_median", "clipped_stdev", "grid_value_2d", "fraction2float", "round_decimals_up", "circular_mask",
            "round_decimals_down", "background_image", "grid_value_2d_nn", "linearity_fitfunc", "destripe_helper"]
 
 
@@ -1113,3 +1113,10 @@ def destripe_helper(array, mask=None):
 
         # Return destriped array
         return array - med + clipped_median(array, sigma_lower=3, sigma_upper=2)
+
+
+def circular_mask(array, coordinates, radius):
+    """ Construct circular mask """
+    (i1, i2), (nx, ny) = coordinates, array.shape
+    y, x = np.ogrid[-i1:nx-i1, -i2:ny-i2]
+    return x*x + y*y <= radius * radius
