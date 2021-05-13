@@ -1081,7 +1081,7 @@ class ResampledScienceImages(ProcessedSkyImages):
 
                 # Build swarp options
                 ss = yml2config(path_yml=sws.preset_coadd, imageout_name=paths_temp_stacks[-1],
-                                weightout_name=paths_temp_weights[-1],
+                                weightout_name=paths_temp_weights[-1], fscale_keyword="FSCLSTCK",
                                 gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                                 nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_image"])
 
@@ -1210,7 +1210,7 @@ class ResampledScienceImages(ProcessedSkyImages):
         sws = SwarpSetup(setup=self.setup)
 
         ss = yml2config(path_yml=sws.preset_coadd, imageout_name=self.setup.path_coadd,
-                        weightout_name=self.setup.path_coadd_weight,
+                        weightout_name=self.setup.path_coadd_weight, fscale_keyword="FSCLTILE",
                         gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
                         nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_image"])
 
