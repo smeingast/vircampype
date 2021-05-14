@@ -1087,7 +1087,7 @@ class ImageCube(object):
         if self.setup.n_jobs == 1:
             back, back_sig = list(zip(*[mmm(sky_vector=c) for c in self.cube]))[:2]
         else:
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                 mp = parallel(delayed(mmm)(a, b, c, d, e, f, g)
                               for a, b, c, d, e, f, g
                               in zip(self.cube, repeat(False), repeat(False), repeat(False),
