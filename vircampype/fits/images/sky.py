@@ -559,6 +559,189 @@ class ProcessedSkyImages(SkyImages):
     def __init__(self, setup, file_paths=None):
         super(ProcessedSkyImages, self).__init__(setup=setup, file_paths=file_paths)
 
+    def build_master_source_mask(self):
+
+        # Processing info
+        print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Fetch the Masterfiles
+        master_sky = self.get_master_sky(mode="static")
+
+        # Loop over files
+        for idx_file in range(self.n_files):
+
+            # Create master name
+            outpath = "{0}MASTER-SOURCE-MASK.MJD_{1:0.5f}.fits" \
+                      "".format(self.setup.folders["master_object"], self.mjd[idx_file])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup.silent)
+
+            # Read file into cube
+            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+
+            # Read master sky
+            sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+
+            # Subtract static sky
+            cube = cube - sky
+
+            # Compute source masks
+            cube_sources = cube.build_source_masks()
+
+            # Create header cards
+            cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
+                                         self.setup.keywords.object, "HIERARCH PYPE MASK THRESH",
+                                         "HIERARCH PYPE MASK MINAREA", "HIERARCH PYPE MASK MAXAREA"],
+                               values=[self.mjd[idx_file], self.time_obs[idx_file],
+                                       "MASTER-SOURCE-MASK", self.setup.mask_sources_thresh,
+                                       self.setup.mask_sources_min_area, self.setup.mask_sources_max_area])
+
+            # Make primary header
+            prime_header = fits.Header(cards=cards)
+
+            # Write to disk
+            cube_sources.write_mef(path=outpath, prime_header=prime_header)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def build_master_sky_dynamic(self):
+        """
+        Builds a sky frame from the given input data. After calibration and masking, the frames are normalized with
+        their sky levels and then combined.
+
+        """
+
+        # Processing info
+        print_header(header="MASTER-SKY-DYNAMIC", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Split based on filter and interval
+        split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
+        split = flat_list([s.split_window(window=self.setup.sky_window, remove_duplicates=True) for s in split])
+
+        # Remove too short entries
+        split = prune_list(split, n_min=self.setup.sky_n_min)
+
+        if len(split) == 0:
+            raise ValueError("No suitable sequence found for sky images.")
+
+        # Now loop through separated files
+        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
+
+            # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
+            files.check_compatibility(n_files_min=self.setup.sky_n_min, n_hdu_max=1, n_filter_max=1)
+
+            # Create master name
+            outpath = "{0}MASTER-SKY-DYNAMIC.MJD_{1:0.4f}.FIL_{2}.fits" \
+                      "".format(files.setup.folders["master_object"], files.mjd_mean, files.passband[0])
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
+            # Fetch the Masterfiles
+            master_mask = files.get_master_source_mask()
+
+            # Instantiate output
+            sky_all, noise_all = [], []
+            master_cube = ImageCube(setup=self.setup, cube=None)
+
+            # Start looping over detectors
+            data_headers = []
+            for d in files.iter_data_hdu[0]:
+
+                # Print processing info
+                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
+                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup.silent)
+
+                # Get data
+                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
+
+                # Get master calibration
+                sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
+
+                # Compute sky level in each plane
+                sky, sky_std = cube.background_planes()
+                sky_all.append(sky)
+                noise_all.append(sky_std)
+
+                # Normalize to same flux level
+                cube.normalize(norm=sky / np.mean(sky))
+
+                # Subtract (scaled) constant sky level from each plane
+                sky_scaled, noise_scaled = cube.background_planes()
+                cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
+
+                # Apply masks to the normalized cube
+                cube.apply_masks(sources=sources, mask_max=True)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", message="Input data contains invalid values")
+                    cube.cube = astropy_sigma_clip(data=cube.cube, sigma=3, maxiters=1)
+
+                # Create weights if needed
+                if self.setup.flat_metric == "weighted":
+                    metric = "weighted"
+                    weights = np.empty_like(cube.cube)
+                    weights[:] = (1 / noise_scaled)[:, np.newaxis, np.newaxis]
+                    weights[~np.isfinite(cube.cube)] = 0.
+                else:
+                    metric = string2func(self.setup.flat_metric)
+                    weights = None
+
+                # Collapse cube
+                collapsed = cube.flatten(metric=metric, axis=0, weights=weights, dtype=None)
+
+                # Create header with sky measurements
+                hdr = fits.Header()
+                c1, c2, c3 = "Measured sky (ADU)", "Measured sky noise (ADU)", "MJD of measured sky"
+                for cidx in range(len(sky)):
+                    hdr.set("HIERARCH PYPE SKY MEAN {0}".format(cidx), value=np.round(sky[cidx], 2), comment=c1)
+                    hdr.set("HIERARCH PYPE SKY NOISE {0}".format(cidx), value=np.round(sky_std[cidx], 2), comment=c2)
+                    hdr.set("HIERARCH PYPE SKY MJD {0}".format(cidx), value=np.round(files.mjd[cidx], 6), comment=c3)
+
+                # Append to list
+                data_headers.append(hdr)
+
+                # Collapse extensions with specified metric and append to output
+                master_cube.extend(data=collapsed.astype(np.float32))
+
+            # Get the standard deviation vs the mean in the (flat-fielded and linearized) data for each detector.
+            det_err = [np.std([x[idx] for x in sky_all]) / np.mean([x[idx] for x in sky_all])
+                       for idx in range(len(files))]
+
+            # Mean flat field error
+            flat_err = np.round(100. * np.mean(det_err), decimals=2)
+
+            # Create primary header
+            hdr_prime = fits.Header()
+            hdr_prime.set(keyword=self.setup.keywords.date_mjd, value=files.mjd_mean)
+            hdr_prime.set(keyword=self.setup.keywords.date_ut, value=files.time_obs_mean.fits)
+            hdr_prime.set(keyword=self.setup.keywords.object, value="MASTER-SKY-DYNAMIC")
+            hdr_prime.set(self.setup.keywords.dit, value=files.dit[0])
+            hdr_prime.set(self.setup.keywords.ndit, value=files.ndit[0])
+            hdr_prime.set(self.setup.keywords.filter_name, value=files.passband[0])
+            hdr_prime.set("HIERARCH PYPE N_FILES", value=len(files))
+            hdr_prime.set("HIERARCH PYPE SKY FLATERR", value=flat_err)
+
+            # Write to disk
+            master_cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=data_headers)
+
+            # QC plot
+            if self.setup.qc_plots:
+                msky = MasterSky(setup=self.setup, file_paths=outpath)
+                msky.qc_plot_sky(paths=None, axis_size=5)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
 
 class RawScienceImages(RawSkyImages):
 
