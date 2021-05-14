@@ -742,9 +742,9 @@ class MasterImages(FitsImages):
         return MasterSourceMask(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
-    def sky(self):
+    def sky_static(self):
         """
-        Retrieves all MasterSky images.
+        Retrieves all static MasterSky images.
 
         Returns
         -------
@@ -757,7 +757,27 @@ class MasterImages(FitsImages):
         from vircampype.fits.images.sky import MasterSky
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"]
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY-STATIC"]
+
+        return MasterSky(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+
+    @property
+    def sky_dynamic(self):
+        """
+        Retrieves all static MasterSky images.
+
+        Returns
+        -------
+        MasterSky
+            All MasterSky images as a MasterSky instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.sky import MasterSky
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY-DYNAMIC"]
 
         return MasterSky(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
