@@ -330,10 +330,10 @@ class RawSkyImages(SkyImages):
     def __init__(self, setup, file_paths=None):
         super(RawSkyImages, self).__init__(setup=setup, file_paths=file_paths)
 
-    def build_master_source_mask(self):
+    def process_raw_basic(self):
 
         # Processing info
-        print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
+        print_header(header="BASIC RAW PROCESSING", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Fetch the Masterfiles
@@ -341,12 +341,12 @@ class RawSkyImages(SkyImages):
         master_flat = self.get_master_flat()
         master_linearity = self.get_master_linearity()
 
-        # Loop over files
+        # Loop over files and apply calibration
         for idx_file in range(self.n_files):
 
-            # Create master name
-            outpath = "{0}MASTER-SOURCE-MASK.MJD_{1:0.5f}.fits" \
-                      "".format(self.setup.folders["master_object"], self.mjd[idx_file])
+            # Create output path
+            outpath = "{0}{1}.proc.basic{2}".format(self.setup.folders["processed_basic"],
+                                                    self.names[idx_file], self.extensions[idx_file])
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -361,8 +361,8 @@ class RawSkyImages(SkyImages):
 
             # Get master calibration
             dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
-            flat = master_flat.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-            lcff = master_linearity.file2coeff(file_index=idx_file, hdu_index=None)
+            flat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
+            lcff = master_linearity.file2coeff(file_index=idx_file)
 
             # Norm to NDIT=1
             cube.normalize(norm=self.ndit[idx_file])
@@ -370,173 +370,49 @@ class RawSkyImages(SkyImages):
             # Linearize
             cube.linearize(coeff=lcff, dit=self.dit[idx_file])
 
-            # Process with dark and flat
+            # Process with dark, flat, and sky
             cube = (cube - dark) / flat
 
-            # Compute source masks
-            cube_sources = cube.build_source_masks()
+            # Add stuff to headers
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
 
-            # Create header cards
-            cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
-                                         self.setup.keywords.object, "HIERARCH PYPE MASK THRESH",
-                                         "HIERARCH PYPE MASK MINAREA", "HIERARCH PYPE MASK MAXAREA"],
-                               values=[self.mjd[idx_file], self.time_obs[idx_file],
-                                       "MASTER-SOURCE-MASK", self.setup.mask_sources_thresh,
-                                       self.setup.mask_sources_min_area, self.setup.mask_sources_max_area])
+                # Grab parameters
+                saturate = self.setup.saturation_levels[idx_hdu]
+                offseti = self.headers_primary[idx_file]["OFFSET_I"]
+                noffsets = self.headers_primary[idx_file]["NOFFSETS"]
+                jitteri = self.headers_primary[idx_file]["JITTER_I"]
+                njitter = self.headers_primary[idx_file]["NJITTER"]
+                chipid = self.headers_data[idx_file][idx_hdu]["HIERARCH ESO DET CHIP NO"]
+                photstab = offseti + noffsets * (chipid - 1)
 
-            # Make primary header
-            prime_header = fits.Header(cards=cards)
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.saturate,
+                                    value=saturate, decimals=1, comment="Saturation level (ADU)")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NOFFSETS",
+                                  value=noffsets, comment="Total number of offsets")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="OFFSET_I",
+                                  value=offseti, comment="Current offset iteration")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NJITTER",
+                                  value=njitter, comment="Total number of jitter positions")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="JITTER_I",
+                                  value=jitteri, comment="Current jitter iteration")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="PHOTSTAB",
+                                  value=photstab, comment="Photometric stability ID")
+                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="SCMPPHOT",
+                                  value=offseti, comment="Photometric stability ID for Scamp")
+                add_str_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.filter_name,
+                                  value=self.passband[idx_file], comment="Passband")
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="DEXTINCT",
+                                    value=get_default_extinction(passband=self.passband[idx_file]),
+                                    decimals=2, comment="Default extinction (mag)")
 
-            # Write to disk
-            cube_sources.write_mef(path=outpath, prime_header=prime_header)
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
-
-    def build_master_sky(self):
-        """
-        Builds a sky frame from the given input data. After calibration and masking, the frames are normalized with
-        their sky levels and then combined.
-
-        """
-
-        # Processing info
-        print_header(header="MASTER-SKY", right=None, silent=self.setup.silent)
-        tstart = time.time()
-
-        # Split based on filter and interval
-        split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_window(window=self.setup.sky_window, remove_duplicates=True) for s in split])
-
-        # Remove too short entries
-        split = prune_list(split, n_min=self.setup.sky_n_min)
-
-        if len(split) == 0:
-            raise ValueError("No suitable sequence found for sky images.")
-
-        # Now loop through separated files
-        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
-
-            # Check flat sequence (at least three files, same nHDU, same NDIT, and same filter)
-            files.check_compatibility(n_files_min=self.setup.sky_n_min, n_hdu_max=1, n_filter_max=1)
-
-            # Create master name
-            outpath = "{0}MASTER-SKY.MJD_{1:0.4f}.FIL_{2}.fits" \
-                      "".format(files.setup.folders["master_object"], files.mjd_mean, files.passband[0])
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                continue
-
-            # Fetch the Masterfiles
-            master_bpms = files.get_master_bpm()
-            master_darks = files.get_master_dark(ignore_dit=True)
-            master_flat = files.get_master_flat()
-            master_linearity = files.get_master_linearity()
-            master_mask = files.get_master_source_mask()
-
-            # Instantiate output
-            sky_all, noise_all = [], []
-            master_cube = ImageCube(setup=self.setup, cube=None)
-
-            # Start looping over detectors
-            data_headers = []
-            for d in files.iter_data_hdu[0]:
-
-                # Print processing info
-                message_calibration(n_current=fidx, n_total=len(split), name=outpath, d_current=d,
-                                    d_total=max(files.iter_data_hdu[0]), silent=self.setup.silent)
-
-                # Get data
-                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
-
-                # Get master calibration
-                bpm = master_bpms.hdu2cube(hdu_index=d, dtype=np.uint8)
-                dark = master_darks.hdu2cube(hdu_index=d, dtype=np.float32)
-                flat = master_flat.hdu2cube(hdu_index=d, dtype=np.float32)
-                sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
-                lcff = master_linearity.hdu2coeff(hdu_index=d)
-
-                # Norm to NDIT=1
-                cube.normalize(norm=files.ndit)
-
-                # Linearize
-                cube.linearize(coeff=lcff, dit=files.dit)
-
-                # Process with dark and flat
-                cube = (cube - dark) / flat
-
-                # Compute sky level in each plane
-                sky, sky_std = cube.background_planes()
-                sky_all.append(sky)
-                noise_all.append(sky_std)
-
-                # Normalize to same flux level
-                cube.normalize(norm=sky / np.mean(sky))
-
-                # Subtract (scaled) constant sky level from each plane
-                sky_scaled, noise_scaled = cube.background_planes()
-                cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
-
-                # Apply masks to the normalized cube
-                cube.apply_masks(bpm=bpm, sources=sources, mask_min=self.setup.sky_mask_min,
-                                 mask_max=self.setup.sky_mask_max, sigma_level=self.setup.sky_sigma_level,
-                                 sigma_iter=self.setup.sky_sigma_iter)
-
-                # Create weights if needed
-                if self.setup.flat_metric == "weighted":
-                    metric = "weighted"
-                    weights = np.empty_like(cube.cube)
-                    weights[:] = (1 / noise_scaled)[:, np.newaxis, np.newaxis]
-                    weights[~np.isfinite(cube.cube)] = 0.
-                else:
-                    metric = string2func(self.setup.flat_metric)
-                    weights = None
-
-                # Collapse cube
-                collapsed = cube.flatten(metric=metric, axis=0, weights=weights, dtype=None)
-
-                # Create header with sky measurements
-                cards_sky = []
-                for cidx in range(len(sky)):
-                    cards_sky.append(make_cards(keywords=["HIERARCH PYPE SKY MEAN {0}".format(cidx),
-                                                          "HIERARCH PYPE SKY NOISE {0}".format(cidx),
-                                                          "HIERARCH PYPE SKY MJD {0}".format(cidx)],
-                                                values=[np.round(sky[cidx], 2),
-                                                        np.round(sky_std[cidx], 2),
-                                                        np.round(files.mjd[cidx], 5)],
-                                                comments=["Measured sky (ADU)",
-                                                          "Measured sky noise (ADU)",
-                                                          "MJD of measured sky"]))
-                data_headers.append(fits.Header(cards=flat_list(cards_sky)))
-
-                # Collapse extensions with specified metric and append to output
-                master_cube.extend(data=collapsed.astype(np.float32))
-
-            # Get the standard deviation vs the mean in the (flat-fielded and linearized) data for each detector.
-            det_err = [np.std([x[idx] for x in sky_all]) / np.mean([x[idx] for x in sky_all])
-                       for idx in range(len(files))]
-
-            # Mean flat field error
-            flat_err = np.round(100. * np.mean(det_err), decimals=2)
-
-            # Make cards for primary headers
-            prime_cards = make_cards(keywords=[self.setup.keywords.dit, self.setup.keywords.ndit,
-                                               self.setup.keywords.filter_name, self.setup.keywords.date_mjd,
-                                               self.setup.keywords.date_ut, self.setup.keywords.object,
-                                               "HIERARCH PYPE N_FILES", "HIERARCH PYPE SKY FLATERR"],
-                                     values=[files.dit[0], files.ndit[0],
-                                             files.passband[0], files.mjd_mean,
-                                             files.time_obs_mean, "MASTER-SKY",
-                                             len(files), flat_err])
+            # Add file info to main header
+            phdr = self.headers_primary[idx_file].copy()
+            phdr["DARKFILE"] = master_dark.basenames[idx_file]
+            phdr["FLATFILE"] = master_flat.basenames[idx_file]
+            phdr["LINFILE"] = master_linearity.basenames[idx_file]
 
             # Write to disk
-            master_cube.write_mef(path=outpath, prime_header=fits.Header(cards=prime_cards), data_headers=data_headers)
-
-            # QC plot
-            if self.setup.qc_plots:
-                msky = MasterSky(setup=self.setup, file_paths=outpath)
-                msky.qc_plot_sky(paths=None, axis_size=5)
+            cube.write_mef(path=outpath, prime_header=phdr, data_headers=self.headers_data[idx_file], dtype="float32")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
