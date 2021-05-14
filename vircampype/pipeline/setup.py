@@ -526,22 +526,6 @@ class Setup(dict):
         return 5
 
     @property
-    def sky_mask_min(self):
-        return False
-
-    @property
-    def sky_mask_max(self):
-        return True
-
-    @property
-    def sky_sigma_level(self):
-        return 3
-
-    @property
-    def sky_sigma_iter(self):
-        return 2
-
-    @property
     def sky_metric(self):
         return "weighted"
 
