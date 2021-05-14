@@ -8,9 +8,8 @@ from itertools import repeat
 from joblib import Parallel, delayed
 from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
-from skimage import measure as skmeasure
+from vircampype.tools.imagetools import *
 from vircampype.pipeline.setup import Setup
-from skimage import morphology as skmorphology
 from astropy.convolution import Gaussian2DKernel
 
 
@@ -977,102 +976,15 @@ class ImageCube(object):
 
         """
 
-        # Get background and noise Cubes with a relatively large mesh size
-        cube_bg, cube_bg_std = self.background(mesh_size=128, mesh_filtersize=3)
+        # Build mask for each plane in parallel
+        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            mp = parallel(delayed(source_mask)(a, b, c, d) for a, b, c, d in
+                          zip(self.cube,
+                              repeat(self.setup.mask_sources_thresh),
+                              repeat(self.setup.mask_sources_min_area),
+                              repeat(self.setup.mask_sources_max_area)))
 
-        # Make the threshold cube (to avoid an editor warning I use np.add here)
-        thresh_cube = np.add(cube_bg.cube, self.setup.mask_sources_thresh * cube_bg_std.cube)
-
-        # Make empty new cube if only labels should be returned
-        cube_labels = np.full_like(self.cube, dtype=np.uint8, fill_value=0)
-
-        # Loop over cube planes and
-        # TODO: This loop could be parallelized
-        for idx in range(len(self)):
-
-            # Resize threshold map to image size and get pixels above threshold
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="invalid value encountered in greater")
-                sources = self.cube[idx] > thresh_cube[idx]
-
-            # Label regions
-            labels, n_labels = skmeasure.label(sources, return_num=True)
-
-            # Generate regionprops
-            regionprops = skmeasure.regionprops(labels)
-
-            # If there are no sources, continue
-            if n_labels < 1:
-                continue
-
-            # Measure size of regions
-            sizes = np.array([r.area for r in regionprops])
-
-            # Get index of large labels
-            idx_large_all = [i for i, x in enumerate((sizes > 250) & (sizes < self.setup.mask_sources_max_area)) if x]
-
-            # Empty list to store masks
-            masks_large = []
-
-            # Create large region circular masks
-            if len(idx_large_all) > 0:
-
-                # Loop over large sources
-                for idx_large in idx_large_all:
-
-                    # Skip if eccentricity is too large (e.g. bad rows or columns)
-                    if regionprops[idx_large].eccentricity > 0.75:
-                        continue
-
-                    # Grab current size and coordinates
-                    csize = sizes[idx_large]
-
-                    # Approximate radius of circular mask with radius
-                    crad = np.sqrt(csize/np.pi)
-
-                    # Determine centroid
-                    centroid = regionprops[idx_large].centroid
-
-                    # Construct mask for current source
-                    base = np.full_like(labels, fill_value=0, dtype=float)
-                    mm = circular_mask(array=base, coordinates=centroid, radius=np.ceil(2 * crad).astype(int))
-                    base[mm] = 1
-
-                    # Save current source mask
-                    masks_large.append(base)
-
-                # Collapse masks
-                masks_large = np.sum(masks_large, axis=0)
-
-            # Find those sources outside the given thresholds and set to 0
-            # bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
-            bad_sources = (sizes < self.setup.mask_sources_min_area) | (sizes > self.setup.mask_sources_max_area) \
-                if self.setup.mask_sources_max_area is not None else sizes < self.setup.mask_sources_min_area
-            assert isinstance(bad_sources, np.ndarray)
-
-            # Only if there are bad sources
-            if np.sum(bad_sources) > 0:
-                labels[bad_sources[labels-1]] = 0  # labels starts with 1
-
-            # Set background to 0, sources to 1 and convert to 8bit unsigned integer
-            labels[labels > 0], labels[labels < 0] = 1, 0
-            labels = labels.astype(bool)
-
-            # Dilate the mask
-            labels = skmorphology.binary_dilation(skmorphology.binary_closing(labels))
-
-            # Apply large region mask
-            if len(masks_large) > 0:
-                cube_labels[:][idx][masks_large > 0] = 1
-
-            # Apply mask
-            cube_labels[:][idx][labels] = 1
-
-            # Alternatively apply mask
-            # self.cube[:][idx][labels] = np.nan
-
-        # Return labels
-        return ImageCube(cube=cube_labels, setup=self.setup)
+        return ImageCube(cube=np.array(mp), setup=self.setup)
 
     # =========================================================================== #
     # Properties
