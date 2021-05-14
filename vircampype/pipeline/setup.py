@@ -111,7 +111,8 @@ class Setup(dict):
 
         # Processing folders
         self["folders"]["temp"] = "{0}{1}/".format(self["folders"]["object"], "temp")
-        self["folders"]["processed"] = "{0}{1}/".format(self["folders"]["object"], "processed")
+        self["folders"]["processed_basic"] = "{0}{1}/".format(self["folders"]["object"], "processed_basic")
+        self["folders"]["processed_final"] = "{0}{1}/".format(self["folders"]["object"], "processed_final")
         self["folders"]["resampled"] = "{0}{1}/".format(self["folders"]["object"], "resampled")
 
         # QC
@@ -151,7 +152,8 @@ class Setup(dict):
 
         # Object-specific paths
         folders_object = [self["folders"]["master_object"], self["folders"]["qc"], self["folders"]["qc_sky"],
-                          self["folders"]["processed"], self["folders"]["qc_astrometry"], self["folders"]["resampled"],
+                          self["folders"]["processed_basic"], self["folders"]["processed_final"],
+                          self["folders"]["qc_astrometry"], self["folders"]["resampled"],
                           self["folders"]["stacks"], self["folders"]["tile"], self["folders"]["qc_photometry"]]
 
         # Generate common paths
