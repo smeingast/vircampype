@@ -837,8 +837,8 @@ class ProcessedScienceImages(ProcessedSkyImages):
 
         # Create primary header
         hdr_prime = fits.Header()
-        add_float_to_header(header=hdr_prime, key="MJD-OBS", value=self.mjd_mean, decimals=6)
-        hdr_prime.set(keyword="DATE-OBS", value=self.time_obs_mean.fits)
+        hdr_prime.set(keyword=self.setup.keywords.date_mjd, value=self.mjd_mean)
+        hdr_prime.set(keyword=self.setup.keywords.date_ut, value=self.time_obs_mean.fits)
         hdr_prime.set(keyword=self.setup.keywords.object, value="MASTER-SKY-STATIC")
         hdr_prime.set(self.setup.keywords.dit, value=self.dit[0])
         hdr_prime.set(self.setup.keywords.ndit, value=self.ndit[0])
