@@ -941,7 +941,7 @@ class ImageCube(object):
         """
 
         # Build mask for each plane in parallel
-        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+        with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
             mp = parallel(delayed(source_mask)(a, b, c, d) for a, b, c, d in
                           zip(self.cube,
                               repeat(self.setup.mask_sources_thresh),
