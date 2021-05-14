@@ -547,9 +547,14 @@ class FitsImages(FitsFiles):
         """
         return self.match_mjd(match_to=self.get_master_images().source_mask, max_lag=1 / 86400)
 
-    def get_master_sky(self):
+    def get_master_sky(self, mode: str):
         """
         Get for each file in self the corresponding Mastersky.
+
+        Parameters
+        ----------
+        mode : str
+            Either 'static' or 'dynamic'
 
         Returns
         -------
@@ -559,7 +564,14 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        return self.match_passband(match_to=self.get_master_images().sky, max_lag=self.setup.master_max_lag_sky / 1440.)
+        if "static" in mode.lower():
+            return self.match_passband(match_to=self.get_master_images().sky_static,
+                                       max_lag=self.setup.master_max_lag_sky / 1440.)
+        elif "dynamic" in mode.lower():
+            return self.match_passband(match_to=self.get_master_images().sky_dynamic,
+                                       max_lag=self.setup.master_max_lag_sky / 1440.)
+        else:
+            raise ValueError("Mode '{0}' not supported for fetching master sky".format(mode))
 
     def get_master_weight_global(self):
         """
