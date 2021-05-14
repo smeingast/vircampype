@@ -21,6 +21,7 @@ from vircampype.tools.astromatic import SwarpSetup
 from vircampype.tools.imagetools import upscale_image
 from vircampype.tools.viziertools import download_2mass
 from vircampype.tools.astromatic import SextractorSetup
+from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.tools.photometry import get_default_extinction
 from vircampype.fits.images.common import FitsImages, MasterImages
 
