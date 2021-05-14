@@ -862,7 +862,7 @@ class ImageCube(object):
             masks = repeat(None)
 
         # Destripe in parallel
-        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+        with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
             mp = parallel(delayed(destripe_helper)(a, b) for a, b in zip(self.cube, masks))
 
         # Set new data cube
@@ -904,7 +904,7 @@ class ImageCube(object):
                                                 max_bad_neighbors=self.setup.interpolate_max_bad_neighbors))
 
             elif self.setup.n_jobs > 1:
-                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                     mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
                                   zip(chopped, repeat(kernel), repeat(self.setup.interpolate_max_bad_neighbors)))
 
@@ -1124,7 +1124,7 @@ class ImageCube(object):
         # Submit parallel jobs for background estimation in each cube plane
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                 mp = parallel(delayed(background_image)(a, b, c) for a, b, c
                               in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
 
