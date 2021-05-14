@@ -1033,10 +1033,10 @@ class ResampledScienceImages(ProcessedSkyImages):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def write_flxscale_tile(self, stack_catalogs):
+    def equalize_zero_point(self, stack_catalogs):
 
         # Processing info
-        print_header(header="WRITING TILE FLUX SCALE", silent=self.setup.silent,
+        print_header(header="EQUALIZING ZERO POINT", silent=self.setup.silent,
                      left=os.path.basename(self.setup.path_coadd), right=None)
         tstart = time.time()
 
