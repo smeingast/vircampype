@@ -638,42 +638,6 @@ class ImageCube(object):
             plane[:] = sigma_clip(data=plane, sigma_level=sigma_level,
                                   sigma_iter=sigma_iter, center_metric=np.nanmedian)
 
-    def mask_cosmics(self, gain, rdnoise, return_mask=False):
-        """
-        Mask cosmics (and hot pixels) based on the L.A.Cosmic algorithm using astroscrappy.
-
-        Parameters
-        ----------
-        gain : list, iterable
-            List of gains
-        rdnoise : list, iterable
-            List of read noise values.
-        return_mask : bool, optional
-            Whether the mask should be returned. Default is False.
-
-        """
-
-        # Import
-        from astroscrappy.astroscrappy import detect_cosmics
-
-        # Run in parallel
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="invalid value encountered")
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
-                mp = parallel(delayed(detect_cosmics)(a, b, c, d, e, f, g)
-                              for a, b, c, d, e, f, g in
-                              zip(self.cube, repeat(None), repeat(4.5), repeat(0.3), repeat(5.0), gain, rdnoise))
-
-            # Unpack result
-            mask, clean = list(zip(*mp))
-
-        # If mask should be returned
-        if return_mask:
-            return ImageCube(setup=self.setup, cube=np.array(mask, dtype=bool))
-
-        # Otherwise overwrite self
-        self.cube = np.array(clean)
-
     # =========================================================================== #
     # Data manipulation
     # =========================================================================== #
