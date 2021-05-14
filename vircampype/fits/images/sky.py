@@ -781,6 +781,75 @@ class ProcessedScienceImages(ProcessedSkyImages):
     def __init__(self, setup, file_paths=None):
         super(ProcessedScienceImages, self).__init__(setup=setup, file_paths=file_paths)
 
+    def build_master_sky_static(self):
+
+        # Processing info
+        print_header(header="MASTER-SKY-STATIC", silent=self.setup.silent)
+        tstart = time.time()
+
+        # Check compatibility
+        self.check_compatibility(n_ndit_max=1, n_filter_max=1)
+
+        # Create name
+        outpath = "{0}MASTER-SKY-STATIC.MJD_{1:0.4f}.fits".format(self.setup.folders["master_object"], self.mjd_mean)
+
+        # Check if the file is already there
+        if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
+            return
+
+        # Instantiate output
+        master_cube = ImageCube(setup=self.setup, cube=None)
+
+        # Looping over detectors
+        data_headers = []
+        for idx_hdu in self.iter_data_hdu[0]:
+
+            # Print processing info
+            if not self.setup.silent:
+                message_calibration(n_current=1, n_total=1, name=outpath,
+                                    d_current=idx_hdu, d_total=max(self.iter_data_hdu[0]))
+
+            # Load data
+            cube = self.hdu2cube(hdu_index=idx_hdu)
+
+            # Normalize to same flux level
+            sky, sky_std = cube.background_planes()
+            cube.normalize(norm=sky / np.mean(sky))
+
+            # Subtract (scaled) constant sky level from each plane
+            sky_scaled, noise_scaled = cube.background_planes()
+            cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
+
+            # Mask
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Input data contains invalid values")
+                cube.cube = astropy_sigma_clip(data=cube.cube, sigma_lower=3, sigma_upper=2, maxiters=2, axis=(1, 2))
+
+            # Collapse cube
+            collapsed = cube.flatten(metric=np.nanmedian, axis=0, weights=None, dtype=None)
+
+            # Create header for extensions (currently empty
+            data_headers.append(fits.Header())
+
+            # Collapse extensions with specified metric and append to output
+            master_cube.extend(data=collapsed.astype(np.float32))
+
+        # Create primary header
+        hdr_prime = fits.Header()
+        add_float_to_header(header=hdr_prime, key="MJD-OBS", value=self.mjd_mean, decimals=6)
+        hdr_prime.set(keyword="DATE-OBS", value=self.time_obs_mean.fits)
+        hdr_prime.set(keyword=self.setup.keywords.object, value="MASTER-SKY-STATIC")
+        hdr_prime.set(self.setup.keywords.dit, value=self.dit[0])
+        hdr_prime.set(self.setup.keywords.ndit, value=self.ndit[0])
+        hdr_prime.set(self.setup.keywords.filter_name, value=self.passband[0])
+        hdr_prime.set("HIERARCH PYPE N_FILES", value=len(self))
+
+        # Write to disk
+        master_cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=data_headers)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
     def build_master_weight_image(self):
         """ This is unfortunately necessary since sometimes detector 16 in particular is weird."""
 
