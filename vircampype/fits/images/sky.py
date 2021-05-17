@@ -417,6 +417,99 @@ class RawSkyImages(SkyImages):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
+class RawScienceImages(RawSkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(RawScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+
+    def build_master_photometry(self):
+
+        # Processing info
+        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Construct outpath
+        outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
+
+        # Check if the file is already there and skip if it is
+        if not check_file_exists(file_path=outpath, silent=self.setup.silent):
+
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                                d_total=None, silent=self.setup.silent)
+
+            # Determine size to download
+            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
+
+            # Download catalog
+            if self.setup.phot_reference_catalog.lower() == "2mass":
+                table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
+            else:
+                raise ValueError("Catalog '{0}' not supported".format(self.setup.phot_reference_catalog))
+
+            # Save catalog
+            table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def build_coadd_header(self):
+
+        # Processing info
+        print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Check if header exists
+        if check_file_exists(file_path=self.setup.path_coadd_header, silent=self.setup.silent) \
+                and not self.setup.overwrite:
+            return
+
+        # Print message
+        message_calibration(n_current=1, n_total=1, name=self.setup.path_coadd_header, d_current=None,
+                            d_total=None, silent=self.setup.silent)
+
+        # Construct header from projection if set
+        if self.setup.projection is not None:
+
+            # Force the header in the setup, if set
+            if self.setup.projection.force_header:
+                header_coadd = self.setup.projection.header
+
+            # Otherwise construct image limits (CRPIX1/2, NAXIS1/2)
+            else:
+                header_coadd = self.setup.projection.subheader_from_skycoord(skycoord=self.footprints_flat, enlarge=0.5)
+
+        # Otherwise construct from input
+        else:
+
+            # Get optimal rotation of frame
+            rotation_test = np.arange(0, 360, 0.05)
+            area = []
+            for rot in rotation_test:
+                hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
+                                      enlarge=0.5, cdelt=self.setup.pixel_scale_degrees)
+                area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+
+            # Return final header with optimized rotation
+            rotation = rotation_test[np.argmin(area)]
+            header_coadd = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5,
+                                           rotation=np.deg2rad(np.round(rotation, 2)), round_crval=True,
+                                           cdelt=self.setup.pixel_scale_degrees)
+
+        # Dummy check
+        if (header_coadd["NAXIS1"] > 250000.) or (header_coadd["NAXIS2"] > 250000.):
+            raise ValueError("Double check if the image size is correct")
+
+        # Write coadd header to disk
+        header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+
 class ProcessedSkyImages(SkyImages):
 
     def __init__(self, setup, file_paths=None):
@@ -700,99 +793,6 @@ class ProcessedSkyImages(SkyImages):
 
             # Write to disk
             cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=hdrs_data, dtype="float32")
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
-
-
-class RawScienceImages(RawSkyImages):
-
-    def __init__(self, setup, file_paths=None):
-        super(RawScienceImages, self).__init__(setup=setup, file_paths=file_paths)
-
-    def build_master_photometry(self):
-
-        # Processing info
-        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
-        tstart = time.time()
-
-        # Construct outpath
-        outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
-
-        # Check if the file is already there and skip if it is
-        if not check_file_exists(file_path=outpath, silent=self.setup.silent):
-
-            # Print processing info
-            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-                                d_total=None, silent=self.setup.silent)
-
-            # Determine size to download
-            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
-
-            # Download catalog
-            if self.setup.phot_reference_catalog.lower() == "2mass":
-                table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
-            else:
-                raise ValueError("Catalog '{0}' not supported".format(self.setup.phot_reference_catalog))
-
-            # Save catalog
-            table.write(outpath, format="fits", overwrite=True)
-
-            # Add object info to primary header
-            add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
-
-    def build_coadd_header(self):
-
-        # Processing info
-        print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
-        tstart = time.time()
-
-        # Check if header exists
-        if check_file_exists(file_path=self.setup.path_coadd_header, silent=self.setup.silent) \
-                and not self.setup.overwrite:
-            return
-
-        # Print message
-        message_calibration(n_current=1, n_total=1, name=self.setup.path_coadd_header, d_current=None,
-                            d_total=None, silent=self.setup.silent)
-
-        # Construct header from projection if set
-        if self.setup.projection is not None:
-
-            # Force the header in the setup, if set
-            if self.setup.projection.force_header:
-                header_coadd = self.setup.projection.header
-
-            # Otherwise construct image limits (CRPIX1/2, NAXIS1/2)
-            else:
-                header_coadd = self.setup.projection.subheader_from_skycoord(skycoord=self.footprints_flat, enlarge=0.5)
-
-        # Otherwise construct from input
-        else:
-
-            # Get optimal rotation of frame
-            rotation_test = np.arange(0, 360, 0.05)
-            area = []
-            for rot in rotation_test:
-                hdr = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", rotation=np.deg2rad(rot),
-                                      enlarge=0.5, cdelt=self.setup.pixel_scale_degrees)
-                area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
-
-            # Return final header with optimized rotation
-            rotation = rotation_test[np.argmin(area)]
-            header_coadd = skycoord2header(skycoord=self.footprints_flat, proj_code="ZEA", enlarge=0.5,
-                                           rotation=np.deg2rad(np.round(rotation, 2)), round_crval=True,
-                                           cdelt=self.setup.pixel_scale_degrees)
-
-        # Dummy check
-        if (header_coadd["NAXIS1"] > 250000.) or (header_coadd["NAXIS2"] > 250000.):
-            raise ValueError("Double check if the image size is correct")
-
-        # Write coadd header to disk
-        header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
