@@ -1036,10 +1036,10 @@ class SkyImagesProcessedOffset(SkyImagesProcessed):
         super(SkyImagesProcessedOffset, self).__init__(setup=setup, file_paths=file_paths)
 
 
-class ResampledScienceImages(SkyImagesProcessed):
+class SkyImagesResampled(SkyImagesProcessed):
 
     def __init__(self, setup, file_paths=None):
-        super(ResampledScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(SkyImagesResampled, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_stacks(self):
 
@@ -1339,7 +1339,7 @@ class ResampledScienceImages(SkyImagesProcessed):
         header_tile = resize_header(fits.Header.fromtextfile(self.setup.path_coadd_header), factor=0.2)
 
         # Coadd ndet
-        ndet = ResampledScienceImages(setup=self.setup, file_paths=temp_ndet)
+        ndet = SkyImagesResampled(setup=self.setup, file_paths=temp_ndet)
         outpath_ndet = self.setup.path_coadd.replace(".fits", ".ndet.fits")
         header_tile.totextfile(outpath_ndet.replace(".fits", ".ahead"), overwrite=True)
         ndet._coadd_statistics(imageout_name=outpath_ndet, weight_images=temp_weight, combine_type="sum")
@@ -1347,7 +1347,7 @@ class ResampledScienceImages(SkyImagesProcessed):
         [os.remove(x) for x in temp_ndet]
 
         # Coadd exptime
-        exptime = ResampledScienceImages(setup=self.setup, file_paths=temp_exptime)
+        exptime = SkyImagesResampled(setup=self.setup, file_paths=temp_exptime)
         outpath_exptime = self.setup.path_coadd.replace(".fits", ".exptime.fits")
         header_tile.totextfile(outpath_exptime.replace(".fits", ".ahead"), overwrite=True)
         exptime._coadd_statistics(imageout_name=outpath_exptime, weight_images=temp_weight, combine_type="sum")
@@ -1355,7 +1355,7 @@ class ResampledScienceImages(SkyImagesProcessed):
         [os.remove(x) for x in temp_exptime]
 
         # Coadd mjd
-        mjdeff = ResampledScienceImages(setup=self.setup, file_paths=temp_mjdeff)
+        mjdeff = SkyImagesResampled(setup=self.setup, file_paths=temp_mjdeff)
         outpath_mjdeff = self.setup.path_coadd.replace(".fits", ".mjdeff.fits")
         header_tile.totextfile(outpath_mjdeff.replace(".fits", ".ahead"), overwrite=True)
         mjdeff._coadd_statistics(imageout_name=outpath_mjdeff, weight_images=temp_weight, combine_type="median")
