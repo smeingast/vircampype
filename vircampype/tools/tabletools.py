@@ -233,7 +233,7 @@ def table2bintablehdu(table):
     for key in table.keys():
 
         # Get numpy dtype
-        dtype = convert_dtype[str(table.field(key).dtype)]
+        dtype = convert_dtype(str(table.field(key).dtype))
 
         # Convert to FITS format
         fits_format = numpy2fits[dtype.replace("<", "").replace(">", "")]
