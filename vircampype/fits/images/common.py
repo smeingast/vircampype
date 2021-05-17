@@ -224,7 +224,7 @@ class FitsImages(FitsFiles):
 
         # Import
         from vircampype.fits.images.dark import DarkImages
-        from vircampype.fits.images.sky import SkyImagesRawScience, SkyImagesRawOffset, RawStdImages
+        from vircampype.fits.images.sky import SkyImagesRawScience, SkyImagesRawOffset, SkyImagesRawStd
         from vircampype.fits.images.flat import FlatTwilight, FlatLampLin, FlatLampCheck, FlatLampGain
 
         # Get the type, and category from the primary header
@@ -284,7 +284,7 @@ class FitsImages(FitsFiles):
         std_index = [i for i, (c, t) in enumerate(zip(category, types)) if
                      c == "CALIB" and t == "STD,FLUX"]
         std = None if len(std_index) < 1 else \
-            RawStdImages(setup=self.setup, file_paths=[self.paths_full[i] for i in std_index])
+            SkyImagesRawStd(setup=self.setup, file_paths=[self.paths_full[i] for i in std_index])
 
         return dict(science=science, offset=offset, std=std, dark_science=dark_science, dark_lin=dark_lin,
                     dark_gain=dark_gain, dark_check=dark_check, flat_twilight=flat_twilight,
