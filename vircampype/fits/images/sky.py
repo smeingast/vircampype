@@ -417,142 +417,6 @@ class RawSkyImages(SkyImages):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def process_raw(self):
-        """ Main processing method. """
-
-        # Processing info
-        print_header(header="PROCESSING RAW", right=None, silent=self.setup.silent)
-        tstart = time.time()
-
-        # Fetch the Masterfiles
-        master_dark = self.get_master_dark(ignore_dit=True)
-        master_flat = self.get_master_flat()
-        master_gain = self.get_master_gain()
-        master_sky = self.get_master_sky()
-        master_linearity = self.get_master_linearity()
-        master_source_mask = self.get_master_source_mask()
-
-        # Loop over files and apply calibration
-        for idx_file in range(self.n_files):
-
-            # Create output path
-            outpath = "{0}{1}.proc{2}".format(self.setup.folders["processed"],
-                                              self.names[idx_file], self.extensions[idx_file])
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                continue
-
-            # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
-                                d_current=None, d_total=None, silent=self.setup.silent)
-
-            # Read file into cube
-            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-
-            # Get master calibration
-            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
-            flat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
-            sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
-            lcff = master_linearity.file2coeff(file_index=idx_file)
-
-            # Norm to NDIT=1
-            cube.normalize(norm=self.ndit[idx_file])
-
-            # Linearize
-            cube.linearize(coeff=lcff, dit=self.dit[idx_file])
-
-            # Process with dark, flat, and sky
-            cube = (cube - dark) / flat - sky
-
-            # Bad pixel interpolation
-            if self.setup.interpolate_nan_bool:
-                cube.interpolate_nan()
-
-            # Destriping
-            if self.setup.destripe:
-                sources = master_source_mask.file2cube(file_index=idx_file)
-                cube.destripe(masks=sources)
-
-            # Background subtraction
-            if self.setup.subtract_background:
-
-                # Load source mask
-                sources = master_source_mask.file2cube(file_index=idx_file)
-
-                # Apply mask
-                temp_cube = copy.deepcopy(cube)
-                temp_cube.apply_masks(sources=sources)
-
-                # Compute background and sigma
-                bg, bgsig = temp_cube.background()
-
-                # Save sky level
-                sky, skysig = bg.median(axis=(1, 2)), bgsig.median(axis=(1, 2))
-
-                # Subtract normalized background level
-                bg -= np.nanmedian(bg)
-                cube -= bg
-
-            # Otherwise just calculate the sky level
-            else:
-                sky, skysig = cube.background_planes()
-
-            # Add stuff to headers
-            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
-                # Grab parameters
-                gain = master_gain.gain[idx_file][idx_hdu - 1]
-                rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
-                saturate = self.setup.saturation_levels[idx_hdu]
-                offseti = self.headers_primary[idx_file]["OFFSET_I"]
-                noffsets = self.headers_primary[idx_file]["NOFFSETS"]
-                jitteri = self.headers_primary[idx_file]["JITTER_I"]
-                njitter = self.headers_primary[idx_file]["NJITTER"]
-                chipid = self.headers_data[idx_file][idx_hdu]["HIERARCH ESO DET CHIP NO"]
-                photstab = offseti + noffsets * (chipid - 1)
-
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.gain,
-                                    value=gain * self.ndit_norm[idx_file], decimals=2, comment="Gain (e-/ADU)")
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.rdnoise,
-                                    value=rdnoise, decimals=2, comment="Read noise (e-)")
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.saturate,
-                                    value=saturate, decimals=1, comment="Saturation level (ADU)")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NOFFSETS",
-                                  value=noffsets, comment="Total number of offsets")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="OFFSET_I",
-                                  value=offseti, comment="Current offset iteration")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NJITTER",
-                                  value=njitter, comment="Total number of jitter positions")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="JITTER_I",
-                                  value=jitteri, comment="Current jitter iteration")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="PHOTSTAB",
-                                  value=photstab, comment="Photometric stability ID")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="SCMPPHOT",
-                                  value=offseti, comment="Photometric stability ID for Scamp")
-                add_str_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.filter_name,
-                                  value=self.passband[idx_file], comment="Passband")
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="DEXTINCT",
-                                    value=get_default_extinction(passband=self.passband[idx_file]),
-                                    decimals=2, comment="Default extinction (mag)")
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="SKY",
-                                    value=sky[idx_hdu], comment="Original sky value (ADU)")
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="SKYSIG",
-                                    value=skysig[idx_hdu], comment="Standard deviation of sky value (ADU)")
-
-            # Add file info to main header
-            phdr = self.headers_primary[idx_file].copy()
-            phdr["DARKFILE"] = master_dark.basenames[idx_file]
-            phdr["FLATFILE"] = master_flat.basenames[idx_file]
-            phdr["SKYFILE"] = master_sky.basenames[idx_file]
-            phdr["LINFILE"] = master_linearity.basenames[idx_file]
-
-            # Write to disk
-            cube.write_mef(path=outpath, prime_header=phdr, data_headers=self.headers_data[idx_file], dtype="float32")
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
-
 
 class ProcessedSkyImages(SkyImages):
 
@@ -738,6 +602,105 @@ class ProcessedSkyImages(SkyImages):
             if self.setup.qc_plots:
                 msky = MasterSky(setup=self.setup, file_paths=outpath)
                 msky.qc_plot_sky(paths=None, axis_size=5)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def process_raw_final(self):
+        """ Main processing method. """
+
+        # Processing info
+        print_header(header="FINAL RAW PROCESSING", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Fetch the Masterfiles
+        master_gain = self.get_master_gain()
+        master_sky = self.get_master_sky(mode="dynamic")
+        master_source_mask = self.get_master_source_mask()
+
+        # Loop over files and apply calibration
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            outpath = "{0}{1}".format(self.setup.folders["processed_final"],
+                                      self.basenames[idx_file].replace(".proc.basic.", ".proc.final."))
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup.silent)
+
+            # Read file into cube
+            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+
+            # Get master calibration
+            sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+
+            # Subtract dynamic sky
+            cube -= sky
+
+            # Bad pixel interpolation
+            if self.setup.interpolate_nan_bool:
+                cube.interpolate_nan()
+
+            # Destriping
+            if self.setup.destripe:
+                sources = master_source_mask.file2cube(file_index=idx_file)
+                cube.destripe(masks=sources)
+
+            # Background subtraction
+            if self.setup.subtract_background:
+
+                # Load source mask
+                sources = master_source_mask.file2cube(file_index=idx_file)
+
+                # Apply mask
+                temp_cube = copy.deepcopy(cube)
+                temp_cube.apply_masks(sources=sources)
+
+                # Compute background and sigma
+                bg, bgsig = temp_cube.background()
+
+                # Save sky level
+                sky, skysig = bg.median(axis=(1, 2)), bgsig.median(axis=(1, 2))
+
+                # Subtract normalized background level
+                bg -= np.nanmedian(bg)
+                cube -= bg
+
+            # Otherwise just calculate the sky level
+            else:
+                sky, skysig = cube.background_planes()
+
+            # Add stuff to headers
+            hdrs_data = []
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+
+                # Grab gain and readnoise
+                gain = master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
+                rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
+
+                # Make new header for current HDU
+                hdr = self.headers_data[idx_file][idx_hdu].copy()
+
+                # Add stuff to header
+                hdr.set(self.setup.keywords.gain, value=np.round(gain, 3), comment="Gain (e-/ADU)")
+                hdr.set(self.setup.keywords.rdnoise, value=np.round(rdnoise, 3), comment="Read noise (e-)")
+                hdr.set("SKY", value=np.round(sky[idx_hdu], 3), comment="Original sky value (ADU)")
+                hdr.set("SKYSIG", value=np.round(skysig[idx_hdu], 3), comment="Standard deviation of sky value (ADU)")
+
+                # Append modified header
+                hdrs_data.append(hdr)
+
+            # Add file info to main header
+            hdr_prime = self.headers_primary[idx_file].copy()
+            hdr_prime.set("SKYFILE", value=master_sky.basenames[idx_file])
+
+            # Write to disk
+            cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=hdrs_data, dtype="float32")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
