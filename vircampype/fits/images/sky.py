@@ -516,10 +516,10 @@ class SkyImagesRawOffset(SkyImagesRaw):
         super(SkyImagesRawOffset, self).__init__(setup=setup, file_paths=file_paths)
 
 
-class ProcessedSkyImages(SkyImages):
+class SkyImagesProcessed(SkyImages):
 
     def __init__(self, setup, file_paths=None):
-        super(ProcessedSkyImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(SkyImagesProcessed, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_master_source_mask(self):
 
@@ -804,7 +804,7 @@ class ProcessedSkyImages(SkyImages):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class ProcessedScienceImages(ProcessedSkyImages):
+class ProcessedScienceImages(SkyImagesProcessed):
 
     def __init__(self, setup, file_paths=None):
         super(ProcessedScienceImages, self).__init__(setup=setup, file_paths=file_paths)
@@ -1030,7 +1030,7 @@ class ProcessedScienceImages(ProcessedSkyImages):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class ResampledScienceImages(ProcessedSkyImages):
+class ResampledScienceImages(SkyImagesProcessed):
 
     def __init__(self, setup, file_paths=None):
         super(ResampledScienceImages, self).__init__(setup=setup, file_paths=file_paths)
@@ -1374,7 +1374,7 @@ class Tile(SkyImages):
         super(Tile, self).__init__(setup=setup, file_paths=file_paths)
 
 
-class ProcessedOffsetImages(ProcessedSkyImages):
+class ProcessedOffsetImages(SkyImagesProcessed):
 
     def __init__(self, setup, file_paths=None):
         super(ProcessedOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
@@ -1386,7 +1386,7 @@ class RawStdImages(SkyImagesRaw):
         super(RawStdImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
-class ProcessedStdImages(ProcessedSkyImages):
+class ProcessedStdImages(SkyImagesProcessed):
 
     def __init__(self, setup, file_paths=None):
         super(ProcessedStdImages, self).__init__(setup=setup, file_paths=file_paths)
