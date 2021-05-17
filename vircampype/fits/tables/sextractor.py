@@ -18,6 +18,7 @@ from vircampype.tools.mathtools import *
 from vircampype.tools.tabletools import *
 from vircampype.tools.astromatic import *
 from vircampype.tools.photometry import *
+from vircampype.tools.imagetools import *
 from vircampype.tools.systemtools import *
 from vircampype.data.cube import ImageCube
 from sklearn.neighbors import KernelDensity
