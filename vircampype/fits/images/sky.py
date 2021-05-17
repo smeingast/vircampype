@@ -892,7 +892,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         tstart = time.time()
 
         # Generate weight outpaths
-        outpaths = ["{0}MASTER-WEIGHT-IMAGE.MJD_{1:0.4f}.fits".format(self.setup.folders["master_object"], mjd)
+        outpaths = ["{0}MASTER-WEIGHT-IMAGE.MJD_{1:0.5f}.fits".format(self.setup.folders["master_object"], mjd)
                     for mjd in self.mjd]
 
         # MaxiMasking
