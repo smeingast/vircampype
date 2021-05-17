@@ -11,7 +11,7 @@ from vircampype.tools.photometry import *
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.fitstools import add_float_to_header
-from vircampype.fits.images.sky import ResampledScienceImages
+from vircampype.fits.images.sky import SkyImagesResampled
 from vircampype.tools.fitstools import delete_keyword_from_header
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
@@ -45,7 +45,7 @@ def make_phase3_pawprints(pawprint_images, pawprint_catalogs):
 
     Parameters
     ----------
-    pawprint_images : ResampledScienceImages
+    pawprint_images : SkyImagesResampled
         Input pawprint images.
     pawprint_catalogs : PhotometricCalibratedSextractorCatalogs
         Input pawprint source catalogs.
