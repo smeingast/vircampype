@@ -835,7 +835,7 @@ class ImageCube(object):
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                 mp = parallel(delayed(linearize_data)(a, b, c, d)
                               for a, b, c, d in zip(self.cube, cff, dit, repeat(1.0011)))
 
