@@ -4,7 +4,14 @@ __all__ = ["string2list", "string2func", "func2string", "prune_list", "flat_list
            "numpy2fits", "skycoord2visionsid"]
 
 
-convert_dtype = dict(bool="i1", int16="i2", int32="i4", int64="i8", float32="f4", float64="f8")
+def convert_dtype(dtype):
+    try:
+        cdict = dict(bool="i1", int16="i2", int32="i4", int64="i8", float32="f4", float64="f8")
+        return cdict[dtype]
+    except KeyError:
+        return dtype
+
+
 # Copied from astropy
 fits2numpy = {'L': 'i1', 'B': 'u1', 'I': 'i2', 'J': 'i4', 'K': 'i8', 'E': 'f4',
               'D': 'f8', 'C': 'c8', 'M': 'c16', 'A': 'a'}
