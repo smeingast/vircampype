@@ -374,6 +374,7 @@ class RawSkyImages(SkyImages):
             cube = (cube - dark) / flat
 
             # Add stuff to headers
+            hdrs_data = []
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
 
                 # Grab parameters
@@ -384,26 +385,24 @@ class RawSkyImages(SkyImages):
                 njitter = self.headers_primary[idx_file]["NJITTER"]
                 chipid = self.headers_data[idx_file][idx_hdu]["HIERARCH ESO DET CHIP NO"]
                 photstab = offseti + noffsets * (chipid - 1)
+                dextinct = get_default_extinction(passband=self.passband[idx_file])
 
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.saturate,
-                                    value=saturate, decimals=1, comment="Saturation level (ADU)")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NOFFSETS",
-                                  value=noffsets, comment="Total number of offsets")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="OFFSET_I",
-                                  value=offseti, comment="Current offset iteration")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="NJITTER",
-                                  value=njitter, comment="Total number of jitter positions")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="JITTER_I",
-                                  value=jitteri, comment="Current jitter iteration")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="PHOTSTAB",
-                                  value=photstab, comment="Photometric stability ID")
-                add_int_to_header(header=self.headers_data[idx_file][idx_hdu], key="SCMPPHOT",
-                                  value=offseti, comment="Photometric stability ID for Scamp")
-                add_str_to_header(header=self.headers_data[idx_file][idx_hdu], key=self.setup.keywords.filter_name,
-                                  value=self.passband[idx_file], comment="Passband")
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdu], key="DEXTINCT",
-                                    value=get_default_extinction(passband=self.passband[idx_file]),
-                                    decimals=2, comment="Default extinction (mag)")
+                # Make new header
+                hdr = self.headers_data[idx_file][idx_hdu].copy()
+
+                # Add entries
+                hdr.set(self.setup.keywords.saturate, value=saturate, comment="Saturation level (ADU)")
+                hdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
+                hdr.set("OFFSET_I", value=offseti, comment="Current offset iteration")
+                hdr.set("NJITTER", value=njitter, comment="Total number of jitter positions")
+                hdr.set("JITTER_I", value=jitteri, comment="Current jitter iteration")
+                hdr.set("PHOTSTAB", value=photstab, comment="Photometric stability ID")
+                hdr.set("SCMPPHOT", value=offseti, comment="Photometric stability ID for Scamp")
+                hdr.set(self.setup.keywords.filter_name, value=self.passband[idx_file], comment="Passband")
+                hdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
+
+                # Append header
+                hdrs_data.append(hdr)
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
@@ -412,7 +411,7 @@ class RawSkyImages(SkyImages):
             phdr["LINFILE"] = master_linearity.basenames[idx_file]
 
             # Write to disk
-            cube.write_mef(path=outpath, prime_header=phdr, data_headers=self.headers_data[idx_file], dtype="float32")
+            cube.write_mef(path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
