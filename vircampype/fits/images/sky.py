@@ -325,10 +325,10 @@ class SkyImages(FitsImages):
         sources_psfex.psfex(preset=preset)
 
 
-class RawSkyImages(SkyImages):
+class SkyImagesRaw(SkyImages):
 
     def __init__(self, setup, file_paths=None):
-        super(RawSkyImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(SkyImagesRaw, self).__init__(setup=setup, file_paths=file_paths)
 
     def process_raw_basic(self):
 
@@ -417,7 +417,7 @@ class RawSkyImages(SkyImages):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class RawScienceImages(RawSkyImages):
+class RawScienceImages(SkyImagesRaw):
 
     def __init__(self, setup, file_paths=None):
         super(RawScienceImages, self).__init__(setup=setup, file_paths=file_paths)
@@ -510,7 +510,7 @@ class RawScienceImages(RawSkyImages):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class RawOffsetImages(RawSkyImages):
+class RawOffsetImages(SkyImagesRaw):
 
     def __init__(self, setup, file_paths=None):
         super(RawOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
@@ -1380,7 +1380,7 @@ class ProcessedOffsetImages(ProcessedSkyImages):
         super(ProcessedOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
 
 
-class RawStdImages(RawSkyImages):
+class RawStdImages(SkyImagesRaw):
 
     def __init__(self, setup, file_paths=None):
         super(RawStdImages, self).__init__(setup=setup, file_paths=file_paths)
