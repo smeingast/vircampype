@@ -1,6 +1,6 @@
 # Import
 import glob
-from vircampype.fits.images.sky import RawScienceImages
+from vircampype.fits.images.sky import SkyImagesRawScience
 
 # Find files
 path_base = "/Volumes/Data/VISIONS/198C-2009A/data_wide/"
@@ -16,7 +16,7 @@ setup = dict(name="Chamaeleon_main_wide",
              projection=None)
 
 # Instantiate files
-images = RawScienceImages(setup=setup, file_paths=files)
+images = SkyImagesRawScience(setup=setup, file_paths=files)
 
 # Build header
 images.build_coadd_header()

@@ -1,6 +1,6 @@
 # Import
 import glob
-from vircampype.fits.images.sky import RawScienceImages
+from vircampype.fits.images.sky import SkyImagesRawScience
 
 # Set paths
 path_base = "/Volumes/Data/VISIONS/198C-2009E/data_control/"
@@ -13,6 +13,6 @@ setup = dict(name="CrA_control",
              n_jobs=6)
 
 # Instantiate files
-images = RawScienceImages(setup=setup, file_paths=files)
+images = SkyImagesRawScience(setup=setup, file_paths=files)
 
 images.build_coadd_header()
