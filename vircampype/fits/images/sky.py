@@ -417,10 +417,10 @@ class SkyImagesRaw(SkyImages):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class RawScienceImages(SkyImagesRaw):
+class SkyImagesRawScience(SkyImagesRaw):
 
     def __init__(self, setup, file_paths=None):
-        super(RawScienceImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(SkyImagesRawScience, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_master_photometry(self):
 
@@ -510,10 +510,10 @@ class RawScienceImages(SkyImagesRaw):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-class RawOffsetImages(SkyImagesRaw):
+class SkyImagesRawOffset(SkyImagesRaw):
 
     def __init__(self, setup, file_paths=None):
-        super(RawOffsetImages, self).__init__(setup=setup, file_paths=file_paths)
+        super(SkyImagesRawOffset, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class ProcessedSkyImages(SkyImages):
