@@ -516,6 +516,12 @@ class SkyImagesRawOffset(SkyImagesRaw):
         super(SkyImagesRawOffset, self).__init__(setup=setup, file_paths=file_paths)
 
 
+class SkyImagesRawStd(SkyImagesRaw):
+
+    def __init__(self, setup, file_paths=None):
+        super(SkyImagesRawStd, self).__init__(setup=setup, file_paths=file_paths)
+
+
 class SkyImagesProcessed(SkyImages):
 
     def __init__(self, setup, file_paths=None):
@@ -1378,12 +1384,6 @@ class Tile(SkyImages):
 
     def __init__(self, setup, file_paths=None):
         super(Tile, self).__init__(setup=setup, file_paths=file_paths)
-
-
-class SkyImagesRawStd(SkyImagesRaw):
-
-    def __init__(self, setup, file_paths=None):
-        super(SkyImagesRawStd, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class MasterSky(MasterImages):
