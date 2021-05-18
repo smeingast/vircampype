@@ -130,6 +130,9 @@ class Setup(dict):
         self["folders"]["qc_astrometry"] = "{0}{1}/".format(self["folders"]["qc"], "astrometry")
         self["folders"]["qc_photometry"] = "{0}{1}/".format(self["folders"]["qc"], "photometry")
 
+        # Statistics path
+        self["folders"]["statistics"] = "{0}{1}/".format(self["folders"]["object"], "statistics")
+
         # Stacks path
         self["folders"]["stacks"] = "{0}{1}/".format(self["folders"]["object"], "stacks")
 
@@ -153,8 +156,8 @@ class Setup(dict):
         # Object-specific paths
         folders_object = [self["folders"]["master_object"], self["folders"]["qc"], self["folders"]["qc_sky"],
                           self["folders"]["processed_basic"], self["folders"]["processed_final"],
-                          self["folders"]["qc_astrometry"], self["folders"]["resampled"],
-                          self["folders"]["stacks"], self["folders"]["tile"], self["folders"]["qc_photometry"]]
+                          self["folders"]["qc_astrometry"], self["folders"]["resampled"], self["folders"]["stacks"],
+                          self["folders"]["statistics"], self["folders"]["tile"], self["folders"]["qc_photometry"]]
 
         # Generate common paths
         for path in folders_common:
