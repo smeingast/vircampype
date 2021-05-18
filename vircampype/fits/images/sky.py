@@ -1076,7 +1076,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             oidx = files.read_from_prime_headers(keywords=["OFFSET_I"])[0][0]
 
             # Construct output paths for current stack
-            path_stack = "{0}{1}_stack_{2:02d}.stack.fits".format(self.setup.folders["stacks"], self.setup.name, oidx)
+            path_stack = "{0}{1}_{2:02d}.stack.fits".format(self.setup.folders["stacks"], self.setup.name, oidx)
             path_weight = path_stack.replace(".fits", ".weight.fits")
 
             # Check if file already exists
