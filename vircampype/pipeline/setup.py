@@ -637,6 +637,10 @@ class Setup(dict):
         self.__maximasking = maximasking
 
     @property
+    def image_statistics_resize_factor(self):
+        return 0.2
+
+    @property
     def projection(self):
         return self.__projection
 
