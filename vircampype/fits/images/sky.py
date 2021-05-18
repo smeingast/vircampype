@@ -1050,9 +1050,7 @@ class SkyImagesResampled(SkyImagesProcessed):
     def build_stacks(self):
 
         # Processing info
-        # TODO: This should print stack info in the loop
-        print_header(header="CREATING STACKS", silent=self.setup.silent,
-                     left=os.path.basename(self.setup.path_coadd), right=None)
+        print_header(header="CREATING STACKS", silent=self.setup.silent, left=None, right=None)
         tstart = time.time()
 
         # Split based on Offset
@@ -1066,7 +1064,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         if len(split) != 6:
             raise ValueError("Sequence contains {0} offsets. Expected 6.")
 
-        for files in split:
+        for idx_split in range(len(split)):
+
+            # Grab files
+            files = split[idx_split]
 
             # Load Swarp setup
             sws = SwarpSetup(setup=files.setup)
@@ -1075,12 +1076,16 @@ class SkyImagesResampled(SkyImagesProcessed):
             oidx = files.read_from_prime_headers(keywords=["OFFSET_I"])[0][0]
 
             # Construct output paths for current stack
-            path_stack = "{0}{1}_stack_{2:02d}.fits".format(self.setup.folders["stacks"], self.setup.name, oidx)
+            path_stack = "{0}{1}_stack_{2:02d}.stack.fits".format(self.setup.folders["stacks"], self.setup.name, oidx)
             path_weight = path_stack.replace(".fits", ".weight.fits")
 
             # Check if file already exists
             if check_file_exists(file_path=path_stack, silent=self.setup.silent):
                 continue
+
+            # Print processing info
+            message_calibration(n_current=idx_split + 1, n_total=len(split), name=path_stack,
+                                d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read fits header info from input files
             cpkw = ["NOFFSETS", "OFFSET_I", "NJITTER", "PHOTSTAB", "DEXTINCT", "SKY", "SKYSIG", "MJD-OBS", "AIRMASS"]
