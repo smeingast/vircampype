@@ -4,11 +4,13 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.time import Time
+from vircampype.pipeline.misc import *
 from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
+from vircampype.tools.wcstools import header_reset_wcs
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
-           "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image",
+           "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image", "fix_vircam_headers",
            "delete_keyword_from_header", "add_int_to_header", "replace_data", "mjd2dateobs"]
 
 
@@ -444,3 +446,49 @@ def mjd2dateobs(mjd):
 
     """
     return Time(mjd, format="mjd").fits
+
+
+def fix_vircam_headers(prime_header, data_headers):
+    """ Resets the WCS info and purges useless keywords from vircam headers. """
+
+    try:
+        tra = str(prime_header["HIERARCH ESO TEL TARG ALPHA"])
+        tde = str(prime_header["HIERARCH ESO TEL TARG DELTA"])
+
+        # Get declination sign and truncate string if necessary
+        if tde.startswith("-"):
+            decsign = -1
+            tde = tde[1:]
+        else:
+            decsign = 1
+
+        # Silly fix for short ALPHA/DELTA strings
+        tra = "0" * (6 - len(tra.split(".")[0])) + tra
+        tde = "0" * (6 - len(tde.split(".")[0])) + tde
+
+        # Compute field RA/DEC
+        fra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
+        fde = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
+
+    except KeyError:
+        fra, fde = None, None
+
+    for idx_hdr in range(len(data_headers)):
+
+        # Overwrite with consistently working keyword
+        try:
+            data_headers[idx_hdr]["CRVAL1"] = fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
+            data_headers[idx_hdr]["CRVAL2"] = fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
+        except KeyError:
+            pass
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
+
+        # Remove useless keywords if set
+        [data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
+         for kw in extension_keywords_noboby_needs]
+
+    # Purge also primary header
+    [prime_header.remove(kw, ignore_missing=True, remove_all=True) for kw in prime_keywords_noboby_needs]
