@@ -306,6 +306,11 @@ class FitsFiles:
     # Some properties
     # =========================================================================== #
     @property
+    def n_data_hdu(self):
+        """ Number of data HDUs for each file """
+        return [len(h) for h in self.headers_data]
+
+    @property
     def iter_data_hdu(self):
         """
         Property which holds an iterator for each file containing the indices for data access. In general it is assumed
