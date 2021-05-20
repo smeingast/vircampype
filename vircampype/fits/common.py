@@ -1,16 +1,12 @@
 import os
 import glob
 import pickle
-import warnings
 import numpy as np
 
 from astropy.io import fits
 from astropy.time import Time
-from vircampype.pipeline.misc import *
 from vircampype.pipeline.setup import Setup
 from vircampype.tools.systemtools import remove_file
-from vircampype.tools.fitstools import add_float_to_header
-from vircampype.tools.wcstools import header_reset_wcs, get_airmass_from_header
 
 
 class FitsFiles:
@@ -143,11 +139,7 @@ class FitsFiles:
             # Try to read the database
             try:
                 with open(self.paths_headers[idx], "rb") as f:
-
-                    # If the file is there, load the headers...
                     headers.append(pickle.load(f))
-
-                    # And continue with next file
                     continue
 
             # If not found we move on to read the headers from the fits file
@@ -161,81 +153,16 @@ class FitsFiles:
                         # Load header
                         hdr = hdu.header
 
-                        if self.setup.fix_vircam_header:
-                            try:
-                                hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
-                            except KeyError:
-                                pass
-
-                        # Check if header has been fixed already
+                        # Remove that silly keyword
                         try:
-                            fixed = hdr["HIERARCH PYPE WCS RESET"]
+                            hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
                         except KeyError:
-                            fixed = False
-
-                        # Reset WCS if set
-                        if self.setup.reset_wcs and not fixed:
-
-                            # Save Target coordinate
-                            if isinstance(hdu, fits.PrimaryHDU):
-
-                                try:
-                                    tra = str(hdr["HIERARCH ESO TEL TARG ALPHA"])
-                                    tde = str(hdr["HIERARCH ESO TEL TARG DELTA"])
-
-                                    # Get declination sign and truncate string if necessary
-                                    if tde.startswith("-"):
-                                        decsign = -1
-                                        tde = tde[1:]
-                                    else:
-                                        decsign = 1
-
-                                    # Silly fix for short ALPHA/DELTA strings
-                                    tra = "0" * (6 - len(tra.split(".")[0])) + tra
-                                    tde = "0" * (6 - len(tde.split(".")[0])) + tde
-
-                                    # Compute field RA/DEC
-                                    field_ra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
-                                    field_de = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
-
-                                except KeyError:
-                                    field_ra, field_de = None, None
-
-                            if isinstance(hdu, fits.ImageHDU):
-
-                                # Overwrite with consistently working keyword
-                                try:
-                                    hdr["CRVAL1"] = field_ra if field_ra is not None else hdr["CRVAL1"]
-                                    hdr["CRVAL2"] = field_de if field_ra is not None else hdr["CRVAL2"]
-                                except KeyError:
-                                    pass
-
-                                with warnings.catch_warnings():
-                                    warnings.filterwarnings("ignore")
-                                    hdr = header_reset_wcs(hdr)
-                                    hdr["HIERARCH PYPE WCS RESET"] = True
-
-                        # Add Airmass
-                        if self.setup.set_airmass:
-                            if isinstance(hdu, fits.ImageHDU):
-                                try:
-                                    if (hdr["CTYPE1"].lower() == "pixel") | (hdr["CTYPE1"].lower() == "pixel"):
-                                        raise KeyError
-                                    airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
-                                    add_float_to_header(header=hdr, key=self.setup.keywords.airmass, value=airmass,
-                                                        decimals=4, comment="Airmass at time of observation")
-                                except KeyError:
-                                    pass
-
-                        # Remove useless keywords if set
-                        if self.setup.purge_headers:
-                            all_keys = prime_keywords_noboby_needs + extension_keywords_noboby_needs
-                            [hdr.remove(kw, ignore_missing=True, remove_all=True) for kw in all_keys]
+                            pass
 
                         # Save cleaned header
                         fileheaders.append(hdr)
 
-                # When done for all headers dump them into the designated database
+                # When done for all headers dump them into the database
                 with open(self.paths_headers[idx], "wb") as d:
                     pickle.dump(fileheaders, d)
 
