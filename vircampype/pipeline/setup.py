@@ -284,7 +284,7 @@ class Setup(dict):
         return [4, 4]
 
     @property
-    def fix_vircam_header(self):
+    def fix_vircam_headers(self):
         """ Whether the (sometimes silly) VIRCAM  headers should be fixed. """
         return True
 
