@@ -1258,64 +1258,50 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def _coadd_statistics(self, imageout_name, weight_images, combine_type):
-
-        # Load Swarp setup
-        sws = SwarpSetup(setup=self.setup)
-
-        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=imageout_name, weight_image=",".join(weight_images),
-                        weightout_name=imageout_name.replace(".fits", ".weight.fits"), combine_type=combine_type,
-                        gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
-                        nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_suffix"])
-
-        # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
-
-        # Run Swarp
-        if not check_file_exists(file_path=imageout_name, silent=self.setup.silent) \
-                and not self.setup.overwrite:
-            print_message(message="Coadding {0}".format(os.path.basename(imageout_name)))
-            run_command_shell(cmd=cmd, silent=True)
-
-    def build_tile_statistics(self):
+    def build_statistics(self):
 
         # Processing info
-        print_header(header="TILE STATISTICS", silent=self.setup.silent,
-                     left=os.path.basename(self.setup.path_coadd), right=None)
+        print_header(header="IMAGE STATISTICS", silent=self.setup.silent, left=None, right=None)
         tstart = time.time()
 
         # Find weights
         master_weights = self.get_master_weight_global()
 
         # Create temporary output paths
-        temp_ndet = [self.setup.folders["temp"] + bn.replace(".fits", "_ndet.fits") for bn in self.basenames]
-        temp_exptime = [self.setup.folders["temp"] + bn.replace(".fits", "_exptime.fits") for bn in self.basenames]
-        temp_mjdeff = [self.setup.folders["temp"] + bn.replace(".fits", "_mjdeff.fits") for bn in self.basenames]
-        temp_weight = [self.setup.folders["temp"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
+        paths_ndet = [self.setup.folders["statistics"] + bn.replace(".fits", ".ndet.fits") for bn in self.basenames]
+        paths_exp = [self.setup.folders["statistics"] + bn.replace(".fits", ".exptime.fits") for bn in self.basenames]
+        paths_mjd = [self.setup.folders["statistics"] + bn.replace(".fits", ".mjdeff.fits") for bn in self.basenames]
+        paths_weight = [self.setup.folders["statistics"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
+
+        # Determine MJD offset
+        mjd_offset = self.mjd_mean
 
         # Loop over files
-        mjd_offset = 0
         for idx_file in range(self.n_files):
-
             """
             We have to cheat here to get a 64bit MJD value in the coadd
-            Swarp only produces 32 bit coadds for some reason, even if all input files (inlcuding weights) are
-            passed as 64bit images and the coadd header include BITPIX=-64.
+            Swarp only produces 32 bit coadds for some reason, even if all input files (including weights) are
+            passed as 64bit images and the coadd header includes BITPIX=-64.
             """
-            if idx_file == 0:
-                mjd_offset = int(self.mjd[idx_file])
 
             # Check if the file is already there and skip if it is
-            # TODO: Is this actually checking the right file?
-            if check_file_exists(file_path=temp_weight[idx_file], silent=self.setup.silent) \
+            if check_file_exists(file_path=paths_weight[idx_file], silent=self.setup.silent) \
                     and not self.setup.overwrite:
                 continue
 
+            # Print processing info
+            message_calibration(n_current=idx_file+1, n_total=len(self), name=self.paths_full[idx_file],
+                                d_current=None, d_total=None, silent=self.setup.silent)
+
+            # Make primary header
+            hdr_prime = fits.Header()
+            hdr_prime["OFFSET_I"] = self.read_from_prime_headers(keywords=["OFFSET_I"])[0][idx_file]
+
             # Create output HDULists
-            hdul_ndet = fits.HDUList(hdus=[fits.PrimaryHDU()])
-            hdul_exptime = fits.HDUList(hdus=[fits.PrimaryHDU()])
-            hdul_mjdeff = fits.HDUList(hdus=[fits.PrimaryHDU()])
-            hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU()])
+            hdul_ndet = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_exptime = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_mjdeff = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
             # Loop over extensions
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
@@ -1324,70 +1310,198 @@ class SkyImagesResampled(SkyImagesProcessed):
                 header_original = self.headers_data[idx_file][idx_hdu]
 
                 # Resize header and convert to WCS
-                wcs_resized = header2wcs(resize_header(header=header_original, factor=0.2))
+                wcs_resized = header2wcs(resize_header(header=header_original,
+                                                       factor=self.setup.image_statistics_resize_factor))
 
-                # Resize header
-                header_resized = wcs_resized.to_header()
+                # Get shape
+                shape = wcs_resized.pixel_shape[::-1]
 
                 # Create image statistics arrays
-                arr_ndet = np.full(wcs_resized.pixel_shape[::-1], fill_value=1, dtype=np.uint16)
-                arr_exptime = np.full(wcs_resized.pixel_shape[::-1], dtype=np.float32,
-                                      fill_value=self.dit[idx_file] * self.ndit[idx_file])
-                arr_mjdeff = np.full(wcs_resized.pixel_shape[::-1], fill_value=self.mjd[idx_file] - mjd_offset,
-                                     dtype=np.float32)
+                arr_ndet = np.full(shape, fill_value=1, dtype=np.uint16)
+                arr_exptime = np.full(shape, fill_value=self.dit[idx_file] * self.ndit[idx_file], dtype=np.float32)
+                arr_mjdeff = np.full(shape, fill_value=self.mjd[idx_file] - mjd_offset, dtype=np.float32)
 
                 # Read weight
                 weight_hdu = fits.getdata(master_weights.paths_full[idx_file], idx_hdu)
 
                 # Resize weight
                 arr_weight = upscale_image(weight_hdu, new_size=wcs_resized.pixel_shape, method="pil")
+                arr_weight[arr_weight < 0] = 0
+
+                # Create header and modify specifically for MJD
+                header_resized = wcs_resized.to_header()
+                header_resized_mjd = header_resized.copy()
+                header_resized_mjd.set("MJDOFF", value=mjd_offset, comment="MJD offset")
 
                 # Extend HDULists
                 hdul_ndet.append(fits.ImageHDU(data=arr_ndet, header=header_resized))  # noqa
                 hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))  # noqa
-                hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized))  # noqa
+                hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized_mjd))  # noqa
                 hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))  # noqa
 
             # Write to disk
-            hdul_ndet.writeto(temp_ndet[idx_file], overwrite=True)
-            hdul_exptime.writeto(temp_exptime[idx_file], overwrite=True)
-            hdul_mjdeff.writeto(temp_mjdeff[idx_file], overwrite=True)
-            hdul_weights.writeto(temp_weight[idx_file], overwrite=True)
+            hdul_ndet.writeto(paths_ndet[idx_file], overwrite=True)
+            hdul_exptime.writeto(paths_exp[idx_file], overwrite=True)
+            hdul_mjdeff.writeto(paths_mjd[idx_file], overwrite=True)
+            hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
 
-        # Resize tile header
-        header_tile = resize_header(fits.Header.fromtextfile(self.setup.path_coadd_header), factor=0.2)
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-        # Coadd ndet
-        ndet = SkyImagesResampled(setup=self.setup, file_paths=temp_ndet)
-        outpath_ndet = self.setup.path_coadd.replace(".fits", ".ndet.fits")
-        header_tile.totextfile(outpath_ndet.replace(".fits", ".ahead"), overwrite=True)
-        ndet._coadd_statistics(imageout_name=outpath_ndet, weight_images=temp_weight, combine_type="sum")
-        convert_bitpix_image(path=outpath_ndet, new_type=np.uint16)
-        [os.remove(x) for x in temp_ndet]
+    def coadd_statistics_stacks(self, mode):
 
-        # Coadd exptime
-        exptime = SkyImagesResampled(setup=self.setup, file_paths=temp_exptime)
-        outpath_exptime = self.setup.path_coadd.replace(".fits", ".exptime.fits")
-        header_tile.totextfile(outpath_exptime.replace(".fits", ".ahead"), overwrite=True)
-        exptime._coadd_statistics(imageout_name=outpath_exptime, weight_images=temp_weight, combine_type="sum")
-        convert_bitpix_image(path=outpath_exptime, new_type=np.float32)
-        [os.remove(x) for x in temp_exptime]
+        # Processing info
+        print_header(header="STACKS STATISTICS {0}".format(mode.upper()),
+                     silent=self.setup.silent, left=None, right=None)
+        tstart = time.time()
 
-        # Coadd mjd
-        mjdeff = SkyImagesResampled(setup=self.setup, file_paths=temp_mjdeff)
-        outpath_mjdeff = self.setup.path_coadd.replace(".fits", ".mjdeff.fits")
-        header_tile.totextfile(outpath_mjdeff.replace(".fits", ".ahead"), overwrite=True)
-        mjdeff._coadd_statistics(imageout_name=outpath_mjdeff, weight_images=temp_weight, combine_type="median")
-        [os.remove(x) for x in temp_mjdeff]
+        # Split based on OFFSET ID
+        split = self.split_keywords(keywords=["OFFSET_I"])
 
-        # Add offset to MJD coadd and convert to 64 bit
-        with fits.open(outpath_mjdeff, mode="update") as hdul:
-            hdul[0].header["BITPIX"] = -64
-            hdul[0].data = hdul[0].data.astype(np.float64) + mjd_offset
-            hdul.flush()
+        # Set default mjd offset
+        mjd_offset = None
 
-        # Remove weights
-        [os.remove(x) for x in temp_weight]
+        # Loop over OFFSETs
+        for idx_split in range(len(split)):
+
+            # Grab current files
+            files = split[idx_split]
+
+            # Read MJD offset
+            if "mjd" in mode.lower():
+                mjd_offset = flat_list(files.read_from_data_headers(keywords=["MJDOFF"])[0])
+
+                # There can only be one offset
+                if len(set(mjd_offset)) != 1:
+                    raise ValueError("Multiple MJD offsets found")
+                else:
+                    mjd_offset = mjd_offset[0]
+
+            # Load Swarp setup
+            sws = SwarpSetup(setup=files.setup)
+
+            # Get current OFFSET ID
+            oidx = files.read_from_prime_headers(keywords=["OFFSET_I"])[0][0]
+
+            # Get weight paths
+            weights = [p.replace(mode, "weight") for p in files.paths_full]
+
+            # Check for existence of weight maps
+            if np.sum([os.path.isfile(w) for w in weights]) != len(files):
+                raise ValueError("Images and weights not synced")
+
+            # Construct output paths for current stack
+            path_stack = "{0}{1}_{2:02d}.stack.{3}.fits" \
+                         "".format(self.setup.folders["stacks"], self.setup.name, oidx, mode)
+
+            # Check if file already exists
+            if check_file_exists(file_path=path_stack, silent=self.setup.silent):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_split + 1, n_total=len(split), name=path_stack,
+                                d_current=None, d_total=None, silent=self.setup.silent)
+
+            # Loop over extensions
+            paths_temp_stacks, paths_temp_weights = [], []
+            for idx_data_hdu, idx_iter_hdu in zip(files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))):
+
+                # Construct output path
+                paths_temp_stacks.append("{0}_{1:02d}.fits".format(path_stack, idx_data_hdu))
+                paths_temp_weights.append("{0}.weight.fits".format(os.path.splitext(paths_temp_stacks[-1])[0]))
+
+                # Modify file paths with current extension
+                paths_image_mod = ["{0}[{1}]".format(x, idx_data_hdu) for x in files.paths_full]
+                paths_weight_mod = ["{0}[{1}]".format(x, idx_data_hdu) for x in weights]
+
+                # Build swarp options
+                ss = yml2config(path_yml=sws.preset_coadd, imageout_name=paths_temp_stacks[-1],
+                                weightout_name=paths_temp_weights[-1], skip=["weight_thresh"],
+                                weight_image=",".join(paths_weight_mod), nthreads=self.setup.n_jobs,
+                                combine_type=self.setup.image_statistics_combine_type[mode])
+
+                # Construct final command
+                cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".format(idx_data_hdu).join(paths_image_mod),
+                                                  sws.default_config, ss)
+
+                # Run Swarp in bash (only bash understand the [ext] options, zsh does not)
+                run_command_shell(cmd=cmd, shell="bash", silent=True)
+
+            # Create MEF image
+            make_mef_image(paths_input=sorted(paths_temp_stacks), overwrite=self.setup.overwrite,
+                           path_output=path_stack, primeheader=None)
+
+            # Convert data types
+            if "ndet" in mode.lower():
+                convert_bitpix_image(path=path_stack, new_type=np.uint16)
+            elif "exptime" in mode.lower():
+                convert_bitpix_image(path=path_stack, new_type=np.float32)
+            elif "mjd" in mode.lower():
+                convert_bitpix_image(path=path_stack, new_type=np.float64, offset=mjd_offset)
+            else:
+                raise ValueError
+
+            # Remove temporary files
+            [remove_file(f) for f in paths_temp_stacks]
+            [remove_file(f) for f in paths_temp_weights]
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def coadd_statistics_tile(self, mode):
+
+        # Processing info
+        print_header(header="TILE STATISTICS {0}".format(mode.upper()), silent=self.setup.silent, left=None, right=None)
+        tstart = time.time()
+
+        # Construct output path
+        outpath = self.setup.path_coadd.replace(".fits", ".{0}.fits".format(mode))
+
+        # Check if file already exists
+        if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            return
+
+        # Get weight paths
+        paths_weight = [p.replace(mode, "weight") for p in self.paths_full]
+
+        if np.sum([os.path.isfile(w) for w in paths_weight]) != self.n_files:
+            raise ValueError("Not all images have weights")
+
+        # Read MJD offset
+        mjd_offset = None
+        if "mjd" in mode.lower():
+            mjd_offset = flat_list(self.read_from_data_headers(keywords=["MJDOFF"])[0])
+
+            # There can only be one offset
+            if len(set(mjd_offset)) != 1:
+                raise ValueError("Multiple MJD offsets found")
+            else:
+                mjd_offset = mjd_offset[0]
+
+        # Load Swarp setup
+        sws = SwarpSetup(setup=self.setup)
+
+        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=outpath, weight_image=",".join(paths_weight),
+                        weightout_name=outpath.replace(".fits", ".weight.fits"),
+                        combine_type=self.setup.image_statistics_combine_type[mode],
+                        nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_suffix"])
+
+        # Construct commands for source extraction
+        cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
+
+        # Run Swarp
+        print_message(message="Coadding {0}".format(os.path.basename(outpath)))
+        run_command_shell(cmd=cmd, silent=True)
+
+        # Convert data types
+        if "ndet" in mode.lower():
+            convert_bitpix_image(path=outpath, new_type=np.uint16)
+        elif "exptime" in mode.lower():
+            convert_bitpix_image(path=outpath, new_type=np.float32)
+        elif "mjd" in mode.lower():
+            convert_bitpix_image(path=outpath, new_type=np.float64, offset=mjd_offset)
+        else:
+            raise ValueError
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
