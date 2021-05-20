@@ -619,6 +619,15 @@ class Setup(dict):
         self.__sex_back_filtersize = sex_back_filtersize
 
     # =========================================================================== #
+    # Image statistics
+    @property
+    def image_statistics_resize_factor(self):
+        return 0.25
+
+    # Image combination methods for statistics
+    image_statistics_combine_type = dict(ndet="SUM", mjdeff="AVERAGE", exptime="SUM")
+
+    # =========================================================================== #
     # Other
     @property
     def pixel_scale_arcsec(self):
@@ -635,10 +644,6 @@ class Setup(dict):
     @maximasking.setter
     def maximasking(self, maximasking):
         self.__maximasking = maximasking
-
-    @property
-    def image_statistics_resize_factor(self):
-        return 0.2
 
     @property
     def projection(self):
