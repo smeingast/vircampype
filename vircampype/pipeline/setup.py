@@ -31,8 +31,6 @@ class Setup(dict):
         self.__qc_plots = True
 
         # Data setup
-        self.__purge_headers = True
-        self.__reset_wcs = True
         self.__maximasking = False
         self.__projection = None
 
@@ -287,26 +285,6 @@ class Setup(dict):
     def fix_vircam_headers(self):
         """ Whether the (sometimes silly) VIRCAM  headers should be fixed. """
         return True
-
-    @property
-    def reset_wcs(self):
-        """
-        Whether the WCS info in the original headers should be reset.
-        This is necessary because sometimes the data flow does not propagate WCS keywords to all images.
-        """
-        return self.__reset_wcs
-
-    @reset_wcs.setter
-    def reset_wcs(self, reset_wcs):
-        self.__reset_wcs = reset_wcs
-
-    @property
-    def purge_headers(self):
-        return self.__purge_headers
-
-    @purge_headers.setter
-    def purge_headers(self, purge_headers):
-        self.__purge_headers = purge_headers
 
     @property
     def set_airmass(self):
