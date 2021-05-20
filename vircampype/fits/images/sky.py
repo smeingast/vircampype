@@ -387,7 +387,7 @@ class SkyImagesRaw(SkyImages):
                 photstab = offseti + noffsets * (chipid - 1)
                 dextinct = get_default_extinction(passband=self.passband[idx_file])
 
-                # Make new header
+                # Read new header
                 hdr = self.headers_data[idx_file][idx_hdu].copy()
 
                 # Add entries
@@ -401,6 +401,10 @@ class SkyImagesRaw(SkyImages):
                 hdr.set(self.setup.keywords.filter_name, value=self.passband[idx_file], comment="Passband")
                 hdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
 
+                # Add Airmass
+                airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
+                hdr.set(self.setup.keywords.airmass, value=airmass, comment="Airmass at time of observation")
+
                 # Append header
                 hdrs_data.append(hdr)
 
@@ -409,6 +413,10 @@ class SkyImagesRaw(SkyImages):
             phdr["DARKFILE"] = master_dark.basenames[idx_file]
             phdr["FLATFILE"] = master_flat.basenames[idx_file]
             phdr["LINFILE"] = master_linearity.basenames[idx_file]
+
+            # Fix headers
+            if self.setup.fix_vircam_headers:
+                fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
 
             # Write to disk
             cube.write_mef(path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32")
