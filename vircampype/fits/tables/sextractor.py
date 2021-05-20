@@ -554,6 +554,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Open input catalog
             table_hdulist = fits.open(self.paths_full[idx_file], mode="readonly")
 
+            # Compute zero points
             for table_hdu, idx_table_hdu in zip(tables_file, self.iter_data_hdu[idx_file]):
                 add_zp_2mass(table_hdu, table_2mass=table_master, key_ra=self._key_ra, key_dec=self._key_dec,
                              mag_lim_ref=master_phot.mag_lim(passband=self.passband[idx_file]), method="weighted",
@@ -611,37 +612,45 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         for idx_file in range(self.n_files):
 
-            # Find statistics images
-            mjdeff_image = FitsImages.from_folder(path=self.directories[idx_file],
-                                                  pattern="*.mjdeff.fits", setup=self.setup)
-            exptime_image = FitsImages.from_folder(path=self.directories[idx_file],
-                                                   pattern="*.exptime.fits", setup=self.setup)
-            ndet_image = FitsImages.from_folder(path=self.directories[idx_file],
-                                                pattern="*.ndet.fits", setup=self.setup)
+            # Find files
+            path_mjd = self.paths_full[idx_file].replace(".full.fits.tab", ".mjdeff.fits")
+            path_exptime = self.paths_full[idx_file].replace(".full.fits.tab", ".exptime.fits")
+            path_ndet = self.paths_full[idx_file].replace(".full.fits.tab", ".ndet.fits")
+            path_weight = self.paths_full[idx_file].replace(".full.fits.tab", ".weight.fits")
 
-            # There can only be one match
-            if mjdeff_image.n_files * exptime_image.n_files * ndet_image.n_files != 1:
-                raise ValueError("Matches for image statistics are not unique")
+            # Check if files are available
+            if not os.path.isfile(path_mjd) & os.path.isfile(path_exptime) & os.path.isfile(path_ndet):
+                raise ValueError("Matches for image statistics not found")
+
+            # Instantiate
+            image_mjdeff = FitsImages(file_paths=path_mjd, setup=self.setup)
 
             # Open current table file
             hdul = fits.open(self.paths_full[idx_file], mode="update")
 
-            for idx_hdu_self, idx_hdu_stats in zip(self.iter_data_hdu[idx_file], mjdeff_image.iter_data_hdu[0]):
+            # Check if the last HDU was already modified
+            if "MJDEFF" in hdul[self.iter_data_hdu[idx_file][-1]].columns.names:
+                print_message(message="{0} already modified.".format(os.path.basename(self.paths_full[idx_file])),
+                              kind="warning", end=None)
+                continue
+
+            # Loop over extensions
+            for idx_hdu_self, idx_hdu_stats in zip(self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0])):
 
                 # Read table
                 table_hdu = self.filehdu2table(file_index=idx_file, hdu_index=idx_hdu_self)
 
                 # Read stats
-                mjdeff = fits.getdata(mjdeff_image.paths_full[0], idx_hdu_stats)
-                exptime = fits.getdata(exptime_image.paths_full[0], idx_hdu_stats)
-                ndet = fits.getdata(ndet_image.paths_full[0], idx_hdu_stats)
-                weight = fits.getdata(mjdeff_image.paths_full[0].replace(".fits", ".weight.fits"), idx_hdu_stats)
+                mjdeff, exptime = fits.getdata(path_mjd, idx_hdu_stats), fits.getdata(path_exptime, idx_hdu_stats)
+                ndet, weight = fits.getdata(path_ndet, idx_hdu_stats), fits.getdata(path_weight, idx_hdu_stats)
+
+                # Renormalize weight
                 weight /= np.median(weight)
 
                 # Obtain wcs for statistics images (they all have the same projection)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", FITSFixedWarning)
-                    wcs_stats = WCS(header=mjdeff_image.headers_data[0][idx_hdu_stats])
+                    wcs_stats = WCS(header=image_mjdeff.headers_data[0][idx_hdu_stats])
 
                 # Convert to X/Y
                 xx, yy = wcs_stats.wcs_world2pix(table_hdu[self._key_ra], table_hdu[self._key_dec], 0)
@@ -651,8 +660,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 bad = (xx_image >= mjdeff.shape[1]) | (xx_image < 0) | \
                       (yy_image >= mjdeff.shape[0]) | (yy_image < 0)
 
-                # Just to be sort of safe, let's say we can't have more than 0.05% of sources at the edges
-                if sum(bad) > 0.0005 * len(bad):
+                # Just to be sort of safe, let's say we can't have more than 3% of sources at the edges
+                if sum(bad) / len(bad) > 0.03:
                     raise ValueError("Too many sources are close to the image edge ({0}/{1}). "
                                      "Please check for issues.".format(sum(bad), len(bad)))
 
@@ -660,29 +669,21 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 xx_image[bad], yy_image[bad] = 0, 0
 
                 # Get values for each source from data arrays
-                mjdeff_sources = mjdeff[yy_image, xx_image]
-                exptime_sources = exptime[yy_image, xx_image]
-                ndet_sources = ndet[yy_image, xx_image]
-                weight_sources = weight[yy_image, xx_image]
+                mjdeff_sources, exptime_sources = mjdeff[yy_image, xx_image], exptime[yy_image, xx_image]
+                ndet_sources, weight_sources = ndet[yy_image, xx_image], weight[yy_image, xx_image]
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
-                mjdeff_sources[bad] = np.nan
-                exptime_sources[bad] = 0
-                ndet_sources[bad] = 0
+                mjdeff_sources[bad], exptime_sources[bad], ndet_sources[bad] = np.nan, 0, 0
 
-                # Append new columns
-                orig_cols = hdul[idx_hdu_self].data.columns
+                # Make new columns
                 new_cols = fits.ColDefs([fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
                                          fits.Column(name='EXPTIME', format="J", array=exptime_sources, unit="seconds"),
                                          fits.Column(name='NOBS', format="J", array=ndet_sources)])
 
-                # Replace HDU
-                try:
-                    hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(orig_cols + new_cols,
-                                                                       header=hdul[idx_hdu_self].header)
-                except ValueError:
-                    pass
+                # Append new columns and replace HDU
+                hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(hdul[idx_hdu_self].data.columns + new_cols,
+                                                                   header=hdul[idx_hdu_self].header)
 
             hdul.flush()
 
