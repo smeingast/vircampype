@@ -430,40 +430,6 @@ class SkyImagesRawScience(SkyImagesRaw):
     def __init__(self, setup, file_paths=None):
         super(SkyImagesRawScience, self).__init__(setup=setup, file_paths=file_paths)
 
-    def build_master_photometry(self):
-
-        # Processing info
-        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
-        tstart = time.time()
-
-        # Construct outpath
-        outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
-
-        # Check if the file is already there and skip if it is
-        if not check_file_exists(file_path=outpath, silent=self.setup.silent):
-
-            # Print processing info
-            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
-                                d_total=None, silent=self.setup.silent)
-
-            # Determine size to download
-            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
-
-            # Download catalog
-            if self.setup.phot_reference_catalog.lower() == "2mass":
-                table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
-            else:
-                raise ValueError("Catalog '{0}' not supported".format(self.setup.phot_reference_catalog))
-
-            # Save catalog
-            table.write(outpath, format="fits", overwrite=True)
-
-            # Add object info to primary header
-            add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
-
     def build_coadd_header(self):
 
         # Processing info
@@ -584,6 +550,40 @@ class SkyImagesProcessed(SkyImages):
 
             # Write to disk
             cube_sources.write_mef(path=outpath, prime_header=prime_header)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def build_master_photometry(self):
+
+        # Processing info
+        print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Construct outpath
+        outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
+
+        # Check if the file is already there and skip if it is
+        if not check_file_exists(file_path=outpath, silent=self.setup.silent):
+
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                                d_total=None, silent=self.setup.silent)
+
+            # Determine size to download
+            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
+
+            # Download catalog
+            if self.setup.phot_reference_catalog.lower() == "2mass":
+                table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
+            else:
+                raise ValueError("Catalog '{0}' not supported".format(self.setup.phot_reference_catalog))
+
+            # Save catalog
+            table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
