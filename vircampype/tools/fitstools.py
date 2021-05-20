@@ -342,7 +342,7 @@ def add_str_to_header(header, key, value, comment=None, remove_before=True):
     header[key] = (value, comment)
 
 
-def convert_bitpix_image(path, new_type):
+def convert_bitpix_image(path, new_type, offset=None):
     """
     Converts image data to the requested data type across all HDUs.
 
@@ -352,12 +352,17 @@ def convert_bitpix_image(path, new_type):
         Path to FITS file.
     new_type
         New data type.
+    offset : int, float, optional
+        Optional offset to add to the data.
 
     """
     with fits.open(path, mode="update") as hdul:
         for hdu in hdul:
             if hasattr(hdu.data, "__len__"):
-                hdu.data = hdu.data.astype(new_type)
+                if offset is not None:
+                    hdu.data = (hdu.data + offset).astype(new_type)
+                else:
+                    hdu.data = hdu.data.astype(new_type)
 
 
 def delete_keyword_from_header(header, keyword):
