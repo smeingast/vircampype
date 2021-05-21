@@ -22,6 +22,6 @@ sys.stdout.write("\x1b]2;{0}\x07".format(pipeline.setup.name))
 
 # Run pipeline
 if "calibration" in pipeline.setup.name.lower():
-    pipeline.build_master_calibration()
+    pipeline.process_calibration()
 else:
     pipeline.process_science()
