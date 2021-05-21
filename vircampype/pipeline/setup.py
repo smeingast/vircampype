@@ -634,16 +634,24 @@ class Setup(dict):
         elif projection is None:
             self.__projection = None
         elif isinstance(projection, str):
+
+            # CrA
             if "corona_australis_wide" == projection.lower():
                 self.__projection = CoronaAustralisWideProjection()
             elif "corona_australis_deep" == projection.lower():
                 self.__projection = CoronaAustralisDeepProjection()
-            elif "ophiuchus_deep" == projection.lower():
-                self.__projection = OphiuchusDeepProjection()
+            elif "corona_australis_control" == projection.lower():
+                self.__projection = CoronaAustralisControlProjection()
+
+            # Ophiuchus
             elif "ophiuchus_wide" == projection.lower():
                 self.__projection = OphiuchusWideProjection()
+            elif "ophiuchus_deep" == projection.lower():
+                self.__projection = OphiuchusDeepProjection()
             elif "ophiuchus_control" == projection.lower():
                 self.__projection = OphiuchusControlProjection()
+
+            # Orion
             elif "orion_control" == projection.lower():
                 self.__projection = OrionControlProjection()
             else:
