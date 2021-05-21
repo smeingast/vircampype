@@ -11,8 +11,9 @@ path_scripts = "/Volumes/Data/VISIONS/198C-2009E/scripts/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
 files = glob.glob(path_data + "CrA*/*.fits")
-reference_mag_lim = dict(J=(12.0, 15.0), H=(11.5, 14.5), Ks=(11.0, 14.0))
 projection = "Corona_Australis_control"
+
+reference_mag_lim = dict(J=(12.0, 15.0), H=(11.5, 14.5), Ks=(11.0, 14.0))
 n_jobs = 6
 
 # =========================================================================== #
