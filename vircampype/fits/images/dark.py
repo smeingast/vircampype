@@ -30,7 +30,7 @@ class DarkImages(FitsImages):
         split = flat_list([s.split_lag(max_lag=self.setup.dark_max_lag) for s in split])
 
         # Remove sequences with too few images
-        split = prune_list(split, n_min=self.setup.superflat_n_min)
+        split = prune_list(split, n_min=3)
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
