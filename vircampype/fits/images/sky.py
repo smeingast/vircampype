@@ -870,7 +870,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Collapse cube
             collapsed = cube.flatten(metric=np.nanmedian, axis=0, weights=None, dtype=None)
 
-            # Create header for extensions (currently empty
+            # Create header for extensions
             data_headers.append(fits.Header())
 
             # Collapse extensions with specified metric and append to output
