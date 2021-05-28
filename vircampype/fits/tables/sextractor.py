@@ -153,30 +153,30 @@ class SextractorCatalogs(SourceCatalogs):
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
 
-        # Normalize FLXSCALE across all headers
-        flxscale = []
-        for path_ahead in self._scamp_header_paths():
-            hdrs = read_aheaders(path=path_ahead)
-            flxscale.extend([h["FLXSCALE"] for h in hdrs])
-
-            # Make a backup
-            path_backup = path_ahead + ".backup"
-            if not os.path.isfile(path_backup):
-                copyfile(path_ahead, path_backup)
-
-        # Compute norm
-        flxscale_norm = np.mean(flxscale)
-
-        # Loop again and rewrite this time
-        for path_ahead in self._scamp_header_paths():
-            hdrs = read_aheaders(path=path_ahead)
-            for h in hdrs:
-                h["FSCLORIG"] = (h["FLXSCALE"], "Original scamp flux scale")
-                h["FSCLSTCK"] = (h["FLXSCALE"] / flxscale_norm, "SCAMP relative flux scale for stacks")
-                del h["FLXSCALE"]
-
-            # Rewrite file with new scale
-            write_aheaders(headers=hdrs, path=path_ahead)
+        # # Normalize FLXSCALE across all headers
+        # flxscale = []
+        # for path_ahead in self._scamp_header_paths():
+        #     hdrs = read_aheaders(path=path_ahead)
+        #     flxscale.extend([h["FLXSCALE"] for h in hdrs])
+        #
+        #     # Make a backup
+        #     path_backup = path_ahead + ".backup"
+        #     if not os.path.isfile(path_backup):
+        #         copyfile(path_ahead, path_backup)
+        #
+        # # Compute norm
+        # flxscale_norm = np.mean(flxscale)
+        #
+        # # Loop again and rewrite this time
+        # for path_ahead in self._scamp_header_paths():
+        #     hdrs = read_aheaders(path=path_ahead)
+        #     for h in hdrs:
+        #         h["FSCLORIG"] = (h["FLXSCALE"], "Original scamp flux scale")
+        #         h["FSCLSTCK"] = (h["FLXSCALE"] / flxscale_norm, "SCAMP relative flux scale for stacks")
+        #         del h["FLXSCALE"]
+        #
+        #     # Rewrite file with new scale
+        #     write_aheaders(headers=hdrs, path=path_ahead)
 
     # =========================================================================== #
     # PSFEx
