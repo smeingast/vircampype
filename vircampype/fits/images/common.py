@@ -629,8 +629,7 @@ class FitsImages(FitsFiles):
             MasterSuperflat instance holding for all files in self the corresponding MasterSuperflat images.
 
         """
-        return self.match_passband(match_to=self.get_master_images().superflat,
-                                   max_lag=self.setup.master_max_lag_superflat / 1440.)
+        return self.match_passband(match_to=self.get_master_images().superflat, max_lag=1 / 1440.)
 
     # =========================================================================== #
     # Master tables
