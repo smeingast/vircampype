@@ -1252,7 +1252,7 @@ class SkyImagesResampled(SkyImagesProcessed):
 
         # Compute relative scaling from ZPs
         zp_median = np.mean(zp_auto_flat)
-        scale_zp = [zp - zp_median for zp in zp_auto_flat]
+        scale_zp = [zp_median - zp for zp in zp_auto_flat]
         scale_zp = [10**(s/2.5) for s in scale_zp]
 
         # Construct dict for flxscale modifier for each photometric stability ID
@@ -1284,15 +1284,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                 # Read header
                 hdr = file[idx_hdu].header
 
-                # Delete previously written keywords
-                hdr.remove("FSCLZERO", ignore_missing=True, remove_all=True)
-                hdr.remove("FSCLTILE", ignore_missing=True, remove_all=True)
-
                 # Add flux scales
-                hdr.insert(key="FSCLSTCK", card=fits.Card("FSCLZERO", value=scale_zp_dict[hdr["PHOTSTAB"]],
-                                                          comment="Relative flux scaling from ZP"), after=True)
-                hdr.insert(key="FSCLZERO", card=fits.Card("FSCLTILE",  value=hdr["FSCLSTCK"] / hdr["FSCLZERO"],
-                                                          comment="Total relative flux scaling for Tile"), after=True)
+                hdr.set("FSCLZERO", value=np.round(scale_zp_dict[hdr["PHOTSTAB"]], 6),
+                        comment="Relative flux scaling from ZP", after="FSCLSTCK")
+                hdr.set("FSCLTILE", value=np.round(hdr["FSCLSTCK"] * hdr["FSCLZERO"], 6),
+                        comment="Total relative flux scaling for Tile", after="FSCLZERO")
 
             # Add modification flag to primary header
             file[0].header["FSCLMOD"] = (True, "Tile flux modified")
