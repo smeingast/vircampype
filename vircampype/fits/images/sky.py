@@ -324,6 +324,86 @@ class SkyImages(FitsImages):
         # Run PSFEX
         sources_psfex.psfex(preset=preset)
 
+    def apply_superflat(self):
+        """ Applies superflat to images. """
+
+        # Processing info
+        print_header(header="APPLYING SUPERFLAT", silent=self.setup.silent)
+        tstart = time.time()
+
+        # Fetch superflat for each image
+        superflats = self.get_master_superflat()
+
+        # Loop over self and superflats
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            outpath = "{0}{1}.sf{2}".format(self.setup.folders["superflat"],
+                                            self.names[idx_file], self.extensions[idx_file])
+
+            # Check for ahead file
+            path_ahead = self.paths_full[idx_file].replace(".fits", ".ahead")
+            path_ahead_sf = outpath.replace(".fits", ".ahead")
+            if not os.path.isfile(path_ahead):
+                raise ValueError("External header not found")
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
+            # Print processing info
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+                                d_current=None, d_total=None, silent=self.setup.silent)
+
+            # Read data
+            cube_self = self.file2cube(file_index=idx_file)
+            cube_flat = superflats.file2cube(file_index=idx_file)
+
+            # Modify read noise, gain, and saturation keywords in headers
+            for idx_hdr in range(len(self.headers_data[idx_file])):
+
+                # Modification factor is the mean for the current superflat
+                mod = np.median(cube_flat[idx_hdr])
+
+                # Add modification factor
+                add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                    key="HIERARCH PYPE SUPERFLAT FACTOR",
+                                    value=mod,  # noqa
+                                    comment="Median superflat modification factor", remove_before=True)
+
+                # Adapt keywords
+                keywords = [self.setup.keywords.rdnoise, self.setup.keywords.gain, self.setup.keywords.saturate]
+                mod_func = [np.divide, np.multiply, np.divide]
+                for kw, func in zip(keywords, mod_func):
+
+                    # Read comment
+                    comment = self.headers_data[idx_file][idx_hdr].comments[kw]
+
+                    # First save old keyword
+                    add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                        key="HIERARCH PYPE BACKUP {0}".format(kw),
+                                        value=self.headers_data[idx_file][idx_hdr][kw], decimals=2,
+                                        comment="Value before super flat", remove_before=True)
+
+                    # Now add new keyword and delete old one
+                    add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
+                                        key=kw,
+                                        value=func(self.headers_data[idx_file][idx_hdr][kw], mod), decimals=2,
+                                        comment=comment, remove_before=True)
+
+            # Normalize
+            cube_self /= cube_flat
+
+            # Write back to disk
+            cube_self.write_mef(outpath, prime_header=self.headers_primary[idx_file],
+                                data_headers=self.headers_data[idx_file])
+
+            # Copy aheader for swarping
+            copy_file(path_ahead, path_ahead_sf)
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
 
 class SkyImagesRaw(SkyImages):
 
