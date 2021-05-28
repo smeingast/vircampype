@@ -360,16 +360,18 @@ class SkyImages(FitsImages):
             cube_flat = superflats.file2cube(file_index=idx_file)
 
             # Modify read noise, gain, and saturation keywords in headers
+            data_headers = []
             for idx_hdr in range(len(self.headers_data[idx_file])):
+
+                # Load current header
+                hdr = self.headers_data[idx_file][idx_hdr]
 
                 # Modification factor is the mean for the current superflat
                 mod = np.median(cube_flat[idx_hdr])
 
                 # Add modification factor
-                add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
-                                    key="HIERARCH PYPE SUPERFLAT FACTOR",
-                                    value=mod,  # noqa
-                                    comment="Median superflat modification factor", remove_before=True)
+                hdr.set("HIERARCH PYPE SUPERFLAT FACTOR", value=np.round(mod, 3),
+                        comment="Median superflat modification factor")
 
                 # Adapt keywords
                 keywords = [self.setup.keywords.rdnoise, self.setup.keywords.gain, self.setup.keywords.saturate]
@@ -380,23 +382,19 @@ class SkyImages(FitsImages):
                     comment = self.headers_data[idx_file][idx_hdr].comments[kw]
 
                     # First save old keyword
-                    add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
-                                        key="HIERARCH PYPE BACKUP {0}".format(kw),
-                                        value=self.headers_data[idx_file][idx_hdr][kw], decimals=2,
-                                        comment="Value before super flat", remove_before=True)
+                    hdr.set("HIERARCH PYPE BACKUP {0}".format(kw), value=hdr[kw], comment="Value before super flat")
 
                     # Now add new keyword and delete old one
-                    add_float_to_header(header=self.headers_data[idx_file][idx_hdr],
-                                        key=kw,
-                                        value=func(self.headers_data[idx_file][idx_hdr][kw], mod), decimals=2,
-                                        comment=comment, remove_before=True)
+                    hdr.set(kw, value=func(self.headers_data[idx_file][idx_hdr][kw], mod), comment=comment)
+
+                # Save headers
+                data_headers.append(hdr)
 
             # Normalize
             cube_self /= cube_flat
 
             # Write back to disk
-            cube_self.write_mef(outpath, prime_header=self.headers_primary[idx_file],
-                                data_headers=self.headers_data[idx_file])
+            cube_self.write_mef(outpath, prime_header=self.headers_primary[idx_file], data_headers=data_headers)
 
             # Copy aheader for swarping
             copy_file(path_ahead, path_ahead_sf)
@@ -1299,7 +1297,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Delete extraced header for current file
             self.delete_headers(idx_file=idx_file)
 
-        # Alos flush header attribute for current instance at the end so that they are regenerated when requested
+        # Also flush header attribute for current instance at the end so that they are regenerated when requested
         self._headers = None
 
         # Print time
