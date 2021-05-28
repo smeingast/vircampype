@@ -11,6 +11,7 @@ from astropy.stats import sigma_clipped_stats
 from skimage import morphology as skmorphology
 from sklearn.neighbors import NearestNeighbors
 from scipy.interpolate import SmoothBivariateSpline
+from astropy.stats import sigma_clip as astropy_sigma_clip
 from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKernel, Kernel2D, Box2DKernel
 
 
@@ -427,7 +428,8 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     return stat
 
 
-def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y, x_min, x_max, y_min, y_max):
+def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
+                     x_min, x_max, y_min, y_max, metric="median", weights=None):
     """
     Grids values to a 2D array based on nearest neighbor interpolation.
 
@@ -453,7 +455,10 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y, x_mi
         Minimum Y coordinate of original data.
     y_max : int, float
         Maximum Y coordinate of original data.
-
+    metric : str, optional
+        Method to use to calculate grid values.
+    weights : np.ndarray, optional
+        If metric is weighted, supply weights.
 
     Returns
     -------
@@ -472,10 +477,29 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y, x_mi
     # Get nearest neighbors to grid pixel centers
     stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
     stacked_data = np.stack([x, y]).T
-    _, idx = NearestNeighbors(n_neighbors=n_nearest_neighbors).fit(stacked_data).kneighbors(stacked_grid)
+    dis, idx = NearestNeighbors(n_neighbors=n_nearest_neighbors).fit(stacked_data).kneighbors(stacked_grid)
 
     # Obtain median values at each grid pixel
-    _, gv, _ = sigma_clipped_stats(values[idx], axis=1)
+    if metric == "weighted":
+
+        # Weights must be provided
+        if weights is None:
+            raise ValueError("Must provide weights")
+
+        # Sigma-clip input
+        mask = astropy_sigma_clip(values[idx], sigma=3, maxiters=5, axis=1).mask
+        weights[idx][mask] = 0.
+
+        # Compute weighted average
+        gv = np.average(values[idx], weights=weights[idx], axis=1)
+
+    elif metric == "median":
+        _, gv, _ = sigma_clipped_stats(values[idx], axis=1)
+
+    else:
+        raise ValueError("Metric '{0}' not supported".format(metric))
+
+    # Reshape to image
     gv = gv.reshape(n_bins_y, n_bins_x)
 
     # Apply some filters and return
