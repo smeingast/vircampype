@@ -6,15 +6,15 @@ from astropy.io import fits
 # =========================================================================== #
 # =========================================================================== #
 # Setup
-path_data = "/Volumes/Data/VISIONS/198C-2009E/data_control/"
-path_scripts = "/Volumes/Data/VISIONS/198C-2009E/scripts/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
+path_data = "/Volumes/Data/VISIONS/198C-2009A/data_control/"
+path_scripts = "/Volumes/Data/VISIONS/198C-2009A/scripts/"
+path_pype = "/Volumes/Data/VISIONS/198C-2009A/vircampype/"
 
-files = glob.glob(path_data + "CrA*/*.fits")
-projection = "Corona_Australis_control"
+files = glob.glob(path_data + "Oph*/*.fits")
+projection = "Ophiuchus_Control"
 
 reference_mag_lim = dict(J=(12.0, 15.0), H=(11.5, 14.5), Ks=(11.0, 14.0))
-n_jobs = 6
+n_jobs = 12
 
 # =========================================================================== #
 # =========================================================================== #
