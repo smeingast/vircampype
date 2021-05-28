@@ -112,6 +112,7 @@ class Setup(dict):
         self["folders"]["processed_basic"] = "{0}{1}/".format(self["folders"]["object"], "processed_basic")
         self["folders"]["processed_final"] = "{0}{1}/".format(self["folders"]["object"], "processed_final")
         self["folders"]["resampled"] = "{0}{1}/".format(self["folders"]["object"], "resampled")
+        self["folders"]["superflat"] = "{0}{1}/".format(self["folders"]["object"], "superflatted")
 
         # QC
         self["folders"]["qc"] = "{0}{1}/".format(self["folders"]["object"], "qc")
@@ -127,6 +128,7 @@ class Setup(dict):
         self["folders"]["qc_sky"] = "{0}{1}/".format(self["folders"]["qc"], "sky")
         self["folders"]["qc_astrometry"] = "{0}{1}/".format(self["folders"]["qc"], "astrometry")
         self["folders"]["qc_photometry"] = "{0}{1}/".format(self["folders"]["qc"], "photometry")
+        self["folders"]["qc_superflat"] = "{0}{1}/".format(self["folders"]["qc"], "superflat")
 
         # Statistics path
         self["folders"]["statistics"] = "{0}{1}/".format(self["folders"]["object"], "statistics")
@@ -155,7 +157,8 @@ class Setup(dict):
         folders_object = [self["folders"]["master_object"], self["folders"]["qc"], self["folders"]["qc_sky"],
                           self["folders"]["processed_basic"], self["folders"]["processed_final"],
                           self["folders"]["qc_astrometry"], self["folders"]["resampled"], self["folders"]["stacks"],
-                          self["folders"]["statistics"], self["folders"]["tile"], self["folders"]["qc_photometry"]]
+                          self["folders"]["statistics"], self["folders"]["tile"], self["folders"]["qc_photometry"],
+                          self["folders"]["qc_superflat"], self["folders"]["superflat"]]
 
         # Generate common paths
         for path in folders_common:
