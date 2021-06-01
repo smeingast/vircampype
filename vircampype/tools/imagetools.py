@@ -608,7 +608,7 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
             csize = sizes[idx_large]
 
             # Approximate radius of circular mask with radius
-            crad = np.sqrt(csize/np.pi)
+            crad = np.sqrt(csize / np.pi)
 
             # Determine centroid
             centroid = regionprops[idx_large].centroid
