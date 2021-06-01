@@ -217,11 +217,11 @@ class MasterPhotometry2Mass(MasterPhotometry):
 
         # In case this is not given in the setup, default to standard values for bands
         if "j" in passband.lower():
-            return 12.0, 15.0
+            return 12.0, 15.5
         elif "h" in passband.lower():
-            return 11.5, 14.5
+            return 11.5, 15.0
         elif "k" in passband.lower():
-            return 11.0, 14.0
+            return 11.0, 14.5
         else:
             raise ValueError("Passband '{0}' not available".format(passband))
 
