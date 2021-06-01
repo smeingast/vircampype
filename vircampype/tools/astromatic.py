@@ -382,8 +382,8 @@ class ScampSetup(AstromaticSetup):
         """
         types = ["SKY_ALL", "FGROUPS", "DISTORTION", "ASTR_INTERROR1D", "ASTR_INTERROR2D", "ASTR_REFERROR1D",
                  "ASTR_REFERROR2D", "ASTR_PIXERROR1D", "ASTR_SUBPIXERROR1D", "ASTR_CHI2", "ASTR_REFSYSMAP",
-                 "ASTR_XPIXERROR2D", "ASTR_YPIXERROR2D", "SHEAR_VS_AIRMASS",
-                 "PHOT_ERROR", "PHOT_ERRORVSMAG", "PHOT_ZPCORR", "PHOT_ZPCORR3D"]
+                 "ASTR_XPIXERROR2D", "ASTR_YPIXERROR2D", "SHEAR_VS_AIRMASS"]
+        # "PHOT_ERROR", "PHOT_ERRORVSMAG", "PHOT_ZPCORR", "PHOT_ZPCORR3D"]
         if joined:
             return ",".join(types)
         else:
