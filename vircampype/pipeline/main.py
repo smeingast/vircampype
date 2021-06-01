@@ -778,7 +778,7 @@ class PipelineStatus:
                 "processed_raw_basic", "master_sky_static", "master_source_mask", "master_sky_dynamic",
                 "master_photometry", "processed_raw_final", "master_weight_image", "tile_header", "astrometry",
                 "illumcorr", "resampled", "build_statistics", "stacks", "statistics_stacks", "classification_stacks",
-                "photometry_stacks", "tile", "statistics_tile", "classification_tile" "photometry_tile"]
+                "photometry_stacks", "tile", "statistics_tile", "classification_tile", "photometry_tile"]
 
     @property
     def status_dict(self):
