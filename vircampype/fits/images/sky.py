@@ -338,7 +338,7 @@ class SkyImages(FitsImages):
         for idx_file in range(self.n_files):
 
             # Create output path
-            outpath = "{0}{1}.sf{2}".format(self.setup.folders["illumcorr"],
+            outpath = "{0}{1}.ic{2}".format(self.setup.folders["illumcorr"],
                                             self.names[idx_file], self.extensions[idx_file])
 
             # Check for ahead file
