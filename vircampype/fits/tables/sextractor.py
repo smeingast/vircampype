@@ -350,14 +350,14 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
     def __init__(self, setup, file_paths=None):
         super(AstrometricCalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
-    def build_master_superflat(self):
-        """ Superflat construction method. """
+    def build_master_illumination_correction(self):
+        """ Illumination correction construction method. """
 
         # Import
-        from vircampype.fits.images.flat import MasterSuperflat
+        from vircampype.fits.images.flat import MasterIlluminationCorrection
 
         # Processing info
-        print_header(header="MASTER-SUPERFLAT", right=None, silent=self.setup.silent)
+        print_header(header="MASTER-ILLUMINATION-CORRECTION", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on passband and interval
@@ -371,7 +371,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         for files, idx_print in zip(split, range(1, len(split) + 1)):
 
             # Create master dark name
-            outpath = self.setup.folders["master_object"] + "MASTER-SUPERFLAT_{0:11.5f}.fits".format(files.mjd_mean)
+            outpath = self.setup.folders["master_object"] + "MASTER-ILLUMINATION-CORRECTION_" \
+                                                            "{0:11.5f}.fits".format(files.mjd_mean)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -444,7 +445,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # n_sources.append(np.sum(np.isfinite(zp_all)))
                 n_sources.append(len(tab))
 
-                # # Plot sources on top of superflat
+                # # Plot sources on top of illumination correction
                 # import matplotlib.pyplot as plt
                 # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=dict(top=0.98, right=0.99),
                 #                        **dict(figsize=(6, 5)))
@@ -462,21 +463,21 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             flx_scale = [f / np.median(flx_scale) for f in flx_scale]
 
             # Instantiate output
-            superflat = ImageCube(setup=self.setup)
+            illumcorr = ImageCube(setup=self.setup)
 
-            # Loop over extensions and construct final superflat
+            # Loop over extensions and construct final illumination correction
             for idx_hdu, fscl, nn in zip(files.iter_data_hdu[0], flx_scale, n_sources):
 
                 # Append to output
-                superflat.extend(data=fscl.astype(np.float32))
+                illumcorr.extend(data=fscl.astype(np.float32))
 
                 # Create empty header
                 data_header = fits.Header()
 
                 # Add data to header
-                add_int_to_header(header=data_header, key="HIERARCH PYPE SFLAT NSOURCES", value=nn,
+                add_int_to_header(header=data_header, key="HIERARCH PYPE IC NSOURCES", value=nn,
                                   comment="Number of sources used")
-                add_float_to_header(header=data_header, key="HIERARCH PYPE SFLAT STD", value=np.nanstd(fscl),  # noqa
+                add_float_to_header(header=data_header, key="HIERARCH PYPE IC STD", value=np.nanstd(fscl),  # noqa
                                     decimals=4, comment="Standard deviation in relative flux")
 
                 # Append header
@@ -486,18 +487,18 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             prime_cards = make_cards(keywords=[self.setup.keywords.object, self.setup.keywords.date_mjd,
                                                self.setup.keywords.filter_name, self.setup.keywords.date_ut,
                                                "HIERARCH PYPE N_FILES"],
-                                     values=["MASTER-SUPERFLAT", files.mjd_mean,
+                                     values=["MASTER-ILLUMINATION-CORRECTION", files.mjd_mean,
                                              files.passband[0], files.time_obs_mean,
                                              len(files)])
             prime_header = fits.Header(cards=prime_cards)
 
             # Write to disk
-            superflat.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
+            illumcorr.write_mef(path=outpath, prime_header=prime_header, data_headers=data_headers)
 
             # QC plot
             if self.setup.qc_plots:
-                msf = MasterSuperflat(setup=self.setup, file_paths=outpath)
-                msf.qc_plot_superflat(paths=None, axis_size=5)
+                msf = MasterIlluminationCorrection(setup=self.setup, file_paths=outpath)
+                msf.qc_plot2d(paths=None, axis_size=5)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")

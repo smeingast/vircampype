@@ -169,7 +169,7 @@ class SkyImages(FitsImages):
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "class_star":
             ss = yml2config(skip=["catalog_name", "weight_image", "seeing_fwhm", "starnnw_name"], **kwargs_yml)
-        elif preset == "superflat":
+        elif preset == "ic":
             ss = yml2config(skip=["catalog_name", "weight_image", "starnnw_name"] + list(kwargs.keys()), **kwargs_yml)
         elif preset == "full":
             ss = yml2config(phot_apertures=",".join([str(ap) for ap in self.setup.apertures]), seeing_fwhm=2.5,
@@ -211,7 +211,7 @@ class SkyImages(FitsImages):
         from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
         if preset.lower() in ["scamp", "class_star", "fwhm", "psfex"]:
             cls = SextractorCatalogs
-        elif (preset == "superflat") | (preset == "full"):
+        elif (preset == "ic") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
         else:
             raise ValueError("Preset '{0}' not supported".format(preset))
@@ -324,21 +324,21 @@ class SkyImages(FitsImages):
         # Run PSFEX
         sources_psfex.psfex(preset=preset)
 
-    def apply_superflat(self):
-        """ Applies superflat to images. """
+    def apply_illumination_correction(self):
+        """ Applies illumination correction to images. """
 
         # Processing info
-        print_header(header="APPLYING SUPERFLAT", silent=self.setup.silent)
+        print_header(header="APPLYING ILLUMINATION CORRECTION", silent=self.setup.silent)
         tstart = time.time()
 
-        # Fetch superflat for each image
-        superflats = self.get_master_superflat()
+        # Fetch illumination correction for each image
+        illumcor = self.get_master_illumination_correction()
 
-        # Loop over self and superflats
+        # Loop over self
         for idx_file in range(self.n_files):
 
             # Create output path
-            outpath = "{0}{1}.sf{2}".format(self.setup.folders["superflat"],
+            outpath = "{0}{1}.sf{2}".format(self.setup.folders["illumcorr"],
                                             self.names[idx_file], self.extensions[idx_file])
 
             # Check for ahead file
@@ -357,7 +357,7 @@ class SkyImages(FitsImages):
 
             # Read data
             cube_self = self.file2cube(file_index=idx_file)
-            cube_flat = superflats.file2cube(file_index=idx_file)
+            cube_flat = illumcor.file2cube(file_index=idx_file)
 
             # Modify read noise, gain, and saturation keywords in headers
             data_headers = []
@@ -366,12 +366,12 @@ class SkyImages(FitsImages):
                 # Load current header
                 hdr = self.headers_data[idx_file][idx_hdr]
 
-                # Modification factor is the mean for the current superflat
+                # Modification factor is the mean for the current illumination correction
                 mod = np.median(cube_flat[idx_hdr])
 
                 # Add modification factor
-                hdr.set("HIERARCH PYPE SUPERFLAT FACTOR", value=np.round(mod, 3),
-                        comment="Median superflat modification factor")
+                hdr.set("HIERARCH PYPE IC FACTOR", value=np.round(mod, 3),
+                        comment="Median IC modification factor")
 
                 # Adapt keywords
                 keywords = [self.setup.keywords.rdnoise, self.setup.keywords.gain, self.setup.keywords.saturate]

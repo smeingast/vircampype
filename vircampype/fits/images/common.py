@@ -619,17 +619,17 @@ class FitsImages(FitsFiles):
         if sum([os.path.isfile(x) for x in master_weight_paths]) == len(self):
             return MasterWeight(file_paths=master_weight_paths, setup=self.setup)
 
-    def get_master_superflat(self):
+    def get_master_illumination_correction(self):
         """
-        Get for all files in self the corresponding MasterSuperflat (split by minutes from setup).
+        Get for all files in self the corresponding MasterIlluminationCorrection (split by minutes from setup).
 
         Returns
         -------
-        MasterSuperflat
-            MasterSuperflat instance holding for all files in self the corresponding MasterSuperflat images.
+        MasterIlluminationCorrection
+            MasterIlluminationCorrection instance with matching files
 
         """
-        return self.match_passband(match_to=self.get_master_images().superflat, max_lag=1 / 1440.)
+        return self.match_passband(match_to=self.get_master_images().illumination_correction, max_lag=1 / 1440.)
 
     # =========================================================================== #
     # Master tables
@@ -835,21 +835,21 @@ class MasterImages(FitsImages):
         return MasterWeight(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
 
     @property
-    def superflat(self):
+    def illumination_correction(self):
         """
-        Holds all MasterSuperflat images.
+        Holds all MasterIlluminationCorrection images.
 
         Returns
         -------
-        MasterSuperflat
-            All MasterSuperflat images.
+        MasterIlluminationCorrection
+            All MasterIlluminationCorrection images.
 
         """
 
         # Import
-        from vircampype.fits.images.flat import MasterSuperflat
+        from vircampype.fits.images.flat import MasterIlluminationCorrection
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SUPERFLAT"]
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-ILLUMINATION-CORRECTION"]
 
-        return MasterSuperflat(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+        return MasterIlluminationCorrection(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])

@@ -798,20 +798,20 @@ class MasterWeight(MasterImages):
         super(MasterWeight, self).__init__(setup=setup, file_paths=file_paths)
 
 
-class MasterSuperflat(MasterImages):
+class MasterIlluminationCorrection(MasterImages):
 
     def __init__(self, setup, file_paths=None):
-        super(MasterSuperflat, self).__init__(setup=setup, file_paths=file_paths)
+        super(MasterIlluminationCorrection, self).__init__(setup=setup, file_paths=file_paths)
 
     @property
     def nsources(self):
-        return self.read_from_data_headers(keywords=["HIERARCH PYPE SFLAT NSOURCES"])[0]
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE IC NSOURCES"])[0]
 
     @property
     def flx_std(self):
-        return self.read_from_data_headers(keywords=["HIERARCH PYPE SFLAT STD"])[0]
+        return self.read_from_data_headers(keywords=["HIERARCH PYPE IC STD"])[0]
 
-    def qc_plot_superflat(self, paths=None, axis_size=4):
+    def qc_plot2d(self, paths=None, axis_size=4):
 
         # Import
         import matplotlib.pyplot as plt
@@ -820,7 +820,7 @@ class MasterSuperflat(MasterImages):
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}.pdf".format(self.setup.folders["qc_superflat"], fp) for fp in self.basenames]
+            paths = ["{0}{1}.pdf".format(self.setup.folders["qc_illumcorr"], fp) for fp in self.basenames]
 
         for idx_file in range(self.n_files):
 
