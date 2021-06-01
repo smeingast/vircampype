@@ -1234,74 +1234,74 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def equalize_zero_point(self, stack_catalogs):
-
-        # Processing info
-        print_header(header="EQUALIZING ZERO POINT", silent=self.setup.silent,
-                     left=os.path.basename(self.setup.path_coadd), right=None)
-        tstart = time.time()
-
-        # Get photometric stability and ZP (AUTO) from catalog headers
-        photstab = stack_catalogs.read_from_image_headers(keywords=["PHOTSTAB"])[0]
-        zp_auto = stack_catalogs.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0]
-
-        # Flatten lists
-        photstab_flat, zp_auto_flat = flat_list(photstab), flat_list(zp_auto)
-
-        # Compute relative scaling from ZPs
-        zp_median = np.mean(zp_auto_flat)
-        scale_zp = [zp_median - zp for zp in zp_auto_flat]
-        scale_zp = [10**(s/2.5) for s in scale_zp]
-
-        # Construct dict for flxscale modifier for each photometric stability ID
-        scale_zp_dict = dict(zip(photstab_flat, scale_zp))
-
-        # Loop over images in instance and write tile scale into headers
-        for idx_file in range(len(self)):
-
-            # Grab current file path
-            path_file = self.paths_full[idx_file]
-
-            # Check if already modified
-            if "FSCLMOD" in self.headers_primary[idx_file]:
-                if self.headers_primary[idx_file]["FSCLMOD"] is True:
-                    print_message(message="{0} already modified.".format(os.path.basename(path_file)),
-                                  kind="warning", end=None)
-                    continue
-
-            # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=path_file,
-                                d_current=None, d_total=None, silent=self.setup.silent)
-
-            # Open file
-            file = fits.open(path_file, mode="update")
-
-            # Loop over data HDUs
-            for idx_hdu in self.iter_data_hdu[idx_file]:
-
-                # Read header
-                hdr = file[idx_hdu].header
-
-                # Add flux scales
-                hdr.set("FSCLZERO", value=np.round(scale_zp_dict[hdr["PHOTSTAB"]], 6),
-                        comment="Relative flux scaling from ZP", after="FSCLSTCK")
-                hdr.set("FSCLTILE", value=np.round(hdr["FSCLSTCK"] * hdr["FSCLZERO"], 6),
-                        comment="Total relative flux scaling for Tile", after="FSCLZERO")
-
-            # Add modification flag to primary header
-            file[0].header["FSCLMOD"] = (True, "Tile flux modified")
-
-            # Flush and close file
-            file.close()
-
-            # Delete extraced header for current file
-            self.delete_headers(idx_file=idx_file)
-
-        # Also flush header attribute for current instance at the end so that they are regenerated when requested
-        self._headers = None
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+    # def equalize_zero_point(self, stack_catalogs):
+    #
+    #     # Processing info
+    #     print_header(header="EQUALIZING ZERO POINT", silent=self.setup.silent,
+    #                  left=os.path.basename(self.setup.path_coadd), right=None)
+    #     tstart = time.time()
+    #
+    #     # Get photometric stability and ZP (AUTO) from catalog headers
+    #     photstab = stack_catalogs.read_from_image_headers(keywords=["PHOTSTAB"])[0]
+    #     zp_auto = stack_catalogs.read_from_data_headers(keywords=["HIERARCH PYPE ZP MAG_AUTO"])[0]
+    #
+    #     # Flatten lists
+    #     photstab_flat, zp_auto_flat = flat_list(photstab), flat_list(zp_auto)
+    #
+    #     # Compute relative scaling from ZPs
+    #     zp_median = np.mean(zp_auto_flat)
+    #     scale_zp = [zp_median - zp for zp in zp_auto_flat]
+    #     scale_zp = [10**(s/2.5) for s in scale_zp]
+    #
+    #     # Construct dict for flxscale modifier for each photometric stability ID
+    #     scale_zp_dict = dict(zip(photstab_flat, scale_zp))
+    #
+    #     # Loop over images in instance and write tile scale into headers
+    #     for idx_file in range(len(self)):
+    #
+    #         # Grab current file path
+    #         path_file = self.paths_full[idx_file]
+    #
+    #         # Check if already modified
+    #         if "FSCLMOD" in self.headers_primary[idx_file]:
+    #             if self.headers_primary[idx_file]["FSCLMOD"] is True:
+    #                 print_message(message="{0} already modified.".format(os.path.basename(path_file)),
+    #                               kind="warning", end=None)
+    #                 continue
+    #
+    #         # Print processing info
+    #         message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=path_file,
+    #                             d_current=None, d_total=None, silent=self.setup.silent)
+    #
+    #         # Open file
+    #         file = fits.open(path_file, mode="update")
+    #
+    #         # Loop over data HDUs
+    #         for idx_hdu in self.iter_data_hdu[idx_file]:
+    #
+    #             # Read header
+    #             hdr = file[idx_hdu].header
+    #
+    #             # Add flux scales
+    #             hdr.set("FSCLZERO", value=np.round(scale_zp_dict[hdr["PHOTSTAB"]], 6),
+    #                     comment="Relative flux scaling from ZP", after="FSCLSTCK")
+    #             hdr.set("FSCLTILE", value=np.round(hdr["FSCLSTCK"] * hdr["FSCLZERO"], 6),
+    #                     comment="Total relative flux scaling for Tile", after="FSCLZERO")
+    #
+    #         # Add modification flag to primary header
+    #         file[0].header["FSCLMOD"] = (True, "Tile flux modified")
+    #
+    #         # Flush and close file
+    #         file.close()
+    #
+    #         # Delete extraced header for current file
+    #         self.delete_headers(idx_file=idx_file)
+    #
+    #     # Also flush header attribute for current instance at the end so that they are regenerated when requested
+    #     self._headers = None
+    #
+    #     # Print time
+    #     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
     def build_tile(self):
         # Processing info
