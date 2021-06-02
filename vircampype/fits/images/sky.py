@@ -1342,7 +1342,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         master_weights = self.get_master_weight_global()
 
         # Create temporary output paths
-        paths_ndet = [self.setup.folders["statistics"] + bn.replace(".fits", ".ndet.fits") for bn in self.basenames]
+        paths_nimg = [self.setup.folders["statistics"] + bn.replace(".fits", ".nimg.fits") for bn in self.basenames]
         paths_exp = [self.setup.folders["statistics"] + bn.replace(".fits", ".exptime.fits") for bn in self.basenames]
         paths_mjd = [self.setup.folders["statistics"] + bn.replace(".fits", ".mjdeff.fits") for bn in self.basenames]
         paths_weight = [self.setup.folders["statistics"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
@@ -1372,7 +1372,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdr_prime["OFFSET_I"] = self.read_from_prime_headers(keywords=["OFFSET_I"])[0][idx_file]
 
             # Create output HDULists
-            hdul_ndet = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_nimg = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_exptime = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_mjdeff = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
@@ -1391,7 +1391,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 shape = wcs_resized.pixel_shape[::-1]
 
                 # Create image statistics arrays
-                arr_ndet = np.full(shape, fill_value=1, dtype=np.uint16)
+                arr_nimg = np.full(shape, fill_value=1, dtype=np.uint16)
                 arr_exptime = np.full(shape, fill_value=self.dit[idx_file] * self.ndit[idx_file], dtype=np.float32)
                 arr_mjdeff = np.full(shape, fill_value=self.mjd[idx_file] - mjd_offset, dtype=np.float32)
 
@@ -1408,13 +1408,13 @@ class SkyImagesResampled(SkyImagesProcessed):
                 header_resized_mjd.set("MJDOFF", value=mjd_offset, comment="MJD offset")
 
                 # Extend HDULists
-                hdul_ndet.append(fits.ImageHDU(data=arr_ndet, header=header_resized))  # noqa
+                hdul_nimg.append(fits.ImageHDU(data=arr_nimg, header=header_resized))  # noqa
                 hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))  # noqa
                 hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized_mjd))  # noqa
                 hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))  # noqa
 
             # Write to disk
-            hdul_ndet.writeto(paths_ndet[idx_file], overwrite=True)
+            hdul_nimg.writeto(paths_nimg[idx_file], overwrite=True)
             hdul_exptime.writeto(paths_exp[idx_file], overwrite=True)
             hdul_mjdeff.writeto(paths_mjd[idx_file], overwrite=True)
             hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
@@ -1506,7 +1506,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                            path_output=path_stack, primeheader=None)
 
             # Convert data types
-            if "ndet" in mode.lower():
+            if "nimg" in mode.lower():
                 convert_bitpix_image(path=path_stack, new_type=np.uint16)
             elif "exptime" in mode.lower():
                 convert_bitpix_image(path=path_stack, new_type=np.float32)
@@ -1568,7 +1568,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         run_command_shell(cmd=cmd, silent=True)
 
         # Convert data types
-        if "ndet" in mode.lower():
+        if "nimg" in mode.lower():
             convert_bitpix_image(path=outpath, new_type=np.uint16)
         elif "exptime" in mode.lower():
             convert_bitpix_image(path=outpath, new_type=np.float32)

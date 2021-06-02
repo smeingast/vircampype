@@ -539,7 +539,7 @@ class Pipeline:
 
     def build_statistics_stacks(self):
         if not self.status.statistics_stacks:
-            for mode in ["mjdeff", "ndet", "exptime"]:
+            for mode in ["mjdeff", "nimg", "exptime"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_stacks(mode=mode)
             self.update_status(path=self.path_status, statistics_stacks=True)
@@ -548,7 +548,7 @@ class Pipeline:
 
     def build_statistics_tile(self):
         if not self.status.statistics_tile:
-            for mode in ["mjdeff", "ndet", "exptime"]:
+            for mode in ["mjdeff", "nimg", "exptime"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_tile(mode=mode)
             self.update_status(path=self.path_status, statistics_tile=True)

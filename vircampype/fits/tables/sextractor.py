@@ -632,11 +632,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Find files
             path_mjd = self.paths_full[idx_file].replace(".full.fits.tab", ".mjdeff.fits")
             path_exptime = self.paths_full[idx_file].replace(".full.fits.tab", ".exptime.fits")
-            path_ndet = self.paths_full[idx_file].replace(".full.fits.tab", ".ndet.fits")
+            path_nimg = self.paths_full[idx_file].replace(".full.fits.tab", ".nimg.fits")
             path_weight = self.paths_full[idx_file].replace(".full.fits.tab", ".weight.fits")
 
             # Check if files are available
-            if not os.path.isfile(path_mjd) & os.path.isfile(path_exptime) & os.path.isfile(path_ndet):
+            if not os.path.isfile(path_mjd) & os.path.isfile(path_exptime) & os.path.isfile(path_nimg):
                 raise ValueError("Matches for image statistics not found")
 
             # Instantiate
@@ -659,7 +659,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Read stats
                 mjdeff, exptime = fits.getdata(path_mjd, idx_hdu_stats), fits.getdata(path_exptime, idx_hdu_stats)
-                ndet, weight = fits.getdata(path_ndet, idx_hdu_stats), fits.getdata(path_weight, idx_hdu_stats)
+                nimg, weight = fits.getdata(path_nimg, idx_hdu_stats), fits.getdata(path_weight, idx_hdu_stats)
 
                 # Renormalize weight
                 weight /= np.median(weight)
@@ -687,16 +687,16 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Get values for each source from data arrays
                 mjdeff_sources, exptime_sources = mjdeff[yy_image, xx_image], exptime[yy_image, xx_image]
-                ndet_sources, weight_sources = ndet[yy_image, xx_image], weight[yy_image, xx_image]
+                nimg_sources, weight_sources = nimg[yy_image, xx_image], weight[yy_image, xx_image]
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
-                mjdeff_sources[bad], exptime_sources[bad], ndet_sources[bad] = np.nan, 0, 0
+                mjdeff_sources[bad], exptime_sources[bad], nimg_sources[bad] = np.nan, 0, 0
 
                 # Make new columns
                 new_cols = fits.ColDefs([fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
                                          fits.Column(name='EXPTIME', format="J", array=exptime_sources, unit="seconds"),
-                                         fits.Column(name='NOBS', format="J", array=ndet_sources)])
+                                         fits.Column(name='NIMG', format="J", array=nimg_sources)])
 
                 # Append new columns and replace HDU
                 hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(hdul[idx_hdu_self].data.columns + new_cols,
