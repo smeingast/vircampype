@@ -733,7 +733,7 @@ class PipelineStatus:
                  master_weight_image=False, tile_header=False, astrometry=False, illumcorr=False, resampled=False,
                  build_statistics=False, stacks=False, statistics_stacks=False, classification_stacks=False,
                  photometry_stacks=False, tile=False, statistics_tile=False, classification_tile=False,
-                 photometry_tile=False):
+                 photometry_tile=False, phase3=False):
 
         # Set status calibration attributes
         self.master_bpm = master_bpm
@@ -764,6 +764,7 @@ class PipelineStatus:
         self.statistics_tile = statistics_tile
         self.classification_tile = classification_tile
         self.photometry_tile = photometry_tile
+        self.phase3 = phase3
 
     def __str__(self):
         return self.status_dict.__str__()
@@ -777,7 +778,7 @@ class PipelineStatus:
                 "processed_raw_basic", "master_sky_static", "master_source_mask", "master_sky_dynamic",
                 "master_photometry", "processed_raw_final", "master_weight_image", "tile_header", "astrometry",
                 "illumcorr", "resampled", "build_statistics", "stacks", "statistics_stacks", "classification_stacks",
-                "photometry_stacks", "tile", "statistics_tile", "classification_tile", "photometry_tile"]
+                "photometry_stacks", "tile", "statistics_tile", "classification_tile", "photometry_tile", "phase3"]
 
     @property
     def status_dict(self):
