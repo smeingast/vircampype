@@ -195,7 +195,7 @@ class Pipeline:
 
     @property
     def _paths_resampled(self):
-        return ["{0}{1}.proc.final.sf.resamp{2}"
+        return ["{0}{1}.proc.final.ic.resamp{2}"
                 "".format(self.setup.folders["resampled"], self.raw_science.names[i],
                           self.raw_science.extensions[i]) for i in range(self.raw_science.n_files)]
 
