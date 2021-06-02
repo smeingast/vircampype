@@ -283,6 +283,9 @@ def interpolate_classification(source_table, classification_table):
     # Mask bad values
     class_star_interp[dis > 0.1] = np.nan
 
+    # Just be sure to not have values above 1
+    class_star_interp[class_star_interp > 1.0] = 1.0
+
     # Interpolate classification for each source
     source_table.add_column(class_star_interp, name="CLASS_STAR_INTERP")
 
