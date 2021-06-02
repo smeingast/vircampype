@@ -504,7 +504,6 @@ class Pipeline:
                 print_message(message="TILE HEADER already built", kind="warning", end=None)
 
     def resample(self):
-        self.status.resampled = False
         if not self.status.resampled:
             self.illumination_corrected.resample()
             self.update_status(path=self.path_status, resampled=True)
