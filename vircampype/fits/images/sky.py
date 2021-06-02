@@ -333,6 +333,7 @@ class SkyImages(FitsImages):
 
         # Fetch illumination correction for each image
         illumcor = self.get_master_illumination_correction()
+        sourcemasks = self.get_master_source_mask()
 
         # Loop over self
         for idx_file in range(self.n_files):
@@ -358,6 +359,7 @@ class SkyImages(FitsImages):
             # Read data
             cube_self = self.file2cube(file_index=idx_file)
             cube_flat = illumcor.file2cube(file_index=idx_file)
+            cube_mask = sourcemasks.file2cube(file_index=idx_file)
 
             # Modify read noise, gain, and saturation keywords in headers
             data_headers = []
@@ -390,8 +392,20 @@ class SkyImages(FitsImages):
                 # Save headers
                 data_headers.append(hdr)
 
+            # Copy self for background mask
+            cube_self_copy = copy.deepcopy(cube_self)
+            cube_self_copy.apply_masks(sources=cube_mask)
+            background = cube_self_copy.background(mesh_size=128, mesh_filtersize=3)[0]
+
+            # Apply background
+            cube_self -= background
+
             # Normalize
             cube_self /= cube_flat
+            background /= np.median(cube_flat, axis=(1, 2))[:, np.newaxis, np.newaxis]
+
+            # Add background back in
+            cube_self += background
 
             # Write back to disk
             cube_self.write_mef(outpath, prime_header=self.headers_primary[idx_file], data_headers=data_headers)
