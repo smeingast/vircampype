@@ -704,13 +704,13 @@ class Pipeline:
         # Build and calibrate stacks
         self.build_stacks()
         self.build_statistics_stacks()
-        # self.classification_stacks()
+        self.classification_stacks()
         self.photometry_stacks()
 
         # Build and calibrate tile
         self.build_tile()
         self.build_statistics_tile()
-        # self.classification_tile()
+        self.classification_tile()
         self.photometry_tile()
 
         # Print finish message
