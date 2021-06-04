@@ -1239,18 +1239,22 @@ class SkyImagesResampled(SkyImagesProcessed):
                     hdul.flush()
 
             # Grab primary header of first input image
-            prhdr_first = files.headers_primary[idx_first]
+            prhdr_first, prhdr_last = files.headers_primary[idx_first], files.headers_primary[idx_last]
 
             # Start with new clean header for stack output
             prhdr_stk = fits.Header()
             prhdr_stk.set(self.setup.keywords.object, prhdr_first[self.setup.keywords.object])
             prhdr_stk.set(self.setup.keywords.date_mjd, prhdr_first[self.setup.keywords.date_mjd])
+            mjdend = (prhdr_last[self.setup.keywords.date_mjd] +
+                      (prhdr_last[self.setup.keywords.dit] * prhdr_last[self.setup.keywords.ndit]) / 86400.)
+            prhdr_stk.set("MJD-END", mjdend)
             prhdr_stk.set(self.setup.keywords.date_ut, prhdr_first[self.setup.keywords.date_ut])
             prhdr_stk.set(self.setup.keywords.dit, prhdr_first[self.setup.keywords.dit])
             prhdr_stk.set(self.setup.keywords.ndit, prhdr_first[self.setup.keywords.ndit])
             prhdr_stk.set(self.setup.keywords.filter_name, prhdr_first[self.setup.keywords.filter_name])
             prhdr_stk.set("NJITTER", prhdr_first["NJITTER"])
             prhdr_stk.set("NOFFSETS", prhdr_first["NOFFSETS"])
+            prhdr_stk.set("NUSTEP", prhdr_first["NUSTEP"])
             prhdr_stk.set("NCOMBINE", len(files))
             prhdr_stk.set("HIERARCH ESO OBS PROG ID", prhdr_first["HIERARCH ESO OBS PROG ID"])
             prhdr_stk.set("HIERARCH ESO OBS ID", prhdr_first["HIERARCH ESO OBS ID"])
