@@ -1595,6 +1595,12 @@ class SkyImagesResampled(SkyImagesProcessed):
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
+class Stacks(SkyImages):
+
+    def __init__(self, setup, file_paths=None):
+        super(Stacks, self).__init__(setup=setup, file_paths=file_paths)
+
+
 class Tile(SkyImages):
 
     def __init__(self, setup, file_paths=None):
