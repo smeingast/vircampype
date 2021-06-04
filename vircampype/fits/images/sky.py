@@ -1169,6 +1169,9 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Grab files
             files = split[idx_split]
 
+            # Get index of first frame
+            idx_first = np.argmin(files.mjd)
+
             # Load Swarp setup
             sws = SwarpSetup(setup=files.setup)
 
@@ -1188,7 +1191,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read fits header info from input files
-            cpkw = ["NOFFSETS", "OFFSET_I", "NJITTER", "PHOTSTAB", "DEXTINCT", "SKY", "SKYSIG", "MJD-OBS", "AIRMASS"]
+            cpkw = ["NOFFSETS", "OFFSET_I", "NJITTER", "DEXTINCT", "SKY", "SKYSIG", "MJD-OBS", "AIRMASS"]
             cpkw_data = files.read_from_data_headers(keywords=cpkw)
             cpkw_dict = dict(zip(cpkw, cpkw_data))
 
@@ -1217,29 +1220,47 @@ class SkyImagesResampled(SkyImagesProcessed):
                 # Modify FITS header of combined image
                 with fits.open(paths_temp_stacks[-1], mode="update") as hdul:
 
-                    # Read FITS header data for current HDU
-                    for kw in cpkw:
-                        vals = [x[idx_iter_hdu] for x in cpkw_dict[kw]]
-                        hdul[0].header[kw] = np.mean(vals).astype(vals[0].__class__)
-
-                        if "mjd" in kw.lower():
-                            dateobs = mjd2dateobs(np.mean(vals))  # noqa
-                            hdul[0].header["DATE-OBS"] = dateobs
+                    # Set keywords
+                    hdul[0].header.set("NOFFSETS", value=cpkw_dict["NOFFSETS"][idx_first][idx_iter_hdu])
+                    hdul[0].header.set("OFFSET_I", value=cpkw_dict["OFFSET_I"][idx_first][idx_iter_hdu])
+                    hdul[0].header.set("NJITTER", value=cpkw_dict["NJITTER"][idx_first][idx_iter_hdu])
+                    hdul[0].header.set("DEXTINCT", value=cpkw_dict["DEXTINCT"][idx_first][idx_iter_hdu])
+                    sky = np.mean(list(zip(*cpkw_dict["SKY"]))[idx_iter_hdu])
+                    hdul[0].header.set("SKY", value=np.round(sky, 3))
+                    skysig = np.mean(list(zip(*cpkw_dict["SKYSIG"]))[idx_iter_hdu])
+                    hdul[0].header.set("SKYSIG", value=np.round(skysig, 3))
+                    hdul[0].header.set("AIRMASS", value=cpkw_dict["AIRMASS"][idx_first][idx_iter_hdu])
+                    hdul[0].header.set("MJD-OBS", value=cpkw_dict["MJD-OBS"][idx_first][idx_iter_hdu])
+                    hdul[0].header.set("DATE-OBS", value=mjd2dateobs(hdul[0].header["MJD-OBS"]), before="MJD-OBS")
 
                     hdul.flush()
 
-            # Start with empty primary header
-            prhdr = fits.Header()
-            prhdr["MJD-OBS"] = files.mjd_mean
-            prhdr["DATE-OBS"] = mjd2dateobs(files.mjd_mean)
-            prhdr[self.setup.keywords.object] = files.headers_primary[0][self.setup.keywords.object]
-            prhdr[self.setup.keywords.filter_name] = files.passband[0]
+            # Grab primary header of first input image
+            prhdr_first = files.headers_primary[idx_first]
+
+            # Start with new clean header for stack output
+            prhdr_stk = fits.Header()
+            prhdr_stk.set(self.setup.keywords.object, prhdr_first[self.setup.keywords.object])
+            prhdr_stk.set(self.setup.keywords.date_mjd, prhdr_first[self.setup.keywords.date_mjd])
+            prhdr_stk.set(self.setup.keywords.date_ut, prhdr_first[self.setup.keywords.date_ut])
+            prhdr_stk.set(self.setup.keywords.dit, prhdr_first[self.setup.keywords.dit])
+            prhdr_stk.set(self.setup.keywords.ndit, prhdr_first[self.setup.keywords.ndit])
+            prhdr_stk.set(self.setup.keywords.filter_name, prhdr_first[self.setup.keywords.filter_name])
+            prhdr_stk.set("NJITTER", prhdr_first["NJITTER"])
+            prhdr_stk.set("NOFFSETS", prhdr_first["NOFFSETS"])
+            prhdr_stk.set("NCOMBINE", len(files))
+            prhdr_stk.set("HIERARCH ESO OBS PROG ID", prhdr_first["HIERARCH ESO OBS PROG ID"])
+            prhdr_stk.set("HIERARCH ESO OBS ID", prhdr_first["HIERARCH ESO OBS ID"])
+            prhdr_stk.set("HIERARCH ESO DPR TECH", prhdr_first["HIERARCH ESO DPR TECH"])
+            arcnames = files.read_from_prime_headers(keywords=["ARCFILE"])[0]
+            for idx in range(len(arcnames)):
+                prhdr_stk.set("HIERARCH PYPE ARCNAME {0:02d}".format(idx), arcnames[idx])
 
             # Construct MEF from individual detectors
             make_mef_image(paths_input=sorted(paths_temp_stacks), overwrite=self.setup.overwrite,
-                           path_output=path_stack, primeheader=prhdr)
+                           path_output=path_stack, primeheader=prhdr_stk)
             make_mef_image(paths_input=sorted(paths_temp_weights), overwrite=self.setup.overwrite,
-                           path_output=path_weight, primeheader=prhdr)
+                           path_output=path_weight, primeheader=prhdr_stk)
 
             # Remove intermediate files
             [os.remove(x) for x in paths_temp_stacks]
