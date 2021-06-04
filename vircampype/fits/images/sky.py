@@ -1170,7 +1170,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             files = split[idx_split]
 
             # Get index of first frame
-            idx_first = np.argmin(files.mjd)
+            idx_first, idx_last = np.argmin(files.mjd), np.argmax(files.mjd)
 
             # Load Swarp setup
             sws = SwarpSetup(setup=files.setup)
@@ -1231,6 +1231,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     hdul[0].header.set("SKYSIG", value=np.round(skysig, 3))
                     hdul[0].header.set("AIRMASS", value=cpkw_dict["AIRMASS"][idx_first][idx_iter_hdu])
                     hdul[0].header.set("MJD-OBS", value=cpkw_dict["MJD-OBS"][idx_first][idx_iter_hdu])
+                    mjdend = (cpkw_dict["MJD-OBS"][idx_last][idx_iter_hdu] +
+                              (files.dit[idx_last] * files.ndit[idx_last]) / 86400.)
+                    hdul[0].header.set("MJD-END", value=mjdend, after="MJD-OBS")
                     hdul[0].header.set("DATE-OBS", value=mjd2dateobs(hdul[0].header["MJD-OBS"]), before="MJD-OBS")
 
                     hdul.flush()
