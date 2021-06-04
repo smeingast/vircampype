@@ -220,8 +220,8 @@ class Pipeline:
     def stacks(self):
 
         # Instantiate
-        from vircampype.fits.images.sky import SkyImagesResampled
-        images = SkyImagesResampled(file_paths=self._paths_stacks, setup=self.setup)
+        from vircampype.fits.images.sky import Stacks
+        images = Stacks(file_paths=self._paths_stacks, setup=self.setup)
 
         # Consistency check
         if len(images) != 6:
