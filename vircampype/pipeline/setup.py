@@ -39,7 +39,7 @@ class Setup(dict):
         self.__bin_scamp = "scamp"
         self.__bin_swarp = "swarp"
         self.__bin_psfex = "psfex"
-        self.__swarp_back_size = 256
+        self.__swarp_back_size = 384
         self.__swarp_back_filtersize = 3
         self.__sex_back_size = 64
         self.__sex_back_filtersize = 3
