@@ -490,8 +490,8 @@ class Setup(dict):
 
     @property
     def mask_sources_max_area(self):
-        """ Maximum area of sources that are masked (250x250 pix). """
-        return 62500
+        """ Maximum area of sources that are masked (500x500 pix). """
+        return 250000
 
     # =========================================================================== #
     # Master Sky
