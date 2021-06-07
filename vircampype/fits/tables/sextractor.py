@@ -538,7 +538,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             image_headers_file = self.image_headers[idx_file]
 
             # Add aperture correction to tables
-            [t.add_column((t["MAG_APER"].data.T - t["MAG_APER"].data[:, -1]).T, name="MAG_APER_COR")
+            [t.add_column((t["MAG_APER"].data[:, -1] - t["MAG_APER"].data.T).T, name="MAG_APER_COR")
              for t in tables_file]
 
             # Add smoothed stats to tables
@@ -559,7 +559,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 pass
 
             # Match apertures and add to table
-            [t.add_column((t["MAG_APER"] - t["MAG_APER_COR_INTERP"]), name="MAG_APER_MATCHED")
+            [t.add_column((t["MAG_APER"] + t["MAG_APER_COR_INTERP"]), name="MAG_APER_MATCHED")
              for t in tables_file]
 
             # Compute ZP and add calibrated photometry to catalog
