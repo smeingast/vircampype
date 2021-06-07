@@ -465,50 +465,47 @@ class SkyImagesRaw(SkyImages):
             # Process with dark, flat, and sky
             cube = (cube - dark) / flat
 
-            # Add stuff to headers
-            hdrs_data = []
-            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
-                # Grab parameters
-                saturate = self.setup.saturation_levels[idx_hdu]
-                offseti = self.headers_primary[idx_file]["OFFSET_I"]
-                noffsets = self.headers_primary[idx_file]["NOFFSETS"]
-                jitteri = self.headers_primary[idx_file]["JITTER_I"]
-                njitter = self.headers_primary[idx_file]["NJITTER"]
-                chipid = self.headers_data[idx_file][idx_hdu]["HIERARCH ESO DET CHIP NO"]
-                photstab = offseti + noffsets * (chipid - 1)
-                dextinct = get_default_extinction(passband=self.passband[idx_file])
-
-                # Read new header
-                hdr = self.headers_data[idx_file][idx_hdu].copy()
-
-                # Add entries
-                hdr.set(self.setup.keywords.saturate, value=saturate, comment="Saturation level (ADU)")
-                hdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
-                hdr.set("OFFSET_I", value=offseti, comment="Current offset iteration")
-                hdr.set("NJITTER", value=njitter, comment="Total number of jitter positions")
-                hdr.set("JITTER_I", value=jitteri, comment="Current jitter iteration")
-                hdr.set("PHOTSTAB", value=photstab, comment="Photometric stability ID")
-                hdr.set("SCMPPHOT", value=offseti, comment="Photometric stability ID for Scamp")
-                hdr.set(self.setup.keywords.filter_name, value=self.passband[idx_file], comment="Passband")
-                hdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
-
-                # Add Airmass
-                airmass = get_airmass_from_header(header=hdr, time=hdr[self.setup.keywords.date_ut])
-                hdr.set(self.setup.keywords.airmass, value=airmass, comment="Airmass at time of observation")
-
-                # Append header
-                hdrs_data.append(hdr)
-
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
             phdr["DARKFILE"] = master_dark.basenames[idx_file]
             phdr["FLATFILE"] = master_flat.basenames[idx_file]
             phdr["LINFILE"] = master_linearity.basenames[idx_file]
 
+            # Copy data headers
+            hdrs_data = [self.headers_data[idx_file][idx_hdu].copy()
+                         for idx_hdu in range(len(self.iter_data_hdu[idx_file]))]
+
             # Fix headers
             if self.setup.fix_vircam_headers:
                 fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
+
+            # Add stuff to data headers
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+
+                # Grab current data header
+                dhdr = hdrs_data[idx_hdu]
+
+                # Grab parameters
+                saturate = self.setup.saturation_levels[idx_hdu]
+                offseti, noffsets, chipid = phdr["OFFSET_I"], phdr["NOFFSETS"], dhdr["HIERARCH ESO DET CHIP NO"]
+                photstab = offseti + noffsets * (chipid - 1)
+                dextinct = get_default_extinction(passband=self.passband[idx_file])
+
+                # Add entries
+                dhdr.set(self.setup.keywords.saturate, value=saturate, comment="Saturation level (ADU)")
+                dhdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
+                dhdr.set("OFFSET_I", value=offseti, comment="Current offset iteration")
+                dhdr.set("NJITTER", value=phdr["NJITTER"], comment="Total number of jitter positions")
+                dhdr.set("JITTER_I", value=phdr["JITTER_I"], comment="Current jitter iteration")
+                dhdr.set("PHOTSTAB", value=photstab, comment="Photometric stability ID")
+                dhdr.set("SCMPPHOT", value=offseti, comment="Photometric stability ID for Scamp")
+                dhdr.set(self.setup.keywords.filter_name, value=self.passband[idx_file], comment="Passband")
+                dhdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
+
+                # Add Airmass
+                if self.setup.set_airmass:
+                    airmass = get_airmass_from_header(header=dhdr, time=dhdr[self.setup.keywords.date_ut])
+                    dhdr.set(self.setup.keywords.airmass, value=airmass, comment="Airmass at time of observation")
 
             # Write to disk
             cube.write_mef(path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32")
