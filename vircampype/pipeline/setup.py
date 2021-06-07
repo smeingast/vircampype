@@ -34,6 +34,9 @@ class Setup(dict):
         self.__maximasking = False
         self.__projection = None
 
+        # Source masks
+        self.__additional_source_masks = None
+
         # Astromatic
         self.__bin_sex = "sex"
         self.__bin_scamp = "scamp"
@@ -492,6 +495,15 @@ class Setup(dict):
     def mask_sources_max_area(self):
         """ Maximum area of sources that are masked (500x500 pix). """
         return 250000
+
+    @property
+    def additional_source_masks(self):
+        """ Dictionary with additional source masks. """
+        return self.__additional_source_masks
+
+    @additional_source_masks.setter
+    def additional_source_masks(self, additional_source_masks):
+        self.__additional_source_masks = additional_source_masks
 
     # =========================================================================== #
     # Master Sky
