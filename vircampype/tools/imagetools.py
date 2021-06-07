@@ -589,7 +589,7 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
     sizes = np.array([r.area for r in regionprops])
 
     # Get index of large labels
-    idx_large_all = [i for i, x in enumerate((sizes > 250) & (sizes < max_area)) if x]
+    idx_large_all = [i for i, x in enumerate((sizes > 200) & (sizes < max_area)) if x]
 
     # Empty list to store masks
     masks_large = []
