@@ -601,14 +601,14 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
         for idx_large in idx_large_all:
 
             # Skip if eccentricity is too large (e.g. bad rows or columns)
-            if regionprops[idx_large].eccentricity > 0.75:
+            if regionprops[idx_large].eccentricity > 0.8:
                 continue
 
             # Grab current size and coordinates
             csize = sizes[idx_large]
 
-            # Approximate radius of circular mask with radius
-            crad = np.sqrt(csize / np.pi)
+            # Approximate radius of circular mask with radius (and add 20%)
+            crad = 1.2 * np.sqrt(csize / np.pi)
 
             # Determine centroid
             centroid = regionprops[idx_large].centroid
