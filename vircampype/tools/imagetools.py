@@ -540,8 +540,19 @@ def destripe_helper(array, mask=None):
 def circular_mask(array, coordinates, radius):
     """ Construct circular mask """
     (i1, i2), (nx, ny) = coordinates, array.shape
-    y, x = np.ogrid[-i1:nx-i1, -i2:ny-i2]
-    return x*x + y*y <= radius * radius
+
+    # Make grid
+    y, x = np.ogrid[-int(i1):nx-int(i1), -int(i2):ny-int(i2)]
+
+    # Create mask
+    mask = np.array(x*x + y*y <= radius * radius, dtype=bool)
+
+    # Check shape
+    if mask.shape != array.shape:
+        raise ValueError("Mask and array shape not matching")
+
+    # Return
+    return mask
 
 
 def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_area: int = 100000):
