@@ -18,12 +18,13 @@ from vircampype.tools.systemtools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.astromatic import SwarpSetup
-from vircampype.tools.imagetools import upscale_image
+from vircampype.visions.sourcemasks import SourceMasks
 from vircampype.tools.viziertools import download_2mass
 from vircampype.tools.astromatic import SextractorSetup
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.tools.photometry import get_default_extinction
 from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.tools.imagetools import upscale_image, circular_mask
 
 
 class SkyImages(FitsImages):
@@ -598,6 +599,7 @@ class SkyImagesProcessed(SkyImages):
 
         # Fetch the Masterfiles
         master_sky = self.get_master_sky(mode="static")
+        master_phot = self.get_master_photometry()
 
         # Loop over files
         for idx_file in range(self.n_files):
@@ -614,6 +616,20 @@ class SkyImagesProcessed(SkyImages):
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
+            # Load positions and magnitudes of bright sources
+            mag_master = master_phot.mag(passband=self.passband[idx_file])[0][0]
+            bright = (mag_master > 1) & (mag_master < 8)
+            mag_bright = mag_master[bright]
+            mra = list(master_phot.ra()[0][0][bright])
+            mdec = list(master_phot.dec()[0][0][bright])
+            msize = [int(x) for x in SourceMasks.interp_2mass_size()(mag_bright)]
+
+            # Merge with manual source masks
+            if self.setup.additional_source_masks is not None:
+                mra += self.setup.additional_source_masks["ra"]
+                mdec += self.setup.additional_source_masks["dec"]
+                msize += self.setup.additional_source_masks["size"]
+
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
@@ -623,8 +639,35 @@ class SkyImagesProcessed(SkyImages):
             # Subtract static sky
             cube = cube - sky
 
-            # Compute source masks
+            # Create empty list to hold all cubes for additional masks
+            array_additional = np.full_like(cube.cube, fill_value=0, dtype=np.uint16)
+
+            # Loop over additional masks
+            for rr, dd, ss in zip(mra, mdec, msize):
+
+                # Loop over each HDU
+                for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+
+                    # Get pixel coordinates
+                    sx, sy = self.wcs[idx_file][idx_hdu].wcs_world2pix(rr, dd, 0)
+
+                    # Skip if too far away from current image
+                    naxis1 = self.headers_data[idx_file][idx_hdu]["NAXIS1"]
+                    naxis2 = self.headers_data[idx_file][idx_hdu]["NAXIS2"]
+                    if (sx < -500) | (sy < -500) | (sx > naxis1 + 500) | (sy > naxis2 + 500):
+                        continue
+
+                    # If source is near image, create mask
+                    base = np.full_like(cube[idx_hdu], dtype=np.uint8, fill_value=0)
+                    mm = circular_mask(array=base, coordinates=(sy, sx), radius=ss).astype(np.uint16)
+                    array_additional[idx_hdu] += mm
+
+            # Automatically detect sources in cube
             cube_sources = cube.build_source_masks()
+
+            # Merge additional masks with automatically detected masks
+            cube_sources.cube = (cube_sources.cube + array_additional).astype(np.uint16)
+            cube_sources.cube[cube_sources.cube > 1] = 1
 
             # Create header cards
             cards = make_cards(keywords=[self.setup.keywords.date_mjd, self.setup.keywords.date_ut,
@@ -638,7 +681,7 @@ class SkyImagesProcessed(SkyImages):
             prime_header = fits.Header(cards=cards)
 
             # Write to disk
-            cube_sources.write_mef(path=outpath, prime_header=prime_header)
+            cube_sources.write_mef(path=outpath, prime_header=prime_header, dtype=np.uint8)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
