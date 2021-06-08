@@ -4,9 +4,9 @@ __all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks"]
 class SourceMasks:
 
     def __init__(self, ra, dec, size):
-        self.ra = ra
-        self.dec = dec
-        self.size = size
+        self.ra = list(ra)
+        self.dec = list(dec)
+        self.size = list(size)
 
     @property
     def mask_dict(self):
