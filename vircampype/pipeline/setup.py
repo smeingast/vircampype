@@ -4,6 +4,7 @@ from joblib import cpu_count
 from vircampype.pipeline.errors import *
 from vircampype.tools.systemtools import *
 from vircampype.visions.projections import *
+from vircampype.visions.sourcemasks import *
 
 
 class Setup(dict):
@@ -503,7 +504,25 @@ class Setup(dict):
 
     @additional_source_masks.setter
     def additional_source_masks(self, additional_source_masks):
-        self.__additional_source_masks = additional_source_masks
+
+        # If given as a dict manually
+        if isinstance(additional_source_masks, dict):
+            self.__additional_source_masks = additional_source_masks
+
+        # If fiven as a source mask instance
+        elif isinstance(additional_source_masks, SourceMasks):
+            self.__additional_source_masks = additional_source_masks.mask_dict
+
+        # If specified as string, try to load supported predefined masks
+        elif isinstance(additional_source_masks, str):
+            if additional_source_masks.lower() == "corona_australis_deep":
+                self.__additional_source_masks = CoronaAustralisDeepSourceMasks().mask_dict
+            else:
+                raise ValueError("Source masks for '{0}' are not supported".format(additional_source_masks))
+
+        # Otherwise raise error
+        else:
+            raise ValueError("Provide valid source masks")
 
     # =========================================================================== #
     # Master Sky
