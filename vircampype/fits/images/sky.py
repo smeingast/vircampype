@@ -869,7 +869,6 @@ class SkyImagesProcessed(SkyImages):
                 sky, skysig = bg.median(axis=(1, 2)), bgsig.median(axis=(1, 2))
 
                 # Subtract normalized background level
-                bg -= np.nanmedian(bg)
                 cube -= bg
 
             # Otherwise just calculate the sky level
