@@ -1342,6 +1342,7 @@ class SkyImagesResampled(SkyImagesProcessed):
     #     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
     def build_tile(self):
+
         # Processing info
         print_header(header="CREATING TILE", silent=self.setup.silent,
                      left=os.path.basename(self.setup.path_coadd), right=None)
