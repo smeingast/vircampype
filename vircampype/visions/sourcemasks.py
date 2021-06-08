@@ -1,3 +1,5 @@
+from scipy.interpolate import interp1d
+
 __all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks"]
 
 
@@ -11,6 +13,10 @@ class SourceMasks:
     @property
     def mask_dict(self):
         return dict(ra=self.ra, dec=self.dec, size=self.size)
+
+    @classmethod
+    def interp_2mass_size(cls):
+        return interp1d([1, 2, 3, 4, 5, 6, 7, 8], [550, 550, 550, 550, 450, 350, 250, 150], fill_value="extrapolate")
 
 
 class CoronaAustralisDeepSourceMasks(SourceMasks):
