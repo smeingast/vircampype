@@ -362,7 +362,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Split based on passband and interval
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
-        split = flat_list([s.split_window(window=1, remove_duplicates=True) for s in split])
+        split = flat_list([s.split_window(window=0.5, remove_duplicates=True) for s in split])
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()
