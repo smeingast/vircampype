@@ -191,8 +191,8 @@ def add_smoothed_value(table, image_header, parameters):
     return table
 
 
-def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_J2000", key_dec="DELTA_J2000",
-                 columns_mag=None, columns_magerr=None, method="weighted"):
+def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_SKY",
+                 key_dec="DELTA_SKY", columns_mag=None, columns_magerr=None, method="weighted"):
 
     if columns_mag is None:
         columns_mag = ["MAG_AUTO"]
