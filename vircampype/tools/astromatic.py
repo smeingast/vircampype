@@ -181,7 +181,7 @@ class SextractorSetup(AstromaticSetup):
             Path to file.
         """
 
-        return get_resource_path(package=self.package, resource="gauss_2.5_5x5.conv")
+        return get_resource_path(package=self.package, resource="gauss_2.0_5x5.conv")
 
     @property
     def default_nnw(self):
