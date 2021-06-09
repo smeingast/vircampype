@@ -36,11 +36,11 @@ class SextractorCatalogs(SourceCatalogs):
 
     @property
     def _key_ra(self):
-        return "ALPHA_J2000"
+        return "ALPHA_SKY"
 
     @property
     def _key_dec(self):
-        return "DELTA_J2000"
+        return "DELTA_SKY"
 
     @property
     def iter_data_hdu(self):
