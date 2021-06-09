@@ -1,5 +1,5 @@
-ALPHA_J2000              # Right ascension of barycenter (J2000)                     [deg]
-DELTA_J2000              # Declination of barycenter (J2000)                         [deg]
+ALPHA_SKY                # Right ascension of barycenter (native)                    [deg]
+DELTA_SKY                # Declination of barycenter (native)                        [deg]
 XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
 YWIN_IMAGE               # Windowed position estimate along y                        [pixel]
 ERRAWIN_IMAGE            # RMS windowed pos error along major axis                   [pixel]
