@@ -1,7 +1,6 @@
 from astropy.io import fits
 from collections.abc import Iterable
 from vircampype.tools.systemtools import *
-from vircampype.pipeline.main import Setup
 
 __all__ = ["sextractor2imagehdr", "read_aheaders", "write_aheaders",
            "SextractorSetup", "SwarpSetup", "ScampSetup", "PSFExSetup"]
@@ -109,6 +108,7 @@ def write_aheaders(headers: Iterable, path: str):
 
 class AstromaticSetup:
     def __init__(self, setup):
+        from vircampype.pipeline.main import Setup
         self.setup = Setup.load_pipeline_setup(setup)
         if self.bin is None:
             raise ValueError("Cannot find executable '{0}'".format(self.bin_name))
