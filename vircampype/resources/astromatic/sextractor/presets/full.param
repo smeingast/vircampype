@@ -45,11 +45,6 @@ DELTA_SKY                # Declination of barycenter (native)                   
 ALPHAWIN_SKY             # Windowed right ascension  (native)                        [deg]
 DELTAWIN_SKY             # Windowed declination (native)                             [deg]
 
-ALPHA_J2000              # Right ascension of barycenter (J2000)                     [deg]
-DELTA_J2000              # Declination of barycenter (J2000)                         [deg]
-ALPHAWIN_J2000           # Windowed right ascension (J2000)                          [deg]
-DELTAWIN_J2000           # windowed declination (J2000)                              [deg]
-
 A_WORLD                  # Profile RMS along major axis (world units)                [deg]
 ERRA_WORLD               # World RMS position error along major axis                 [deg]
 B_WORLD                  # Profile RMS along minor axis (world units)                [deg]
