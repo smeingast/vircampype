@@ -16,7 +16,7 @@ __all__ = ["clean_source_table", "add_smoothed_value", "add_zp_2mass", "table2bi
 
 
 def clean_source_table(table, image_header=None, return_filter=False, min_snr=10, nndis_limit=None,
-                       flux_max=None, max_ellipticity=0.2, min_fwhm=0.5, max_fwhm=8.0, border_pix=20,
+                       flux_max=None, max_ellipticity=0.2, min_fwhm=1.0, max_fwhm=8.0, border_pix=20,
                        min_flux_radius=0.8, max_flux_radius=3.0):
 
     # We start with all good sources
