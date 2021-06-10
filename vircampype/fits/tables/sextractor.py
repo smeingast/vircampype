@@ -717,30 +717,18 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
     def __init__(self, setup, file_paths=None):
         super(PhotometricCalibratedSextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
-    def paths_qc_plots(self, paths, prefix=""):
-
-        if paths is None:
-            return ["{0}{1}.{2}.pdf".format(self.setup.folders["qc_photometry"], fp, prefix) for fp in self.basenames]
-        else:
-            return paths
-
-    def plot_qc_phot_interror(self):
-
-        # Only works if there are multiple catalogs available
-        if len(self) <= 1:
-            raise ValueError("QC plot requires multiple catalogs as input")
+    def _merged_table(self, clean=True):
 
         # Import
         from astropy import table
-        import matplotlib.pyplot as plt
         from astropy.utils.metadata import MergeConflictWarning
 
-        # Construct output path name
-        outpath = "{0}{1}.phot.interror.pdf".format(self.setup.folders["qc_photometry"], self.setup.name)
-
-        # Read and clean all tables
+        # Read all tables
         tables_all = flat_list([self.file2table(file_index=i) for i in range(self.n_files)])
-        tables_all = [clean_source_table(t) for t in tables_all]
+
+        # Clean if set
+        if clean:
+            tables_all = [clean_source_table(t) for t in tables_all]
 
         # Stack all tables into a single master table
         with warnings.catch_warnings():
@@ -758,6 +746,21 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Remove duplicates
         table_master = remove_duplicates_wcs(table=table_master, sep=1, key_lon=self._key_ra, key_lat=self._key_dec,
                                              temp_dir=self.setup.folders["temp"], bin_name=self.setup.bin_stilts)
+
+        # Return
+        return table_master
+
+    def _phot_int_error(self):
+
+        # Only works if there are multiple catalogs available
+        if len(self) <= 1:
+            raise ValueError("Internal photometric error requires multiple catalogs.")
+
+        # Read all tables
+        tables_all = flat_list([self.file2table(file_index=i) for i in range(self.n_files)])
+
+        # Get merged master table
+        table_master = self._merged_table(clean=True)
 
         # Create empty array to store all matched magnitudes
         matched_phot = np.full((len(table_master), len(tables_all)), fill_value=np.nan, dtype=np.float32)
@@ -796,6 +799,38 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             warnings.filterwarnings("ignore")
             _, phot_median, phot_err = sigma_clipped_stats(matched_phot, axis=1)
             _, photerr_median, _ = sigma_clipped_stats(matched_photerr, axis=1)
+
+        # Return
+        return phot_median, phot_err, photerr_median
+
+    def phot_err_floor(self):
+
+        # Get internal photometric error stats
+        phot_median, phot_err, photerr_median = self._phot_int_error()
+
+        # Get the 5% brightest sources
+        idx_bright = phot_median < np.percentile(phot_median, 5)
+
+        # Get median error of those
+        return clipped_median(phot_err[idx_bright], sigma_upper=3, sigma_lower=2)
+
+    def paths_qc_plots(self, paths, prefix=""):
+
+        if paths is None:
+            return ["{0}{1}.{2}.pdf".format(self.setup.folders["qc_photometry"], fp, prefix) for fp in self.basenames]
+        else:
+            return paths
+
+    def plot_qc_phot_interror(self):
+
+        # Import
+        import matplotlib.pyplot as plt
+
+        # Create output path
+        outpath = "{0}{1}.phot.interror.pdf".format(self.setup.folders["qc_photometry"], self.setup.name)
+
+        # Get internal photometric error stats
+        phot_median, phot_err, photerr_median = self._phot_int_error()
 
         # Make 1D disperion histograms
         mag_ranges = [0, 14, 15, 16, 17, 18, 25]
