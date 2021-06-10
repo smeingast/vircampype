@@ -175,7 +175,7 @@ def add_key_primary_hdu(path, key, value, comment=None):
             file[0].header[key] = value
 
 
-def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None, overwrite=False):
+def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None, write_extname=True, overwrite=False):
     """
     Creates an MEF image file from multiple input image file.
 
@@ -190,6 +190,8 @@ def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None
     add_constant : int, float, str, optional
         A constant value that is added to each input file upon combining the files. If given as a string, then
         the value of each added constant will be read from the header.
+    write_extname : bool, optional
+        If set, write standard EXTNAME keyword.
     overwrite : bool, optional
         Whether an existing file should be overwritten.
 
@@ -213,9 +215,9 @@ def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None
     hdulist.append(fits.PrimaryHDU(header=primeheader))
 
     # Construct image HDUs from input
-    for pi, ac in zip(paths_input, add_constant):
+    for pidx, ac in zip(range(len(paths_input)), add_constant):
 
-        with fits.open(pi) as file:
+        with fits.open(paths_input[pidx]) as file:
 
             # Determine constant to add
             if isinstance(ac, (int, float)):
@@ -224,7 +226,16 @@ def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None
                 const = file[0].header[ac]
             else:
                 const = 0
-            hdulist.append(fits.ImageHDU(data=file[0].data + const, header=file[0].header))
+
+            # Grab header
+            hdr = file[0].header.copy()
+
+            # Write EXTNAME
+            if write_extname:
+                hdr.set("EXTNAME", value="HDU{0:>02d}".format(pidx+1), after="BITPIX")
+
+            # Append HDU
+            hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
 
     # Write final HDUlist to disk
     hdulist.writeto(path_output, overwrite=overwrite)
@@ -287,7 +298,7 @@ def add_float_to_header(header, key, value, decimals=3, comment=None, remove_bef
         FITS header to be modified.
     key : str
         Key of header entry.
-    value : float
+    value : float, ndarray
         Value of header entry.
     decimals : int, optional
         How many decimals to write
