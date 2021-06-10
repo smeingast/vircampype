@@ -519,18 +519,19 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                       file_paths=[x.replace(".full.", ".cs.") for x in self.paths_full])
 
         # Start loop over files
+        outpaths = []
         for idx_file in range(self.n_files):
 
             # Create output path
-            outpath = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
+            outpaths.append(self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab"))
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent) \
+            if check_file_exists(file_path=outpaths[-1], silent=self.setup.silent) \
                     and not self.setup.overwrite:
                 continue
 
             # Print processing info
-            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpath,
+            message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpaths[-1],
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
             # Load and clean table
@@ -601,19 +602,22 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                             key=key, value=val, comment=comment, decimals=4)
 
             # Write to new output file
-            table_hdulist.writeto(outpath, overwrite=self.setup.overwrite)
+            table_hdulist.writeto(outpaths[-1], overwrite=self.setup.overwrite)
 
             # Close original file
             table_hdulist.close()
 
             # QC plot
             if self.setup.qc_plots:
-                pcsc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpath)
+                pcsc = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths[-1])
                 pcsc.plot_qc_phot_zp(axis_size=5)
                 pcsc.plot_qc_phot_ref1d(axis_size=5)
                 pcsc.plot_qc_phot_ref2d(axis_size=5)
-                if len(pcsc) >= 2:
-                    pcsc.plot_qc_phot_interror()
+
+        # Plot internal dispersion if set
+        if self.setup.qc_plots & (len(outpaths) > 1):
+            all_catalogs = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
+            all_catalogs.plot_qc_phot_interror()
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
