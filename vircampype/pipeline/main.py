@@ -680,10 +680,10 @@ class Pipeline:
         self.process_raw_basic()
 
         # Build static sky, source masks, dynamic sky, and master photometry
+        self.build_master_photometry()
         self.build_master_sky_static()
         self.build_master_source_mask()
         self.build_master_sky_dynamic()
-        self.build_master_photometry()
 
         # Final science data and weight maps
         self.process_science_final()
