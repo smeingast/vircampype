@@ -151,7 +151,6 @@ def build_phase3_stacks(stacks_images, stacks_catalogs):
 
             # Save
             weight.writeto(path_wei_p3, overwrite=True, checksum=True, output_verify="silentfix")
-            exit()
 
     # Print time
     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
