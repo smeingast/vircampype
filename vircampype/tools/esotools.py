@@ -1,29 +1,31 @@
 # Import
 import os
 import time
+import warnings
 import numpy as np
 
+from astropy import wcs
 from astropy.io import fits
+from astropy.time import Time
 from vircampype import __version__
 from astropy.coordinates import SkyCoord
 from vircampype.tools.messaging import *
 from vircampype.tools.photometry import *
 from vircampype.tools.miscellaneous import *
+from vircampype.tools.fitstools import mjd2dateobs
 from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.fitstools import add_float_to_header
-from vircampype.fits.images.sky import SkyImagesResampled
-from vircampype.tools.fitstools import delete_keyword_from_header
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
-__all__ = ["make_phase3_pawprints", "make_phase3_tile"]
+__all__ = ["build_phase3_stacks", "make_phase3_tile"]
 
 
 def _saturation_limit(passband):
-    if passband.lower() == "j":
+    if "j" in passband.lower():
         return 11.5
-    elif passband.lower() == "h":
+    elif "h" in passband.lower():
         return 11.0
-    elif passband.lower() == "ks":
+    elif "k" in passband.lower():
         return 11.0
     else:
         raise ValueError("Filter {0} not supported".format(passband))
@@ -39,304 +41,257 @@ _kwargs_column_fwhm = dict(format="1E", disp="F7.4", unit="arcsec")
 _kwargs_column_class = dict(format="1E", disp="F6.3")
 
 
-def make_phase3_pawprints(pawprint_images, pawprint_catalogs):
+def build_phase3_stacks(stacks_images, stacks_catalogs):
     """
     Converts the calibrated source catalogs to a phase 3 compliant standard.
 
     Parameters
     ----------
-    pawprint_images : SkyImagesResampled
-        Input pawprint images.
-    pawprint_catalogs : PhotometricCalibratedSextractorCatalogs
-        Input pawprint source catalogs.
+    stacks_images : Stacks
+        Input stack images.
+    stacks_catalogs : PhotometricCalibratedSextractorCatalogs
+        Input stack source catalogs.
 
     """
 
     # Grab setup
-    setup = pawprint_images.setup
+    setup = stacks_images.setup
 
     # Processing info
-    print_header(header="PHASE 3 PAWPRINTS", silent=setup["misc"]["silent"], right=None)
+    print_header(header="PHASE 3 STACKS", silent=setup.silent, right=None)
     tstart = time.time()
 
-    # Dummy check
-    if len(pawprint_images) != len(pawprint_catalogs):
+    # There must be equally as many catalogs as stacks
+    if len(stacks_images) != len(stacks_catalogs):
         raise ValueError("Images (n={0}) and catalogs (n={1}) not matching"
-                         "".format(len(pawprint_images), len(pawprint_catalogs)))
+                         "".format(len(stacks_images), len(stacks_catalogs)))
 
-    # Grab those stupid keywords
-    tl_ra, tl_dec, tl_ofa = get_stupid_keywords(pawprint_images=pawprint_images)
-
-    # Put in dict
-    shitty_kw = {"TL_RA": tl_ra, "TL_DEC": tl_dec, "TL_OFFAN": tl_ofa}
+    # Also the names must match
+    for idx_stack in range(len(stacks_images)):
+        if stacks_images.paths_full[idx_stack].replace("fits", "") not in stacks_catalogs.paths_full[idx_stack]:
+            raise ValueError("Stacks images and catalogs not matching")
 
     # Loop over files
-    for idx_file in range(len(pawprint_images)):
+    for idx_file in range(len(stacks_images)):
 
         # Construct phase 3 paths and names
-        path_pawprint_p3 = "{0}{1}_{2:>02d}.fits".format(setup.folders["phase3"], setup["name"], idx_file + 1)
-        path_weight_p3 = path_pawprint_p3.replace(".fits", ".weight.fits")
-        path_catalog_p3 = path_pawprint_p3.replace(".fits", ".sources.fits")
+        path_stk_p3 = "{0}{1}_st_{2:>02d}.fits".format(setup.folders["phase3"], setup["name"], idx_file + 1)
+        path_ctg_p3 = path_stk_p3.replace(".fits", ".sources.fits")
+        path_wei_p3 = path_stk_p3.replace(".fits", ".weight.fits")
 
-        # Passband
-        passband = pawprint_catalogs.passband[idx_file]
+        # # Passband
+        # passband = stacks_catalogs.passband[idx_file]
 
-        # Add final name to shitty kw to safe
-        shitty_kw["filename_phase3"] = os.path.basename(path_pawprint_p3)
-
-        # Check if the files are already there and skip if they are
-        check = 0
-        for p in [path_pawprint_p3, path_weight_p3, path_catalog_p3]:
-            if check_file_exists(file_path=p, silent=setup["misc"]["silent"]):
-                check += 1
-        if check == 3:
-            continue
+        # p3_files = [check_file_exists(pp3, silent=setup.silent) for pp3 in [path_stk_p3, path_ctg_p3, path_wei_p3]]
+        # if np.sum(p3_files) == 3:
+        #     continue
 
         # Status message
-        message_calibration(n_current=idx_file + 1, n_total=len(pawprint_images), name=path_pawprint_p3)
+        message_calibration(n_current=idx_file + 1, n_total=len(stacks_images), name=path_stk_p3)
 
         # Read HDUList for resampled image + catalog
-        hdul_pawprint_in = fits.open(pawprint_images.paths_full[idx_file])
-        hdul_catalog_in = fits.open(pawprint_catalogs.paths_full[idx_file])
+        hdul_stk_pipe = fits.open(stacks_images.paths_full[idx_file])
+        hdul_ctg_pipe = fits.open(stacks_catalogs.paths_full[idx_file])
 
         # Make primary HDU
-        phdr_pawprint = make_pawprint_prime_header(hdul_pawprint=hdul_pawprint_in, image_or_catalog="image",
-                                                   additional_keywords=shitty_kw)
-        phdr_catalog = make_pawprint_prime_header(hdul_pawprint=hdul_pawprint_in, image_or_catalog="catalog",
-                                                  additional_keywords=shitty_kw)
-
-        # Add weight association
-        asson_name = os.path.basename(os.path.basename(path_weight_p3))
-        if setup["compression"]["compress_phase3"]:
-            asson_name = asson_name.replace(".fits", ".fits.fz")
-        phdr_pawprint.set("ASSON1", value=asson_name, after="REFERENC")
+        phdr_stk = make_prime_header_stack(hdulist_stack=hdul_stk_pipe, image_or_catalog="image", setup=setup,
+                                           asson1=(os.path.basename(os.path.basename(path_wei_p3))))
+        phdr_ctg = make_prime_header_stack(hdulist_stack=hdul_stk_pipe, image_or_catalog="catalog", setup=setup,
+                                           prov1=os.path.basename(path_stk_p3))
 
         # Make HDUlists for output
-        hdul_pawprint_out = fits.HDUList([fits.PrimaryHDU(header=phdr_pawprint)])
-        hdul_catalog_out = fits.HDUList([fits.PrimaryHDU(header=phdr_catalog)])
+        hdul_stk_p3 = fits.HDUList([fits.PrimaryHDU(header=phdr_stk)])
+        hdul_ctg_p3 = fits.HDUList([fits.PrimaryHDU(header=phdr_ctg)])
 
         # Now loop over extensions
-        for idx_paw, idx_cat in zip(pawprint_images.iter_data_hdu[idx_file],
-                                    pawprint_catalogs.iter_data_hdu[idx_file]):
+        for idx_hdu_stk, idx_hdu_ctg in zip(stacks_images.iter_data_hdu[idx_file],
+                                            stacks_catalogs.iter_data_hdu[idx_file]):
 
             # Make extension headers
-            hdr_pawprint_out = make_pawprint_header(hdu_pawprint=hdul_pawprint_in[idx_paw], passband=passband,
-                                                    hdu_catalog=hdul_catalog_in[idx_cat], image_or_catalog="image")
-            hdr_catalog_out = make_pawprint_header(hdu_pawprint=hdul_pawprint_in[idx_paw], passband=passband,
-                                                   hdu_catalog=hdul_catalog_in[idx_cat], image_or_catalog="catalog")
-
+            hdr_hdu_stk = make_extension_header_stack(hdu_stk=hdul_stk_pipe[idx_hdu_stk],
+                                                      hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
+                                                      image_or_catalog="image", passband=phdr_stk["FILTER"])
+            hdr_hdu_ctg = make_extension_header_stack(hdu_stk=hdul_stk_pipe[idx_hdu_stk],
+                                                      hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
+                                                      image_or_catalog="catalog", passband=phdr_stk["FILTER"])
             # Get table colums from pipeline catalog
-            data = pawprint_catalogs.filehdu2table(file_index=idx_file, hdu_index=idx_cat)
-            final_cols = make_phase3_columns(data=data)
-
-            # Remove keyword from header
-            hdr_pawprint = delete_keyword_from_header(header=hdr_pawprint_out, keyword="ORIGFILE")
-            hdr_catalog = delete_keyword_from_header(header=hdr_catalog_out, keyword="ORIGFILE")
+            tabledata = stacks_catalogs.filehdu2table(file_index=idx_file, hdu_index=idx_hdu_ctg)
+            final_cols = make_phase3_columns(data=tabledata)
 
             # Make final HDUs
-            hdul_pawprint_out.append(fits.ImageHDU(data=hdul_pawprint_in[idx_paw].data, header=hdr_pawprint))
-            hdul_catalog_out.append(fits.BinTableHDU.from_columns(final_cols, header=hdr_catalog))
+            hdul_stk_p3.append(fits.ImageHDU(data=hdul_stk_pipe[idx_hdu_stk].data, header=hdr_hdu_stk))
+            hdul_ctg_p3.append(fits.BinTableHDU.from_columns(final_cols, header=hdr_hdu_ctg))
 
         # Write to disk
-        hdul_pawprint_out.writeto(path_pawprint_p3, overwrite=True, checksum=True)
-        hdul_catalog_out.writeto(path_catalog_p3, overwrite=True, checksum=True)
+        hdul_stk_p3.writeto(path_stk_p3, overwrite=True, checksum=True)
+        hdul_ctg_p3.writeto(path_ctg_p3, overwrite=True, checksum=True)
 
         # There also has to be a weight map
-        with fits.open(pawprint_images.paths_full[idx_file].replace(".fits", ".weight.fits")) as weight:
+        with fits.open(stacks_images.paths_full[idx_file].replace(".fits", ".weight.fits")) as weight:
 
             # Make empty primary header
             phdr_weight = fits.Header()
 
-            # Fill primary header only with some keywords
-            for key, value in weight[0].header.items():
-                if not key.startswith("ESO "):
-                    phdr_weight[key] = value
-
             # Add PRODCATG before RA key
-            phdr_weight.insert(key="RA", card=("PRODCATG", "ANCILLARY.WEIGHTMAP"))
+            phdr_weight.set(keyword="PRODCATG", value="ANCILLARY.WEIGHTMAP", comment="Data product category")
 
-            # Overwrite primary header in weight HDUList
+            # Overwrite primary header
             weight[0].header = phdr_weight
 
-            # Add EXTNAME
-            for eidx in range(1, len(weight)):
-                weight[eidx].header.insert(key="EQUINOX", card=("EXTNAME", "DET1.CHIP{0}".format(eidx)))
+            # Clean extension headers (only keep WCS and EXTNAME)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=wcs.FITSFixedWarning)
+                for eidx in range(1, len(weight)):
+                    wcs_wei = wcs.WCS(weight[eidx].header)
+                    ehdr_wei = wcs_wei.to_header()
+                    ehdr_wei.set(keyword="EXTNAME", value="DET1.CHIP{0}".format(eidx))
+
+                    # Reset header
+                    weight[eidx].header = ehdr_wei
 
             # Save
-            weight.writeto(path_weight_p3, overwrite=True, checksum=True)
-
-        exit()
+            weight.writeto(path_wei_p3, overwrite=True, checksum=True, output_verify="silentfix")
+            exit()
 
     # Print time
     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-def make_pawprint_prime_header(hdul_pawprint: fits.HDUList, image_or_catalog: str, additional_keywords: dict):
+def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, setup, **kwargs):
 
     # Make new empty header
     hdr = fits.Header()
 
-    # Grab headers
-    hdr_prime = hdul_pawprint[0].header
-    hdr_1ext = hdul_pawprint[1].header
+    # Common keywords for images and catalogs
+    hdr.set("ORIGIN", value="ESO-PARANAL", comment="Observatory facility")
+    hdr.set("TELESCOP", value="ESO-VISTA", comment="ESO telescope designation")
+    hdr.set("INSTRUME", value="VIRCAM", comment="Instrument name")
+    hdr.set("FILTER", value=hdulist_stack[0].header[setup.keywords.filter_name], comment="Filter name")
+    hdr.set("OBJECT", value=hdulist_stack[0].header["OBJECT"], comment="Target designation")
+    hdr.set("RA", value=hdulist_stack[1].header["CRVAL1"], comment="RA tile center")
+    hdr.set("DEC", value=hdulist_stack[1].header["CRVAL2"], comment="DEC tile center")
+    exptime = (hdulist_stack[0].header["NJITTER"] *
+               hdulist_stack[0].header[setup.keywords.dit] *
+               hdulist_stack[0].header[setup.keywords.ndit])
+    hdr.set("EXPTIME", value=exptime, comment="Total integration time")
+    hdr.set("TEXPTIME", value=exptime, comment="Total integration time")
+    hdr.set("DATE", value=Time.now().fits, comment="Date of file creation")
+    hdr.set("MJD-OBS", value=hdulist_stack[0].header[setup.keywords.date_mjd], comment="MJD (start of observations)")
+    hdr.set("MJD-END", value=hdulist_stack[0].header["MJD-END"], comment="MJD (end of observations)")
+    hdr.set("DATE-OBS", value=mjd2dateobs(hdr["MJD-OBS"]), comment="Date of the observation", after="DATE")
+    hdr.set("PROG_ID", value=hdulist_stack[0].header["HIERARCH ESO OBS PROG ID"], comment="Observation run ID")
+    hdr.set("OBID1", value=hdulist_stack[0].header["HIERARCH ESO OBS ID"], comment="Obsveration block ID")
+    hdr.set("NCOMBINE", value=hdulist_stack[0].header["NCOMBINE"], comment="Number of input raw science data files")
+    hdr.set("OBSTECH", value=hdulist_stack[0].header["HIERARCH ESO DPR TECH"],
+            comment="Technique used during observations")
+    hdr.set("PROCSOFT", value="vircampype v{0}".format(__version__), comment="Reduction software")
+    hdr.set("REFERENC", value="", comment="Primary science publication")
 
-    # Write keywords into primary image header
-    hdr["ORIGIN"] = "ESO-PARANAL"
-    hdr["DATE"] = hdr_1ext["DATE"]  # Time from Swarp is in extentions
-    hdr["TELESCOP"] = "ESO-VISTA"
-    hdr["INSTRUME"] = "VIRCAM"
-    hdr["FILTER"] = hdr_prime["ESO INS FILT1 NAME"]
-    hdr["OBJECT"] = hdr_prime["OBJECT"]
-    hdr["RA"] = hdul_pawprint[1].header["CRVAL1"]
-    hdr["DEC"] = hdul_pawprint[1].header["CRVAL2"]
-    hdr["EQUINOX"] = 2000.
-    hdr["RADECSYS"] = "ICRS"
-    hdr["EXPTIME"] = hdr_prime["EXPTIME"]
-    hdr["TEXPTIME"] = float(hdr_1ext["ESO DET DIT"] * hdr_1ext["ESO DET NDIT"])
-    hdr["MJD-OBS"] = hdr_prime["MJD-OBS"]
-    hdr["MJD-END"] = (hdr_prime["MJD-OBS"] + (hdr_prime["ESO DET DIT"] * hdr_prime["ESO DET NDIT"]) / 86400)
-    hdr["PROG_ID"] = hdr_prime["ESO OBS PROG ID"]
-    hdr["OBID1"] = hdr_prime["ESO OBS ID"]
-    hdr["M_EPOCH"] = False
-    hdr["OBSTECH"] = hdr_prime["ESO DPR TECH"]
+    if image_or_catalog == "image":
+        hdr.set("TIMESYS", value="UTC", comment="Time system")
+        hdr.set("RADECSYS", value="ICRS", comment="Coordinate reference frame")
+        hdr.set("DIT", value=hdulist_stack[0].header[setup.keywords.dit], comment="Detector integration time")
+        hdr.set("NDIT", value=hdulist_stack[0].header[setup.keywords.ndit], comment="Number of sub-integrations")
+        hdr.set("NJITTER", value=hdulist_stack[0].header["NJITTER"], comment="Number of jitter positions")
+        hdr.set("NOFFSETS", value=hdulist_stack[0].header["NOFFSETS"], comment="Number of offset positions")
+        hdr.set("NUSTEP", value=hdulist_stack[0].header["NUSTEP"], comment="Number of microstep positions")
+        hdr.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
 
     # Select category based on input
     if image_or_catalog.lower() == "catalog":
-        hdr["PROV1"] = additional_keywords["filename_phase3"]
         hdr["PRODCATG"] = "SCIENCE.SRCTBL"
     elif image_or_catalog.lower() == "image":
-        hdr["PROV1"] = hdr_prime["ARCFILE"]
         hdr["PRODCATG"] = "SCIENCE.MEFIMAGE"
+
+        # Provenance
+        idx = 0
+        while True:
+            try:
+                prov = hdulist_stack[0].header["HIERARCH PYPE ARCNAME {0:02d}".format(idx)]
+                hdr.set("PROV{0}".format(idx + 1), value=prov, comment="Processing provenance {0}".format(idx))
+            except KeyError:
+                break
+            idx += 1
+
     else:
         raise ValueError("Mode '{0}' not supported".format(image_or_catalog))
 
-    hdr["NCOMBINE"] = 1
-    hdr["IMATYPE"] = "PAWPRINT"
-    hdr["ISAMP"] = True
-    hdr["FLUXCAL"] = "ABSOLUTE"
-    hdr["PROCSOFT"] = "vircampype v{0}".format(__version__)
-    hdr["REFERENC"] = ""
+    # Add kwargs
+    for k, v in kwargs.items():
+        hdr[k] = v
 
-    # These stupid keywords are not in all primary headers...
-    hdr["TL_RA"] = additional_keywords["TL_RA"]
-    hdr["TL_DEC"] = additional_keywords["TL_DEC"]
-    hdr["TL_OFFAN"] = additional_keywords["TL_OFFAN"]
-
-    hdr["EPS_REG"] = hdr["OBJECT"].split("_")[0]
-    hdr["JITTER_I"] = hdr_prime["JITTER_I"]
-    hdr["NJITTER"] = hdr_prime["NJITTER"]
-    hdr["OFFSET_I"] = hdr_prime["OFFSET_I"]
-    hdr["NOFFSETS"] = hdr_prime["NOFFSETS"]
-    hdr["NUSTEP"] = hdr_prime["NUSTEP"]
-    hdr["DIT"] = hdr_prime["ESO DET DIT"]
-    hdr["NDIT"] = hdr_prime["ESO DET NDIT"]
-
-    # Return filled header
     return hdr
 
 
-def make_pawprint_header(hdu_pawprint, hdu_catalog, image_or_catalog: str, passband: str):
+def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
 
-    # Calculate mean ZP
-    # TODO: Chance this to whatever number of apertures are available
-    zp_avg = np.mean([hdu_catalog.header["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)] for x in [1, 2, 3, 4, 5]])
-    # TODO: This should reflect the error in the ZPs, not the deviation across the aperture
-    zp_std = np.std([hdu_catalog.header["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)] for x in [1, 2, 3, 4, 5]])
+    # Start with empty header
+    hdr_stk = hdu_stk.header
+    hdr_out = fits.Header()
 
-    # Calculate maglimit
-    fa = hdu_catalog.data["FLUX_AUTO"].T
-    fa_err = hdu_catalog.data["FLUXERR_AUTO"].T
+    # Set extension name
+    hdr_out.set("EXTNAME", value=hdr_stk["EXTNAME"], comment="Name of the extension")
+
+    # Set WCS
+    if image_or_catalog.lower() == "image":
+        hdr_out.set("BUNIT", value="ADU", comment="Physical unit of the array values")
+        hdr_out.set("CTYPE1", value=hdr_stk["CTYPE1"], comment="WCS projection type for axis 1")
+        hdr_out.set("CTYPE2", value=hdr_stk["CTYPE2"], comment="WCS projection type for axis 2")
+        hdr_out.set("CRPIX1", value=hdr_stk["CRPIX1"], comment="Reference pixel for axis 1")
+        hdr_out.set("CRPIX2", value=hdr_stk["CRPIX2"], comment="Reference pixel for axis 2")
+        hdr_out.set("CRVAL1", value=hdr_stk["CRVAL1"], comment="Reference world coordinate for axis 1")
+        hdr_out.set("CRVAL2", value=hdr_stk["CRVAL2"], comment="Reference world coordinate for axis 2")
+        hdr_out.set("CUNIT1", value=hdr_stk["CUNIT1"], comment="Axis unit")
+        hdr_out.set("CUNIT2", value=hdr_stk["CUNIT2"], comment="Axis unit")
+        hdr_out.set("CD1_1", value=hdr_stk["CD1_1"], comment="Linear projection matrix")
+        hdr_out.set("CD1_2", value=hdr_stk["CD1_2"], comment="Linear projection matrix")
+        hdr_out.set("CD2_1", value=hdr_stk["CD2_1"], comment="Linear projection matrix")
+        hdr_out.set("CD2_2", value=hdr_stk["CD2_2"], comment="Linear projection matrix")
+
+    # Set photometric system
+    hdr_out.set("PHOTSYS", value="VEGA", comment="Photometric system")
+
+    # Compute mean ZP
+    zps, zperrs, idx = [], [], 0
+    while True:
+        try:
+            zps.append(hdu_ctg.header["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(idx + 1)])
+            zperrs.append(hdu_ctg.header["HIERARCH PYPE ZP ERR MAG_APER_MATCHED {0}".format(idx + 1)])
+        except KeyError:
+            break
+        idx += 1
+
+    # Add ZP and ZP err
+    if image_or_catalog == "image":
+        add_float_to_header(header=hdr_out, key="PHOTZP", value=np.mean(zps), decimals=4,
+                            comment="Photometric zeropoint")
+        add_float_to_header(header=hdr_out, key="PHOTZPER", value=np.mean(zperrs), decimals=4,
+                            comment="Uncertainty of the photometric zeropoint")
+
+    # Determine magnitude limit
+    fa = hdu_ctg.data["FLUX_AUTO"].T
+    fa_err = hdu_ctg.data["FLUXERR_AUTO"].T
     good = (fa / fa_err > 4.5) & (fa / fa_err < 5.5)
-    mag_lim = clipped_median(hdu_catalog.data["MAG_AUTO_CAL"][good])
-
-    # Starfilter
-    stars = hdu_catalog.data["CLASS_STAR"] > 0.8
-
-    # Copy header from input
-    hdr = hdu_pawprint.header.copy()
-
-    # Add keywords
-    hdr["INHERIT"] = True
-
-    if "pawprint" in image_or_catalog.lower():
-        hdr["BUNIT"] = "ADU"
-
-    hdr["PHOTSYS"] = "VEGA"
-    add_float_to_header(header=hdr, key="PHOTZP", value=zp_avg, decimals=3,
-                        comment="Mean ZP across apertures")
-    add_float_to_header(header=hdr, key="E_PHOTZP", value=zp_std, decimals=3,
-                        comment="ZP standard deviation across apertures")
-    add_float_to_header(header=hdr, key="MAGLIM", value=mag_lim, decimals=3,
-                        comment="Estimated magnitude limit (Vega, 5-sigma)")
-    add_float_to_header(header=hdr, key="ABMAGLIM", value=vega2ab(mag=mag_lim, passband=passband), decimals=3,
-                        comment="Estimated magnitude limit (AB, 5-sigma)")
-    add_float_to_header(header=hdr, key="MAGSAT", value=_saturation_limit(passband=passband), decimals=3,
+    mag_lim = clipped_median(hdu_ctg.data["MAG_AUTO_CAL"][good])
+    add_float_to_header(header=hdr_out, key="MAGLIM", value=mag_lim, decimals=3,
+                        comment="5-sigma limiting Vega magnitude")
+    add_float_to_header(header=hdr_out, key="ABMAGLIM", value=vega2ab(mag_lim, passband=passband), decimals=3,
+                        comment="5-sigma limiting AB magnitude")
+    add_float_to_header(header=hdr_out, key="MAGSAT", value=_saturation_limit(passband=passband), decimals=3,
                         comment="Estimated saturation limit (Vega)")
-    add_float_to_header(header=hdr, key="ABMAGSAT", decimals=3, comment="Estimated saturation limit (AB)",
+    add_float_to_header(header=hdr_out, key="ABMAGSAT", decimals=3, comment="Estimated saturation limit (AB)",
                         value=vega2ab(mag=_saturation_limit(passband=passband), passband=passband))
-    add_float_to_header(header=hdr, key="PSF_FWHM", decimals=3, comment="Estimated median PSF FWHM (arcsec)",
-                        value=clipped_median(hdu_catalog.data["FWHM_WORLD_INTERP"][stars] * 3600))
-    add_float_to_header(header=hdr, key="ELLIPTIC", decimals=3, comment="Estimated median ellipticity",
-                        value=clipped_median(hdu_catalog.data["ELLIPTICITY"][stars]))
 
-    # Return header
-    return hdr
+    # Set shape parameters
+    fwhm = np.nanmean(hdu_ctg.data["FWHM_WORLD_INTERP"]) * 3600
+    ellipticity = np.nanmean(hdu_ctg.data["ELLIPTICITY_INTERP"])
+    add_float_to_header(header=hdr_out, key="PSF_FWHM", value=fwhm, decimals=3,
+                        comment="Effective spatial resolution (arcsec)")
+    add_float_to_header(header=hdr_out, key="ELLIPTIC", value=ellipticity, decimals=3,
+                        comment="Average ellipticity of point sources")
 
-
-def make_phase3_columns(data):
-    """
-    Reads a sextractor catalog as generated by the pipeline and returns the final FITS columns in a list.
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    iterable
-        List of FITS columns.
-
-    """
-
-    # Filter some bad sources
-    keep = (data["MAG_APER_MATCHED_CAL"][:, 0] - data["MAG_APER_MATCHED_CAL"][:, 1] > -0.2) & \
-           (data["FWHM_WORLD"] * 3600 > 0.2)
-    data = data[keep]
-
-    # Read aperture magnitudes and aperture corrections
-    mag_aper, magerr_aper = data["MAG_APER_MATCHED_CAL"], data["MAGERR_APER"]
-
-    # Mask bad values
-    mag_aper_bad = (mag_aper > 50.) | (magerr_aper > 50)
-
-    # Mask bad values
-    mag_aper[mag_aper_bad], magerr_aper[mag_aper_bad] = np.nan, np.nan
-
-    # Get Skycoordinates
-    skycoord = SkyCoord(ra=data["ALPHAWIN_J2000"], dec=data["DELTAWIN_J2000"],
-                        frame="icrs", equinox="J2000", unit="deg")
-
-    # Construct columns
-    ncol_mag_aper = mag_aper.shape[1]
-    col_mag_aper = fits.Column(name="MAG_APER", array=mag_aper, dim="({0})".format(ncol_mag_aper),
-                               format="{0}E".format(ncol_mag_aper), **_kwargs_column_mag)
-    col_magerr_aper = fits.Column(name="MAGERR_APER", array=magerr_aper, dim="({0})".format(ncol_mag_aper),
-                                  format="{0}E".format(ncol_mag_aper), **_kwargs_column_mag)
-    # TODO: MAG_AUTO?
-    col_id = fits.Column(name="ID", array=skycoord2visionsid(skycoord=skycoord), format="21A")
-    col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, **_kwargs_column_coo)
-    col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **_kwargs_column_coo)
-    col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"] * 3600, **_kwargs_column_fwhm)
-    col_iq = fits.Column(name="IMAGE_QUALITY", array=data["FWHM_WORLD_INTERP"] * 3600, **_kwargs_column_fwhm)
-    col_flags = fits.Column(name="FLAGS", array=data["FLAGS"], **_kwargs_column_flags)
-    col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"], **_kwargs_column_el)
-    col_class = fits.Column(name="CLASS", array=data["CLASS_STAR"], **_kwargs_column_class)
-
-    # Put into single list
-    cols = [col_id, col_ra, col_dec, col_mag_aper, col_magerr_aper,
-            col_fwhm, col_iq, col_flags, col_ell, col_class]
-
-    # Return columns
-    return cols
+    # Return
+    return hdr_out
 
 
 def make_phase3_tile(tile_image, tile_catalog, pawprint_images):
@@ -568,6 +523,61 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, additio
 
     # Return header
     return phdr_tile_image_out, phdr_tile_catalog_out, ehdr_tile_catalog_out
+
+
+def make_phase3_columns(data):
+    """
+    Reads a sextractor catalog as generated by the pipeline and returns the final FITS columns in a list.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    iterable
+        List of FITS columns.
+
+    """
+
+    # Filter some bad sources
+    keep = (data["MAG_APER_MATCHED_CAL"][:, 0] - data["MAG_APER_MATCHED_CAL"][:, 1] > -0.2) & \
+           (data["FWHM_WORLD"] * 3600 > 0.2)
+    data = data[keep]
+
+    # Read aperture magnitudes and aperture corrections
+    mag_aper, magerr_aper = data["MAG_APER_MATCHED_CAL"], data["MAGERR_APER"]
+
+    # Mask bad values
+    mag_aper_bad = (mag_aper > 50.) | (magerr_aper > 50)
+
+    # Mask bad values
+    mag_aper[mag_aper_bad], magerr_aper[mag_aper_bad] = np.nan, np.nan
+
+    # Get Skycoordinates
+    skycoord = SkyCoord(ra=data["ALPHAWIN_SKY"], dec=data["DELTAWIN_SKY"], frame="icrs", equinox="J2000", unit="deg")
+
+    # Construct columns
+    ncol_mag_aper = mag_aper.shape[1]
+    col_mag_aper = fits.Column(name="MAG_APER", array=mag_aper, dim="({0})".format(ncol_mag_aper),
+                               format="{0}E".format(ncol_mag_aper), **_kwargs_column_mag)
+    col_magerr_aper = fits.Column(name="MAGERR_APER", array=magerr_aper, dim="({0})".format(ncol_mag_aper),
+                                  format="{0}E".format(ncol_mag_aper), **_kwargs_column_mag)
+    # TODO: MAG_AUTO?
+    col_id = fits.Column(name="ID", array=skycoord2visionsid(skycoord=skycoord), format="21A")
+    col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, **_kwargs_column_coo)
+    col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **_kwargs_column_coo)
+    col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"] * 3600, **_kwargs_column_fwhm)
+    col_iq = fits.Column(name="IMAGE_QUALITY", array=data["FWHM_WORLD_INTERP"] * 3600, **_kwargs_column_fwhm)
+    col_flags = fits.Column(name="FLAGS", array=data["FLAGS"], **_kwargs_column_flags)
+    col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"], **_kwargs_column_el)
+    col_class = fits.Column(name="CLASS", array=data["CLASS_STAR"], **_kwargs_column_class)
+
+    # Put into single list
+    cols = [col_id, col_ra, col_dec, col_mag_aper, col_magerr_aper,
+            col_fwhm, col_iq, col_flags, col_ell, col_class]
+
+    # Return columns
+    return cols
 
 
 def get_stupid_keywords(pawprint_images):
