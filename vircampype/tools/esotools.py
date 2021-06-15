@@ -82,9 +82,9 @@ def build_phase3_stacks(stacks_images, stacks_catalogs):
         # # Passband
         # passband = stacks_catalogs.passband[idx_file]
 
-        # p3_files = [check_file_exists(pp3, silent=setup.silent) for pp3 in [path_stk_p3, path_ctg_p3, path_wei_p3]]
-        # if np.sum(p3_files) == 3:
-        #     continue
+        p3_files = [check_file_exists(pp3, silent=setup.silent) for pp3 in [path_stk_p3, path_ctg_p3, path_wei_p3]]
+        if np.sum(p3_files) == 3:
+            continue
 
         # Status message
         message_calibration(n_current=idx_file + 1, n_total=len(stacks_images), name=path_stk_p3)
@@ -310,7 +310,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images):
     setup = tile_image.setup
 
     # Processing info
-    print_header(header="PHASE 3 TILE", silent=setup["misc"]["silent"], right=None)
+    print_header(header="PHASE 3 TILE", silent=setup.silent, right=None)
     tstart = time.time()
 
     # There can be only one file in the current instance
@@ -326,11 +326,8 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images):
     passband = pawprint_images.passband[0]
 
     # Check if the files are already there and skip if they are
-    check = 0
-    for p in [path_tile_p3, path_weight_p3, path_catalog_p3]:
-        if check_file_exists(file_path=p, silent=setup["misc"]["silent"]):
-            check += 1
-    if check == 3:
+    check = [check_file_exists(pp3, silent=setup.silent) for pp3 in [path_tile_p3, path_weight_p3, path_catalog_p3]]
+    if np.sum(check) == 3:
         return
 
     # Status message
@@ -342,28 +339,17 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images):
     hdul_pawprints = [fits.open(path) for path in pawprint_images.paths_full]
 
     # Grab those stupid keywords
-    tl_ra, tl_dec, tl_ofa = get_stupid_keywords(pawprint_images=pawprint_images)
-    additional = dict(TL_RA=tl_ra, TL_DEC=tl_dec, TL_OFFAN=tl_ofa)
-    additional["filename_phase3"] = os.path.basename(path_tile_p3)
+    # tl_ra, tl_dec, tl_offan = get_stupid_keywords(pawprint_images=pawprint_images)
 
     # Generate primary headers
     phdr_tile, phdr_catalog, ehdr_catalog = make_tile_headers(hdul_tile=hdul_tile_in, hdul_catalog=hdul_catalog_in,
-                                                              hdul_pawprints=hdul_pawprints, passband=passband,
-                                                              additional=additional)
+                                                              hdul_pawprints=hdul_pawprints, passband=passband)
 
     # TODO: Add weight association to tile image
-    # asson_name = os.path.basename(outpath.replace(".fits", ".weight.fits"))
-    # if compressed:
-    #     asson_name = asson_name.replace(".fits", ".fits.fz")
-    # prhdr_img["ASSON1"] = asson_name
-    # prhdr_img.set("ASSON1", after="REFERENC")
+    phdr_tile.set("ASSON1", value=os.path.basename(path_weight_p3), after="REFERENC")
 
-    # Add image association to tile catalog
-    # prhdr_cat["ASSON1"] = os.path.basename(outpath)
-    # prhdr_cat.set("ASSON1", after="REFERENC")
-
-    # Add extension name
-    # exhdr_cat["EXTNAME"] = os.path.basename(outpath)
+    # Add provenance info to catalog
+    phdr_catalog.set("PROV1", value=os.path.basename(path_tile_p3), after="REFERENC")
 
     # Get table colums from pipeline catalog
     final_cols = make_phase3_columns(data=hdul_catalog_in[2].data)
@@ -378,30 +364,50 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images):
     hdul_catalog_out.writeto(path_catalog_p3, overwrite=False, checksum=True)
 
     # # There also has to be a weight map
-    # with fits.open(swarped.paths_full[0].replace(".fits", ".weight.fits")) as weight:
-    #
-    #     # Add PRODCATG
-    #     weight[0].header["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
-    #
-    #     # Save
-    #     weight.writeto(path_weig, overwrite=False, checksum=True)
+    with fits.open(tile_image.paths_full[0].replace(".fits", ".weight.fits")) as weight:
+
+        # Start with clean header
+        hdr_weight = fits.Header()
+
+        # Keep only WCS
+        hdr_weight.set("CTYPE1", value=weight[0].header["CTYPE1"], comment="WCS projection type for axis 1")
+        hdr_weight.set("CTYPE2", value=weight[0].header["CTYPE2"], comment="WCS projection type for axis 2")
+        hdr_weight.set("CRPIX1", value=weight[0].header["CRPIX1"], comment="Reference pixel for axis 1")
+        hdr_weight.set("CRPIX2", value=weight[0].header["CRPIX2"], comment="Reference pixel for axis 2")
+        hdr_weight.set("CRVAL1", value=weight[0].header["CRVAL1"], comment="Reference world coordinate for axis 1")
+        hdr_weight.set("CRVAL2", value=weight[0].header["CRVAL2"], comment="Reference world coordinate for axis 2")
+        hdr_weight.set("CUNIT1", value=weight[0].header["CUNIT1"], comment="Axis unit")
+        hdr_weight.set("CUNIT2", value=weight[0].header["CUNIT2"], comment="Axis unit")
+        hdr_weight.set("CD1_1", value=weight[0].header["CD1_1"], comment="Linear projection matrix")
+        hdr_weight.set("CD1_2", value=weight[0].header["CD1_2"], comment="Linear projection matrix")
+        hdr_weight.set("CD2_1", value=weight[0].header["CD2_1"], comment="Linear projection matrix")
+        hdr_weight.set("CD2_2", value=weight[0].header["CD2_2"], comment="Linear projection matrix")
+
+        # Add PRODCATG
+        hdr_weight.set("PRODCATG", value="ANCILLARY.WEIGHTMAP")
+
+        # Set cleaned header
+        hdu = fits.PrimaryHDU(data=weight[0].data, header=hdr_weight)
+
+        # Save
+        hdu.writeto(path_weight_p3, overwrite=False, checksum=True)
 
     # Print time
     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
 
-def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, additional):
+def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwargs):
 
     # Grab stuff
-    phdr_tile_image_in = hdul_tile[0].header
-    e2hdr_tile_catalog_in = hdul_catalog[2].header
+    phdr_tile_in = hdul_tile[0].header
+    e2hdr_ctg_in = hdul_catalog[2].header
     phdr_first_pawprint = hdul_pawprints[0][0].header
     ehdr_first_pawprint = hdul_pawprints[0][1].header
 
     # Create new FITS headers
-    phdr_tile_image_out = fits.Header()
-    phdr_tile_catalog_out = fits.Header()
-    ehdr_tile_catalog_out = hdul_catalog[2].header
+    phdr_tile_out = fits.Header()
+    phdr_ctg_out = fits.Header()
+    ehdr_ctg_out = hdul_catalog[2].header
 
     # Read DIT, NDIT, NJITTER from pawprint
     dit = ehdr_first_pawprint["ESO DET DIT"]
@@ -419,79 +425,74 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, additio
     ellipticity = clipped_median(hdul_catalog[2].data["ELLIPTICITY"][stars])
 
     # Average ZP
-    zp_avg = np.mean([e2hdr_tile_catalog_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
+    zp_avg = np.mean([e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
                       for x in [1, 2, 3, 4, 5]])
     # TODO: This should reflect the error in the ZPs, not the deviation across the aperture
-    zp_std = np.std([e2hdr_tile_catalog_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
+    zp_std = np.std([e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
                      for x in [1, 2, 3, 4, 5]])
 
     # Write unique keywords into primary image header
-    phdr_tile_image_out["BUNIT"] = "ADU"
-    phdr_tile_image_out["CRVAL1"] = phdr_tile_image_in["CRVAL1"]
-    phdr_tile_image_out["CRVAL2"] = phdr_tile_image_in["CRVAL2"]
-    phdr_tile_image_out["CRPIX1"] = phdr_tile_image_in["CRPIX1"]
-    phdr_tile_image_out["CRPIX2"] = phdr_tile_image_in["CRPIX2"]
-    phdr_tile_image_out["CD1_1"] = phdr_tile_image_in["CD1_1"]
-    phdr_tile_image_out["CD1_2"] = phdr_tile_image_in["CD1_2"]
-    phdr_tile_image_out["CD2_1"] = phdr_tile_image_in["CD2_1"]
-    phdr_tile_image_out["CD2_2"] = phdr_tile_image_in["CD2_2"]
-    phdr_tile_image_out["CTYPE1"] = phdr_tile_image_in["CTYPE1"]
-    phdr_tile_image_out["CTYPE2"] = phdr_tile_image_in["CTYPE2"]
-    phdr_tile_image_out["CUNIT1"] = "deg"
-    phdr_tile_image_out["CUNIT2"] = "deg"
-    phdr_tile_image_out["RADESYS"] = phdr_tile_image_in["RADESYS"]
-    phdr_tile_image_out["PRODCATG"] = "SCIENCE.IMAGE"
-    phdr_tile_image_out["FLUXCAL"] = "ABSOLUTE"
-    add_float_to_header(header=phdr_tile_image_out, key="PHOTZP", value=zp_avg, decimals=3,
+    phdr_tile_out.set("BUNIT", value="ADU", comment="Physical unit of the array values")
+    phdr_tile_out.set("CTYPE1", value=phdr_tile_in["CTYPE1"], comment="WCS projection type for axis 1")
+    phdr_tile_out.set("CTYPE2", value=phdr_tile_in["CTYPE2"], comment="WCS projection type for axis 2")
+    phdr_tile_out.set("CRPIX1", value=phdr_tile_in["CRPIX1"], comment="Reference pixel for axis 1")
+    phdr_tile_out.set("CRPIX2", value=phdr_tile_in["CRPIX2"], comment="Reference pixel for axis 2")
+    phdr_tile_out.set("CRVAL1", value=phdr_tile_in["CRVAL1"], comment="Reference world coordinate for axis 1")
+    phdr_tile_out.set("CRVAL2", value=phdr_tile_in["CRVAL2"], comment="Reference world coordinate for axis 2")
+    phdr_tile_out.set("CUNIT1", value=phdr_tile_in["CUNIT1"], comment="Axis unit")
+    phdr_tile_out.set("CUNIT2", value=phdr_tile_in["CUNIT2"], comment="Axis unit")
+    phdr_tile_out.set("CD1_1", value=phdr_tile_in["CD1_1"], comment="Linear projection matrix")
+    phdr_tile_out.set("CD1_2", value=phdr_tile_in["CD1_2"], comment="Linear projection matrix")
+    phdr_tile_out.set("CD2_1", value=phdr_tile_in["CD2_1"], comment="Linear projection matrix")
+    phdr_tile_out.set("CD2_2", value=phdr_tile_in["CD2_2"], comment="Linear projection matrix")
+    phdr_tile_out.set("RADECSYS", value=phdr_tile_in["RADESYS"], comment="Coordinate reference frame")
+    phdr_tile_out.set("DIT", value=dit, comment="Detector integration time")
+    phdr_tile_out.set("NDIT", value=ndit, comment="Number of sub-integrations")
+    phdr_tile_out.set("NJITTER", value=njitter, comment="Number of jitter positions")
+    phdr_tile_out.set("NOFFSETS", value=phdr_first_pawprint["NOFFSETS"], comment="Number of offset positions")
+    phdr_tile_out.set("NUSTEP", value=phdr_first_pawprint["NUSTEP"], comment="Number of microstep positions")
+    phdr_tile_out.set("PRODCATG", value="SCIENCE.IMAGE")
+    phdr_tile_out.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
+    add_float_to_header(header=phdr_tile_out, key="PHOTZP", value=zp_avg, decimals=3,
                         comment="Mean ZP across apertures")
-    add_float_to_header(header=phdr_tile_image_out, key="E_PHOTZP", value=zp_std, decimals=3,
+    add_float_to_header(header=phdr_tile_out, key="E_PHOTZP", value=zp_std, decimals=3,
                         comment="ZP standard deviation across apertures")
-    phdr_tile_image_out["NJITTER"] = njitter
-    phdr_tile_image_out["NOFFSETS"] = phdr_first_pawprint["NOFFSETS"]
-    phdr_tile_image_out["NUSTEP"] = phdr_first_pawprint["NUSTEP"]
-    phdr_tile_image_out["DIT"] = dit
-    phdr_tile_image_out["NDIT"] = ndit
 
     # Write unique keywords into primary catalog header
-    phdr_tile_catalog_out["PRODCATG"] = "SCIENCE.SRCTBL"
+    phdr_ctg_out["PRODCATG"] = "SCIENCE.SRCTBL"
 
     # Write keywords into primary headers of both image and catalog
-    for hdr in [phdr_tile_image_out, phdr_tile_catalog_out]:
-        hdr["ORIGIN"] = "ESO-PARANAL"
-        hdr["DATE"] = phdr_tile_image_in["DATE"]  # Time from Swarp is in extentions
-        hdr["TELESCOP"] = "ESO-VISTA"
-        hdr["INSTRUME"] = "VIRCAM"
-        hdr["FILTER"] = passband
-        hdr["OBJECT"] = phdr_tile_image_in["OBJECT"]
-        hdr["RA"] = phdr_tile_image_in["CRVAL1"]
-        hdr["DEC"] = phdr_tile_image_in["CRVAL2"]
-        hdr["EQUINOX"] = 2000.
-        hdr["RADECSYS"] = "ICRS"
-        hdr["EXPTIME"] = 2 * njitter * dit * ndit
-        hdr["TEXPTIME"] = 6 * njitter * dit * ndit
-        hdr["MJD-OBS"] = phdr_tile_image_in["MJD-OBS"]
-
-        # Get MJD-END from last exposure
+    for hdr in [phdr_tile_out, phdr_ctg_out]:
+        hdr.set("ORIGIN", value="ESO-PARANAL", comment="Observatory facility")
+        hdr.set("TELESCOP", value="ESO-VISTA", comment="ESO telescope designation")
+        hdr.set("INSTRUME", value="VIRCAM", comment="Instrument name")
+        hdr.set("FILTER", value=passband, comment="Filter name")
+        hdr.set("OBJECT", value=phdr_tile_in["OBJECT"], comment="Target designation")
+        hdr.set("RA", value=phdr_tile_in["CRVAL1"], comment="RA tile center")
+        hdr.set("DEC", value=phdr_tile_in["CRVAL2"], comment="DEC tile center")
+        # TODO: Is this difference between exptime and texptime correct?
+        hdr.set("EXPTIME", value=2 * njitter * dit * ndit, comment="Total integration time")
+        hdr.set("TEXPTIME", value=6 * njitter * dit * ndit, comment="Total integration time")
+        hdr.set("DATE", value=Time.now().fits, comment="Date of file creation")
+        hdr.set("DATE-OBS", value=mjd2dateobs(phdr_tile_in["MJD-OBS"]), comment="Date of the observation")
+        hdr.set("MJD-OBS", value=phdr_tile_in["MJD-OBS"], comment="MJD (start of observations)")
         mjd_obs_prov = [h[0].header["MJD-OBS"] for h in hdul_pawprints]
-        hdr["MJD-END"] = max(mjd_obs_prov) + (dit * ndit) / 86400
-        hdr["PROG_ID"] = phdr_first_pawprint["ESO OBS PROG ID"]
-        hdr["OBID1"] = phdr_first_pawprint["ESO OBS ID"]
-        hdr["M_EPOCH"] = True
-        hdr["OBSTECH"] = phdr_first_pawprint["ESO DPR TECH"]
-        hdr["NCOMBINE"] = len(hdul_pawprints)
-        hdr["IMATYPE"] = "TILE"
-        hdr["ISAMP"] = False
-        hdr["PROCSOFT"] = "vircampype v{0}".format(__version__)
-        hdr["REFERENC"] = ""
+        hdr.set("MJD-END", value=max(mjd_obs_prov) + (dit * ndit) / 86400, comment="MJD (end of observations)")
+        hdr.set("PROG_ID", value=phdr_first_pawprint["ESO OBS PROG ID"], comment="Observation run ID")
+        hdr.set("OBID1", value=phdr_first_pawprint["ESO OBS ID"], comment="Obsveration block ID")
+        hdr.set("M_EPOCH", value=True)
+        hdr.set("OBSTECH", value=phdr_first_pawprint["ESO DPR TECH"], comment="Technique used during observations")
+        hdr.set("NCOMBINE", value=len(hdul_pawprints), comment="Number of input raw science data files")
+        # hdr.set("IMATYPE", value="TILE")
+        # hdr.set("ISAMP", value=False)
+        hdr.set("PROCSOFT", value="vircampype v{0}".format(__version__), comment="Reduction software")
+        hdr.set("REFERENC", value="", comment="Primary science publication")
 
-        # These stupid keywords are not in all primary headers...
-        hdr["TL_RA"] = additional["TL_RA"]
-        hdr["TL_DEC"] = additional["TL_DEC"]
-        hdr["TL_OFFAN"] = additional["TL_OFFAN"]
-        # hdr["EPS_REG"] = hdul_prov[0][0].header["EPS_REG"]
+    # Write Extension name for source catalog
+    ehdr_ctg_out.set("EXTNAME", value="HDU01")
 
     # Common keywords between primary tile and catalog extension
-    for hdr in [phdr_tile_image_out, ehdr_tile_catalog_out]:
+    for hdr in [phdr_tile_out, ehdr_ctg_out]:
         hdr["PHOTSYS"] = "VEGA"
 
         add_float_to_header(header=hdr, key="MAGLIM", value=mag_lim, decimals=3,
@@ -511,18 +512,12 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, additio
         add_float_to_header(header=hdr, key="ELLIPTIC", decimals=3, comment="Estimated median ellipticity",
                             value=ellipticity)
 
-    # TODO: Write PROV keywords
-    # if mode.lower() == "tile_prime":
-    #     for idx in range(len(hdul_prov)):
-    #         provname = os.path.basename(hdul_prov[idx].fileinfo(0)["file"].name)
-    #         if compressed:
-    #             provname = provname.replace(".fits", ".fits.fz")
-    #         hdr["PROV{0}".format(idx+1)] = provname
-    # if additional is not None:
-    # phdr_tile_catalog_out["PROV1"] = additional["filename_phase3"]
+    # Add kwargs
+    for k, v in kwargs.items():
+        hdr[k] = v
 
     # Return header
-    return phdr_tile_image_out, phdr_tile_catalog_out, ehdr_tile_catalog_out
+    return phdr_tile_out, phdr_ctg_out, ehdr_ctg_out
 
 
 def make_phase3_columns(data):
