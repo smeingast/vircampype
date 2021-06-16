@@ -5,6 +5,7 @@ from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.errors import PipelineError
+from vircampype.tools.esotools import build_phase3_stacks, make_phase3_tile
 from vircampype.tools.systemtools import run_commands_shell_parallel, clean_directory, remove_file
 
 
@@ -591,6 +592,16 @@ class Pipeline:
             print_message(message="TILE PHOTOMETRY already done", kind="warning", end=None)
 
     # =========================================================================== #
+    # Phase 3
+    def phase3(self):
+        if not self.status.phase3:
+            build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched)
+            make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
+                             pawprint_images=self.resampled)
+        else:
+            print_message(message="PHASE 3 processing already done", kind="warning", end=None)
+
+    # =========================================================================== #
     # Cleaning/archiving
     def shallow_clean(self):
         """ Remove intermediate processing steps, but leave the most important files in the directory tree. """
@@ -712,18 +723,11 @@ class Pipeline:
         self.classification_tile()
         self.photometry_tile()
 
+        # Phase 3
+        self.phase3()
+
         # Print finish message
         print_end(tstart=t0)
-
-    # def phase3(self):
-    #
-    #     # Import
-    #     from vircampype.tools.esotools import make_phase3_pawprints, make_phase3_tile
-    #
-    #     # Generate phase 3 comliant pawprints
-    #     make_phase3_pawprints(pawprint_images=self.resampled, pawprint_catalogs=self.resampled_sources_crunched)
-    #     make_phase3_tile(tile_image=self.tile, tile_catalog=self.tile_sources_crunched,
-    #                      pawprint_images=self.resampled)
 
 
 class PipelineStatus:
