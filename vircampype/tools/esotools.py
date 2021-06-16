@@ -31,16 +31,6 @@ def _saturation_limit(passband):
         raise ValueError("Filter {0} not supported".format(passband))
 
 
-# =========================================================================== #
-# Table format
-_kwargs_column_mag = dict(disp="F8.4", unit="mag")
-_kwargs_column_coo = dict(format="1D", disp="F11.7", unit="deg")
-_kwargs_column_flags = dict(format="1I", disp="I3")
-_kwargs_column_el = dict(format="1E", disp="F8.3")
-_kwargs_column_fwhm = dict(format="1E", disp="F7.4", unit="arcsec")
-_kwargs_column_class = dict(format="1E", disp="F6.3")
-
-
 def build_phase3_stacks(stacks_images, stacks_catalogs):
     """
     Converts the calibrated source catalogs to a phase 3 compliant standard.
@@ -517,6 +507,16 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
 
     # Return header
     return phdr_tile_out, phdr_ctg_out, ehdr_ctg_out
+
+
+# =========================================================================== #
+# Table formats
+_kwargs_column_mag = dict(disp="F8.4", unit="mag")
+_kwargs_column_coo = dict(format="1D", disp="F11.7", unit="deg")
+_kwargs_column_flags = dict(format="1I", disp="I3")
+_kwargs_column_el = dict(format="1E", disp="F8.3")
+_kwargs_column_fwhm = dict(format="1E", disp="F7.4", unit="arcsec")
+_kwargs_column_class = dict(format="1E", disp="F6.3")
 
 
 def make_phase3_columns(data):
