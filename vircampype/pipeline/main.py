@@ -29,9 +29,9 @@ class Pipeline:
     def __repr__(self):
         return self.status.__repr__()
 
-    def update_status(self, path, **kwargs):
+    def update_status(self, **kwargs):
         self.status.update(**kwargs)
-        self.status.save(path=path)
+        self.status.save(path=self.path_status)
 
     # =========================================================================== #
     # Raw files
@@ -368,7 +368,7 @@ class Pipeline:
         if self.flat_lamp_check is not None:
             if not self.status.master_bpm:
                 self.flat_lamp_check.build_master_bpm(darks=self.dark_check)
-                self.update_status(path=self.path_status, master_bpm=True)
+                self.update_status(master_bpm=True)
             else:
                 print_message(message="MASTER-BPM already created", kind="warning", end=None)
 
@@ -376,7 +376,7 @@ class Pipeline:
         if self.dark_all is not None:
             if not self.status.master_dark:
                 self.dark_all.build_master_dark()
-                self.update_status(path=self.path_status, master_dark=True)
+                self.update_status(master_dark=True)
             else:
                 print_message(message="MASTER-DARK already created", kind="warning", end=None)
 
@@ -384,7 +384,7 @@ class Pipeline:
         if self.flat_lamp_gain is not None:
             if not self.status.master_gain:
                 self.flat_lamp_gain.build_master_gain(darks=self.dark_gain)
-                self.update_status(path=self.path_status, master_gain=True)
+                self.update_status(master_gain=True)
             else:
                 print_message(message="MASTER-GAIN already created", kind="warning", end=None)
 
@@ -392,7 +392,7 @@ class Pipeline:
         if self.flat_lamp_lin is not None:
             if not self.status.master_linearity:
                 self.flat_lamp_lin.build_master_linearity(darks=self.dark_lin)
-                self.update_status(path=self.path_status, master_linearity=True)
+                self.update_status(master_linearity=True)
             else:
                 print_message(message="MASTER-LINEARITY already created", kind="warning", end=None)
 
@@ -400,7 +400,7 @@ class Pipeline:
         if self.flat_twilight is not None:
             if not self.status.master_flat:
                 self.flat_twilight.build_master_flat()
-                self.update_status(path=self.path_status, master_flat=True)
+                self.update_status(master_flat=True)
             else:
                 print_message(message="MASTER-FLAT already created", kind="warning", end=None)
 
@@ -408,21 +408,21 @@ class Pipeline:
         if self.flat_twilight is not None:
             if not self.status.master_weight_global:
                 self.flat_twilight.build_master_weight_global()
-                self.update_status(path=self.path_status, master_weight_global=True)
+                self.update_status(master_weight_global=True)
             else:
                 print_message(message="MASTER-WEIGHT-GLOBAL already created", kind="warning", end=None)
 
     def build_master_source_mask(self):
         if not self.status.master_source_mask:
             self.processed_basic_science_and_offset.build_master_source_mask()
-            self.update_status(path=self.path_status, master_source_mask=True)
+            self.update_status(master_source_mask=True)
         else:
             print_message(message="MASTER-SOURCE-MASK already created", kind="warning", end=None)
 
     def build_master_sky_static(self):
         if not self.status.master_sky_static:
             self.processed_basic_science_and_offset.build_master_sky_static()
-            self.update_status(path=self.path_status, master_sky_static=True)
+            self.update_status(master_sky_static=True)
         else:
             print_message(message="MASTER-SKY-STATIC already created", kind="warning", end=None)
 
@@ -442,7 +442,7 @@ class Pipeline:
             else:
                 self.processed_basic_offset.build_master_sky_dynamic()
 
-            self.update_status(path=self.path_status, master_sky_dynamic=True)
+            self.update_status(master_sky_dynamic=True)
         else:
             print_message(message="MASTER-SKY-DYNAMIC already created", kind="warning", end=None)
 
@@ -450,14 +450,14 @@ class Pipeline:
         if self.raw_science is not None:
             if not self.status.master_photometry:
                 self.processed_basic_science.build_master_photometry()
-                self.update_status(path=self.path_status, master_photometry=True)
+                self.update_status(master_photometry=True)
             else:
                 print_message(message="MASTER-PHOTOMETRY already created", kind="warning", end=None)
 
     def build_master_weight_image(self):
         if not self.status.master_weight_image:
             self.processed_science_final.build_master_weight_image()
-            self.update_status(path=self.path_status, master_weight_image=True)
+            self.update_status(master_weight_image=True)
         else:
             print_message(message="MASTER WEIGHT IMAGE already built", kind="warning", end=None)
 
@@ -466,14 +466,14 @@ class Pipeline:
     def process_raw_basic(self):
         if not self.status.processed_raw_basic:
             self.raw_science_and_offset.process_raw_basic()
-            self.update_status(path=self.path_status, processed_raw_basic=True)
+            self.update_status(processed_raw_basic=True)
         else:
             print_message(message="BASIC RAW PROCESSING already done", kind="warning", end=None)
 
     def process_science_final(self):
         if not self.status.processed_raw_final:
             self.processed_basic_science.process_raw_final()
-            self.update_status(path=self.path_status, processed_raw_final=True)
+            self.update_status(processed_raw_final=True)
         else:
             print_message(message="FINAL RAW PROCESSING already done", kind="warning", end=None)
 
@@ -481,7 +481,7 @@ class Pipeline:
         if not self.status.astrometry:
             self.processed_science_final.sextractor(preset="scamp")
             self.sources_processed_final_scamp.scamp()
-            self.update_status(path=self.path_status, astrometry=True)
+            self.update_status(astrometry=True)
         else:
             print_message(message="ASTROMETRY already calibrated", kind="warning", end=None)
 
@@ -492,7 +492,7 @@ class Pipeline:
             self.processed_science_final.sextractor(preset="ic")
             self.sources_processed_illumcorr.build_master_illumination_correction()
             self.processed_science_final.apply_illumination_correction()
-            self.update_status(path=self.path_status, illumcorr=True)
+            self.update_status(illumcorr=True)
         else:
             print_message(message="ILLUMINATION CORRECTION already applied", kind="warning", end=None)
 
@@ -500,14 +500,14 @@ class Pipeline:
         if self.raw_science is not None:
             if not self.status.tile_header:
                 self.raw_science.build_coadd_header()
-                self.update_status(path=self.path_status, tile_header=True)
+                self.update_status(tile_header=True)
             else:
                 print_message(message="TILE HEADER already built", kind="warning", end=None)
 
     def resample(self):
         if not self.status.resampled:
             self.illumination_corrected.resample()
-            self.update_status(path=self.path_status, resampled=True)
+            self.update_status(resampled=True)
         else:
             print_message(message="PAWPRINT RESAMPLING already done", kind="warning", end=None)
 
@@ -516,7 +516,7 @@ class Pipeline:
     def build_stacks(self):
         if not self.status.stacks:
             self.resampled.build_stacks()
-            self.update_status(path=self.path_status, stacks=True)
+            self.update_status(stacks=True)
         else:
             print_message(message="STACKS already built", kind="warning", end=None)
 
@@ -524,7 +524,7 @@ class Pipeline:
         if not self.status.tile:
             # self.resampled.equalize_zero_point(stack_catalogs=self.sources_stacks_crunched)
             self.resampled.build_tile()
-            self.update_status(path=self.path_status, tile=True)
+            self.update_status(tile=True)
         else:
             print_message(message="TILE already created", kind="warning", end=None)
 
@@ -533,7 +533,7 @@ class Pipeline:
     def build_statistics_resampled(self):
         if not self.status.build_statistics:
             self.resampled.build_statistics()
-            self.update_status(path=self.path_status, build_statistics=True)
+            self.update_status(build_statistics=True)
         else:
             print_message(message="IMAGE STATISTICS already built", kind="warning", end=None)
 
@@ -542,7 +542,7 @@ class Pipeline:
             for mode in ["mjdeff", "nimg", "exptime"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_stacks(mode=mode)
-            self.update_status(path=self.path_status, statistics_stacks=True)
+            self.update_status(statistics_stacks=True)
         else:
             print_message(message="STACKS STATISTICS already created", kind="warning", end=None)
 
@@ -551,7 +551,7 @@ class Pipeline:
             for mode in ["mjdeff", "nimg", "exptime"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_tile(mode=mode)
-            self.update_status(path=self.path_status, statistics_tile=True)
+            self.update_status(statistics_tile=True)
         else:
             print_message(message="TILE STATISTICS already created", kind="warning", end=None)
 
@@ -560,14 +560,14 @@ class Pipeline:
     def classification_stacks(self):
         if not self.status.classification_stacks:
             self.stacks.build_class_star_library()
-            self.update_status(path=self.path_status, classification_stacks=True)
+            self.update_status(classification_stacks=True)
         else:
             print_message(message="STACKS CLASSIFICATION library for already built", kind="warning", end=None)
 
     def classification_tile(self):
         if not self.status.classification_tile:
             self.tile.build_class_star_library()
-            self.update_status(path=self.path_status, classification_tile=True)
+            self.update_status(classification_tile=True)
         else:
             print_message(message="TILE CLASSIFICATION library for already built", kind="warning", end=None)
 
@@ -578,7 +578,7 @@ class Pipeline:
             self.stacks.sextractor(preset="full")
             self.sources_stacks_full.add_statistics()
             self.sources_stacks_full.crunch_source_catalogs()
-            self.update_status(path=self.path_status, photometry_stacks=True)
+            self.update_status(photometry_stacks=True)
         else:
             print_message(message="STACKS PHOTOMETRY already done", kind="warning", end=None)
 
@@ -587,7 +587,7 @@ class Pipeline:
             self.tile.sextractor(preset="full")
             self.sources_tile_full.add_statistics()
             self.sources_tile_full.crunch_source_catalogs()
-            self.update_status(path=self.path_status, photometry_tile=True)
+            self.update_status(photometry_tile=True)
         else:
             print_message(message="TILE PHOTOMETRY already done", kind="warning", end=None)
 
@@ -598,7 +598,7 @@ class Pipeline:
             build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched)
             make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
                              pawprint_images=self.resampled)
-            self.update_status(path=self.path_status, phase3=True)
+            self.update_status(phase3=True)
         else:
             print_message(message="PHASE 3 compliance already done", kind="warning", end=None)
 
