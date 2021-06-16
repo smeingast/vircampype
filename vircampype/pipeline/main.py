@@ -598,8 +598,9 @@ class Pipeline:
             build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched)
             make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
                              pawprint_images=self.resampled)
+            self.update_status(path=self.path_status, phase3=True)
         else:
-            print_message(message="PHASE 3 processing already done", kind="warning", end=None)
+            print_message(message="PHASE 3 compliance already done", kind="warning", end=None)
 
     # =========================================================================== #
     # Cleaning/archiving
