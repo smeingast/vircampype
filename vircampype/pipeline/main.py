@@ -595,9 +595,11 @@ class Pipeline:
     # Phase 3
     def phase3(self):
         if not self.status.phase3:
-            build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched)
+            photerr_internal = self.sources_stacks_crunched.photerr_internal()
+            build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
+                                photerr_internal=photerr_internal)
             make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
-                             pawprint_images=self.resampled)
+                             pawprint_images=self.resampled, photerr_internal=photerr_internal)
             self.update_status(phase3=True)
         else:
             print_message(message="PHASE 3 compliance already done", kind="warning", end=None)
