@@ -58,6 +58,7 @@ BWIN_WORLD               # Windowed profile RMS along minor axis (world units)  
 ERRBWIN_WORLD            # World RMS windowed pos error along minor axis             [deg]
 THETAWIN_WORLD           # Windowed position angle (CCW/world-x)                     [deg]
 ERRTHETAWIN_WORLD        # Windowed error ellipse pos. angle (CCW/world-x)           [deg]
+ERRTHETAWIN_SKY          # Native windowed error ellipse pos. angle (east of north)  [deg]
 
 ISOAREA_WORLD            # Isophotal area above Analysis threshold                   [deg**2]
 
