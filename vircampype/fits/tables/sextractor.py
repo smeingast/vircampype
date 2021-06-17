@@ -617,7 +617,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # Plot internal dispersion if set
         if self.setup.qc_plots & (len(outpaths) > 1):
             all_catalogs = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
-            all_catalogs.plot_qc_phot_interror()
+            all_catalogs.plot_qc_photerr_internal()
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
@@ -750,7 +750,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Return
         return table_master
 
-    def _phot_int_error(self):
+    def _photerr_internal(self):
 
         # Only works if there are multiple catalogs available
         if len(self) <= 1:
@@ -803,10 +803,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Return
         return phot_median, phot_err, photerr_median
 
-    def phot_err_floor(self):
+    def photerr_internal(self):
 
         # Get internal photometric error stats
-        phot_median, phot_err, photerr_median = self._phot_int_error()
+        phot_median, phot_err, photerr_median = self._photerr_internal()
 
         # Get the 5% brightest sources
         idx_bright = phot_median < np.percentile(phot_median, 5)
@@ -821,7 +821,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         else:
             return paths
 
-    def plot_qc_phot_interror(self):
+    def plot_qc_photerr_internal(self):
 
         # Import
         import matplotlib.pyplot as plt
@@ -830,7 +830,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         outpath = "{0}{1}.phot.interror.pdf".format(self.setup.folders["qc_photometry"], self.setup.name)
 
         # Get internal photometric error stats
-        phot_median, phot_err, photerr_median = self._phot_int_error()
+        phot_median, phot_err, photerr_median = self._photerr_internal()
 
         # Make 1D disperion histograms
         mag_ranges = [0, 14, 15, 16, 17, 18, 25]
