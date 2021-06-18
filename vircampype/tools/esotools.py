@@ -567,6 +567,7 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     idx = idx.ravel()
     mag_best = mag_aper[np.arange(len(data)), idx]
     magerr_best = magerr_aper[np.arange(len(data)), idx]
+    rad_best = np.array(apertures)[idx]
 
     # Copy sextractor flag
     sflg = data["FLAGS"]
@@ -624,6 +625,7 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_magerr_auto = fits.Column(name="MAGERR_AUTO", array=magerr_auto, format="1E", **_kwargs_column_mag)
     col_mag_best = fits.Column(name="MAG_BEST", array=mag_best, format="1E", **_kwargs_column_mag)
     col_magerr_best = fits.Column(name="MAGERR_BEST", array=magerr_best, format="1E", **_kwargs_column_mag)
+    col_rad_best = fits.Column(name="RAD_BEST", array=rad_best / 2, format="1E", disp="F4.2")
 
     # Time
     col_mjd = fits.Column(name="MJD-OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
@@ -644,7 +646,7 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
 
     # Put into single list
     cols = [col_id, col_ra, col_dec, col_errmaj, col_errmin, col_errpa,
-            col_mag_aper, col_magerr_aper, col_mag_auto, col_magerr_auto, col_mag_best, col_magerr_best,
+            col_mag_aper, col_magerr_aper, col_mag_auto, col_magerr_auto, col_mag_best, col_magerr_best, col_rad_best,
             col_mjd,
             col_sflg, col_cflg, col_qflg,
             # col_good, col_not_good,
