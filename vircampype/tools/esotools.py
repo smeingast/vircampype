@@ -347,7 +347,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
 
     # Get table colums from pipeline catalog
     final_cols = make_phase3_columns(data=hdul_catalog_in[2].data, mag_saturation=_saturation_limit(passband=passband),
-                                     **kwargs)
+                                     apertures=setup.apertures, **kwargs)
 
     # Make final HDUs
     hdul_tile_out = fits.PrimaryHDU(data=hdul_tile_in[0].data, header=phdr_tile)
