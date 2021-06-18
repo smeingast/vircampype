@@ -150,8 +150,8 @@ class Setup(dict):
         """ Creates the folder tree for the pipeline"""
 
         # Common paths
-        folders_common = [self["folders"]["pype"], self["folders"]["headers"], self["folders"]["master_common"],
-                          self["folders"]["temp"]]
+        folders_common = [self["folders"]["pype"], self["folders"]["headers"],
+                          self["folders"]["master_common"], self["folders"]["temp"]]
 
         if "calibration" not in self.name.lower():
             folders_common += self["folders"]["phase3"]
