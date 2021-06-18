@@ -89,6 +89,9 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
         phdr_ctg = make_prime_header_stack(hdulist_stack=hdul_stk_pipe, image_or_catalog="catalog", setup=setup,
                                            prov1=os.path.basename(path_stk_p3))
 
+        # Get passband
+        passband = phdr_stk["FILTER"]
+
         # Make HDUlists for output
         hdul_stk_p3 = fits.HDUList([fits.PrimaryHDU(header=phdr_stk)])
         hdul_ctg_p3 = fits.HDUList([fits.PrimaryHDU(header=phdr_ctg)])
@@ -100,10 +103,10 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
             # Make extension headers
             hdr_hdu_stk = make_extension_header_stack(hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                                                       hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
-                                                      image_or_catalog="image", passband=phdr_stk["FILTER"])
+                                                      image_or_catalog="image", passband=passband)
             hdr_hdu_ctg = make_extension_header_stack(hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                                                       hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
-                                                      image_or_catalog="catalog", passband=phdr_stk["FILTER"])
+                                                      image_or_catalog="catalog", passband=passband)
             # Get table colums from pipeline catalog
             tabledata = stacks_catalogs.filehdu2table(file_index=idx_file, hdu_index=idx_hdu_ctg)
             final_cols = make_phase3_columns(data=tabledata, **kwargs)
