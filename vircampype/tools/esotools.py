@@ -22,9 +22,9 @@ __all__ = ["build_phase3_stacks", "make_phase3_tile"]
 
 def _saturation_limit(passband):
     if "j" in passband.lower():
-        return 11.5
+        return 12.0
     elif "h" in passband.lower():
-        return 11.0
+        return 11.5
     elif "k" in passband.lower():
         return 11.0
     else:
