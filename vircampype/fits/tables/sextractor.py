@@ -520,6 +520,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Start loop over files
         outpaths = []
+        plot_photerr_internal = False
         for idx_file in range(self.n_files):
 
             # Create output path
@@ -604,9 +605,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 pcsc.plot_qc_phot_zp(axis_size=5)
                 pcsc.plot_qc_phot_ref1d(axis_size=5)
                 pcsc.plot_qc_phot_ref2d(axis_size=5)
+                plot_photerr_internal = True
 
         # Plot internal dispersion if set
-        if self.setup.qc_plots & (len(outpaths) > 1):
+        if plot_photerr_internal:
             all_catalogs = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
             all_catalogs.plot_qc_photerr_internal()
 
