@@ -640,16 +640,11 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"], **_kwargs_column_el)
     col_class = fits.Column(name="CLASS", array=data["CLASS_STAR_INTERP"], **_kwargs_column_class)
 
-    # good = (qflg == "A") | (qflg == "B") | (qflg == "C") | (qflg == "D")
-    # col_good = fits.Column(name="good", array=good, **_kwargs_column_cflg)
-    # col_not_good = fits.Column(name="notgood", array=~good, **_kwargs_column_cflg)
-
     # Put into single list
     cols = [col_id, col_ra, col_dec, col_errmaj, col_errmin, col_errpa,
             col_mag_aper, col_magerr_aper, col_mag_auto, col_magerr_auto, col_mag_best, col_magerr_best, col_rad_best,
             col_mjd,
             col_sflg, col_cflg, col_qflg,
-            # col_good, col_not_good,
             col_fwhm, col_ell, col_class]
 
     # Return columns
