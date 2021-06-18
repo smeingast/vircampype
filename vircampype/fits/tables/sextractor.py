@@ -579,15 +579,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                              passband_2mass=master_phot.translate_passband(self.passband[idx_file][0]),
                              columns_mag=columns_mag, columns_magerr=columns_magerr)
 
-                # TODO: Fix this (perhaps by using standard error of mean?)
-                # Compute total errors for aperture photometry as combination of errors from
-                # photometry, ZP error, and aperture matching
-                # magerr_zp = np.array([table_hdu.zperr["HIERARCH PYPE ZP ERR MAG_APER_MATCHED {0}".format(i+1)]
-                #                       for i in range(len(self.setup.apertures))])
-                # table_hdu["MAGERR_APER_MATCHED_TOT"] = np.sqrt(table_hdu["MAGERR_APER"]**2 +
-                #                                                table_hdu["MAG_APER_COR_STD"]**2 +
-                #                                                magerr_zp**2).astype(np.float32)
-
                 # Replace original HDU
                 table_hdulist[idx_table_hdu] = table2bintablehdu(table=table_hdu)
 
