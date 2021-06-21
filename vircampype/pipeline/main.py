@@ -3,11 +3,11 @@ import pickle
 
 from vircampype.tools.messaging import *
 from vircampype.pipeline.setup import Setup
-from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.errors import PipelineError
+from vircampype.fits.images.common import FitsImages
+from vircampype.tools.fitstools import compress_images
 from vircampype.tools.esotools import build_phase3_stacks, make_phase3_tile
 from vircampype.tools.systemtools import run_commands_shell_parallel, clean_directory, remove_file
-
 
 class Pipeline:
 
@@ -593,6 +593,22 @@ class Pipeline:
 
     # =========================================================================== #
     # Phase 3
+    @property
+    def _paths_phase3(self):
+        return sorted(glob.glob("{0}*.fits".format(self.setup.folders["phase3"])))
+
+    @property
+    def _paths_phase3_images(self):
+        return [x for x in self._paths_phase3 if "sources" not in x]
+
+    def compress_phase3_images(self):
+
+        # Maximum of three parallel jobs
+        n_jobs = 3 if self.setup.n_jobs > 3 else self.setup.n_jobs
+
+        # Compress files
+        compress_images(self._paths_phase3_images, q=self.setup.fpack_quantization_factor, n_jobs=n_jobs)
+
     def phase3(self):
         if not self.status.phase3:
             photerr_internal = self.sources_stacks_crunched.photerr_internal()
@@ -600,6 +616,8 @@ class Pipeline:
                                 photerr_internal=photerr_internal)
             make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
                              pawprint_images=self.resampled, photerr_internal=photerr_internal)
+            if self.setup.compress_phase3:
+                self.compress_phase3_images()
             self.update_status(phase3=True)
         else:
             print_message(message="PHASE 3 compliance already done", kind="warning", end=None)
