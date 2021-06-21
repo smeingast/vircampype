@@ -697,6 +697,10 @@ class Setup(dict):
             raise PipelineError("Projection must be provided as string or Projection instance")
 
     @property
+    def compress_phase3(self):
+        return False
+
+    @property
     def fpack_quantization_factor(self):
         """ https://iopscience.iop.org/article/10.1086/656249/pdf """
         return 16
