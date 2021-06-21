@@ -1,3 +1,4 @@
+import os.path
 import re
 import warnings
 import numpy as np
@@ -8,6 +9,7 @@ from vircampype.pipeline.misc import *
 from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 from vircampype.tools.wcstools import header_reset_wcs
+from vircampype.tools.systemtools import which, run_commands_shell_parallel
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
            "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image", "fix_vircam_headers",
@@ -503,3 +505,40 @@ def fix_vircam_headers(prime_header, data_headers):
 
     # Purge also primary header
     [prime_header.remove(kw, ignore_missing=True, remove_all=True) for kw in prime_keywords_noboby_needs]
+
+
+def compress_images(images, q=4, exe="fpack", n_jobs=1):
+    """
+    Compress images in parallel with fpack.
+
+    Parameters
+    ----------
+    images : list, iterable
+        List of images.
+    q : int, float, optional
+        Compression ratio.
+    exe : str, optional
+        Binary name.
+    n_jobs : int, optional
+        Number of parallel jobs.
+
+    Returns
+    -------
+
+    """
+
+    # Find executable
+    fpack = which(exe)
+
+    # Check if files are already there
+    paths_out = [x.replace(".fits", ".fits.fz") for x in images]
+    done = [os.path.isfile(x) for x in paths_out]
+
+    # Build commands
+    cmds = ["{0} -q {1} {2}".format(fpack, q, x) for x in images]
+
+    # Clean commands
+    cmds = [c for c, d in zip(cmds, done) if not d]
+
+    # Run commands
+    run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
