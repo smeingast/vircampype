@@ -628,7 +628,7 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_rad_best = fits.Column(name="RAD_BEST", array=rad_best / 2, format="1E", disp="F4.2")
 
     # Time
-    col_mjd = fits.Column(name="MJD-OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
+    col_mjd = fits.Column(name="MJD_OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
 
     # Flags
     col_sflg = fits.Column(name="Sflg", array=sflg, **_kwargs_column_sflg)
