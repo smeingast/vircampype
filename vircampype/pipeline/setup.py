@@ -154,7 +154,7 @@ class Setup(dict):
                           self["folders"]["master_common"], self["folders"]["temp"]]
 
         if "calibration" not in self.name.lower():
-            folders_common += self["folders"]["phase3"]
+            folders_common += [self["folders"]["phase3"]]
 
         # calibration-specific paths
         folders_cal = [self["folders"]["qc_bpm"], self["folders"]["qc_dark"], self["folders"]["qc_gain"],
