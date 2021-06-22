@@ -12,6 +12,7 @@ from astropy.coordinates import SkyCoord
 from vircampype.tools.messaging import *
 from vircampype.tools.photometry import *
 from vircampype.tools.miscellaneous import *
+from astropy.stats import sigma_clipped_stats
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.fitstools import mjd2dateobs
 from vircampype.tools.mathtools import clipped_median
@@ -574,16 +575,40 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
 
     # Construct contamination flag
     cflg = np.full(len(data), fill_value=False, dtype=bool)
-    cflg[np.nanmin(mag_aper, axis=1) < mag_saturation] = True
-    cflg[data["SNR_WIN"] <= 0] = True
-    cflg[data["FLUX_AUTO"] < 0.01] = True
-    cflg[data["FWHM_WORLD"] * 3600 <= 0.2] = True
-    cflg[~np.isfinite(np.sum(data["MAG_APER"], axis=1))] = True
-    cflg[data["MAG_APER_MATCHED_CAL"][:, 0] - data["MAG_APER_MATCHED_CAL"][:, 1] <= -0.2] = True
-    cflg[data["NIMG"] < 1] = True
-    cflg[data["FLAGS_WEIGHT"] > 0] = True
-    cflg[sflg >= 4] = True
-    cflg[np.isnan(data["CLASS_STAR_INTERP"])] = True
+    cflg[np.nanmin(mag_aper, axis=1) < mag_saturation] = True  # Values abve saturation limit
+    cflg[data["SNR_WIN"] <= 0] = True  # Bad SNR
+    cflg[data["FLUX_AUTO"] < 0.01] = True  # Bad Flux measurement
+    cflg[data["FWHM_WORLD"] * 3600 <= 0.2] = True  # Bad FWHM
+    cflg[~np.isfinite(np.sum(data["MAG_APER"], axis=1))] = True  # All aperture magnitudes must be good
+    cflg[data["NIMG"] < 1] = True  # Must be images once
+    cflg[data["FLAGS_WEIGHT"] > 0] = True  # No flags in weight
+    cflg[sflg >= 4] = True  # No bad Sextractor flags
+    cflg[np.isnan(data["CLASS_STAR_INTERP"])] = True  # CLASS_STAR must have worked in sextractor
+
+    # Clean bad growth magnitudes
+    growth = data["MAG_APER_MATCHED_CAL"][:, 0] - data["MAG_APER_MATCHED_CAL"][:, 1]
+    mag_min, mag_max = np.nanmin(mag_auto), np.nanmax(mag_auto)
+    mag_range = np.linspace(mag_min, mag_max, 100)
+    idx_all = np.arange(len(mag_auto))
+
+    bad_idx = []
+    for mm in mag_range:
+        cidx_all = (mag_auto > mm - 0.25) & (mag_auto < mm + 0.25)
+        cidx_pnt = (data["CLASS_STAR_INTERP"] > 0.5) & (mag_auto > mm - 0.25) & (mag_auto < mm + 0.25)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            mean, median, stddev = sigma_clipped_stats(growth[cidx_pnt], sigma=5, maxiters=1)
+            bad = (growth[cidx_all] < median - 0.05) & (growth[cidx_all] < median - 3 * stddev)
+
+        if np.sum(bad) == 0:
+            continue
+
+        # Save all bad indices
+        bad_idx.append(idx_all[cidx_all][bad])
+
+    # Flag outliers
+    cflg[flat_list(bad_idx)] = True
 
     # Nebula filter from VISION
     fv = (data["BACKGROUND"] / data["FLUX_APER"][:, 0] > 0.02) & \
