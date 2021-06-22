@@ -525,6 +525,9 @@ class Setup(dict):
             else:
                 raise ValueError("Source masks for '{0}' are not supported".format(additional_source_masks))
 
+        elif additional_source_masks is None:
+            self.__additional_source_masks = None
+
         # Otherwise raise error
         else:
             raise ValueError("Provide valid source masks")
