@@ -72,11 +72,11 @@ def make_card(keyword, value, comment=None, upper=True):
     # Check value
     val = check_card_value(value=value)
 
-    # TODO: Try to return nothing if line is too long (>80 chars)
-    # Return nothing if too long
+    # Raise error if card too long
     lcom = len(comment) if comment is not None else 0
-    if len(kw) + len(str(val)) + lcom > 80:
-        return
+    ltot = len(kw) + len(str(val)) + lcom
+    if ltot > 80:
+        raise ValueError("Card too long ({0})".format(ltot))
 
     # Return card
     return fits.Card(keyword=kw, value=val, comment=comment)
