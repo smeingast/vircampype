@@ -13,7 +13,7 @@ from vircampype.tools.systemtools import which, run_commands_shell_parallel
 
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
            "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image", "fix_vircam_headers",
-           "delete_keyword_from_header", "add_int_to_header", "replace_data", "mjd2dateobs"]
+           "delete_keyword_from_header", "add_int_to_header", "replace_data", "mjd2dateobs", "compress_images"]
 
 
 def check_card_value(value):
