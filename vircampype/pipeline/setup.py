@@ -512,7 +512,7 @@ class Setup(dict):
         if isinstance(additional_source_masks, dict):
             self.__additional_source_masks = additional_source_masks
 
-        # If fiven as a source mask instance
+        # If given as a source mask instance
         elif isinstance(additional_source_masks, SourceMasks):
             self.__additional_source_masks = additional_source_masks.mask_dict
 
