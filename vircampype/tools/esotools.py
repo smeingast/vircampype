@@ -423,7 +423,6 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     # Average ZP
     zp_avg = np.mean([e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
                       for x in [1, 2, 3, 4, 5]])
-    # TODO: This should reflect the error in the ZPs, not the deviation across the aperture
     zp_std = np.std([e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
                      for x in [1, 2, 3, 4, 5]])
 
@@ -450,7 +449,7 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     phdr_tile_out.set("PRODCATG", value="SCIENCE.IMAGE")
     phdr_tile_out.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
     add_float_to_header(header=phdr_tile_out, key="PHOTZP", value=zp_avg, decimals=3,
-                        comment="Mean ZP across apertures")
+                        comment="Mean aperture-matched ZP")
     add_float_to_header(header=phdr_tile_out, key="E_PHOTZP", value=zp_std, decimals=3,
                         comment="ZP standard deviation across apertures")
 
