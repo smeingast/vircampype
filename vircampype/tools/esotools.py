@@ -169,7 +169,7 @@ def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, 
                hdulist_stack[0].header[setup.keywords.dit] *
                hdulist_stack[0].header[setup.keywords.ndit])
     hdr.set("EXPTIME", value=exptime, comment="Total integration time")
-    hdr.set("TEXPTIME", value=exptime, comment="Total integration time")
+    hdr.set("TEXPTIME", value=exptime, comment="Sum of integration time of all exposures")
     hdr.set("DATE", value=Time.now().fits, comment="Date of file creation")
     hdr.set("MJD-OBS", value=hdulist_stack[0].header[setup.keywords.date_mjd], comment="MJD (start of observations)")
     hdr.set("MJD-END", value=hdulist_stack[0].header["MJD-END"], comment="MJD (end of observations)")
@@ -409,6 +409,7 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     dit = ehdr_first_pawprint["ESO DET DIT"]
     ndit = ehdr_first_pawprint["ESO DET NDIT"]
     njitter = phdr_first_pawprint["NJITTER"]
+    noffsets = phdr_first_pawprint["NOFFSETS"]
 
     # Approximate mag limit
     snr = hdul_catalog[2].data["SNR_WIN"].T
@@ -465,9 +466,9 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
         hdr.set("OBJECT", value=phdr_tile_in["OBJECT"], comment="Target designation")
         hdr.set("RA", value=phdr_tile_in["CRVAL1"], comment="RA tile center")
         hdr.set("DEC", value=phdr_tile_in["CRVAL2"], comment="DEC tile center")
-        # TODO: Is this difference between exptime and texptime correct?
         hdr.set("EXPTIME", value=2 * njitter * dit * ndit, comment="Total integration time")
-        hdr.set("TEXPTIME", value=6 * njitter * dit * ndit, comment="Total integration time")
+        hdr.set("TEXPTIME", value=noffsets * njitter * dit * ndit,
+                comment="Sum of integration time of all exposures")
         hdr.set("DATE", value=Time.now().fits, comment="Date of file creation")
         hdr.set("DATE-OBS", value=mjd2dateobs(phdr_tile_in["MJD-OBS"]), comment="Date of the observation")
         hdr.set("MJD-OBS", value=phdr_tile_in["MJD-OBS"], comment="MJD (start of observations)")
