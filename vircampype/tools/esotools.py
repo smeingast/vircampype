@@ -340,7 +340,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
     phdr_tile, phdr_catalog, ehdr_catalog = make_tile_headers(hdul_tile=hdul_tile_in, hdul_catalog=hdul_catalog_in,
                                                               hdul_pawprints=hdul_pawprints, passband=passband)
 
-    # TODO: Add weight association to tile image
+    # Add weight association to tile image
     phdr_tile.set("ASSON1", value=os.path.basename(path_weight_p3), after="REFERENC")
 
     # Add provenance info to catalog
