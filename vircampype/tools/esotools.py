@@ -591,21 +591,22 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     mag_range = np.linspace(mag_min, mag_max, 100)
     idx_all = np.arange(len(mag_auto))
 
+    # Loop over magnitude range
     bad_idx = []
     for mm in mag_range:
+        # Grab all sources within 0.25 mag of current position
         cidx_all = (mag_auto > mm - 0.25) & (mag_auto < mm + 0.25)
         cidx_pnt = (data["CLASS_STAR_INTERP"] > 0.5) & (mag_auto > mm - 0.25) & (mag_auto < mm + 0.25)
 
+        # Filter presumably bad sources
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             mean, median, stddev = sigma_clipped_stats(growth[cidx_pnt], sigma=5, maxiters=1)
             bad = (growth[cidx_all] < median - 0.05) & (growth[cidx_all] < median - 3 * stddev)
 
-        if np.sum(bad) == 0:
-            continue
-
-        # Save all bad indices
-        bad_idx.append(idx_all[cidx_all][bad])
+        # Save bad sources
+        if np.sum(bad) > 0:
+            bad_idx.append(idx_all[cidx_all][bad])
 
     # Flag outliers
     cflg[flat_list(bad_idx)] = True
