@@ -656,7 +656,7 @@ class MasterFlat(MasterImages):
         if self._flux is not None:
             return self._flux
 
-        self._flux = self._get_dataheaders_sequence(keyword="HIERARCH PYPE FLAT FLUX")
+        self._flux = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE FLAT FLUX")
         return self._flux
 
     _flux_mjd = None
@@ -677,7 +677,7 @@ class MasterFlat(MasterImages):
         if self._flux_mjd is not None:
             return self._flux_mjd
 
-        self._flux_mjd = self._get_dataheaders_sequence(keyword="HIERARCH PYPE FLAT MJD")
+        self._flux_mjd = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE FLAT MJD")
         return self._flux_mjd
 
     @property

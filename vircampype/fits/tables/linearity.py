@@ -57,7 +57,7 @@ class MasterLinearity(MasterTables):
         if self._coeff is not None:
             return self._coeff
 
-        self._coeff = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF LINEAR")
+        self._coeff = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE COEFF LINEAR")
         return self._coeff
 
     _coeff_poly = None
@@ -78,7 +78,7 @@ class MasterLinearity(MasterTables):
         if self._coeff_poly is not None:
             return self._coeff_poly
 
-        self._coeff_poly = self._get_dataheaders_sequence(keyword="HIERARCH PYPE COEFF POLY")
+        self._coeff_poly = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE COEFF POLY")
         return self._coeff_poly
 
     _linearity_dit = None

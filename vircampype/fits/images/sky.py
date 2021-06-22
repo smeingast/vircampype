@@ -1698,7 +1698,7 @@ class MasterSky(MasterImages):
         if self._sky is not None:
             return self._sky
 
-        self._sky = self._get_dataheaders_sequence(keyword="HIERARCH PYPE SKY MEAN")
+        self._sky = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE SKY MEAN")
         return self._sky
 
     _noise = None
@@ -1719,7 +1719,7 @@ class MasterSky(MasterImages):
         if self._noise is not None:
             return self._noise
 
-        self._noise = self._get_dataheaders_sequence(keyword="HIERARCH PYPE SKY NOISE")
+        self._noise = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE SKY NOISE")
         return self._noise
 
     _sky_mjd = None
@@ -1740,7 +1740,7 @@ class MasterSky(MasterImages):
         if self._sky_mjd is not None:
             return self._sky_mjd
 
-        self._sky_mjd = self._get_dataheaders_sequence(keyword="HIERARCH PYPE SKY MJD")
+        self._sky_mjd = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE SKY MJD")
         return self._sky_mjd
 
     # =========================================================================== #
