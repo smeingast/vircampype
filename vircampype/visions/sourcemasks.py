@@ -1,6 +1,6 @@
 from scipy.interpolate import interp1d
 
-__all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks"]
+__all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks"]
 
 
 class SourceMasks:
@@ -38,3 +38,19 @@ class CoronaAustralisDeepSourceMasks(SourceMasks):
 
         # Call parent
         super(CoronaAustralisDeepSourceMasks, self).__init__(*list(zip(*masks_all)))
+
+
+class CoronaAustralisWideSourceMasks(SourceMasks):
+
+    def __init__(self):
+
+        # Define masks (ra, dec, size)
+        m1 = (10, 10, 10)  # Dummy
+
+        # Merge with deep masks
+        cra_deep = CoronaAustralisDeepSourceMasks()
+        m_cra_deep = [(ra, dec, size) for ra, dec, size in zip(cra_deep.ra, cra_deep.dec, cra_deep.size)]
+        masks_all = [m1] + m_cra_deep
+
+        # Call parent
+        super(CoronaAustralisWideSourceMasks, self).__init__(*list(zip(*masks_all)))
