@@ -9,6 +9,7 @@ from vircampype.tools.fitstools import compress_images
 from vircampype.tools.esotools import build_phase3_stacks, make_phase3_tile
 from vircampype.tools.systemtools import run_commands_shell_parallel, clean_directory, remove_file
 
+
 class Pipeline:
 
     def __init__(self, setup, **kwargs):
