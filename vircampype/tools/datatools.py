@@ -72,7 +72,7 @@ def sort_vircam_science(path, extension=".fits"):
 
 
 if __name__ == "__main__":
-    pa = "/Users/stefan/Temp/all/"
-    pc = "/Users/stefan/Temp/all/calibration/"
-    # sort_vircam_calibration(path_all=pa, path_calibration=pc, extension=".fits")
-    # sort_vircam_science(path=pa, extension=".fits")
+    pa = "/Volumes/Data/VISIONS/198C-2009I/data_with_raw_calibs/"
+    pc = "/Volumes/Data/VISIONS/198C-2009I/calibration/"
+    # sort_vircam_calibration(path_all=pa, path_calibration=pc, extension=".fz")
+    sort_vircam_science(path=pa, extension=".fz")
