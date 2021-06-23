@@ -71,7 +71,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
         path_ctg_p3 = path_stk_p3.replace(".fits", ".sources.fits")
         path_wei_p3 = path_stk_p3.replace(".fits", ".weight.fits")
 
-        # # Passband
+        # Passband
         # passband = stacks_catalogs.passband[idx_file]
 
         p3_files = [check_file_exists(pp3, silent=setup.silent) for pp3 in [path_stk_p3, path_ctg_p3, path_wei_p3]]
