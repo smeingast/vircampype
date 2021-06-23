@@ -608,7 +608,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 plot_photerr_internal = True
 
         # Plot internal dispersion if set
-        if plot_photerr_internal:
+        if plot_photerr_internal & (len(outpaths) > 1):
             all_catalogs = PhotometricCalibratedSextractorCatalogs(setup=self.setup, file_paths=outpaths)
             all_catalogs.plot_qc_photerr_internal()
 
