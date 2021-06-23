@@ -522,6 +522,8 @@ class Setup(dict):
                 self.__additional_source_masks = CoronaAustralisDeepSourceMasks().mask_dict
             elif additional_source_masks.lower() == "corona_australis_wide":
                 self.__additional_source_masks = CoronaAustralisWideSourceMasks().mask_dict
+            elif additional_source_masks.lower() == "corona_australis_control":
+                self.__additional_source_masks = CoronaAustralisControlSourceMasks().mask_dict
             else:
                 raise ValueError("Source masks for '{0}' are not supported".format(additional_source_masks))
 
