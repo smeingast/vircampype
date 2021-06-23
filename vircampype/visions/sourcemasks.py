@@ -1,11 +1,25 @@
 from scipy.interpolate import interp1d
 
-__all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks"]
+__all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks",
+           "CoronaAustralisControlSourceMasks"]
 
 
 class SourceMasks:
 
     def __init__(self, ra, dec, size):
+        """
+        Defines position and size of source masks.
+
+        Parameters
+        ----------
+        ra
+            Right Ascension of mask center.
+        dec
+            Declination of mask center.
+        size
+            Radius of mask in pixel.
+        """
+
         self.ra = list(ra)
         self.dec = list(dec)
         self.size = list(size)
@@ -40,6 +54,18 @@ class CoronaAustralisDeepSourceMasks(SourceMasks):
         super(CoronaAustralisDeepSourceMasks, self).__init__(*list(zip(*masks_all)))
 
 
+class CoronaAustralisControlSourceMasks(SourceMasks):
+
+    def __init__(self):
+        m1 = (287.39, -33.355, 150)
+
+        # Put in list
+        masks_all = [m1]
+
+        # Call parent
+        super(CoronaAustralisControlSourceMasks, self).__init__(*list(zip(*masks_all)))
+
+
 class CoronaAustralisWideSourceMasks(SourceMasks):
 
     def __init__(self):
@@ -51,6 +77,11 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
         cra_deep = CoronaAustralisDeepSourceMasks()
         m_cra_deep = [(ra, dec, size) for ra, dec, size in zip(cra_deep.ra, cra_deep.dec, cra_deep.size)]
         masks_all = [m1] + m_cra_deep
+
+        # Merge with control source masks
+        cra_control = CoronaAustralisControlSourceMasks()
+        m_cra_control = [(ra, dec, size) for ra, dec, size in zip(cra_control.ra, cra_control.dec, cra_control.size)]
+        masks_all += m_cra_control
 
         # Call parent
         super(CoronaAustralisWideSourceMasks, self).__init__(*list(zip(*masks_all)))
