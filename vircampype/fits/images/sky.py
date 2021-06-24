@@ -637,7 +637,7 @@ class SkyImagesProcessed(SkyImages):
             sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
 
             # Subtract static sky
-            cube = cube - sky
+            cube -= sky
 
             # Create empty list to hold all cubes for additional masks
             array_additional = np.full_like(cube.cube, fill_value=0, dtype=np.uint16)
