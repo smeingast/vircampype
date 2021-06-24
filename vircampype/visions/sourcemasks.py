@@ -30,7 +30,8 @@ class SourceMasks:
 
     @classmethod
     def interp_2mass_size(cls):
-        return interp1d([1, 2, 3, 4, 5, 6, 7, 8], [600, 600, 600, 600, 500, 400, 300, 200], fill_value="extrapolate")
+        return interp1d([1, 2, 3, 4, 5, 6, 7, 8, 9], [600, 600, 600, 600, 500, 400, 300, 200, 100],
+                        fill_value="extrapolate")
 
 
 class CoronaAustralisDeepSourceMasks(SourceMasks):
