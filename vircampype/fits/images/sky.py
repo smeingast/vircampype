@@ -618,7 +618,7 @@ class SkyImagesProcessed(SkyImages):
 
             # Load positions and magnitudes of bright sources
             mag_master = master_phot.mag(passband=self.passband[idx_file])[0][0]
-            bright = (mag_master > 1) & (mag_master < 8)
+            bright = (mag_master > 1) & (mag_master < 9)
             mag_bright = mag_master[bright]
             mra = list(master_phot.ra()[0][0][bright])
             mdec = list(master_phot.dec()[0][0][bright])
