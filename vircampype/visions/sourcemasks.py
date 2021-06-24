@@ -60,7 +60,7 @@ class CoronaAustralisControlSourceMasks(SourceMasks):
     def __init__(self):
 
         # Define masks (ra, dec, size)
-        m1 = (287.39, -33.355, 150)
+        m1 = (287.39, -33.355, 200)
 
         # Put in list
         masks_all = [m1]
