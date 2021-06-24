@@ -235,7 +235,7 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
 
     # Set WCS
     if image_or_catalog.lower() == "image":
-        hdr_out.set("BUNIT", value="ADU", comment="Physical unit of the array values")
+        hdr_out.set("BUNIT", value="adu", comment="Physical unit of the array values")
         hdr_out.set("CTYPE1", value=hdr_stk["CTYPE1"], comment="WCS projection type for axis 1")
         hdr_out.set("CTYPE2", value=hdr_stk["CTYPE2"], comment="WCS projection type for axis 2")
         hdr_out.set("CRPIX1", value=hdr_stk["CRPIX1"], comment="Reference pixel for axis 1")
@@ -440,7 +440,7 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
                      for x in [1, 2, 3, 4, 5]])
 
     # Write unique keywords into primary image header
-    phdr_tile_out.set("BUNIT", value="ADU", comment="Physical unit of the array values")
+    phdr_tile_out.set("BUNIT", value="adu", comment="Physical unit of the array values")
     phdr_tile_out.set("CTYPE1", value=phdr_tile_in["CTYPE1"], comment="WCS projection type for axis 1")
     phdr_tile_out.set("CTYPE2", value=phdr_tile_in["CTYPE2"], comment="WCS projection type for axis 2")
     phdr_tile_out.set("CRPIX1", value=phdr_tile_in["CRPIX1"], comment="Reference pixel for axis 1")
