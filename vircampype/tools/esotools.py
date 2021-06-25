@@ -511,8 +511,7 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
 
     # Common keywords between primary tile and catalog extension
     for hdr in [phdr_tile_out, ehdr_ctg_out]:
-        hdr["PHOTSYS"] = "VEGA"
-
+        hdr.set("PHOTSYS", value="VEGA", comment="Photometric system")
         add_float_to_header(header=hdr, key="MAGLIM", value=mag_lim, decimals=3,
                             comment="Estimated magnitude limit (Vega, 5-sigma)")
         add_float_to_header(header=hdr, key="ABMAGLIM", value=vega2ab(mag=mag_lim, passband=passband), decimals=3,
