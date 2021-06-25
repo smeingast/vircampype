@@ -468,6 +468,7 @@ class SkyImagesRaw(SkyImages):
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
+            phdr[self.setup.keywords.object] = self.setup.name
             phdr["DARKFILE"] = master_dark.basenames[idx_file]
             phdr["FLATFILE"] = master_flat.basenames[idx_file]
             phdr["LINFILE"] = master_linearity.basenames[idx_file]
