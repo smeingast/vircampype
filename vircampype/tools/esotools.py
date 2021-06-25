@@ -252,7 +252,7 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
     # Set photometric system
     hdr_out.set("PHOTSYS", value="VEGA", comment="Photometric system")
 
-    # Compute mean ZP
+    # ZP
     zps, zperrs, idx = [], [], 0
     while True:
         try:
@@ -262,11 +262,14 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
             break
         idx += 1
 
+    # Get means and total error
+    zp_avg = np.mean(zps)
+    zperr_tot = np.sqrt(np.std(zps)**2 + np.mean(zperrs)**2)
+
     # Add ZP and ZP err
     if image_or_catalog == "image":
-        add_float_to_header(header=hdr_out, key="PHOTZP", value=np.mean(zps), decimals=4,
-                            comment="Photometric zeropoint")
-        add_float_to_header(header=hdr_out, key="PHOTZPER", value=np.mean(zperrs), decimals=4,
+        add_float_to_header(header=hdr_out, key="PHOTZP", value=zp_avg, decimals=5, comment="Photometric zeropoint")
+        add_float_to_header(header=hdr_out, key="PHOTZPER", value=zperr_tot, decimals=5,
                             comment="Uncertainty of the photometric zeropoint")
 
     # Determine magnitude limit
@@ -433,11 +436,19 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     psf_fwhm = clipped_median(hdul_catalog[2].data["FWHM_WORLD"][stars] * 3600)
     ellipticity = clipped_median(hdul_catalog[2].data["ELLIPTICITY"][stars])
 
-    # Average ZP
-    zp_avg = np.mean([e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
-                      for x in [1, 2, 3, 4, 5]])
-    zp_std = np.std([e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(x)]
-                     for x in [1, 2, 3, 4, 5]])
+    # ZP
+    zps, zperrs, idx = [], [], 0
+    while True:
+        try:
+            zps.append(e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(idx + 1)])
+            zperrs.append(e2hdr_ctg_in["HIERARCH PYPE ZP ERR MAG_APER_MATCHED {0}".format(idx + 1)])
+        except KeyError:
+            break
+        idx += 1
+
+    # Get means and total error
+    zp_avg = np.mean(zps)
+    zperr_tot = np.sqrt(np.std(zps)**2 + np.mean(zperrs)**2)
 
     # Write unique keywords into primary image header
     phdr_tile_out.set("BUNIT", value="adu", comment="Physical unit of the array values")
@@ -461,10 +472,9 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     phdr_tile_out.set("NUSTEP", value=phdr_first_pawprint["NUSTEP"], comment="Number of microstep positions")
     phdr_tile_out.set("PRODCATG", value="SCIENCE.IMAGE")
     phdr_tile_out.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
-    add_float_to_header(header=phdr_tile_out, key="PHOTZP", value=zp_avg, decimals=3,
-                        comment="Mean aperture-matched ZP")
-    add_float_to_header(header=phdr_tile_out, key="E_PHOTZP", value=zp_std, decimals=3,
-                        comment="ZP standard deviation across apertures")
+    add_float_to_header(header=phdr_tile_out, key="PHOTZP", value=zp_avg, decimals=5, comment="Photometric zeropoint")
+    add_float_to_header(header=phdr_tile_out, key="PHOTZPER", value=zperr_tot, decimals=5,
+                        comment="Uncertainty of photometric zeropoint")
 
     # Write unique keywords into primary catalog header
     phdr_ctg_out["PRODCATG"] = "SCIENCE.SRCTBL"
