@@ -418,7 +418,7 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     # Create new FITS headers
     phdr_tile_out = fits.Header()
     phdr_ctg_out = fits.Header()
-    ehdr_ctg_out = hdul_catalog[2].header
+    ehdr_ctg_out = fits.Header()
 
     # Read DIT, NDIT, NJITTER from pawprint
     dit = ehdr_first_pawprint["ESO DET DIT"]
