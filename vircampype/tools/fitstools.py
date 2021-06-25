@@ -501,10 +501,10 @@ def fix_vircam_headers(prime_header, data_headers):
 
         # Remove useless keywords if set
         [data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
-         for kw in extension_keywords_noboby_needs]
+         for kw in useless_extension_keywords]
 
     # Purge also primary header
-    [prime_header.remove(kw, ignore_missing=True, remove_all=True) for kw in prime_keywords_noboby_needs]
+    [prime_header.remove(kw, ignore_missing=True, remove_all=True) for kw in useless_primary_keywords]
 
 
 def compress_images(images, q=4, exe="fpack", n_jobs=1):
