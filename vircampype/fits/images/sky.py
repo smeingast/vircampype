@@ -468,10 +468,10 @@ class SkyImagesRaw(SkyImages):
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
-            phdr[self.setup.keywords.object] = self.setup.name
-            phdr["DARKFILE"] = master_dark.basenames[idx_file]
-            phdr["FLATFILE"] = master_flat.basenames[idx_file]
-            phdr["LINFILE"] = master_linearity.basenames[idx_file]
+            phdr.set(self.setup.keywords.object, value=self.setup.name, comment="Target designation")
+            phdr.set("DARKFILE", value=master_dark.basenames[idx_file], comment="Dark file name")
+            phdr.set("FLATFILE", value=master_flat.basenames[idx_file], comment="Flat file name")
+            phdr.set("LINFILE", value=master_linearity.basenames[idx_file], comment="Linearity file name")
 
             # Copy data headers
             hdrs_data = [self.headers_data[idx_file][idx_hdu].copy()
