@@ -74,10 +74,10 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
     def __init__(self):
 
         # Define masks (ra, dec, size)
-        m1 = (10, 10, 10)  # Dummy
+        # m1 = (10, 10, 10)  # Dummy
 
         # Put in list
-        masks_all = [m1]
+        masks_all = []
 
         # Merge with deep masks
         cra_deep = CoronaAustralisDeepSourceMasks()
