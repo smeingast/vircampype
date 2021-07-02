@@ -81,26 +81,26 @@ class MasterLinearity(MasterTables):
         self._coeff_poly = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE COEFF POLY")
         return self._coeff_poly
 
-    _linearity_dit = None
+    _linearity_texp = None
 
     @property
-    def linearity_dit(self):
+    def linearity_texp(self):
         """
-        Extracts all DIT values measured in the linearity sequence.
+        Extracts all TEXPTIME values measured in the linearity sequence.
 
         Returns
         -------
         List
-            List of DITs.
+            List of TEXPTIMEs.
 
         """
 
         # Check if already determined
-        if self._linearity_dit is not None:
-            return self._linearity_dit
+        if self._linearity_texp is not None:
+            return self._linearity_texp
 
-        self._linearity_dit = self.get_columns(column_name="dit")
-        return self._linearity_dit
+        self._linearity_texp = self.get_columns(column_name="texp")
+        return self._linearity_texp
 
     _flux = None
 
@@ -193,7 +193,7 @@ class MasterLinearity(MasterTables):
 
         # Loop over files and create plots
         for path, nl in zip(paths, self.nl10000):
-            plot_value_detector(values=nl, path=path, ylabel="Non-linearity @10000ADU/DIT=2 (%)",
+            plot_value_detector(values=nl, path=path, ylabel="Non-linearity @10000ADU/TEXP=2 (%)",
                                 axis_size=axis_size, hlines=[0])
 
     def qc_plot_linearity_fit(self, paths=None, axis_size=4):
@@ -219,8 +219,8 @@ class MasterLinearity(MasterTables):
             paths = ["{0}{1}_fit.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
 
         # Loop over files and create plots
-        for path, dit, flux, flux_lin, nl10000, coeff, coeff_poly in \
-                zip(paths, self.linearity_dit, self.flux, self.flux_linearized,
+        for path, texp, flux, flux_lin, nl10000, coeff, coeff_poly in \
+                zip(paths, self.linearity_texp, self.flux, self.flux_linearized,
                     self.nl10000, self.coeff, self.coeff_poly):
 
             # Get plot grid
@@ -228,12 +228,12 @@ class MasterLinearity(MasterTables):
             axes = axes.ravel()
 
             # Helpers
-            alldit, allflux = [i for s in dit for i in s], [i for s in flux for i in s]
-            xmax = 1.05 * np.max(alldit)
+            alltexp, allflux = [i for s in texp for i in s], [i for s in flux for i in s]
+            xmax = 1.05 * np.max(alltexp)
             ymax = 1.10 * np.max(self.setup.saturation_levels)
 
             # Plot
-            for idx in range(len(dit)):
+            for idx in range(len(texp)):
 
                 # Get those above the saturation
                 bad = np.array(flux[idx]) > self.setup.saturation_levels[idx]
@@ -242,33 +242,33 @@ class MasterLinearity(MasterTables):
                 ax = axes[idx]
 
                 # Good raw flux
-                ax.scatter(np.array(dit[idx])[~bad], np.array(flux[idx])[~bad],
+                ax.scatter(np.array(texp[idx])[~bad], np.array(flux[idx])[~bad],
                            c="#1f77b4", lw=0, s=40, alpha=0.7, zorder=1)
 
                 # Bad raw flux
-                ax.scatter(np.array(dit[idx])[bad], np.array(flux[idx])[bad],
+                ax.scatter(np.array(texp[idx])[bad], np.array(flux[idx])[bad],
                            lw=1, s=40, facecolors="none", edgecolors="#1f77b4")
 
                 # Linearized good flux
-                ax.scatter(np.array(dit[idx])[~bad], np.array(flux_lin[idx])[~bad],
+                ax.scatter(np.array(texp[idx])[~bad], np.array(flux_lin[idx])[~bad],
                            c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
 
                 # Fit
-                ax.plot(dit[idx], linearity_fitfunc(dit[idx], *coeff_poly[idx][1:]), c="black", lw=0.8, zorder=0)
+                ax.plot(texp[idx], linearity_fitfunc(texp[idx], *coeff_poly[idx][1:]), c="black", lw=0.8, zorder=0)
 
                 # Saturation
                 ax.hlines(self.setup.saturation_levels[idx], 0, ceil_value(xmax, value=5),
                           linestyles="dashed", colors="#7F7F7F", lw=1)
 
                 # Annotate non-linearity and detector ID
-                ax.annotate("NL$_{{10000}}$ (DIT=2s)$=${}%".format(np.round(nl10000[idx], decimals=2)),
+                ax.annotate("NL$_{{10000}}$ (TEXP=2s)$=${}%".format(np.round(nl10000[idx], decimals=2)),
                             xy=(0.03, 0.96), xycoords="axes fraction", ha="left", va="top")
                 ax.annotate("Det.ID: {0:0d}".format(idx + 1),
                             xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
 
                 # Modify axes
                 if idx < self.setup.fpa_layout[1]:
-                    ax.set_xlabel("DIT (s)")
+                    ax.set_xlabel("TEXP (s)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
                 if idx % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
@@ -328,14 +328,15 @@ class MasterLinearity(MasterTables):
                 # data = np.linspace(1, self.setup.saturation_levels[idx_hdu] + 5000, 150)
                 data = np.linspace(1, 50000, 5000)
 
-                # Sample a few DITs
-                dits = [2, 5, 10]
-                data_lin = [linearize_data(data=data, coeff=coeff_hdu, dit=d, reset_read_overhead=1.0011) for d in dits]
+                # Sample a few TEXPs
+                texps = [2, 5, 10]
+                data_lin = [linearize_data(data=data, coeff=coeff_hdu, texptime=t, reset_read_overhead=1.0011)
+                            for t in texps]
 
                 # Draw
-                for idx_dit in range(len(dits)):
-                    ax.plot(data, data_lin[idx_dit] - data, lw=2, alpha=0.8,
-                            label="DIT={0}".format(dits[idx_dit]))
+                for idx_texp in range(len(texps)):
+                    ax.plot(data, data_lin[idx_texp] - data, lw=2, alpha=0.8,
+                            label="TEXP={0}".format(texps[idx_texp]))
 
                 # Draw saturation level
                 ax.axvline(self.setup.saturation_levels[idx_hdu], ls="dashed", c="#7F7F7F",
