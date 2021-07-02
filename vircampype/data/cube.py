@@ -792,7 +792,7 @@ class ImageCube(object):
         else:
             raise ValueError("Normalization not supported")
 
-    def linearize(self, coeff, dit):
+    def linearize(self, coeff, texptime):
         """
         Linearizes the data cube based on non-linearity coefficients. Will created multiple parallel processes (up to 4)
         for better performance.
@@ -803,8 +803,8 @@ class ImageCube(object):
             If a list of coefficients (floats), the same non-linear inversion will be applied to all planes of the cube
             If a list of lists with coefficients, it must have the length of the cube and each plane will be linearized
             with the corresponding coefficients.
-        dit : iterable
-            DIT for each plane in the cube.
+        texptime : iterable
+            TEXPTIME for each plane in cube.
 
         Returns
         -------
@@ -824,20 +824,20 @@ class ImageCube(object):
             cff = repeat(coeff)
 
         # If just a single value for the dit is provided
-        if isinstance(dit, (int, float)):
-            dit = repeat(dit)
+        if isinstance(texptime, (int, float)):
+            texptime = repeat(texptime)
 
         # Only launch Pool if more than one thread is requested
         if self.setup.n_jobs == 1:
             mp = []
-            for a, b, c in zip(self.cube, cff, dit):
-                mp.append(linearize_data(data=a, coeff=b, dit=c, reset_read_overhead=1.0011))
+            for a, b, c in zip(self.cube, cff, texptime):
+                mp.append(linearize_data(data=a, coeff=b, texptime=c, reset_read_overhead=1.0011))
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                 mp = parallel(delayed(linearize_data)(a, b, c, d)
-                              for a, b, c, d in zip(self.cube, cff, dit, repeat(1.0011)))
+                              for a, b, c, d in zip(self.cube, cff, texptime, repeat(1.0011)))
 
         else:
             raise ValueError("'n_threads' not correctly set (n_threads = {0})"
