@@ -59,6 +59,18 @@ class FitsImages(FitsFiles):
 
         return self._ndit
 
+    _texptime = None
+
+    @property
+    def texptime(self):
+
+        # Check if already determined
+        if self._texptime is not None:
+            return self._texptime
+
+        self._texptime = [dit * ndit for dit, ndit in zip(self.dit, self.ndit)]
+        return self._texptime
+
     _passband = None
 
     @property
