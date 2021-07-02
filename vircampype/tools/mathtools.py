@@ -242,7 +242,7 @@ def linearity_fitfunc(x, b1, b2, b3):
     return np.sum([coeff[j-1] * x**j * ((1 + kk)**j - kk**j) for j in range(1, len(coeff) + 1)], axis=0)
 
 
-def linearize_data(data, coeff, dit, reset_read_overhead):
+def linearize_data(data, coeff, texptime, reset_read_overhead):
     """
     General single-threaded linearization for arbitrary input data.
 
@@ -252,8 +252,8 @@ def linearize_data(data, coeff, dit, reset_read_overhead):
         Input data to be linearized.
     coeff : list[floats], ndarray
         List of coefficients.
-    dit : int, float
-        DIT of input data.
+    texptime : int, float
+        Total exptime.
     reset_read_overhead : float
         Reset-read-overhead in seconds.
 
@@ -265,17 +265,17 @@ def linearize_data(data, coeff, dit, reset_read_overhead):
     """
 
     # Dummy check
-    if not isinstance(dit, (int, float)):
-        raise ValueError("DIT must be of type float or int.")
+    if not isinstance(texptime, (int, float)):
+        raise ValueError("texptime must be of type float or int.")
 
     # Determine order of fit
     order = len(coeff) - 1
 
-    # Coefficient modification factor based on DIT and reset overhead
-    kk = reset_read_overhead / dit
+    # Coefficient modification factor based on TEXPTIME and reset overhead
+    kk = reset_read_overhead / texptime
     f = (1 + kk)**np.arange(order + 1) - kk**np.arange(order + 1)
 
-    # Optionally set coeff modifier to 1
+    # Set coeff modifier to 1 for tests
     # f[:] = 1.
 
     # Copy, apply modification, and set intercept to data for inversion
