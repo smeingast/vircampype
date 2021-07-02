@@ -71,7 +71,7 @@ class DarkImages(FitsImages):
                 cube.scale_planes(scales=1 / files.ndit_norm)
 
                 # Linearize data
-                cube.linearize(coeff=lcff, dit=files.dit)
+                cube.linearize(coeff=lcff, texptime=files.texptime)
 
                 # Masking methods
                 cube.apply_masks(mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max)
