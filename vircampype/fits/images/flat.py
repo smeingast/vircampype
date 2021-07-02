@@ -91,7 +91,7 @@ class FlatTwilight(FlatImages):
                 cube.normalize(files.ndit)
 
                 # Linearize
-                cube.linearize(coeff=lcff, dit=files.dit)
+                cube.linearize(coeff=lcff, texptime=files.texptime)
 
                 # Subtract master dark
                 cube -= dark
@@ -323,11 +323,11 @@ class FlatLampLin(FlatImages):
 
                 # Grab clean DIT and clean flux
                 flux_clean, flux_err_clean = flux[~saturated], flux_err[~saturated]
-                dit = np.array(sflats.dit)
-                dit_clean = dit[~saturated]
+                texptime = np.array(sflats.texptime)
+                texptime_clean = texptime[~saturated]
 
                 # Do curve fit (force positive in first order term, negative in second order term)
-                coeff, _ = curve_fit(linearity_fitfunc, dit_clean, flux_clean, p0=[1, -1, -0.001],
+                coeff, _ = curve_fit(linearity_fitfunc, texptime_clean, flux_clean, p0=[1, -1, -0.001],
                                      bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]))
 
                 # Compute normalized final coefficients
@@ -339,8 +339,8 @@ class FlatLampLin(FlatImages):
 
                 # Linearize data
                 flux_lin = []
-                for f, t in zip(flux, dit):
-                    flux_lin.append(linearize_data(data=f, coeff=coeff_norm, dit=t, reset_read_overhead=1.0011))
+                for f, t in zip(flux, texptime):
+                    flux_lin.append(linearize_data(data=f, coeff=coeff_norm, texptime=t, reset_read_overhead=1.0011))
                 flux_lin = np.asarray(flux_lin)
 
                 # Compute non-linearity at 10000 ADU for DIT=2
@@ -372,12 +372,12 @@ class FlatLampLin(FlatImages):
 
                 # Linearize data
                 flux_clean_lin = []
-                for f, t in zip(flux_clean, dit_clean):
-                    flux_clean_lin.append(linearize_data(data=f, coeff=coeff_norm, dit=t,
+                for f, t in zip(flux_clean, texptime_clean):
+                    flux_clean_lin.append(linearize_data(data=f, coeff=coeff_norm, texptime=t,
                                                          reset_read_overhead=1.0011))
 
                 # Add data to HDU
-                cdit = fits.Column(name="dit", format="D", array=dit)
+                cdit = fits.Column(name="texp", format="D", array=texptime)
                 cflux = fits.Column(name="flux", format="D", array=flux)
                 cflux_lin = fits.Column(name="flux_lin", format="D", array=flux_lin)
                 cmask = fits.Column(name="saturated", format="L", array=saturated)
