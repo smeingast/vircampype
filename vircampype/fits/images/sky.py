@@ -461,7 +461,7 @@ class SkyImagesRaw(SkyImages):
             cube.normalize(norm=self.ndit[idx_file])
 
             # Linearize
-            cube.linearize(coeff=lcff, dit=self.dit[idx_file])
+            cube.linearize(coeff=lcff, texptime=self.texptime[idx_file])
 
             # Process with dark, flat, and sky
             cube = (cube - dark) / flat
