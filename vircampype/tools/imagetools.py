@@ -486,12 +486,12 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
         if weights is None:
             raise ValueError("Must provide weights")
 
-        # Sigma-clip input
-        mask = astropy_sigma_clip(values[idx], sigma=3, maxiters=5, axis=1).mask
-        weights[idx][mask] = 0.
+        # Sigma-clip weights
+        vv, ww = values[idx].copy(), weights[idx].copy()
+        ww[astropy_sigma_clip(vv, sigma=2, maxiters=5, axis=1).mask] = 0.
 
         # Compute weighted average
-        gv = np.average(values[idx], weights=weights[idx], axis=1)
+        gv = np.average(vv, weights=ww, axis=1)
 
     elif metric == "median":
         _, gv, _ = sigma_clipped_stats(values[idx], axis=1)
