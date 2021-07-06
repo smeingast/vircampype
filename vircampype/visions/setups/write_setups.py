@@ -6,14 +6,16 @@ from astropy.io import fits
 # =========================================================================== #
 # =========================================================================== #
 # Setup
-path_data = "/Volumes/Data/VISIONS/198C-2009A/data_control/"
-path_scripts = "/Volumes/Data/VISIONS/198C-2009A/scripts/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009A/vircampype/"
+path_data = "/Volumes/Data/VISIONS/198C-2009E/data_control/"
+path_scripts = "/Volumes/Data/VISIONS/198C-2009E/scripts/"
+path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
-files = glob.glob(path_data + "Oph*/*.fits")
-projection = "Ophiuchus_Control"
+files = glob.glob(path_data + "CrA*/*.fits")
+projection = "Corona_Australis_control"
+additional_source_masks = "Corona_Australis_control"
+# additional_source_masks = None
 
-reference_mag_lim = dict(J=(12.0, 15.0), H=(11.5, 14.5), Ks=(11.0, 14.0))
+reference_mag_lim = dict(J=(12.0, 15.5), H=(11.5, 15.0), Ks=(11.0, 14.5))
 n_jobs = 12
 
 # =========================================================================== #
@@ -35,7 +37,8 @@ for udj in unique_directories:
 
     # Make setup
     setup = dict(name=name, path_data=udj, path_pype=path_pype, n_jobs=n_jobs,
-                 reference_mag_lim=reference_mag_lim[passband], projection=projection)
+                 reference_mag_lim=reference_mag_lim[passband], projection=projection,
+                 additional_source_masks=additional_source_masks)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
