@@ -360,12 +360,30 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         print_header(header="MASTER-ILLUMINATION-CORRECTION", right=None, silent=self.setup.silent)
         tstart = time.time()
 
+        # At the moment, this only works when there is only one passband
+        if len(list(set(self.passband))) != 1:
+            raise ValueError("Only one passband allowed")
+        passband = self.passband[0]
+
         # Split based on passband and interval
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
         split = flat_list([s.split_window(window=0.5, remove_duplicates=True) for s in split])
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()
+        mkeep = master_phot.get_purge_index(passband=passband)
+        mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
+        skycoord_master = master_phot.skycoord()[0][0][mkeep]
+
+        # Read, stack, clean tables; determine mean ZP
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            tab_all = [self.file2table(file_index=i) for i in range(len(self))]
+            tab_all = clean_source_table(vstack(flat_list(tab_all)))
+            zp_all = get_zeropoint(skycoord_cal=SkyCoord(tab_all[self._key_ra], tab_all[self._key_dec], unit="deg"),
+                                   mag_cal=tab_all["MAG_AUTO"], skycoord_ref=skycoord_master, mag_ref=mag_master,
+                                   mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
+            zp_all_mean, _, _ = sigma_clipped_stats(zp_all)
 
         # Now loop through separated files
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -386,7 +404,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-            magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
+            # magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
             skycoord_master = master_phot.skycoord()[0][0][mkeep]
 
             data_headers, flx_scale, n_sources = [], [], []
@@ -403,49 +421,41 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 header = files.image_headers[0][idx_hdr]
 
                 # Clean table
-                tab = clean_source_table(table=tab, image_header=header, flux_max=header["SEXSATLV"]/2, border_pix=20,
+                tab = clean_source_table(table=tab, image_header=header, flux_max=header["SEXSATLV"] / 2, border_pix=10,
                                          nndis_limit=None, min_fwhm=1.0, max_fwhm=5.0, max_ellipticity=0.2)
 
-                # Compute spatial illumination correction only for detector 16
-                if idx_hdr == 15:
-
-                    # Get difference to reference catalog magnitudes
-                    zp_all = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
-                                           mag_cal=tab["MAG_AUTO"], skycoord_ref=skycoord_master, mag_ref=mag_master,
-                                           mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
-
-                    # Remove all table entries without ZP entry
-                    tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
-
-                    # Grid with NN interpolation
-                    grid_zp = grid_value_2d_nn(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], values=zp_all,
-                                               n_bins_x=header["NAXIS1"] // 100, n_bins_y=header["NAXIS2"] // 100,
-                                               x_min=1, y_min=1, x_max=header["NAXIS1"], y_max=header["NAXIS2"],
-                                               n_nearest_neighbors=25 if len(tab) > 25 else len(tab),
-                                               metric="weighted", weights=1 / tab["MAGERR_AUTO"])
-
-                    # Resize to original image size
-                    grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="PIL")
-
-                # For all other detectors, calculate ZP scaling as constant
-                else:
-
-                    # TODO: Number of sources not correctly returned here
-                    zp = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
+                # Compute illumination correction
+                zp_all = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
                                        mag_cal=tab["MAG_AUTO"], skycoord_ref=skycoord_master, mag_ref=mag_master,
-                                       mag_limits_ref=master_phot.mag_lim(passband=passband), method="weighted",
-                                       mag_err_cal=tab["MAGERR_AUTO"], mag_err_ref=magerr_master)[0]
+                                       mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
 
-                    grid_zp = np.full((header["NAXIS1"], header["NAXIS2"]), fill_value=zp, dtype=np.float32)
+                # Remove all table entries without ZP entry
+                tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
+
+                # Grid with NN interpolation
+                grid_zp = grid_value_2d_nn(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], values=zp_all,
+                                           n_bins_x=header["NAXIS1"] // 100, n_bins_y=header["NAXIS2"] // 100,
+                                           x_min=1, y_min=1, x_max=header["NAXIS1"], y_max=header["NAXIS2"],
+                                           n_nearest_neighbors=50 if len(tab) > 50 else len(tab),
+                                           metric="weighted", weights=1 / tab["MAGERR_AUTO"]**2)
+
+                # Resize to original image size
+                grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="PIL")
+
+                # Constant value
+                # zp = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
+                #                    mag_cal=tab["MAG_AUTO"], skycoord_ref=skycoord_master, mag_ref=mag_master,
+                #                    mag_limits_ref=master_phot.mag_lim(passband=passband), method="weighted",
+                #                    mag_err_cal=tab["MAGERR_AUTO"], mag_err_ref=magerr_master)[0]
+                # grid_zp = np.full((header["NAXIS1"], header["NAXIS2"]), fill_value=zp, dtype=np.float32)
 
                 # Convert to flux scale
-                flx_scale.append(10**(grid_zp / 2.5))
+                flx_scale.append(10**((grid_zp - zp_all_mean) / 2.5))
 
                 # Save number of sources
-                # n_sources.append(np.sum(np.isfinite(zp_all)))
                 n_sources.append(len(tab))
 
-                # # Plot sources on top of illumination correction
+                # Plot sources on top of illumination correction
                 # import matplotlib.pyplot as plt
                 # fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=dict(top=0.98, right=0.99),
                 #                        **dict(figsize=(6, 5)))
@@ -458,9 +468,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # plt.colorbar(im)
                 # plt.show()
                 # exit()
-
-            # Normalize flux scale across all detectors
-            flx_scale = [f / np.median(flx_scale) for f in flx_scale]
 
             # Instantiate output
             illumcorr = ImageCube(setup=self.setup)
