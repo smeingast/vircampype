@@ -16,6 +16,6 @@ setup(
     url="",
     license="",
     author="Stefan Meingast",
-    author_email="stefan.meingast@gmail.com",
+    author_email="stefan.meingast@univie.ac.at",
     description="Pipeline for processing VIRCAM data."
 )
