@@ -19,10 +19,18 @@ numpy2fits = {val: key for key, val in fits2numpy.items()}
 
 
 def string2func(s):
+
+    # Import
+    from vircampype.tools.mathtools import clipped_median, clipped_mean
+
     if s.lower() == "median":
         return np.nanmedian
     elif s.lower() == "mean":
         return np.nanmean
+    if s.lower() == "clipped_median":
+        return clipped_median
+    if s.lower() == "clipped_mean":
+        return clipped_mean
     else:
         raise ValueError("Metric '{0}' not suppoerted".format(s))
 
