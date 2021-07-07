@@ -10,7 +10,7 @@ from astropy.stats import sigma_clipped_stats
 
 __all__ = ["sigma_clip", "linearize_data", "apply_along_axes", "ceil_value", "floor_value", "meshgrid",
            "estimate_background", "centroid_sphere", "clipped_median", "clipped_stdev", "fraction2float",
-           "round_decimals_up", "round_decimals_down", "linearity_fitfunc"]
+           "round_decimals_up", "round_decimals_down", "linearity_fitfunc", "clipped_mean"]
 
 
 def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -59,13 +59,18 @@ def sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, ax
     return data
 
 
+def clipped_mean(data, **kwargs):
+    """ Helper function to return the clipped mean of an array via astropy. """
+    return sigma_clipped_stats(data, **kwargs)[0]  # noqa
+
+
 def clipped_median(data, **kwargs):
-    """ Hlper function to return the clipped median of an array via astropy. """
+    """ Helper function to return the clipped median of an array via astropy. """
     return sigma_clipped_stats(data, **kwargs)[1]  # noqa
 
 
 def clipped_stdev(data, **kwargs):
-    """ Hlper function to return the clipped median of an array via astropy. """
+    """ Helper function to return the clipped median of an array via astropy. """
     return sigma_clipped_stats(data, **kwargs)[2]  # noqa
 
 
