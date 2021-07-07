@@ -295,8 +295,14 @@ def linearize_data(data, coeff, texptime, reset_read_overhead):
     else:
         raise ValueError("Order '{0}' not supported".format(order))
 
-    # Select closest value from the real roots, and return
-    return (np.nanmin(np.abs([r - coeff[0] + coeff_copy[0] for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
+    # Select closest value from the real roots
+    data_lin = (np.nanmin(np.abs([r - coeff[0] + coeff_copy[0]
+                                  for r in roots]), axis=0) + data.ravel()).reshape(data.shape)
+
+    # Mask too large values
+    data_lin[data_lin > 65536] = np.nan
+
+    return data_lin
 
 
 def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
