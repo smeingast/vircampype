@@ -603,7 +603,7 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
     idx_large_all = [i for i, x in enumerate((sizes > 200) & (sizes < max_area)) if x]
 
     # Empty list to store masks
-    masks_large = []
+    mask_large = np.full_like(image, dtype=np.uint16, fill_value=0)
 
     # Create large region circular masks
     if len(idx_large_all) > 0:
@@ -625,15 +625,12 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
             centroid = regionprops[idx_large].centroid
 
             # Construct mask for current source
-            base = np.full_like(labels, fill_value=0, dtype=float)
+            base = np.full_like(labels, fill_value=0, dtype=np.uint16)
             mm = circular_mask(array=base, coordinates=centroid, radius=np.ceil(2 * crad).astype(int))
             base[mm] = 1
 
             # Save current source mask
-            masks_large.append(base)
-
-        # Collapse masks
-        masks_large = np.sum(masks_large, axis=0)
+            mask_large += base
 
     # Find those sources outside the given thresholds and set to 0
     # bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
@@ -655,8 +652,7 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
     image_labels[labels] = 1
 
     # Apply large region mask
-    if len(masks_large) > 0:
-        image_labels[masks_large > 0] = 1
+    image_labels[mask_large > 0] = 1
 
     # Return mask
     return image_labels
