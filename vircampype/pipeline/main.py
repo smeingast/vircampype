@@ -500,7 +500,7 @@ class Pipeline:
     def build_coadd_header(self):
         if self.raw_science is not None:
             if not self.status.tile_header:
-                self.raw_science.build_coadd_header()
+                self.processed_basic_science.build_coadd_header()
                 self.update_status(tile_header=True)
             else:
                 print_message(message="TILE HEADER already built", kind="warning", end=None)
