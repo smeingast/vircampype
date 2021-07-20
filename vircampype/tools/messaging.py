@@ -2,7 +2,7 @@ import os
 import time
 
 __all__ = ["print_message", "print_header", "message_calibration", "check_file_exists", "print_end", "print_start",
-           "print_colors_shell"]
+           "print_colors_shell", "message_qc_astrometry"]
 
 
 class BColors:
@@ -165,3 +165,32 @@ def check_file_exists(file_path, silent=True):
         return True
     else:
         return False
+
+
+def message_qc_astrometry(separation):
+    """
+    Print astrometry QC message
+
+    Parameters
+    ----------
+    separation
+        Separation quantity.
+
+    """
+
+    # Import
+    from astropy.stats import sigma_clipped_stats
+
+    # Compute stats
+    sep_mean, _, sep_std = sigma_clipped_stats(separation, sigma=5, maxiters=2)
+
+    # Choose color
+    if sep_mean < 0.25:
+        color = BColors.OKGREEN
+    elif (sep_mean >= 0.25) & (sep_mean < 0.35):
+        color = BColors.WARNING
+    else:
+        color = BColors.FAIL
+
+    print(color + "\nExternal astrometric error (mean/std): {0:6.3f}/{1:6.3f}"
+          .format(sep_mean, sep_std) + BColors.ENDC, end="\n")
