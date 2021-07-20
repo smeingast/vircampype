@@ -593,6 +593,22 @@ class Pipeline:
             print_message(message="TILE PHOTOMETRY already done", kind="warning", end=None)
 
     # =========================================================================== #
+    # QC astrometry
+    def qc_astrometry_stacks(self):
+        if not self.status.qc_astrometry_stacks:
+            self.sources_stacks_full.plot_qc_astrometry()
+            self.update_status(qc_astrometry_stacks=True)
+        else:
+            print_message(message="QC ASTROMETRY STACKS already done", kind="warning", end=None)
+
+    def qc_astrometry_tile(self):
+        if not self.status.qc_astrometry_tile:
+            self.sources_tile_full.plot_qc_astrometry()
+            self.update_status(qc_astrometry_tile=True)
+        else:
+            print_message(message="QC ASTROMETRY TILE already done", kind="warning", end=None)
+
+    # =========================================================================== #
     # Phase 3
     @property
     def _paths_phase3(self):
@@ -738,12 +754,14 @@ class Pipeline:
         self.build_statistics_stacks()
         self.classification_stacks()
         self.photometry_stacks()
+        self.qc_astrometry_stacks()
 
         # Build and calibrate tile
         self.build_tile()
         self.build_statistics_tile()
         self.classification_tile()
         self.photometry_tile()
+        self.qc_astrometry_tile()
 
         # Phase 3
         self.phase3()
@@ -758,8 +776,8 @@ class PipelineStatus:
                  master_source_mask=False, master_sky_dynamic=False, master_photometry=False, processed_raw_final=False,
                  master_weight_image=False, tile_header=False, astrometry=False, illumcorr=False, resampled=False,
                  build_statistics=False, stacks=False, statistics_stacks=False, classification_stacks=False,
-                 photometry_stacks=False, tile=False, statistics_tile=False, classification_tile=False,
-                 photometry_tile=False, phase3=False):
+                 photometry_stacks=False, qc_astrometry_stacks=False, tile=False, statistics_tile=False,
+                 classification_tile=False, photometry_tile=False, qc_astrometry_tile=False, phase3=False):
 
         # Set status calibration attributes
         self.master_bpm = master_bpm
@@ -786,10 +804,12 @@ class PipelineStatus:
         self.statistics_stacks = statistics_stacks
         self.classification_stacks = classification_stacks
         self.photometry_stacks = photometry_stacks
+        self.qc_astrometry_stacks = qc_astrometry_stacks
         self.tile = tile
         self.statistics_tile = statistics_tile
         self.classification_tile = classification_tile
         self.photometry_tile = photometry_tile
+        self.qc_astrometry_tile = qc_astrometry_tile
         self.phase3 = phase3
 
     def __str__(self):
@@ -804,7 +824,8 @@ class PipelineStatus:
                 "processed_raw_basic", "master_sky_static", "master_source_mask", "master_sky_dynamic",
                 "master_photometry", "processed_raw_final", "master_weight_image", "tile_header", "astrometry",
                 "illumcorr", "resampled", "build_statistics", "stacks", "statistics_stacks", "classification_stacks",
-                "photometry_stacks", "tile", "statistics_tile", "classification_tile", "photometry_tile", "phase3"]
+                "photometry_stacks", "qc_astrometry_stacks", "tile", "statistics_tile", "classification_tile",
+                "photometry_tile", "qc_astrometry_tile", "phase3"]
 
     @property
     def status_dict(self):
