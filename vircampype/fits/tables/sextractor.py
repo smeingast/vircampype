@@ -27,6 +27,7 @@ from astropy.wcs import WCS, FITSFixedWarning
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
+from vircampype.tools.messaging import message_qc_astrometry
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -707,6 +708,134 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                                                    header=hdul[idx_hdu_self].header)
 
             hdul.flush()
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Processing info
+        print_header(header="QC ASTROMETRY", silent=self.setup.silent)
+        tstart = time.time()
+
+        # Get FPA layout
+        fpa_layout = self.setup.fpa_layout
+
+        # Obtain master coordinates
+        sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
+
+        # Loop over files
+        for idx_file in range(len(self)):
+
+            # Generate outpath
+            outpath = "{0}{1}_astr_referror2d.pdf".format(self.setup.folders["qc_astrometry"], self.names[idx_file])
+
+            # Check if file exists
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
+            # Grab coordinates
+            xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
+            yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
+            sc_file = self.skycoord()[idx_file]
+
+            # Coadd mode
+            if len(self) == 1:
+                fig, ax_all = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                ax_all = [ax_all]
+            else:
+                fig, ax_all = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+                ax_all = ax_all.ravel()
+            cax = fig.add_axes([0.3, 0.92, 0.4, 0.02])
+
+            # Loop over extensions
+            im, sep_all = None, []
+            for idx_hdu in range(len(sc_file)):
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath, d_current=idx_hdu+1,
+                                    d_total=len(sc_file), silent=self.setup.silent)
+
+                # Read header
+                header = self.image_headers[idx_file][idx_hdu]
+
+                # Get separations between master and current table
+                i1, sep, _ = sc_file[idx_hdu].match_to_catalog_sky(sc_master_astrometry)
+
+                # Extract position angles between master catalog and input
+                # sc1 = sc_master_astrometry[i1]
+                # ang = sc1.position_angle(sc_hdu)
+
+                # Keep only those with a maximum of 0.5 arcsec
+                keep = sep.arcsec < 0.5
+                sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
+
+                # Determine number of bins (with given radius at least 10 sources)
+                stacked = np.stack([x_hdu, y_hdu]).T
+                dis, _ = NearestNeighbors(n_neighbors=51, algorithm="auto").fit(stacked).kneighbors(stacked)
+                maxdis = np.percentile(dis[:, -1], 95)
+                n_bins_x, n_bins_y = int(header["NAXIS1"] / maxdis), int(header["NAXIS2"] / maxdis)
+
+                # Minimum number of 3 bins
+                n_bins_x = 3 if n_bins_x <= 3 else n_bins_x
+                n_bins_y = 3 if n_bins_y <= 3 else n_bins_y
+
+                # Grid value into image
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, x_min=0, x_max=header["NAXIS1"], y_min=0,
+                                     y_max=header["NAXIS2"], nx=n_bins_x, ny=n_bins_y, conv=False, upscale=False)
+
+                # Append separations in arcsec
+                sep_all.append(sep.arcsec)
+
+                # Draw
+                kwargs = {"vmin": 0, "vmax": 0.5, "cmap": "Spectral_r"}
+                extent = [0, header["NAXIS1"], 0, header["NAXIS2"]]
+                im = ax_all[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
+                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.arcsec, s=7, lw=0.5, ec="black", **kwargs)
+
+                # Annotate detector ID
+                ax_all[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                                         xycoords="axes fraction", ha="left", va="bottom")
+
+                # Modify axes
+                if idx_hdu < fpa_layout[1]:
+                    ax_all[idx_hdu].set_xlabel("X (pix)")
+                else:
+                    ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
+                if idx_hdu % fpa_layout[0] == 0:
+                    ax_all[idx_hdu].set_ylabel("Y (pix)")
+                else:
+                    ax_all[idx_hdu].axes.yaxis.set_ticklabels([])
+
+                ax_all[idx_hdu].set_aspect("equal")
+
+                # Set ticks
+                ax_all[idx_hdu].xaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx_hdu].xaxis.set_minor_locator(AutoMinorLocator())
+                ax_all[idx_hdu].yaxis.set_major_locator(MaxNLocator(5))
+                ax_all[idx_hdu].yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Left limit
+                ax_all[idx_hdu].set_xlim(extent[0], extent[1])
+                ax_all[idx_hdu].set_ylim(extent[2], extent[3])
+
+            # Add colorbar
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
+            cbar.ax.xaxis.set_ticks_position("top")
+            cbar.ax.xaxis.set_label_position("top")
+
+            # Print external error stats
+            message_qc_astrometry(separation=flat_list(sep_all))
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig.savefig(outpath, bbox_inches="tight")
+            plt.close("all")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
