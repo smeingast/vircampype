@@ -745,7 +745,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Coadd mode
             if len(self) == 1:
-                fig, ax_all = get_plotgrid(layout=(1, 1), xsize=2*axis_size, ysize=2*axis_size)
+                fig, ax_all = get_plotgrid(layout=(1, 1), xsize=4*axis_size, ysize=4*axis_size)
                 ax_all = [ax_all]
             else:
                 fig, ax_all = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
