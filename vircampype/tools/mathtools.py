@@ -302,6 +302,9 @@ def linearize_data(data, coeff, texptime, reset_read_overhead):
     # Mask too large values
     data_lin[data_lin > 65536] = np.nan
 
+    # Reset negative values just in case
+    data_lin[data < 0] = data[data < 0]
+
     return data_lin
 
 
