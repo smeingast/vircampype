@@ -214,8 +214,21 @@ class Setup(dict):
             raise ValueError("Please provide a pipeline setup")
 
     # =========================================================================== #
-    # Hard-coded pipeline setup
+    # What to process
+    @property
+    def build_stacks(self):
+        return True
+
+    @property
+    def build_tile(self):
+        return True
+
+    @property
+    def build_phase3(self):
+        return True
+
     # =========================================================================== #
+    # Generic pipeline setup
     @property
     def name(self):
         return self.__name
