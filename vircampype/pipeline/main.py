@@ -629,12 +629,14 @@ class Pipeline:
     def phase3(self):
         if not self.status.phase3:
             photerr_internal = self.sources_stacks_crunched.photerr_internal()
-            build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
-                                photerr_internal=photerr_internal)
-            make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
-                             pawprint_images=self.resampled, photerr_internal=photerr_internal)
-            if self.setup.compress_phase3:
-                self.compress_phase3_images()
+            if self.setup.build_stacks:
+                build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
+                                    photerr_internal=photerr_internal)
+            if self.setup.build_tile:
+                make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
+                                 pawprint_images=self.resampled, photerr_internal=photerr_internal)
+            # if self.setup.compress_phase3:
+            #     self.compress_phase3_images()
             self.update_status(phase3=True)
         else:
             print_message(message="PHASE 3 compliance already done", kind="warning", end=None)
@@ -750,21 +752,24 @@ class Pipeline:
         self.build_statistics_resampled()
 
         # Build and calibrate stacks
-        self.build_stacks()
-        self.build_statistics_stacks()
-        self.classification_stacks()
-        self.photometry_stacks()
-        self.qc_astrometry_stacks()
+        if self.setup.build_stacks:
+            self.build_stacks()
+            self.build_statistics_stacks()
+            self.classification_stacks()
+            self.photometry_stacks()
+            self.qc_astrometry_stacks()
 
         # Build and calibrate tile
-        self.build_tile()
-        self.build_statistics_tile()
-        self.classification_tile()
-        self.photometry_tile()
-        self.qc_astrometry_tile()
+        if self.setup.build_tile:
+            self.build_tile()
+            self.build_statistics_tile()
+            self.classification_tile()
+            self.photometry_tile()
+            self.qc_astrometry_tile()
 
         # Phase 3
-        self.phase3()
+        if self.setup.build_phase3:
+            self.phase3()
 
         # Print finish message
         print_end(tstart=t0)
