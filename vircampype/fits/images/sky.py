@@ -15,11 +15,11 @@ from vircampype.tools.mathtools import *
 from astropy.coordinates import SkyCoord
 from vircampype.tools.tabletools import *
 from vircampype.tools.systemtools import *
+from vircampype.tools.viziertools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.astromatic import SwarpSetup
 from vircampype.visions.sourcemasks import SourceMasks
-from vircampype.tools.viziertools import download_2mass
 from vircampype.tools.astromatic import SextractorSetup
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.tools.photometry import get_default_extinction
@@ -664,6 +664,39 @@ class SkyImagesProcessed(SkyImages):
 
             # Add object info to primary header
             add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def build_master_astrometry(self):
+
+        # Processing info
+        print_header(header="MASTER-ASTROMETRY", right=None, silent=self.setup.silent)
+        tstart = time.time()
+
+        # Construct outpath
+        outpath = self.setup.folders["master_object"] + "MASTER-ASTROMETRY.fits.tab"
+
+        # Check if the file is already there and skip if it is
+        if not check_file_exists(file_path=outpath, silent=self.setup.silent):
+
+            # Print processing info
+            message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
+                                d_total=None, silent=self.setup.silent)
+
+            # Determine size to download
+            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
+
+            # Download catalog
+            table = download_gaia(skycoord=self.centroid_all, radius=2 * size)
+
+            # Save catalog
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                table.write(outpath, format="fits", overwrite=True)
+
+            # Add object info to primary header
+            add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-ASTROMETRY")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
