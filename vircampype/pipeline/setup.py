@@ -31,6 +31,11 @@ class Setup(dict):
         self.__overwrite = False
         self.__qc_plots = True
 
+        # What to process
+        self.__build_stacks = True
+        self.__build_tile = True
+        self.__build_phase3 = True
+
         # Data setup
         self.__maximasking = False
         self.__projection = None
@@ -217,15 +222,27 @@ class Setup(dict):
     # What to process
     @property
     def build_stacks(self):
-        return True
+        return self.__build_stacks
+
+    @build_stacks.setter
+    def build_stacks(self, build_stacks):
+        self.__build_stacks = build_stacks
 
     @property
     def build_tile(self):
-        return True
+        return self.__build_tile
+
+    @build_tile.setter
+    def build_tile(self, build_tile):
+        self.__build_tile = build_tile
 
     @property
     def build_phase3(self):
-        return True
+        return self.__build_phase3
+
+    @build_phase3.setter
+    def build_phase3(self, build_phase3):
+        self.__build_phase3 = build_phase3
 
     # =========================================================================== #
     # Generic pipeline setup
