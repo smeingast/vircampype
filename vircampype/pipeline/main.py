@@ -455,6 +455,13 @@ class Pipeline:
             else:
                 print_message(message="MASTER-PHOTOMETRY already created", kind="warning", end=None)
 
+    def build_master_astrometry(self):
+        if not self.status.master_astrometry:
+            self.processed_basic_science.build_master_astrometry()
+            self.update_status(master_astrometry=True)
+        else:
+            print_message(message="MASTER-ASTROMETRY already created", kind="warning", end=None)
+
     def build_master_weight_image(self):
         if not self.status.master_weight_image:
             self.processed_science_final.build_master_weight_image()
@@ -481,6 +488,7 @@ class Pipeline:
     def calibrate_astrometry(self):
         if not self.status.astrometry:
             self.processed_science_final.sextractor(preset="scamp")
+            # exit()
             self.sources_processed_final_scamp.scamp()
             self.update_status(astrometry=True)
         else:
@@ -732,6 +740,7 @@ class Pipeline:
 
         # Build static sky, source masks, dynamic sky, and master photometry
         self.build_master_photometry()
+        self.build_master_astrometry()
         self.build_master_sky_static()
         self.build_master_source_mask()
         self.build_master_sky_dynamic()
@@ -778,11 +787,12 @@ class Pipeline:
 class PipelineStatus:
     def __init__(self, master_bpm=False, master_linearity=False, master_dark=False, master_gain=False,
                  master_flat=False, master_weight_global=False, processed_raw_basic=False, master_sky_static=False,
-                 master_source_mask=False, master_sky_dynamic=False, master_photometry=False, processed_raw_final=False,
-                 master_weight_image=False, tile_header=False, astrometry=False, illumcorr=False, resampled=False,
-                 build_statistics=False, stacks=False, statistics_stacks=False, classification_stacks=False,
-                 photometry_stacks=False, qc_astrometry_stacks=False, tile=False, statistics_tile=False,
-                 classification_tile=False, photometry_tile=False, qc_astrometry_tile=False, phase3=False):
+                 master_source_mask=False, master_sky_dynamic=False, master_photometry=False, master_astrometry=False,
+                 processed_raw_final=False, master_weight_image=False, tile_header=False, astrometry=False,
+                 illumcorr=False, resampled=False, build_statistics=False, stacks=False, statistics_stacks=False,
+                 classification_stacks=False, photometry_stacks=False, qc_astrometry_stacks=False, tile=False,
+                 statistics_tile=False, classification_tile=False, photometry_tile=False, qc_astrometry_tile=False,
+                 phase3=False):
 
         # Set status calibration attributes
         self.master_bpm = master_bpm
@@ -798,6 +808,7 @@ class PipelineStatus:
         self.master_source_mask = master_source_mask
         self.master_sky_dynamic = master_sky_dynamic
         self.master_photometry = master_photometry
+        self.master_astrometry = master_astrometry
         self.processed_raw_final = processed_raw_final
         self.master_weight_image = master_weight_image
         self.tile_header = tile_header
@@ -827,10 +838,10 @@ class PipelineStatus:
     def __attributes():
         return ["master_bpm", "master_linearity", "master_dark", "master_gain", "master_flat", "master_weight_global",
                 "processed_raw_basic", "master_sky_static", "master_source_mask", "master_sky_dynamic",
-                "master_photometry", "processed_raw_final", "master_weight_image", "tile_header", "astrometry",
-                "illumcorr", "resampled", "build_statistics", "stacks", "statistics_stacks", "classification_stacks",
-                "photometry_stacks", "qc_astrometry_stacks", "tile", "statistics_tile", "classification_tile",
-                "photometry_tile", "qc_astrometry_tile", "phase3"]
+                "master_photometry", "master_astrometry", "processed_raw_final", "master_weight_image", "tile_header",
+                "astrometry", "illumcorr", "resampled", "build_statistics", "stacks", "statistics_stacks",
+                "classification_stacks", "photometry_stacks", "qc_astrometry_stacks", "tile", "statistics_tile",
+                "classification_tile", "photometry_tile", "qc_astrometry_tile", "phase3"]
 
     @property
     def status_dict(self):
