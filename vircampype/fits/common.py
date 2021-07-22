@@ -650,3 +650,15 @@ class FitsFiles:
 
         """
         return self.get_master_tables().photometry
+
+    def get_master_astrometry(self):
+        """
+        Returns master astrometry catalog
+
+        Returns
+        -------
+        MasterAstrometry
+            MasterAstrometry instance.
+
+        """
+        return self.get_master_tables().astrometry
