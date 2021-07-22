@@ -1,5 +1,6 @@
 import numpy as np
 
+from astropy.time import Time
 from astropy.coordinates import SkyCoord
 from vircampype.fits.tables.common import FitsTables
 
@@ -278,3 +279,113 @@ class MasterPhotometry2Mass(MasterPhotometry):
         keep_qfl = [True if x in "AB" else False for x in self.qflags(passband=passband)[0][0]]
         keep_cfl = [True if x == "0" else False for x in self.cflags(passband=passband)[0][0]]
         return np.array(keep_qfl and keep_cfl)
+
+
+class MasterAstrometry(SourceCatalogs):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterAstrometry, self).__init__(file_paths=file_paths, setup=setup)
+
+    @property
+    def _key_pmra(self):
+        return "pmra"
+
+    @property
+    def _key_pmdec(self):
+        return "pmdec"
+
+    @property
+    def epoch(self):
+        return 2000.
+
+    _pmra = None
+
+    def pmra(self, key=None):
+
+        # Check if already determined
+        if self._pmra is not None:
+            return self._pmra
+
+        # Override RA key
+        kpmra = key if key is not None else self._key_pmra
+
+        # Retun columns
+        self._pmra = [[y for y in x] for x in self.get_columns(column_name=kpmra)]
+        return self._pmra
+
+    _pmdec = None
+
+    def pmdec(self, key=None):
+
+        # Check if already determined
+        if self._pmdec is not None:
+            return self._pmdec
+
+        # Override RA key
+        kpmdec = key if key is not None else self._key_pmdec
+
+        # Retun columns
+        self._pmdec = [[y for y in x] for x in self.get_columns(column_name=kpmdec)]
+        return self._pmdec
+
+    def skycoord(self, key_ra=None, key_dec=None, key_pmra=None, key_pmdec=None):
+        """
+        Constructs SkyCoord object from ra/dec
+        Parameters
+        ----------
+        key_ra : str, optional
+            Key for RA in table.
+        key_dec : str, optional
+            Key for DEC in table.
+        key_pmra : str, optional
+            Key for PM along RA in table.
+        key_pmdec : str, optional
+            Key for PM along Dec in table.
+
+        Returns
+        -------
+        iterable
+            List of lists holding SkyCoord objects
+
+        """
+
+        from astropy.units import Unit
+        udeg = Unit("deg")
+        umasyr = Unit("mas/yr")
+
+        skycoord_files = []
+        for fra, fdec, fpmra, fpmdec in \
+                zip(self.ra(key=key_ra), self.dec(key=key_dec), self.pmra(key=key_pmra), self.pmdec(key=key_pmdec)):
+            skycoord_ext = []
+            for ra, dec, pmra, pmdec in zip(fra, fdec, fpmra, fpmdec):
+                skycoord_ext.append(SkyCoord(ra=ra*udeg, dec=dec*udeg, pm_ra_cosdec=pmra*umasyr, pm_dec=pmdec*umasyr,
+                                             frame="icrs", obstime=Time(self.epoch, format="jyear")))
+            skycoord_files.append(skycoord_ext)
+
+        return skycoord_files
+
+
+class MasterAstrometryGaia(MasterAstrometry):
+
+    def __init__(self, setup, file_paths=None):
+        super(MasterAstrometryGaia, self).__init__(file_paths=file_paths, setup=setup)
+
+    @property
+    def _key_ra(self):
+        return "RA_ICRS"
+
+    @property
+    def _key_dec(self):
+        return "DE_ICRS"
+
+    @property
+    def _key_pmra(self):
+        return "pmRA"
+
+    @property
+    def _key_pmdec(self):
+        return "pmDE"
+
+    @property
+    def epoch(self):
+        return 2016.
