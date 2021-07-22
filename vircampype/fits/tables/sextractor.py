@@ -712,21 +712,136 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
-    def plot_qc_astrometry(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
+    def plot_qc_astrometry_1d(self, axis_size=5):
 
         # Import
+        from astropy.units import Unit
         import matplotlib.pyplot as plt
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Processing info
-        print_header(header="QC ASTROMETRY", silent=self.setup.silent)
+        print_header(header="QC ASTROMETRY 1D", silent=self.setup.silent)
         tstart = time.time()
 
         # Get FPA layout
         fpa_layout = self.setup.fpa_layout
 
         # Obtain master coordinates
-        sc_master_astrometry = self.get_master_photometry().skycoord()[0][0]
+        sc_master_raw = self.get_master_astrometry().skycoord()[0][0]
+
+        # Loop over files
+        for idx_file in range(len(self)):
+
+            # Generate outpath
+            outpath_sep = "{0}{1}_astr_referr_sep.pdf".format(self.setup.folders["qc_astrometry"], self.names[idx_file])
+            outpath_ang = "{0}{1}_astr_referr_ang.pdf".format(self.setup.folders["qc_astrometry"], self.names[idx_file])
+
+            # Check if file already exists
+            if check_file_exists(file_path=outpath_ang, silent=self.setup.silent):
+                continue
+
+            # Grab coordinates
+            sc_file = self.skycoord()[idx_file]
+
+            # Apply space motion to match data obstime
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                sc_master_equal = sc_master_raw.apply_space_motion(new_obstime=self.time_obs[idx_file])
+
+            # Coadd mode
+            if len(self) == 1:
+                fig1, ax_all1 = get_plotgrid(layout=(1, 1), xsize=4*axis_size, ysize=4*axis_size)
+                ax_all1 = [ax_all1]
+                fig2, ax_all2 = get_plotgrid(layout=(1, 1), xsize=4*axis_size, ysize=4*axis_size)
+                ax_all2 = [ax_all2]
+            else:
+                fig1, ax_all1 = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+                ax_all1 = ax_all1.ravel()
+                fig2, ax_all2 = get_plotgrid(layout=fpa_layout, xsize=axis_size, ysize=axis_size)
+                ax_all2 = ax_all2.ravel()
+
+            # Loop over extensions
+            for idx_hdu in range(len(sc_file)):
+
+                # Print processing info
+                message_calibration(n_current=idx_file+1, n_total=len(self), name=outpath_sep, d_current=idx_hdu+1,
+                                    d_total=len(sc_file), silent=self.setup.silent)
+
+                # Grab data for current HDU
+                sc_hdu = sc_file[idx_hdu]
+
+                # Get separations and position angles between matched master and current table
+                i1, i2, sep2d_equal = sc_hdu.search_around_sky(sc_master_equal, seplimit=0.5 * Unit("arcsec"))[:3]
+                ang_equal = sc_hdu[i2].position_angle(sc_master_equal[i1])
+
+                # Get separations and position angles between matched master and current table
+                i1, i2, sep2d_raw = sc_hdu.search_around_sky(sc_master_raw, seplimit=0.5 * Unit("arcsec"))[:3]
+                ang_raw = sc_hdu[i2].position_angle(sc_master_raw[i1])
+
+                # Draw separation histograms
+                kwargs_hist = dict(range=(0, 100), bins=20, histtype="step", lw=2.0, ls="solid", alpha=0.7)
+                ax_all1[idx_hdu].hist(sep2d_equal.mas, ec="crimson", label="Equalized epoch", **kwargs_hist)
+                ax_all1[idx_hdu].hist(sep2d_raw.mas, ec="dodgerblue", label="Raw epoch", **kwargs_hist)
+                ax_all1[idx_hdu].axvline(0, c="black", ls="dashed", lw=1)
+
+                # Draw position angle histgrams
+                kwargs_hist = dict(range=(0, 360), bins=20, histtype="step", lw=2.0, ls="solid", alpha=0.7)
+                ax_all2[idx_hdu].hist(ang_equal.degree, ec="crimson", label="Equalized epoch", **kwargs_hist)
+                ax_all2[idx_hdu].hist(ang_raw.degree, ec="dodgerblue", label="Raw epoch", **kwargs_hist)
+
+                # Modify axes
+                for ax, ll in zip([ax_all1[idx_hdu], ax_all2[idx_hdu]], ["Separation (mas)", "Position angle (deg)"]):
+
+                    # Annotate detector ID
+                    ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
+                                xycoords="axes fraction", ha="left", va="bottom")
+
+                    # Modify axes
+                    if idx_hdu < fpa_layout[1]:
+                        ax.set_xlabel(ll)
+                    else:
+                        ax.axes.xaxis.set_ticklabels([])
+                    if (idx_hdu + 1) % fpa_layout[0] == 0:
+                        ax.set_ylabel("N")
+                    else:
+                        ax.axes.yaxis.set_ticklabels([])
+
+                    # Set ticks
+                    ax.xaxis.set_major_locator(MaxNLocator(5))
+                    ax.xaxis.set_minor_locator(AutoMinorLocator())
+                    ax.yaxis.set_major_locator(MaxNLocator(5))
+                    ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+            # Set label on last iteration
+            for ax in [ax_all1[-1], ax_all2[-1]]:
+                ax.legend(loc="lower left", bbox_to_anchor=(0.01, 1.02), ncol=2,
+                          fancybox=False, shadow=False, frameon=False)
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                fig1.savefig(outpath_sep, bbox_inches="tight")
+                fig2.savefig(outpath_ang, bbox_inches="tight")
+            plt.close("all")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+    def plot_qc_astrometry_2d(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Processing info
+        print_header(header="QC ASTROMETRY 2D", silent=self.setup.silent)
+        tstart = time.time()
+
+        # Get FPA layout
+        fpa_layout = self.setup.fpa_layout
+
+        # Obtain master coordinates
+        sc_master = self.get_master_astrometry().skycoord()[0][0]
 
         # Loop over files
         for idx_file in range(len(self)):
@@ -742,6 +857,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
             yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
             sc_file = self.skycoord()[idx_file]
+
+            # Apply space motion to match data obstime
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                sc_master_matched = sc_master.apply_space_motion(new_obstime=self.time_obs[idx_file])
 
             # Coadd mode
             if len(self) == 1:
@@ -764,7 +884,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 header = self.image_headers[idx_file][idx_hdu]
 
                 # Get separations between master and current table
-                i1, sep, _ = sc_file[idx_hdu].match_to_catalog_sky(sc_master_astrometry)
+                i1, sep, _ = sc_file[idx_hdu].match_to_catalog_sky(sc_master_matched)
 
                 # Extract position angles between master catalog and input
                 # sc1 = sc_master_astrometry[i1]
@@ -785,17 +905,17 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 n_bins_y = 3 if n_bins_y <= 3 else n_bins_y
 
                 # Grid value into image
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.arcsec, x_min=0, x_max=header["NAXIS1"], y_min=0,
+                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.mas, x_min=0, x_max=header["NAXIS1"], y_min=0,
                                      y_max=header["NAXIS2"], nx=n_bins_x, ny=n_bins_y, conv=False, upscale=False)
 
                 # Append separations in arcsec
-                sep_all.append(sep.arcsec)
+                sep_all.append(sep.mas)
 
                 # Draw
-                kwargs = {"vmin": 0, "vmax": 0.5, "cmap": "Spectral_r"}
+                kwargs = {"vmin": 0, "vmax": 100, "cmap": "Spectral_r"}
                 extent = [0, header["NAXIS1"], 0, header["NAXIS2"]]
                 im = ax_all[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
-                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.arcsec, s=7, lw=0.5, ec="black", **kwargs)
+                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.mas, s=7, lw=0.5, ec="black", **kwargs)
 
                 # Annotate detector ID
                 ax_all[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
@@ -806,7 +926,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     ax_all[idx_hdu].set_xlabel("X (pix)")
                 else:
                     ax_all[idx_hdu].axes.xaxis.set_ticklabels([])
-                if idx_hdu % fpa_layout[0] == 0:
+                if (idx_hdu + 1) % fpa_layout[0] == 0:
                     ax_all[idx_hdu].set_ylabel("Y (pix)")
                 else:
                     ax_all[idx_hdu].axes.yaxis.set_ticklabels([])
@@ -824,7 +944,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 ax_all[idx_hdu].set_ylim(extent[2], extent[3])
 
             # Add colorbar
-            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (arcsec)")
+            cbar = plt.colorbar(im, cax=cax, orientation="horizontal", label="Average separation (mas)")
             cbar.ax.xaxis.set_ticks_position("top")
             cbar.ax.xaxis.set_label_position("top")
 
