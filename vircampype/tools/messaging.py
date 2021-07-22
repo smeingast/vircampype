@@ -185,12 +185,12 @@ def message_qc_astrometry(separation):
     sep_mean, _, sep_std = sigma_clipped_stats(separation, sigma=5, maxiters=2)
 
     # Choose color
-    if sep_mean < 0.25:
+    if sep_mean < 50:
         color = BColors.OKGREEN
-    elif (sep_mean >= 0.25) & (sep_mean < 0.35):
+    elif (sep_mean >= 50) & (sep_mean < 100):
         color = BColors.WARNING
     else:
         color = BColors.FAIL
 
-    print(color + "\nExternal astrometric error (mean/std): {0:6.3f}/{1:6.3f}"
+    print(color + "\nExternal astrometric error (mas; mean/std): {0:6.1f}/{1:6.1f}"
           .format(sep_mean, sep_std) + BColors.ENDC, end="\n")
