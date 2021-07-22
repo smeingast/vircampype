@@ -277,7 +277,7 @@ class MasterTables(FitsTables):
         Returns
         -------
         MasterPhotometry
-            All MasterPhotometry tables as a MasterLinearity instance.
+            All MasterPhotometry tables as a MasterPhotometry instance.
 
         """
 
@@ -292,3 +292,24 @@ class MasterTables(FitsTables):
             return MasterPhotometry2Mass(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
         else:
             return MasterPhotometry(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+
+    @property
+    def astrometry(self):
+        """
+        Holds all MasterAstrometry tables.
+
+        Returns
+        -------
+        MasterPhotometry
+            All MasterAstrometry tables as a MasterAstrometry instance.
+
+        """
+
+        # Import
+        from vircampype.fits.tables.sources import MasterAstrometryGaia
+
+        # Get the masterphotometry files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-ASTROMETRY"]
+
+        # Return photometry catalog
+        return MasterAstrometryGaia(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
