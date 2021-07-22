@@ -6,22 +6,20 @@ from astropy.io import fits
 # =========================================================================== #
 # =========================================================================== #
 # Setup
-path_data = "/Volumes/Data/VISIONS/198C-2009E/data_control/"
+path_data = "/Volumes/Data/VISIONS/198C-2009E/data_wide/"
 path_scripts = "/Volumes/Data/VISIONS/198C-2009E/scripts/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
-files = glob.glob(path_data + "CrA*/*.fits")
-projection = "Corona_Australis_control"
-additional_source_masks = "Corona_Australis_control"
+files = glob.glob(path_data + "CrA*/A/*.fits")
+projection = "Corona_Australis_wide"
+additional_source_masks = "Corona_Australis_wide"
 # additional_source_masks = None
 
 reference_mag_lim = dict(J=(12.0, 15.5), H=(11.5, 15.0), Ks=(11.0, 14.5))
-n_jobs = 12
+n_jobs = 16
 
 # =========================================================================== #
 # =========================================================================== #
-
-
 # Get data directories
 unique_directories = sorted(list(set([os.path.dirname(x) + "/" for x in files])))
 
