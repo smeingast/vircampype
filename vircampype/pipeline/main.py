@@ -604,14 +604,16 @@ class Pipeline:
     # QC astrometry
     def qc_astrometry_stacks(self):
         if not self.status.qc_astrometry_stacks:
-            self.sources_stacks_full.plot_qc_astrometry()
+            self.sources_stacks_crunched.plot_qc_astrometry_1d()
+            self.sources_stacks_crunched.plot_qc_astrometry_2d()
             self.update_status(qc_astrometry_stacks=True)
         else:
             print_message(message="QC ASTROMETRY STACKS already done", kind="warning", end=None)
 
     def qc_astrometry_tile(self):
         if not self.status.qc_astrometry_tile:
-            self.sources_tile_full.plot_qc_astrometry()
+            self.sources_tile_crunched.plot_qc_astrometry_1d()
+            self.sources_tile_crunched.plot_qc_astrometry_2d()
             self.update_status(qc_astrometry_tile=True)
         else:
             print_message(message="QC ASTROMETRY TILE already done", kind="warning", end=None)
