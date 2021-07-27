@@ -5,7 +5,9 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.time import Time
+from astropy.table import Table
 from vircampype.pipeline.misc import *
+from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
 from astropy.io.fits.verify import VerifyWarning
 from vircampype.tools.wcstools import header_reset_wcs
@@ -542,3 +544,112 @@ def compress_images(images, q=4, exe="fpack", n_jobs=1):
 
     # Run commands
     run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
+
+
+def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None):
+    """
+    Generates an astrometric reference catalog based on downloaded Gaia data.
+
+
+    Parameters
+    ----------
+    path_in : str
+        Path to input raw fits catalog.
+    path_out : str
+        Output path.
+    epoch_in : float
+        Input epoch of catalog.
+    epoch_out : float, optional
+        If set, transforms the coordinates to the given output epoch.
+
+    """
+
+    # Read catalog
+    data_in = Table.read(path_in)
+
+    # Clean data
+    keep = (np.isfinite(data_in["ra"]) & np.isfinite(data_in["dec"]) &
+            np.isfinite(data_in["pmra"]) & np.isfinite(data_in["pmdec"]) & (data_in["ruwe"] < 1.5))
+    data_in = data_in[keep]
+
+    # Transform positions
+    if epoch_out is not None:
+        sc = SkyCoord(ra=data_in["ra"], dec=data_in["dec"], pm_ra_cosdec=data_in["pmra"], pm_dec=data_in["pmdec"],
+                      obstime=Time(epoch_in, format="jyear"))
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            sc = sc.apply_space_motion(new_obstime=Time(epoch_out, format="jyear"))
+    else:
+        epoch_out = epoch_in
+
+    # Create output table
+    data_out = Table()
+
+    # Add positions
+    data_out["X_WORLD"] = sc.ra.degree
+    data_out["XERR_WORLD"] = data_in["ra_error"].value / 3600000
+    data_out["Y_WORLD"] = sc.dec.degree
+    data_out["YERR_WORLD"] = data_in["dec_error"].value / 3600000
+
+    # Add proper motions
+    data_out["PM_ALPHA"] = data_in["pmra"].value
+    data_out["PMERR_ALPHA"] = data_in["pmra_error"].value
+    data_out["PM_DELTA"] = data_in["pmdec"].value
+    data_out["PMERR_DELTA"] = data_in["pmdec_error"].value
+
+    # Add magnitudes
+    data_out["MAG"] = data_in["phot_g_mean_mag"].value
+    data_out["MAGERR"] = 1.0857 * data_in["phot_g_mean_flux_error"].value / data_in["phot_g_mean_flux"].value
+
+    # Add date
+    data_out["OBSDATE"] = epoch_out
+
+    # Sort by DEC
+    sortindex = np.argsort(data_out["Y_WORLD"])
+    for nn in data_out.columns.keys():
+        data_out[nn] = data_out[nn][sortindex]
+
+    # Write temporary fits_table
+    path_temp = "/tmp/astr_ref_temp.cat.fits"
+    data_out.write(path_temp, overwrite=True)
+
+    # Convert to LDAC
+    fits2ldac(path_in=path_temp, path_out=path_out)
+
+    # Remove temporary file
+    os.remove(path_temp)
+
+
+def fits2ldac(path_in, path_out, extension=1):
+    """
+    Convert fits table on disk to LDAC-compatible format (for scamp).
+    Copied from https://codingdict.com/sources/py/astropy.io.fits/18055.html
+    """
+
+    # Read data
+    data, header = fits.getdata(path_in, extension, header=True)
+
+    # Create HDUs
+    ext2_str = header.tostring(endcard=False, padding=False)
+    ext2_data = np.array([ext2_str])
+    formatstr = str(len(ext2_str)) + "A"
+    col1 = fits.Column(name='Field Header Card', array=ext2_data, format=formatstr)
+    cols = fits.ColDefs([col1])
+    ext2 = fits.BinTableHDU.from_columns(cols)
+    ext2.header['EXTNAME'] = 'LDAC_IMHEAD'
+    ext2.header['TDIM1'] = '(80, {0})'.format(len(ext2_str)/80)
+    ext3 = fits.BinTableHDU(data)
+    ext3.header['EXTNAME'] = 'LDAC_OBJECTS'
+    prihdr = fits.Header()
+    prihdu = fits.PrimaryHDU(header=prihdr)
+
+    # Write HDUList to output LDAC fits table
+    hdulist = fits.HDUList([prihdu, ext2, ext3])
+    hdulist.writeto(path_out, overwrite=True)
+    hdulist.close()
+
+
+if __name__ == "__main__":
+    pi = "/Volumes/Data/VHS/CrA/scamp/gaia_edr3_refcat.fits"
+    po = "/Volumes/Data/VHS/CrA/scamp/astr_refcat_2015.5.fits"
+    make_gaia_refcat(path_in=pi, path_out=po, epoch_out=2015.5)
