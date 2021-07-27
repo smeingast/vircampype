@@ -569,7 +569,9 @@ def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None):
 
     # Clean data
     keep = (np.isfinite(data_in["ra"]) & np.isfinite(data_in["dec"]) &
-            np.isfinite(data_in["pmra"]) & np.isfinite(data_in["pmdec"]) & (data_in["ruwe"] < 1.5))
+            np.isfinite(data_in["phot_g_mean_flux"]) & np.isfinite(data_in["phot_g_mean_flux_error"]) &
+            np.isfinite(data_in["pmra"]) & np.isfinite(data_in["pmdec"])
+            & (data_in["ruwe"] < 1.5))
     data_in = data_in[keep]
 
     # Transform positions
