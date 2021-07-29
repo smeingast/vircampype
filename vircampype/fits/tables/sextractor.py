@@ -728,6 +728,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # Obtain master coordinates
         sc_master_raw = self.get_master_astrometry().skycoord()[0][0]
 
+        # Apply space motion to match data obstime
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            sc_master_equal = sc_master_raw.apply_space_motion(new_obstime=self.time_obs_mean)
+
         # Loop over files
         for idx_file in range(len(self)):
 
@@ -741,11 +746,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Grab coordinates
             sc_file = self.skycoord()[idx_file]
-
-            # Apply space motion to match data obstime
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore")
-                sc_master_equal = sc_master_raw.apply_space_motion(new_obstime=self.time_obs[idx_file])
 
             # Coadd mode
             if len(self) == 1:
