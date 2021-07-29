@@ -715,7 +715,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
     def plot_qc_astrometry_1d(self, axis_size=5):
 
         # Import
-        from astropy.units import Unit
         import matplotlib.pyplot as plt
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
@@ -771,12 +770,16 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 sc_hdu = sc_file[idx_hdu]
 
                 # Get separations and position angles between matched master and current table
-                i1, i2, sep2d_equal = sc_hdu.search_around_sky(sc_master_equal, seplimit=0.5 * Unit("arcsec"))[:3]
-                ang_equal = sc_hdu[i2].position_angle(sc_master_equal[i1])
+                idx, sep2d_equal = sc_hdu.match_to_catalog_sky(sc_master_equal, nthneighbor=1)[:2]
+                i1 = sep2d_equal.arcsec <= 0.5
+                i2, sep2d_equal = idx[i1], sep2d_equal[i1]
+                ang_equal = sc_hdu[i1].position_angle(sc_master_equal[i2])
 
                 # Get separations and position angles between matched master and current table
-                i1, i2, sep2d_raw = sc_hdu.search_around_sky(sc_master_raw, seplimit=0.5 * Unit("arcsec"))[:3]
-                ang_raw = sc_hdu[i2].position_angle(sc_master_raw[i1])
+                idx, sep2d_raw = sc_hdu.match_to_catalog_sky(sc_master_raw, nthneighbor=1)[:2]
+                i1 = sep2d_raw.arcsec <= 0.5
+                i2, sep2d_raw = idx[i1], sep2d_raw[i1]
+                ang_raw = sc_hdu[i1].position_angle(sc_master_raw[i2])
 
                 # Draw separation histograms
                 kwargs_hist = dict(range=(0, 100), bins=20, histtype="step", lw=2.0, ls="solid", alpha=0.7)
