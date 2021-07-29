@@ -182,7 +182,7 @@ def message_qc_astrometry(separation):
     from astropy.stats import sigma_clipped_stats
 
     # Compute stats
-    sep_mean, _, sep_std = sigma_clipped_stats(separation, sigma=5, maxiters=2)
+    sep_mean, _, sep_std = sigma_clipped_stats(separation, sigma_upper=3, sigma_lower=4, maxiters=2)
 
     # Choose color
     if sep_mean < 50:
