@@ -9,7 +9,7 @@ import importlib
 from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
-           "get_resource_path", "copy_file", "remove_file", "clean_directory", "notify"]
+           "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify"]
 
 
 def make_folder(path: str):
@@ -199,6 +199,13 @@ def remove_file(filepath: str):
     try:
         os.remove(filepath)
     except OSError:
+        pass
+
+
+def remove_directory(path_folder: str):
+    try:
+        shutil.rmtree(path_folder)
+    except FileNotFoundError:
         pass
 
 
