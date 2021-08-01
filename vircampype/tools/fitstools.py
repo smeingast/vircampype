@@ -652,7 +652,7 @@ def fits2ldac(path_in, path_out, extension=1):
 
 
 if __name__ == "__main__":
-    epoch_out = 2018.33
+    epoch_new = 2018.33
     path_raw = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/gaia_edr3_raw.fits"
-    path_out = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/astr_refcat_{0}.fits".format(epoch_out)
-    make_gaia_refcat(path_in=path_raw, path_out=path_out, epoch_out=epoch_out)
+    path_new = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/astr_refcat_{0}.fits".format(epoch_new)
+    make_gaia_refcat(path_in=path_raw, path_out=path_new, epoch_out=epoch_new)
