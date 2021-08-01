@@ -652,6 +652,7 @@ def fits2ldac(path_in, path_out, extension=1):
 
 
 if __name__ == "__main__":
-    pi = "/Volumes/Data/VHS/CrA/scamp/gaia_edr3_refcat.fits"
-    po = "/Volumes/Data/VHS/CrA/scamp/astr_refcat_2015.5.fits"
-    make_gaia_refcat(path_in=pi, path_out=po, epoch_out=2015.5)
+    epoch_out = 2018.33
+    path_raw = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/gaia_edr3_raw.fits"
+    path_out = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/astr_refcat_{0}.fits".format(epoch_out)
+    make_gaia_refcat(path_in=path_raw, path_out=path_out, epoch_out=epoch_out)
