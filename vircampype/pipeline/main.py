@@ -608,7 +608,7 @@ class Pipeline:
             self.sources_stacks_crunched.plot_qc_astrometry_2d()
             self.update_status(qc_astrometry_stacks=True)
         else:
-            print_message(message="QC ASTROMETRY STACKS already done", kind="warning", end=None)
+            print_message(message="STACKS QC ASTROMETRY already done", kind="warning", end=None)
 
     def qc_astrometry_tile(self):
         if not self.status.qc_astrometry_tile:
@@ -616,7 +616,7 @@ class Pipeline:
             self.sources_tile_crunched.plot_qc_astrometry_2d()
             self.update_status(qc_astrometry_tile=True)
         else:
-            print_message(message="QC ASTROMETRY TILE already done", kind="warning", end=None)
+            print_message(message="TILE QC ASTROMETRY already done", kind="warning", end=None)
 
     # =========================================================================== #
     # Phase 3
