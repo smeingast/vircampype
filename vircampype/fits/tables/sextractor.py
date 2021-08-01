@@ -859,6 +859,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Grab coordinates
             xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
             yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
+            snr_file = self.get_column_file(idx_file=idx_file, column_name="SNR_WIN")
             sc_file = self.skycoord()[idx_file]
 
             # Apply space motion to match data obstime
@@ -896,6 +897,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Keep only those with a maximum of 0.5 arcsec
                 keep = sep.arcsec < 0.5
                 sep, x_hdu, y_hdu = sep[keep], xx_file[idx_hdu][keep], yy_file[idx_hdu][keep]
+                snr_hdu = snr_file[idx_hdu][keep]
 
                 # Determine number of bins (with given radius at least 10 sources)
                 stacked = np.stack([x_hdu, y_hdu]).T
@@ -908,17 +910,18 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 n_bins_y = 3 if n_bins_y <= 3 else n_bins_y
 
                 # Grid value into image
-                grid = grid_value_2d(x=x_hdu, y=y_hdu, value=sep.mas, x_min=0, x_max=header["NAXIS1"], y_min=0,
-                                     y_max=header["NAXIS2"], nx=n_bins_x, ny=n_bins_y, conv=False, upscale=False)
+                grid = grid_value_2d_nn(x=x_hdu, y=y_hdu, values=sep.mas, n_nearest_neighbors=20, n_bins_x=n_bins_x,
+                                        n_bins_y=n_bins_y, x_min=1, y_min=1, x_max=header["NAXIS1"],
+                                        y_max=header["NAXIS2"], metric="weighted", weights=snr_hdu)
 
-                # Append separations in arcsec
-                sep_all.append(sep.mas)
+                # Save high SN separations
+                sep_all.append(sep.mas[snr_hdu > np.nanpercentile(snr_hdu, 90)])
 
                 # Draw
-                kwargs = {"vmin": 0, "vmax": 100, "cmap": "Spectral_r"}
+                kwargs = dict(vmin=0, vmax=100, cmap="Spectral_r")
                 extent = [0, header["NAXIS1"], 0, header["NAXIS2"]]
                 im = ax_all[idx_hdu].imshow(grid, extent=extent, origin="lower", **kwargs)
-                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.mas, s=7, lw=0.5, ec="black", **kwargs)
+                ax_all[idx_hdu].scatter(x_hdu, y_hdu, c=sep.mas, s=5, lw=0.5, ec="black", alpha=0.5, **kwargs)
 
                 # Annotate detector ID
                 ax_all[idx_hdu].annotate("Det.ID: {0:0d}".format(idx_hdu + 1), xy=(0.02, 1.01),
