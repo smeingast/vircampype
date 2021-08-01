@@ -688,11 +688,20 @@ class SkyImagesProcessed(SkyImages):
             size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
 
             # Download catalog
-            table = download_gaia(skycoord=self.centroid_all, radius=2 * size)
-
-            # Save catalog
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
+                table = download_gaia(skycoord=self.centroid_all, radius=2 * size)
+
+                # Keep only sources with valid ra/dec/pm entries
+                keep = (np.isfinite(table["RA_ICRS"]) & np.isfinite(table["DE_ICRS"]) &
+                        np.isfinite(table["pmRA"]) & np.isfinite(table["pmDE"]) &
+                        np.isfinite(table["FG"]) & np.isfinite(table["e_FG"]) &
+                        (table["RUWE"] < 1.5))
+
+                # Apply cut
+                table = table[keep]
+
+                # Save catalog
                 table.write(outpath, format="fits", overwrite=True)
 
             # Add object info to primary header
