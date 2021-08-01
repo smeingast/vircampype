@@ -674,7 +674,7 @@ class Pipeline:
         clean_directory(self.setup.folders["tile"], pattern="*.tab")
         clean_directory(self.setup.folders["tile"], pattern="*.ahead")
 
-    def deepclean(self):
+    def deep_clean(self):
         """ Runs a shallow clean followed by deleting also the pipeline status"""
         self.shallow_clean()
         remove_file(filepath=self.path_status)
