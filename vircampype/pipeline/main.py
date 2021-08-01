@@ -2,6 +2,7 @@ import glob
 import pickle
 
 from vircampype.tools.messaging import *
+from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.errors import PipelineError
 from vircampype.fits.images.common import FitsImages
@@ -656,28 +657,34 @@ class Pipeline:
     def shallow_clean(self):
         """ Remove intermediate processing steps, but leave the most important files in the directory tree. """
 
-        # Remove all extracted headers
-        clean_directory(self.setup.folders["headers"])
+        # Remove header directory
+        remove_directory(self.setup.folders["headers"])
 
-        # Remove processed raw frames, their source catalogs, and the astrometric solution
-        clean_directory(self.setup.folders["processed"])
+        # Remove illumination correction directory
+        remove_directory(self.setup.folders["illumcorr"])
 
-        # Remove all data except maximasks from the illumination correction directory
-        clean_directory(self.setup.folders["illumcorr"], pattern="*ic.ahead")
-        clean_directory(self.setup.folders["illumcorr"], pattern="*ic.fits")
+        # Remove basic processed frames
+        remove_directory(self.setup.folders["processed_basic"])
 
-        # Remove intermediate source catalogs and coadd header
-        clean_directory(self.setup.folders["resampled"], pattern="*.tab")
-        clean_directory(self.setup.folders["resampled"], pattern="*ahead")
+        # Remove all files from final processed folder except astrometric solution
+        clean_directory(self.setup.folders["processed_final"], pattern="*.tab")
+        clean_directory(self.setup.folders["processed_final"], pattern="*.fits")
+        clean_directory(self.setup.folders["processed_final"], pattern="*.ic.fits.tab")
 
-        # Remove temporary tables and additional headers from tile directory
+        # Remove resampled files
+        remove_directory(self.setup.folders["resampled"])
+
+        # Remove statistics directory
+        remove_directory(self.setup.folders["statistics"])
+
+        # Remove intermediate tables
+        clean_directory(self.setup.folders["stacks"], pattern="*.tab")
         clean_directory(self.setup.folders["tile"], pattern="*.tab")
-        clean_directory(self.setup.folders["tile"], pattern="*.ahead")
 
     def deep_clean(self):
         """ Runs a shallow clean followed by deleting also the pipeline status"""
         self.shallow_clean()
-        remove_file(filepath=self.path_status)
+        remove_directory(self.setup.folders["temp"])
 
     def archive(self):
         """ First runs a deep clean and then compresses all remaining FITS images. """
