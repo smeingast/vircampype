@@ -35,6 +35,7 @@ class Setup(dict):
         self.__build_stacks = True
         self.__build_tile = True
         self.__build_phase3 = True
+        self.__archive = False
 
         # Data setup
         self.__maximasking = False
@@ -243,6 +244,14 @@ class Setup(dict):
     @build_phase3.setter
     def build_phase3(self, build_phase3):
         self.__build_phase3 = build_phase3
+
+    @property
+    def archive(self):
+        return self.__archive
+
+    @archive.setter
+    def archive(self, archive):
+        self.__archive = archive
 
     # =========================================================================== #
     # Generic pipeline setup
