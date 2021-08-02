@@ -94,8 +94,8 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
         # Add internal photometric error to primary headers
         if "photerr_internal" in kwargs:
             for hdr in [phdr_stk, phdr_ctg]:
-                add_float_to_header(header=hdr, key="PHOTINER", value=kwargs["photerr_internal"],
-                                    comment="Internal photometric error", decimals=5)
+                add_float_to_header(header=hdr, key="PHOTIERR", value=kwargs["photerr_internal"],
+                                    comment="Internal photometric error (mag)", decimals=5)
 
         # Get passband
         passband = phdr_stk["FILTER"]
@@ -366,8 +366,8 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
     # Add internal photometric error to prime header
     if "photerr_internal" in kwargs:
         for hdr in [phdr_tile, phdr_catalog]:
-            add_float_to_header(header=hdr, key="PHOTINER", value=kwargs["photerr_internal"],
-                                comment="Internal photometric error", decimals=5)
+            add_float_to_header(header=hdr, key="PHOTIERR", value=kwargs["photerr_internal"],
+                                comment="Internal photometric error (mag)", decimals=5)
 
     # Make final HDUs
     hdul_tile_out = fits.PrimaryHDU(data=hdul_tile_in[0].data, header=phdr_tile)
