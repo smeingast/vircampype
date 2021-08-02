@@ -1360,7 +1360,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Remove intermediate files
             [os.remove(x) for x in paths_temp_stacks]
             [os.remove(x) for x in paths_temp_weights]
-            exit()
+
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
