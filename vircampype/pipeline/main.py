@@ -639,6 +639,7 @@ class Pipeline:
 
     def phase3(self):
         if not self.status.phase3:
+            # TODO: This does only work when stacks are created. Perhaps better compute this from the pawprints?
             photerr_internal = self.sources_stacks_crunched.photerr_internal()
             if self.setup.build_stacks:
                 build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
