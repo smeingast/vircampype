@@ -657,37 +657,37 @@ class Pipeline:
     def shallow_clean(self):
         """ Remove intermediate processing steps, but leave the most important files in the directory tree. """
 
-        # Remove header directory
-        remove_directory(self.setup.folders["headers"])
+        # Clean header directory
+        clean_directory(self.setup.folders["headers"])
 
-        # Remove illumination correction directory
-        remove_directory(self.setup.folders["illumcorr"])
+        # Clean illumination correction directory
+        clean_directory(self.setup.folders["illumcorr"])
 
-        # Remove basic processed frames
-        remove_directory(self.setup.folders["processed_basic"])
+        # Clean basic processed directory
+        clean_directory(self.setup.folders["processed_basic"])
 
         # Remove all files from final processed folder except astrometric solution
         clean_directory(self.setup.folders["processed_final"], pattern="*.tab")
         clean_directory(self.setup.folders["processed_final"], pattern="*.fits")
-        clean_directory(self.setup.folders["processed_final"], pattern="*.ic.fits.tab")
 
         # Remove resampled files
-        remove_directory(self.setup.folders["resampled"])
+        clean_directory(self.setup.folders["resampled"])
 
-        # Remove statistics directory
-        remove_directory(self.setup.folders["statistics"])
+        # Cleam statistics directory
+        clean_directory(self.setup.folders["statistics"])
 
         # Remove intermediate tables
         clean_directory(self.setup.folders["stacks"], pattern="*.tab")
         clean_directory(self.setup.folders["tile"], pattern="*.tab")
 
     def deep_clean(self):
-        """ Runs a shallow clean followed by deleting also the pipeline status"""
+        """ Runs a shallow clean followed by deleting the pipeline status"""
         self.shallow_clean()
-        remove_directory(self.setup.folders["temp"])
+        clean_directory(self.setup.folders["temp"])
 
     def archive(self):
-        """ First runs a shallow clean and then compresses all remaining FITS images. """
+        """ First runs a shallow clean, then compresses all remaining FITS images. """
+
         if not self.status.archive:
 
             print_header(header="ARCHIVING", silent=self.setup.silent, left=None, right=None)
