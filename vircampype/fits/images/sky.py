@@ -1274,7 +1274,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
             # Read fits header info from input files
-            cpkw = ["NOFFSETS", "OFFSET_I", "NJITTER", "DEXTINCT", "SKY", "SKYSIG", "MJD-OBS", "AIRMASS"]
+            cpkw = ["NOFFSETS", "OFFSET_I", "NJITTER", "DEXTINCT", "SKY", "SKYSIG", "MJD-OBS", "AIRMASS",
+                    "ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"]
             cpkw_data = files.read_from_data_headers(keywords=cpkw)
             cpkw_dict = dict(zip(cpkw, cpkw_data))
 
@@ -1345,6 +1346,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             arcnames = files.read_from_prime_headers(keywords=["ARCFILE"])[0]
             for idx in range(len(arcnames)):
                 prhdr_stk.set("HIERARCH PYPE ARCNAME {0:02d}".format(idx), arcnames[idx])
+            astirms = np.sqrt(cpkw_dict["ASTIRMS1"][0][0]**2 + cpkw_dict["ASTIRMS2"][0][0]**2) * 3600000
+            astrrms = np.sqrt(cpkw_dict["ASTRRMS1"][0][0]**2 + cpkw_dict["ASTRRMS2"][0][0]**2) * 3600000
+            prhdr_stk.set("ASTIRMS", value=np.round(astirms, 2), comment="Internal astr. dispersion RMS (mas)")
+            prhdr_stk.set("ASTRRMS", value=np.round(astrrms, 2), comment="External astr. dispersion RMS (mas)")
 
             # Construct MEF from individual detectors
             make_mef_image(paths_input=sorted(paths_temp_stacks), overwrite=self.setup.overwrite,
@@ -1355,7 +1360,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Remove intermediate files
             [os.remove(x) for x in paths_temp_stacks]
             [os.remove(x) for x in paths_temp_weights]
-
+            exit()
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
