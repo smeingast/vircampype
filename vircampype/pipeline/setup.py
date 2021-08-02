@@ -55,6 +55,7 @@ class Setup(dict):
         self.__sex_back_filtersize = 3
 
         # Astrometry
+        self.__external_headers = False
         self.__astr_reference_catalog = "GAIA"
 
         # Photometry
@@ -605,6 +606,14 @@ class Setup(dict):
 
     # =========================================================================== #
     # Astrometry
+    @property
+    def external_headers(self):
+        return self.__external_headers
+
+    @external_headers.setter
+    def external_headers(self, external_headers):
+        self.__external_headers = external_headers
+
     @property
     def astr_reference_catalog(self):
         return self.__astr_reference_catalog
