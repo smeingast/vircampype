@@ -1460,11 +1460,28 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Run Swarp
         if not check_file_exists(file_path=self.setup.path_coadd, silent=self.setup.silent) \
                 and not self.setup.overwrite:
+
+            # Run Swarp
             run_command_shell(cmd=cmd, silent=True)
 
-            # Copy primary header from first entry of input
-            copy_keywords(path_1=self.setup.path_coadd, path_2=self.paths_full[0], hdu_1=0, hdu_2=0,
-                          keywords=[self.setup.keywords.object, self.setup.keywords.filter_name])
+            # Compute estimate of astrometric RMS
+            cpkw = ["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"]
+            astrms_data = self.read_from_data_headers(keywords=cpkw)
+            astrms_dict = dict(zip(cpkw, astrms_data))
+            astirms = np.sqrt(np.mean(astrms_dict["ASTIRMS1"])**2 + np.mean(astrms_dict["ASTIRMS1"])**2) * 3600000
+            astrrms = np.sqrt(np.mean(astrms_dict["ASTRRMS1"])**2 + np.mean(astrms_dict["ASTRRMS1"])**2) * 3600000
+
+            # Copy/add primary header entries
+            with fits.open(self.setup.path_coadd, mode="update") as hdul_tile, \
+                    fits.open(self.paths_full[0], mode="readonly") as hdu_paw0:
+                hdul_tile[0].header.set(keyword=self.setup.keywords.object,
+                                        value=hdu_paw0[0].header[self.setup.keywords.object])
+                hdul_tile[0].header.set(keyword=self.setup.keywords.filter_name,
+                                        value=hdu_paw0[0].header[self.setup.keywords.filter_name])
+                hdul_tile[0].header.set(keyword="ASTIRMS", value=np.round(astirms, 2),
+                                        comment="Internal astr. dispersion RMS (mas)")
+                hdul_tile[0].header.set(keyword="ASTRRMS", value=np.round(astrrms, 2),
+                                        comment="External astr. dispersion RMS (mas)")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
