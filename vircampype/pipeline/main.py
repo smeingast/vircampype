@@ -489,8 +489,8 @@ class Pipeline:
     def calibrate_astrometry(self):
         if not self.status.astrometry:
             self.processed_science_final.sextractor(preset="scamp")
-            # exit()
-            self.sources_processed_final_scamp.scamp()
+            if not self.setup.external_headers:
+                self.sources_processed_final_scamp.scamp()
             self.update_status(astrometry=True)
         else:
             print_message(message="ASTROMETRY already calibrated", kind="warning", end=None)
