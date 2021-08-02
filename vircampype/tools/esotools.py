@@ -198,11 +198,15 @@ def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, 
         hdr.set("NUSTEP", value=hdulist_stack[0].header["NUSTEP"], comment="Number of microstep positions")
         hdr.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
 
+    # Astrometric RMS
+    hdr.set("ASTIRMS", value=hdulist_stack[0].header["ASTIRMS"], comment="Internal astr. dispersion RMS (mas)")
+    hdr.set("ASTRRMS", value=hdulist_stack[0].header["ASTRRMS"], comment="External astr. dispersion RMS (mas)")
+
     # Select category based on input
     if image_or_catalog.lower() == "catalog":
-        hdr["PRODCATG"] = "SCIENCE.SRCTBL"
+        hdr.set("PRODCATG", value="SCIENCE.SRCTBL", after="INSTRUME")
     elif image_or_catalog.lower() == "image":
-        hdr["PRODCATG"] = "SCIENCE.MEFIMAGE"
+        hdr.set("PRODCATG", value="SCIENCE.MEFIMAGE", after="INSTRUME")
 
         # Provenance
         idx = 0
@@ -505,6 +509,10 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
         # hdr.set("ISAMP", value=False)
         hdr.set("PROCSOFT", value="vircampype v{0}".format(__version__), comment="Reduction software")
         hdr.set("REFERENC", value="", comment="Primary science publication")
+
+        # Astrometric RMS
+        hdr.set("ASTIRMS", value=phdr_tile_in["ASTIRMS"], comment="Internal astr. dispersion RMS (mas)")
+        hdr.set("ASTRRMS", value=phdr_tile_in["ASTRRMS"], comment="External astr. dispersion RMS (mas)")
 
     # Write Extension name for source catalog
     ehdr_ctg_out.set("EXTNAME", value="HDU01")
