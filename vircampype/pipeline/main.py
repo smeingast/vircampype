@@ -1,3 +1,4 @@
+import time
 import glob
 import pickle
 
@@ -8,7 +9,6 @@ from vircampype.pipeline.errors import PipelineError
 from vircampype.fits.images.common import FitsImages
 from vircampype.tools.fitstools import compress_images
 from vircampype.tools.esotools import build_phase3_stacks, make_phase3_tile
-from vircampype.tools.systemtools import run_commands_shell_parallel, clean_directory, remove_file
 
 
 class Pipeline:
@@ -687,20 +687,33 @@ class Pipeline:
         remove_directory(self.setup.folders["temp"])
 
     def archive(self):
-        """ First runs a deep clean and then compresses all remaining FITS images. """
+        """ First runs a shallow clean and then compresses all remaining FITS images. """
+        if not self.status.archive:
 
-        # Deep clean
-        self.deepclean()
+            print_header(header="ARCHIVING", silent=self.setup.silent, left=None, right=None)
+            tstart = time.time()
 
-        # Find all remaining files
-        fits_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fits"))
+            # Deep clean
+            self.shallow_clean()
 
-        # Construct compression commands
-        cmds = ["fpack -D -Y -q {0} {1}".format(self.setup.fpack_quantization_factor, f) for f in fits_files]
+            # Find all remaining fits files
+            fits_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fits"))
 
-        # Run in parallel (maximum of 2 at a time)
-        n_jobs = 1 if self.setup.n_jobs == 1 else 2
-        run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
+            # Construct compression commands
+            cmds = ["fpack -D -Y -q {0} {1}".format(self.setup.fpack_quantization_factor, f) for f in fits_files]
+
+            # Run in parallel (maximum of 2 at a time)
+            n_jobs = 1 if self.setup.n_jobs == 1 else 2
+            run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
+
+            # Print time
+            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+
+            # Update status
+            self.update_status(archive=True)
+
+        else:
+            print_message(message="ARCHIVING already done", kind="warning", end=None)
 
     def unarchive(self):
         """ Uncompresses all compressed files. """
@@ -789,6 +802,10 @@ class Pipeline:
         if self.setup.build_phase3:
             self.phase3()
 
+        # Archive results
+        if self.setup.archive:
+            self.archive()
+
         # Print finish message
         print_end(tstart=t0)
 
@@ -801,7 +818,7 @@ class PipelineStatus:
                  illumcorr=False, resampled=False, build_statistics=False, stacks=False, statistics_stacks=False,
                  classification_stacks=False, photometry_stacks=False, qc_astrometry_stacks=False, tile=False,
                  statistics_tile=False, classification_tile=False, photometry_tile=False, qc_astrometry_tile=False,
-                 phase3=False):
+                 phase3=False, archive=False):
 
         # Set status calibration attributes
         self.master_bpm = master_bpm
@@ -836,6 +853,7 @@ class PipelineStatus:
         self.photometry_tile = photometry_tile
         self.qc_astrometry_tile = qc_astrometry_tile
         self.phase3 = phase3
+        self.archive = archive
 
     def __str__(self):
         return self.status_dict.__str__()
@@ -850,7 +868,7 @@ class PipelineStatus:
                 "master_photometry", "master_astrometry", "processed_raw_final", "master_weight_image", "tile_header",
                 "astrometry", "illumcorr", "resampled", "build_statistics", "stacks", "statistics_stacks",
                 "classification_stacks", "photometry_stacks", "qc_astrometry_stacks", "tile", "statistics_tile",
-                "classification_tile", "photometry_tile", "qc_astrometry_tile", "phase3"]
+                "classification_tile", "photometry_tile", "qc_astrometry_tile", "phase3", "archive"]
 
     @property
     def status_dict(self):
