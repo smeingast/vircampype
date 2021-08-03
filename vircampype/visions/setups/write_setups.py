@@ -11,9 +11,12 @@ path_scripts = "/Volumes/Data/VISIONS/198C-2009E/scripts/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
 files = glob.glob(path_data + "CrA*/A/*.fits")
+add_to_name = "_C"
 projection = "Corona_Australis_wide"
 additional_source_masks = "Corona_Australis_wide"
 # additional_source_masks = None
+archive = True
+external_headers = True
 
 reference_mag_lim = dict(J=(12.0, 15.5), H=(11.5, 15.0), Ks=(11.0, 14.5))
 n_jobs = 16
@@ -33,10 +36,14 @@ for udj in unique_directories:
     # Get Object name
     name = fits.getheader(first_file, 0)["OBJECT"]
 
+    if add_to_name is not None:
+        name += add_to_name
+
     # Make setup
     setup = dict(name=name, path_data=udj, path_pype=path_pype, n_jobs=n_jobs,
                  reference_mag_lim=reference_mag_lim[passband], projection=projection,
-                 additional_source_masks=additional_source_masks)
+                 additional_source_masks=additional_source_masks, archive=archive,
+                 external_headers=external_headers)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
