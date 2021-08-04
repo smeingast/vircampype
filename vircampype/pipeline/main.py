@@ -752,6 +752,9 @@ class Pipeline:
         # Global master weight
         self.build_master_weight_global()
 
+        # Clean temporary headers
+        clean_directory(self.setup.folders["headers"])
+
     def process_science(self):
         """ Sequentially process science data. """
 
@@ -806,6 +809,9 @@ class Pipeline:
         # Archive results
         if self.setup.archive:
             self.archive()
+
+        # Clean temporary headers
+        clean_directory(self.setup.folders["headers"])
 
         # Print finish message
         print_end(tstart=t0)
