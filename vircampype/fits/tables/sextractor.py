@@ -381,8 +381,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             warnings.filterwarnings("ignore")
             tab_all = [self.file2table(file_index=i) for i in range(len(self))]
             tab_all = clean_source_table(vstack(flat_list(tab_all)))
-            zp_all = get_zeropoint(skycoord_cal=SkyCoord(tab_all[self._key_ra], tab_all[self._key_dec], unit="deg"),
-                                   mag_cal=tab_all["MAG_AUTO"], skycoord_ref=skycoord_master, mag_ref=mag_master,
+            zp_all = get_zeropoint(skycoord1=SkyCoord(tab_all[self._key_ra], tab_all[self._key_dec], unit="deg"),
+                                   mag1=tab_all["MAG_AUTO"], skycoord2=skycoord_master, mag2=mag_master,
                                    mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
             zp_all_mean, _, _ = sigma_clipped_stats(zp_all)
 
@@ -426,8 +426,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                          nndis_limit=5, min_fwhm=1.0, max_fwhm=5.0, max_ellipticity=0.2)
 
                 # Compute illumination correction
-                zp_all = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
-                                       mag_cal=tab["MAG_AUTO"], skycoord_ref=skycoord_master, mag_ref=mag_master,
+                zp_all = get_zeropoint(skycoord1=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
+                                       mag1=tab["MAG_AUTO"], skycoord2=skycoord_master, mag2=mag_master,
                                        mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
 
                 # Remove all table entries without ZP entry
