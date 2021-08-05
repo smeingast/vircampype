@@ -18,7 +18,7 @@ additional_source_masks = "Corona_Australis_wide"
 archive = True
 external_headers = True
 
-reference_mag_lim = dict(J=(12.0, 15.5), H=(11.5, 15.0), Ks=(11.0, 14.5))
+reference_mag_lim = dict(J=(12.5, 15.5), H=(12.0, 15.0), Ks=(11.5, 14.5))
 n_jobs = 16
 
 # =========================================================================== #
