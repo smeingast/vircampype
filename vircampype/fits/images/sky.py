@@ -197,7 +197,8 @@ class SkyImages(FitsImages):
             return cmds
 
         # Run Sextractor
-        run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=self.setup.n_jobs)
+        n_jobs = 10 if self.setup.n_jobs > 10 else self.setup.n_jobs  # max of 10 parallel jobs
+        run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs)
 
         # Add some keywords to primary header
         for cat, img in zip(path_tables_clean, self.paths_full):
