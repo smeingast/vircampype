@@ -1064,10 +1064,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         phot_median, phot_err, photerr_median = self._photerr_internal()
 
         # Get the 5% brightest sources
-        idx_bright = phot_median < np.percentile(phot_median, 5)
+        good = phot_median >= self.setup.reference_mag_lim[0]
+        idx_bright = phot_median[good] < np.percentile(phot_median[good], 5)
 
         # Get median error of those
-        return clipped_median(phot_err[idx_bright], sigma_upper=3, sigma_lower=2)
+        return clipped_median(phot_err[good][idx_bright], sigma=2)
 
     def paths_qc_plots(self, paths, prefix=""):
 
