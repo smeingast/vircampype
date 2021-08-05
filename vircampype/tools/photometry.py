@@ -58,17 +58,15 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
     # Restrict reference catalog
     if mag_limits_ref is not None:
         keep = (mag_ref >= mag_limits_ref[0]) & (mag_ref <= mag_limits_ref[1])
-        mag_ref = mag_ref[keep]
-
-        # Also apply to errors if needed
-        if method.lower() == "weighted":
+        mag_ref, skycoord_ref = skycoord_ref[keep], mag_ref[keep]
+        if mag_err_ref is not None:
             mag_err_ref = mag_err_ref[keep]
-
-        skycoord_ref = skycoord_ref[keep]
 
     # Clip brightest and faintest sources in input
     clip_cal = (mag_cal > np.nanpercentile(mag_cal, 2.5)) & (mag_cal < np.nanpercentile(mag_cal, 97.5))
-    mag_cal, mag_err_cal, skycoord_cal = mag_cal[clip_cal], mag_err_cal[clip_cal], skycoord_cal[clip_cal]
+    mag_cal, skycoord_cal = mag_cal[clip_cal], skycoord_cal[clip_cal]
+    if mag_err_cal is not None:
+        mag_err_cal = mag_err_cal[clip_cal]
 
     # Xmatch science with reference
     zp_idx, zp_d2d, _ = skycoord_cal.match_to_catalog_sky(skycoord_ref)
