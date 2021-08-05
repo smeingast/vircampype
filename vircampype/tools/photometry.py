@@ -8,24 +8,24 @@ from astropy.stats import sigma_clip, sigma_clipped_stats
 __all__ = ["get_zeropoint", "vega2ab", "get_default_extinction"]
 
 
-def get_zeropoint(skycoord_cal, mag_cal, skycoord_ref, mag_ref, mag_limits_ref=None,
-                  method="weighted", mag_err_cal=None, mag_err_ref=None, plot=False):
+def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
+                  method="weighted", magerr1=None, magerr2=None, plot=False):
     """
     Calculate zero point
 
     Parameters
     ----------
-    skycoord_cal : SkyCoord
+    skycoord1 : SkyCoord
         Astropy SkyCoord object with all coordinates of catalog to be calibrated.
-    mag_cal : iterable, ndarray
+    mag1 : iterable, ndarray
         Magnitudes of sources to be calibrated.
-    mag_err_cal : iterable, ndarray
+    magerr1 : iterable, ndarray
         Magnitude errors of sources to be calibrated.
-    skycoord_ref : SkyCoord
+    skycoord2 : SkyCoord
         Astropy SkyCoord instance for reference catalog sources.
-    mag_ref : iterable, ndarray
+    mag2 : iterable, ndarray
         Magnitudes of reference sources.
-    mag_err_ref : iterable, ndarray
+    magerr2 : iterable, ndarray
         Magnitude errors of reference sources.
     mag_limits_ref : tuple, optional
         Tuple of magnitude limits to be applied. e.g. (10, 15)
@@ -39,6 +39,14 @@ def get_zeropoint(skycoord_cal, mag_cal, skycoord_ref, mag_ref, mag_limits_ref=N
         Tuple holding zero point and error in zero point.
 
     """
+
+    # Copy arrays
+    skycoord_cal = skycoord1.copy()
+    mag_cal = mag1.copy()
+    mag_err_cal = magerr1.copy() if magerr1 is not None else None
+    skycoord_ref = skycoord2.copy()
+    mag_ref = mag2.copy()
+    mag_err_ref = magerr2.copy() if magerr2 is not None else None
 
     # Dummy check for errors
     if (method.lower() == "weighted") & ((mag_err_cal is None) | (mag_err_ref is None)):
@@ -57,6 +65,10 @@ def get_zeropoint(skycoord_cal, mag_cal, skycoord_ref, mag_ref, mag_limits_ref=N
             mag_err_ref = mag_err_ref[keep]
 
         skycoord_ref = skycoord_ref[keep]
+
+    # Clip brightest and faintest sources in input
+    clip_cal = (mag_cal > np.nanpercentile(mag_cal, 2.5)) & (mag_cal < np.nanpercentile(mag_cal, 97.5))
+    mag_cal, mag_err_cal, skycoord_cal = mag_cal[clip_cal], mag_err_cal[clip_cal], skycoord_cal[clip_cal]
 
     # Xmatch science with reference
     zp_idx, zp_d2d, _ = skycoord_cal.match_to_catalog_sky(skycoord_ref)
