@@ -58,7 +58,7 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
     # Restrict reference catalog
     if mag_limits_ref is not None:
         keep = (mag_ref >= mag_limits_ref[0]) & (mag_ref <= mag_limits_ref[1])
-        mag_ref, skycoord_ref = skycoord_ref[keep], mag_ref[keep]
+        mag_ref, skycoord_ref = mag_ref[keep], skycoord_ref[keep]
         if mag_err_ref is not None:
             mag_err_ref = mag_err_ref[keep]
 
