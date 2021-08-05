@@ -205,10 +205,10 @@ def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_
 
     # Loop over columns
     for cm, ce in zip(columns_mag, columns_magerr):
-        zp, zp_err = get_zeropoint(skycoord_cal=SkyCoord(table[key_ra], table[key_dec], unit="deg"),
-                                   skycoord_ref=SkyCoord(table_2mass["RAJ2000"], table_2mass["DEJ2000"], unit="deg"),
-                                   mag_cal=table[cm], mag_err_cal=table[ce], mag_ref=table_2mass[passband_2mass],
-                                   mag_err_ref=table_2mass["e_{0}".format(passband_2mass)], mag_limits_ref=mag_lim_ref,
+        zp, zp_err = get_zeropoint(skycoord1=SkyCoord(table[key_ra], table[key_dec], unit="deg"),
+                                   skycoord2=SkyCoord(table_2mass["RAJ2000"], table_2mass["DEJ2000"], unit="deg"),
+                                   mag1=table[cm], magerr1=table[ce], mag2=table_2mass[passband_2mass],
+                                   magerr2=table_2mass["e_{0}".format(passband_2mass)], mag_limits_ref=mag_lim_ref,
                                    method=method)
 
         # Add calibrated photometry to table
