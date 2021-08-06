@@ -682,10 +682,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 bad = (xx_image >= mjdeff.shape[1]) | (xx_image < 0) | \
                       (yy_image >= mjdeff.shape[0]) | (yy_image < 0)
 
-                # Just to be sort of safe, let's say we can't have more than 3% of sources at the edges
-                if sum(bad) / len(bad) > 0.03:
+                # Just to be sort of safe, let's say we can't have more than 5% of sources outside the edges
+                if sum(bad) / len(bad) > 0.05:
                     raise ValueError("Too many sources are close to the image edge ({0}/{1}). "
-                                     "Please check for issues.".format(sum(bad), len(bad)))
+                                     "Please check for issues. (file: {2}, TableHDU: {3})"
+                                     "".format(sum(bad), len(bad), self.paths_full[idx_file], idx_hdu_self))
 
                 # Reset bad coordinates to 0/0
                 xx_image[bad], yy_image[bad] = 0, 0
