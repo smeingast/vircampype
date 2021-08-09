@@ -16,6 +16,7 @@ from astropy.stats import sigma_clipped_stats
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.fitstools import mjd2dateobs
 from vircampype.tools.mathtools import clipped_median
+from vircampype.tools.mathtools import centroid_sphere
 from vircampype.tools.fitstools import add_float_to_header
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
@@ -169,8 +170,12 @@ def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, 
     hdr.set("INSTRUME", value="VIRCAM", comment="Instrument name")
     hdr.set("FILTER", value=hdulist_stack[0].header[setup.keywords.filter_name], comment="Filter name")
     hdr.set("OBJECT", value=hdulist_stack[0].header["OBJECT"], comment="Target designation")
-    hdr.set("RA", value=hdulist_stack[1].header["CRVAL1"], comment="RA tile center")
-    hdr.set("DEC", value=hdulist_stack[1].header["CRVAL2"], comment="DEC tile center")
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        fp = np.concatenate([wcs.WCS(h.header).calc_footprint() for h in hdulist_stack[1:]])
+    cen = centroid_sphere(skycoord=SkyCoord(fp, unit="degree"))
+    hdr.set("RA", value=cen.ra.degree, comment="RA center")
+    hdr.set("DEC", value=cen.dec.degree, comment="DEC center")
     exptime = (hdulist_stack[0].header["NJITTER"] *
                hdulist_stack[0].header[setup.keywords.dit] *
                hdulist_stack[0].header[setup.keywords.ndit])
@@ -490,8 +495,12 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
         hdr.set("INSTRUME", value="VIRCAM", comment="Instrument name")
         hdr.set("FILTER", value=passband, comment="Filter name")
         hdr.set("OBJECT", value=phdr_tile_in["OBJECT"], comment="Target designation")
-        hdr.set("RA", value=phdr_tile_in["CRVAL1"], comment="RA tile center")
-        hdr.set("DEC", value=phdr_tile_in["CRVAL2"], comment="DEC tile center")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            fp = wcs.WCS(hdul_tile[0].header).calc_footprint()
+        cen = centroid_sphere(skycoord=SkyCoord(fp, unit="degree"))
+        hdr.set("RA", value=cen.ra.degree, comment="RA center")
+        hdr.set("DEC", value=cen.dec.degree, comment="DEC center")
         hdr.set("EXPTIME", value=2 * njitter * dit * ndit, comment="Total integration time")
         hdr.set("TEXPTIME", value=noffsets * njitter * dit * ndit,
                 comment="Sum of integration time of all exposures")
