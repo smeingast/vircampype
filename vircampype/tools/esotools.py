@@ -277,6 +277,12 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
 
     # Add ZP and ZP err
     if image_or_catalog == "image":
+        add_float_to_header(header=hdr_out, key="BACKMOD", value=hdr_stk["BACKMOD"],
+                            decimals=3, comment="Background mode")
+        add_float_to_header(header=hdr_out, key="BACKSIG", value=hdr_stk["BACKSIG"],
+                            decimals=3, comment="Background sigma")
+        add_float_to_header(header=hdr_out, key="BACKSKEW", value=hdr_stk["BACKSKEW"],
+                            decimals=3, comment="Background skew")
         add_float_to_header(header=hdr_out, key="PHOTZP", value=zp_avg, decimals=5, comment="Photometric zeropoint")
         add_float_to_header(header=hdr_out, key="PHOTZPER", value=zperr_tot, decimals=5,
                             comment="Uncertainty of the photometric zeropoint")
@@ -485,6 +491,12 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     phdr_tile_out.set("NUSTEP", value=phdr_first_pawprint["NUSTEP"], comment="Number of microstep positions")
     phdr_tile_out.set("PRODCATG", value="SCIENCE.IMAGE")
     phdr_tile_out.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
+    add_float_to_header(header=phdr_tile_out, key="BACKMOD", value=phdr_tile_in["BACKMOD"],
+                        decimals=3, comment="Background mode")
+    add_float_to_header(header=phdr_tile_out, key="BACKSIG", value=phdr_tile_in["BACKSIG"],
+                        decimals=3, comment="Background sigma")
+    add_float_to_header(header=phdr_tile_out, key="BACKSKEW", value=phdr_tile_in["BACKSKEW"],
+                        decimals=3, comment="Background skew")
     add_float_to_header(header=phdr_tile_out, key="PHOTZP", value=zp_avg, decimals=5, comment="Photometric zeropoint")
     add_float_to_header(header=phdr_tile_out, key="PHOTZPER", value=zperr_tot, decimals=5,
                         comment="Uncertainty of photometric zeropoint")
