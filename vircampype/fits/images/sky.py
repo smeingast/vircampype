@@ -7,6 +7,7 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.table import Table
+from vircampype.external.mmm import mmm
 from vircampype.tools.wcstools import *
 from vircampype.tools.plottools import *
 from vircampype.tools.fitstools import *
@@ -1311,9 +1312,13 @@ class SkyImagesResampled(SkyImagesProcessed):
                     hdul[0].header.set("NJITTER", value=cpkw_dict["NJITTER"][idx_first][idx_iter_hdu])
                     hdul[0].header.set("DEXTINCT", value=cpkw_dict["DEXTINCT"][idx_first][idx_iter_hdu])
                     sky = np.mean(list(zip(*cpkw_dict["SKY"]))[idx_iter_hdu])
-                    hdul[0].header.set("SKY", value=np.round(sky, 3))
+                    hdul[0].header.set("OSKY", value=np.round(sky, 3))
                     skysig = np.mean(list(zip(*cpkw_dict["SKYSIG"]))[idx_iter_hdu])
-                    hdul[0].header.set("SKYSIG", value=np.round(skysig, 3))
+                    hdul[0].header.set("OSKYSIG", value=np.round(skysig, 3))
+                    backmod, backsig, backskew = mmm(hdul[0].data)
+                    hdul[0].header.set("BACKMOD", value=np.round(backmod, 3), comment="Background mode")
+                    hdul[0].header.set("BACKSIG", value=np.round(backsig, 3), comment="Background sigma")
+                    hdul[0].header.set("BACKSKEW", value=np.round(backskew, 3), comment="Background skew")
                     hdul[0].header.set("AIRMASS", value=cpkw_dict["AIRMASS"][idx_first][idx_iter_hdu])
                     hdul[0].header.set("MJD-OBS", value=cpkw_dict["MJD-OBS"][idx_first][idx_iter_hdu])
                     mjdend = (cpkw_dict["MJD-OBS"][idx_last][idx_iter_hdu] +
@@ -1483,6 +1488,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                                         comment="Internal astr. dispersion RMS (mas)")
                 hdul_tile[0].header.set(keyword="ASTRRMS", value=np.round(astrrms, 2),
                                         comment="External astr. dispersion RMS (mas)")
+                # Set background info
+                backmod, backsig, backskew = mmm(hdul_tile[0].data)
+                hdul_tile[0].header.set("BACKMOD", value=np.round(backmod, 3), comment="Background mode")
+                hdul_tile[0].header.set("BACKSIG", value=np.round(backsig, 3), comment="Background sigma")
+                hdul_tile[0].header.set("BACKSKEW", value=np.round(backskew, 3), comment="Background skew")
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
