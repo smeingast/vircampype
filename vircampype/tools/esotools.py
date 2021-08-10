@@ -280,6 +280,10 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
         add_float_to_header(header=hdr_out, key="PHOTZP", value=zp_avg, decimals=5, comment="Photometric zeropoint")
         add_float_to_header(header=hdr_out, key="PHOTZPER", value=zperr_tot, decimals=5,
                             comment="Uncertainty of the photometric zeropoint")
+        add_float_to_header(header=hdr_out, key="AUTOZP", value=hdu_ctg.header["HIERARCH PYPE ZP MAG_AUTO"],
+                            decimals=5, comment="Photometric zeropoint (auto)")
+        add_float_to_header(header=hdr_out, key="AUTOZPER", value=hdu_ctg.header["HIERARCH PYPE ZP ERR MAG_AUTO"],
+                            decimals=5, comment="Uncertainty of the photometric zeropoint (auto)")
 
     # Determine magnitude limit
     fa = hdu_ctg.data["FLUX_AUTO"].T
@@ -484,6 +488,10 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     add_float_to_header(header=phdr_tile_out, key="PHOTZP", value=zp_avg, decimals=5, comment="Photometric zeropoint")
     add_float_to_header(header=phdr_tile_out, key="PHOTZPER", value=zperr_tot, decimals=5,
                         comment="Uncertainty of photometric zeropoint")
+    add_float_to_header(header=phdr_tile_out, key="AUTOZP", value=e2hdr_ctg_in["HIERARCH PYPE ZP MAG_AUTO"],
+                        decimals=5, comment="Photometric zeropoint (auto)")
+    add_float_to_header(header=phdr_tile_out, key="AUTOZPER", value=e2hdr_ctg_in["HIERARCH PYPE ZP ERR MAG_AUTO"],
+                        decimals=5, comment="Uncertainty of the photometric zeropoint (auto)")
 
     # Write unique keywords into primary catalog header
     phdr_ctg_out["PRODCATG"] = "SCIENCE.SRCTBL"
