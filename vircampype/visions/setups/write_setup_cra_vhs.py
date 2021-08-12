@@ -28,7 +28,7 @@ projection = "Corona_Australis_wide"
 additional_source_masks = "Corona_Australis_wide"
 
 # Archive
-archive = True
+archive = False
 
 # Headers
 external_headers = True
