@@ -176,7 +176,7 @@ def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, 
     cen = centroid_sphere(skycoord=SkyCoord(fp, unit="degree"))
     hdr.set("RA", value=cen.ra.degree, comment="RA center")
     hdr.set("DEC", value=cen.dec.degree, comment="DEC center")
-    exptime = (hdulist_stack[0].header["NJITTER"] *
+    exptime = (hdulist_stack[0].header["NCOMBINE"] *
                hdulist_stack[0].header[setup.keywords.dit] *
                hdulist_stack[0].header[setup.keywords.ndit])
     hdr.set("EXPTIME", value=exptime, comment="Total integration time")
