@@ -846,14 +846,16 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def destripe(self, masks=None):
+    def destripe(self, masks=None, smooth=False):
         """
         Destripes VIRCAM images
 
         Parameters
         ----------
         masks : ImageCube
-            Cube instance containing masks
+            Cube instance containing masks.
+        smooth : bool, optional
+            Whether the destriping array should be smoothed with a spline before being applied.
 
         """
 
@@ -863,7 +865,7 @@ class ImageCube(object):
 
         # Destripe in parallel
         with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-            mp = parallel(delayed(destripe_helper)(a, b) for a, b in zip(self.cube, masks))
+            mp = parallel(delayed(destripe_helper)(a, b, c) for a, b, c in zip(self.cube, masks, repeat(smooth)))
 
         # Set new data cube
         self.cube = np.squeeze(np.array(mp))
