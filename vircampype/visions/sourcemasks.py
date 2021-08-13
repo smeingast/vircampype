@@ -38,18 +38,20 @@ class CoronaAustralisDeepSourceMasks(SourceMasks):
 
     def __init__(self):
 
-        # Define masks (ra, dec, size)
-        m1 = (284.89, -36.63, 600)
-        m2 = (285.48, -36.96, 300)
-        m3 = (285.43, -36.97, 300)
-        m4 = (285.42, -36.88, 400)
-        m5 = (285.40, -37.01, 200)
-        m6 = (285.29, -36.96, 200)
-        m7 = (285.84, -37.29, 200)
-        m8 = (285.31, -36.96, 150)
+        # Define masks (ra, dec, radius)
+        m01 = (284.89, -36.63, 600)
+        m02 = (285.48, -36.96, 300)
+        m03 = (285.43, -36.97, 300)
+        m04 = (285.42, -36.88, 400)
+        m05 = (285.40, -37.01, 200)
+        m06 = (285.29, -36.96, 200)
+        m07 = (285.84, -37.29, 200)
+        m08 = (285.79, -37.24, 200)
+        m09 = (285.31, -36.96, 150)
+        m10 = (285.557, -36.965, 150)
 
         # Put in list
-        masks_all = [m1, m2, m3, m4, m5, m6, m7, m8]
+        masks_all = [m01, m02, m03, m04, m05, m06, m07, m08, m09, m10]
 
         # Call parent
         super(CoronaAustralisDeepSourceMasks, self).__init__(*list(zip(*masks_all)))
