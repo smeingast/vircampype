@@ -10,9 +10,10 @@ from scipy.stats import binned_statistic_2d
 from astropy.stats import sigma_clipped_stats
 from skimage import morphology as skmorphology
 from sklearn.neighbors import NearestNeighbors
-from scipy.interpolate import SmoothBivariateSpline
 from astropy.stats import sigma_clip as astropy_sigma_clip
-from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKernel, Kernel2D, Box2DKernel
+from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline
+from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKernel, Kernel2D, \
+    Box2DKernel, Gaussian1DKernel
 
 
 __all__ = ["interpolate_image", "chop_image", "merge_chopped", "background_image", "upscale_image", "grid_value_2d",
@@ -509,7 +510,7 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     return convolve(gv, kernel=Gaussian2DKernel(1), boundary="extend")
 
 
-def destripe_helper(array, mask=None):
+def destripe_helper(array, mask=None, smooth=False):
     """
     Destripe helper for parallelisation.
 
@@ -517,24 +518,32 @@ def destripe_helper(array, mask=None):
     ----------
     array : ndarray
     mask : ndarray, optional
+    smooth : bool, optional
 
     """
+
+    # Copy array
+    array_copy = array.copy()
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
 
-        # Do destriping on masked array if set
+        # Apply mask if set
         if mask is not None:
-            array_copy = array.copy()
             array_copy[mask > 0] = np.nan
-            med = np.expand_dims(clipped_median(array_copy, axis=1, sigma_lower=3, sigma_upper=2), axis=1)
 
-        # Otherwise on full array
-        else:
-            med = np.expand_dims(clipped_median(array, axis=1, sigma_lower=3, sigma_upper=2), axis=1)
+        # Compute sky values in each row
+        med_destripe = np.array([mmm(v)[0] for v in array_copy])
+        med_destripe = interpolate_replace_nans(med_destripe, kernel=Gaussian1DKernel(5))  # noqa
+
+        # Apply smoothing if set
+        if smooth:
+            yy = np.arange(len(med_destripe))  # noqa
+            med_destripe_interp = UnivariateSpline(yy, med_destripe, k=5)(yy)
+            med_destripe -= med_destripe_interp
 
         # Return destriped array
-        return array - med + clipped_median(array, sigma_lower=3, sigma_upper=2)
+        return array - np.expand_dims(med_destripe, axis=1) + mmm(array_copy)[0]  # noqa
 
 
 def circular_mask(array, coordinates, radius):
