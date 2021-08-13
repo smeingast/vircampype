@@ -885,7 +885,7 @@ class SkyImagesProcessed(SkyImages):
             # Destriping
             if self.setup.destripe:
                 sources = master_source_mask.file2cube(file_index=idx_file)
-                cube.destripe(masks=sources)
+                cube.destripe(masks=sources, smooth=False)
 
             # Background subtraction
             if self.setup.subtract_background:
@@ -909,6 +909,11 @@ class SkyImagesProcessed(SkyImages):
             # Otherwise just calculate the sky level
             else:
                 sky, skysig = cube.background_planes()
+
+            # Destriping again with smoothed values if set
+            if self.setup.destripe:
+                sources = master_source_mask.file2cube(file_index=idx_file)
+                cube.destripe(masks=sources, smooth=True)
 
             # Add stuff to headers
             hdrs_data = []
