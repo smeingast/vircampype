@@ -277,6 +277,8 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
 
     # Add ZP and ZP err
     if image_or_catalog == "image":
+        add_float_to_header(header=hdr_out, key="GAIN", value=hdr_stk["GAIN"],
+                            decimals=3, comment="Maximum equivalent gain (e-/adu)")
         add_float_to_header(header=hdr_out, key="BACKMOD", value=hdr_stk["BACKMOD"],
                             decimals=3, comment="Background mode")
         add_float_to_header(header=hdr_out, key="BACKSIG", value=hdr_stk["BACKSIG"],
@@ -491,6 +493,8 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
     phdr_tile_out.set("NUSTEP", value=phdr_first_pawprint["NUSTEP"], comment="Number of microstep positions")
     phdr_tile_out.set("PRODCATG", value="SCIENCE.IMAGE")
     phdr_tile_out.set("FLUXCAL", value="ABSOLUTE", comment="Flux calibration")
+    add_float_to_header(header=phdr_tile_out, key="GAIN", value=phdr_tile_in["GAIN"],
+                        decimals=3, comment="Maximum equivalent gain (e-/adu)")
     add_float_to_header(header=phdr_tile_out, key="BACKMOD", value=phdr_tile_in["BACKMOD"],
                         decimals=3, comment="Background mode")
     add_float_to_header(header=phdr_tile_out, key="BACKSIG", value=phdr_tile_in["BACKSIG"],
