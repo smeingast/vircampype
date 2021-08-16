@@ -651,7 +651,7 @@ class Pipeline:
             #     self.compress_phase3_images()
             self.update_status(phase3=True)
         else:
-            print_message(message="PHASE 3 compliance already done", kind="warning", end=None)
+            print_message(message="PHASE 3 files already built", kind="warning", end=None)
 
     # =========================================================================== #
     # Cleaning/archiving
