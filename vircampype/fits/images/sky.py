@@ -915,6 +915,11 @@ class SkyImagesProcessed(SkyImages):
                 sources = master_source_mask.file2cube(file_index=idx_file)
                 cube.destripe(masks=sources, smooth=True)
 
+            # Dummy check if too many pixels where masked
+            for plane in cube:
+                if np.sum(np.isfinite(plane)) / plane.size < 0.2:
+                    raise ValueError("Too many pixels masked {0}".format(self.basenames[idx_file]))
+
             # Add stuff to headers
             hdrs_data = []
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
