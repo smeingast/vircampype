@@ -533,8 +533,9 @@ def destripe_helper(array, mask=None, smooth=False):
             array_copy[mask > 0] = np.nan
 
         # Compute sky values in each row
-        med_destripe = np.array([mmm(v)[0] for v in array_copy])
-        med_destripe = interpolate_replace_nans(med_destripe, kernel=Gaussian1DKernel(5))  # noqa
+        med_destripe = np.array([mmm(v, minsky=10)[0] for v in array_copy])
+        for _ in range(3):
+            med_destripe = interpolate_replace_nans(med_destripe, kernel=Gaussian1DKernel(20))  # noqa
 
         # Apply smoothing if set
         if smooth:
