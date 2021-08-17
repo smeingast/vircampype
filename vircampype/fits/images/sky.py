@@ -938,6 +938,7 @@ class SkyImagesProcessed(SkyImages):
             # Add file info to main header
             hdr_prime = self.headers_primary[idx_file].copy()
             hdr_prime.set("SKYFILE", value=master_sky.basenames[idx_file])
+            hdr_prime.set("MASKFILE", value=master_source_mask.basenames[idx_file])
 
             # Write to disk
             cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=hdrs_data, dtype="float32")
