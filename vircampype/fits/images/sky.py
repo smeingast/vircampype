@@ -1572,11 +1572,15 @@ class SkyImagesResampled(SkyImagesProcessed):
                 arr_mjdeff = np.full(shape, fill_value=self.mjd[idx_file] - mjd_offset, dtype=np.float32)
 
                 # Read weight
-                weight_hdu = fits.getdata(master_weights.paths_full[idx_file], idx_hdu)
+                weight_hdu = fits.getdata(master_weights.paths_full[idx_file], idx_hdu+1)
 
                 # Resize weight
                 arr_weight = upscale_image(weight_hdu, new_size=wcs_resized.pixel_shape, method="pil")
                 arr_weight[arr_weight < 0] = 0
+
+                # Mask arrays where weight is 0
+                # w0 = arr_weight / np.nanmedian(arr_weight) <= 0.00001
+                # arr_nimg[w0], arr_exptime[w0], arr_mjdeff[w0] = 0, 0, np.nan
 
                 # Create header and modify specifically for MJD
                 header_resized = wcs_resized.to_header()
