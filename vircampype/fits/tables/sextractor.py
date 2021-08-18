@@ -435,13 +435,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Grid with NN interpolation
                 grid_zp = grid_value_2d_nn(x=tab["XWIN_IMAGE"], y=tab["YWIN_IMAGE"], values=zp_all,
-                                           n_bins_x=header["NAXIS1"] // 100, n_bins_y=header["NAXIS2"] // 100,
+                                           n_bins_x=header["NAXIS1"] // 50, n_bins_y=header["NAXIS2"] // 50,
                                            x_min=1, y_min=1, x_max=header["NAXIS1"], y_max=header["NAXIS2"],
                                            n_nearest_neighbors=50 if len(tab) > 50 else len(tab),
                                            metric="weighted", weights=1 / tab["MAGERR_AUTO"]**2)
 
                 # Resize to original image size
-                grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="PIL")
+                grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="spline")
 
                 # Constant value
                 # zp = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
