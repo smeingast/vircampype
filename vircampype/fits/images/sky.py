@@ -198,7 +198,7 @@ class SkyImages(FitsImages):
             return cmds
 
         # Run Sextractor
-        n_jobs_sex = 5 if self.setup.n_jobs > 5 else self.setup.n_jobs  # max of 5 parallel jobs
+        n_jobs_sex = 6 if self.setup.n_jobs > 6 else self.setup.n_jobs  # max of 6 parallel jobs
         run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
 
         # Add some keywords to primary header
