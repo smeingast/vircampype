@@ -663,8 +663,16 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 table_hdu = self.filehdu2table(file_index=idx_file, hdu_index=idx_hdu_self)
 
                 # Read stats
-                mjdeff, exptime = fits.getdata(path_mjd, idx_hdu_stats), fits.getdata(path_exptime, idx_hdu_stats)
-                nimg, weight = fits.getdata(path_nimg, idx_hdu_stats), fits.getdata(path_weight, idx_hdu_stats)
+                try:
+                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
+                    exptime = fits.getdata(path_exptime, idx_hdu_stats)
+                    nimg = fits.getdata(path_nimg, idx_hdu_stats)
+                    weight = fits.getdata(path_weight, idx_hdu_stats)
+                except IndexError:
+                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats+1)
+                    exptime = fits.getdata(path_exptime, idx_hdu_stats+1)
+                    nimg = fits.getdata(path_nimg, idx_hdu_stats+1)
+                    weight = fits.getdata(path_weight, idx_hdu_stats+1)
 
                 # Renormalize weight
                 weight /= np.median(weight)
