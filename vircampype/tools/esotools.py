@@ -643,6 +643,7 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     cflg[data["FWHM_WORLD"] * 3600 <= 0.2] = True  # Bad FWHM
     cflg[~np.isfinite(np.sum(data["MAG_APER"], axis=1))] = True  # All aperture magnitudes must be good
     cflg[data["NIMG"] < 1] = True  # Must be images once
+    cflg[data["MJDEFF"] < 0] = True  # Must have a good MJD
     cflg[data["FLAGS_WEIGHT"] > 0] = True  # No flags in weight
     cflg[sflg >= 4] = True  # No bad Sextractor flags
     cflg[np.isnan(data["CLASS_STAR_INTERP"])] = True  # CLASS_STAR must have worked in sextractor
