@@ -275,10 +275,8 @@ class MasterPhotometry2Mass(MasterPhotometry):
             Index array for cleaned sources.
 
         """
-
-        keep_qfl = [True if x in "AB" else False for x in self.qflags(passband=passband)[0][0]]
-        keep_cfl = [True if x == "0" else False for x in self.cflags(passband=passband)[0][0]]
-        return np.array(keep_qfl and keep_cfl)
+        return np.array([True if (q[0] in "AB") & (c[0] == "0") else False for q, c
+                         in zip(self.qflags(passband=passband)[0][0], self.cflags(passband=passband)[0][0])])
 
 
 class MasterAstrometry(SourceCatalogs):
