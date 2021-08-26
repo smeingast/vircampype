@@ -1368,7 +1368,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": get_cmap("RdBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
-                ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7, lw=0.5, ec="black", **kwargs)
+                # ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7, lw=0.5, ec="black", **kwargs)
 
                 # Draw contour
                 with warnings.catch_warnings():
