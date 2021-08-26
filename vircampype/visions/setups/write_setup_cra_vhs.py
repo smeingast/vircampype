@@ -18,7 +18,7 @@ unique_directories_ks = sorted(list(set([os.path.dirname(x) + "/" for x in files
 
 # Reference limits
 reference_mag_lim_j = 13.0, 15.5
-reference_mag_lim_ks = 12.0, 15.0
+reference_mag_lim_ks = 12.0, 14.5
 
 # Numer of parallel jobs
 n_jobs = 16
