@@ -132,42 +132,47 @@ def add_smoothed_value(table, image_header, parameters):
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
     stacked_clean = np.stack([table_clean["XWIN_IMAGE"], table_clean["YWIN_IMAGE"]]).T
 
-    # Try to get 50 nearest neighbors, otherwise use full table
-    n_nn = 50
-    if len(table_clean) < 50:
+    # Try to get 100 nearest neighbors, otherwise use full table
+    n_nn = 100
+    if len(table_clean) < 100:
         n_nn = len(table_clean)
 
     # Get nearest neighbors
     nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_nn).fit(stacked_clean).kneighbors(stacked_raw)
     """ Using KNeighborsRegressor is actually not OK here because this then computes a (distance-weighted) mean. """
 
-    # Mask everyting beyond the 20th nearest neighbor that's farther away than 3 arcmin (540 pix)
+    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 30 sources, regardless of their separation
     nn_dis_temp = nn_dis.copy()
     nn_dis[nn_dis > 540] = np.nan
-    nn_dis[:, :20] = nn_dis_temp[:, :20]
+    nn_dis[:, :30] = nn_dis_temp[:, :30]
     bad_data = ~np.isfinite(nn_dis)
     nsources = np.sum(~bad_data, axis=1)
     table.add_column(nsources.astype(np.int16), name="INTERP_NSOURCES")
+    maxdis = np.nanmax(nn_dis, axis=1)
+    table.add_column(maxdis.astype(np.float32), name="INTERP_MAXDIS")
 
     # WEIGHTED
     # from astropy.modeling.functional_models import Gaussian1D
     # weights_dis = Gaussian1D(amplitude=1, mean=0, stddev=180)(nn_dis)
     # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
     # weights = weights_dis * weights_snr
-    # weights[nn_dis > 1000] = 0.
+    # weights[~np.isfinite(nn_dis)] = 0.
 
     for par in parameters:
 
         # Grab data for all nearest neighors
-        nn_data = table_clean[par].data[nn_idx]
+        nn_data = table_clean[par].data[nn_idx].copy()
 
         # Compute weighted average
-        # weights = np.repeat(weights[:, :, np.newaxis], 10, axis=2)
-        # par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights)
-        # table.add_column(par_wei.astype(np.float32), name=par + "_INTERP")
-        # variance = np.average((nn_data - np.repeat(par_wei[:, np.newaxis, :], 50, axis=1))**2,
-        #                       weights=weights, axis=(0, 1))
-        # print(np.sqrt(variance))
+        # if len(nn_data.shape) == 3:
+        #     weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
+        # else:
+        #     weights_par = weights.copy()
+        # from astropy.stats import sigma_clip
+        # wmask = sigma_clip(nn_data, axis=1, sigma=3).mask
+        # weights_par[wmask] = 0.
+        # par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
+        # table.add_column(par_wei.astype(np.float32), name=par + "_WINTERP")
 
         # mask bad values
         nn_data[bad_data] = np.nan
@@ -176,7 +181,7 @@ def add_smoothed_value(table, image_header, parameters):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Input data contains invalid values")
 
-            _, par_med, par_std = sigma_clipped_stats(nn_data, axis=1)
+            par_mean, _, par_std = sigma_clipped_stats(nn_data, axis=1, sigma=2)
 
             # Also determine standard error on clipped array
             # mask = astropy_sigma_clip(nn_data, axis=1).mask
@@ -185,7 +190,7 @@ def add_smoothed_value(table, image_header, parameters):
             # table.add_column(np.nanstd(temp, axis=1).astype(np.float32), name=par + "_STD")
             # table.add_column(sem(temp, nan_policy="omit", axis=1).astype(np.float32), name=par + "_SEM")
 
-            table.add_column(par_med.astype(np.float32), name=par + "_INTERP")
+            table.add_column(par_mean.astype(np.float32), name=par + "_INTERP")
             table.add_column(par_std.astype(np.float32), name=par + "_STD")
 
     return table
