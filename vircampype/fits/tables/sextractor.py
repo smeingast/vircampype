@@ -551,7 +551,15 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             [t.add_column((t["MAG_APER"].data[:, -1] - t["MAG_APER"].data.T).T, name="MAG_APER_COR")
              for t in tables_file]
 
+            # for t in tables_file:
+            #     sc1 = SkyCoord(t["ALPHA_SKY"], t["DELTA_SKY"], unit="degree")
+            #     sc2 = SkyCoord(table_master["RAJ2000"], table_master["DEJ2000"], unit="degree")
+            #     zp_auto = get_zeropoint(skycoord1=sc1, mag1=t["MAG_AUTO"],
+            #                             skycoord2=sc2, mag2=table_master["Jmag"], method="all")
+            #     t.add_column(zp_auto, name="ZP_AUTO")
+
             # Add smoothed stats to tables
+            # parameters = ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR", "ZP_AUTO"]
             parameters = ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR"]
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                 tables_file = parallel(delayed(add_smoothed_value)(i, j, k) for i, j, k
