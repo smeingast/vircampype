@@ -10,16 +10,22 @@ path_data = "/Volumes/Data/VISIONS/198C-2009E/data_wide/"
 path_scripts = "/Volumes/Data/VISIONS/198C-2009E/scripts/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
-files = glob.glob(path_data + "CrA*/A/*.fits")
+files = sorted(glob.glob(path_data + "CrA*/A/*.fits"))
+# files = sorted(glob.glob(path_data + "CrA*/*.fits"))
+
 add_to_name = "_C"
+# add_to_name = None
+
 projection = "Corona_Australis_wide"
+
 additional_source_masks = "Corona_Australis_wide"
 # additional_source_masks = None
-archive = True
+
+archive = False
 external_headers = True
 
 reference_mag_lim = dict(J=(12.5, 15.5), H=(12.0, 15.0), Ks=(11.5, 14.5))
-n_jobs = 16
+n_jobs = 10
 
 # =========================================================================== #
 # =========================================================================== #
