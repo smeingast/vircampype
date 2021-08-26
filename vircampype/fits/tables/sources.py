@@ -275,7 +275,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
             Index array for cleaned sources.
 
         """
-        return np.array([True if (q[0] in "AB") & (c[0] == "0") else False for q, c
+        return np.array([True if (q[0] == "A") & (c[0] == "0") else False for q, c
                          in zip(self.qflags(passband=passband)[0][0], self.cflags(passband=passband)[0][0])])
 
 
