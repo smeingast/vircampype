@@ -1231,12 +1231,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                        (mag_master_match <= master_phot.mag_lim(passband=passband)[1])
 
                 # Draw photometry for all matched sources
-                ax.scatter(mag_master_match, mag_delta, c="crimson",
-                           vmin=0, vmax=1.0, s=6, lw=0, alpha=0.6, zorder=0)
+                ax.scatter(mag_master_match, mag_delta, c="black",
+                           vmin=0, vmax=1.0, s=1, lw=0, alpha=0.4, zorder=0)
 
                 # Draw for sources within mag limits
                 ax.scatter(mag_master_match[keep], mag_delta[keep], c="crimson",
-                           vmin=0, vmax=1.0, s=7, lw=0, alpha=1.0, zorder=0)
+                           vmin=0, vmax=1.0, s=4, lw=0, alpha=1.0, zorder=0)
 
                 # Evaluate KDE
                 kde = KernelDensity(kernel="gaussian", bandwidth=0.1, metric="euclidean")
