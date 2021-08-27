@@ -441,7 +441,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                                            metric="weighted", weights=1 / tab["MAGERR_AUTO"]**2)
 
                 # Resize to original image size
-                grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="spline")
+                grid_zp = upscale_image(grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="PIL")
 
                 # Constant value
                 # zp = get_zeropoint(skycoord_cal=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
