@@ -468,6 +468,12 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
 
     """
 
+    # Copy arrays and throw out bad values
+    xc, yc, vc = x.copy(), y.copy(), values.copy()
+    keep = np.isfinite(xc) & np.isfinite(yc) & np.isfinite(vc)
+    xc, yc, vc = xc[keep], yc[keep], vc[keep]
+    wc = weights.copy()[keep] if weights is not None else None
+
     # Determine step size in grid in X and Y
     step_x, step_y = (x_max - x_min) / n_bins_x, (y_max - y_min) / n_bins_y
 
@@ -477,7 +483,7 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
 
     # Get nearest neighbors to grid pixel centers
     stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
-    stacked_data = np.stack([x, y]).T
+    stacked_data = np.stack([xc, yc]).T
     dis, idx = NearestNeighbors(n_neighbors=n_nearest_neighbors).fit(stacked_data).kneighbors(stacked_grid)
 
     # Obtain median values at each grid pixel
@@ -488,14 +494,19 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
             raise ValueError("Must provide weights")
 
         # Sigma-clip weights
-        vv, ww = values[idx].copy(), weights[idx].copy()
+        vv, ww = vc[idx].copy(), wc[idx].copy()
         ww[astropy_sigma_clip(vv, sigma=2, maxiters=5, axis=1).mask] = 0.
 
         # Compute weighted average
         gv = np.average(vv, weights=ww, axis=1)
 
+    # Clipped mean
+    elif metric == "mean":
+        gv, _, _ = sigma_clipped_stats(vc[idx], axis=1)
+
+    # CLipped median
     elif metric == "median":
-        _, gv, _ = sigma_clipped_stats(values[idx], axis=1)
+        _, gv, _ = sigma_clipped_stats(vc[idx], axis=1)
 
     else:
         raise ValueError("Metric '{0}' not supported".format(metric))
@@ -504,10 +515,20 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     gv = gv.reshape(n_bins_y, n_bins_x)
 
     # Apply some filters and return
-    if np.sum(~np.isfinite(gv)) > 0:
+    while True:
+        i = 0
+        if np.sum(~np.isfinite(gv)) == 0:
+            break
         gv = interpolate_replace_nans(gv, kernel=Box2DKernel(3))
+        if i > 50:
+            raise ValueError("Interpolation did not converge")
+        i += 1
+
+    # Median filter
     gv = median_filter(gv, size=3)
-    return convolve(gv, kernel=Gaussian2DKernel(1), boundary="extend")
+
+    # Return convolved array (kernel size ~ 10% of image)
+    return convolve(gv, kernel=Gaussian2DKernel((n_bins_x + n_bins_y) // 20), boundary="extend")
 
 
 def destripe_helper(array, mask=None, smooth=False):
