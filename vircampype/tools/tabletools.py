@@ -5,9 +5,9 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
-from astropy.stats import sigma_clipped_stats
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.photometry import get_zeropoint
+from astropy.stats import sigma_clipped_stats, sigma_clip
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
@@ -116,40 +116,54 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
         return table[good]
 
 
-def add_smoothed_value(table, image_header, parameters):
+def add_smoothed_value(table, parameter):
 
-    # Clean table
-    table_clean = clean_source_table(table=table, image_header=image_header, border_pix=25, min_fwhm=1.0,
-                                     max_fwhm=5.0, max_ellipticity=0.2, nndis_limit=10, min_snr=50)
+    # Construct clean source table
+    table_clean = clean_source_table(table=table, border_pix=25, min_fwhm=1.0, max_fwhm=5.0,
+                                     max_ellipticity=0.2, nndis_limit=10, min_snr=50)
 
-    # # Add choice of clean sources to table
-    # table_clean_idx = clean_source_table(table=table, image_header=image_header, border_pix=25, min_fwhm=1.0,
-    #                                      max_fwhm=5.0, max_ellipticity=0.2, nndis_limit=10, min_snr=50,
-    #                                      return_filter=True)
-    # table.add_column(table_clean_idx, name="CLEAN_SOURCE")
+    # Do an initial sigma clipping
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        if table_clean[parameter].ndim == 1:
+            bad = sigma_clip(table_clean[parameter], sigma=2.5).mask
+        else:
+            bad = sigma_clip(table_clean[parameter], axis=1, sigma=2.5).mask
+        table_clean[parameter][bad] = np.nan
+
+    # Also only keep sources in clean table that have a valid entry for the requested parameter
+    if table_clean[parameter].ndim == 1:
+        keep = np.isfinite(table_clean[parameter])
+    else:
+        keep = np.isfinite(np.sum(table_clean[parameter], axis=1))
+    table_clean = table_clean[keep]
 
     # Find nearest neighbors between cleaned and raw input catalog
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
     stacked_clean = np.stack([table_clean["XWIN_IMAGE"], table_clean["YWIN_IMAGE"]]).T
 
-    # Try to get 100 nearest neighbors, otherwise use full table
+    # Try to get 100 nearest neighbors; use full table if fewer are available
     n_nn = 100
     if len(table_clean) < 100:
         n_nn = len(table_clean)
 
-    # Get nearest neighbors
+    # Get nearest neighbors from input to clean source table
     nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_nn).fit(stacked_clean).kneighbors(stacked_raw)
     """ Using KNeighborsRegressor is actually not OK here because this then computes a (distance-weighted) mean. """
 
-    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 30 sources, regardless of their separation
+    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 25 sources, regardless of their separation
     nn_dis_temp = nn_dis.copy()
     nn_dis[nn_dis > 540] = np.nan
-    nn_dis[:, :30] = nn_dis_temp[:, :30]
+    nn_dis[:, :25] = nn_dis_temp[:, :25]
     bad_data = ~np.isfinite(nn_dis)
+
+    # Count sources
     nsources = np.sum(~bad_data, axis=1)
-    table.add_column(nsources.astype(np.int16), name="INTERP_NSOURCES")
+    table.add_column(nsources.astype(np.int16), name="{0}_INTERP_NSOURCES".format(parameter))
+
+    # Determine maximum distance used for each source
     maxdis = np.nanmax(nn_dis, axis=1)
-    table.add_column(maxdis.astype(np.float32), name="INTERP_MAXDIS")
+    table.add_column(maxdis.astype(np.float32), name="{0}_INTERP_MAXDIS".format(parameter))
 
     # WEIGHTED
     # from astropy.modeling.functional_models import Gaussian1D
@@ -158,41 +172,31 @@ def add_smoothed_value(table, image_header, parameters):
     # weights = weights_dis * weights_snr
     # weights[~np.isfinite(nn_dis)] = 0.
 
-    for par in parameters:
+    # Grab data for all nearest neighors
+    nn_data = table_clean[parameter].data[nn_idx].copy()
 
-        # Grab data for all nearest neighors
-        nn_data = table_clean[par].data[nn_idx].copy()
+    # Compute weighted average
+    # if len(nn_data.shape) == 3:
+    #     weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
+    # else:
+    #     weights_par = weights.copy()
+    # from astropy.stats import sigma_clip
+    # wmask = sigma_clip(nn_data, axis=1, sigma=3).mask
+    # weights_par[wmask] = 0.
+    # par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
+    # table.add_column(par_wei.astype(np.float32), name=par + "_WINTERP")
 
-        # Compute weighted average
-        # if len(nn_data.shape) == 3:
-        #     weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
-        # else:
-        #     weights_par = weights.copy()
-        # from astropy.stats import sigma_clip
-        # wmask = sigma_clip(nn_data, axis=1, sigma=3).mask
-        # weights_par[wmask] = 0.
-        # par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
-        # table.add_column(par_wei.astype(np.float32), name=par + "_WINTERP")
+    # mask bad values
+    nn_data[bad_data] = np.nan
 
-        # mask bad values
-        nn_data[bad_data] = np.nan
+    # Add interpolated value to table
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Input data contains invalid values")
+        _, iv, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2)
+        table.add_column(iv.astype(np.float32), name="{0}_INTERP".format(parameter))
+        table.add_column(iv_std.astype(np.float32), name="{0}_STD".format(parameter))
 
-        # Add interpolated median to table
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Input data contains invalid values")
-
-            par_mean, _, par_std = sigma_clipped_stats(nn_data, axis=1, sigma=2)
-
-            # Also determine standard error on clipped array
-            # mask = astropy_sigma_clip(nn_data, axis=1).mask
-            # temp = nn_data.copy()
-            # temp[mask] = np.nan
-            # table.add_column(np.nanstd(temp, axis=1).astype(np.float32), name=par + "_STD")
-            # table.add_column(sem(temp, nan_policy="omit", axis=1).astype(np.float32), name=par + "_SEM")
-
-            table.add_column(par_mean.astype(np.float32), name=par + "_INTERP")
-            table.add_column(par_std.astype(np.float32), name=par + "_STD")
-
+    # Return table
     return table
 
 
