@@ -468,9 +468,12 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
 
     """
 
-    # Copy arrays and throw out bad values
+    # Copy arrays, apply global sigma clip, and throw out bad values
     xc, yc, vc = x.copy(), y.copy(), values.copy()
     keep = np.isfinite(xc) & np.isfinite(yc) & np.isfinite(vc)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        keep &= ~astropy_sigma_clip(vc, sigma=2.5).mask
     xc, yc, vc = xc[keep], yc[keep], vc[keep]
     wc = weights.copy()[keep] if weights is not None else None
 
