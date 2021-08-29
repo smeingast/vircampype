@@ -116,7 +116,7 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
         return table[good]
 
 
-def add_smoothed_value(table, parameter):
+def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
 
     # Construct clean source table
     table_clean = clean_source_table(table=table, border_pix=25, min_fwhm=1.0, max_fwhm=5.0,
@@ -143,17 +143,16 @@ def add_smoothed_value(table, parameter):
     stacked_clean = np.stack([table_clean["XWIN_IMAGE"], table_clean["YWIN_IMAGE"]]).T
 
     # Try to get 100 nearest neighbors; use full table if fewer are available
-    n_nn = 100
-    if len(table_clean) < 100:
-        n_nn = len(table_clean)
+    if len(table_clean) < n_neighbors:
+        n_neighbors = len(table_clean)
 
     # Get nearest neighbors from input to clean source table
-    nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_nn).fit(stacked_clean).kneighbors(stacked_raw)
+    nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked_clean).kneighbors(stacked_raw)
     """ Using KNeighborsRegressor is actually not OK here because this then computes a (distance-weighted) mean. """
 
     # Mask everything beyond 3 arcmin (540 pix), then bring back at least 25 sources, regardless of their separation
     nn_dis_temp = nn_dis.copy()
-    nn_dis[nn_dis > 540] = np.nan
+    nn_dis[nn_dis > max_dis] = np.nan
     nn_dis[:, :25] = nn_dis_temp[:, :25]
     bad_data = ~np.isfinite(nn_dis)
 
