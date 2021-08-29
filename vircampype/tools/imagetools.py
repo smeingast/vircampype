@@ -531,7 +531,7 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     gv = median_filter(gv, size=3)
 
     # Return convolved array (kernel size ~ 10% of image)
-    return convolve(gv, kernel=Gaussian2DKernel((n_bins_x + n_bins_y) // 20), boundary="extend")
+    return convolve(gv, kernel=Gaussian2DKernel((n_bins_x + n_bins_y) / 20), boundary="extend")
 
 
 def destripe_helper(array, mask=None, smooth=False):
