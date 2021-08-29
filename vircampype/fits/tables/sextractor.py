@@ -545,25 +545,16 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Load and clean table
             tables_file = self.file2table(file_index=idx_file)
-            image_headers_file = self.image_headers[idx_file]
 
             # Add aperture correction to tables
             [t.add_column((t["MAG_APER"].data[:, -1] - t["MAG_APER"].data.T).T, name="MAG_APER_COR")
              for t in tables_file]
 
-            # for t in tables_file:
-            #     sc1 = SkyCoord(t["ALPHA_SKY"], t["DELTA_SKY"], unit="degree")
-            #     sc2 = SkyCoord(table_master["RAJ2000"], table_master["DEJ2000"], unit="degree")
-            #     zp_auto = get_zeropoint(skycoord1=sc1, mag1=t["MAG_AUTO"],
-            #                             skycoord2=sc2, mag2=table_master["Jmag"], method="all")
-            #     t.add_column(zp_auto, name="ZP_AUTO")
-
             # Add smoothed stats to tables
-            # parameters = ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR", "ZP_AUTO"]
             parameters = ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR"]
-            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                tables_file = parallel(delayed(add_smoothed_value)(i, j, k) for i, j, k
-                                       in zip(tables_file, image_headers_file, repeat(parameters)))
+            for par in parameters:
+                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                    tables_file = parallel(delayed(add_smoothed_value)(i, j) for i, j in zip(tables_file, repeat(par)))
 
             # Load classification table for current file
             try:
@@ -595,6 +586,22 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                              mag_lim_ref=master_phot.mag_lim(passband=self.passband[idx_file]), method="weighted",
                              passband_2mass=master_phot.translate_passband(self.passband[idx_file][0]),
                              columns_mag=columns_mag, columns_magerr=columns_magerr)
+
+                # Add correction factor for the main calibrated mag measurement
+                sc1 = SkyCoord(table_hdu["ALPHA_SKY"], table_hdu["DELTA_SKY"], unit="degree")
+                sc2 = SkyCoord(table_master["RAJ2000"], table_master["DEJ2000"], unit="degree")
+                pb = master_phot.translate_passband(self.passband[idx_file][0])
+                zp_auto = get_zeropoint(skycoord1=sc1, mag1=table_hdu["MAG_AUTO_CAL"], skycoord2=sc2,
+                                        method="all", mag2=table_master[pb],
+                                        mag_limits_ref=master_phot.mag_lim(passband=self.passband[idx_file]))
+                zp_aper = get_zeropoint(skycoord1=sc1, mag1=table_hdu["MAG_APER_MATCHED_CAL"], skycoord2=sc2,
+                                        method="all", mag2=table_master[pb],
+                                        mag_limits_ref=master_phot.mag_lim(passband=self.passband[idx_file]))
+                table_hdu.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
+                table_hdu.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
+                parameters = ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"]
+                for par in parameters:
+                    add_smoothed_value(table=table_hdu, parameter=par, n_neighbors=250, max_dis=2160)
 
                 # Replace original HDU
                 table_hdulist[idx_table_hdu] = table2bintablehdu(table=table_hdu)
