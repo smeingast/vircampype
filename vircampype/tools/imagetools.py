@@ -487,7 +487,8 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     # Get nearest neighbors to grid pixel centers
     stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
     stacked_data = np.stack([xc, yc]).T
-    dis, idx = NearestNeighbors(n_neighbors=n_nearest_neighbors).fit(stacked_data).kneighbors(stacked_grid)
+    nn = len(xc) if len(xc) < n_nearest_neighbors else n_nearest_neighbors
+    dis, idx = NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
 
     # Obtain median values at each grid pixel
     if metric == "weighted":
