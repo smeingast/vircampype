@@ -284,7 +284,7 @@ def interpolate_classification(source_table, classification_table):
 
     # Loop over each source
     class_star_interp = []
-    for sc, ac in zip(source_table["FWHM_WORLD_INTERP"] * 3600, array_class.T):
+    for sc, ac in zip(source_table["FWHM_WORLD_WINTERP"] * 3600, array_class.T):
         class_star_interp.append(interp1d(fwhm_range, ac, fill_value="extrapolate")(sc))
     class_star_interp = np.array(class_star_interp, dtype=np.float32)
 
