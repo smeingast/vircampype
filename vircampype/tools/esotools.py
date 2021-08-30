@@ -308,8 +308,8 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
                         value=vega2ab(mag=_saturation_limit(passband=passband), passband=passband))
 
     # Set shape parameters
-    fwhm = np.nanmean(hdu_ctg.data["FWHM_WORLD_INTERP"]) * 3600
-    ellipticity = np.nanmean(hdu_ctg.data["ELLIPTICITY_INTERP"])
+    fwhm = np.nanmean(hdu_ctg.data["FWHM_WORLD_WINTERP"]) * 3600
+    ellipticity = np.nanmean(hdu_ctg.data["ELLIPTICITY_WINTERP"])
     add_float_to_header(header=hdr_out, key="PSF_FWHM", value=fwhm, decimals=3,
                         comment="Effective spatial resolution (arcsec)")
     add_float_to_header(header=hdr_out, key="ELLIPTIC", value=ellipticity, decimals=3,
