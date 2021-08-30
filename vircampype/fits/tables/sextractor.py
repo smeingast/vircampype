@@ -601,7 +601,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 table_hdu.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
                 parameters = ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"]
                 for par in parameters:
-                    add_smoothed_value(table=table_hdu, parameter=par, n_neighbors=250, max_dis=2160)
+                    add_smoothed_value(table=table_hdu, parameter=par, n_neighbors=150, max_dis=1800)
 
                 # Replace original HDU
                 table_hdulist[idx_table_hdu] = table2bintablehdu(table=table_hdu)
