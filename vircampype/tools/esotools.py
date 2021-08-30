@@ -612,13 +612,15 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     """
 
     # Read and clean aperture magnitudes, add internal photometric error
-    mag_aper = data["MAG_APER_MATCHED_CAL"]
+    mag_aper = data["MAG_APER_MATCHED_CAL"] + data["MAG_APER_MATCHED_CAL_ZPC_WINTERP"]
+    # mag_aper = data["MAG_APER_MATCHED_CAL"]
     magerr_aper = np.sqrt(data["MAGERR_APER"]**2 + photerr_internal**2)
     mag_aper_bad = (mag_aper > 30.) | (magerr_aper > 10)
     mag_aper[mag_aper_bad], magerr_aper[mag_aper_bad] = np.nan, np.nan
 
     # Read and clean auto magnitudes, add internal photometric error
-    mag_auto = data["MAG_AUTO_CAL"]
+    mag_auto = data["MAG_AUTO_CAL"] + data["MAG_AUTO_CAL_ZPC_WINTERP"]
+    # mag_auto = data["MAG_AUTO_CAL"]
     magerr_auto = np.sqrt(data["MAGERR_AUTO"]**2 + photerr_internal**2)
     mag_auto_bad = (mag_auto > 30.) | (magerr_auto > 10)
     mag_auto[mag_auto_bad], magerr_auto[mag_auto_bad] = np.nan, np.nan
