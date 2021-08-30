@@ -164,26 +164,26 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     maxdis = np.nanmax(nn_dis, axis=1)
     table.add_column(maxdis.astype(np.float32), name="{0}_INTERP_MAXDIS".format(parameter))
 
-    # WEIGHTED
-    # from astropy.modeling.functional_models import Gaussian1D
-    # weights_dis = Gaussian1D(amplitude=1, mean=0, stddev=180)(nn_dis)
-    # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
-    # weights = weights_dis * weights_snr
-    # weights[~np.isfinite(nn_dis)] = 0.
-
     # Grab data for all nearest neighors
     nn_data = table_clean[parameter].data[nn_idx].copy()
 
+    # WEIGHTED
+    # from astropy.modeling.functional_models import Gaussian1D
+    # weights_dis = Gaussian1D(amplitude=1, mean=0, stddev=180)(nn_dis)
+    # weights = weights_dis * weights_snr
+    weights_snr = table_clean["SNR_WIN"].data[nn_idx]
+    weights = weights_snr.copy()
+    weights[bad_data] = 0.
+
     # Compute weighted average
-    # if len(nn_data.shape) == 3:
-    #     weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
-    # else:
-    #     weights_par = weights.copy()
-    # from astropy.stats import sigma_clip
-    # wmask = sigma_clip(nn_data, axis=1, sigma=3).mask
-    # weights_par[wmask] = 0.
-    # par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
-    # table.add_column(par_wei.astype(np.float32), name=par + "_WINTERP")
+    if nn_data.ndim == 3:
+        weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
+    else:
+        weights_par = weights.copy()
+    wmask = sigma_clip(nn_data, axis=1, sigma=2.5).mask
+    weights_par[wmask] = 0.
+    par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
+    table.add_column(par_wei.astype(np.float32), name="{0}_WINTERP".format(parameter))  # noqa
 
     # mask bad values
     nn_data[bad_data] = np.nan
