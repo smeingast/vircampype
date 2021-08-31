@@ -568,7 +568,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 pass
 
             # Match apertures and add to table
-            [t.add_column((t["MAG_APER"] + t["MAG_APER_COR_WINTERP"]), name="MAG_APER_MATCHED")
+            [t.add_column((t["MAG_APER"] + t["MAG_APER_COR_INTERP"]), name="MAG_APER_MATCHED")
              for t in tables_file]
 
             # Compute ZP and add calibrated photometry to catalog
