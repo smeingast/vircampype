@@ -543,7 +543,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             message_calibration(n_current=idx_file + 1, n_total=self.n_files, name=outpaths[-1],
                                 d_current=None, d_total=None, silent=self.setup.silent)
 
-            # Load and clean table
+            # Load table
             tables_file = self.file2table(file_index=idx_file)
 
             # Add aperture correction to tables
