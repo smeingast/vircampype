@@ -649,10 +649,3 @@ def fits2ldac(path_in, path_out, extension=1):
     hdulist = fits.HDUList([prihdu, ext2, ext3])
     hdulist.writeto(path_out, overwrite=True)
     hdulist.close()
-
-
-if __name__ == "__main__":
-    epoch_new = 2018.33
-    path_raw = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/gaia_edr3_raw.fits"
-    path_new = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/astr_refcat_{0}.fits".format(epoch_new)
-    make_gaia_refcat(path_in=path_raw, path_out=path_new, epoch_out=epoch_new)
