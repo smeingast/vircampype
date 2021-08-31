@@ -423,7 +423,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Clean table
                 tab = clean_source_table(table=tab, image_header=header, flux_max=header["SEXSATLV"] / 2, border_pix=10,
-                                         nndis_limit=5, min_fwhm=1.0, max_fwhm=5.0, max_ellipticity=0.2)
+                                         nndis_limit=5, min_fwhm=0.8, max_fwhm=6.0, max_ellipticity=0.25)
 
                 # Compute illumination correction
                 zp_all = get_zeropoint(skycoord1=SkyCoord(tab[self._key_ra], tab[self._key_dec], unit="deg"),
