@@ -119,8 +119,8 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
 def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
 
     # Construct clean source table
-    table_clean = clean_source_table(table=table, border_pix=25, min_fwhm=1.0, max_fwhm=5.0,
-                                     max_ellipticity=0.2, nndis_limit=10, min_snr=50)
+    table_clean = clean_source_table(table=table, border_pix=25, min_fwhm=0.8, max_fwhm=6.0,
+                                     max_ellipticity=0.25, nndis_limit=5, min_snr=30)
 
     # Do an initial sigma clipping
     with warnings.catch_warnings():
@@ -150,11 +150,12 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked_clean).kneighbors(stacked_raw)
     """ Using KNeighborsRegressor is actually not OK here because this then computes a (distance-weighted) mean. """
 
-    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 25 sources, regardless of their separation
+    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 10 sources, regardless of their separation
     nn_dis_temp = nn_dis.copy()
     nn_dis[nn_dis > max_dis] = np.nan
-    nn_dis[:, :25] = nn_dis_temp[:, :25]
+    nn_dis[:, :10] = nn_dis_temp[:, :10]
     bad_data = ~np.isfinite(nn_dis)
+    nn_dis_temp = 0.  # noqa
 
     # Count sources
     nsources = np.sum(~bad_data, axis=1)
@@ -191,7 +192,7 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     # Add interpolated value to table
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Input data contains invalid values")
-        _, iv, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2)
+        _, iv, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
         table.add_column(iv.astype(np.float32), name="{0}_INTERP".format(parameter))
         table.add_column(iv_std.astype(np.float32), name="{0}_STD".format(parameter))
 
