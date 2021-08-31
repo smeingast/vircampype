@@ -3,11 +3,11 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.table import Table
+from astropy.stats import sigma_clip
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.photometry import get_zeropoint
-from astropy.stats import sigma_clipped_stats, sigma_clip
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
@@ -181,20 +181,21 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
     else:
         weights_par = weights.copy()
-    wmask = sigma_clip(nn_data, axis=1, sigma=2.5).mask
+    wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3).mask
     weights_par[wmask] = 0.
     par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
-    table.add_column(par_wei.astype(np.float32), name="{0}_WINTERP".format(parameter))  # noqa
+    table.add_column(par_wei.astype(np.float32), name="{0}_INTERP".format(parameter))  # noqa
 
     # mask bad values
     nn_data[bad_data] = np.nan
 
-    # Add interpolated value to table
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="Input data contains invalid values")
-        _, iv, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
-        table.add_column(iv.astype(np.float32), name="{0}_INTERP".format(parameter))
-        table.add_column(iv_std.astype(np.float32), name="{0}_STD".format(parameter))
+    # This uses too much RAM for very big catalogs
+    # # Add interpolated value to table
+    # with warnings.catch_warnings():
+    #     warnings.filterwarnings("ignore", message="Input data contains invalid values")
+    #     _, iv, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
+    #     table.add_column(iv.astype(np.float32), name="{0}_INTERP".format(parameter))
+    #     table.add_column(iv_std.astype(np.float32), name="{0}_STD".format(parameter))
 
     # Return table
     return table
