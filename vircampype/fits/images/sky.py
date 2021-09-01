@@ -474,6 +474,7 @@ class SkyImagesRaw(SkyImages):
             phdr.set("DARKFILE", value=master_dark.basenames[idx_file], comment="Dark file name")
             phdr.set("FLATFILE", value=master_flat.basenames[idx_file], comment="Flat file name")
             phdr.set("LINFILE", value=master_linearity.basenames[idx_file], comment="Linearity file name")
+            phdr.set("FILTER", value=self.passband[idx_file], comment="Filter name")
 
             # Copy data headers
             hdrs_data = [self.headers_data[idx_file][idx_hdu].copy()
@@ -503,7 +504,8 @@ class SkyImagesRaw(SkyImages):
                 dhdr.set("JITTER_I", value=phdr["JITTER_I"], comment="Current jitter iteration")
                 dhdr.set("PHOTSTAB", value=photstab, comment="Photometric stability ID")
                 dhdr.set("SCMPPHOT", value=offseti, comment="Photometric stability ID for Scamp")
-                dhdr.set(self.setup.keywords.filter_name, value=self.passband[idx_file], comment="Passband")
+                dhdr.set(self.setup.keywords.filter_name, value=self.passband[idx_file], comment="Filter name")
+                dhdr.set("FILTER", value=self.passband[idx_file], comment="Filter name")
                 dhdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
 
                 # Add Airmass
