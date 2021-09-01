@@ -384,7 +384,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             zp_all = get_zeropoint(skycoord1=SkyCoord(tab_all[self._key_ra], tab_all[self._key_dec], unit="deg"),
                                    mag1=tab_all["MAG_AUTO"], skycoord2=skycoord_master, mag2=mag_master,
                                    mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
-            zp_all_mean, _, _ = sigma_clipped_stats(zp_all)
+            _, zp_all_median, _ = sigma_clipped_stats(zp_all)
 
         # Now loop through separated files
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -451,7 +451,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # grid_zp = np.full((header["NAXIS1"], header["NAXIS2"]), fill_value=zp, dtype=np.float32)
 
                 # Convert to flux scale
-                flx_scale.append(10**((grid_zp - zp_all_mean) / 2.5))
+                flx_scale.append(10**((grid_zp - zp_all_median) / 2.5))
 
                 # Save number of sources
                 n_sources.append(len(tab))
