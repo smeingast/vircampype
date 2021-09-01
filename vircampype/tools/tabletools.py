@@ -111,9 +111,7 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
 
     # Return cleaned table
     if return_filter:
-        return good
-    else:
-        return table[good]
+        return table[good], good
 
 
 def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
