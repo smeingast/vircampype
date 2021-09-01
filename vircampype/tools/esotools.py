@@ -296,7 +296,7 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
     # Determine magnitude limit
     fa = hdu_ctg.data["FLUX_AUTO"].T
     fa_err = hdu_ctg.data["FLUXERR_AUTO"].T
-    good = (fa / fa_err > 4.5) & (fa / fa_err < 5.5)
+    good = (fa / fa_err > 4.0) & (fa / fa_err < 6.0)
     mag_lim = clipped_median(hdu_ctg.data["MAG_AUTO_CAL"][good])
     add_float_to_header(header=hdr_out, key="MAGLIM", value=mag_lim, decimals=3,
                         comment="5-sigma limiting Vega magnitude")
