@@ -1247,7 +1247,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Draw photometry for all matched sources
                 ax.scatter(mag_master_match, mag_delta, c="black",
-                           vmin=0, vmax=1.0, s=1, lw=0, alpha=0.4, zorder=0)
+                           vmin=0, vmax=1.0, s=2, lw=0, alpha=0.4, zorder=0)
 
                 # Draw for sources within mag limits
                 ax.scatter(mag_master_match[keep], mag_delta[keep], c="crimson",
