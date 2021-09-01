@@ -69,10 +69,3 @@ def sort_vircam_science(path, extension=".fits"):
     # Move files to folders
     for po, pm in zip(paths_orig, paths_move):
         shutil.move(po, pm)
-
-
-if __name__ == "__main__":
-    pa = "/Volumes/Data/VISIONS/198C-2009I/data_with_raw_calibs/"
-    pc = "/Volumes/Data/VISIONS/198C-2009I/calibration/"
-    # sort_vircam_calibration(path_all=pa, path_calibration=pc, extension=".fz")
-    sort_vircam_science(path=pa, extension=".fz")
