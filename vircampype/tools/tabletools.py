@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.photometry import get_zeropoint
+from astropy.modeling.functional_models import Gaussian1D
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
@@ -177,13 +178,12 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     # Grab data for all nearest neighors
     nn_data = table_clean[parameter].data[nn_idx].copy()
 
-    # WEIGHTED
-    # from astropy.modeling.functional_models import Gaussian1D
-    # weights_dis = Gaussian1D(amplitude=1, mean=0, stddev=180)(nn_dis)
-    # weights = weights_dis * weights_snr
-    weights_snr = table_clean["SNR_WIN"].data[nn_idx]
-    weights = weights_snr.copy()
+    # Compute weights (Gauss with max_dis / 2 std)
+    weights = Gaussian1D(amplitude=1, mean=0, stddev=max_dis / 2)(nn_dis) * table_clean["SNR_WIN"].data[nn_idx]
     weights[bad_data] = 0.
+    # Weights just from SNR
+    # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
+    # weights = weights_snr.copy()
 
     # Compute weighted average
     if nn_data.ndim == 3:
