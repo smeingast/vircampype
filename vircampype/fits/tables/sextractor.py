@@ -588,7 +588,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                              columns_mag=columns_mag, columns_magerr=columns_magerr)
 
                 # Add correction factor for the main calibrated mag measurement
-                sc1 = SkyCoord(table_hdu["ALPHA_SKY"], table_hdu["DELTA_SKY"], unit="degree")
+                sc1 = SkyCoord(table_hdu[self._key_ra], table_hdu[self._key_dec], unit="degree")
                 sc2 = SkyCoord(table_master["RAJ2000"], table_master["DEJ2000"], unit="degree")
                 pb = master_phot.translate_passband(self.passband[idx_file][0])
                 zp_auto = get_zeropoint(skycoord1=sc1, mag1=table_hdu["MAG_AUTO_CAL"], skycoord2=sc2,
