@@ -160,10 +160,10 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked_clean).kneighbors(stacked_raw)
     """ Using KNeighborsRegressor is actually not OK here because this then computes a (distance-weighted) mean. """
 
-    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 10 sources, regardless of their separation
+    # Mask everything beyond 3 arcmin (540 pix), then bring back at least 20 sources, regardless of their separation
     nn_dis_temp = nn_dis.copy()
     nn_dis[nn_dis > max_dis] = np.nan
-    nn_dis[:, :10] = nn_dis_temp[:, :10]
+    nn_dis[:, :20] = nn_dis_temp[:, :20]
     bad_data = ~np.isfinite(nn_dis)
     nn_dis_temp = 0.  # noqa
 
