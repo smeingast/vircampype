@@ -222,11 +222,14 @@ def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_
     setattr(table, "zp", dict())
     setattr(table, "zperr", dict())
 
+    # Clean input table
+    tc = clean_source_table(table)
+
     # Loop over columns
     for cm, ce in zip(columns_mag, columns_magerr):
-        zp, zp_err = get_zeropoint(skycoord1=SkyCoord(table[key_ra], table[key_dec], unit="deg"),
+        zp, zp_err = get_zeropoint(skycoord1=SkyCoord(tc[key_ra], tc[key_dec], unit="deg"),  # noqa
                                    skycoord2=SkyCoord(table_2mass["RAJ2000"], table_2mass["DEJ2000"], unit="deg"),
-                                   mag1=table[cm], magerr1=table[ce], mag2=table_2mass[passband_2mass],
+                                   mag1=tc[cm], magerr1=tc[ce], mag2=table_2mass[passband_2mass],
                                    magerr2=table_2mass["e_{0}".format(passband_2mass)], mag_limits_ref=mag_lim_ref,
                                    method=method)
 
