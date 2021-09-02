@@ -10,6 +10,7 @@ from scipy.stats import binned_statistic_2d
 from astropy.stats import sigma_clipped_stats
 from skimage import morphology as skmorphology
 from sklearn.neighbors import NearestNeighbors
+from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline
 from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKernel, Kernel2D, \
@@ -488,7 +489,7 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
     stacked_data = np.stack([xc, yc]).T
     nn = len(xc) if len(xc) < n_nearest_neighbors else n_nearest_neighbors
-    dis, idx = NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
+    nn_dis, idx = NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
 
     # Obtain median values at each grid pixel
     if metric == "weighted":
@@ -498,8 +499,9 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
             raise ValueError("Must provide weights")
 
         # Sigma-clip weights
-        vv, ww = vc[idx].copy(), wc[idx].copy()
-        ww[astropy_sigma_clip(vv, sigma=2, maxiters=5, axis=1).mask] = 0.
+        # vv, ww = vc[idx].copy(), wc[idx].copy()
+        vv, ww = vc[idx].copy(), wc[idx] * Gaussian1D(amplitude=1, mean=0, stddev=540)(nn_dis)
+        ww[astropy_sigma_clip(vv, sigma=2.5, maxiters=5, axis=1).mask] = 0.
 
         # Compute weighted average
         gv = np.average(vv, weights=ww, axis=1)
