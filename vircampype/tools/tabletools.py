@@ -119,8 +119,11 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
 def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
 
     # Construct clean source table
-    table_clean = clean_source_table(table=table, border_pix=25, min_fwhm=0.8, max_fwhm=6.0,
-                                     max_ellipticity=0.25, nndis_limit=5, min_snr=30)
+    table_clean, keep_clean = clean_source_table(table=table, border_pix=25, min_fwhm=0.8, max_fwhm=6.0,
+                                                 max_ellipticity=0.25, nndis_limit=5, min_snr=30, return_filter=True)
+
+    # Create index array of clean sources
+    idx_clean = np.array([i for i, v in enumerate(keep_clean) if v])
 
     # Do an initial sigma clipping
     with warnings.catch_warnings():
@@ -137,6 +140,12 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     else:
         keep = np.isfinite(np.sum(table_clean[parameter], axis=1))
     table_clean = table_clean[keep]
+    idx_clean = idx_clean[keep]
+
+    # Write index of good sources
+    kept = np.full(len(table), dtype=bool, fill_value=False)
+    kept[idx_clean] = True
+    table.add_column(kept.astype(bool), name="{0}_INTERP_CLEAN".format(parameter))
 
     # Find nearest neighbors between cleaned and raw input catalog
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
