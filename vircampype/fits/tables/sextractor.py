@@ -1028,7 +1028,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Return
         return table_master
 
-    def _photerr_internal(self):
+    def _photerr_internal_all(self):
 
         # Only works if there are multiple catalogs available
         if len(self) <= 1:
@@ -1083,15 +1083,47 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def photerr_internal(self):
 
-        # Get internal photometric error stats
-        phot_median, phot_err, photerr_median = self._photerr_internal()
+        # Print info
+        print_header(header="INTERNAL PHOTOMETRIC ERROR", silent=self.setup.silent, left=None, right=None)
+        tstart = time.time()
 
-        # Get the 5% brightest sources
-        good = phot_median >= self.setup.reference_mag_lim[0]
-        idx_bright = phot_median[good] < np.percentile(phot_median[good], 5)
+        # Create pickle path
+        pickle_path = "{0}photerr_interal.p".format(self.setup.folders["temp"])
+
+        # Try to load from file
+        try:
+            photerr_internal_dict = pickle.load(open(pickle_path, "rb"))
+
+        # If not there, compute internal error
+        except FileNotFoundError:
+
+            # Determine photometric statistics
+            phot_median, phot_err, photerr_median = self._photerr_internal_all()
+
+            # Get the 5% brightest sources
+            good = phot_median >= self.setup.reference_mag_lim[0]
+            idx_bright = phot_median[good] < np.percentile(phot_median[good], 5)
+
+            # Determine interal photometric error
+            photerr_internal = clipped_median(phot_err[good][idx_bright], sigma=2)
+
+            # Construct dict
+            photerr_internal_dict = {"phot_median": phot_median,
+                                     "phot_err": phot_err,
+                                     "photerr_median": photerr_median,
+                                     "photerr_internal": photerr_internal}
+
+            # Dump to file
+            pickle.dump(photerr_internal_dict, open(pickle_path, "wb"))
+
+            # Print error
+            print_message(message="\n err = {0:0.4f}".format(photerr_internal_dict["photerr_internal"]), end="\n")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
         # Get median error of those
-        return clipped_median(phot_err[good][idx_bright], sigma=2)
+        return photerr_internal_dict
 
     def paths_qc_plots(self, paths, prefix=""):
 
@@ -1108,8 +1140,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Create output path
         outpath = "{0}{1}.phot.interror.pdf".format(self.setup.folders["qc_photometry"], self.setup.name)
 
+        # Check if the file is already there and skip if it is
+        if check_file_exists(file_path=outpath, silent=self.setup.silent) and not self.setup.overwrite:
+            return
+
         # Get internal photometric error stats
-        phot_median, phot_err, photerr_median = self._photerr_internal()
+        photerr_internal_dict = self.photerr_internal()
 
         # Make 1D disperion histograms
         mag_ranges = [0, 14, 15, 16, 17, 18, 25]
@@ -1123,22 +1159,23 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Grab current axes and sources
             ax = ax_all[idx]
             mag_lo, mag_hi = mag_ranges[idx], mag_ranges[idx + 1]
-            idx_phot = (phot_median >= mag_lo) & (phot_median < mag_hi)
+            idx_phot = (photerr_internal_dict["phot_median"] >= mag_lo) & \
+                       (photerr_internal_dict["phot_median"] < mag_hi)
 
             # Get median photometric error for current bin
-            median_photerr_median = np.nanmedian(photerr_median[idx_phot])
+            median_photerr_median = np.nanmedian(photerr_internal_dict["photerr_median"][idx_phot])
 
             # Remove axis is no sources are present
             if np.sum(idx_phot) == 0:
                 ax.remove()
 
             # Draw histogram
-            ax.hist(phot_err[idx_phot], bins=np.logspace(np.log10(0.0001), np.log10(2), 50),
+            ax.hist(photerr_internal_dict["phot_err"][idx_phot], bins=np.logspace(np.log10(0.0001), np.log10(2), 50),
                     ec="black", histtype="step", lw=2)
             ax.set_xscale("log")
 
             # Draw median
-            ax.axvline(np.nanmedian(phot_err[idx_phot]), c="#1f77b4", lw=1.5)
+            ax.axvline(np.nanmedian(photerr_internal_dict["phot_err"][idx_phot]), c="#1f77b4", lw=1.5)
             ax.axvline(median_photerr_median, c="crimson", lw=1.5)
 
             # Labels and annotations
@@ -1148,7 +1185,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                         xycoords="axes fraction", va="top", ha="left")
             ax.annotate("N = {0}/{1}".format(np.sum(idx_phot), len(idx_phot)), xy=(0.98, 0.98),
                         xycoords="axes fraction", ha="right", va="top")
-            ax.annotate("Internal photometric dispersion {0:0.4f} mag".format(np.nanmedian(phot_err[idx_phot])),
+            ax.annotate("Internal photometric dispersion {0:0.4f} mag"
+                        "".format(np.nanmedian(photerr_internal_dict["phot_err"][idx_phot])),
                         xy=(0.01, 1.01), xycoords="axes fraction", ha="left", va="bottom", c="#1f77b4")
             ax.annotate("Median photometric error {0:0.4f} mag".format(median_photerr_median),
                         xy=(0.01, 1.07), xycoords="axes fraction", ha="left", va="bottom", c="crimson")
