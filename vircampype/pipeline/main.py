@@ -621,6 +621,22 @@ class Pipeline:
 
     # =========================================================================== #
     # Photometry
+    def photometry_pawprints(self):
+        if not self.status.photometry_pawprints:
+            self.resampled.sextractor(preset="full")
+            self.sources_resampled_full.crunch_source_catalogs()
+            self.update_status(photometry_pawprints=True)
+        else:
+            print_message(message="PAWPRINT PHOTOMETRY already done", kind="warning", end=None)
+
+    def photerr_internal(self):
+        if not self.status.photerr_internal:
+            self.sources_resampled_crunched.photerr_internal()
+            self.sources_resampled_crunched.plot_qc_photerr_internal()
+            self.update_status(photerr_internal=True)
+        else:
+            print_message(message="INTERNAL PHOTOMETRIC ERROR already determined", kind="warning", end=None)
+
     def photometry_stacks(self):
         if not self.status.photometry_stacks:
             self.stacks.sextractor(preset="full")
@@ -677,8 +693,8 @@ class Pipeline:
 
     def phase3(self):
         if not self.status.phase3:
-            # TODO: This does only work when stacks are created. Perhaps better compute this from the pawprints?
-            photerr_internal = self.sources_stacks_crunched.photerr_internal()
+            # Read internal photometric error
+            photerr_internal = self.sources_stacks_crunched.photerr_internal()["photerr_internal"]
             if self.setup.build_stacks:
                 build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
                                     photerr_internal=photerr_internal)
@@ -823,6 +839,10 @@ class Pipeline:
         self.illumination_correction()
         self.resample()
         self.build_statistics_resampled()
+
+        # Calibrate pawprints and determine internal photometric error
+        self.photometry_pawprints()
+        self.photerr_internal()
 
         # Build and calibrate stacks
         if self.setup.build_stacks:
