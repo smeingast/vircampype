@@ -277,6 +277,25 @@ class Pipeline:
         return catalogs
 
     @property
+    def _paths_sources_resampled_full(self):
+        return [p.replace(".fits", ".full.fits.tab") for p in self._paths_resampled]
+
+    @property
+    def sources_resampled_full(self):
+
+        # Instantiate
+        from vircampype.fits.tables.sextractor import AstrometricCalibratedSextractorCatalogs
+        catalogs = AstrometricCalibratedSextractorCatalogs(file_paths=self._paths_sources_resampled_full,
+                                                           setup=self.setup)
+
+        # Consistency check
+        if len(catalogs) != len(self.resampled):
+            raise PipelineError("Images and catalogs not matching.")
+
+        # Return
+        return catalogs
+
+    @property
     def _paths_sources_stacks_full(self):
         return [p.replace(".fits", ".full.fits.tab") for p in self._paths_stacks]
 
