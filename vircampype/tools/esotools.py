@@ -639,7 +639,9 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
 
     # Construct contamination flag
     cflg = np.full(len(data), fill_value=False, dtype=bool)
-    cflg[np.nanmin(mag_aper, axis=1) < mag_saturation] = True  # Values above saturation limit
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        cflg[np.nanmin(mag_aper, axis=1) < mag_saturation] = True  # Values above saturation limit
     cflg[data["SNR_WIN"] <= 0] = True  # Bad SNR
     cflg[data["FLUX_AUTO"] < 0.01] = True  # Bad Flux measurement
     cflg[data["FWHM_WORLD"] * 3600 <= 0.2] = True  # Bad FWHM
