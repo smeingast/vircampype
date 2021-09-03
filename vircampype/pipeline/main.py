@@ -314,6 +314,25 @@ class Pipeline:
         return catalogs
 
     @property
+    def _paths_sources_resampled_crunched(self):
+        return [p.replace(".fits.tab", ".fits.ctab") for p in self._paths_sources_resampled_full]
+
+    @property
+    def sources_resampled_crunched(self):
+
+        # Instantiate
+        from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
+        catalogs = PhotometricCalibratedSextractorCatalogs(file_paths=self._paths_sources_resampled_crunched,
+                                                           setup=self.setup)
+
+        # Consistency check
+        if len(catalogs) != len(self.resampled):
+            raise PipelineError("Images and catalogs not matching.")
+
+        # Return
+        return catalogs
+
+    @property
     def _paths_sources_stacks_crunched(self):
         return [p.replace(".fits.tab", ".fits.ctab") for p in self._paths_sources_stacks_full]
 
