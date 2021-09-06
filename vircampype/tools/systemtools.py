@@ -9,7 +9,8 @@ import importlib
 from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
-           "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify"]
+           "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify",
+           "make_symlinks"]
 
 
 def make_folder(path: str):
@@ -227,3 +228,9 @@ def notify(message, title=None, subtitle=None, sound="default", open_url=None, i
     ig = "-ignoreDnD" if ignore_dnd else ""
     print("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
     os.system("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
+
+
+def make_symlinks(paths_files, paths_links):
+    for pp, ll in zip(paths_files, paths_links):
+        if not os.path.isfile(ll):
+            os.symlink(pp, ll)
