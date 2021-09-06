@@ -632,7 +632,8 @@ class Pipeline:
     def photerr_internal(self):
         if not self.status.photerr_internal:
             self.sources_resampled_crunched.photerr_internal()
-            self.sources_resampled_crunched.plot_qc_photerr_internal()
+            if self.setup.qc_plots:
+                self.sources_resampled_crunched.plot_qc_photerr_internal()
             self.update_status(photerr_internal=True)
         else:
             print_message(message="INTERNAL PHOTOMETRIC ERROR already determined", kind="warning", end=None)
