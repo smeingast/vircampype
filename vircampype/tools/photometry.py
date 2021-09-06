@@ -104,7 +104,7 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
             # Sigma clip mag_diff array and set weights of outliers to 0
             mask = sigma_clip(mag_diff, sigma=2.5, maxiters=5, axis=0).mask
             err_tot = np.sqrt(mag_err_ref**2 + mag_err_cal.T**2)
-            weights = (1/err_tot**2).T.copy()
+            weights = (1 / err_tot**2).T.copy()
             weights[mask] = 0.
 
             # Compute weighted average
