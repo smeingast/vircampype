@@ -1083,10 +1083,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def photerr_internal(self):
 
-        # Print info
-        print_header(header="INTERNAL PHOTOMETRIC ERROR", silent=self.setup.silent, left=None, right=None)
-        tstart = time.time()
-
         # Create pickle path
         pickle_path = "{0}photerr_interal.p".format(self.setup.folders["temp"])
 
@@ -1096,6 +1092,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # If not there, compute internal error
         except FileNotFoundError:
+
+            # Print info
+            print_header(header="INTERNAL PHOTOMETRIC ERROR", silent=self.setup.silent, left=None, right=None)
+            tstart = time.time()
 
             # Determine photometric statistics
             phot_median, phot_err, photerr_median = self._photerr_internal_all()
@@ -1117,10 +1117,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             pickle.dump(photerr_internal_dict, open(pickle_path, "wb"))
 
             # Print error
-            print_message(message="\n err = {0:0.4f}".format(photerr_internal_dict["photerr_internal"]), end="\n")
-
-        # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+            print_message(message="\n err = {0:0.4f} mag".format(photerr_internal_dict["photerr_internal"]), end="\n")
+            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
         # Get median error of those
         return photerr_internal_dict
