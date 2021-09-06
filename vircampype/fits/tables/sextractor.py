@@ -1128,6 +1128,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Import
         import matplotlib.pyplot as plt
 
+        # Print info
+        print_header(header="QC INTERNAL PHOTOMETRIC ERROR", silent=self.setup.silent, left=None, right=None)
+        tstart = time.time()
+
         # Create output path
         outpath = "{0}{1}.phot.interror.pdf".format(self.setup.folders["qc_photometry"], self.setup.name)
 
@@ -1187,6 +1191,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
             fig.savefig(outpath, bbox_inches="tight")
         plt.close("all")
+
+        # Print time
+        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
     def plot_qc_phot_zp(self, paths=None, axis_size=5):
         """ Generates ZP QC plot. """
