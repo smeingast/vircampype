@@ -1110,7 +1110,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             pickle.dump(photerr_internal_dict, open(pickle_path, "wb"))
 
             # Print error
-            print_message(message="err = {0:0.4f} mag".format(photerr_internal_dict["photerr_internal"]), end="\n")
+            print_message(message="err = {0:0.4f} mag".format(photerr_internal_dict["photerr_internal"]))
             print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
         # Get median error of those
