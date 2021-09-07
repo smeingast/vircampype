@@ -723,8 +723,7 @@ class Pipeline:
         clean_directory(self.setup.folders["processed_basic"])
 
         # Remove all files from final processed folder except astrometric solution
-        clean_directory(self.setup.folders["processed_final"], pattern="*.tab")
-        clean_directory(self.setup.folders["processed_final"], pattern="*.fits")
+        clean_directory(self.setup.folders["processed_final"], pattern="*scamp.fits.tab")
 
         # Remove resampled files
         clean_directory(self.setup.folders["resampled"])
