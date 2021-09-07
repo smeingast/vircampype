@@ -740,8 +740,8 @@ class Pipeline:
         self.shallow_clean()
         clean_directory(self.setup.folders["temp"])
 
-    def archive(self):
-        """ First runs a shallow clean, then compresses all remaining FITS images. """
+    def archive(self, compress_fits=False):
+        """ First runs a shallow clean, then - if requested - compresses all remaining FITS images. """
 
         if not self.status.archive:
 
@@ -751,15 +751,16 @@ class Pipeline:
             # Deep clean
             self.shallow_clean()
 
-            # Find all remaining fits files
-            fits_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fits"))
+            if compress_fits:
+                # Find all remaining fits files
+                fits_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fits"))
 
-            # Construct compression commands
-            cmds = ["fpack -D -Y -q {0} {1}".format(self.setup.fpack_quantization_factor, f) for f in fits_files]
+                # Construct compression commands
+                cmds = ["fpack -D -Y -q {0} {1}".format(self.setup.fpack_quantization_factor, f) for f in fits_files]
 
-            # Run in parallel (maximum of 2 at a time)
-            n_jobs = 1 if self.setup.n_jobs == 1 else 2
-            run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
+                # Run in parallel (maximum of 2 at a time)
+                n_jobs = 1 if self.setup.n_jobs == 1 else 2
+                run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
 
             # Print time
             print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
