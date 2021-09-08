@@ -60,6 +60,7 @@ class Setup(dict):
 
         # Photometry
         self.__reference_mag_lim = None
+        self.__phase3_photerr_internal_phase = None
 
         # Other
         self.__bin_stilts = "stilts"
@@ -501,6 +502,14 @@ class Setup(dict):
     @reference_mag_lim.setter
     def reference_mag_lim(self, reference_mag_lim):
         self.__reference_mag_lim = reference_mag_lim
+
+    @property
+    def phase3_photerr_internal(self):
+        return self.__phase3_photerr_internal_phase
+
+    @phase3_photerr_internal.setter
+    def phase3_photerr_internal(self, phase3_photerr_internal):
+        self.__phase3_photerr_internal_phase = phase3_photerr_internal
 
     # =========================================================================== #
     # Cosmetics
