@@ -1737,17 +1737,29 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
 
-        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=outpath, weight_image=",".join(paths_weight),
+        # Save file lists to temporary folder
+        path_temp_images = self.setup.folders["temp"] + "swarp_images.lis"
+        path_temp_weights = self.setup.folders["temp"] + "swarp_weights.lis"
+
+        with open(path_temp_images, "w") as f1, open(path_temp_weights, "w") as f2:
+            f1.write("\n".join(self.paths_full))
+            f2.write("\n".join(paths_weight))
+
+        ss = yml2config(path_yml=sws.preset_coadd, imageout_name=outpath, weight_image="@{0}".format(path_temp_weights),
                         weightout_name=outpath.replace(".fits", ".weight.fits"),
                         combine_type=self.setup.image_statistics_combine_type[mode],
                         nthreads=self.setup.n_jobs, skip=["weight_thresh", "weight_suffix"])
 
         # Construct commands for source extraction
-        cmd = "{0} {1} -c {2} {3}".format(sws.bin, " ".join(self.paths_full), sws.default_config, ss)
+        cmd = "{0} @{1} -c {2} {3}".format(sws.bin, path_temp_images, sws.default_config, ss)
 
         # Run Swarp
         print_message(message="Coadding {0}".format(os.path.basename(outpath)))
         run_command_shell(cmd=cmd, silent=True)
+
+        # Remove temp image lists
+        remove_file(path_temp_images)
+        remove_file(path_temp_weights)
 
         # Convert data types
         if "nimg" in mode.lower():
