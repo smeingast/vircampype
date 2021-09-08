@@ -694,14 +694,15 @@ class Pipeline:
 
     def phase3(self):
         if not self.status.phase3:
-            # Read internal photometric error
-            photerr_internal = self.sources_resampled_crunched.photerr_internal()["photerr_internal"]
+            # Check internal photometric error
+            if not isinstance(self.setup.phase3_photerr_internal, (int, float)):
+                raise ValueError("Specify internal photometric error in setup.")
             if self.setup.build_stacks:
                 build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
-                                    photerr_internal=photerr_internal)
+                                    photerr_internal=self.setup.phase3_photerr_internal)
             if self.setup.build_tile:
                 make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
-                                 pawprint_images=self.resampled, photerr_internal=photerr_internal)
+                                 pawprint_images=self.resampled, photerr_internal=self.setup.phase3_photerr_internal)
             # if self.setup.compress_phase3:
             #     self.compress_phase3_images()
             self.update_status(phase3=True)
@@ -842,8 +843,8 @@ class Pipeline:
         self.build_statistics_resampled()
 
         # Calibrate pawprints and determine internal photometric error
-        self.photometry_pawprints()
-        self.photerr_internal()
+        # self.photometry_pawprints()
+        # self.photerr_internal()
 
         # Build and calibrate stacks
         if self.setup.build_stacks:
