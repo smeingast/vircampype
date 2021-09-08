@@ -263,8 +263,8 @@ class SkyImages(FitsImages):
             fwhm_range = np.arange(fwhm_lo, fwhm_hi + 0.05, 0.05)
 
             # Safety check for fwhm range
-            if len(fwhm_range) > 18:
-                fwhm_range = np.around(np.arange(0.5, 1.36, 0.05), decimals=2)
+            if len(fwhm_range) > 24:
+                fwhm_range = np.around(np.arange(0.5, 1.66, 0.05), decimals=2)
 
             # Construct sextractor commands
             cmds = [self.sextractor(preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True)[idx_file]
@@ -278,7 +278,8 @@ class SkyImages(FitsImages):
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
 
             # Run Sextractor
-            run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=self.setup.n_jobs)
+            n_jobs_sex = 6 if self.setup.n_jobs > 6 else self.setup.n_jobs  # max of 6 parallel jobs
+            run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex.n_jobs)
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
