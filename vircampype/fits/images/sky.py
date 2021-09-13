@@ -254,13 +254,11 @@ class SkyImages(FitsImages):
             # Get percentiles image quality measurements
             fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
             fwhms = sigma_clip(fwhms, sigma_level=5, sigma_iter=2, center_metric=np.nanmedian)
-
-            # Get percentiles
             fwhm_lo = round_decimals_down(np.nanpercentile(fwhms, 2.5) * self.setup.pixel_scale_arcsec, decimals=2)
             fwhm_hi = round_decimals_up(np.nanpercentile(fwhms, 97.5) * self.setup.pixel_scale_arcsec, decimals=2)
 
             # Determine FWHM range
-            fwhm_range = np.arange(fwhm_lo, fwhm_hi + 0.05, 0.05)
+            fwhm_range = np.arange(fwhm_lo - 0.05, fwhm_hi + 0.1, 0.05)
 
             # Safety check for fwhm range
             if len(fwhm_range) > 24:
