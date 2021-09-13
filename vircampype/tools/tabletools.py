@@ -127,13 +127,14 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     idx_clean = np.array([i for i, v in enumerate(keep_clean) if v])
 
     # Do an initial sigma clipping
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        if table_clean[parameter].ndim == 1:
-            bad = sigma_clip(table_clean[parameter], sigma=2.5).mask
-        else:
-            bad = sigma_clip(table_clean[parameter], axis=1, sigma=2.5).mask
-        table_clean[parameter][bad] = np.nan
+    # TODO: This is an issue with the big mosaics. THis clips most of the best and worst seeing
+    # with warnings.catch_warnings():
+    #     warnings.filterwarnings("ignore")
+    #     if table_clean[parameter].ndim == 1:
+    #         bad = sigma_clip(table_clean[parameter], sigma=2.5).mask
+    #     else:
+    #         bad = sigma_clip(table_clean[parameter], axis=1, sigma=2.5).mask
+    #     table_clean[parameter][bad] = np.nan
 
     # Also only keep sources in clean table that have a valid entry for the requested parameter
     if table_clean[parameter].ndim == 1:
