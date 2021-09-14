@@ -277,7 +277,7 @@ class SkyImages(FitsImages):
 
             # Run Sextractor
             n_jobs_sex = 6 if self.setup.n_jobs > 6 else self.setup.n_jobs  # max of 6 parallel jobs
-            run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex.n_jobs)
+            run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
