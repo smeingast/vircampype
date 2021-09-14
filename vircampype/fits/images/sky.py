@@ -253,16 +253,15 @@ class SkyImages(FitsImages):
 
             # Get percentiles image quality measurements
             fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
-            fwhms = sigma_clip(fwhms, sigma_level=5, sigma_iter=2, center_metric=np.nanmedian)
-            fwhm_lo = round_decimals_down(np.nanpercentile(fwhms, 2.5) * self.setup.pixel_scale_arcsec, decimals=2)
-            fwhm_hi = round_decimals_up(np.nanpercentile(fwhms, 97.5) * self.setup.pixel_scale_arcsec, decimals=2)
+            fwhm_lo = round_decimals_down(np.nanpercentile(fwhms, 1.0) * self.setup.pixel_scale_arcsec, decimals=2)
+            fwhm_hi = round_decimals_up(np.nanpercentile(fwhms, 99.0) * self.setup.pixel_scale_arcsec, decimals=2)
 
             # Determine FWHM range
             fwhm_range = np.arange(fwhm_lo - 0.05, fwhm_hi + 0.1, 0.05)
 
             # Safety check for fwhm range
             if len(fwhm_range) > 24:
-                fwhm_range = np.around(np.arange(0.5, 1.66, 0.05), decimals=2)
+                fwhm_range = np.around(np.arange(0.45, 1.61, 0.05), decimals=2)
 
             # Construct sextractor commands
             cmds = [self.sextractor(preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True)[idx_file]
