@@ -704,9 +704,9 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **_kwargs_column_coo)
 
     # Position errors
-    col_errmaj = fits.Column(name="errMaj", array=data["ERRAWIN_WORLD"] * 3600000, **_kwargs_column_errminmaj)
-    col_errmin = fits.Column(name="errMin", array=data["ERRBWIN_WORLD"] * 3600000, **_kwargs_column_errminmaj)
-    col_errpa = fits.Column(name="errPA", array=data["ERRTHETAWIN_SKY"], **_kwargs_column_errpa)
+    col_errmaj = fits.Column(name="ERRMAJ", array=data["ERRAWIN_WORLD"] * 3600000, **_kwargs_column_errminmaj)
+    col_errmin = fits.Column(name="ERMIN", array=data["ERRBWIN_WORLD"] * 3600000, **_kwargs_column_errminmaj)
+    col_errpa = fits.Column(name="ERRPA", array=data["ERRTHETAWIN_SKY"], **_kwargs_column_errpa)
 
     # Magnitudes
     ncol_mag_aper = mag_aper.shape[1]
@@ -724,14 +724,14 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_mjd = fits.Column(name="MJD_OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
 
     # Flags
-    col_sflg = fits.Column(name="Sflg", array=sflg, **_kwargs_column_sflg)
-    col_cflg = fits.Column(name="Cflg", array=cflg, **_kwargs_column_cflg)
-    col_qflg = fits.Column(name="Qflg", array=qflg, **_kwargs_column_qflg)
+    col_sflg = fits.Column(name="SFLG", array=sflg, **_kwargs_column_sflg)
+    col_cflg = fits.Column(name="CFLG", array=cflg, **_kwargs_column_cflg)
+    col_qflg = fits.Column(name="QFLG", array=qflg, **_kwargs_column_qflg)
 
     # Morphology
     col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"] * 3600, **_kwargs_column_fwhm)
     col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"], **_kwargs_column_el)
-    col_class = fits.Column(name="CLASS", array=data["CLASS_STAR_INTERP"], **_kwargs_column_class)
+    col_class = fits.Column(name="CLS", array=data["CLASS_STAR_INTERP"], **_kwargs_column_class)
 
     # Put into single list
     cols = [col_id, col_ra, col_dec, col_errmaj, col_errmin, col_errpa,
