@@ -33,12 +33,15 @@ archive = False
 # Headers
 external_headers = True
 
+# Internal photometric error
+phase3_photerr_internal = 0.005
+
 # Generate setups and write them to disk
 for udj in unique_directories_j:
     name = "{0}_{1}".format(udj.split("data_vhs/")[1].split("/")[0], "J")
     setup = dict(name=name, path_data=udj, path_pype=path_pype, n_jobs=n_jobs, reference_mag_lim=reference_mag_lim_j,
                  projection=projection, additional_source_masks=additional_source_masks, archive=archive,
-                 external_headers=external_headers)
+                 external_headers=external_headers, phase3_photerr_internal=phase3_photerr_internal)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
@@ -50,7 +53,7 @@ for udks in unique_directories_ks:
     name = "{0}_{1}".format(udks.split("data_vhs/")[1].split("/")[0], "Ks")
     setup = dict(name=name, path_data=udks, path_pype=path_pype, n_jobs=n_jobs, reference_mag_lim=reference_mag_lim_ks,
                  projection=projection, additional_source_masks=additional_source_masks, archive=archive,
-                 external_headers=external_headers)
+                 external_headers=external_headers, phase3_photerr_internal=phase3_photerr_internal)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
