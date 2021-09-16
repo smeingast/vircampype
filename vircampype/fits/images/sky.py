@@ -1505,6 +1505,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                 hdul_tile[0].header.set("BACKSIG", value=np.round(backsig, 3), comment="Background sigma")
                 hdul_tile[0].header.set("BACKSKEW", value=np.round(backskew, 3), comment="Background skew")
 
+                # Add archive names of input
+                arcnames = self.read_from_prime_headers(keywords=["ARCFILE"])[0]
+                for idx in range(len(arcnames)):
+                    hdul_tile[0].header.set("HIERARCH PYPE ARCNAME {0:04d}".format(idx), arcnames[idx])
+
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
