@@ -570,6 +570,17 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
         add_float_to_header(header=hdr, key="ELLIPTIC", decimals=3, comment="Estimated median ellipticity",
                             value=ellipticity)
 
+    # Add provenance to tile image header
+    idx = 0
+    while True:
+        try:
+            prov = phdr_tile_in["HIERARCH PYPE ARCNAME {0:04d}".format(idx)]
+            phdr_tile_out.set("PROV{0}".format(idx + 1), value=prov,
+                              comment="Processing provenance {0}".format(idx + 1))
+        except KeyError:
+            break
+        idx += 1
+
     # Add kwargs
     for k, v in kwargs.items():
         hdr[k] = v
