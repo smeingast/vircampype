@@ -218,7 +218,7 @@ def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, 
         while True:
             try:
                 prov = hdulist_stack[0].header["HIERARCH PYPE ARCNAME {0:02d}".format(idx)]
-                hdr.set("PROV{0}".format(idx + 1), value=prov, comment="Processing provenance {0}".format(idx))
+                hdr.set("PROV{0}".format(idx + 1), value=prov, comment="Processing provenance {0}".format(idx + 1))
             except KeyError:
                 break
             idx += 1
