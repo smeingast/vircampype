@@ -4,7 +4,7 @@ from astropy.units import Unit
 from astropy.coordinates import ICRS, Galactic
 
 # Read header
-path_header = "/Users/stefan/Dropbox/Projects/vircampype/vircampype/visions/headers/Corona_Australis_deep.header"
+path_header = "/visions/headers/Corona_Australis_deep.header"
 header = fits.Header.fromtextfile(path_header)
 w = WCS(header)
 for x in w.calc_footprint():
