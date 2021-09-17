@@ -3,8 +3,8 @@ import os
 from joblib import cpu_count
 from vircampype.pipeline.errors import *
 from vircampype.tools.systemtools import *
-from vircampype.visions.projections import *
-from vircampype.visions.sourcemasks import *
+from vircampype.miscellaneous.projections import *
+from vircampype.miscellaneous.sourcemasks import *
 
 
 class Setup(dict):
