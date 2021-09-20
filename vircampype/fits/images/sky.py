@@ -1180,10 +1180,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Increase coadd size of header just to be safe (doesn't change a thing for coadding)
         path_coadd_header_temp = self.setup.path_coadd_header + "_temp"
-        hdr = fits.Header.fromtextfile(self.setup.path_coadd_header, endcard=False)
-        hdr["NAXIS1"], hdr["NAXIS2"] = hdr["NAXIS1"] * 2, hdr["NAXIS2"] * 2
-        hdr["CRPIX1"], hdr["CRPIX2"] = hdr["CRPIX1"] * 2, hdr["CRPIX2"] * 2
-        hdr.totextfile(path_coadd_header_temp, endcard=False, overwrite=True)
+        hdr_tile = fits.Header.fromtextfile(self.setup.path_coadd_header, endcard=False)
+        hdr_tile_large = enlarge_image_header(header=hdr_tile, factor=2)
+        hdr_tile_large.totextfile(path_coadd_header_temp, endcard=False, overwrite=True)
 
         # Read YML and override defaults
         ss = yml2config(path_yml=sws.preset_resampling,
