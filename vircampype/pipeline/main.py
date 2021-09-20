@@ -729,7 +729,7 @@ class Pipeline:
         # Remove resampled files
         clean_directory(self.setup.folders["resampled"])
 
-        # Cleam statistics directory
+        # Clean statistics directory
         clean_directory(self.setup.folders["statistics"])
 
         # Remove intermediate tables
