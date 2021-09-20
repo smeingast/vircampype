@@ -53,7 +53,6 @@ class Setup(dict):
         self.__swarp_back_filtersize = 3
         self.__sex_back_size = 64
         self.__sex_back_filtersize = 3
-        self.__resize_header_before_resampling = False
 
         # Astrometry
         self.__external_headers = False
@@ -697,14 +696,6 @@ class Setup(dict):
     @sex_back_filtersize.setter
     def sex_back_filtersize(self, sex_back_filtersize):
         self.__sex_back_filtersize = sex_back_filtersize
-
-    @property
-    def resize_header_before_resampling(self):
-        return self.__resize_header_before_resampling
-
-    @resize_header_before_resampling.setter
-    def resize_header_before_resampling(self, resize_header_before_resampling):
-        self.__resize_header_before_resampling = resize_header_before_resampling
 
     # =========================================================================== #
     # Image statistics

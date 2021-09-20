@@ -1178,20 +1178,17 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
 
-        # Increase coadd size of header if requested
-        if self.setup.resize_header_before_resampling:
-            path_coadd_header = self.setup.path_coadd_header + "_temp"
-            hdr = fits.Header.fromtextfile(self.setup.path_coadd_header, endcard=False)
-            hdr["NAXIS1"], hdr["NAXIS2"] = hdr["NAXIS1"] * 2, hdr["NAXIS2"] * 2
-            hdr["CRPIX1"], hdr["CRPIX2"] = hdr["CRPIX1"] * 2, hdr["CRPIX2"] * 2
-            hdr.totextfile(path_coadd_header, endcard=False, overwrite=True)
-        else:
-            path_coadd_header = self.setup.path_coadd_header
+        # Increase coadd size of header just to be safe (doesn't change a thing for coadding)
+        path_coadd_header_temp = self.setup.path_coadd_header + "_temp"
+        hdr = fits.Header.fromtextfile(self.setup.path_coadd_header, endcard=False)
+        hdr["NAXIS1"], hdr["NAXIS2"] = hdr["NAXIS1"] * 2, hdr["NAXIS2"] * 2
+        hdr["CRPIX1"], hdr["CRPIX2"] = hdr["CRPIX1"] * 2, hdr["CRPIX2"] * 2
+        hdr.totextfile(path_coadd_header_temp, endcard=False, overwrite=True)
 
         # Read YML and override defaults
         ss = yml2config(path_yml=sws.preset_resampling,
                         imageout_name=self.setup.path_coadd, weightout_name=self.setup.path_coadd_weight,
-                        headerout_name=path_coadd_header, nthreads=self.setup.n_jobs,
+                        headerout_name=path_coadd_header_temp, nthreads=self.setup.n_jobs,
                         resample_suffix=sws.resample_suffix, gain_keyword=self.setup.keywords.gain,
                         satlev_keyword=self.setup.keywords.saturate, back_size=self.setup.swarp_back_size,
                         back_filtersize=self.setup.swarp_back_filtersize,
@@ -1238,6 +1235,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Copy header entries from original file
             merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
+
+        # Remove temporary header
+        remove_file(filepath=path_coadd_header_temp)
 
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
