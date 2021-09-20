@@ -732,10 +732,6 @@ class Pipeline:
         # Clean statistics directory
         clean_directory(self.setup.folders["statistics"])
 
-        # Remove intermediate tables
-        clean_directory(self.setup.folders["stacks"], pattern="*.tab")
-        clean_directory(self.setup.folders["tile"], pattern="*.tab")
-
     def deep_clean(self):
         """ Runs a shallow clean followed by deleting the pipeline status"""
         self.shallow_clean()
