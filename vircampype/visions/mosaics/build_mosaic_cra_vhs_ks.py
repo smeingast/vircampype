@@ -1,4 +1,4 @@
-from vircampype.visions.mosaics.main import build_mosaic
+from vircampype.visions.mosaics.build_mosaic import build_mosaic
 
 # Setup for pipeline
 name = "CrA_mosaic_Ks"
