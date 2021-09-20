@@ -8,8 +8,7 @@ from vircampype.tools.systemtools import make_folder, make_symlinks, copy_file
 
 
 def build_mosaic(path_master_astro_photo, path_scripts, name, path_data, path_pype, n_jobs, projection,
-                 additional_source_masks, phase3_photerr_internal, reference_mag_lim,
-                 resize_header_before_resampling=False):
+                 additional_source_masks, phase3_photerr_internal, reference_mag_lim):
 
     # Check if master catalogs are available
     path_master_astro = "{0}MASTER-ASTROMETRY.fits.tab".format(path_master_astro_photo)
