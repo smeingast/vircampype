@@ -6,7 +6,7 @@ from vircampype.tools.mathtools import *
 from astropy.coordinates import ICRS, Galactic, AltAz, EarthLocation, SkyCoord
 
 __all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header", "pixelscale_from_header",
-           "rotationangle_from_header", "get_airmass_from_header"]
+           "rotationangle_from_header", "get_airmass_from_header", "enlarge_image_header"]
 
 
 def header_reset_wcs(header):
@@ -249,3 +249,42 @@ def get_airmass_from_header(header, time, location="Paranal"):
     sc = SkyCoord(*sc, frame="icrs", unit="deg")
     # Return airmass
     return sc.transform_to(AltAz(obstime=time, location=EarthLocation.of_site(location))).secz.value
+
+
+def enlarge_image_header(header, factor=2):
+    """
+    Increases the dimensions of an input header by a given factor.
+
+    Parameters
+    ----------
+    header : fits.Header
+        FITS image header.
+    factor : int, float
+        Enlargement factor.
+
+    Returns
+    -------
+    fits.Header
+        The resized image header.
+
+    """
+
+    # Copy input header
+    header_new = header.copy()
+
+    # Enlarge NAXIS
+    naxis1_new = header["NAXIS1"] * factor
+    naxis2_new = header["NAXIS2"] * factor
+
+    # Compute delta in both axes
+    xdelta = naxis1_new - header["NAXIS1"]
+    ydelta = naxis2_new - header["NAXIS2"]
+
+    # Set new header values
+    header_new["NAXIS1"] = naxis1_new
+    header_new["NAXIS2"] = naxis2_new
+    header_new["CRPIX1"] = header["CRPIX1"] + xdelta / 2
+    header_new["CRPIX2"] = header["CRPIX2"] + ydelta / 2
+
+    # Return modified header
+    return header_new
