@@ -21,11 +21,11 @@ def build_mosaic(path_master_astro_photo, path_scripts, name, path_data, path_py
     print("Found {0:2d} scripts".format(len(paths_scripts)))
 
     # Loop over scripts
-    field_names, paths_folders_raw, paths_folders_proc, paths_folders_master = [], [], [], []
+    field_names, paths_folders_raw, paths_folders_processed_final, paths_folders_master = [], [], [], []
     for ss in paths_scripts:
         yml = read_yml(ss)
         paths_folders_raw.append(yml["path_data"])
-        paths_folders_proc.append(yml["path_pype"] + yml["name"] + "/processed_final/")
+        paths_folders_processed_final.append(yml["path_pype"] + yml["name"] + "/processed_final/")
         paths_folders_master.append(yml["path_pype"] + yml["name"] + "/master/")
         field_names.append(yml["name"])
 
@@ -41,7 +41,7 @@ def build_mosaic(path_master_astro_photo, path_scripts, name, path_data, path_py
     print("Found {0:4d} raw images".format(len(paths_data_raw)))
 
     # Find processed images
-    paths_data_proc = flat_list([glob.glob(p + "*.fits") for p in paths_folders_proc])
+    paths_data_proc = flat_list([glob.glob(p + "*.fits") for p in paths_folders_processed_final])
     print("Found {0:4d} processed images".format(len(paths_data_proc)))
 
     # Find Source masks
