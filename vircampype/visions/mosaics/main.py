@@ -33,8 +33,7 @@ def build_mosaic(path_master_astro_photo, path_scripts, name, path_data, path_py
     setup = dict(name=name, path_data=path_data, path_pype=path_pype, n_jobs=n_jobs, projection=projection,
                  additional_source_masks=additional_source_masks, phase3_photerr_internal=phase3_photerr_internal,
                  reference_mag_lim=reference_mag_lim, external_headers=True, build_stacks=False, build_tile=True,
-                 build_phase3=True, archive=False, qc_plots=True,
-                 resize_header_before_resampling=resize_header_before_resampling)
+                 build_phase3=True, archive=False, qc_plots=True)
 
     # Find all raw input files
     paths_data_raw = flat_list([glob.glob(p + "*.fits") for p in paths_folders_raw])
