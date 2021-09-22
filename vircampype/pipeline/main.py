@@ -7,7 +7,7 @@ from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.errors import PipelineError
 from vircampype.fits.images.common import FitsImages
-from vircampype.tools.fitstools import compress_images
+from vircampype.tools.fitstools import compress_images, combine_mjd_images
 from vircampype.tools.esotools import build_phase3_stacks, make_phase3_tile
 
 
@@ -402,6 +402,12 @@ class Pipeline:
         # Return
         return images
 
+    def _paths_statistics_stacks(self, mode):
+        return [p.replace(".fits", f".{mode}.fits") for p in self._paths_stacks]
+
+    def _path_statistics_tile(self, mode):
+        return self.setup.path_coadd.replace(".fits", f".{mode}.fits")
+
     # =========================================================================== #
     # Master calibration
     def build_master_bpm(self):
@@ -587,18 +593,27 @@ class Pipeline:
 
     def build_statistics_stacks(self):
         if not self.status.statistics_stacks:
-            for mode in ["mjdeff", "nimg", "exptime"]:
+            for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_stacks(mode=mode)
+            # Combine MJD data
+            for pmi, pmf, pmc in zip(self._paths_statistics_stacks(mode="mjd.int"),
+                                     self._paths_statistics_stacks(mode="mjd.frac"),
+                                     self._paths_statistics_stacks(mode="mjd.eff")):
+                combine_mjd_images(path_file_a=pmi, path_file_b=pmf, path_file_out=pmc, overwrite=True)
             self.update_status(statistics_stacks=True)
         else:
             print_message(message="STACKS STATISTICS already created", kind="warning", end=None)
 
     def build_statistics_tile(self):
         if not self.status.statistics_tile:
-            for mode in ["mjdeff", "nimg", "exptime"]:
+            for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_tile(mode=mode)
+            # Combine MJD data
+            combine_mjd_images(path_file_a=self._path_statistics_tile(mode="mjd.int"),
+                               path_file_b=self._path_statistics_tile(mode="mjd.frac"),
+                               path_file_out=self._path_statistics_tile(mode="mjd.eff"), overwrite=True)
             self.update_status(statistics_tile=True)
         else:
             print_message(message="TILE STATISTICS already created", kind="warning", end=None)
