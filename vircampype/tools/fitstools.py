@@ -16,7 +16,7 @@ from vircampype.tools.systemtools import which, run_commands_shell_parallel
 __all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
            "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image", "fix_vircam_headers",
            "delete_keyword_from_header", "add_int_to_header", "replace_data", "mjd2dateobs", "compress_images",
-           "make_gaia_refcat"]
+           "make_gaia_refcat", "combine_mjd_images"]
 
 
 def check_card_value(value):
@@ -650,3 +650,27 @@ def fits2ldac(path_in, path_out, extension=1):
     hdulist = fits.HDUList([prihdu, ext2, ext3])
     hdulist.writeto(path_out, overwrite=True)
     hdulist.close()
+
+
+def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False):
+
+    with fits.open(path_file_a) as hdul_a, fits.open(path_file_b) as hdul_b:
+
+        # Files must have same number of HDUs
+        if len(hdul_a) != len(hdul_b):
+            raise ValueError("Files incompatible")
+
+        # Instantiate output HDU list
+        hdul_o = fits.HDUList([])
+
+        # Loop over HDUs and combine
+        for hdu_a, hdu_b in zip(hdul_a, hdul_b):
+
+            da, db = hdu_a.data, hdu_b.data
+            if (da is None) & (db is None):
+                hdul_o.append(hdu_a)
+            elif da.ndim == 2:
+                hdul_o.append(fits.ImageHDU(data=da.astype(np.float64) + db.astype(np.float64), header=hdu_a.header))
+
+        # Write to disk
+        hdul_o.writeto(path_file_out, overwrite=overwrite)
