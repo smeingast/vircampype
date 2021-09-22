@@ -1178,19 +1178,12 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
 
-        # Increase coadd size of header just to be safe (doesn't change a thing for coadding)
-        path_coadd_header_temp = self.setup.path_coadd_header + "_temp"
-        hdr_tile = fits.Header.fromtextfile(self.setup.path_coadd_header, endcard=False)
-        hdr_tile_large = enlarge_image_header(header=hdr_tile, factor=2)
-        hdr_tile_large.totextfile(path_coadd_header_temp, endcard=False, overwrite=True)
-
         # Read YML and override defaults
         ss = yml2config(path_yml=sws.preset_resampling,
                         imageout_name=self.setup.path_coadd, weightout_name=self.setup.path_coadd_weight,
-                        headerout_name=path_coadd_header_temp, nthreads=self.setup.n_jobs,
-                        resample_suffix=sws.resample_suffix, gain_keyword=self.setup.keywords.gain,
-                        satlev_keyword=self.setup.keywords.saturate, back_size=self.setup.swarp_back_size,
-                        back_filtersize=self.setup.swarp_back_filtersize,
+                        nthreads=self.setup.n_jobs, resample_suffix=sws.resample_suffix,
+                        gain_keyword=self.setup.keywords.gain, satlev_keyword=self.setup.keywords.saturate,
+                        back_size=self.setup.swarp_back_size,  back_filtersize=self.setup.swarp_back_filtersize,
                         fscale_keyword="FSCLSTCK", skip=["weight_image", "weight_thresh", "resample_dir"])
 
         # Construct commands for source extraction
