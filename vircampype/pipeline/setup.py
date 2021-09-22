@@ -36,6 +36,7 @@ class Setup(dict):
         self.__build_tile = True
         self.__build_phase3 = True
         self.__archive = False
+        self.__build_class_star_library = True
 
         # Data setup
         self.__maximasking = False
@@ -247,6 +248,14 @@ class Setup(dict):
     @build_phase3.setter
     def build_phase3(self, build_phase3):
         self.__build_phase3 = build_phase3
+
+    @property
+    def build_class_star_library(self):
+        return self.__build_class_star_library
+
+    @build_class_star_library.setter
+    def build_class_star_library(self, build_class_star_library):
+        self.__build_class_star_library = build_class_star_library
 
     @property
     def archive(self):
