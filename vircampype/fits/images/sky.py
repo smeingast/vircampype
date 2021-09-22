@@ -1539,7 +1539,8 @@ class SkyImagesResampled(SkyImagesProcessed):
         paths_weight = [self.setup.folders["statistics"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
 
         # Determine MJD offset
-        mjd_offset = self.mjd_mean
+        mjd_offset = 55197.  # hard-coded offset to 1.1.2010, to have same offset for all files (for mosaic)
+        # mjd_offset = self.mjd_mean
 
         # Loop over files
         for idx_file in range(self.n_files):
