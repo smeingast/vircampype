@@ -1228,9 +1228,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Copy header entries from original file
             merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
 
-        # Remove temporary header
-        remove_file(filepath=path_coadd_header_temp)
-
         # Print time
         print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
 
