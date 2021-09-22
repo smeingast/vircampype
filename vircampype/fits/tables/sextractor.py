@@ -642,7 +642,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         for idx_file in range(self.n_files):
 
             # Find files
-            path_mjd = self.paths_full[idx_file].replace(".full.fits.tab", ".mjdeff.fits")
+            path_mjd = self.paths_full[idx_file].replace(".full.fits.tab", ".mjd.eff.fits")
             path_exptime = self.paths_full[idx_file].replace(".full.fits.tab", ".exptime.fits")
             path_nimg = self.paths_full[idx_file].replace(".full.fits.tab", ".nimg.fits")
             path_weight = self.paths_full[idx_file].replace(".full.fits.tab", ".weight.fits")
