@@ -364,7 +364,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # At the moment, this only works when there is only one passband
         if len(list(set(self.passband))) != 1:
             raise ValueError("Only one passband allowed")
-        passband = self.passband[0]
+        # passband = self.passband[0]
 
         # Split based on passband and interval
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
@@ -372,19 +372,19 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()
-        mkeep = master_phot.get_purge_index(passband=passband)
-        mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-        skycoord_master = master_phot.skycoord()[0][0][mkeep]
 
-        # Read, stack, clean tables; determine mean ZP
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            tab_all = [self.file2table(file_index=i) for i in range(len(self))]
-            tab_all = clean_source_table(vstack(flat_list(tab_all)))
-            zp_all = get_zeropoint(skycoord1=SkyCoord(tab_all[self._key_ra], tab_all[self._key_dec], unit="deg"),
-                                   mag1=tab_all["MAG_AUTO"], skycoord2=skycoord_master, mag2=mag_master,
-                                   mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
-            _, zp_all_median, _ = sigma_clipped_stats(zp_all)
+        # # Read, stack, clean tables; determine mean ZP
+        # mkeep = master_phot.get_purge_index(passband=passband)
+        # mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
+        # skycoord_master = master_phot.skycoord()[0][0][mkeep]
+        # with warnings.catch_warnings():
+        #     warnings.filterwarnings("ignore")
+        #     tab_all = [self.file2table(file_index=i) for i in range(len(self))]
+        #     tab_all = clean_source_table(vstack(flat_list(tab_all)))
+        #     zp_all = get_zeropoint(skycoord1=SkyCoord(tab_all[self._key_ra], tab_all[self._key_dec], unit="deg"),
+        #                            mag1=tab_all["MAG_AUTO"], skycoord2=skycoord_master, mag2=mag_master,
+        #                            mag_limits_ref=master_phot.mag_lim(passband=passband), method="all")
+        #     _, zp_target, _ = sigma_clipped_stats(zp_all)
 
         # Now loop through separated files
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -450,7 +450,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # grid_zp = np.full((header["NAXIS1"], header["NAXIS2"]), fill_value=zp, dtype=np.float32)
 
                 # Convert to flux scale
-                flx_scale.append(10**((grid_zp - zp_all_median) / 2.5))
+                flx_scale.append(10**((grid_zp - self.setup.target_zp) / 2.5))
 
                 # Save number of sources
                 n_sources.append(len(tab))
