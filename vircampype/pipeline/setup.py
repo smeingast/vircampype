@@ -713,7 +713,7 @@ class Setup(dict):
         return 0.25
 
     # Image combination methods for statistics
-    image_statistics_combine_type = dict(nimg="SUM", mjdeff="AVERAGE", exptime="SUM")
+    image_statistics_combine_type = {"nimg": "SUM", "exptime": "SUM", "mjd.int": "AVERAGE", "mjd.frac": "AVERAGE"}
 
     # =========================================================================== #
     # Other
