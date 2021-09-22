@@ -1523,21 +1523,19 @@ class SkyImagesResampled(SkyImagesProcessed):
         master_weights = self.get_master_weight_global()
 
         # Create temporary output paths
-        paths_nimg = [self.setup.folders["statistics"] + bn.replace(".fits", ".nimg.fits") for bn in self.basenames]
-        paths_exp = [self.setup.folders["statistics"] + bn.replace(".fits", ".exptime.fits") for bn in self.basenames]
-        paths_mjd = [self.setup.folders["statistics"] + bn.replace(".fits", ".mjdeff.fits") for bn in self.basenames]
-        paths_weight = [self.setup.folders["statistics"] + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
-
-        # Determine MJD offset
-        mjd_offset = 55197.  # hard-coded offset to 1.1.2010, to have same offset for all files (for mosaic)
-        # mjd_offset = self.mjd_mean
+        folder_statistics = self.setup.folders["statistics"]
+        paths_nimg = [folder_statistics + bn.replace(".fits", ".nimg.fits") for bn in self.basenames]
+        paths_exp = [folder_statistics + bn.replace(".fits", ".exptime.fits") for bn in self.basenames]
+        paths_mjd_frac = [folder_statistics + bn.replace(".fits", ".mjd.frac.fits") for bn in self.basenames]
+        paths_mjd_int = [folder_statistics + bn.replace(".fits", ".mjd.int.fits") for bn in self.basenames]
+        paths_weight = [folder_statistics + bn.replace(".fits", ".weight.fits") for bn in self.basenames]
 
         # Loop over files
         for idx_file in range(self.n_files):
             """
-            We have to cheat here to get a 64bit MJD value in the coadd
+            I have to cheat here to get a 64bit MJD value in the coadd
             Swarp only produces 32 bit coadds for some reason, even if all input files (including weights) are
-            passed as 64bit images and the coadd header includes BITPIX=-64.
+            passed as 64 bit images and the coadd header includes BITPIX=-64.
             """
 
             # Check if the file is already there and skip if it is
@@ -1556,7 +1554,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Create output HDULists
             hdul_nimg = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_exptime = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
-            hdul_mjdeff = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_mjd_int = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_mjd_frac = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
             # Loop over extensions
@@ -1575,7 +1574,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                 # Create image statistics arrays
                 arr_nimg = np.full(shape, fill_value=1, dtype=np.uint16)
                 arr_exptime = np.full(shape, fill_value=self.dit[idx_file] * self.ndit[idx_file], dtype=np.float32)
-                arr_mjdeff = np.full(shape, fill_value=self.mjd[idx_file] - mjd_offset, dtype=np.float32)
+                mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
+                arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
+                arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
 
                 # Read weight
                 weight_hdu = fits.getdata(master_weights.paths_full[idx_file], idx_hdu+1)
@@ -1590,19 +1591,19 @@ class SkyImagesResampled(SkyImagesProcessed):
 
                 # Create header and modify specifically for MJD
                 header_resized = wcs_resized.to_header()
-                header_resized_mjd = header_resized.copy()
-                header_resized_mjd.set("MJDOFF", value=mjd_offset, comment="MJD offset")
 
                 # Extend HDULists
                 hdul_nimg.append(fits.ImageHDU(data=arr_nimg, header=header_resized))  # noqa
                 hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))  # noqa
-                hdul_mjdeff.append(fits.ImageHDU(data=arr_mjdeff, header=header_resized_mjd))  # noqa
-                hdul_weights.append(fits.ImageHDU(data=arr_weight, header=header_resized))  # noqa
+                hdul_mjd_frac.append(fits.ImageHDU(data=arr_mjd_frac, header=header_resized))  # noqa
+                hdul_mjd_int.append(fits.ImageHDU(data=arr_mjd_int, header=header_resized))  # noqa
+                hdul_weights.append(fits.ImageHDU(data=arr_weight.astype(np.float64), header=header_resized))  # noqa
 
             # Write to disk
             hdul_nimg.writeto(paths_nimg[idx_file], overwrite=True)
             hdul_exptime.writeto(paths_exp[idx_file], overwrite=True)
-            hdul_mjdeff.writeto(paths_mjd[idx_file], overwrite=True)
+            hdul_mjd_frac.writeto(paths_mjd_frac[idx_file], overwrite=True)
+            hdul_mjd_int.writeto(paths_mjd_int[idx_file], overwrite=True)
             hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
 
         # Print time
@@ -1618,24 +1619,11 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Split based on OFFSET ID
         split = self.split_keywords(keywords=["OFFSET_I"])
 
-        # Set default mjd offset
-        mjd_offset = None
-
         # Loop over OFFSETs
         for idx_split in range(len(split)):
 
             # Grab current files
             files = split[idx_split]
-
-            # Read MJD offset
-            if "mjd" in mode.lower():
-                mjd_offset = flat_list(files.read_from_data_headers(keywords=["MJDOFF"])[0])
-
-                # There can only be one offset
-                if len(set(mjd_offset)) != 1:
-                    raise ValueError("Multiple MJD offsets found")
-                else:
-                    mjd_offset = mjd_offset[0]
 
             # Load Swarp setup
             sws = SwarpSetup(setup=files.setup)
@@ -1697,7 +1685,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             elif "exptime" in mode.lower():
                 convert_bitpix_image(path=path_stack, new_type=np.float32)
             elif "mjd" in mode.lower():
-                convert_bitpix_image(path=path_stack, new_type=np.float64, offset=mjd_offset)
+                convert_bitpix_image(path=path_stack, new_type=np.float32)
             else:
                 raise ValueError
 
@@ -1726,17 +1714,6 @@ class SkyImagesResampled(SkyImagesProcessed):
 
         if np.sum([os.path.isfile(w) for w in paths_weight]) != self.n_files:
             raise ValueError("Not all images have weights")
-
-        # Read MJD offset
-        mjd_offset = None
-        if "mjd" in mode.lower():
-            mjd_offset = flat_list(self.read_from_data_headers(keywords=["MJDOFF"])[0])
-
-            # There can only be one offset
-            if len(set(mjd_offset)) != 1:
-                raise ValueError("Multiple MJD offsets found")
-            else:
-                mjd_offset = mjd_offset[0]
 
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
@@ -1771,7 +1748,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         elif "exptime" in mode.lower():
             convert_bitpix_image(path=outpath, new_type=np.float32)
         elif "mjd" in mode.lower():
-            convert_bitpix_image(path=outpath, new_type=np.float64, offset=mjd_offset)
+            convert_bitpix_image(path=outpath, new_type=np.float32)
         else:
             raise ValueError
 
