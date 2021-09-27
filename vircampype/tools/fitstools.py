@@ -590,9 +590,9 @@ def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None):
 
     # Add positions
     data_out["X_WORLD"] = sc.ra.degree
-    data_out["XERR_WORLD"] = data_in["ra_error"].value / 3600000
+    data_out["XERR_WORLD"] = data_in["ra_error"].value / 3_600_000
     data_out["Y_WORLD"] = sc.dec.degree
-    data_out["YERR_WORLD"] = data_in["dec_error"].value / 3600000
+    data_out["YERR_WORLD"] = data_in["dec_error"].value / 3_600_000
 
     # Add proper motions
     data_out["PM_ALPHA"] = data_in["pmra"].value
