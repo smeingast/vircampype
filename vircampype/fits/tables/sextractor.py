@@ -115,6 +115,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # If already available, skip
         if np.sum(ehdrs) == len(self):
+            print("Scamp headers already exist")
             return
 
         # Load Scamp setup
