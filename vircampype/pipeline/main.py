@@ -585,7 +585,7 @@ class Pipeline:
     # =========================================================================== #
     # Statistics
     def build_statistics_resampled(self):
-        if not self.status.build_statistics:
+        if not self.status.statistics_resampled:
             self.resampled.build_statistics()
             self.update_status(build_statistics=True)
         else:
@@ -892,7 +892,7 @@ class PipelineStatus:
                  master_flat=False, master_weight_global=False, processed_raw_basic=False, master_sky_static=False,
                  master_source_mask=False, master_sky_dynamic=False, master_photometry=False, master_astrometry=False,
                  processed_raw_final=False, master_weight_image=False, tile_header=False, astrometry=False,
-                 illumcorr=False, resampled=False, build_statistics=False, photometry_pawprints=False,
+                 illumcorr=False, resampled=False, statistics_resampled=False, photometry_pawprints=False,
                  photerr_internal=False, stacks=False, statistics_stacks=False, classification_stacks=False,
                  photometry_stacks=False, qc_astrometry_stacks=False, tile=False, statistics_tile=False,
                  classification_tile=False, photometry_tile=False, qc_astrometry_tile=False, phase3=False,
@@ -919,7 +919,7 @@ class PipelineStatus:
         self.astrometry = astrometry
         self.illumcorr = illumcorr
         self.resampled = resampled
-        self.build_statistics = build_statistics
+        self.statistics_resampled = statistics_resampled
         self.photometry_pawprints = photometry_pawprints
         self.photerr_internal = photerr_internal
         self.stacks = stacks
@@ -946,7 +946,7 @@ class PipelineStatus:
         return ["master_bpm", "master_linearity", "master_dark", "master_gain", "master_flat", "master_weight_global",
                 "processed_raw_basic", "master_sky_static", "master_source_mask", "master_sky_dynamic",
                 "master_photometry", "master_astrometry", "processed_raw_final", "master_weight_image", "tile_header",
-                "astrometry", "illumcorr", "resampled", "build_statistics", "photometry_pawprints", "photerr_internal",
+                "astrometry", "illumcorr", "resampled", "statistics_resampled", "photometry_pawprints",
                 "stacks", "statistics_stacks", "classification_stacks", "photometry_stacks", "qc_astrometry_stacks",
                 "tile", "statistics_tile", "classification_tile", "photometry_tile", "qc_astrometry_tile", "phase3",
                 "archive"]
