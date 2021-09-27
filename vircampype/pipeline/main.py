@@ -621,18 +621,20 @@ class Pipeline:
     # =========================================================================== #
     # Classification
     def classification_stacks(self):
-        if not self.status.classification_stacks:
-            self.stacks.build_class_star_library()
-            self.update_status(classification_stacks=True)
-        else:
-            print_message(message="STACKS CLASSIFICATION library for already built", kind="warning", end=None)
+        if self.setup.build_class_star_library:
+            if not self.status.classification_stacks:
+                self.stacks.build_class_star_library()
+                self.update_status(classification_stacks=True)
+            else:
+                print_message(message="STACKS CLASSIFICATION library for already built", kind="warning", end=None)
 
     def classification_tile(self):
-        if not self.status.classification_tile:
-            self.tile.build_class_star_library()
-            self.update_status(classification_tile=True)
-        else:
-            print_message(message="TILE CLASSIFICATION library for already built", kind="warning", end=None)
+        if self.setup.build_class_star_library:
+            if not self.status.classification_tile:
+                self.tile.build_class_star_library()
+                self.update_status(classification_tile=True)
+            else:
+                print_message(message="TILE CLASSIFICATION library for already built", kind="warning", end=None)
 
     # =========================================================================== #
     # Photometry
