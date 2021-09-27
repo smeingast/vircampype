@@ -117,7 +117,7 @@ def yml2config(path_yml: str, skip=None, **kwargs):
     return s
 
 
-def _cmd_append_libraries(cmd):
+def _cmd_append_libraries(cmd: str):
 
     # Get system environment
     sys_env = os.environ.copy()
@@ -165,7 +165,7 @@ def run_commands_shell_parallel(cmds, n_jobs: int = 1, shell: str = "zsh", silen
             p.wait()
 
 
-def run_command_shell(cmd, shell: str = "zsh", silent: bool = False):
+def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
     """
     Runs a single shell command in the specified shell.
 
@@ -216,7 +216,7 @@ def get_resource_path(package: str, resource: str):
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
 
 
-def copy_file(a, b):
+def copy_file(a: str, b: str):
     shutil.copy2(a, b)
 
 
@@ -242,7 +242,8 @@ def clean_directory(directorypath: str, pattern: str = "*"):
         remove_file(f)
 
 
-def notify(message, title=None, subtitle=None, sound="default", open_url=None, ignore_dnd=False):
+def notify(message: str, title: str = None, subtitle: str = None, sound: str = "default",
+           open_url: str = None, ignore_dnd: bool = False):
     """ macOS notification wrapper built around terminal-notifier """
     me = "-message {!r}".format(message)
     ti = "-title {!r}".format(title) if title is not None else ""
