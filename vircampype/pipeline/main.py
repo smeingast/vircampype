@@ -593,7 +593,7 @@ class Pipeline:
     def build_statistics_resampled(self):
         if not self.status.statistics_resampled:
             self.resampled.build_statistics()
-            self.update_status(build_statistics=True)
+            self.update_status(statistics_resampled=True)
         else:
             print_message(message="IMAGE STATISTICS already built", kind="warning", end=None)
 
