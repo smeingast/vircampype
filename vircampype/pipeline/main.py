@@ -409,6 +409,12 @@ class Pipeline:
         return self.setup.path_coadd.replace(".fits", f".{mode}.fits")
 
     # =========================================================================== #
+    # Others
+    @property
+    def _paths_scamp_headers(self):
+        return [p.replace(".final.fits", ".final.ahead") for p in self._paths_processed_science_final]
+
+    # =========================================================================== #
     # Master calibration
     def build_master_bpm(self):
         if self.flat_lamp_check is not None:
