@@ -1499,8 +1499,17 @@ class SkyImagesResampled(SkyImagesProcessed):
                                         comment="Internal astr. dispersion RMS (mas)")
                 hdul_tile[0].header.set(keyword="ASTRRMS", value=np.round(astrrms, 2),
                                         comment="External astr. dispersion RMS (mas)")
-                # Set background info
-                backmod, backsig, backskew = mmm(hdul_tile[0].data)
+
+                # Load coadd
+                coadd = hdul_tile[0].data
+
+                # Use a max of 50_000_000 pixels for sky calculation
+                if coadd.size > 50_000_000:
+                    backmod, backsig, backskew = mmm(coadd[::coadd.size // 50_000_000])
+                else:
+                    backmod, backsig, backskew = mmm(coadd)
+
+                # Put background info into header
                 hdul_tile[0].header.set("BACKMOD", value=np.round(backmod, 3), comment="Background mode")
                 hdul_tile[0].header.set("BACKSIG", value=np.round(backsig, 3), comment="Background sigma")
                 hdul_tile[0].header.set("BACKSKEW", value=np.round(backskew, 3), comment="Background skew")
