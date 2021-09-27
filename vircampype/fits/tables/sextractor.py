@@ -110,8 +110,11 @@ class SextractorCatalogs(SourceCatalogs):
         # Construct XML path
         path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
 
-        # Check if XML is already there and just return if it is
-        if check_file_exists(file_path=path_xml, silent=self.setup.silent):
+        # Check for external headers
+        ehdrs = [os.path.isfile(p) for p in self._scamp_header_paths(joined=False)]
+
+        # If already available, skip
+        if np.sum(ehdrs) == len(self):
             return
 
         # Load Scamp setup
