@@ -715,8 +715,8 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **_kwargs_column_coo)
 
     # Position errors
-    col_errmaj = fits.Column(name="ERRMAJ", array=data["ERRAWIN_WORLD"] * 3600000, **_kwargs_column_errminmaj)
-    col_errmin = fits.Column(name="ERMIN", array=data["ERRBWIN_WORLD"] * 3600000, **_kwargs_column_errminmaj)
+    col_errmaj = fits.Column(name="ERRMAJ", array=data["ERRAWIN_WORLD"] * 3_600_000, **_kwargs_column_errminmaj)
+    col_errmin = fits.Column(name="ERMIN", array=data["ERRBWIN_WORLD"] * 3_600_000, **_kwargs_column_errminmaj)
     col_errpa = fits.Column(name="ERRPA", array=data["ERRTHETAWIN_SKY"], **_kwargs_column_errpa)
 
     # Magnitudes
