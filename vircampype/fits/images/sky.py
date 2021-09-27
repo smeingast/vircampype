@@ -1369,8 +1369,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             astirms2_mean = np.mean(list(zip(*cpkw_dict["ASTIRMS2"]))[0])
             astrrms1_mean = np.mean(list(zip(*cpkw_dict["ASTRRMS1"]))[0])
             astrrms2_mean = np.mean(list(zip(*cpkw_dict["ASTRRMS2"]))[0])
-            astirms = np.sqrt(astirms1_mean**2 + astirms2_mean**2) * 3600000
-            astrrms = np.sqrt(astrrms1_mean**2 + astrrms2_mean**2) * 3600000
+            astirms = np.sqrt(astirms1_mean**2 + astirms2_mean**2) * 3_600_000
+            astrrms = np.sqrt(astrrms1_mean**2 + astrrms2_mean**2) * 3_600_000
             prhdr_stk.set("ASTIRMS", value=np.round(astirms, 2), comment="Internal astr. dispersion RMS (mas)")
             prhdr_stk.set("ASTRRMS", value=np.round(astrrms, 2), comment="External astr. dispersion RMS (mas)")
 
@@ -1485,8 +1485,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             cpkw = ["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"]
             astrms_data = self.read_from_data_headers(keywords=cpkw)
             astrms_dict = dict(zip(cpkw, astrms_data))
-            astirms = np.sqrt(np.mean(astrms_dict["ASTIRMS1"])**2 + np.mean(astrms_dict["ASTIRMS1"])**2) * 3600000
-            astrrms = np.sqrt(np.mean(astrms_dict["ASTRRMS1"])**2 + np.mean(astrms_dict["ASTRRMS1"])**2) * 3600000
+            astirms = np.sqrt(np.mean(astrms_dict["ASTIRMS1"])**2 + np.mean(astrms_dict["ASTIRMS1"])**2) * 3_600_000
+            astrrms = np.sqrt(np.mean(astrms_dict["ASTRRMS1"])**2 + np.mean(astrms_dict["ASTRRMS1"])**2) * 3_600_000
 
             # Copy/add primary header entries
             with fits.open(self.setup.path_coadd, mode="update") as hdul_tile, \
