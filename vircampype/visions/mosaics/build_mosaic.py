@@ -51,6 +51,10 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
     links_statistics = ["{0}{1}/statistics/{2}".format(path_pype, name, os.path.basename(f)) for f in paths_statistics]
     print("Found {0:4d} statistics files".format(len(paths_statistics)))
 
+    # Dummy check
+    if len(paths_statistics) != 5 * len(paths_resampled):
+        raise ValueError("Statistics and image files not matching")
+
     # Require input to continue
     if (input("Continue (Y/n)") or "Y") != "Y":
         exit()
