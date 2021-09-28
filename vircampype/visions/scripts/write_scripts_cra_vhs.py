@@ -4,8 +4,8 @@ import yaml
 
 # Define base path
 path_data = "/Volumes/Data/VHS/CrA/data_vhs/"
-path_scripts = "/Volumes/Data/VHS/CrA/scripts/"
 path_pype = "/Volumes/Data/VHS/CrA/vircampype/"
+path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VHS/CrA/"
 
 
 # Find all files recursively
@@ -33,10 +33,10 @@ archive = False
 # Headers
 external_headers = True
 
-# No stacks or phase 3
+# No stacks, phase 3, or classification
 build_stacks = False
 build_phase3 = False
-phase3_photerr_internal = 0.005
+build_class_star_library = False
 
 # Generate scripts and write them to disk
 for udj in unique_directories_j:
@@ -44,7 +44,7 @@ for udj in unique_directories_j:
     setup = dict(name=name, path_data=udj, path_pype=path_pype, n_jobs=n_jobs, reference_mag_lim=reference_mag_lim_j,
                  projection=projection, additional_source_masks=additional_source_masks, archive=archive,
                  external_headers=external_headers, build_stacks=build_stacks, build_phase3=build_phase3,
-                 phase3_photerr_internal=phase3_photerr_internal)
+                 build_class_star_library=build_class_star_library)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
@@ -57,7 +57,7 @@ for udks in unique_directories_ks:
     setup = dict(name=name, path_data=udks, path_pype=path_pype, n_jobs=n_jobs, reference_mag_lim=reference_mag_lim_ks,
                  projection=projection, additional_source_masks=additional_source_masks, archive=archive,
                  external_headers=external_headers, build_stacks=build_stacks, build_phase3=build_phase3,
-                 phase3_photerr_internal=phase3_photerr_internal)
+                 build_class_star_library=build_class_star_library)
 
     # Write YML
     path_yml = "{0}{1}.yml".format(path_scripts, name)
