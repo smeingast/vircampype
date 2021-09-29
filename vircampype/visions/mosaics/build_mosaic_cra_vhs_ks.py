@@ -12,6 +12,7 @@ reference_mag_lim = (12.0, 14.5)  # Ks VHS
 phase3_photerr_internal = 0.005
 n_jobs = 18
 
-build_mosaic(path_master_astro_photo=path_master_astro_photo, path_pype=path_pype, path_data=path_data, n_jobs=n_jobs,
-             projection=projection, additional_source_masks=additional_source_masks, path_scripts=path_scripts,
-             reference_mag_lim=reference_mag_lim, phase3_photerr_internal=phase3_photerr_internal, name=name)
+build_mosaic(name=name, path_scripts=path_scripts, path_data=path_data, path_pype=path_pype, n_jobs=n_jobs,
+             path_master_astro_photo=path_master_astro_photo, additional_source_masks=additional_source_masks,
+             reference_mag_lim=reference_mag_lim, projection=projection, build_class_star_library=True,
+             phase3_photerr_internal=phase3_photerr_internal)
