@@ -196,12 +196,6 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
         else:
             data_tile_s = data_tile
 
-        # Determine background statistics
-        backmod, backsig, backskew = mmm(data_tile_s)
-
-        # Subtract overall background level
-        data_tile -= backmod
-
         # Skip convolution for deep tiles
         if "deep" in pt.lower():
             print(f"Skipping convolution for file {os.path.basename(pt)}")
@@ -214,6 +208,18 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
 
             # Apply convolution with determined scale
             data_tile = convolve(data_tile, kernel=Gaussian2DKernel(cscl), boundary="extend")
+
+            # Recompute background level
+            if data_tile.size > 50_000_000:  # noqa
+                data_tile_s = data_tile[::data_tile.size // 50_000_000]  # noqa
+            else:
+                data_tile_s = data_tile
+
+        # Determine background statistics
+        backmod, backsig, backskew = mmm(data_tile_s)
+
+        # Subtract overall background level
+        data_tile -= backmod
 
         # Update header
         hdr_tile["NBACKMOD"] = (0.0, "Background mode")
