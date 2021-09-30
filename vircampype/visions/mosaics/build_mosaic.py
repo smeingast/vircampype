@@ -7,7 +7,7 @@ from vircampype.tools.miscellaneous import flat_list
 from vircampype.tools.systemtools import make_folder, make_symlinks, copy_file
 
 
-def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_photo, n_jobs, additional_source_masks,
+def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_photo, n_jobs,
                  reference_mag_lim, projection, phase3_photerr_internal, **kwargs):
 
     # Check if master catalogs are available
@@ -31,9 +31,9 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
 
     # Pipeline setup
     setup = dict(name=name, path_data=path_data, path_pype=path_pype, n_jobs=n_jobs, projection=projection,
-                 additional_source_masks=additional_source_masks, phase3_photerr_internal=phase3_photerr_internal,
-                 reference_mag_lim=reference_mag_lim, external_headers=True, build_stacks=False, build_tile=True,
-                 build_phase3=True, archive=False, qc_plots=True, **kwargs)
+                 phase3_photerr_internal=phase3_photerr_internal, reference_mag_lim=reference_mag_lim,
+                 external_headers=True, build_stacks=False, build_tile=True, build_phase3=True,
+                 archive=False, qc_plots=True, **kwargs)
 
     # Find resampled images and create link paths
     paths_resampled = flat_list([glob.glob(p + "*resamp.fits") for p in paths_folders_resampled])
