@@ -156,7 +156,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
             weight.writeto(path_wei_p3, overwrite=True, checksum=True, output_verify="silentfix")
 
     # Print time
-    print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+    print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, setup, **kwargs):
@@ -425,7 +425,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
         hdu.writeto(path_weight_p3, overwrite=False, checksum=True)
 
     # Print time
-    print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+    print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwargs):

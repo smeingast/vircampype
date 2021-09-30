@@ -182,7 +182,7 @@ class FlatTwilight(FlatImages):
                 mflat.qc_plot_flat(paths=None, axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     # =========================================================================== #
     # Master Weight
@@ -250,7 +250,7 @@ class FlatTwilight(FlatImages):
             cube.write_mef(path=outpaths[idx], prime_header=prime_header, data_headers=master_flats.headers_data[idx])
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class FlatLampLin(FlatImages):
@@ -403,7 +403,7 @@ class FlatLampLin(FlatImages):
                 ml.qc_plot_linearity_delta(paths=None, axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class FlatLampCheck(FlatImages):
@@ -509,7 +509,7 @@ class FlatLampCheck(FlatImages):
                 mbpm.qc_plot_bpm(paths=None, axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class FlatLampGain(FlatImages):
@@ -627,7 +627,7 @@ class FlatLampGain(FlatImages):
                 mgain.qc_plot_rdnoise(paths=None, axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class MasterFlat(MasterImages):

@@ -208,7 +208,7 @@ class SkyImages(FitsImages):
 
         # Print time
         if not silent:
-            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+            print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import SextractorCatalogs, AstrometricCalibratedSextractorCatalogs
@@ -315,7 +315,7 @@ class SkyImages(FitsImages):
             [os.remove(f) for f in catalogs.paths_full]
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_master_psf(self, preset):
 
@@ -415,7 +415,7 @@ class SkyImages(FitsImages):
             copy_file(path_ahead, path_ahead_sf)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class SkyImagesRaw(SkyImages):
@@ -515,7 +515,7 @@ class SkyImagesRaw(SkyImages):
             cube.write_mef(path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class SkyImagesRawScience(SkyImagesRaw):
@@ -634,7 +634,7 @@ class SkyImagesProcessed(SkyImages):
             cube_sources.write_mef(path=outpath, prime_header=prime_header, dtype=np.uint8)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_master_photometry(self):
 
@@ -668,7 +668,7 @@ class SkyImagesProcessed(SkyImages):
             add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_master_astrometry(self):
 
@@ -710,7 +710,7 @@ class SkyImagesProcessed(SkyImages):
             add_key_primary_hdu(path=outpath, key=self.setup.keywords.object, value="MASTER-ASTROMETRY")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_master_sky_dynamic(self):
         """
@@ -840,7 +840,7 @@ class SkyImagesProcessed(SkyImages):
                 msky.qc_plot_sky(paths=None, axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def process_raw_final(self):
         """ Main processing method. """
@@ -949,7 +949,7 @@ class SkyImagesProcessed(SkyImages):
             cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=hdrs_data, dtype="float32")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class SkyImagesProcessedScience(SkyImagesProcessed):
@@ -1024,7 +1024,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         master_cube.write_mef(path=outpath, prime_header=hdr_prime, data_headers=data_headers)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_master_weight_image(self):
         """ This is unfortunately necessary since sometimes detector 16 in particular is weird."""
@@ -1112,7 +1112,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             master_weight.write_mef(path=outpaths[idx_file], prime_header=prime_header)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_coadd_header(self):
 
@@ -1166,7 +1166,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def resample(self):
         """ Resamples images. """
@@ -1229,7 +1229,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class SkyImagesProcessedOffset(SkyImagesProcessed):
@@ -1385,7 +1385,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             [os.remove(x) for x in paths_temp_weights]
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     # def equalize_zero_point(self, stack_catalogs):
     #
@@ -1454,7 +1454,7 @@ class SkyImagesResampled(SkyImagesProcessed):
     #     self._headers = None
     #
     #     # Print time
-    #     print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+    #     print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_tile(self):
 
@@ -1520,7 +1520,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                     hdul_tile[0].header.set("HIERARCH PYPE ARCNAME {0:04d}".format(idx), arcnames[idx])
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def build_statistics(self):
 
@@ -1616,7 +1616,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def coadd_statistics_stacks(self, mode):
 
@@ -1703,7 +1703,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             [remove_file(f) for f in paths_temp_weights]
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def coadd_statistics_tile(self, mode):
 
@@ -1762,7 +1762,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             raise ValueError
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class Stacks(SkyImages):

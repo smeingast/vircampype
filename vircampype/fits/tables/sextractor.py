@@ -215,7 +215,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Return if nothing to be done
         if sum(done) == len(self):
-            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+            print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
             return
 
         # Read source tables and stack all HDUs in a file
@@ -275,7 +275,7 @@ class SextractorCatalogs(SourceCatalogs):
         run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_shell)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     # =========================================================================== #
     # Other properties
@@ -512,7 +512,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 msf.qc_plot2d(paths=None, axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def crunch_source_catalogs(self):
 
@@ -632,7 +632,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 pcsc.plot_qc_phot_ref2d(axis_size=5)
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def add_statistics(self):
 
@@ -730,7 +730,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             hdul.flush()
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def plot_qc_astrometry_1d(self, axis_size=5):
 
@@ -848,7 +848,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             plt.close("all")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def plot_qc_astrometry_2d(self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"):
 
@@ -984,7 +984,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             plt.close("all")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
 class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCatalogs):
@@ -1115,7 +1115,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Print error
             print_message(message="err = {0:0.4f} mag".format(photerr_internal_dict["photerr_internal"]))
-            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+            print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
         # Get median error of those
         return photerr_internal_dict
@@ -1197,7 +1197,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         plt.close("all")
 
         # Print time
-        print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+        print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
     def plot_qc_phot_zp(self, paths=None, axis_size=5):
         """ Generates ZP QC plot. """

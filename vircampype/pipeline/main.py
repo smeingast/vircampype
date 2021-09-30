@@ -780,7 +780,7 @@ class Pipeline:
                 run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
 
             # Print time
-            print_message(message="\n-> Elapsed time: {0:.2f}s".format(time.time() - tstart), kind="okblue", end="\n")
+            print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
             # Update status
             self.update_status(archive=True)
