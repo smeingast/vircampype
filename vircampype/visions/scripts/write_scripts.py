@@ -29,6 +29,6 @@ def write_scripts(paths_files, path_pype, path_scripts, name_suffix=None, **setu
         setup = dict(name=name, path_data=udj, path_pype=path_pype, **setup_kwargs)
 
         # Write YML
-        path_yml = "{0}{1}.yml".format(path_scripts, name)
+        path_yml = f"{path_scripts}{name}.yml"
         with open(path_yml, "w") as file:
             yaml.dump(setup, file)
