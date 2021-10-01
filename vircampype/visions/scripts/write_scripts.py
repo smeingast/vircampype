@@ -12,7 +12,7 @@ def write_scripts(paths_files, path_pype, path_scripts, name_suffix=None, **setu
     # Print some info
     print(f"Found {len(unique_directories)} unique directories:")
     for udj in unique_directories:
-        print(f" {udj.split('/')[-2]}")
+        print(f" {udj.split('/')[-3:-1]}")
 
     # Generate scripts and write them to disk
     for udj in unique_directories:
