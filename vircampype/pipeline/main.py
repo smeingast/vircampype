@@ -746,11 +746,9 @@ class Pipeline:
         # Clean basic processed directory
         clean_directory(self.setup.folders["processed_basic"])
 
-        # Remove resampled files
-        clean_directory(self.setup.folders["resampled"])
-
-        # Clean statistics directory
-        clean_directory(self.setup.folders["statistics"])
+        # Clean final processed directory
+        clean_directory(self.setup.folders["processed_final"], pattern="*.fits")
+        clean_directory(self.setup.folders["processed_final"], pattern="*.fits.tab")
 
     def deep_clean(self):
         """ Runs a shallow clean followed by deleting the pipeline status"""
