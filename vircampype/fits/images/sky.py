@@ -1606,7 +1606,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 hdul_exptime.append(fits.ImageHDU(data=arr_exptime, header=header_resized))  # noqa
                 hdul_mjd_frac.append(fits.ImageHDU(data=arr_mjd_frac, header=header_resized))  # noqa
                 hdul_mjd_int.append(fits.ImageHDU(data=arr_mjd_int, header=header_resized))  # noqa
-                hdul_weights.append(fits.ImageHDU(data=arr_weight.astype(np.float64), header=header_resized))  # noqa
+                hdul_weights.append(fits.ImageHDU(data=arr_weight.astype(np.float32), header=header_resized))  # noqa
 
             # Write to disk
             hdul_nimg.writeto(paths_nimg[idx_file], overwrite=True)
