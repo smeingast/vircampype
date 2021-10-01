@@ -716,12 +716,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
-                mjdeff_sources[bad], exptime_sources[bad], nimg_sources[bad] = np.nan, 0, 0
+                mjdeff_sources[bad], exptime_sources[bad], nimg_sources[bad] = np.nan, 0.0, 0
 
                 # Make new columns
                 new_cols = fits.ColDefs([fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
-                                         fits.Column(name='EXPTIME', format="J", array=exptime_sources, unit="seconds"),
-                                         fits.Column(name='NIMG', format="J", array=nimg_sources)])
+                                         fits.Column(name="EXPTIME", format="E", array=exptime_sources, unit="seconds"),
+                                         fits.Column(name="NIMG", format="J", array=np.rint(nimg_sources).astype(int))])
 
                 # Append new columns and replace HDU
                 hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(hdul[idx_hdu_self].data.columns + new_cols,
