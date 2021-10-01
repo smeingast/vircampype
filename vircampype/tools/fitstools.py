@@ -378,9 +378,15 @@ def convert_bitpix_image(path, new_type, offset=None):
         for hdu in hdul:
             if hasattr(hdu.data, "__len__"):
                 if offset is not None:
-                    hdu.data = (hdu.data + offset).astype(new_type)
+                    if "int" in str(new_type):
+                        hdu.data = np.rint(hdu.data + offset).astype(new_type)
+                    else:
+                        hdu.data = (hdu.data + offset).astype(new_type)
                 else:
-                    hdu.data = hdu.data.astype(new_type)
+                    if "int" in str(new_type):
+                        hdu.data = np.rint(hdu.data).astype(new_type)
+                    else:
+                        hdu.data = hdu.data.astype(new_type)
 
 
 def delete_keyword_from_header(header, keyword):
