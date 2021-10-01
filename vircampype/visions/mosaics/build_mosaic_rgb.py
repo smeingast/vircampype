@@ -20,7 +20,7 @@ __all__ = ["find_convolution_scale", "distance_from_edge", "add_edge_gradient", 
 def find_convolution_scale(data, target_rms):
 
     # FWHM probe range
-    test_fwhm = np.linspace(0.1, 1, 10)
+    test_fwhm = np.linspace(0.3, 1.2, 10)
     # rms_conv = [mmm(convolve(data, Gaussian2DKernel(fwhm)))[1] for fwhm in test_fwhm]
 
     def get_rms(scale):
@@ -31,8 +31,18 @@ def find_convolution_scale(data, target_rms):
         rms_conv = parallel(delayed(get_rms)(i) for i in test_fwhm)
 
     # Interpolate at target RMS
-    interp = interp1d(rms_conv, test_fwhm, kind="linear")
-    return float(interp(target_rms))
+    interp = interp1d(rms_conv, test_fwhm, kind="linear", fill_value="extrapolate")
+
+    # Determine convolution scale
+    cscl = float(interp(target_rms))
+
+    # Stay within bounds in any case
+    if cscl < 0.1:
+        cscl = 0.1
+    elif cscl > 1.2:
+        cscl = 1.2
+
+    return cscl
 
 
 def distance_from_edge(img):
