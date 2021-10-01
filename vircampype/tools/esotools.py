@@ -596,6 +596,7 @@ _kwargs_column_coo = dict(format="1D", disp="F11.7", unit="deg")
 _kwargs_column_errminmaj = dict(format="1E", disp="F6.2", unit="mas")
 _kwargs_column_errpa = dict(format="1E", disp="F6.2", unit="deg")
 _kwargs_column_mjd = dict(format="1D", disp="F11.5")
+_kwargs_column_exp = dict(format="1E", disp="F6.1")
 _kwargs_column_el = dict(format="1E", disp="F6.2")
 _kwargs_column_fwhm = dict(format="1E", disp="F6.2", unit="arcsec")
 _kwargs_column_class = dict(format="1E", disp="F6.3")
@@ -731,25 +732,25 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_magerr_best = fits.Column(name="MAGERR_BEST", array=magerr_best, format="1E", **_kwargs_column_mag)
     col_rad_best = fits.Column(name="RAD_BEST", array=rad_best / 2, format="1E", disp="F4.2")
 
-    # Time
+    # Time and exptime
     col_mjd = fits.Column(name="MJD_OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
-
-    # Flags
-    col_sflg = fits.Column(name="SFLG", array=sflg, **_kwargs_column_sflg)
-    col_cflg = fits.Column(name="CFLG", array=cflg, **_kwargs_column_cflg)
-    col_qflg = fits.Column(name="QFLG", array=qflg, **_kwargs_column_qflg)
+    col_exp = fits.Column(name="EXPTIME", array=data["EXPTIME"], **_kwargs_column_exp)
 
     # Morphology
     col_fwhm = fits.Column(name="FWHM", array=data["FWHM_WORLD"] * 3600, **_kwargs_column_fwhm)
     col_ell = fits.Column(name="ELLIPTICITY", array=data["ELLIPTICITY"], **_kwargs_column_el)
     col_class = fits.Column(name="CLS", array=data["CLASS_STAR_INTERP"], **_kwargs_column_class)
 
+    # Flags
+    col_sflg = fits.Column(name="SFLG", array=sflg, **_kwargs_column_sflg)
+    col_cflg = fits.Column(name="CFLG", array=cflg, **_kwargs_column_cflg)
+    col_qflg = fits.Column(name="QFLG", array=qflg, **_kwargs_column_qflg)
+
     # Put into single list
     cols = [col_id, col_ra, col_dec, col_errmaj, col_errmin, col_errpa,
             col_mag_aper, col_magerr_aper, col_mag_auto, col_magerr_auto, col_mag_best, col_magerr_best, col_rad_best,
-            col_mjd,
-            col_sflg, col_cflg, col_qflg,
-            col_fwhm, col_ell, col_class]
+            col_mjd, col_exp, col_fwhm, col_ell, col_class,
+            col_sflg, col_cflg, col_qflg]
 
     # Return columns
     return cols
