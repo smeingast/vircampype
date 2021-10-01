@@ -11,14 +11,14 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
                  reference_mag_lim, projection, phase3_photerr_internal, **kwargs):
 
     # Check if master catalogs are available
-    path_master_astro = "{0}MASTER-ASTROMETRY.fits.tab".format(path_master_astro_photo)
-    path_master_photo = "{0}MASTER-PHOTOMETRY.fits.tab".format(path_master_astro_photo)
+    path_master_astro = f"{path_master_astro_photo}MASTER-ASTROMETRY.fits.tab"
+    path_master_photo = f"{path_master_astro_photo}MASTER-PHOTOMETRY.fits.tab"
     if os.path.isfile(path_master_astro) * os.path.isfile(path_master_photo) != 1:
         raise ValueError("Master tables not found")
 
     # Print info
     paths_scripts = sorted(glob.glob(path_scripts + "*yml"))
-    print("Found {0:2d} scripts".format(len(paths_scripts)))
+    print(f"Found {len(paths_scripts):2d} scripts")
 
     # Loop over scripts
     field_names, paths_folders_raw, paths_folders_resampled, paths_folders_statistics = [], [], [], []
@@ -37,19 +37,18 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
 
     # Find resampled images and create link paths
     paths_resampled = flat_list([glob.glob(p + "*resamp.fits") for p in paths_folders_resampled])
-    links_resampled = ["{0}{1}/resampled/{2}".format(path_pype, name, os.path.basename(f)) for f in paths_resampled]
-    print("Found {0:4d} resampled images".format(len(paths_resampled)))
+    links_resampled = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled]
+    print(f"Found {len(paths_resampled):4d} resampled images")
 
     # Find resampled weights and create link paths
     paths_resampled_weights = flat_list([glob.glob(p + "*resamp.weight.fits") for p in paths_folders_resampled])
-    links_resampled_weights = ["{0}{1}/resampled/{2}".format(path_pype, name, os.path.basename(f))
-                               for f in paths_resampled_weights]
-    print("Found {0:4d} resampled weights".format(len(paths_resampled_weights)))
+    links_resampled_weights = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled_weights]
+    print(f"Found {len(paths_resampled_weights):4d} resampled weights")
 
-    # Find statistics fikes
+    # Find statistics files
     paths_statistics = flat_list([glob.glob(p + "*.fits") for p in paths_folders_statistics])
-    links_statistics = ["{0}{1}/statistics/{2}".format(path_pype, name, os.path.basename(f)) for f in paths_statistics]
-    print("Found {0:4d} statistics files".format(len(paths_statistics)))
+    links_statistics = [f"{path_pype}{name}/statistics/{os.path.basename(f)}" for f in paths_statistics]
+    print(f"Found {len(paths_statistics):4d} statistics files")
 
     # Dummy check
     if len(paths_statistics) != 5 * len(paths_resampled):
@@ -69,8 +68,8 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
 
     # Copy master tables
     print("Copying master tables")
-    copy_file(path_master_astro, "{0}{1}/master/".format(path_pype, name))
-    copy_file(path_master_photo, "{0}{1}/master/".format(path_pype, name))
+    copy_file(path_master_astro, f"{path_pype}{name}/master/")
+    copy_file(path_master_photo, f"{path_pype}{name}/master/")
 
     # Create symbolic links for raw files
     print("Creating symbolic links")
