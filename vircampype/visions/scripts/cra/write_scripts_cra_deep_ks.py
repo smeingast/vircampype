@@ -2,9 +2,9 @@ from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
 
 # Define paths
+path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VISIONS/CrA/CrA_deep_Ks/"
 path_data = "/Volumes/Data/VISIONS/198C-2009E/data_deep/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
-path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VISIONS/198C-2009E/CrA/CrA_deep_Ks/"
 
 # Search for files
 paths_files = sorted(glob(path_data + "CrA_deep_Ks*/*.fits"))
