@@ -1,7 +1,8 @@
 import numpy as np
+from typing import List
 
 __all__ = ["string2list", "string2func", "func2string", "prune_list", "flat_list", "convert_dtype", "fits2numpy",
-           "numpy2fits", "skycoord2visionsid"]
+           "numpy2fits", "skycoord2visionsid", "write_list"]
 
 
 def convert_dtype(dtype):
@@ -137,3 +138,19 @@ def skycoord2visionsid(skycoord):
 
     # Return string
     return ["{0:0>10.6f}{1}{2:0>9.6f}".format(ra, s, dec) for ra, s, dec in zip(id1, sign, id2)]
+
+
+def write_list(path_file: str, lst: List):
+    """
+    Write list to a given file.
+
+    Parameters
+    ----------
+    path_file : str
+        Output path.
+    lst : List
+        input list.
+
+    """
+    with open(path_file, "w") as outfile:
+        outfile.write("\n".join(lst))
