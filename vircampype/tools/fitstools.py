@@ -553,7 +553,7 @@ def compress_images(images, q=4, exe="fpack", n_jobs=1):
     run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
 
 
-def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None):
+def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None, overwrite=False):
     """
     Generates an astrometric reference catalog based on downloaded Gaia data.
 
@@ -568,8 +568,16 @@ def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None):
         Input epoch of catalog.
     epoch_out : float, optional
         If set, transforms the coordinates to the given output epoch.
+    overwrite : bool
+        If set, overwrites output files that already exist. Default is False.
 
     """
+
+    # If file is already there, check trigger and stop
+    if not overwrite:
+        if os.path.isfile(path_out):
+            print(f"'{os.path.basename(path_out)}' already exists.")
+            return
 
     # Read catalog
     data_in = Table.read(path_in)
