@@ -154,3 +154,4 @@ def write_list(path_file: str, lst: List):
     """
     with open(path_file, "w") as outfile:
         outfile.write("\n".join(lst))
+        outfile.write("\n")
