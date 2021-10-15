@@ -5,6 +5,8 @@ import shutil
 from astropy.io import fits
 from vircampype.tools.systemtools import make_folder
 
+__all__ = ["sort_vircam_calibration", "sort_vircam_science", "sort_by_passband"]
+
 
 def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
 
@@ -69,3 +71,22 @@ def sort_vircam_science(path, extension=".fits"):
     # Move files to folders
     for po, pm in zip(paths_orig, paths_move):
         shutil.move(po, pm)
+
+
+def sort_by_passband(paths):
+
+    # Get base directories of files
+    directories = [f"{os.path.dirname(p)}/" for p in paths]
+
+    # Get passbands
+    passbands = [fits.getheader(filename=p)["HIERARCH ESO INS FILT1 NAME"] for p in paths]
+
+    # Loop over files and sort into subdirectories
+    for pp, dd, pb in zip(paths, directories, passbands):
+
+        # Make directories
+        make_folder(f"{dd}{pb}")
+
+        # Move files
+        outname = f"{dd}{pb}/{os.path.basename(pp)}"
+        shutil.move(pp, outname)
