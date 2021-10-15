@@ -1,5 +1,6 @@
 import os
 import sys
+import stat
 import yaml
 import glob
 import shutil
@@ -10,7 +11,7 @@ from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
            "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify",
-           "make_symlinks"]
+           "make_symlinks", "make_executable"]
 
 
 def make_folder(path: str):
@@ -259,3 +260,9 @@ def make_symlinks(paths_files, paths_links):
     for pp, ll in zip(paths_files, paths_links):
         if not os.path.isfile(ll):
             os.symlink(pp, ll)
+
+
+def make_executable(path: str):
+    """ Makes file executable """
+    st = os.stat(path)
+    os.chmod(path, st.st_mode | stat.S_IEXEC)
