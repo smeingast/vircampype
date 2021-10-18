@@ -1,3 +1,4 @@
+import os.path
 import time
 import glob
 
@@ -539,7 +540,12 @@ class Pipeline:
     def calibrate_astrometry(self):
         if not self.status.astrometry:
             self.processed_science_final.sextractor(preset="scamp")
-            if not self.setup.external_headers:
+            if self.setup.external_headers:
+                nehdr = sum([os.path.isfile(p) for p in self._paths_scamp_headers])
+                nfproc = sum([os.path.isfile(p) for p in self._paths_processed_science_final])
+                if (nehdr != nfproc) | (nehdr == 0):
+                    raise PipelineError(f"Not enough external headers present ({nehdr}/{nfproc})")
+            else:
                 self.sources_processed_final_scamp.scamp()
             self.update_status(astrometry=True)
         else:
