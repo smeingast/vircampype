@@ -35,10 +35,19 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
                  external_headers=True, build_stacks=False, build_tile=True, build_phase3=True,
                  archive=False, qc_plots=True, **kwargs)
 
+    # Find raw images
+    paths_raw = flat_list([glob.glob(p + "*.fits") for p in paths_folders_raw])
+    links_raw = [f"{path_data}/{os.path.basename(f)}" for f in paths_raw]
+    print(f"Found {len(paths_raw):4d} raw images")
+
     # Find resampled images and create link paths
     paths_resampled = flat_list([glob.glob(p + "*resamp.fits") for p in paths_folders_resampled])
     links_resampled = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled]
     print(f"Found {len(paths_resampled):4d} resampled images")
+
+    # Dummy check
+    if len(paths_raw) != len(paths_resampled):
+        raise ValueError("Raw and and resampled images not matching")
 
     # Find resampled weights and create link paths
     paths_resampled_weights = flat_list([glob.glob(p + "*resamp.weight.fits") for p in paths_folders_resampled])
@@ -71,8 +80,9 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
     copy_file(path_master_astro, f"{path_pype}{name}/master/")
     copy_file(path_master_photo, f"{path_pype}{name}/master/")
 
-    # Create symbolic links for raw files
+    # Create symbolic
     print("Creating symbolic links")
+    make_symlinks(paths_raw, links_raw)
     make_symlinks(paths_resampled, links_resampled)
     make_symlinks(paths_resampled_weights, links_resampled_weights)
     make_symlinks(paths_statistics, links_statistics)
