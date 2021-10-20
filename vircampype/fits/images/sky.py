@@ -391,7 +391,7 @@ class SkyImages(FitsImages):
                     comment = self.headers_data[idx_file][idx_hdr].comments[kw]
 
                     # First save old keyword
-                    hdr.set(f"HIERARCH PYPE BACKUP {kw}", value=hdr[kw], comment="Value before illumination correction")
+                    hdr.set(f"HIERARCH PYPE BACKUP {kw}", value=hdr[kw], comment="Value before IC")
 
                     # Now add new keyword and delete old one
                     hdr.set(kw, value=func(self.headers_data[idx_file][idx_hdr][kw], mod), comment=comment)
