@@ -80,7 +80,7 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
     copy_file(path_master_astro, f"{path_pype}{name}/master/")
     copy_file(path_master_photo, f"{path_pype}{name}/master/")
 
-    # Create symbolic
+    # Create symbolic links
     print("Creating symbolic links")
     make_symlinks(paths_raw, links_raw)
     make_symlinks(paths_resampled, links_resampled)
