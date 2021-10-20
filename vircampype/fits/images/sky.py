@@ -268,11 +268,17 @@ class SkyImages(FitsImages):
                     for ss in fwhm_range]
 
             # Replace output catalog path and save the paths
-            catalog_paths = []
+            catalog_paths, catalog_path_exists = [], []
             for idx in (range(len(cmds))):
                 cmds[idx] = cmds[idx].replace(".class_star.fits.tab",
                                               ".class_star{0:4.2f}.fits.tab".format(fwhm_range[idx]))
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
+
+                # Check if catalog already exists
+                catalog_path_exists.append(os.path.isfile(catalog_paths[-1]))
+
+            # Remove shell commands for existing catalogs
+            cmds = [c for c, cpe in zip(cmds, catalog_path_exists) if not cpe]
 
             # Run Sextractor
             n_jobs_sex = 6 if self.setup.n_jobs > 6 else self.setup.n_jobs  # max of 6 parallel jobs
