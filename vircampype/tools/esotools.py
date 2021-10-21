@@ -640,11 +640,26 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     # Compute best default magnitude (match aperture to source area)
     rr = (2 * np.sqrt(data["ISOAREA_IMAGE"] / np.pi)).reshape(-1, 1)
     aa = np.array(apertures).reshape(-1, 1)
-    _, idx = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(aa).kneighbors(rr)
-    idx = idx.ravel()
-    mag_best = mag_aper[np.arange(len(data)), idx]
-    magerr_best = magerr_aper[np.arange(len(data)), idx]
-    rad_best = np.array(apertures)[idx]
+    _, idx_aper = NearestNeighbors(n_neighbors=mag_aper.shape[1], algorithm="auto").fit(aa).kneighbors(rr)
+    idx_best = idx_aper[:, 0]
+    mag_best = mag_aper.copy()[np.arange(len(data)), idx_best]
+    magerr_best = magerr_aper.copy()[np.arange(len(data)), idx_best]
+    rad_best = np.array(apertures)[idx_best]
+
+    # Sort aperture distance
+    # dis_aper_sorted = np.take_along_axis(dis_aper, idx_aper, axis=1)
+
+    # Norm distance to closest aperture
+    # dis_aper_sorted -= np.nanmin(dis_aper, axis=1)[:, np.newaxis] - 1
+
+    # Weighted magnitude (weights caluclated form distance to best fitting aperture
+    # weights = 1 / (dis_aper_sorted**2)
+    # ma = np.ma.MaskedArray(mag_aper, mask=~np.isfinite(mag_aper))
+    # mag_weighted = np.ma.average(ma, weights=weights, axis=1)
+    # mag_weighted = np.ma.filled(mag_weighted, fill_value=np.nan)
+    # me = np.ma.MaskedArray(magerr_aper, mask=~np.isfinite(magerr_aper))
+    # magerr_weighted = np.ma.average(me, weights=weights, axis=1)
+    # magerr_weighted = np.ma.filled(magerr_weighted, fill_value=np.nan)
 
     # Copy sextractor flag
     sflg = data["FLAGS"]
@@ -731,6 +746,10 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
     col_mag_best = fits.Column(name="MAG_BEST", array=mag_best, format="1E", **_kwargs_column_mag)
     col_magerr_best = fits.Column(name="MAGERR_BEST", array=magerr_best, format="1E", **_kwargs_column_mag)
     col_rad_best = fits.Column(name="RAD_BEST", array=rad_best / 2, format="1E", disp="F4.2")
+    # col_mag_weighted = fits.Column(name="MAG_WEIGHTED", array=mag_weighted,
+    #                                format="1E", **_kwargs_column_mag)
+    # col_magerr_weighted = fits.Column(name="MAGERR_WEIGHTED", array=magerr_weighted,
+    #                                   format="1E", **_kwargs_column_mag)
 
     # Time and exptime
     col_mjd = fits.Column(name="MJD_OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
@@ -748,7 +767,9 @@ def make_phase3_columns(data, apertures, photerr_internal=0., mag_saturation=0.)
 
     # Put into single list
     cols = [col_id, col_ra, col_dec, col_errmaj, col_errmin, col_errpa,
-            col_mag_aper, col_magerr_aper, col_mag_auto, col_magerr_auto, col_mag_best, col_magerr_best, col_rad_best,
+            col_mag_aper, col_magerr_aper, col_mag_auto, col_magerr_auto,
+            col_mag_best, col_magerr_best, col_rad_best,
+            # col_mag_weighted, col_magerr_weighted,
             col_mjd, col_exp, col_fwhm, col_ell, col_class,
             col_sflg, col_cflg, col_qflg]
 
