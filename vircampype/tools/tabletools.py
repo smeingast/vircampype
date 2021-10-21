@@ -60,10 +60,10 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
     except KeyError:
         pass
 
-    try:
-        good &= (np.sum(np.diff(table["MAG_APER"], axis=1) > 0, axis=1) == 0)
-    except KeyError:
-        pass
+    # try:
+    #     good &= (np.sum(np.diff(table["MAG_APER"], axis=1) > 0, axis=1) == 0)
+    # except KeyError:
+    #     pass
 
     try:
         good &= table["FWHM_IMAGE"] >= min_fwhm
