@@ -146,7 +146,7 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     # Write index of good sources
     kept = np.full(len(table), dtype=bool, fill_value=False)
     kept[idx_clean] = True
-    table.add_column(kept.astype(bool), name="{0}_INTERP_CLEAN".format(parameter))
+    table.add_column(kept.astype(bool), name=f"{parameter}_INTERP_CLEAN")
 
     # Find nearest neighbors between cleaned and raw input catalog
     stacked_raw = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
@@ -169,11 +169,11 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
 
     # Count sources
     nsources = np.sum(~bad_data, axis=1)
-    table.add_column(nsources.astype(np.int16), name="{0}_INTERP_NSOURCES".format(parameter))
+    table.add_column(nsources.astype(np.int16), name=f"{parameter}_INTERP_NSOURCES")
 
     # Determine maximum distance used for each source
     maxdis = np.nanmax(nn_dis, axis=1)
-    table.add_column(maxdis.astype(np.float32), name="{0}_INTERP_MAXDIS".format(parameter))
+    table.add_column(maxdis.astype(np.float32), name=f"{parameter}_INTERP_MAXDIS")
 
     # Grab data for all nearest neighors
     nn_data = table_clean[parameter].data[nn_idx].copy()
@@ -193,7 +193,7 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3).mask
     weights_par[wmask] = 0.
     par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
-    table.add_column(par_wei.astype(np.float32), name="{0}_INTERP".format(parameter))  # noqa
+    table.add_column(par_wei.astype(np.float32), name=f"{parameter}_INTERP")  # noqa
 
     # mask bad values
     nn_data[bad_data] = np.nan
@@ -230,20 +230,20 @@ def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_
         zp, zp_err = get_zeropoint(skycoord1=SkyCoord(tc[key_ra], tc[key_dec], unit="deg"),  # noqa
                                    skycoord2=SkyCoord(table_2mass["RAJ2000"], table_2mass["DEJ2000"], unit="deg"),
                                    mag1=tc[cm], magerr1=tc[ce], mag2=table_2mass[passband_2mass],
-                                   magerr2=table_2mass["e_{0}".format(passband_2mass)], mag_limits_ref=mag_lim_ref,
+                                   magerr2=table_2mass[f"e_{passband_2mass}"], mag_limits_ref=mag_lim_ref,
                                    method=method)
 
         # Add calibrated photometry to table
-        table["{0}_CAL".format(cm)] = np.float32(table[cm] + zp)
+        table[f"{cm}_CAL"] = np.float32(table[cm] + zp)
 
         # Write ZPs and errors into attribute
         if hasattr(zp, "__len__"):
             for zp_idx in range(len(zp)):
-                table.zp["HIERARCH PYPE ZP {0} {1}".format(cm, zp_idx + 1)] = zp[zp_idx]
-                table.zperr["HIERARCH PYPE ZP ERR {0} {1}".format(cm, zp_idx + 1)] = zp_err[zp_idx]
+                table.zp[f"HIERARCH PYPE ZP {cm} {zp_idx + 1}"] = zp[zp_idx]
+                table.zperr[f"HIERARCH PYPE ZP ERR {cm} {zp_idx + 1}"] = zp_err[zp_idx]
         else:
-            table.zp["HIERARCH PYPE ZP {0}".format(cm)] = zp
-            table.zperr["HIERARCH PYPE ZP ERR {0}".format(cm)] = zp_err
+            table.zp[f"HIERARCH PYPE ZP {cm}"] = zp
+            table.zperr[f"HIERARCH PYPE ZP ERR {cm}"] = zp_err
 
     return table
 
@@ -290,7 +290,7 @@ def interpolate_classification(source_table, classification_table):
     dis, idx = dis[:, -1], idx[:, -1]
 
     # Read classifications in array
-    array_class = np.array([classification_table["CLASS_STAR_{0:4.2f}".format(s)][idx] for s in fwhm_range])
+    array_class = np.array([classification_table[f"CLASS_STAR_{s:4.2f}"][idx] for s in fwhm_range])
 
     # Mulit-dimensional interpolation consumes far too much memory
     # f = interp1d(seeing_range, array_class, axis=0, fill_value="extrapolate")
