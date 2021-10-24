@@ -25,14 +25,14 @@ def apply_sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedi
         Sigma level for clipping (e.g. 3-sigma).
     sigma_iter : int, optional
         Number of iterations.
-    center_metric : callable, float, int, optional
+    center_metric : callable, optional
         Metric which calculates the center around which clipping occurs.
     axis : int, optional
         Axis along which to perform clipping.
 
     Returns
     -------
-    ndarray
+    np.ndarray
         Array with clipped values set to NaN.
 
     """
@@ -43,17 +43,12 @@ def apply_sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedi
 
         for _ in range(sigma_iter):
 
-            # Calculate center with given metric
-            if callable(center_metric):
-                center = center_metric(data, axis=axis)
-            else:
-                center = center_metric
-
             # Calculate standard deviation
             std = np.nanstd(data, axis=axis)
 
             # find values outside limits and set to NaN
-            data[(data > center + sigma_level * std) | (data < center - sigma_level * std)] = np.nan
+            data[(data > center_metric(data, axis=axis) + sigma_level * std) |
+                 (data < center_metric(data, axis=axis) - sigma_level * std)] = np.nan
 
     # Return the clipped array
     return data
