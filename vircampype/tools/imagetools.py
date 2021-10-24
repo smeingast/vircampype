@@ -405,7 +405,8 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
 
                 # sigma clip each bin separately
                 # TODO: This should use astropy sigma clipping
-                mask = np.isfinite(my_sigma_clip(value[good][fil], sigma_level=3, sigma_iter=3))
+                value_mask = value[good][fil].copy()
+                mask = np.isnan(apply_sigma_clip(value_mask, sigma_level=3, sigma_iter=3))
 
                 # Check sum of weights
                 if np.sum(weights[good][fil]) < 0.0001:
