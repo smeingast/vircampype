@@ -2,7 +2,7 @@ from vircampype.visions.mosaics.build_mosaic import build_mosaic
 
 # Setup for pipeline
 name = "CrA_mosaic_H_A"
-path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VISIONS/CrA/CrA_wide_B/"
+path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VISIONS/CrA/CrA_wide_A/"
 path_master_astro_photo = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/CrA/"
 path_data = f"/Volumes/Data/VISIONS/198C-2009A/data_mosaic/{name}/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009A/vircampype/"
