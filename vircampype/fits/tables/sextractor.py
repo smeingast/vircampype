@@ -24,6 +24,7 @@ from sklearn.neighbors import KernelDensity
 from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
 from astropy.wcs import WCS, FITSFixedWarning
+from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
@@ -547,6 +548,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Load table
             tables_file = self.file2table(file_index=idx_file)
+
+            # Loop over tables and replace masked columns with regular columns
+            for tt in tables_file:
+                for nn in tt.columns:
+                    if isinstance(tt[nn], MaskedColumn):
+                        tt[nn] = tt[nn].filled(fill_value=np.nan)
 
             # Add aperture correction to tables
             [t.add_column((t["MAG_APER"].data[:, -1] - t["MAG_APER"].data.T).T, name="MAG_APER_COR")
