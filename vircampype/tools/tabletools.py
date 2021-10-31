@@ -6,6 +6,7 @@ from astropy.table import Table
 from astropy.stats import sigma_clip
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
+from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.photometry import get_zeropoint
 from astropy.modeling.functional_models import Gaussian1D
@@ -232,6 +233,9 @@ def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_
                                    mag1=tc[cm], magerr1=tc[ce], mag2=table_2mass[passband_2mass],
                                    magerr2=table_2mass[f"e_{passband_2mass}"], mag_limits_ref=mag_lim_ref,
                                    method=method)
+
+        if isinstance(zp, MaskedColumn):
+            zp = zp.filled(fill_value=np.nan)
 
         # Add calibrated photometry to table
         table[f"{cm}_CAL"] = np.float32(table[cm] + zp)
