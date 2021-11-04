@@ -125,11 +125,16 @@ def _cmd_append_libraries(cmd: str):
 
     # If in a Mac, we need to append the dynamic libraries manually
     # https://stackoverflow.com/questions/48657710/dyld-library-path-and-ld-library-path-cannot-be-used-by-pythons-os-and-subproce
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         if "LD_LIBRARY_PATH" in sys_env:
             cmd = f"export LD_LIBRARY_PATH={sys_env['LD_LIBRARY_PATH']} && {cmd}"
         if "DYLD_LIBRARY_PATH" in sys_env:
             cmd = f"export DYLD_LIBRARY_PATH={sys_env['DYLD_LIBRARY_PATH']} && {cmd}"
+        # This is a silly workaround because DYLD_LIBRARY_PATH is for some reason not in sys_env
+        # even though it should be defined.
+        else:
+            dyld_library_path = "/opt/intel/oneapi/compiler/latest/mac/compiler/lib:/opt/intel/oneapi/mkl/latest/lib:"
+            cmd = f"export DYLD_LIBRARY_PATH={dyld_library_path} && {cmd}"
 
     return cmd
 
