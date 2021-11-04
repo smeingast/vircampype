@@ -3,12 +3,12 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.table import Table
-from astropy.stats import sigma_clip
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
 from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.photometry import get_zeropoint
+from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.modeling.functional_models import Gaussian1D
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
@@ -127,15 +127,6 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     # Create index array of clean sources
     idx_clean = np.array([i for i, v in enumerate(keep_clean) if v])
 
-    # Do an initial sigma clipping
-    # with warnings.catch_warnings():
-    #     warnings.filterwarnings("ignore")
-    #     if table_clean[parameter].ndim == 1:
-    #         bad = sigma_clip(table_clean[parameter], sigma=2.5).mask
-    #     else:
-    #         bad = sigma_clip(table_clean[parameter], axis=1, sigma=2.5).mask
-    #     table_clean[parameter][bad] = np.nan
-
     # Also only keep sources in clean table that have a valid entry for the requested parameter
     if table_clean[parameter].ndim == 1:
         keep = np.isfinite(table_clean[parameter])
@@ -158,54 +149,64 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         n_neighbors = len(table_clean)
 
     # Get nearest neighbors from input to clean source table
-    nn_dis, nn_idx = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked_clean).kneighbors(stacked_raw)
-    """ Using KNeighborsRegressor is actually not OK here because this then computes a (distance-weighted) mean. """
+    nn_dis_all, nn_idx_all = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked_clean).kneighbors(stacked_raw)
 
-    # Mask everything beyond maxdis, then bring back at least 20 sources, regardless of their separation
-    nn_dis_temp = nn_dis.copy()
-    nn_dis[nn_dis > max_dis] = np.nan
-    nn_dis[:, :20] = nn_dis_temp[:, :20]
-    bad_data = ~np.isfinite(nn_dis)
-    nn_dis_temp = 0.  # noqa
+    # Since this can require a LOT of RAM, I loop over chunks
+    n_sections = len(nn_dis_all) // 200000
+    n_sections = 1 if n_sections == 0 else n_sections
+    par_weighted, par_nsources, par_max_dis, par_std = [], [], [], []
+    for nn_dis, nn_idx in zip(np.array_split(nn_dis_all, n_sections, axis=0),
+                              np.array_split(nn_idx_all, n_sections, axis=0)):
 
-    # Count sources
-    nsources = np.sum(~bad_data, axis=1)
-    table.add_column(nsources.astype(np.int16), name=f"{parameter}_INTERP_NSOURCES")
+        # Mask everything beyond maxdis, then bring back at least 20 sources, regardless of their separation
+        nn_dis_temp = nn_dis.copy()
+        nn_dis[nn_dis > max_dis] = np.nan
+        nn_dis[:, :20] = nn_dis_temp[:, :20]
+        bad_data = ~np.isfinite(nn_dis)
+        nn_dis_temp = 0.  # noqa
 
-    # Determine maximum distance used for each source
-    maxdis = np.nanmax(nn_dis, axis=1)
-    table.add_column(maxdis.astype(np.float32), name=f"{parameter}_INTERP_MAXDIS")
+        # Count sources
+        par_nsources.append(np.sum(~bad_data, axis=1))
 
-    # Grab data for all nearest neighors
-    nn_data = table_clean[parameter].data[nn_idx].copy()
+        # Determine maximum distance used for each source
+        par_max_dis.append(np.nanmax(nn_dis, axis=1))
 
-    # Compute weights (Gauss with max_dis / 2 std)
-    weights = Gaussian1D(amplitude=1, mean=0, stddev=max_dis / 2)(nn_dis) * table_clean["SNR_WIN"].data[nn_idx]
-    weights[bad_data] = 0.
-    # Weights just from SNR
-    # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
-    # weights = weights_snr.copy()
+        # Grab data for all nearest neighors
+        nn_data = table_clean[parameter].data[nn_idx].copy()
 
-    # Compute weighted average
-    if nn_data.ndim == 3:
-        weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
-    else:
-        weights_par = weights.copy()
-    wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3).mask
-    weights_par[wmask] = 0.
-    par_wei = np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par)
-    table.add_column(par_wei.astype(np.float32), name=f"{parameter}_INTERP")  # noqa
+        # Compute weights (Gauss with max_dis / 2 std)
+        weights = Gaussian1D(amplitude=1, mean=0, stddev=max_dis / 2)(nn_dis) * table_clean["SNR_WIN"].data[nn_idx]
+        weights[bad_data] = 0.
+        # Weights just from SNR
+        # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
+        # weights = weights_snr.copy()
 
-    # mask bad values
-    nn_data[bad_data] = np.nan
+        # Compute weighted average
+        if nn_data.ndim == 3:
+            weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
+        else:
+            weights_par = weights.copy()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Input data contains invalid values")
+            wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3).mask
+        weights_par[wmask] = 0.
+        # noinspection PyUnresolvedReferences
+        par_weighted.append(np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par).filled(np.nan))
 
-    # This uses too much RAM for very big catalogs
-    # # Add interpolated value to table
-    # with warnings.catch_warnings():
-    #     warnings.filterwarnings("ignore", message="Input data contains invalid values")
-    #     _, iv, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
-    #     table.add_column(iv.astype(np.float32), name="{0}_INTERP".format(parameter))
-    #     table.add_column(iv_std.astype(np.float32), name="{0}_STD".format(parameter))
+        # Mask bad values
+        nn_data[bad_data] = np.nan
+
+        # Also compute standard deviation
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Input data contains invalid values")
+            _, _, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
+        par_std.append(iv_std)
+
+    # Add columns to table
+    table.add_column(np.concatenate(par_weighted).astype(np.float32), name=f"{parameter}_INTERP")
+    table.add_column(np.concatenate(par_nsources).astype(np.int16), name=f"{parameter}_INTERP_NSOURCES")
+    table.add_column(np.concatenate(par_max_dis).astype(np.float32), name=f"{parameter}_INTERP_MAXDIS")
+    table.add_column(np.concatenate(par_std).astype(np.float32), name=f"{parameter}_INTERP_STD")
 
     # Return table
     return table
