@@ -65,7 +65,7 @@ class CoronaAustralisControlSourceMasks(SourceMasks):
 
     def __init__(self):
 
-        # Define masks (ra, dec, size)
+        # Define masks (ra, dec, radius)
         m1 = (287.39, -33.355, 200)
 
         # Put in list
@@ -79,7 +79,7 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
 
     def __init__(self):
 
-        # Define masks (ra, dec, size)
+        # Define masks (ra, dec, radius)
         m1 = (283.593, -34.611, 100)
 
         # Put in list
