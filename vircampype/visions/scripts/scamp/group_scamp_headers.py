@@ -186,7 +186,7 @@ def group_scamp_headers(paths_scripts: List, folder: str, prepare_scamp: bool = 
 
         # Make sure that total numbers add up
         if len(paths_scamp_cpb) != len(flat_list(group_final_paths)):
-            raise ValueError("Something went wrong. Hebaer numbers don't add up")
+            raise ValueError("Something went wrong. Header numbers don't add up")
 
         # Write individual groups to disk
         for gfidx in range(len(group_final_paths)):
