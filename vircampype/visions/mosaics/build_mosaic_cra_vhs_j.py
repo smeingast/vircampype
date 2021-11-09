@@ -4,12 +4,12 @@ from vircampype.visions.mosaics.build_mosaic import build_mosaic
 name = "CrA_mosaic_J"
 path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VHS/CrA/J/"
 path_master_astro_photo = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/CrA/"
-path_data = f"/Volumes/Data/VHS/CrA/data_mosaic/{name}/"
-path_pype = "/Volumes/Data/VHS/CrA/vircampype/"
+path_data = f"/Volumes/Data/Mosaics/CrA/{name}/"
+path_pype = f"/Volumes/Data/Mosaics/CrA/vircampype/"
 projection = "Corona_Australis_wide"
 reference_mag_lim = (13.0, 15.5)  # J VHS
 phase3_photerr_internal = 0.005
-n_jobs = 18
+n_jobs = 10
 
 build_mosaic(name=name, path_scripts=path_scripts, path_data=path_data, path_pype=path_pype, n_jobs=n_jobs,
              path_master_astro_photo=path_master_astro_photo, reference_mag_lim=reference_mag_lim,
