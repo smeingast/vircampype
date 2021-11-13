@@ -91,8 +91,8 @@ BACK_FILTTHRESH:        0.0             # Threshold above which the background-
 #------------------------------ Memory management -----------------------------
 
 VMEM_DIR:               /tmp/               # Directory path for swap files
-VMEM_MAX:               16384           # Maximum amount of virtual memory (MB)
-MEM_MAX:                16384           # Maximum amount of usable RAM (MB)
+VMEM_MAX:               32768           # Maximum amount of virtual memory (MB)
+MEM_MAX:                32768           # Maximum amount of usable RAM (MB)
 COMBINE_BUFSIZE:        16384           # RAM dedicated to co-addition(MB)
 
 #------------------------------ Miscellaneous ---------------------------------
@@ -114,5 +114,5 @@ NODE_INDEX:             0               # Node index (for clusters)
 NTHREADS:               0               # Number of simultaneous threads for
                                        # the SMP version of SWarp
                                        # 0 = automatic
-NOPENFILES_MAX:         8192             # Maximum number of files opened by SWarp
+NOPENFILES_MAX:         16384           # Maximum number of files opened by SWarp
 TILE_COMPRESS:          N               # Write tile compressed output image (Y/N)?
