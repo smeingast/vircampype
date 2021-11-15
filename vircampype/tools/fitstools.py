@@ -592,10 +592,10 @@ def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None, overwrit
     # Transform positions
     if epoch_out is not None:
         sc = SkyCoord(ra=data_in["ra"], dec=data_in["dec"], pm_ra_cosdec=data_in["pmra"], pm_dec=data_in["pmdec"],
-                      obstime=Time(epoch_in, format="jyear"))
+                      obstime=Time(epoch_in, format="decimalyear"))
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            sc = sc.apply_space_motion(new_obstime=Time(epoch_out, format="jyear"))
+            sc = sc.apply_space_motion(new_obstime=Time(epoch_out, format="decimalyear"))
     else:
         epoch_out = epoch_in
 
