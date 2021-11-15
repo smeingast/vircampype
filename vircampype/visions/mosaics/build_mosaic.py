@@ -37,6 +37,7 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
 
     # Find raw images
     paths_raw = flat_list([glob.glob(p + "*.fits") for p in paths_folders_raw])
+    # TODO: Keep only science, not sky images
     links_raw = [f"{path_data}/{os.path.basename(f)}" for f in paths_raw]
     print(f"Found {len(paths_raw):4d} raw images")
 
