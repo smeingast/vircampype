@@ -192,7 +192,7 @@ def group_scamp_headers(paths_scripts: List, folder: str, prepare_scamp: bool = 
         for gfidx in range(len(group_final_paths)):
 
             # Determine epoch
-            epoch_out = float(np.nanmedian(Time(group_final_mjd[gfidx], format="mjd").jyear))
+            epoch_out = float(np.nanmedian(Time(group_final_mjd[gfidx], format="mjd").decimalyear))
 
             # Make folder
             ff = f"{folder}{passband}_{epoch_out:0.5f}/"
