@@ -357,7 +357,7 @@ class MasterAstrometry(SourceCatalogs):
             skycoord_ext = []
             for ra, dec, pmra, pmdec in zip(fra, fdec, fpmra, fpmdec):
                 skycoord_ext.append(SkyCoord(ra=ra*udeg, dec=dec*udeg, pm_ra_cosdec=pmra*umasyr, pm_dec=pmdec*umasyr,
-                                             frame="icrs", obstime=Time(self.epoch, format="jyear")))
+                                             frame="icrs", obstime=Time(self.epoch, format="decimalyear")))
             skycoord_files.append(skycoord_ext)
 
         return skycoord_files
