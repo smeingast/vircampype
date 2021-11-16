@@ -23,18 +23,7 @@ from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCat
 __all__ = ["build_phase3_stacks", "make_phase3_tile"]
 
 
-def _saturation_limit(passband):
-    if "j" in passband.lower():
-        return 12.0
-    elif "h" in passband.lower():
-        return 11.5
-    elif "k" in passband.lower():
-        return 11.0
-    else:
-        raise ValueError("Filter {0} not supported".format(passband))
-
-
-def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
+def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs):
     """
     Converts the calibrated source catalogs to a phase 3 compliant standard.
 
@@ -44,6 +33,8 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
         Input stack images.
     stacks_catalogs : PhotometricCalibratedSextractorCatalogs
         Input stack source catalogs.
+    mag_saturation : int, float
+        Saturation limit.
 
     """
 
@@ -112,13 +103,15 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, **kwargs):
             # Make extension headers
             hdr_hdu_stk = make_extension_header_stack(hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                                                       hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
-                                                      image_or_catalog="image", passband=passband)
+                                                      image_or_catalog="image", passband=passband,
+                                                      mag_saturation=mag_saturation)
             hdr_hdu_ctg = make_extension_header_stack(hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                                                       hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
-                                                      image_or_catalog="catalog", passband=passband)
+                                                      image_or_catalog="catalog", passband=passband,
+                                                      mag_saturation=mag_saturation)
             # Get table colums from pipeline catalog
             tabledata = stacks_catalogs.filehdu2table(file_index=idx_file, hdu_index=idx_hdu_ctg)
-            final_cols = make_phase3_columns(data=tabledata, mag_saturation=_saturation_limit(passband=passband),
+            final_cols = make_phase3_columns(data=tabledata, mag_saturation=mag_saturation,
                                              apertures=setup.apertures, **kwargs)
 
             # Make final HDUs
@@ -233,7 +226,7 @@ def make_prime_header_stack(hdulist_stack: fits.HDUList, image_or_catalog: str, 
     return hdr
 
 
-def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
+def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband, mag_saturation):
 
     # Start with empty header
     hdr_stk = hdu_stk.header
@@ -302,10 +295,10 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
                         comment="5-sigma limiting Vega magnitude")
     add_float_to_header(header=hdr_out, key="ABMAGLIM", value=vega2ab(mag_lim, passband=passband), decimals=3,
                         comment="5-sigma limiting AB magnitude")
-    add_float_to_header(header=hdr_out, key="MAGSAT", value=_saturation_limit(passband=passband), decimals=3,
+    add_float_to_header(header=hdr_out, key="MAGSAT", value=mag_saturation, decimals=3,
                         comment="Estimated saturation limit (Vega)")
     add_float_to_header(header=hdr_out, key="ABMAGSAT", decimals=3, comment="Estimated saturation limit (AB)",
-                        value=vega2ab(mag=_saturation_limit(passband=passband), passband=passband))
+                        value=vega2ab(mag=mag_saturation, passband=passband))
 
     # Set shape parameters
     fwhm = np.nanmean(hdu_ctg.data["FWHM_WORLD_INTERP"]) * 3600
@@ -319,7 +312,7 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband):
     return hdr_out
 
 
-def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
+def make_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation, **kwargs):
     """
     Generates phase 3 compliant tile + source catalog.
 
@@ -328,6 +321,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
     tile_image : VircamScienceImages
     tile_catalog : PhotometricCalibratedSextractorCatalogs
     pawprint_images : VircamScienceImages
+    mag_saturation : int, float
 
     """
 
@@ -368,7 +362,8 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
 
     # Generate primary headers
     phdr_tile, phdr_catalog, ehdr_catalog = make_tile_headers(hdul_tile=hdul_tile_in, hdul_catalog=hdul_catalog_in,
-                                                              hdul_pawprints=hdul_pawprints, passband=passband)
+                                                              hdul_pawprints=hdul_pawprints, passband=passband,
+                                                              mag_saturation=mag_saturation)
 
     # Add weight association to tile image
     phdr_tile.set("ASSON1", value=os.path.basename(path_weight_p3), after="REFERENC")
@@ -377,7 +372,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
     phdr_catalog.set("PROV1", value=os.path.basename(path_tile_p3), after="REFERENC")
 
     # Get table colums from pipeline catalog
-    final_cols = make_phase3_columns(data=hdul_catalog_in[2].data, mag_saturation=_saturation_limit(passband=passband),
+    final_cols = make_phase3_columns(data=hdul_catalog_in[2].data, mag_saturation=mag_saturation,
                                      apertures=setup.apertures, **kwargs)
 
     # Add internal photometric error to prime header
@@ -428,7 +423,7 @@ def make_phase3_tile(tile_image, tile_catalog, pawprint_images, **kwargs):
     print_message(message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s", kind="okblue", end="\n")
 
 
-def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwargs):
+def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, mag_saturation, **kwargs):
 
     # Grab stuff
     phdr_tile_in = hdul_tile[0].header
@@ -559,10 +554,10 @@ def make_tile_headers(hdul_tile, hdul_catalog, hdul_pawprints, passband, **kwarg
                             comment="Estimated magnitude limit (AB, 5-sigma)")
 
         # Mag limits stats
-        add_float_to_header(header=hdr, key="MAGSAT", value=_saturation_limit(passband=passband), decimals=3,
+        add_float_to_header(header=hdr, key="MAGSAT", value=mag_saturation, decimals=3,
                             comment="Estimated saturation limit (Vega)")
         add_float_to_header(header=hdr, key="ABMAGSAT", decimals=3, comment="Estimated saturation limit (AB)",
-                            value=vega2ab(mag=_saturation_limit(passband=passband), passband=passband))
+                            value=vega2ab(mag=mag_saturation, passband=passband))
 
         # PSF stats
         add_float_to_header(header=hdr, key="PSF_FWHM", decimals=3, comment="Estimated median PSF FWHM (arcsec)",
