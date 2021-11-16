@@ -3,7 +3,7 @@ from vircampype.visions.mosaics.build_mosaic import build_mosaic
 # Setup for pipeline
 name = "CrA_mosaic_Ks"
 path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VHS/CrA/Ks/"
-path_master_astro_photo = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/CrA/"
+path_master_astro_photo = "/Users/stefan/Dropbox/Data/VISIONS/Master/CrA/Mosaic/"
 path_data = f"/Volumes/Data/Mosaics/CrA/{name}/"
 path_pype = f"/Volumes/Data/Mosaics/CrA/vircampype/"
 projection = "Corona_Australis_wide"
