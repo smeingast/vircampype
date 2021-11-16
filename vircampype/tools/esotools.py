@@ -20,7 +20,7 @@ from vircampype.tools.mathtools import centroid_sphere
 from vircampype.tools.fitstools import add_float_to_header
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
-__all__ = ["build_phase3_stacks", "make_phase3_tile"]
+__all__ = ["build_phase3_stacks", "build_phase3_tile"]
 
 
 def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs):
@@ -312,7 +312,7 @@ def make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband, ma
     return hdr_out
 
 
-def make_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation, **kwargs):
+def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation, **kwargs):
     """
     Generates phase 3 compliant tile + source catalog.
 

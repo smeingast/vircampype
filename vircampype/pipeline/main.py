@@ -9,7 +9,7 @@ from vircampype.pipeline.errors import PipelineError
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.fitstools import compress_images, combine_mjd_images
-from vircampype.tools.esotools import build_phase3_stacks, make_phase3_tile
+from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 
 
 class Pipeline:
@@ -731,9 +731,9 @@ class Pipeline:
                                     mag_saturation=self.setup.reference_mag_lim[0],
                                     photerr_internal=self.setup.phase3_photerr_internal)
             if self.setup.build_tile:
-                make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
-                                 mag_saturation=self.setup.reference_mag_lim[0],
-                                 pawprint_images=self.resampled, photerr_internal=self.setup.phase3_photerr_internal)
+                build_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
+                                  mag_saturation=self.setup.reference_mag_lim[0],
+                                  pawprint_images=self.resampled, photerr_internal=self.setup.phase3_photerr_internal)
             # if self.setup.compress_phase3:
             #     self.compress_phase3_images()
             self.update_status(phase3=True)
