@@ -728,9 +728,11 @@ class Pipeline:
                 raise ValueError("Specify internal photometric error in setup.")
             if self.setup.build_stacks:
                 build_phase3_stacks(stacks_images=self.stacks, stacks_catalogs=self.sources_stacks_crunched,
+                                    mag_saturation=self.setup.reference_mag_lim[0],
                                     photerr_internal=self.setup.phase3_photerr_internal)
             if self.setup.build_tile:
                 make_phase3_tile(tile_image=self.tile, tile_catalog=self.sources_tile_crunched,
+                                 mag_saturation=self.setup.reference_mag_lim[0],
                                  pawprint_images=self.resampled, photerr_internal=self.setup.phase3_photerr_internal)
             # if self.setup.compress_phase3:
             #     self.compress_phase3_images()
