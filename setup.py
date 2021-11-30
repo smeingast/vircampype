@@ -1,5 +1,5 @@
 import sys
-from . import __version__
+from vircampype import __version__
 from distutils.core import setup
 
 # Require Python 3
