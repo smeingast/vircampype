@@ -32,7 +32,7 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
         good &= (nndis > nndis_limit)
 
     try:
-        good &= table["FLAGS"] == 0
+        good &= (table["FLAGS"] == 0) | (table["FLAGS"] == 2)
     except KeyError:
         pass
 
