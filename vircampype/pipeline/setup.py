@@ -499,7 +499,7 @@ class Setup(dict):
         All apertures will be matched to the last in the list.
         """
         # return [4.0, 6.0, 12.0, 18.0, 24.0, 30.0]
-        return [3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 18.0, 21.0, 24.0, 30.0]
+        return [3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 14.0, 16.0, 18.0, 21.0, 24.0, 27.0, 30.0]
 
     @property
     def phot_reference_catalog(self):
