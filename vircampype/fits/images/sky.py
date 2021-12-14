@@ -659,13 +659,13 @@ class SkyImagesProcessed(SkyImages):
                                 d_total=None, silent=self.setup.silent)
 
             # Determine size to download
-            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
+            radius = 1.1 * np.max(self.footprints_flat.separation(self.centroid_all).degree)
 
             # Download catalog
             if self.setup.phot_reference_catalog.lower() == "2mass":
-                table = download_2mass(skycoord=self.centroid_all, radius=2 * size)
+                table = download_2mass(skycoord=self.centroid_all, radius=radius)
             else:
-                raise ValueError("Catalog '{0}' not supported".format(self.setup.phot_reference_catalog))
+                raise ValueError(f"Catalog '{self.setup.phot_reference_catalog}' not supported")
 
             # Save catalog
             table.write(outpath, format="fits", overwrite=True)
@@ -692,13 +692,13 @@ class SkyImagesProcessed(SkyImages):
             message_calibration(n_current=1, n_total=1, name=outpath, d_current=None,
                                 d_total=None, silent=self.setup.silent)
 
-            # Determine size to download
-            size = np.max(1.1 * self.footprints_flat.separation(self.centroid_all).degree)
+            # Determine radius for download query
+            radius = 1.1 * np.max(self.footprints_flat.separation(self.centroid_all).degree)
 
             # Download catalog
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
-                table = download_gaia(skycoord=self.centroid_all, radius=2 * size)
+                table = download_gaia(skycoord=self.centroid_all, radius=radius)
 
                 # Keep only sources with valid ra/dec/pm entries
                 keep = (np.isfinite(table["RA_ICRS"]) & np.isfinite(table["DE_ICRS"]) &
