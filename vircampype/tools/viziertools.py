@@ -20,12 +20,18 @@ def download_2mass(skycoord, radius):
     """
 
     # Setup for Vizier
-    v = Vizier(columns=["*", "+_r"], catalog="II/246/out", row_limit=-1)
+    v = Vizier(columns=["*", "errMaj", "errMin", "errPA", "JD"], catalog="II/246/out", row_limit=-1)
 
     # Submit query
     result = v.query_region(skycoord, radius=radius * Unit("deg"), catalog="II/246/out")[0]
     del result.meta["description"]
     result.meta["NAME"] = "2MASS"
+
+    # Rename columns
+    if "2MASS" not in result.colnames:
+        result.rename_column("_2MASS", "2MASS")
+    if "JD" not in result.colnames:
+        result.rename_column("_tab1_36", "JD")
 
     return result
 
