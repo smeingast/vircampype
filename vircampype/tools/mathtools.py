@@ -10,7 +10,7 @@ from astropy.stats import sigma_clipped_stats
 
 __all__ = ["apply_sigma_clip", "linearize_data", "apply_along_axes", "ceil_value", "floor_value", "meshgrid",
            "estimate_background", "centroid_sphere", "clipped_median", "clipped_stdev", "fraction2float",
-           "round_decimals_up", "round_decimals_down", "linearity_fitfunc", "clipped_mean"]
+           "round_decimals_up", "round_decimals_down", "linearity_fitfunc", "clipped_mean", "cart2pol"]
 
 
 def apply_sigma_clip(data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0):
@@ -619,3 +619,21 @@ def round_decimals_down(number: float, decimals: int = 2):
 
     factor = 10 ** decimals
     return np.floor(number * factor) / factor
+
+
+def cart2pol(x, y):
+    """
+    Transforms cartesian to polar coordinates
+
+    Parameters
+    ----------
+    x: int, float, np.ndarray
+    y: int, float, np.ndarray
+
+    Returns
+    -------
+    float, float
+        Theta and Rho polar coordinates
+
+    """
+    return np.arctan2(y, x), np.hypot(x, y)
