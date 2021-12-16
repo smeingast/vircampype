@@ -20,6 +20,7 @@ def write_scripts(paths_files, path_pype, path_scripts, name_suffix=None, **setu
         # Find passband in first file
         first_file = glob(f"{udj}*fits")[0]
         name = fits.getheader(first_file, 0)["OBJECT"]
+        # name = udj.split("/")[-2]
 
         # Add name suffix if set
         if name_suffix is not None:
