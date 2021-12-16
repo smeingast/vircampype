@@ -2,20 +2,24 @@ import warnings
 import itertools
 import numpy as np
 
+from astropy import wcs
+from skimage.filters import sobel
 from scipy.ndimage import median_filter
 from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
+from astropy.coordinates import SkyCoord
 from skimage import measure as skmeasure
 from scipy.stats import binned_statistic_2d
 from astropy.stats import sigma_clipped_stats
 from skimage import morphology as skmorphology
 from sklearn.neighbors import NearestNeighbors
+from astropy.wcs.utils import wcs_to_celestial_frame
 from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
+from scipy.ndimage import binary_closing, generate_binary_structure
 from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline
 from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKernel, Kernel2D, \
     Box2DKernel, Gaussian1DKernel
-
 
 __all__ = ["interpolate_image", "chop_image", "merge_chopped", "background_image", "upscale_image", "grid_value_2d",
            "grid_value_2d_nn", "destripe_helper", "circular_mask", "source_mask"]
@@ -703,3 +707,45 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
 
     # Return mask
     return image_labels
+
+
+def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> SkyCoord:
+    """
+    Determine the (sorted) sky coordinates of the edges in a weightmap.
+
+    Parameters
+    ----------
+    weight_img : np.ndarray
+        Weight image array.
+    weight_wcs : wcs.WCS
+        WCS instance of the weight image for coordinate transformation.
+
+    Returns
+    -------
+    SkyCoord
+        SkyCoord instance with coordinates of the (sorted) edge pixels.
+
+    """
+
+    # Determine frame edge
+    weight_flat = np.full_like(weight_img, fill_value=0, dtype=int)
+    weight_flat[weight_img > 0] = 1
+    weight_flat = binary_closing(weight_flat, structure=generate_binary_structure(2, 2), iterations=50)
+    weight_edge = sobel(weight_flat)  # noqa
+    weight_edge[weight_edge > 0] = 1  # noqa
+    weight_edge = weight_edge.astype(np.int8)  # noqa
+
+    # Determine edge coordinates
+    coo_edge_y, coo_edge_x = np.where(weight_edge > 0)
+
+    # Transform so that origin is approximately in center
+    temp_x = coo_edge_x - np.mean(coo_edge_x)
+    temp_y = coo_edge_y - np.mean(coo_edge_y)
+
+    # Transform to polar coordinates for sorting
+    theta, _ = cart2pol(temp_x, temp_y)
+    sort_idx = np.argsort(theta)
+
+    # Compute and sort skycoordinates by polar angle
+    skycoo_edge = weight_wcs.wcs_pix2world(coo_edge_x[sort_idx], coo_edge_y[sort_idx], 0)
+    return SkyCoord(*skycoo_edge, frame=wcs_to_celestial_frame(weight_wcs), unit="degree")
