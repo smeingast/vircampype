@@ -4,7 +4,8 @@ from glob import glob
 from astropy.io import fits
 
 
-def write_scripts(paths_files, path_pype, path_scripts, name_suffix=None, **setup_kwargs):
+def write_scripts(paths_files, path_pype, path_scripts, name_suffix=None,
+                  name_from_directory=False, **setup_kwargs):
 
     # Get data directories
     unique_directories = sorted(list(set([os.path.dirname(x) + "/" for x in paths_files])))
@@ -19,8 +20,10 @@ def write_scripts(paths_files, path_pype, path_scripts, name_suffix=None, **setu
 
         # Find passband in first file
         first_file = glob(f"{udj}*fits")[0]
-        name = fits.getheader(first_file, 0)["OBJECT"]
-        # name = udj.split("/")[-2]
+        if name_from_directory:
+            name = udj.split("/")[-2]
+        else:
+            name = fits.getheader(first_file, 0)["OBJECT"]
 
         # Add name suffix if set
         if name_suffix is not None:
