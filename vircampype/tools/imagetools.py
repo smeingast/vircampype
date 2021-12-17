@@ -22,7 +22,7 @@ from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKe
     Box2DKernel, Gaussian1DKernel
 
 __all__ = ["interpolate_image", "chop_image", "merge_chopped", "background_image", "upscale_image", "grid_value_2d",
-           "grid_value_2d_nn", "destripe_helper", "circular_mask", "source_mask"]
+           "grid_value_2d_nn", "destripe_helper", "circular_mask", "source_mask", "get_edge_skycoord_weight"]
 
 
 def interpolate_image(data, kernel=None, max_bad_neighbors=None):
