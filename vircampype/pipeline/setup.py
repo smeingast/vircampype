@@ -758,8 +758,16 @@ class Setup(dict):
             self.__projection = None
         elif isinstance(projection, str):
 
+            # Chamaeleon
+            if projection.lower() == "chamaeleon_wide":
+                self.__projection = ChamaeleonWideProjection()
+            elif projection.lower() == "chamaeleon_deep":
+                self.__projection = ChamaeleonDeepProjection()
+            elif projection.lower() == "chamaeleon_control":
+                self.__projection = ChamaeleonControlProjection()
+
             # CrA
-            if "corona_australis_wide" == projection.lower():
+            elif "corona_australis_wide" == projection.lower():
                 self.__projection = CoronaAustralisWideProjection()
             elif "corona_australis_deep" == projection.lower():
                 self.__projection = CoronaAustralisDeepProjection()
