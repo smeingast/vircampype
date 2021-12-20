@@ -5,6 +5,7 @@ import numpy as np
 from typing import List
 from astropy.io import fits
 from astropy.time import Time
+from vircampype.tools.systemtools import which
 from vircampype.tools.fitstools import make_gaia_refcat
 from vircampype.tools.astromatic import sextractor2imagehdr
 from vircampype.tools.miscellaneous import flat_list, write_list
@@ -49,15 +50,15 @@ def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.):
     return split_list, split_list_mjd
 
 
-def group_scamp_headers(paths_scripts: List, folder: str, prepare_scamp: bool = True):
+def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, prepare_scamp: bool = True):
 
     # Check if folder ends with slash
     if not folder.endswith("/"):
         folder += "/"
 
     # Define Gaia path
-    path_gaia_raw = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/gaia_edr3_raw.fits"
-    path_scamp_default = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/scamp_template.config"
+    # path_gaia_raw = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/gaia_edr3_raw.fits"
+    path_scamp_default = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
 
     # Find all raw folders
     paths_folders_procfinal = []
