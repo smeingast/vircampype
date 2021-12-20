@@ -775,10 +775,16 @@ class Setup(dict):
                 self.__projection = CoronaAustralisControlProjection()
 
             # Lupus
-            elif "lupus_deep_n" == projection.lower():
+            elif projection.lower() == "lupus_wide":
+                self.__projection = LupusWideProjection()
+            elif projection.lower() == "lupus_deep_n":
                 self.__projection = LupusDeepNProjection()
-            elif "lupus_deep_s" == projection.lower():
-                self.__projection = LupusDeepSProjection
+            elif projection.lower() == "lupus_deep_s":
+                self.__projection = LupusDeepSProjection()
+            elif projection.lower() == "lupus_control_n":
+                self.__projection = LupusControlNProjection()
+            elif projection.lower() == "lupus_control_s":
+                self.__projection = LupusControlSProjection()
 
             # Ophiuchus
             elif "ophiuchus_wide" == projection.lower():
