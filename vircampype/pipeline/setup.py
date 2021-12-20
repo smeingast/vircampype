@@ -767,11 +767,11 @@ class Setup(dict):
                 self.__projection = ChamaeleonControlProjection()
 
             # Corona Australis
-            elif "corona_australis_wide" == projection.lower():
+            elif projection.lower() == "corona_australis_wide":
                 self.__projection = CoronaAustralisWideProjection()
-            elif "corona_australis_deep" == projection.lower():
+            elif projection.lower() == "corona_australis_deep":
                 self.__projection = CoronaAustralisDeepProjection()
-            elif "corona_australis_control" == projection.lower():
+            elif projection.lower() == "corona_australis_control":
                 self.__projection = CoronaAustralisControlProjection()
 
             # Lupus
@@ -787,15 +787,15 @@ class Setup(dict):
                 self.__projection = LupusControlSProjection()
 
             # Ophiuchus
-            elif "ophiuchus_wide" == projection.lower():
+            elif projection.lower() == "ophiuchus_wide":
                 self.__projection = OphiuchusWideProjection()
-            elif "ophiuchus_deep" == projection.lower():
+            elif projection.lower() == "ophiuchus_deep":
                 self.__projection = OphiuchusDeepProjection()
-            elif "ophiuchus_control" == projection.lower():
+            elif projection.lower() == "ophiuchus_control":
                 self.__projection = OphiuchusControlProjection()
 
             # Orion
-            elif "orion_control" == projection.lower():
+            elif projection.lower() == "orion_control":
                 self.__projection = OrionControlProjection()
 
             # Pipe
