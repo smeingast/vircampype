@@ -50,7 +50,7 @@ def download_gaia(skycoord, radius):
     """
 
     # Setup for Vizier
-    v = Vizier(columns=["*", "+_r"], catalog="I/350/gaiaedr3", row_limit=-1)
+    v = Vizier(columns=["*"], catalog="I/350/gaiaedr3", row_limit=-1)
 
     # Submit query
     result = v.query_region(skycoord, radius=radius * Unit("deg"), catalog="I/350/gaiaedr3")[0]
