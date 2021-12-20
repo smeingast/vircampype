@@ -797,6 +797,12 @@ class Setup(dict):
             # Orion
             elif "orion_control" == projection.lower():
                 self.__projection = OrionControlProjection()
+
+            # Pipe
+            elif projection.lower() == "pipe_deep":
+                self.__projection = PipeDeepProjection()
+
+            # If no match found, raise error
             else:
                 raise PipelineError("Projection '{0}' not supported".format(projection))
         else:
