@@ -231,7 +231,7 @@ def group_scamp_headers(paths_scripts: List, folder: str, prepare_scamp: bool = 
 
                 # Write shell script
                 spath = f"{ff}scamp.sh"
-                scmd = f"scamp -c {path_scamp_default} " \
+                scmd = f"{which('scamp')} -c {path_scamp_default} " \
                        f"-HEADER_NAME @{path_out_aheaders} " \
                        f"-ASTREFCAT_NAME {path_gaia_out} " \
                        f"@{path_out_tables}\n" \
