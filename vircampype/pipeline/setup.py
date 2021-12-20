@@ -766,7 +766,7 @@ class Setup(dict):
             elif projection.lower() == "chamaeleon_control":
                 self.__projection = ChamaeleonControlProjection()
 
-            # CrA
+            # Corona Australis
             elif "corona_australis_wide" == projection.lower():
                 self.__projection = CoronaAustralisWideProjection()
             elif "corona_australis_deep" == projection.lower():
