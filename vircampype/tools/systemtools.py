@@ -11,7 +11,7 @@ from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
            "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify",
-           "make_symlinks", "make_executable", "cmd_append_libraries"]
+           "make_symlinks", "make_executable", "cmd_prepend_libraries"]
 
 
 def make_folder(path: str):
@@ -118,7 +118,7 @@ def yml2config(path_yml: str, skip=None, **kwargs):
     return s
 
 
-def cmd_append_libraries(cmd: str):
+def cmd_prepend_libraries(cmd: str):
 
     # Get system environment
     sys_env = os.environ.copy()
@@ -157,7 +157,7 @@ def run_commands_shell_parallel(cmds, n_jobs: int = 1, shell: str = "zsh", silen
     """
 
     # Append dynamic libraries
-    cmds = [cmd_append_libraries(cmd) for cmd in cmds]
+    cmds = [cmd_prepend_libraries(cmd) for cmd in cmds]
 
     if silent:
         groups = [(subprocess.Popen(cmd, shell=True, executable=which(shell), stdout=subprocess.DEVNULL,
@@ -187,7 +187,7 @@ def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
     """
 
     # Append dynamic libraries
-    cmd = cmd_append_libraries(cmd)
+    cmd = cmd_prepend_libraries(cmd)
 
     # Run
     if silent:
