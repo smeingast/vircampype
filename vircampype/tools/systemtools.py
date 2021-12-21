@@ -11,7 +11,7 @@ from itertools import zip_longest
 
 __all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
            "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify",
-           "make_symlinks", "make_executable"]
+           "make_symlinks", "make_executable", "cmd_append_libraries"]
 
 
 def make_folder(path: str):
