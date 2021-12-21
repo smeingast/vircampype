@@ -1,4 +1,7 @@
+from regions import Regions
+from astropy.units import Unit
 from scipy.interpolate import interp1d
+from vircampype.tools.systemtools import get_resource_path
 
 __all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks",
            "CoronaAustralisControlSourceMasks"]
@@ -32,6 +35,10 @@ class SourceMasks:
     def interp_2mass_size(cls):
         return interp1d([1, 2, 3, 4, 5, 6, 7, 8, 9], [500, 500, 500, 475, 450, 400, 300, 200, 100],
                         fill_value="extrapolate")
+
+    @classmethod
+    def path_package_masks(cls):
+        return "vircampype.visions.masks"
 
 
 class CoronaAustralisDeepSourceMasks(SourceMasks):
@@ -97,3 +104,21 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
 
         # Call parent
         super(CoronaAustralisWideSourceMasks, self).__init__(*list(zip(*masks_all)))
+
+
+class OphiuchusDeepSourceMasks(SourceMasks):
+
+    def __init__(self):
+
+        # Read masks from region file
+        path_masks = get_resource_path(package=SourceMasks.path_package_masks(),
+                                       resource="Ophiuchus_deep.reg")
+        regions = Regions.read(path_masks, format="ds9")
+
+        # Convert to required format
+        masks = [(r.center.icrs.ra.degree, r.center.icrs.dec.degree,
+                  round(r.radius.to_value(Unit("arcsec")) / 0.333))
+                 for r in regions]
+
+        # Call parent
+        super(OphiuchusDeepSourceMasks, self).__init__(*list(zip(*masks)))
