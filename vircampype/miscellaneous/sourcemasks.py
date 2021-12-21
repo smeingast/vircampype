@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 from vircampype.tools.systemtools import get_resource_path
 
 __all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks",
-           "CoronaAustralisControlSourceMasks"]
+           "CoronaAustralisControlSourceMasks", "OphiuchusDeepSourceMasks"]
 
 
 class SourceMasks:
