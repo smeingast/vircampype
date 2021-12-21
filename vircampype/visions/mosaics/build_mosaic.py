@@ -7,7 +7,7 @@ from vircampype.tools.miscellaneous import flat_list
 from vircampype.tools.systemtools import make_folder, make_symlinks, copy_file
 
 
-def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_photo, n_jobs,
+def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_photo, n_jobs,
                  reference_mag_lim, projection, phase3_photerr_internal, **kwargs):
 
     # Check if master catalogs are available
@@ -16,9 +16,13 @@ def build_mosaic(name, path_scripts, path_data, path_pype, path_master_astro_pho
     if os.path.isfile(path_master_astro) * os.path.isfile(path_master_photo) != 1:
         raise ValueError("Master tables not found")
 
+    # Check if scripts are there
+    for ps in paths_scripts:
+        if not os.path.isfile(ps):
+            raise ValueError(f"Script '{os.path.basename(ps)}' does not exist")
+
     # Print info
-    paths_scripts = sorted(glob.glob(path_scripts + "*yml"))
-    print(f"Found {len(paths_scripts):2d} scripts")
+    print(f"Got {len(paths_scripts):2d} scripts")
 
     # Loop over scripts
     field_names, paths_folders_raw, paths_folders_resampled, paths_folders_statistics = [], [], [], []
