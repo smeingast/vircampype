@@ -924,7 +924,10 @@ class SkyImagesProcessed(SkyImages):
             # Dummy check if too many pixels where masked
             for plane in cube:
                 if np.sum(np.isfinite(plane)) / plane.size < 0.2:
-                    raise ValueError("Too many pixels masked {0}".format(self.basenames[idx_file]))
+                    ntot, nmasked = plane.size, np.sum(~np.isfinite(plane))
+                    raise ValueError(f"Too many pixels masked ({nmasked/ntot * 100}%) "
+                                     f"for file {self.basenames[idx_file]} "
+                                     f"with mask '{master_source_mask.basenames[idx_file]}'")
 
             # Add stuff to headers
             hdrs_data = []
