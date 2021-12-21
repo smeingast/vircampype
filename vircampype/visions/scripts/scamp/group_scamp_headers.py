@@ -9,7 +9,7 @@ from vircampype.tools.systemtools import which
 from vircampype.tools.fitstools import make_gaia_refcat
 from vircampype.tools.astromatic import sextractor2imagehdr
 from vircampype.tools.miscellaneous import flat_list, write_list
-from vircampype.tools.systemtools import read_yml, make_folder, make_executable
+from vircampype.tools.systemtools import read_yml, make_folder, make_executable, cmd_prepend_libraries
 
 __all__ = ["group_scamp_headers"]
 
@@ -237,6 +237,7 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
                        f"-ASTREFCAT_NAME {path_gaia_out} " \
                        f"@{path_out_tables}\n" \
                        f"{ff}header_backup.sh\n"
+                scmd = cmd_prepend_libraries(cmd=scmd)
                 with open(spath, "w") as ssh:
                     ssh.write(scmd)
                 make_executable(spath)
