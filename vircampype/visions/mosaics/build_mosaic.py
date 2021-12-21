@@ -54,7 +54,7 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
 
     # Dummy check
     if len(paths_raw) != len(paths_resampled):
-        raise ValueError("Raw and and resampled images not matching")
+        raise ValueError("Raw and resampled images not matching")
 
     # Find resampled weights and create link paths
     paths_resampled_weights = flat_list(sorted([glob(p + "*resamp.weight.fits") for p in paths_folders_resampled]))
