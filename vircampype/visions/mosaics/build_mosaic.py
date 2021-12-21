@@ -1,6 +1,7 @@
 import os
-import glob
 
+from glob import glob
+from astropy.io import fits
 from vircampype.pipeline.main import Pipeline
 from vircampype.tools.systemtools import read_yml
 from vircampype.tools.miscellaneous import flat_list
@@ -22,7 +23,7 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
             raise ValueError(f"Script '{os.path.basename(ps)}' does not exist")
 
     # Print info
-    print(f"Got {len(paths_scripts):2d} scripts")
+    print(f"Found {len(paths_scripts):2d} scripts")
 
     # Loop over scripts
     field_names, paths_folders_raw, paths_folders_resampled, paths_folders_statistics = [], [], [], []
@@ -39,14 +40,15 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
                  external_headers=True, build_stacks=False, build_tile=True, build_phase3=True,
                  archive=False, qc_plots=True, **kwargs)
 
-    # Find raw images
-    paths_raw = flat_list([glob.glob(p + "*.fits") for p in paths_folders_raw])
-    # TODO: Keep only science, not sky images
+    # Find raw images and keep only science frames
+    paths_raw = flat_list(sorted([glob(p + "*.fits") for p in paths_folders_raw]))
+    temp = ["SKY" not in fits.getheader(pr)["HIERARCH ESO DPR TYPE"] for pr in paths_raw]
+    paths_raw = [pr for pr, tt in zip(paths_raw, temp) if tt]
     links_raw = [f"{path_data}/{os.path.basename(f)}" for f in paths_raw]
     print(f"Found {len(paths_raw):4d} raw images")
 
     # Find resampled images and create link paths
-    paths_resampled = flat_list([glob.glob(p + "*resamp.fits") for p in paths_folders_resampled])
+    paths_resampled = flat_list(sorted([glob(p + "*resamp.fits") for p in paths_folders_resampled]))
     links_resampled = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled]
     print(f"Found {len(paths_resampled):4d} resampled images")
 
@@ -55,12 +57,12 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
         raise ValueError("Raw and and resampled images not matching")
 
     # Find resampled weights and create link paths
-    paths_resampled_weights = flat_list([glob.glob(p + "*resamp.weight.fits") for p in paths_folders_resampled])
+    paths_resampled_weights = flat_list(sorted([glob(p + "*resamp.weight.fits") for p in paths_folders_resampled]))
     links_resampled_weights = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled_weights]
     print(f"Found {len(paths_resampled_weights):4d} resampled weights")
 
     # Find statistics files
-    paths_statistics = flat_list([glob.glob(p + "*.fits") for p in paths_folders_statistics])
+    paths_statistics = flat_list(sorted([glob(p + "*.fits") for p in paths_folders_statistics]))
     links_statistics = [f"{path_pype}{name}/statistics/{os.path.basename(f)}" for f in paths_statistics]
     print(f"Found {len(paths_statistics):4d} statistics files")
 
