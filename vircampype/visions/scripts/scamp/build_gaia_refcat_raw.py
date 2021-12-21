@@ -30,7 +30,7 @@ for ps in paths_scripts:
     yml = read_yml(ps)
     th = glob.glob(f"{yml['path_pype']}{yml['name']}/tile/*.ahead")
     if len(th) != 1:
-        raise ValueError("Tile header no found")
+        raise ValueError(f"Tile header not found for field '{yml['name']}'")
     th = th[0]
     hdr = fits.Header.fromtextfile(th)
     ww = WCS(hdr)
