@@ -118,7 +118,7 @@ def yml2config(path_yml: str, skip=None, **kwargs):
     return s
 
 
-def _cmd_append_libraries(cmd: str):
+def cmd_append_libraries(cmd: str):
 
     # Get system environment
     sys_env = os.environ.copy()
@@ -157,7 +157,7 @@ def run_commands_shell_parallel(cmds, n_jobs: int = 1, shell: str = "zsh", silen
     """
 
     # Append dynamic libraries
-    cmds = [_cmd_append_libraries(cmd) for cmd in cmds]
+    cmds = [cmd_append_libraries(cmd) for cmd in cmds]
 
     if silent:
         groups = [(subprocess.Popen(cmd, shell=True, executable=which(shell), stdout=subprocess.DEVNULL,
@@ -187,7 +187,7 @@ def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
     """
 
     # Append dynamic libraries
-    cmd = _cmd_append_libraries(cmd)
+    cmd = cmd_append_libraries(cmd)
 
     # Run
     if silent:
