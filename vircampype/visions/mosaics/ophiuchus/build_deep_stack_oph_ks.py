@@ -18,4 +18,4 @@ paths_scripts = sorted(glob.glob(f"{path_scripts}*_K_*.yml"))
 # Build mosaic
 build_mosaic(name=name, paths_scripts=paths_scripts, path_data=path_data, path_pype=path_pype, n_jobs=n_jobs,
              path_master_astro_photo=path_master_astro_photo, reference_mag_lim=reference_mag_lim,
-             projection=projection, phase3_photerr_internal=phase3_photerr_internal, build_class_star_library=True)
+             projection=projection, phase3_photerr_internal=phase3_photerr_internal, build_class_star_library=False)
