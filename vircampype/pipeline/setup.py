@@ -8,7 +8,7 @@ from vircampype.miscellaneous.sourcemasks import *
 
 
 class Setup(dict):
-    """ Pipeline setup. """
+    """Pipeline setup."""
 
     def __init__(self, *arg, **kw):
 
@@ -16,7 +16,9 @@ class Setup(dict):
         super(Setup, self).__init__(*arg, **kw)
 
         # Check that no bad setup parameter is passed
-        attributes = [k for k, v in self.__class__.__dict__.items() if not k.startswith("_")]
+        attributes = [
+            k for k, v in self.__class__.__dict__.items() if not k.startswith("_")
+        ]
         for k, _ in kw.items():
             if k not in attributes:
                 raise PipelineError("Incorrect setup parameter used: '{0}'".format(k))
@@ -62,7 +64,7 @@ class Setup(dict):
         # Photometry
         self.__reference_mag_lim = None
         self.__phase3_photerr_internal_phase = None
-        self.__target_zp = 25.
+        self.__target_zp = 25.0
 
         # Other
         self.__bin_stilts = "stilts"
@@ -72,7 +74,9 @@ class Setup(dict):
             try:
                 setattr(self, key, val)
             except AttributeError:
-                raise PipelineError("Can't set attribute '{0}'. Implement property setter!".format(key))
+                raise PipelineError(
+                    "Can't set attribute '{0}'. Implement property setter!".format(key)
+                )
 
         # Check basic setup
         if self.name is None:
@@ -108,25 +112,37 @@ class Setup(dict):
         return self.path_coadd.replace(".fits", ".ahead")
 
     def __add_folder_tree(self):
-        """ Adds pipeline folder tree to setup. """
+        """Adds pipeline folder tree to setup."""
 
         # Start adding folder structure to setup
         self["folders"] = dict()
         self["folders"]["pype"] = self.path_pype
         self["folders"]["raw"] = self.path_data
         self["folders"]["object"] = "{0}{1}/".format(self.path_pype, self.name)
-        self["folders"]["headers"] = "{0}{1}/".format(self["folders"]["object"], "headers")
+        self["folders"]["headers"] = "{0}{1}/".format(
+            self["folders"]["object"], "headers"
+        )
 
         # Master paths
         self["folders"]["master_common"] = "{0}{1}/".format(self.path_pype, "master")
-        self["folders"]["master_object"] = "{0}{1}/".format(self["folders"]["object"], "master")
+        self["folders"]["master_object"] = "{0}{1}/".format(
+            self["folders"]["object"], "master"
+        )
 
         # Processing folders
         self["folders"]["temp"] = "{0}{1}/".format(self["folders"]["object"], "temp")
-        self["folders"]["processed_basic"] = "{0}{1}/".format(self["folders"]["object"], "processed_basic")
-        self["folders"]["processed_final"] = "{0}{1}/".format(self["folders"]["object"], "processed_final")
-        self["folders"]["resampled"] = "{0}{1}/".format(self["folders"]["object"], "resampled")
-        self["folders"]["illumcorr"] = "{0}{1}/".format(self["folders"]["object"], "illumcorr")
+        self["folders"]["processed_basic"] = "{0}{1}/".format(
+            self["folders"]["object"], "processed_basic"
+        )
+        self["folders"]["processed_final"] = "{0}{1}/".format(
+            self["folders"]["object"], "processed_final"
+        )
+        self["folders"]["resampled"] = "{0}{1}/".format(
+            self["folders"]["object"], "resampled"
+        )
+        self["folders"]["illumcorr"] = "{0}{1}/".format(
+            self["folders"]["object"], "illumcorr"
+        )
 
         # QC
         self["folders"]["qc"] = "{0}{1}/".format(self["folders"]["object"], "qc")
@@ -135,47 +151,80 @@ class Setup(dict):
         self["folders"]["qc_bpm"] = "{0}{1}/".format(self["folders"]["qc"], "bpm")
         self["folders"]["qc_dark"] = "{0}{1}/".format(self["folders"]["qc"], "dark")
         self["folders"]["qc_gain"] = "{0}{1}/".format(self["folders"]["qc"], "gain")
-        self["folders"]["qc_linearity"] = "{0}{1}/".format(self["folders"]["qc"], "linearity")
+        self["folders"]["qc_linearity"] = "{0}{1}/".format(
+            self["folders"]["qc"], "linearity"
+        )
         self["folders"]["qc_flat"] = "{0}{1}/".format(self["folders"]["qc"], "flat")
 
         # Sequence specific QC
         self["folders"]["qc_sky"] = "{0}{1}/".format(self["folders"]["qc"], "sky")
-        self["folders"]["qc_astrometry"] = "{0}{1}/".format(self["folders"]["qc"], "astrometry")
-        self["folders"]["qc_photometry"] = "{0}{1}/".format(self["folders"]["qc"], "photometry")
-        self["folders"]["qc_illumcorr"] = "{0}{1}/".format(self["folders"]["qc"], "illumcorr")
+        self["folders"]["qc_astrometry"] = "{0}{1}/".format(
+            self["folders"]["qc"], "astrometry"
+        )
+        self["folders"]["qc_photometry"] = "{0}{1}/".format(
+            self["folders"]["qc"], "photometry"
+        )
+        self["folders"]["qc_illumcorr"] = "{0}{1}/".format(
+            self["folders"]["qc"], "illumcorr"
+        )
 
         # Statistics path
-        self["folders"]["statistics"] = "{0}{1}/".format(self["folders"]["object"], "statistics")
+        self["folders"]["statistics"] = "{0}{1}/".format(
+            self["folders"]["object"], "statistics"
+        )
 
         # Stacks path
-        self["folders"]["stacks"] = "{0}{1}/".format(self["folders"]["object"], "stacks")
+        self["folders"]["stacks"] = "{0}{1}/".format(
+            self["folders"]["object"], "stacks"
+        )
 
         # Tile path
         self["folders"]["tile"] = "{0}{1}/".format(self["folders"]["object"], "tile")
 
         # Phase 3
-        self["folders"]["phase3"] = "{0}{1}{2}/".format(self.path_pype, "phase3/", self.name)
+        self["folders"]["phase3"] = "{0}{1}{2}/".format(
+            self.path_pype, "phase3/", self.name
+        )
 
     def __create_folder_tree(self):
-        """ Creates the folder tree for the pipeline"""
+        """Creates the folder tree for the pipeline"""
 
         # Common paths
-        folders_common = [self["folders"]["pype"], self["folders"]["headers"],
-                          self["folders"]["master_common"], self["folders"]["temp"]]
+        folders_common = [
+            self["folders"]["pype"],
+            self["folders"]["headers"],
+            self["folders"]["master_common"],
+            self["folders"]["temp"],
+        ]
 
         if "calibration" not in self.name.lower():
             folders_common += [self["folders"]["phase3"]]
 
         # calibration-specific paths
-        folders_cal = [self["folders"]["qc_bpm"], self["folders"]["qc_dark"], self["folders"]["qc_gain"],
-                       self["folders"]["qc_linearity"], self["folders"]["qc_flat"]]
+        folders_cal = [
+            self["folders"]["qc_bpm"],
+            self["folders"]["qc_dark"],
+            self["folders"]["qc_gain"],
+            self["folders"]["qc_linearity"],
+            self["folders"]["qc_flat"],
+        ]
 
         # Object-specific paths
-        folders_object = [self["folders"]["master_object"], self["folders"]["qc"], self["folders"]["qc_sky"],
-                          self["folders"]["processed_basic"], self["folders"]["processed_final"],
-                          self["folders"]["qc_astrometry"], self["folders"]["resampled"], self["folders"]["stacks"],
-                          self["folders"]["statistics"], self["folders"]["tile"], self["folders"]["qc_photometry"],
-                          self["folders"]["qc_illumcorr"], self["folders"]["illumcorr"]]
+        folders_object = [
+            self["folders"]["master_object"],
+            self["folders"]["qc"],
+            self["folders"]["qc_sky"],
+            self["folders"]["processed_basic"],
+            self["folders"]["processed_final"],
+            self["folders"]["qc_astrometry"],
+            self["folders"]["resampled"],
+            self["folders"]["stacks"],
+            self["folders"]["statistics"],
+            self["folders"]["tile"],
+            self["folders"]["qc_photometry"],
+            self["folders"]["qc_illumcorr"],
+            self["folders"]["illumcorr"],
+        ]
 
         # Generate common paths
         for path in folders_common:
@@ -199,7 +248,8 @@ class Setup(dict):
         Parameters
         ----------
         setup : str, dict, Setup
-            Either a string pointing to the location of a pipeline YML, or a dict, or a Setup instance.
+            Either a string pointing to the location of a pipeline YML,
+            or a dict, or a Setup instance.
 
         Returns
         -------
@@ -293,7 +343,7 @@ class Setup(dict):
 
     @property
     def n_jobs(self):
-        """ Number of parallel jobs (when available). """
+        """Number of parallel jobs (when available)."""
         return self.__n_jobs
 
     @n_jobs.setter
@@ -302,7 +352,7 @@ class Setup(dict):
 
     @property
     def silent(self):
-        """ Whether the pipeline should operatre in silent mode. """
+        """Whether the pipeline should operatre in silent mode."""
         return self.__silent
 
     @silent.setter
@@ -311,7 +361,7 @@ class Setup(dict):
 
     @property
     def overwrite(self):
-        """ Whether the pipeline overwrites existing files. """
+        """Whether the pipeline overwrites existing files."""
         return self.__overwrite
 
     @overwrite.setter
@@ -320,7 +370,7 @@ class Setup(dict):
 
     @property
     def qc_plots(self):
-        """ Whether QC plots should be generated. """
+        """Whether QC plots should be generated."""
         return self.__qc_plots
 
     @qc_plots.setter
@@ -331,26 +381,40 @@ class Setup(dict):
     # Data setup
     @property
     def saturation_levels(self):
-        """ Saturation levels for each detector. """
-        return [33000, 32000, 33000, 32000,
-                24000, 24000, 35000, 33000,
-                35000, 35000, 37000, 34000,
-                33000, 35000, 34000, 34000]
+        """Saturation levels for each detector."""
+        return [
+            33000,
+            32000,
+            33000,
+            32000,
+            24000,
+            24000,
+            35000,
+            33000,
+            35000,
+            35000,
+            37000,
+            34000,
+            33000,
+            35000,
+            34000,
+            34000,
+        ]
 
     @property
     def fpa_layout(self):
-        """ Focal plane array layout. """
+        """Focal plane array layout."""
         return [4, 4]
 
     @property
     def fix_vircam_headers(self):
-        """ Whether the (sometimes silly) VIRCAM  headers should be fixed. """
+        """Whether the (sometimes silly) VIRCAM  headers should be fixed."""
         return True
 
     @property
     def set_airmass(self):
         return True
-    
+
     # =========================================================================== #
     # Keywords
     @property
@@ -457,37 +521,37 @@ class Setup(dict):
     # Master
     @property
     def master_max_lag_bpm(self):
-        """ Maximum time difference to MasterBPM in days. """
+        """Maximum time difference to MasterBPM in days."""
         return 14
 
     @property
     def master_max_lag_dark(self):
-        """ Maximum time difference to MasterDark in days. """
+        """Maximum time difference to MasterDark in days."""
         return 14
 
     @property
     def master_max_lag_flat(self):
-        """ Maximum time difference to MasterFlat in days. """
+        """Maximum time difference to MasterFlat in days."""
         return 14
 
     @property
     def master_max_lag_sky(self):
-        """ Maximum time difference to MasterSky in minutes. """
+        """Maximum time difference to MasterSky in minutes."""
         return 60
 
     @property
     def master_max_lag_gain(self):
-        """ Maximum time difference to MasterGain in days. """
+        """Maximum time difference to MasterGain in days."""
         return 14
 
     @property
     def master_max_lag_weight(self):
-        """ Maximum time difference to MasterWeight in days. """
+        """Maximum time difference to MasterWeight in days."""
         return 14
 
     @property
     def master_max_lag_linearity(self):
-        """ Maximum time difference to MasterLinearity in days. """
+        """Maximum time difference to MasterLinearity in days."""
         return 14
 
     # =========================================================================== #
@@ -499,14 +563,28 @@ class Setup(dict):
         All apertures will be matched to the last in the list.
         """
         # return [4.0, 6.0, 12.0, 18.0, 24.0, 30.0]
-        return [3.0, 4.0, 5.0, 6.0,
-                7.0, 8.0, 9.0, 10.0,
-                12.0, 14.0, 16.0, 18.0,
-                21.0, 24.0, 27.0, 30.0]
+        return [
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            7.0,
+            8.0,
+            9.0,
+            10.0,
+            12.0,
+            14.0,
+            16.0,
+            18.0,
+            21.0,
+            24.0,
+            27.0,
+            30.0,
+        ]
 
     @property
     def phot_reference_catalog(self):
-        """ Reference catalog to be used. """
+        """Reference catalog to be used."""
         return "2mass"
 
     @property
@@ -537,17 +615,17 @@ class Setup(dict):
     # Cosmetics
     @property
     def destripe(self):
-        """ Whether destriping should be done. """
+        """Whether destriping should be done."""
         return True
 
     @property
     def interpolate_nan_bool(self):
-        """ Whether to interpolate NaN values. """
+        """Whether to interpolate NaN values."""
         return True
 
     @property
     def interpolate_max_bad_neighbors(self):
-        """ How many bad neighbors a NaN can have so that it still gets interpolated. """
+        """How many bad neighbors a NaN can have so that it still gets interpolated."""
         return 3
 
     @property
@@ -558,22 +636,22 @@ class Setup(dict):
     # Source masks
     @property
     def mask_sources_thresh(self):
-        """ Significance threshold above background for pixels to be masked. """
+        """Significance threshold above background for pixels to be masked."""
         return 3
 
     @property
     def mask_sources_min_area(self):
-        """ Minimum area of sources that are masked. """
+        """Minimum area of sources that are masked."""
         return 3
 
     @property
     def mask_sources_max_area(self):
-        """ Maximum area of sources that are masked (500x500 pix). """
+        """Maximum area of sources that are masked (500x500 pix)."""
         return 250000
 
     @property
     def additional_source_masks(self):
-        """ Dictionary with additional source masks. """
+        """Dictionary with additional source masks."""
         return self.__additional_source_masks
 
     @additional_source_masks.setter
@@ -590,15 +668,25 @@ class Setup(dict):
         # If specified as string, try to load supported predefined masks
         elif isinstance(additional_source_masks, str):
             if additional_source_masks.lower() == "corona_australis_deep":
-                self.__additional_source_masks = CoronaAustralisDeepSourceMasks().mask_dict
+                self.__additional_source_masks = (
+                    CoronaAustralisDeepSourceMasks().mask_dict
+                )
             elif additional_source_masks.lower() == "corona_australis_wide":
-                self.__additional_source_masks = CoronaAustralisWideSourceMasks().mask_dict
+                self.__additional_source_masks = (
+                    CoronaAustralisWideSourceMasks().mask_dict
+                )
             elif additional_source_masks.lower() == "corona_australis_control":
-                self.__additional_source_masks = CoronaAustralisControlSourceMasks().mask_dict
+                self.__additional_source_masks = (
+                    CoronaAustralisControlSourceMasks().mask_dict
+                )
             elif additional_source_masks.lower() == "ophiuchus_deep":
                 self.__additional_source_masks = OphiuchusDeepSourceMasks().mask_dict
             else:
-                raise ValueError("Source masks for '{0}' are not supported".format(additional_source_masks))
+                raise ValueError(
+                    "Source masks for '{0}' are not supported".format(
+                        additional_source_masks
+                    )
+                )
 
         elif additional_source_masks is None:
             self.__additional_source_masks = None
@@ -615,12 +703,12 @@ class Setup(dict):
 
     @property
     def sky_window(self):
-        """ Window in minutes around which sky images are created. """
+        """Window in minutes around which sky images are created."""
         return 180
 
     @property
     def sky_n_min(self):
-        """ Minimum number of images to merge to an offset image. """
+        """Minimum number of images to merge to an offset image."""
         return 5
 
     @property
@@ -728,17 +816,22 @@ class Setup(dict):
         return 0.25
 
     # Image combination methods for statistics
-    image_statistics_combine_type = {"nimg": "SUM", "exptime": "SUM", "mjd.int": "AVERAGE", "mjd.frac": "AVERAGE"}
+    image_statistics_combine_type = {
+        "nimg": "SUM",
+        "exptime": "SUM",
+        "mjd.int": "AVERAGE",
+        "mjd.frac": "AVERAGE",
+    }
 
     # =========================================================================== #
     # Other
     @property
     def pixel_scale_arcsec(self):
-        return 1/3
+        return 1 / 3
 
     @property
     def pixel_scale_degrees(self):
-        return self.pixel_scale_arcsec / 3600.
+        return self.pixel_scale_arcsec / 3600.0
 
     @property
     def maximasking(self):
@@ -808,7 +901,9 @@ class Setup(dict):
             else:
                 raise PipelineError("Projection '{0}' not supported".format(projection))
         else:
-            raise PipelineError("Projection must be provided as string or Projection instance")
+            raise PipelineError(
+                "Projection must be provided as string or Projection instance"
+            )
 
     @property
     def compress_phase3(self):
@@ -816,7 +911,7 @@ class Setup(dict):
 
     @property
     def fpack_quantization_factor(self):
-        """ https://iopscience.iop.org/article/10.1086/656249/pdf """
+        """https://iopscience.iop.org/article/10.1086/656249/pdf"""
         return 16
 
     @property
@@ -829,11 +924,21 @@ class Setup(dict):
 
 
 class HeaderKeywords:
-
-    def __init__(self, obj="OBJECT", filter_name="HIERARCH ESO INS FILT1 NAME", dpr_type="HIERARCH ESO DPR TYPE",
-                 dpr_category="HIERARCH ESO DPR CATG", dit="HIERARCH ESO DET DIT", ndit="HIERARCH ESO DET NDIT",
-                 date_mjd="MJD-OBS", date_ut="DATE-OBS", gain="GAIN", rdnoise="RDNOISE", saturate="SATURATE",
-                 airmass="AIRMASS"):
+    def __init__(
+        self,
+        obj="OBJECT",
+        filter_name="HIERARCH ESO INS FILT1 NAME",
+        dpr_type="HIERARCH ESO DPR TYPE",
+        dpr_category="HIERARCH ESO DPR CATG",
+        dit="HIERARCH ESO DET DIT",
+        ndit="HIERARCH ESO DET NDIT",
+        date_mjd="MJD-OBS",
+        date_ut="DATE-OBS",
+        gain="GAIN",
+        rdnoise="RDNOISE",
+        saturate="SATURATE",
+        airmass="AIRMASS",
+    ):
 
         self.object = obj
         self.filter_name = filter_name
