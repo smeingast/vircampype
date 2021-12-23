@@ -3,12 +3,17 @@ from astropy.units import Unit
 from scipy.interpolate import interp1d
 from vircampype.tools.systemtools import get_resource_path
 
-__all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks",
-           "CoronaAustralisControlSourceMasks", "OphiuchusDeepSourceMasks", "LupusDeepSourceMasks"]
+__all__ = [
+    "SourceMasks",
+    "CoronaAustralisDeepSourceMasks",
+    "CoronaAustralisWideSourceMasks",
+    "CoronaAustralisControlSourceMasks",
+    "OphiuchusDeepSourceMasks",
+    "LupusDeepSourceMasks",
+]
 
 
 class SourceMasks:
-
     def __init__(self, ra, dec, size):
         """
         Defines position and size of source masks.
@@ -33,8 +38,11 @@ class SourceMasks:
 
     @classmethod
     def interp_2mass_size(cls):
-        return interp1d([1, 2, 3, 4, 5, 6, 7, 8, 9], [500, 500, 500, 475, 450, 400, 300, 200, 100],
-                        fill_value="extrapolate")
+        return interp1d(
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            [500, 500, 500, 475, 450, 400, 300, 200, 100],
+            fill_value="extrapolate",
+        )
 
     @classmethod
     def path_package_masks(cls):
@@ -42,7 +50,6 @@ class SourceMasks:
 
 
 class CoronaAustralisDeepSourceMasks(SourceMasks):
-
     def __init__(self):
 
         # Define masks (ra, dec, radius)
@@ -62,14 +69,28 @@ class CoronaAustralisDeepSourceMasks(SourceMasks):
         m14 = (285.426, -36.938, 150)
 
         # Put in list
-        masks_all = [m01, m02, m03, m04, m05, m06, m07, m08, m09, m10, m11, m12, m13, m14]
+        masks_all = [
+            m01,
+            m02,
+            m03,
+            m04,
+            m05,
+            m06,
+            m07,
+            m08,
+            m09,
+            m10,
+            m11,
+            m12,
+            m13,
+            m14,
+        ]
 
         # Call parent
         super(CoronaAustralisDeepSourceMasks, self).__init__(*list(zip(*masks_all)))
 
 
 class CoronaAustralisControlSourceMasks(SourceMasks):
-
     def __init__(self):
 
         # Define masks (ra, dec, radius)
@@ -83,7 +104,6 @@ class CoronaAustralisControlSourceMasks(SourceMasks):
 
 
 class CoronaAustralisWideSourceMasks(SourceMasks):
-
     def __init__(self):
 
         # Define masks (ra, dec, radius)
@@ -94,12 +114,18 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
 
         # Merge with deep masks
         cra_deep = CoronaAustralisDeepSourceMasks()
-        m_cra_deep = [(ra, dec, size) for ra, dec, size in zip(cra_deep.ra, cra_deep.dec, cra_deep.size)]
+        m_cra_deep = [
+            (ra, dec, size)
+            for ra, dec, size in zip(cra_deep.ra, cra_deep.dec, cra_deep.size)
+        ]
         masks_all += m_cra_deep
 
         # Merge with control source masks
         cra_control = CoronaAustralisControlSourceMasks()
-        m_cra_control = [(ra, dec, size) for ra, dec, size in zip(cra_control.ra, cra_control.dec, cra_control.size)]
+        m_cra_control = [
+            (ra, dec, size)
+            for ra, dec, size in zip(cra_control.ra, cra_control.dec, cra_control.size)
+        ]
         masks_all += m_cra_control
 
         # Call parent
@@ -107,36 +133,46 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
 
 
 class OphiuchusDeepSourceMasks(SourceMasks):
-
     def __init__(self):
 
         # Read masks from region file
-        path_masks = get_resource_path(package=SourceMasks.path_package_masks(),
-                                       resource="Ophiuchus_deep.reg")
+        path_masks = get_resource_path(
+            package=SourceMasks.path_package_masks(), resource="Ophiuchus_deep.reg"
+        )
         regions = Regions.read(path_masks, format="ds9")
 
         # Convert to required format
-        masks = [(r.center.icrs.ra.degree, r.center.icrs.dec.degree,
-                  round(r.radius.to_value(Unit("arcsec")) / 0.333))
-                 for r in regions]
+        masks = [
+            (
+                r.center.icrs.ra.degree,
+                r.center.icrs.dec.degree,
+                round(r.radius.to_value(Unit("arcsec")) / 0.333),
+            )
+            for r in regions
+        ]
 
         # Call parent
         super(OphiuchusDeepSourceMasks, self).__init__(*list(zip(*masks)))
 
 
 class LupusDeepSourceMasks(SourceMasks):
-
     def __init__(self):
 
         # Read masks from region file
-        path_masks = get_resource_path(package=SourceMasks.path_package_masks(),
-                                       resource="Lupus_deep.reg")
+        path_masks = get_resource_path(
+            package=SourceMasks.path_package_masks(), resource="Lupus_deep.reg"
+        )
         regions = Regions.read(path_masks, format="ds9")
 
         # Convert to required format
-        masks = [(r.center.icrs.ra.degree, r.center.icrs.dec.degree,
-                  round(r.radius.to_value(Unit("arcsec")) / 0.333))
-                 for r in regions]
+        masks = [
+            (
+                r.center.icrs.ra.degree,
+                r.center.icrs.dec.degree,
+                round(r.radius.to_value(Unit("arcsec")) / 0.333),
+            )
+            for r in regions
+        ]
 
         # Call parent
         super(LupusDeepSourceMasks, self).__init__(*list(zip(*masks)))
