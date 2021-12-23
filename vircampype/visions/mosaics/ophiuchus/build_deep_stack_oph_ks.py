@@ -8,7 +8,6 @@ path_master_astro_photo = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/other
 path_data = f"/Volumes/Data/Mosaics/Ophiuchus/{name}/"
 path_pype = f"/Volumes/Data/Mosaics/Ophiuchus/vircampype/"
 projection = "Ophiuchus_deep"
-# TODO: Fix mag limits
 reference_mag_lim = (11.5, 14.5)
 phase3_photerr_internal = 0.005
 n_jobs = 10
