@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 from vircampype.tools.systemtools import get_resource_path
 
 __all__ = ["SourceMasks", "CoronaAustralisDeepSourceMasks", "CoronaAustralisWideSourceMasks",
-           "CoronaAustralisControlSourceMasks", "OphiuchusDeepSourceMasks"]
+           "CoronaAustralisControlSourceMasks", "OphiuchusDeepSourceMasks", "LupusDeepSourceMasks"]
 
 
 class SourceMasks:
@@ -122,3 +122,21 @@ class OphiuchusDeepSourceMasks(SourceMasks):
 
         # Call parent
         super(OphiuchusDeepSourceMasks, self).__init__(*list(zip(*masks)))
+
+
+class LupusDeepSourceMasks(SourceMasks):
+
+    def __init__(self):
+
+        # Read masks from region file
+        path_masks = get_resource_path(package=SourceMasks.path_package_masks(),
+                                       resource="Lupus_deep.reg")
+        regions = Regions.read(path_masks, format="ds9")
+
+        # Convert to required format
+        masks = [(r.center.icrs.ra.degree, r.center.icrs.dec.degree,
+                  round(r.radius.to_value(Unit("arcsec")) / 0.333))
+                 for r in regions]
+
+        # Call parent
+        super(LupusDeepSourceMasks, self).__init__(*list(zip(*masks)))
