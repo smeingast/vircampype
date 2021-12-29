@@ -2,15 +2,42 @@ import pickle
 
 
 class PipelineStatus:
-    def __init__(self, master_bpm=False, master_linearity=False, master_dark=False, master_gain=False,
-                 master_flat=False, master_weight_global=False, processed_raw_basic=False, master_sky_static=False,
-                 master_source_mask=False, master_sky_dynamic=False, master_photometry=False, master_astrometry=False,
-                 processed_raw_final=False, master_weight_image=False, tile_header=False, astrometry=False,
-                 illumcorr=False, resampled=False, statistics_resampled=False, photometry_pawprints=False,
-                 photerr_internal=False, stacks=False, statistics_stacks=False, classification_stacks=False,
-                 photometry_stacks=False, qc_astrometry_stacks=False, tile=False, statistics_tile=False,
-                 classification_tile=False, photometry_tile=False, qc_astrometry_tile=False, phase3=False,
-                 archive=False):
+    def __init__(
+        self,
+        master_bpm=False,
+        master_linearity=False,
+        master_dark=False,
+        master_gain=False,
+        master_flat=False,
+        master_weight_global=False,
+        processed_raw_basic=False,
+        master_sky_static=False,
+        master_source_mask=False,
+        master_sky_dynamic=False,
+        master_photometry=False,
+        master_astrometry=False,
+        processed_raw_final=False,
+        master_weight_image=False,
+        tile_header=False,
+        astrometry=False,
+        illumcorr=False,
+        resampled=False,
+        statistics_resampled=False,
+        photometry_pawprints=False,
+        photerr_internal=False,
+        stacks=False,
+        statistics_stacks=False,
+        classification_stacks=False,
+        photometry_stacks=False,
+        qc_astrometry_stacks=False,
+        tile=False,
+        statistics_tile=False,
+        classification_tile=False,
+        photometry_tile=False,
+        qc_astrometry_tile=False,
+        phase3=False,
+        archive=False,
+    ):
 
         # Set status calibration attributes
         self.master_bpm = master_bpm
@@ -57,13 +84,40 @@ class PipelineStatus:
 
     @staticmethod
     def __attributes():
-        return ["master_bpm", "master_linearity", "master_dark", "master_gain", "master_flat", "master_weight_global",
-                "processed_raw_basic", "master_sky_static", "master_source_mask", "master_sky_dynamic",
-                "master_photometry", "master_astrometry", "processed_raw_final", "master_weight_image", "tile_header",
-                "astrometry", "illumcorr", "resampled", "statistics_resampled", "photometry_pawprints",
-                "stacks", "statistics_stacks", "classification_stacks", "photometry_stacks", "qc_astrometry_stacks",
-                "tile", "statistics_tile", "classification_tile", "photometry_tile", "qc_astrometry_tile", "phase3",
-                "archive"]
+        return [
+            "master_bpm",
+            "master_linearity",
+            "master_dark",
+            "master_gain",
+            "master_flat",
+            "master_weight_global",
+            "processed_raw_basic",
+            "master_sky_static",
+            "master_source_mask",
+            "master_sky_dynamic",
+            "master_photometry",
+            "master_astrometry",
+            "processed_raw_final",
+            "master_weight_image",
+            "tile_header",
+            "astrometry",
+            "illumcorr",
+            "resampled",
+            "statistics_resampled",
+            "photometry_pawprints",
+            "stacks",
+            "statistics_stacks",
+            "classification_stacks",
+            "photometry_stacks",
+            "qc_astrometry_stacks",
+            "tile",
+            "statistics_tile",
+            "classification_tile",
+            "photometry_tile",
+            "qc_astrometry_tile",
+            "phase3",
+            "archive",
+        ]
 
     @property
     def status_dict(self):
@@ -72,7 +126,9 @@ class PipelineStatus:
     def update(self, **kwargs):
         for key, val in kwargs.items():
             if key not in self.__attributes():
-                raise ValueError("Cannot set pipeline status for attribute '{0}'".format(key))
+                raise ValueError(
+                    "Cannot set pipeline status for attribute '{0}'".format(key)
+                )
             else:
                 setattr(self, key, val)
 
