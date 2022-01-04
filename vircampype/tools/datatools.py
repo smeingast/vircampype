@@ -56,7 +56,10 @@ def sort_vircam_science(path, extension=".fits"):
     paths_dirs = ["{0}/".format(os.path.dirname(f)) for f in paths_orig]
 
     # Get Object Name
-    obj = [fits.getheader(filename=f)["HIERARCH ESO OBS NAME"].replace("VISIONS_", "") for f in paths_orig]
+    obj = [
+        fits.getheader(filename=f)["HIERARCH ESO OBS NAME"].replace("VISIONS_", "")
+        for f in paths_orig
+    ]
 
     # Identify unique objects
     uobj = sorted(list(set(obj)))
@@ -66,7 +69,9 @@ def sort_vircam_science(path, extension=".fits"):
         make_folder(path=path + uo)
 
     # Construct output paths
-    paths_move = ["{0}{1}/{2}".format(d, o, f) for d, o, f in zip(paths_dirs, obj, file_names)]
+    paths_move = [
+        "{0}{1}/{2}".format(d, o, f) for d, o, f in zip(paths_dirs, obj, file_names)
+    ]
 
     # Move files to folders
     for po, pm in zip(paths_orig, paths_move):
@@ -79,7 +84,9 @@ def sort_by_passband(paths):
     directories = [f"{os.path.dirname(p)}/" for p in paths]
 
     # Get passbands
-    passbands = [fits.getheader(filename=p)["HIERARCH ESO INS FILT1 NAME"] for p in paths]
+    passbands = [
+        fits.getheader(filename=p)["HIERARCH ESO INS FILT1 NAME"] for p in paths
+    ]
 
     # Loop over files and sort into subdirectories
     for pp, dd, pb in zip(paths, directories, passbands):
