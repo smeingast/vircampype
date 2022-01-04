@@ -46,7 +46,7 @@ class SourceMasks:
     def size_deg(self):
         return Quantity([r.radius.to(Unit("deg")) for r in self.regions])
 
-    def size_pix(self, pixel_scale=0.333 * Unit("arcsec")):
+    def size_pix(self, pixel_scale=1/3 * Unit("arcsec")):
         """
 
         Parameters
