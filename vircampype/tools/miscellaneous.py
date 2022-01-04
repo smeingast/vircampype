@@ -1,21 +1,43 @@
 import numpy as np
 from typing import List
 
-__all__ = ["string2list", "string2func", "func2string", "prune_list", "flat_list", "convert_dtype", "fits2numpy",
-           "numpy2fits", "skycoord2visionsid", "write_list"]
+__all__ = [
+    "string2list",
+    "string2func",
+    "func2string",
+    "prune_list",
+    "flat_list",
+    "convert_dtype",
+    "fits2numpy",
+    "numpy2fits",
+    "skycoord2visionsid",
+    "write_list",
+]
 
 
 def convert_dtype(dtype):
     try:
-        cdict = dict(bool="i1", int16="i2", int32="i4", int64="i8", float32="f4", float64="f8")
+        cdict = dict(
+            bool="i1", int16="i2", int32="i4", int64="i8", float32="f4", float64="f8"
+        )
         return cdict[dtype]
     except KeyError:
         return dtype
 
 
 # Copied from astropy
-fits2numpy = {'L': 'i1', 'B': 'u1', 'I': 'i2', 'J': 'i4', 'K': 'i8', 'E': 'f4',
-              'D': 'f8', 'C': 'c8', 'M': 'c16', 'A': 'a'}
+fits2numpy = {
+    "L": "i1",
+    "B": "u1",
+    "I": "i2",
+    "J": "i4",
+    "K": "i8",
+    "E": "f4",
+    "D": "f8",
+    "C": "c8",
+    "M": "c16",
+    "A": "a",
+}
 numpy2fits = {val: key for key, val in fits2numpy.items()}
 
 
@@ -59,7 +81,7 @@ def func2string(func):
 
 
 def flat_list(inlist):
-    """ Flattens a list with sublists. """
+    """Flattens a list with sublists."""
     return [item for sublist in inlist for item in sublist]
 
 
@@ -130,14 +152,19 @@ def skycoord2visionsid(skycoord):
     """
 
     # Determine declination sign
-    sign = ["-" if np.sign(dec) < 0. else "+" for dec in skycoord.dec.degree]
+    sign = ["-" if np.sign(dec) < 0.0 else "+" for dec in skycoord.dec.degree]
 
     # Construct id
     id1 = np.around(skycoord.ra.degree, decimals=6)
-    id2 = np.around(skycoord.dec.degree, decimals=6) / np.sign(np.around(skycoord.dec.degree, decimals=6))
+    id2 = np.around(skycoord.dec.degree, decimals=6) / np.sign(
+        np.around(skycoord.dec.degree, decimals=6)
+    )
 
     # Return string
-    return ["{0:0>10.6f}{1}{2:0>9.6f}".format(ra, s, dec) for ra, s, dec in zip(id1, sign, id2)]
+    return [
+        "{0:0>10.6f}{1}{2:0>9.6f}".format(ra, s, dec)
+        for ra, s, dec in zip(id1, sign, id2)
+    ]
 
 
 def write_list(path_file: str, lst: List):
