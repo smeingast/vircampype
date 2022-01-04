@@ -13,13 +13,30 @@ from astropy.modeling.functional_models import Gaussian1D
 from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
-__all__ = ["clean_source_table", "add_smoothed_value", "add_zp_2mass", "table2bintablehdu",
-           "interpolate_classification", "remove_duplicates_wcs"]
+__all__ = [
+    "clean_source_table",
+    "add_smoothed_value",
+    "add_zp_2mass",
+    "table2bintablehdu",
+    "interpolate_classification",
+    "remove_duplicates_wcs",
+]
 
 
-def clean_source_table(table, image_header=None, return_filter=False, min_snr=10, nndis_limit=None,
-                       flux_max=None, max_ellipticity=0.25, min_fwhm=1.0, max_fwhm=8.0, border_pix=20,
-                       min_flux_radius=0.8, max_flux_radius=3.0):
+def clean_source_table(
+    table,
+    image_header=None,
+    return_filter=False,
+    min_snr=10,
+    nndis_limit=None,
+    flux_max=None,
+    max_ellipticity=0.25,
+    min_fwhm=1.0,
+    max_fwhm=8.0,
+    border_pix=20,
+    min_flux_radius=0.8,
+    max_flux_radius=3.0,
+):
 
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
@@ -28,8 +45,12 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
     if nndis_limit is not None:
         # Get distance to nearest neighbor for cleaning
         stacked = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
-        nndis = NearestNeighbors(n_neighbors=2, algorithm="auto").fit(stacked).kneighbors(stacked)[0][:, -1]
-        good &= (nndis > nndis_limit)
+        nndis = (
+            NearestNeighbors(n_neighbors=2, algorithm="auto")
+            .fit(stacked)
+            .kneighbors(stacked)[0][:, -1]
+        )
+        good &= nndis > nndis_limit
 
     try:
         good &= (table["FLAGS"] == 0) | (table["FLAGS"] == 2)
@@ -87,7 +108,9 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
         pass
 
     try:
-        good &= (table["BACKGROUND"] <= np.nanmedian(table["BACKGROUND"]) + 3 * np.nanstd(table["BACKGROUND"]))
+        good &= table["BACKGROUND"] <= np.nanmedian(
+            table["BACKGROUND"]
+        ) + 3 * np.nanstd(table["BACKGROUND"])
     except KeyError:
         pass
 
@@ -121,13 +144,22 @@ def clean_source_table(table, image_header=None, return_filter=False, min_snr=10
 def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
 
     # Construct clean source table
-    table_clean, keep_clean = clean_source_table(table=table, border_pix=25, min_fwhm=0.8, max_fwhm=6.0,
-                                                 max_ellipticity=0.25, nndis_limit=5, min_snr=5, return_filter=True)
+    table_clean, keep_clean = clean_source_table(
+        table=table,
+        border_pix=25,
+        min_fwhm=0.8,
+        max_fwhm=6.0,
+        max_ellipticity=0.25,
+        nndis_limit=5,
+        min_snr=5,
+        return_filter=True,
+    )
 
     # Create index array of clean sources
     idx_clean = np.array([i for i, v in enumerate(keep_clean) if v])
 
-    # Also only keep sources in clean table that have a valid entry for the requested parameter
+    # Also only keep sources in clean table that have a valid entry for the requested
+    # parameter
     if table_clean[parameter].ndim == 1:
         keep = np.isfinite(table_clean[parameter])
     else:
@@ -149,21 +181,28 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         n_neighbors = len(table_clean)
 
     # Get nearest neighbors from input to clean source table
-    nn_dis_all, nn_idx_all = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked_clean).kneighbors(stacked_raw)
+    nn_dis_all, nn_idx_all = (
+        NearestNeighbors(n_neighbors=n_neighbors)
+        .fit(stacked_clean)
+        .kneighbors(stacked_raw)
+    )
 
     # Since this can require a LOT of RAM, I loop over chunks
     n_sections = len(nn_dis_all) // 200000
     n_sections = 1 if n_sections == 0 else n_sections
     par_weighted, par_nsources, par_max_dis, par_std = [], [], [], []
-    for nn_dis, nn_idx in zip(np.array_split(nn_dis_all, n_sections, axis=0),
-                              np.array_split(nn_idx_all, n_sections, axis=0)):
+    for nn_dis, nn_idx in zip(
+        np.array_split(nn_dis_all, n_sections, axis=0),
+        np.array_split(nn_idx_all, n_sections, axis=0),
+    ):
 
-        # Mask everything beyond maxdis, then bring back at least 20 sources, regardless of their separation
+        # Mask everything beyond maxdis, then bring back at least 20 sources,
+        # regardless of their separation
         nn_dis_temp = nn_dis.copy()
         nn_dis[nn_dis > max_dis] = np.nan
         nn_dis[:, :20] = nn_dis_temp[:, :20]
         bad_data = ~np.isfinite(nn_dis)
-        nn_dis_temp = 0.  # noqa
+        nn_dis_temp = 0.0  # noqa
 
         # Count sources
         par_nsources.append(np.sum(~bad_data, axis=1))
@@ -175,45 +214,77 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         nn_data = table_clean[parameter].data[nn_idx].copy()
 
         # Compute weights (Gauss with max_dis / 2 std)
-        weights = Gaussian1D(amplitude=1, mean=0, stddev=max_dis / 2)(nn_dis) * table_clean["SNR_WIN"].data[nn_idx]
-        weights[bad_data] = 0.
+        weights = (
+            Gaussian1D(amplitude=1, mean=0, stddev=max_dis / 2)(nn_dis)
+            * table_clean["SNR_WIN"].data[nn_idx]
+        )
+        weights[bad_data] = 0.0
         # Weights just from SNR
         # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
         # weights = weights_snr.copy()
 
         # Compute weighted average
         if nn_data.ndim == 3:
-            weights_par = np.repeat(weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2)
+            weights_par = np.repeat(
+                weights.copy()[:, :, np.newaxis], nn_data.shape[2], axis=2
+            )
         else:
             weights_par = weights.copy()
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Input data contains invalid values")
+            warnings.filterwarnings(
+                "ignore", message="Input data contains invalid values"
+            )
             wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3).mask
-        weights_par[wmask] = 0.
+        weights_par[wmask] = 0.0
         # noinspection PyUnresolvedReferences
-        par_weighted.append(np.ma.average(np.ma.masked_invalid(nn_data), axis=1, weights=weights_par).filled(np.nan))
+        par_weighted.append(
+            np.ma.average(
+                np.ma.masked_invalid(nn_data), axis=1, weights=weights_par
+            ).filled(np.nan)
+        )
 
         # Mask bad values
         nn_data[bad_data] = np.nan
 
         # Also compute standard deviation
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Input data contains invalid values")
+            warnings.filterwarnings(
+                "ignore", message="Input data contains invalid values"
+            )
             _, _, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
         par_std.append(iv_std)
 
     # Add columns to table
-    table.add_column(np.concatenate(par_weighted).astype(np.float32), name=f"{parameter}_INTERP")
-    table.add_column(np.concatenate(par_nsources).astype(np.int16), name=f"{parameter}_INTERP_NSOURCES")
-    table.add_column(np.concatenate(par_max_dis).astype(np.float32), name=f"{parameter}_INTERP_MAXDIS")
-    table.add_column(np.concatenate(par_std).astype(np.float32), name=f"{parameter}_INTERP_STD")
+    table.add_column(
+        np.concatenate(par_weighted).astype(np.float32), name=f"{parameter}_INTERP"
+    )
+    table.add_column(
+        np.concatenate(par_nsources).astype(np.int16),
+        name=f"{parameter}_INTERP_NSOURCES",
+    )
+    table.add_column(
+        np.concatenate(par_max_dis).astype(np.float32),
+        name=f"{parameter}_INTERP_MAXDIS",
+    )
+    table.add_column(
+        np.concatenate(par_std).astype(np.float32), name=f"{parameter}_INTERP_STD"
+    )
 
     # Return table
     return table
 
 
-def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_SKY",
-                 key_dec="DELTA_SKY", columns_mag=None, columns_magerr=None, method="weighted"):
+def add_zp_2mass(
+    table,
+    table_2mass,
+    passband_2mass,
+    mag_lim_ref,
+    key_ra="ALPHA_SKY",
+    key_dec="DELTA_SKY",
+    columns_mag=None,
+    columns_magerr=None,
+    method="weighted",
+):
 
     if columns_mag is None:
         columns_mag = ["MAG_AUTO"]
@@ -229,11 +300,18 @@ def add_zp_2mass(table, table_2mass, passband_2mass, mag_lim_ref, key_ra="ALPHA_
 
     # Loop over columns
     for cm, ce in zip(columns_mag, columns_magerr):
-        zp, zp_err = get_zeropoint(skycoord1=SkyCoord(tc[key_ra], tc[key_dec], unit="deg"),  # noqa
-                                   skycoord2=SkyCoord(table_2mass["RAJ2000"], table_2mass["DEJ2000"], unit="deg"),
-                                   mag1=tc[cm], magerr1=tc[ce], mag2=table_2mass[passband_2mass],
-                                   magerr2=table_2mass[f"e_{passband_2mass}"], mag_limits_ref=mag_lim_ref,
-                                   method=method)
+        zp, zp_err = get_zeropoint(
+            skycoord1=SkyCoord(tc[key_ra], tc[key_dec], unit="deg"),  # noqa
+            skycoord2=SkyCoord(
+                table_2mass["RAJ2000"], table_2mass["DEJ2000"], unit="deg"
+            ),
+            mag1=tc[cm],
+            magerr1=tc[ce],
+            mag2=table_2mass[passband_2mass],
+            magerr2=table_2mass[f"e_{passband_2mass}"],
+            mag_limits_ref=mag_lim_ref,
+            method=method,
+        )
 
         if isinstance(zp, MaskedColumn):
             zp = zp.filled(fill_value=np.nan)
@@ -269,18 +347,23 @@ def table2bintablehdu(table):
         if len(table.field(key).shape) == 2:
             fits_format = str(table.field(key).shape[1]) + fits_format
 
-        cols_hdu.append(fits.Column(name=key, array=table.field(key), format=fits_format))
+        cols_hdu.append(
+            fits.Column(name=key, array=table.field(key), format=fits_format)
+        )
 
     # Return
     return fits.BinTableHDU.from_columns(columns=cols_hdu)
 
 
 def interpolate_classification(source_table, classification_table):
-    """ Helper tool to interpolate classification from library """
+    """Helper tool to interpolate classification from library"""
 
     # Grab coordinates
     xx_source, yy_source = source_table["XWIN_IMAGE"], source_table["YWIN_IMAGE"]
-    xx_class, yy_class = classification_table["XWIN_IMAGE"], classification_table["YWIN_IMAGE"]
+    xx_class, yy_class = (
+        classification_table["XWIN_IMAGE"],
+        classification_table["YWIN_IMAGE"],
+    )
 
     # Determine FWHM range from available columns
     fwhm_range = []
@@ -288,18 +371,24 @@ def interpolate_classification(source_table, classification_table):
         if key.startswith("CLASS_STAR"):
             fwhm_range.append(float(key.split("_")[-1]))
 
-    # Sextractor may not deliver the same sources between classification and full mode, so we do a NN search
+    # Sextractor may not deliver the same sources between classification and full mode,
+    # so we do a NN search
     stacked_source = np.stack([xx_source, yy_source]).T
     stacked_class = np.stack([xx_class, yy_class]).T
-    dis, idx = NearestNeighbors(n_neighbors=1).fit(stacked_class).kneighbors(stacked_source)
+    dis, idx = (
+        NearestNeighbors(n_neighbors=1).fit(stacked_class).kneighbors(stacked_source)
+    )
     dis, idx = dis[:, -1], idx[:, -1]
 
     # Read classifications in array
-    array_class = np.array([classification_table[f"CLASS_STAR_{s:4.2f}"][idx] for s in fwhm_range])
+    array_class = np.array(
+        [classification_table[f"CLASS_STAR_{s:4.2f}"][idx] for s in fwhm_range]
+    )
 
     # Mulit-dimensional interpolation consumes far too much memory
     # f = interp1d(seeing_range, array_class, axis=0, fill_value="extrapolate")
-    # class_star_interp = np.diag(f(source_table["FWHM_WORLD_INTERP"] * 3600), k=0).astype(np.float32)
+    # class_star_interp = np.diag(f(source_table["FWHM_WORLD_INTERP"] * 3600),
+    # k=0).astype(np.float32)
 
     # Loop over each source
     class_star_interp = []
@@ -320,9 +409,15 @@ def interpolate_classification(source_table, classification_table):
     return source_table
 
 
-def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "RA",
-                          key_lat: str = "DEC", temp_dir: str = "/tmp/", silent: bool = True,
-                          bin_name: str = "stilts"):
+def remove_duplicates_wcs(
+    table: Table,
+    sep: (int, float) = 1,
+    key_lon: str = "RA",
+    key_lat: str = "DEC",
+    temp_dir: str = "/tmp/",
+    silent: bool = True,
+    bin_name: str = "stilts",
+):
     """
     Removes duplicates from catalog via stilts.
 
@@ -360,8 +455,13 @@ def remove_duplicates_wcs(table: Table, sep: (int, float) = 1, key_lon: str = "R
         table.write(temp_name, format="fits", overwrite=True)
 
         # Run stilts
-        cmd = '{5} tmatch1 matcher=sky values="{0} {1}" params={2} action=keep1 in={3} out={4}' \
-              ''.format(key_lon, key_lat, sep, temp_name, temp_name_clean, which(bin_name))
+        cmd = (
+            '{5} tmatch1 matcher=sky values="{0} {1}" params={2} '
+            'action=keep1 in={3} out={4}'
+            "".format(
+                key_lon, key_lat, sep, temp_name, temp_name_clean, which(bin_name)
+            )
+        )
         run_command_shell(cmd=cmd, silent=silent)
 
         # Read cleaned catalog
