@@ -640,8 +640,7 @@ class SkyImagesRaw(SkyImages):
             if self.setup.fix_vircam_headers:
                 fix_vircam_headers(
                     prime_header=phdr,
-                    data_headers=hdrs_data,
-                    reset_wcs=self.setup.reset_wcs,
+                    data_headers=hdrs_data
                 )
 
             # Add stuff to data headers
