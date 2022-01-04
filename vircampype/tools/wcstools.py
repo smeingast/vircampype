@@ -5,14 +5,22 @@ from astropy.io import fits
 from vircampype.tools.mathtools import *
 from astropy.coordinates import ICRS, Galactic, AltAz, EarthLocation, SkyCoord
 
-__all__ = ["header_reset_wcs", "header2wcs", "skycoord2header", "resize_header", "pixelscale_from_header",
-           "rotationangle_from_header", "get_airmass_from_header"]
+__all__ = [
+    "header_reset_wcs",
+    "header2wcs",
+    "skycoord2header",
+    "resize_header",
+    "pixelscale_from_header",
+    "rotationangle_from_header",
+    "get_airmass_from_header",
+]
 
 
 def header_reset_wcs(header):
     """
-    Given that VIRCAMs distrotion model which is saved in the fits header is very difficult to deal with, this function
-    resets the WCS keywords to a more manageable and simple projection where each extension is represented on its own.
+    Given that VIRCAMs distrotion model which is saved in the fits header is very
+    difficult to deal with, this function resets the WCS keywords to a more manageable
+    and simple projection where each extension is represented on its own.
 
     Parameters
     ----------
@@ -49,8 +57,10 @@ def header_reset_wcs(header):
             crval1, crval2 = hwcs.all_pix2world(crpix1, crpix2, 1)
             ctype1, ctype2 = "RA---TAN", "DEC--TAN"
 
-        for key, val in zip(["CRPIX1", "CRPIX2", "CRVAL1", "CRVAL2", "CTYPE1", "CTYPE2"],
-                            [crpix1, crpix2, float(crval1), float(crval2), ctype1, ctype2]):
+        for key, val in zip(
+            ["CRPIX1", "CRPIX2", "CRVAL1", "CRVAL2", "CTYPE1", "CTYPE2"],
+            [crpix1, crpix2, float(crval1), float(crval2), ctype1, ctype2],
+        ):
             oheader[key] = val
     except KeyError:
         return header
@@ -67,16 +77,24 @@ def header_reset_wcs(header):
 
 
 def header2wcs(header):
-    """ Returns WCS instance from FITS header """
+    """Returns WCS instance from FITS header"""
     return wcs.WCS(header=header)
 
 
-def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0,
-                    enlarge=0, silent=True, round_crval=False, **kwargs):
+def skycoord2header(
+    skycoord,
+    proj_code="TAN",
+    cdelt=1 / 3600,
+    rotation=0.0,
+    enlarge=0,
+    silent=True,
+    round_crval=False,
+    **kwargs
+):
     """
-    Create an astropy Header instance from a given dataset (longitude/latitude). The world coordinate system can be
-    chosen between galactic and equatorial; all WCS projections are supported. Very useful for creating a quick WCS
-    to plot data.
+    Create an astropy Header instance from a given dataset (longitude/latitude).
+    The world coordinate system can be chosen between galactic and equatorial;  all
+    WCS projections are supported. Very useful for creating a quick WCS to plot data.
 
     Parameters
     ----------
@@ -109,9 +127,12 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0,
 
     # If round is set
     if round_crval:
-        skycoord_centroid = skycoord_centroid.__class__(np.round(skycoord_centroid.spherical.lon.degree, 2),
-                                                        np.round(skycoord_centroid.spherical.lat.degree, 2),
-                                                        frame=skycoord_centroid.frame, unit="degree")
+        skycoord_centroid = skycoord_centroid.__class__(
+            np.round(skycoord_centroid.spherical.lon.degree, 2),
+            np.round(skycoord_centroid.spherical.lat.degree, 2),
+            frame=skycoord_centroid.frame,
+            unit="degree",
+        )
 
     # Determine if allsky should be forced
     sep = skycoord.separation(skycoord_centroid)
@@ -146,12 +167,34 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0,
 
     # Create cards for header
     cards = []
-    keywords = ["NAXIS", "CTYPE1", "CTYPE2", "CRVAL1",
-                "CRVAL2", "CUNIT1", "CUNIT2", "CD1_1",
-                "CD1_2", "CD2_1", "CD2_2", "RADESYS"]
-    values = [2, ctype1, ctype2, skycoord_centroid.spherical.lon.deg,
-              skycoord_centroid.spherical.lat.deg, "deg", "deg", cd11,
-              cd12, cd21, cd22, "ICRS"]
+    keywords = [
+        "NAXIS",
+        "CTYPE1",
+        "CTYPE2",
+        "CRVAL1",
+        "CRVAL2",
+        "CUNIT1",
+        "CUNIT2",
+        "CD1_1",
+        "CD1_2",
+        "CD2_1",
+        "CD2_2",
+        "RADESYS",
+    ]
+    values = [
+        2,
+        ctype1,
+        ctype2,
+        skycoord_centroid.spherical.lon.deg,
+        skycoord_centroid.spherical.lat.deg,
+        "deg",
+        "deg",
+        cd11,
+        cd12,
+        cd21,
+        cd22,
+        "ICRS",
+    ]
     for key, val in zip(keywords, values):
         cards.append(fits.Card(keyword=key, value=val))
 
@@ -163,17 +206,21 @@ def skycoord2header(skycoord, proj_code="TAN", cdelt=1 / 3600, rotation=0.0,
     header = fits.Header(cards=cards)
 
     # Determine extent of data for this projection
-    x, y = wcs.WCS(header).wcs_world2pix(skycoord.spherical.lon, skycoord.spherical.lat, 1)
+    x, y = wcs.WCS(header).wcs_world2pix(
+        skycoord.spherical.lon, skycoord.spherical.lat, 1
+    )
 
     # Apply enlargement
     naxis1 = (np.ceil((x.max()) - np.floor(x.min())) + enlarge / 60 / cdelt).astype(int)
     naxis2 = (np.ceil((y.max()) - np.floor(y.min())) + enlarge / 60 / cdelt).astype(int)
 
-    # Calculate pixel shift relative to centroid (caused by anisotropic distribution of sources)
+    # Calculate pixel shift relative to centroid
+    # (caused by anisotropic distribution of sources)
     xdelta = (x.min() + x.max()) / 2
     ydelta = (y.min() + y.max()) / 2
 
-    # Add size to header (CRPIXa are rounded to 0.5, this should not shift the image off the frame)
+    # Add size to header
+    # (CRPIXa are rounded to 0.5, this should not shift the image off the frame)
     header["NAXIS1"], header["NAXIS2"] = naxis1, naxis2
     header["CRPIX1"] = ceil_value(naxis1 / 2 - xdelta, 0.5)
     header["CRPIX2"] = ceil_value(naxis2 / 2 - ydelta, 0.5)
@@ -213,27 +260,39 @@ def resize_header(header, factor):
     header_out["NAXIS2"] = int(np.ceil(header["NAXIS2"] * factor))
 
     # Get true scaling factors in both axes
-    tfactor1, tfactor2 = header_out["NAXIS1"] / header["NAXIS1"], header_out["NAXIS2"] / header["NAXIS2"]
+    tfactor1, tfactor2 = (
+        header_out["NAXIS1"] / header["NAXIS1"],
+        header_out["NAXIS2"] / header["NAXIS2"],
+    )
 
     # Scale CD matrix
-    header_out["CD1_1"], header_out["CD1_2"] = header["CD1_1"] / tfactor1, header["CD1_2"] / tfactor2
-    header_out["CD2_1"], header_out["CD2_2"] = header["CD2_1"] / tfactor1, header["CD2_2"] / tfactor2
+    header_out["CD1_1"], header_out["CD1_2"] = (
+        header["CD1_1"] / tfactor1,
+        header["CD1_2"] / tfactor2,
+    )
+    header_out["CD2_1"], header_out["CD2_2"] = (
+        header["CD2_1"] / tfactor1,
+        header["CD2_2"] / tfactor2,
+    )
 
     # Scale CRPIX
-    header_out["CRPIX1"], header_out["CRPIX2"] = header["CRPIX1"] * tfactor1, header["CRPIX2"] * tfactor2
+    header_out["CRPIX1"], header_out["CRPIX2"] = (
+        header["CRPIX1"] * tfactor1,
+        header["CRPIX2"] * tfactor2,
+    )
 
     # Return new header
     return header_out
 
 
 def pixelscale_from_header(header):
-    """ Calculates pixel scale from CD matrix. """
+    """Calculates pixel scale from CD matrix."""
     assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
-    return np.sqrt(header["CD1_1"]**2 + header["CD2_1"]**2)
+    return np.sqrt(header["CD1_1"] ** 2 + header["CD2_1"] ** 2)
 
 
 def rotationangle_from_header(header, degrees=True):
-    """ Calcualtes rotation angle from CD matrix. """
+    """Calcualtes rotation angle from CD matrix."""
     assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
     angle = np.arctan2(header["CD2_1"], header["CD1_1"])
 
@@ -248,4 +307,6 @@ def get_airmass_from_header(header, time, location="Paranal"):
     sc = wcs.WCS(header).all_pix2world(header["NAXIS1"] / 2, header["NAXIS2"] / 2, 1)
     sc = SkyCoord(*sc, frame="icrs", unit="deg")
     # Return airmass
-    return sc.transform_to(AltAz(obstime=time, location=EarthLocation.of_site(location))).secz.value
+    return sc.transform_to(
+        AltAz(obstime=time, location=EarthLocation.of_site(location))
+    ).secz.value
