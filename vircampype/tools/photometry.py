@@ -8,8 +8,17 @@ from astropy.stats import sigma_clip, sigma_clipped_stats
 __all__ = ["get_zeropoint", "vega2ab", "get_default_extinction"]
 
 
-def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
-                  method="weighted", magerr1=None, magerr2=None, plot=False):
+def get_zeropoint(
+    skycoord1,
+    mag1,
+    skycoord2,
+    mag2,
+    mag_limits_ref=None,
+    method="weighted",
+    magerr1=None,
+    magerr2=None,
+    plot=False,
+):
     """
     Calculate zero point
 
@@ -30,7 +39,8 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
     mag_limits_ref : tuple, optional
         Tuple of magnitude limits to be applied. e.g. (10, 15)
     method: str, optional
-        Method used to calcualte ZP. Either 'median', 'weighted', or 'all'. Default is 'weighted'.
+        Method used to calcualte ZP. Either 'median', 'weighted', or 'all'. Default is
+        'weighted'.
     plot: bool, optional
         Makes a test plot for testing.
     Returns
@@ -50,7 +60,9 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
 
     # Dummy check for errors
     if (method.lower() == "weighted") & ((mag_err_cal is None) | (mag_err_ref is None)):
-        raise ValueError("For weighted ZP determination, please provide magnitude errors!")
+        raise ValueError(
+            "For weighted ZP determination, please provide magnitude errors!"
+        )
 
     # Make new array for output
     mag_diff_all = np.full_like(mag_cal, fill_value=np.nan)
@@ -75,7 +87,7 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
 
     # Return bad value if ZP could not be determined
     if len(mag_ref) == 0:
-        return 99., 99.
+        return 99.0, 99.0
 
     # Compute ZP for each source
     mag_diff = (mag_ref - mag_cal.T).T
@@ -92,7 +104,9 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
         if method.lower() == "median":
 
             # Get sigma-clipped stats
-            _, zp, zp_err = sigma_clipped_stats(data=mag_diff, sigma=3, maxiters=3, axis=0)
+            _, zp, zp_err = sigma_clipped_stats(
+                data=mag_diff, sigma=3, maxiters=3, axis=0
+            )
 
         # Weighted ZP
         elif method.lower() == "weighted":
@@ -103,9 +117,9 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
 
             # Sigma clip mag_diff array and set weights of outliers to 0
             mask = sigma_clip(mag_diff, sigma=2.5, maxiters=5, axis=0).mask
-            err_tot = np.sqrt(mag_err_ref**2 + mag_err_cal.T**2)
-            weights = (1 / err_tot**2).T.copy()
-            weights[mask] = 0.
+            err_tot = np.sqrt(mag_err_ref ** 2 + mag_err_cal.T ** 2)
+            weights = (1 / err_tot ** 2).T.copy()
+            weights[mask] = 0.0
 
             # Compute weighted average
             zp = np.average(mag_diff, weights=weights, axis=0)
@@ -113,23 +127,28 @@ def get_zeropoint(skycoord1, mag1, skycoord2, mag2, mag_limits_ref=None,
             temp[mask] = np.nan
             zp_err = sem(temp, nan_policy="omit", axis=0)
 
-            """ I experimented with lots of options to compute the ZP error, including the weighted standard deviation
-            and also a weighted standard error of the mean: 
+            """ I experimented with lots of options to compute the ZP error, including 
+            the weighted standard deviation and also a weighted standard error of the 
+            mean: 
             https://stats.stackexchange.com/questions/25895/computing-standard-error-in-weighted-mean-estimation
-            All result in almost the same value, so I decided to just compute the error in the ZP as the standard
-            error of the masked difference array.
-            """
+            All result in almost the same value, so I decided to just compute the error 
+            in the ZP as the standard error of the masked difference array. """
 
             # Determine variance
             # zp_err = np.sqrt(np.average((mag_diff - zp)**2, weights=weights, axis=0))
 
         else:
-            raise ValueError("ZP method '{0}' not supported. Use 'median' or 'weighted'.")
+            raise ValueError(
+                "ZP method '{0}' not supported. Use 'median' or 'weighted'."
+            )
 
         # For tests
         if plot:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4)))
+
+            fig, ax = plt.subplots(
+                nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4))
+            )
             kwargs = dict(s=30, lw=0, alpha=1)
             ax.scatter(mag_ref, mag_diff, fc="crimson", **kwargs)
             if method.lower() == "weighted":
