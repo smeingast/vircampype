@@ -13,15 +13,32 @@ from astropy.io.fits.verify import VerifyWarning
 from vircampype.tools.wcstools import header_reset_wcs
 from vircampype.tools.systemtools import which, run_commands_shell_parallel
 
-__all__ = ["check_card_value", "make_card", "make_cards", "copy_keywords", "add_key_primary_hdu", "make_mef_image",
-           "merge_headers", "add_float_to_header", "add_str_to_header", "convert_bitpix_image", "fix_vircam_headers",
-           "delete_keyword_from_header", "add_int_to_header", "replace_data", "mjd2dateobs", "compress_images",
-           "make_gaia_refcat", "combine_mjd_images"]
+__all__ = [
+    "check_card_value",
+    "make_card",
+    "make_cards",
+    "copy_keywords",
+    "add_key_primary_hdu",
+    "make_mef_image",
+    "merge_headers",
+    "add_float_to_header",
+    "add_str_to_header",
+    "convert_bitpix_image",
+    "fix_vircam_headers",
+    "delete_keyword_from_header",
+    "add_int_to_header",
+    "replace_data",
+    "mjd2dateobs",
+    "compress_images",
+    "make_gaia_refcat",
+    "combine_mjd_images",
+]
 
 
 def check_card_value(value):
     """
-    Checks if the given value for a FITS header entry is valid and transforms it to a writeable parameter.
+    Checks if the given value for a FITS header entry is valid and transforms it to a
+    writeable parameter.
 
     Parameters
     ----------
@@ -38,7 +55,11 @@ def check_card_value(value):
     val = func2string(value) if hasattr(value, "__call__") else value
 
     # Convert to string if necessary
-    if not (isinstance(val, str)) | (isinstance(val, (np.floating, float))) | (isinstance(val, (np.integer, int))):
+    if (
+        not (isinstance(val, str))
+        | (isinstance(val, (np.floating, float)))
+        | (isinstance(val, (np.integer, int)))
+    ):
         val = str(val)
 
     # Return
@@ -131,7 +152,8 @@ def make_cards(keywords, values, comments=None):
 
 def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
     """
-    Copies specific keywords from file 2 to file 1. Also both HDUs can be specified. Default are primary HDUs.
+    Copies specific keywords from file 2 to file 1. Also both HDUs can be specified.
+    Default are primary HDUs.
 
     Parameters
     ----------
@@ -149,7 +171,9 @@ def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
     """
 
     # Get HDUlists for both files
-    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
+    with fits.open(path_1, mode="update") as hdulist_1, fits.open(
+        path_2, mode="readonly"
+    ) as hdulist_2:
 
         # Loop over files and update header
         for k in keywords:
@@ -180,7 +204,14 @@ def add_key_primary_hdu(path, key, value, comment=None):
             file[0].header[key] = value
 
 
-def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None, write_extname=True, overwrite=False):
+def make_mef_image(
+    paths_input,
+    path_output,
+    primeheader=None,
+    add_constant=None,
+    write_extname=True,
+    overwrite=False,
+):
     """
     Creates an MEF image file from multiple input image file.
 
@@ -193,7 +224,8 @@ def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None
     primeheader : fits.Header, optional
         If set, the primary header for the output file.
     add_constant : int, float, str, optional
-        A constant value that is added to each input file upon combining the files. If given as a string, then
+        A constant value that is added to each input file upon combining the files.
+        If given as a string, then
         the value of each added constant will be read from the header.
     write_extname : bool, optional
         If set, write standard EXTNAME keyword.
@@ -237,7 +269,7 @@ def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None
 
             # Write EXTNAME
             if write_extname:
-                hdr.set("EXTNAME", value="HDU{0:>02d}".format(pidx+1), after="BITPIX")
+                hdr.set("EXTNAME", value="HDU{0:>02d}".format(pidx + 1), after="BITPIX")
 
             # Append HDU
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
@@ -248,8 +280,9 @@ def make_mef_image(paths_input, path_output, primeheader=None, add_constant=None
 
 def merge_headers(path_1, path_2, primary_only=False):
     """
-    Merges header entries of file 2 into file 1, in the sense that every new item in header 2 that is not present in
-    header 1, is copied to file 1. Forces a new write of the fits file in the end (flush).
+    Merges header entries of file 2 into file 1, in the sense that every new item in
+    header 2 that is not present in header 1, is copied to file 1.
+    Forces a new write of the fits file in the end (flush).
 
     Parameters
     ----------
@@ -265,7 +298,9 @@ def merge_headers(path_1, path_2, primary_only=False):
     skip_list = ["SIMPLE", "NAXIS", "NAXIS1", "NAXIS2"]
 
     # Get HDUlists for both files
-    with fits.open(path_1, mode="update") as hdulist_1, fits.open(path_2, mode="readonly") as hdulist_2:
+    with fits.open(path_1, mode="update") as hdulist_1, fits.open(
+        path_2, mode="readonly"
+    ) as hdulist_2:
 
         # Iterate over HDUs
         for hdu1, hdu2 in zip(hdulist_1, hdulist_2):
@@ -293,7 +328,9 @@ def merge_headers(path_1, path_2, primary_only=False):
         hdulist_1.flush()
 
 
-def add_float_to_header(header, key, value, decimals=3, comment=None, remove_before=True):
+def add_float_to_header(
+    header, key, value, decimals=3, comment=None, remove_before=True
+):
     """
     Adds float to header with fixed format.
 
@@ -432,7 +469,11 @@ def replace_data(file_a: str, file_b: str):
 
     # Number of HDUs must be equal
     if len(hdul_a) != len(hdul_b):
-        raise ValueError("Number of HDUs not equal. n(A)={0}; n(B)={1}".format(len(hdul_a), len(hdul_b)))
+        raise ValueError(
+            "Number of HDUs not equal. n(A)={0}; n(B)={1}".format(
+                len(hdul_a), len(hdul_b)
+            )
+        )
 
     # Loop over HDUs:
     for idx_hdu in range(len(hdul_a)):
@@ -471,7 +512,7 @@ def mjd2dateobs(mjd):
 
 
 def fix_vircam_headers(prime_header, data_headers):
-    """ Resets the WCS info and purges useless keywords from vircam headers. """
+    """Resets the WCS info and purges useless keywords from vircam headers."""
 
     try:
         tra = str(prime_header["HIERARCH ESO TEL TARG ALPHA"])
@@ -499,8 +540,12 @@ def fix_vircam_headers(prime_header, data_headers):
 
         # Overwrite with consistently working keyword
         try:
-            data_headers[idx_hdr]["CRVAL1"] = fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
-            data_headers[idx_hdr]["CRVAL2"] = fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
+            data_headers[idx_hdr]["CRVAL1"] = (
+                fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
+            )
+            data_headers[idx_hdr]["CRVAL2"] = (
+                fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
+            )
         except KeyError:
             pass
 
@@ -509,11 +554,16 @@ def fix_vircam_headers(prime_header, data_headers):
             data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
 
         # Remove useless keywords if set
-        [data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
-         for kw in useless_extension_keywords]
+        [
+            data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
+            for kw in useless_extension_keywords
+        ]
 
     # Purge also primary header
-    [prime_header.remove(kw, ignore_missing=True, remove_all=True) for kw in useless_primary_keywords]
+    [
+        prime_header.remove(kw, ignore_missing=True, remove_all=True)
+        for kw in useless_primary_keywords
+    ]
 
 
 def compress_images(images, q=4, exe="fpack", n_jobs=1):
@@ -553,7 +603,9 @@ def compress_images(images, q=4, exe="fpack", n_jobs=1):
     run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
 
 
-def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None, overwrite=False):
+def make_gaia_refcat(
+    path_in, path_out, epoch_in=2016.0, epoch_out=None, overwrite=False
+):
     """
     Generates an astrometric reference catalog based on downloaded Gaia data.
 
@@ -583,19 +635,31 @@ def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None, overwrit
     data_in = Table.read(path_in)
 
     # Clean data
-    keep = (np.isfinite(data_in["ra"]) & np.isfinite(data_in["dec"]) &
-            np.isfinite(data_in["phot_g_mean_flux"]) & np.isfinite(data_in["phot_g_mean_flux_error"]) &
-            np.isfinite(data_in["pmra"]) & np.isfinite(data_in["pmdec"])
-            & (data_in["ruwe"] < 1.5))
+    keep = (
+        np.isfinite(data_in["ra"])
+        & np.isfinite(data_in["dec"])
+        & np.isfinite(data_in["phot_g_mean_flux"])
+        & np.isfinite(data_in["phot_g_mean_flux_error"])
+        & np.isfinite(data_in["pmra"])
+        & np.isfinite(data_in["pmdec"])
+        & (data_in["ruwe"] < 1.5)
+    )
     data_in = data_in[keep]
 
     # Transform positions
     if epoch_out is not None:
-        sc = SkyCoord(ra=data_in["ra"], dec=data_in["dec"], pm_ra_cosdec=data_in["pmra"], pm_dec=data_in["pmdec"],
-                      obstime=Time(epoch_in, format="decimalyear"))
+        sc = SkyCoord(
+            ra=data_in["ra"],
+            dec=data_in["dec"],
+            pm_ra_cosdec=data_in["pmra"],
+            pm_dec=data_in["pmdec"],
+            obstime=Time(epoch_in, format="decimalyear"),
+        )
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            sc = sc.apply_space_motion(new_obstime=Time(epoch_out, format="decimalyear"))
+            sc = sc.apply_space_motion(
+                new_obstime=Time(epoch_out, format="decimalyear")
+            )
     else:
         epoch_out = epoch_in
 
@@ -616,7 +680,11 @@ def make_gaia_refcat(path_in, path_out, epoch_in=2016., epoch_out=None, overwrit
 
     # Add magnitudes
     data_out["MAG"] = data_in["phot_g_mean_mag"].value
-    data_out["MAGERR"] = 1.0857 * data_in["phot_g_mean_flux_error"].value / data_in["phot_g_mean_flux"].value
+    data_out["MAGERR"] = (
+        1.0857
+        * data_in["phot_g_mean_flux_error"].value
+        / data_in["phot_g_mean_flux"].value
+    )
 
     # Add date
     data_out["OBSDATE"] = epoch_out
@@ -650,13 +718,13 @@ def fits2ldac(path_in, path_out, extension=1):
     ext2_str = header.tostring(endcard=False, padding=False)
     ext2_data = np.array([ext2_str])
     formatstr = str(len(ext2_str)) + "A"
-    col1 = fits.Column(name='Field Header Card', array=ext2_data, format=formatstr)
+    col1 = fits.Column(name="Field Header Card", array=ext2_data, format=formatstr)
     cols = fits.ColDefs([col1])
     ext2 = fits.BinTableHDU.from_columns(cols)
-    ext2.header['EXTNAME'] = 'LDAC_IMHEAD'
-    ext2.header['TDIM1'] = '(80, {0})'.format(len(ext2_str)/80)
+    ext2.header["EXTNAME"] = "LDAC_IMHEAD"
+    ext2.header["TDIM1"] = "(80, {0})".format(len(ext2_str) / 80)
     ext3 = fits.BinTableHDU(data)
-    ext3.header['EXTNAME'] = 'LDAC_OBJECTS'
+    ext3.header["EXTNAME"] = "LDAC_OBJECTS"
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
 
@@ -684,7 +752,12 @@ def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False)
             if (da is None) & (db is None):
                 hdul_o.append(hdu_a)
             elif da.ndim == 2:
-                hdul_o.append(fits.ImageHDU(data=da.astype(np.float64) + db.astype(np.float64), header=hdu_a.header))
+                hdul_o.append(
+                    fits.ImageHDU(
+                        data=da.astype(np.float64) + db.astype(np.float64),
+                        header=hdu_a.header,
+                    )
+                )
 
         # Write to disk
         hdul_o.writeto(path_file_out, overwrite=overwrite)
