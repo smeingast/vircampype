@@ -1,8 +1,16 @@
 import os
 import time
 
-__all__ = ["print_message", "print_header", "message_calibration", "check_file_exists", "print_end", "print_start",
-           "print_colors_shell", "message_qc_astrometry"]
+__all__ = [
+    "print_message",
+    "print_header",
+    "message_calibration",
+    "check_file_exists",
+    "print_end",
+    "print_start",
+    "print_colors_shell",
+    "message_qc_astrometry",
+]
 
 
 class BColors:
@@ -10,18 +18,19 @@ class BColors:
     Class for color output in terminal
     https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-terminal-in-python
     """
-    HEADER = '\033[96m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+
+    HEADER = "\033[96m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 def print_colors_shell():
-    """ Prints color examples in terminal based on above class. """
+    """Prints color examples in terminal based on above class."""
     print(BColors.HEADER + "HEADER" + BColors.ENDC)
     print(BColors.OKBLUE + "OKBLUE" + BColors.ENDC)
     print(BColors.OKGREEN + "OKGREEN" + BColors.ENDC)
@@ -99,11 +108,17 @@ def print_start(obj=""):
 
 def print_end(tstart):
     print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
-    print(BColors.OKGREEN + "{0:^74}".format("All done in {0:0.1f}s".format(time.time() - tstart)) + BColors.ENDC)
+    print(
+        BColors.OKGREEN
+        + "{0:^74}".format("All done in {0:0.1f}s".format(time.time() - tstart))
+        + BColors.ENDC
+    )
     print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
 
 
-def message_calibration(n_current, n_total, name, d_current=None, d_total=None, silent=False, end=""):
+def message_calibration(
+    n_current, n_total, name, d_current=None, d_total=None, silent=False, end=""
+):
     """
     Prints the calibration message for image processing.
 
@@ -129,12 +144,21 @@ def message_calibration(n_current, n_total, name, d_current=None, d_total=None, 
     if not silent:
 
         if (d_current is not None) and (d_total is not None):
-            print("\r{0:<8.8s} {1:^62.62s} {2:>8.8s}".format(str(n_current) + "/" + str(n_total),
-                                                             os.path.basename(name),
-                                                             str(d_current) + "/" + str(d_total)), end=end)
+            print(
+                "\r{0:<8.8s} {1:^62.62s} {2:>8.8s}".format(
+                    str(n_current) + "/" + str(n_total),
+                    os.path.basename(name),
+                    str(d_current) + "/" + str(d_total),
+                ),
+                end=end,
+            )
         else:
-            print("\r{0:<10.10s} {1:>69.69s}".format(str(n_current) + "/" + str(n_total),
-                                                     os.path.basename(name)), end=end)
+            print(
+                "\r{0:<10.10s} {1:>69.69s}".format(
+                    str(n_current) + "/" + str(n_total), os.path.basename(name)
+                ),
+                end=end,
+            )
 
 
 def check_file_exists(file_path, silent=True):
@@ -160,7 +184,11 @@ def check_file_exists(file_path, silent=True):
 
         # Issue warning of not silent
         if not silent:
-            print_message(message="{0} already exists.".format(os.path.basename(file_path)), kind="warning", end=None)
+            print_message(
+                message="{0} already exists.".format(os.path.basename(file_path)),
+                kind="warning",
+                end=None,
+            )
 
         return True
     else:
@@ -182,7 +210,9 @@ def message_qc_astrometry(separation):
     from astropy.stats import sigma_clipped_stats
 
     # Compute stats
-    sep_mean, _, sep_std = sigma_clipped_stats(separation, sigma_upper=3, sigma_lower=4, maxiters=2)
+    sep_mean, _, sep_std = sigma_clipped_stats(
+        separation, sigma_upper=3, sigma_lower=4, maxiters=2
+    )
 
     # Choose color
     if sep_mean < 50:
@@ -192,5 +222,11 @@ def message_qc_astrometry(separation):
     else:
         color = BColors.FAIL
 
-    print(color + "\nExternal astrometric error (mas; mean/std): {0:6.1f}/{1:6.1f}"
-          .format(sep_mean, sep_std) + BColors.ENDC, end="\n")
+    print(
+        color
+        + "\nExternal astrometric error (mas; mean/std): {0:6.1f}/{1:6.1f}".format(
+            sep_mean, sep_std
+        )
+        + BColors.ENDC,
+        end="\n",
+    )
