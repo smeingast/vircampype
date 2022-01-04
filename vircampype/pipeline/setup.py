@@ -58,6 +58,7 @@ class Setup(dict):
         self.__sex_back_filtersize = 3
 
         # Astrometry
+        self.__reset_wcs = True
         self.__external_headers = False
         self.__astr_reference_catalog = "GAIA"
 
@@ -727,6 +728,14 @@ class Setup(dict):
 
     # =========================================================================== #
     # Astrometry
+    @property
+    def reset_wcs(self):
+        return self.__reset_wcs
+
+    @reset_wcs.setter
+    def reset_wcs(self, reset_wcs):
+        self.__reset_wcs = reset_wcs
+
     @property
     def external_headers(self):
         return self.__external_headers
