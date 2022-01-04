@@ -638,10 +638,7 @@ class SkyImagesRaw(SkyImages):
 
             # Fix headers
             if self.setup.fix_vircam_headers:
-                fix_vircam_headers(
-                    prime_header=phdr,
-                    data_headers=hdrs_data
-                )
+                fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
 
             # Add stuff to data headers
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
@@ -776,9 +773,13 @@ class SkyImagesProcessed(SkyImages):
 
             # Merge with manual source masks
             if self.setup.additional_source_masks is not None:
-                mra += self.setup.additional_source_masks["ra"]
-                mdec += self.setup.additional_source_masks["dec"]
-                msize += self.setup.additional_source_masks["size"]
+                mra.extend(self.setup.additional_source_masks.ra_deg)
+                mdec.extend(self.setup.additional_source_masks.dec_deg)
+                msize.extend(
+                    self.setup.additional_source_masks.size_pix(
+                        pixel_scale=self.setup.pixel_scale
+                    )
+                )
 
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
@@ -1425,9 +1426,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Build commands for MaxiMask
             cmds = [
                 "maximask.py {0} --single_mask True --n_jobs_intra 1 --n_jobs_inter 1"
-                "".format(
-                    n
-                )
+                "".format(n)
                 for n in self.paths_full
             ]
 
@@ -2223,9 +2222,9 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Loop over files
         for idx_file in range(self.n_files):
             """
-            I have to cheat here to get a 64bit MJD value in the coadd Swarp only 
-            produces 32 bit coadds for some reason, even if all input files (including 
-            weights) are passed as 64 bit images and the coadd header 
+            I have to cheat here to get a 64bit MJD value in the coadd Swarp only
+            produces 32 bit coadds for some reason, even if all input files (including
+            weights) are passed as 64 bit images and the coadd header
             includes BITPIX=-64.
             """
 
@@ -2324,7 +2323,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
                 hdul_weights.append(
                     fits.ImageHDU(
-                        data=arr_weight.astype(np.float32), header=header_resized  # noqa
+                        data=arr_weight.astype(np.float32),  # noqa
+                        header=header_resized,
                     )
                 )
 
