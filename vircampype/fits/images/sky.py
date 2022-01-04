@@ -486,7 +486,7 @@ class SkyImagesRaw(SkyImages):
 
             # Fix headers
             if self.setup.fix_vircam_headers:
-                fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
+                fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data, reset_wcs=self.setup.reset_wcs)
 
             # Add stuff to data headers
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
