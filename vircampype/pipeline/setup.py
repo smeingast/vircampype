@@ -21,7 +21,7 @@ class Setup(dict):
         ]
         for k, _ in kw.items():
             if k not in attributes:
-                raise PipelineError("Incorrect setup parameter used: '{0}'".format(k))
+                raise PipelineError(f"Incorrect setup parameter used: '{k}'")
 
         # =========================================================================== #
         # Set default attribute values
@@ -75,7 +75,7 @@ class Setup(dict):
                 setattr(self, key, val)
             except AttributeError:
                 raise PipelineError(
-                    "Can't set attribute '{0}'. Implement property setter!".format(key)
+                    f"Can't set attribute '{key}'. Implement property setter!"
                 )
 
         # Check basic setup
@@ -101,7 +101,7 @@ class Setup(dict):
 
     @property
     def path_coadd(self):
-        return "{0}{1}.fits".format(self.folders["tile"], self.name)
+        return f"{self.folders['tile']}{self.name}.fits"
 
     @property
     def path_coadd_weight(self):
@@ -118,73 +118,51 @@ class Setup(dict):
         self["folders"] = dict()
         self["folders"]["pype"] = self.path_pype
         self["folders"]["raw"] = self.path_data
-        self["folders"]["object"] = "{0}{1}/".format(self.path_pype, self.name)
-        self["folders"]["headers"] = "{0}{1}/".format(
-            self["folders"]["object"], "headers"
-        )
+        self["folders"]["object"] = f"{self.path_pype}{self.name}/"
+        self["folders"]["headers"] = f"{self['folders']['object']}{'headers'}/"
 
         # Master paths
-        self["folders"]["master_common"] = "{0}{1}/".format(self.path_pype, "master")
-        self["folders"]["master_object"] = "{0}{1}/".format(
-            self["folders"]["object"], "master"
-        )
+        self["folders"]["master_common"] = f"{self.path_pype}{'master'}/"
+        self["folders"]["master_object"] = f"{self['folders']['object']}{'master'}/"
 
         # Processing folders
-        self["folders"]["temp"] = "{0}{1}/".format(self["folders"]["object"], "temp")
-        self["folders"]["processed_basic"] = "{0}{1}/".format(
-            self["folders"]["object"], "processed_basic"
-        )
-        self["folders"]["processed_final"] = "{0}{1}/".format(
-            self["folders"]["object"], "processed_final"
-        )
-        self["folders"]["resampled"] = "{0}{1}/".format(
-            self["folders"]["object"], "resampled"
-        )
-        self["folders"]["illumcorr"] = "{0}{1}/".format(
-            self["folders"]["object"], "illumcorr"
-        )
+        self["folders"]["temp"] = f"{self['folders']['object']}{'temp'}/"
+        self["folders"][
+            "processed_basic"
+        ] = f"{self['folders']['object']}{'processed_basic'}/"
+        self["folders"][
+            "processed_final"
+        ] = f"{self['folders']['object']}{'processed_final'}/"
+        self["folders"]["resampled"] = f"{self['folders']['object']}{'resampled'}/"
+        self["folders"]["illumcorr"] = f"{self['folders']['object']}{'illumcorr'}/"
 
         # QC
-        self["folders"]["qc"] = "{0}{1}/".format(self["folders"]["object"], "qc")
+        self["folders"]["qc"] = f"{self['folders']['object']}{'qc'}/"
 
         # Common QC
-        self["folders"]["qc_bpm"] = "{0}{1}/".format(self["folders"]["qc"], "bpm")
-        self["folders"]["qc_dark"] = "{0}{1}/".format(self["folders"]["qc"], "dark")
-        self["folders"]["qc_gain"] = "{0}{1}/".format(self["folders"]["qc"], "gain")
-        self["folders"]["qc_linearity"] = "{0}{1}/".format(
-            self["folders"]["qc"], "linearity"
-        )
-        self["folders"]["qc_flat"] = "{0}{1}/".format(self["folders"]["qc"], "flat")
+        self["folders"]["qc_bpm"] = f"{self['folders']['qc']}{'bpm'}/"
+        self["folders"]["qc_dark"] = f"{self['folders']['qc']}{'dark'}/"
+        self["folders"]["qc_gain"] = f"{self['folders']['qc']}{'gain'}/"
+        self["folders"]["qc_linearity"] = f"{self['folders']['qc']}{'linearity'}/"
+        self["folders"]["qc_flat"] = f"{self['folders']['qc']}{'flat'}/"
 
         # Sequence specific QC
-        self["folders"]["qc_sky"] = "{0}{1}/".format(self["folders"]["qc"], "sky")
-        self["folders"]["qc_astrometry"] = "{0}{1}/".format(
-            self["folders"]["qc"], "astrometry"
-        )
-        self["folders"]["qc_photometry"] = "{0}{1}/".format(
-            self["folders"]["qc"], "photometry"
-        )
-        self["folders"]["qc_illumcorr"] = "{0}{1}/".format(
-            self["folders"]["qc"], "illumcorr"
-        )
+        self["folders"]["qc_sky"] = f"{self['folders']['qc']}{'sky'}/"
+        self["folders"]["qc_astrometry"] = f"{self['folders']['qc']}{'astrometry'}/"
+        self["folders"]["qc_photometry"] = f"{self['folders']['qc']}{'photometry'}/"
+        self["folders"]["qc_illumcorr"] = f"{self['folders']['qc']}{'illumcorr'}/"
 
         # Statistics path
-        self["folders"]["statistics"] = "{0}{1}/".format(
-            self["folders"]["object"], "statistics"
-        )
+        self["folders"]["statistics"] = f"{self['folders']['object']}{'statistics'}/"
 
         # Stacks path
-        self["folders"]["stacks"] = "{0}{1}/".format(
-            self["folders"]["object"], "stacks"
-        )
+        self["folders"]["stacks"] = f"{self['folders']['object']}{'stacks'}/"
 
         # Tile path
-        self["folders"]["tile"] = "{0}{1}/".format(self["folders"]["object"], "tile")
+        self["folders"]["tile"] = f"{self['folders']['object']}{'tile'}/"
 
         # Phase 3
-        self["folders"]["phase3"] = "{0}{1}{2}/".format(
-            self.path_pype, "phase3/", self.name
-        )
+        self["folders"]["phase3"] = f"{self.path_pype}{'phase3/'}{self.name}/"
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""
@@ -683,9 +661,7 @@ class Setup(dict):
                 self.__additional_source_masks = OphiuchusDeepSourceMasks().mask_dict
             else:
                 raise ValueError(
-                    "Source masks for '{0}' are not supported".format(
-                        additional_source_masks
-                    )
+                    f"Source masks for '{additional_source_masks}' are not supported"
                 )
 
         elif additional_source_masks is None:
@@ -899,7 +875,7 @@ class Setup(dict):
 
             # If no match found, raise error
             else:
-                raise PipelineError("Projection '{0}' not supported".format(projection))
+                raise PipelineError(f"Projection '{projection}' not supported")
         else:
             raise PipelineError(
                 "Projection must be provided as string or Projection instance"
