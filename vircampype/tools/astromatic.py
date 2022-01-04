@@ -2,8 +2,15 @@ from astropy.io import fits
 from collections.abc import Iterable
 from vircampype.tools.systemtools import *
 
-__all__ = ["sextractor2imagehdr", "read_aheaders", "write_aheaders",
-           "SextractorSetup", "SwarpSetup", "ScampSetup", "PSFExSetup"]
+__all__ = [
+    "sextractor2imagehdr",
+    "read_aheaders",
+    "write_aheaders",
+    "SextractorSetup",
+    "SwarpSetup",
+    "ScampSetup",
+    "PSFExSetup",
+]
 
 
 def sextractor2imagehdr(path):
@@ -24,8 +31,12 @@ def sextractor2imagehdr(path):
 
     # Read image headers into tables
     with fits.open(path) as hdulist:
-        headers = [fits.Header.fromstring("\n".join(hdulist[i].data["Field Header Card"][0]), sep="\n")
-                   for i in range(1, len(hdulist), 2)]
+        headers = [
+            fits.Header.fromstring(
+                "\n".join(hdulist[i].data["Field Header Card"][0]), sep="\n"
+            )
+            for i in range(1, len(hdulist), 2)
+        ]
 
     # Convert to headers and return
     return headers
@@ -109,6 +120,7 @@ def write_aheaders(headers: Iterable, path: str):
 class AstromaticSetup:
     def __init__(self, setup):
         from vircampype.pipeline.main import Setup
+
         self.setup = Setup.load_pipeline_setup(setup)
         if self.bin is None:
             raise ValueError("Cannot find executable '{0}'".format(self.bin_name))
@@ -123,7 +135,6 @@ class AstromaticSetup:
 
 
 class SextractorSetup(AstromaticSetup):
-
     def __init__(self, setup):
         super(SextractorSetup, self).__init__(setup=setup)
 
@@ -211,7 +222,9 @@ class SextractorSetup(AstromaticSetup):
             Path to preset yml.
         """
 
-        return get_resource_path(package=self.package_presets, resource="{0}.yml".format(preset))
+        return get_resource_path(
+            package=self.package_presets, resource="{0}.yml".format(preset)
+        )
 
     def path_param(self, preset):
         """
@@ -228,11 +241,12 @@ class SextractorSetup(AstromaticSetup):
             Path to preset param.
         """
 
-        return get_resource_path(package=self.package_presets, resource="{0}.param".format(preset))
+        return get_resource_path(
+            package=self.package_presets, resource="{0}.param".format(preset)
+        )
 
 
 class SwarpSetup(AstromaticSetup):
-
     def __init__(self, setup):
         super(SwarpSetup, self).__init__(setup=setup)
 
@@ -301,7 +315,9 @@ class SwarpSetup(AstromaticSetup):
         str
             Path to preset.
         """
-        return get_resource_path(package=self.package_presets, resource="resampling.yml")
+        return get_resource_path(
+            package=self.package_presets, resource="resampling.yml"
+        )
 
     @property
     def preset_coadd(self):
@@ -317,7 +333,6 @@ class SwarpSetup(AstromaticSetup):
 
 
 class ScampSetup(AstromaticSetup):
-
     def __init__(self, setup):
         super(ScampSetup, self).__init__(setup=setup)
 
@@ -380,9 +395,22 @@ class ScampSetup(AstromaticSetup):
             List or str with QC checkplot types.
 
         """
-        types = ["SKY_ALL", "FGROUPS", "DISTORTION", "ASTR_INTERROR1D", "ASTR_INTERROR2D", "ASTR_REFERROR1D",
-                 "ASTR_REFERROR2D", "ASTR_PIXERROR1D", "ASTR_SUBPIXERROR1D", "ASTR_CHI2", "ASTR_REFSYSMAP",
-                 "ASTR_XPIXERROR2D", "ASTR_YPIXERROR2D", "SHEAR_VS_AIRMASS"]
+        types = [
+            "SKY_ALL",
+            "FGROUPS",
+            "DISTORTION",
+            "ASTR_INTERROR1D",
+            "ASTR_INTERROR2D",
+            "ASTR_REFERROR1D",
+            "ASTR_REFERROR2D",
+            "ASTR_PIXERROR1D",
+            "ASTR_SUBPIXERROR1D",
+            "ASTR_CHI2",
+            "ASTR_REFSYSMAP",
+            "ASTR_XPIXERROR2D",
+            "ASTR_YPIXERROR2D",
+            "SHEAR_VS_AIRMASS",
+        ]
         # "PHOT_ERROR", "PHOT_ERRORVSMAG", "PHOT_ZPCORR", "PHOT_ZPCORR3D"]
         if joined:
             return ",".join(types)
@@ -404,8 +432,10 @@ class ScampSetup(AstromaticSetup):
             List or str with QC checkplot types.
 
         """
-        names = ["{0}scamp_{1}".format(self.setup.folders["qc_astrometry"], qt.lower()) for qt in
-                 self.qc_types(joined=False)]
+        names = [
+            "{0}scamp_{1}".format(self.setup.folders["qc_astrometry"], qt.lower())
+            for qt in self.qc_types(joined=False)
+        ]
         if joined:
             return ",".join(names)
         else:
@@ -413,7 +443,6 @@ class ScampSetup(AstromaticSetup):
 
 
 class PSFExSetup(AstromaticSetup):
-
     def __init__(self, setup):
         super(PSFExSetup, self).__init__(setup=setup)
 
@@ -475,7 +504,9 @@ class PSFExSetup(AstromaticSetup):
             Path to preset yml.
         """
 
-        return get_resource_path(package=self.package_presets, resource="{0}.yml".format(preset))
+        return get_resource_path(
+            package=self.package_presets, resource="{0}.yml".format(preset)
+        )
 
     @staticmethod
     def checkplot_types(joined=False):
@@ -493,7 +524,15 @@ class PSFExSetup(AstromaticSetup):
             List or str with QC checkplot types.
 
         """
-        types = ["SELECTION_FWHM", "FWHM", "ELLIPTICITY", "COUNTS", "COUNT_FRACTION", "CHI2", "RESIDUALS"]
+        types = [
+            "SELECTION_FWHM",
+            "FWHM",
+            "ELLIPTICITY",
+            "COUNTS",
+            "COUNT_FRACTION",
+            "CHI2",
+            "RESIDUALS",
+        ]
         if joined:
             return ",".join(types)
         else:
@@ -514,8 +553,10 @@ class PSFExSetup(AstromaticSetup):
             List or str with QC checkplot names.
 
         """
-        names = ["{0}{1}".format(self.setup.folders["qc_psf"], ct.lower()) for ct in
-                 self.checkplot_types(joined=False)]
+        names = [
+            "{0}{1}".format(self.setup.folders["qc_psf"], ct.lower())
+            for ct in self.checkplot_types(joined=False)
+        ]
         if joined:
             return ",".join(names)
         else:
@@ -558,8 +599,10 @@ class PSFExSetup(AstromaticSetup):
             List or str with QC check image names.
 
         """
-        names = ["{0}{1}".format(self.setup.folders["qc_psf"], qt.lower()) for qt in
-                 self.checkimage_types(joined=False)]
+        names = [
+            "{0}{1}".format(self.setup.folders["qc_psf"], qt.lower())
+            for qt in self.checkimage_types(joined=False)
+        ]
         if joined:
             return ",".join(names)
         else:
