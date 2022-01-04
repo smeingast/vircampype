@@ -18,18 +18,36 @@ from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from scipy.ndimage import binary_closing, generate_binary_structure
 from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline
-from astropy.convolution import convolve, interpolate_replace_nans, Gaussian2DKernel, Kernel2D, \
-    Box2DKernel, Gaussian1DKernel
+from astropy.convolution import (
+    convolve,
+    interpolate_replace_nans,
+    Gaussian2DKernel,
+    Kernel2D,
+    Box2DKernel,
+    Gaussian1DKernel,
+)
 
-__all__ = ["interpolate_image", "chop_image", "merge_chopped", "background_image", "upscale_image", "grid_value_2d",
-           "grid_value_2d_nn", "destripe_helper", "circular_mask", "source_mask", "get_edge_skycoord_weight"]
+__all__ = [
+    "interpolate_image",
+    "chop_image",
+    "merge_chopped",
+    "background_image",
+    "upscale_image",
+    "grid_value_2d",
+    "grid_value_2d_nn",
+    "destripe_helper",
+    "circular_mask",
+    "source_mask",
+    "get_edge_skycoord_weight",
+]
 
 
 def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     """
-    Interpolates NaNs in an image. NaNs are replaced by convolving the original image with a kernel from which
-    the pixel values are copied. This technique is much faster than other aporaches involving spline fitting
-    (e.g. griddata or scipy inteprolation methods.)
+    Interpolates NaNs in an image. NaNs are replaced by convolving the original image
+    with a kernel from which the pixel values are copied. This technique is much faster
+    than other aporaches involving spline fitting (e.g. griddata or scipy inteprolation
+     methods.)
 
     Parameters
     ----------
@@ -64,7 +82,9 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
         nan_kernel = np.ones(shape=(3, 3))
 
         # Convolve NaN data
-        nans_conv = convolve(nans, kernel=nan_kernel, boundary="extend", normalize_kernel=False)
+        nans_conv = convolve(
+            nans, kernel=nan_kernel, boundary="extend", normalize_kernel=False
+        )
 
         # Get the ones with a maximum of 'max_bad_neighbors' bad neighbors
         nans_fil = (nans_conv <= max_bad_neighbors) & (nans == 1)  # noqa
@@ -141,9 +161,12 @@ def chop_image(array, npieces, axis=0, overlap=None):
         return np.array_split(ary=array, indices_or_sections=npieces, axis=axis)
 
     # Determine where to chop
-    cut = list(np.int32(np.round(np.linspace(0, array.shape[axis], npieces + 1), decimals=0)))
+    cut = list(
+        np.int32(np.round(np.linspace(0, array.shape[axis], npieces + 1), decimals=0))
+    )
 
-    # Force the first and last cut location just to be safe from any integer conversion issues
+    # Force the first and last cut location just to be safe from any integer conversion
+    # issues
     cut[0], cut[-1] = 0, array.shape[axis]
 
     chopped = []
@@ -183,7 +206,8 @@ def chop_image(array, npieces, axis=0, overlap=None):
 
 def merge_chopped(arrays, locations, axis=0, overlap=0):
     """
-    Complementary to the above function, this one merges the chopped array back into the original.
+    Complementary to the above function, this one merges the chopped array back into
+    the original.
 
     Parameters
     ----------
@@ -211,7 +235,11 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
     otheraxis = 1 if axis == 0 else 0
 
     # Determine size of output
-    shape = (locations[-1], arrays[0].shape[otheraxis]) if axis == 0 else (arrays[0].shape[otheraxis], locations[-1])
+    shape = (
+        (locations[-1], arrays[0].shape[otheraxis])
+        if axis == 0
+        else (arrays[0].shape[otheraxis], locations[-1])
+    )
 
     merged = np.empty(shape=shape, dtype=arrays[0].dtype)
     for i in range(len(arrays)):
@@ -220,7 +248,9 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
             # First slice
             if i == 0:
-                merged[0:locations[i + 1], :] = arrays[i][:arrays[i].shape[0] - overlap, :]
+                merged[0: locations[i + 1], :] = arrays[i][
+                    : arrays[i].shape[0] - overlap, :
+                ]
 
             # Last slice
             elif i == len(arrays) - 1:
@@ -228,13 +258,17 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
             # In between
             else:
-                merged[locations[i]:locations[i+1], :] = arrays[i][overlap:-overlap, :]
+                merged[locations[i]: locations[i + 1], :] = arrays[i][
+                    overlap:-overlap, :
+                ]
 
         elif axis == 1:
 
             # First slice
             if i == 0:
-                merged[:, 0:locations[i + 1]] = arrays[i][:, :arrays[i].shape[1] - overlap]
+                merged[:, 0:locations[i + 1]] = arrays[i][
+                    :, :arrays[i].shape[1] - overlap
+                ]
 
             # Last slice
             elif i == len(arrays) - 1:
@@ -242,7 +276,9 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
             # In between
             else:
-                merged[:, locations[i]:locations[i+1]] = arrays[i][:, overlap:-overlap]
+                merged[:, locations[i]: locations[i + 1]] = arrays[i][
+                    :, overlap:-overlap
+                ]
 
     return merged
 
@@ -251,38 +287,53 @@ def background_image(image, mesh_size, mesh_filtersize=3):
 
     # Image must be 2D
     if len(image.shape) != 2:
-        raise ValueError("Please supply array with 2 dimensions. "
-                         "The given data has {0} dimensions".format(len(image.shape)))
+        raise ValueError(
+            "Please supply array with 2 dimensions. "
+            "The given data has {0} dimensions".format(len(image.shape))
+        )
 
     # Back size and image dimensions must be compatible
     if (image.shape[0] % mesh_size != 0) | (image.shape[1] % mesh_size != 0):
-        raise ValueError("Image dimensions {0} must be multiple of backsize mesh size ({1})"
-                         "".format(image.shape, mesh_size))
+        raise ValueError(
+            "Image dimensions {0} must be multiple of backsize mesh size ({1})"
+            "".format(image.shape, mesh_size)
+        )
 
     # Tile image
-    tiles = [image[x:x + mesh_size, y:y + mesh_size] for x in
-             range(0, image.shape[0], mesh_size) for y in range(0, image.shape[1], mesh_size)]
+    tiles = [
+        image[x: x + mesh_size, y: y + mesh_size]
+        for x in range(0, image.shape[0], mesh_size)
+        for y in range(0, image.shape[1], mesh_size)
+    ]
 
     # Estimate background for each tile
     bg, bg_std, _ = list(zip(*[mmm(t) for t in tiles]))
 
     # Scale back to 2D array
     n_tiles_x, n_tiles_y = image.shape[1] // mesh_size, image.shape[0] // mesh_size
-    bg, bg_std = np.array(bg).reshape(n_tiles_y, n_tiles_x), np.array(bg_std).reshape(n_tiles_y, n_tiles_x)
+    bg, bg_std = np.array(bg).reshape(n_tiles_y, n_tiles_x), np.array(bg_std).reshape(
+        n_tiles_y, n_tiles_x
+    )
 
     # Interpolate NaN values in grid
     bg = interpolate_replace_nans(bg, kernel=Gaussian2DKernel(3), boundary="extend")
-    bg_std = interpolate_replace_nans(bg_std, kernel=Gaussian2DKernel(3), boundary="extend")
+    bg_std = interpolate_replace_nans(
+        bg_std, kernel=Gaussian2DKernel(3), boundary="extend"
+    )
 
     # Apply median filter
-    bg, bg_std = median_filter(input=bg, size=mesh_filtersize), median_filter(input=bg_std, size=mesh_filtersize)
+    bg, bg_std = median_filter(input=bg, size=mesh_filtersize), median_filter(
+        input=bg_std, size=mesh_filtersize
+    )
 
     # Convolve
     bg = convolve(bg, kernel=Gaussian2DKernel(1), boundary="extend")
     bg_std = convolve(bg_std, kernel=Gaussian2DKernel(1), boundary="extend")
 
     # Return upscaled data
-    return upscale_image(bg, new_size=image.shape), upscale_image(bg_std, new_size=image.shape)  # noqa
+    return upscale_image(bg, new_size=image.shape), upscale_image(  # noqa
+        bg_std, new_size=image.shape  # noqa
+    )
 
 
 def upscale_image(image, new_size, method="pil", order=3):
@@ -290,7 +341,8 @@ def upscale_image(image, new_size, method="pil", order=3):
     Resizes a 2D array to tiven new size.
 
     An example of how to upscale with PIL:
-    apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"], hdr["NAXIS2"]), resample=Image.LANCZOS))
+    apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"],
+    hdr["NAXIS2"]), resample=Image.LANCZOS))
 
     Parameters
     ----------
@@ -312,11 +364,16 @@ def upscale_image(image, new_size, method="pil", order=3):
 
     if "pil" in method.lower():
         from PIL import Image
-        return np.array(Image.fromarray(image).resize(size=new_size, resample=Image.BICUBIC))
+
+        return np.array(
+            Image.fromarray(image).resize(size=new_size, resample=Image.BICUBIC)  # noqa
+        )
     elif "spline" in method.lower():
 
         # Detemrine edge coordinates of input wrt output size
-        xedge, yedge = np.linspace(0, new_size[0], image.shape[0]+1), np.linspace(0, new_size[1], image.shape[1]+1)
+        xedge, yedge = np.linspace(0, new_size[0], image.shape[0] + 1), np.linspace(
+            0, new_size[1], image.shape[1] + 1
+        )
 
         # Determine pixel center coordinates
         xcenter, ycenter = (xedge[1:] + xedge[:-1]) / 2, (yedge[1:] + yedge[:-1]) / 2
@@ -327,16 +384,34 @@ def upscale_image(image, new_size, method="pil", order=3):
         # Fit spline to grid
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            spline_fit = SmoothBivariateSpline(xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order).ev
+            spline_fit = SmoothBivariateSpline(
+                xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order
+            ).ev
 
             # Return interplated spline
-            return spline_fit(*np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1])))
+            return spline_fit(
+                *np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1]))
+            )
     else:
         raise ValueError("Method '{0}' not supported".format(method))
 
 
-def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
-                  kernel_size=2, weights=None, upscale=True, interpolate_nan=True):
+def grid_value_2d(
+    x,
+    y,
+    value,
+    x_min,
+    y_min,
+    x_max,
+    y_max,
+    nx,
+    ny,
+    conv=True,
+    kernel_size=2,
+    weights=None,
+    upscale=True,
+    interpolate_nan=True,
+):
     """
     Grids (non-uniformly) data onto a 2D array with size (naxis1, naxis2)
 
@@ -385,9 +460,15 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
 
-        stat, xe, ye, (nbx, nby) = binned_statistic_2d(x=x[good], y=y[good], values=value[good], bins=[nx, ny],
-                                                       statistic=clipped_median, expand_binnumbers=True,
-                                                       range=[(x_min, x_max), (y_min, y_max)])  # noqa
+        stat, xe, ye, (nbx, nby) = binned_statistic_2d(
+            x=x[good],
+            y=y[good],
+            values=value[good],
+            bins=[nx, ny],
+            statistic=clipped_median,
+            expand_binnumbers=True,
+            range=[(x_min, x_max), (y_min, y_max)],  # noqa
+        )  # noqa
 
         # Convert bin number to index
         nbx, nby = nbx - 1, nby - 1
@@ -410,21 +491,27 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
                 # sigma clip each bin separately
                 # TODO: This should use astropy sigma clipping
                 value_mask = value[good][fil].copy()
-                mask = np.isnan(apply_sigma_clip(value_mask, sigma_level=3, sigma_iter=3))
+                mask = np.isnan(
+                    apply_sigma_clip(value_mask, sigma_level=3, sigma_iter=3)
+                )
 
                 # Check sum of weights
                 if np.sum(weights[good][fil]) < 0.0001:
                     stat[cidx[0], cidx[1]] = np.nan
                 else:
                     # Compute weighted average for this bin
-                    stat[cidx[0], cidx[1]] = np.average(value[good][fil][mask], weights=weights[good][fil][mask])
+                    stat[cidx[0], cidx[1]] = np.average(
+                        value[good][fil][mask], weights=weights[good][fil][mask]
+                    )
 
         # Transpose
         stat = stat.T
 
     # Smooth
     if conv:
-        stat = convolve(stat, kernel=Gaussian2DKernel(x_stddev=kernel_size), boundary="extend")
+        stat = convolve(
+            stat, kernel=Gaussian2DKernel(x_stddev=kernel_size), boundary="extend"
+        )
 
     if interpolate_nan:
         stat = interpolate_replace_nans(stat, kernel=Gaussian2DKernel(2))
@@ -436,8 +523,20 @@ def grid_value_2d(x, y, value, x_min, y_min, x_max, y_max, nx, ny, conv=True,
     return stat
 
 
-def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
-                     x_min, x_max, y_min, y_max, metric="median", weights=None):
+def grid_value_2d_nn(
+    x,
+    y,
+    values,
+    n_nearest_neighbors,
+    n_bins_x,
+    n_bins_y,
+    x_min,
+    x_max,
+    y_min,
+    y_max,
+    metric="median",
+    weights=None,
+):
     """
     Grids values to a 2D array based on nearest neighbor interpolation.
 
@@ -488,14 +587,18 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     step_x, step_y = (x_max - x_min) / n_bins_x, (y_max - y_min) / n_bins_y
 
     # Create grid of pixel centers
-    xg, yg = np.meshgrid(np.linspace(x_min + step_x / 2, x_max - step_x / 2, n_bins_x),
-                         np.linspace(y_min + step_y / 2, y_max - step_y / 2, n_bins_y))
+    xg, yg = np.meshgrid(
+        np.linspace(x_min + step_x / 2, x_max - step_x / 2, n_bins_x),
+        np.linspace(y_min + step_y / 2, y_max - step_y / 2, n_bins_y),
+    )
 
     # Get nearest neighbors to grid pixel centers
     stacked_grid = np.stack([xg.ravel(), yg.ravel()]).T
     stacked_data = np.stack([xc, yc]).T
     nn = len(xc) if len(xc) < n_nearest_neighbors else n_nearest_neighbors
-    nn_dis, idx = NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
+    nn_dis, idx = (
+        NearestNeighbors(n_neighbors=nn).fit(stacked_data).kneighbors(stacked_grid)
+    )
 
     # Obtain median values at each grid pixel
     if metric == "weighted":
@@ -506,8 +609,10 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
 
         # Sigma-clip weights
         # vv, ww = vc[idx].copy(), wc[idx].copy()
-        vv, ww = vc[idx].copy(), wc[idx] * Gaussian1D(amplitude=1, mean=0, stddev=540)(nn_dis)
-        ww[astropy_sigma_clip(vv, sigma=2.5, maxiters=5, axis=1).mask] = 0.
+        vv, ww = vc[idx].copy(), wc[idx] * Gaussian1D(amplitude=1, mean=0, stddev=540)(
+            nn_dis
+        )
+        ww[astropy_sigma_clip(vv, sigma=2.5, maxiters=5, axis=1).mask] = 0.0
 
         # Compute weighted average
         gv = np.average(vv, weights=ww, axis=1)
@@ -540,7 +645,9 @@ def grid_value_2d_nn(x, y, values, n_nearest_neighbors, n_bins_x, n_bins_y,
     gv = median_filter(gv, size=3)
 
     # Return convolved array (kernel size ~ 10% of image)
-    return convolve(gv, kernel=Gaussian2DKernel((n_bins_x + n_bins_y) / 20), boundary="extend")
+    return convolve(
+        gv, kernel=Gaussian2DKernel((n_bins_x + n_bins_y) / 20), boundary="extend"
+    )
 
 
 def destripe_helper(array, mask=None, smooth=False):
@@ -573,7 +680,9 @@ def destripe_helper(array, mask=None, smooth=False):
         while True:
             if np.sum(~np.isfinite(med_destripe)) == 0:
                 break
-            med_destripe = interpolate_replace_nans(med_destripe, kernel=Gaussian1DKernel(5))
+            med_destripe = interpolate_replace_nans(
+                med_destripe, kernel=Gaussian1DKernel(5)
+            )
             ii += 1
             if ii > 100:
                 raise ValueError("Destriping failed")
@@ -589,14 +698,14 @@ def destripe_helper(array, mask=None, smooth=False):
 
 
 def circular_mask(array, coordinates, radius):
-    """ Construct circular mask """
+    """Construct circular mask"""
     (i1, i2), (nx, ny) = coordinates, array.shape
 
     # Make grid
-    y, x = np.ogrid[-int(i1):nx-int(i1), -int(i2):ny-int(i2)]
+    y, x = np.ogrid[-int(i1): nx - int(i1), -int(i2): ny - int(i2)]
 
     # Create mask
-    mask = np.array(x*x + y*y <= radius * radius, dtype=bool)
+    mask = np.array(x * x + y * y <= radius * radius, dtype=bool)
 
     # Check shape
     if mask.shape != array.shape:
@@ -606,7 +715,9 @@ def circular_mask(array, coordinates, radius):
     return mask
 
 
-def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_area: int = 100000):
+def source_mask(
+    image: np.ndarray, kappa: (int, float), min_area: int = 3, max_area: int = 100000
+):
     """
     Create source mask from input images based on thresholding
 
@@ -677,20 +788,27 @@ def source_mask(image: np.ndarray, kappa: (int, float), min_area: int = 3, max_a
 
             # Construct mask for current source
             base = np.full_like(labels, fill_value=0, dtype=np.uint16)
-            mm = circular_mask(array=base, coordinates=centroid, radius=np.ceil(2 * crad).astype(int))
+            mm = circular_mask(
+                array=base, coordinates=centroid, radius=np.ceil(2 * crad).astype(int)
+            )
             base[mm] = 1
 
             # Save current source mask
             mask_large += base
 
     # Find those sources outside the given thresholds and set to 0
-    # bad_sources = (sizes < minarea) | (sizes > maxarea) if maxarea is not None else sizes < minarea
-    bad_sources = (sizes < min_area) | (sizes > max_area) if max_area is not None else sizes < min_area
+    # bad_sources = (sizes < minarea) | (sizes > maxarea)
+    # if maxarea is not None else sizes < minarea
+    bad_sources = (
+        (sizes < min_area) | (sizes > max_area)
+        if max_area is not None
+        else sizes < min_area
+    )
     assert isinstance(bad_sources, np.ndarray)
 
     # Only if there are bad sources
     if np.sum(bad_sources) > 0:
-        labels[bad_sources[labels-1]] = 0  # labels starts with 1
+        labels[bad_sources[labels - 1]] = 0  # labels starts with 1
 
     # Set background to 0, sources to 1 and convert to 8bit unsigned integer
     labels[labels > 0], labels[labels < 0] = 1, 0
@@ -730,7 +848,9 @@ def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> Sky
     # Determine frame edge
     weight_flat = np.full_like(weight_img, fill_value=0, dtype=int)
     weight_flat[weight_img > 0] = 1
-    weight_flat = binary_closing(weight_flat, structure=generate_binary_structure(2, 2), iterations=50)
+    weight_flat = binary_closing(
+        weight_flat, structure=generate_binary_structure(2, 2), iterations=50
+    )
     weight_edge = sobel(weight_flat)  # noqa
     weight_edge[weight_edge > 0] = 1  # noqa
     weight_edge = weight_edge.astype(np.int8)  # noqa
@@ -747,5 +867,9 @@ def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> Sky
     sort_idx = np.argsort(theta)
 
     # Compute and sort skycoordinates by polar angle
-    skycoo_edge = weight_wcs.wcs_pix2world(coo_edge_x[sort_idx], coo_edge_y[sort_idx], 0)
-    return SkyCoord(*skycoo_edge, frame=wcs_to_celestial_frame(weight_wcs), unit="degree")
+    skycoo_edge = weight_wcs.wcs_pix2world(
+        coo_edge_x[sort_idx], coo_edge_y[sort_idx], 0
+    )
+    return SkyCoord(
+        *skycoo_edge, frame=wcs_to_celestial_frame(weight_wcs), unit="degree"
+    )
