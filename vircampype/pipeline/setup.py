@@ -657,6 +657,10 @@ class Setup(dict):
                 self.__additional_source_masks = (
                     CoronaAustralisControlSourceMasks().mask_dict
                 )
+            elif additional_source_masks.lower() == "lupus_deep":
+                self.__additional_source_masks = (
+                    LupusDeepSourceMasks().mask_dict
+                )
             elif additional_source_masks.lower() == "ophiuchus_deep":
                 self.__additional_source_masks = OphiuchusDeepSourceMasks().mask_dict
             else:
