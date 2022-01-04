@@ -11,9 +11,18 @@ from vircampype.tools.systemtools import make_folder
 from vircampype.tools.systemtools import run_command_shell
 from astropy.convolution import convolve, Gaussian2DKernel
 from vircampype.tools.systemtools import get_resource_path, which
-from scipy.ndimage import binary_closing, distance_transform_cdt, generate_binary_structure
+from scipy.ndimage import (
+    binary_closing,
+    distance_transform_cdt,
+    generate_binary_structure,
+)
 
-__all__ = ["find_convolution_scale", "distance_from_edge", "add_edge_gradient", "build_mosaic_rgb"]
+__all__ = [
+    "find_convolution_scale",
+    "distance_from_edge",
+    "add_edge_gradient",
+    "build_mosaic_rgb",
+]
 
 
 # Define helper methods
@@ -56,7 +65,9 @@ def add_edge_gradient(img, npix):
     # Create binary weight and fill holes
     img_flat = np.full_like(img, fill_value=0, dtype=int)
     img_flat[img > 0] = 1
-    img_flat = binary_closing(img_flat, structure=generate_binary_structure(2, 2), iterations=50)
+    img_flat = binary_closing(
+        img_flat, structure=generate_binary_structure(2, 2), iterations=50
+    )
 
     # Get distance from edge
     disarr = distance_from_edge(img_flat)
@@ -69,8 +80,14 @@ def add_edge_gradient(img, npix):
     return img * dwmod
 
 
-def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic: str, name_mosaic: str,
-                     field_name: str, weight_edge_gradient: (int, float) = 1000):
+def build_mosaic_rgb(
+    paths_tiles_wide: List,
+    paths_tiles_deep: List,
+    path_mosaic: str,
+    name_mosaic: str,
+    field_name: str,
+    weight_edge_gradient: (int, float) = 1000,
+):
 
     # Check and make mosaic path
     if not path_mosaic.endswith("/"):
@@ -81,16 +98,24 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
     bin_swarp = which("swarp")
 
     # Load mosaic header from pipeline package
-    path_config = get_resource_path(package="vircampype.resources.astromatic.swarp.presets", resource="tiles.config")
-    path_header_mosaic = get_resource_path(package="visions.headers", resource=f"{field_name}.header")
+    path_config = get_resource_path(
+        package="vircampype.resources.astromatic.swarp.presets", resource="tiles.config"
+    )
+    path_header_mosaic = get_resource_path(
+        package="visions.headers", resource=f"{field_name}.header"
+    )
 
     # Check header
     if isinstance(fits.Header.fromtextfile(path_header_mosaic), fits.Header):
         pass
 
     # Find wide weights and source catalogs
-    paths_weights_wide = [pt.replace(".fits", ".weight.fits") for pt in paths_tiles_wide]
-    paths_catalogs_wide = [pt.replace(".fits", ".full.fits.ctab") for pt in paths_tiles_wide]
+    paths_weights_wide = [
+        pt.replace(".fits", ".weight.fits") for pt in paths_tiles_wide
+    ]
+    paths_catalogs_wide = [
+        pt.replace(".fits", ".full.fits.ctab") for pt in paths_tiles_wide
+    ]
 
     # Check if wide weights and catalogs exist
     if len(paths_tiles_wide) != len([os.path.isfile(p) for p in paths_weights_wide]):
@@ -99,8 +124,12 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
         raise ValueError("Catalogs for wide fields do not match tiles")
 
     # Find deep weights and source catalogs
-    paths_weights_deep = [pt.replace(".fits", ".weight.fits") for pt in paths_tiles_deep]
-    paths_catalogs_deep = [pt.replace(".fits", ".full.fits.ctab") for pt in paths_tiles_deep]
+    paths_weights_deep = [
+        pt.replace(".fits", ".weight.fits") for pt in paths_tiles_deep
+    ]
+    paths_catalogs_deep = [
+        pt.replace(".fits", ".full.fits.ctab") for pt in paths_tiles_deep
+    ]
 
     # Check if deep weights and catalogs exist
     if len(paths_tiles_deep) != len([os.path.isfile(p) for p in paths_tiles_deep]):
@@ -120,8 +149,12 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
     paths_catalogs_all = paths_catalogs_wide + paths_catalogs_deep
 
     # Generate output paths for all files
-    paths_tiles_all_out = [f"{path_mosaic}{os.path.basename(p)}" for p in paths_tiles_all]
-    paths_weights_all_out = [f"{path_mosaic}{os.path.basename(p)}" for p in paths_weights_all]
+    paths_tiles_all_out = [
+        f"{path_mosaic}{os.path.basename(p)}" for p in paths_tiles_all
+    ]
+    paths_weights_all_out = [
+        f"{path_mosaic}{os.path.basename(p)}" for p in paths_weights_all
+    ]
 
     # Check if weights are there
     if np.sum([os.path.isfile(pw) for pw in paths_weights_all]) != len(paths_tiles_all):
@@ -129,10 +162,16 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
 
     # Set zero point target scale sun-like stars
     zp_target_h, jh_sun, hk_sun = 25.0, 0.286, 0.076
-    zp_target = {"J": jh_sun + zp_target_h, "H": zp_target_h, "Ks": zp_target_h - hk_sun}
+    zp_target = {
+        "J": jh_sun + zp_target_h,
+        "H": zp_target_h,
+        "Ks": zp_target_h - hk_sun,
+    }
 
     # Read passbands from tiles
-    passbands = [fits.getheader(pp)["HIERARCH ESO INS FILT1 NAME"] for pp in paths_tiles_all]
+    passbands = [
+        fits.getheader(pp)["HIERARCH ESO INS FILT1 NAME"] for pp in paths_tiles_all
+    ]
 
     # There can be only 1 passband
     if len(set(passbands)) != 1:
@@ -168,17 +207,19 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
         phdu.writeto(pwo, overwrite=True)
 
     # Read ZP for all tiles from source catalogs
-    zp_tiles = [fits.getheader(pp, 2)["HIERARCH PYPE ZP MAG_AUTO"] for pp in paths_catalogs_all]
+    zp_tiles = [
+        fits.getheader(pp, 2)["HIERARCH PYPE ZP MAG_AUTO"] for pp in paths_catalogs_all
+    ]
 
     # Compute flux scale for each image
     print(f"Target ZP = {zp_target[passband]:0.3f} mag")
     scale_zp = [zp_target[passband] - zp for zp in zp_tiles]
-    flxscl = [10**(s / 2.5) for s in scale_zp]
+    flxscl = [10 ** (s / 2.5) for s in scale_zp]
     # flxscl_swarp = ",".join([f"{s:0.5f}" for s in flxscl])
 
     # Read background sigma and find target RMS (only for wide tiles)
     backsig_orig = [fits.getheader(f)["BACKSIG"] for f in paths_tiles_wide]
-    backsig_scaled = np.array([a*b for a, b in zip(flxscl, backsig_orig)])
+    backsig_scaled = np.array([a * b for a, b in zip(flxscl, backsig_orig)])
     backsig_target = np.min(backsig_scaled)
 
     # Compute and apply convolution scales to wide data
@@ -202,7 +243,7 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
 
         # Get a smaller view of the data array for statistics
         if data_tile.size > 50_000_000:  # noqa
-            data_tile_s = data_tile[::data_tile.size // 50_000_000]
+            data_tile_s = data_tile[:: data_tile.size // 50_000_000]
         else:
             data_tile_s = data_tile
 
@@ -217,11 +258,13 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
             print(f"Convolution scale = {cscl:0.3f}")
 
             # Apply convolution with determined scale
-            data_tile = convolve(data_tile, kernel=Gaussian2DKernel(cscl), boundary="extend")
+            data_tile = convolve(
+                data_tile, kernel=Gaussian2DKernel(cscl), boundary="extend"
+            )
 
             # Recompute background level
             if data_tile.size > 50_000_000:  # noqa
-                data_tile_s = data_tile[::data_tile.size // 50_000_000]  # noqa
+                data_tile_s = data_tile[:: data_tile.size // 50_000_000]  # noqa
             else:
                 data_tile_s = data_tile
 
@@ -240,18 +283,22 @@ def build_mosaic_rgb(paths_tiles_wide: List, paths_tiles_deep: List, path_mosaic
         hdr_tile["FSCL"] = (fscl, "Flux scaling for ZP equalization")
 
         # Write new file
-        phdu = fits.PrimaryHDU(data=data_tile.astype(np.float32), header=hdr_tile)  # noqa
+        phdu = fits.PrimaryHDU(
+            data=data_tile.astype(np.float32), header=hdr_tile  # noqa
+        )
         phdu.writeto(ptt, overwrite=True)
 
     # Construct swarp command
     files = " ".join(paths_tiles_all_out)
     weights = ",".join([f"{pw}" for pw in paths_weights_all_out])
-    cmd = f"{bin_swarp} -c {path_config} " \
-          f"-IMAGEOUT_NAME {path_mosaic}{name_mosaic}.fits " \
-          f"-WEIGHTOUT_NAME {path_mosaic}{name_mosaic}.weight.fits " \
-          f"-HEADEROUT_NAME {path_header_mosaic} " \
-          f"-WEIGHT_IMAGE {weights} " \
-          f"{files}"
+    cmd = (
+        f"{bin_swarp} -c {path_config} "
+        f"-IMAGEOUT_NAME {path_mosaic}{name_mosaic}.fits "
+        f"-WEIGHTOUT_NAME {path_mosaic}{name_mosaic}.weight.fits "
+        f"-HEADEROUT_NAME {path_header_mosaic} "
+        f"-WEIGHT_IMAGE {weights} "
+        f"{files}"
+    )
 
     # Run Swarp
     if (input("Run Swarp (Y/n)") or "Y") == "Y":
