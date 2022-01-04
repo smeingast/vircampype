@@ -3,6 +3,7 @@ import numpy as np
 from astropy import wcs
 from astropy.io import fits
 from vircampype.tools.mathtools import *
+from astropy.wcs.utils import fit_wcs_from_points, wcs_to_celestial_frame
 from astropy.coordinates import ICRS, Galactic, AltAz, EarthLocation, SkyCoord
 
 __all__ = [
@@ -39,29 +40,51 @@ def header_reset_wcs(header):
         return header
 
     # Make a copy of the input header to not overwrite anything
-    oheader = header.copy()
+    mheader = header.copy()
 
     # Get wcs instance
-    hwcs = wcs.WCS(header=oheader)
+    owcs = wcs.WCS(header=header)
 
     # Calculate parameters
-    crpix1, crpix2 = oheader["NAXIS1"] / 2, oheader["NAXIS2"] / 2
+    crpix1, crpix2 = mheader["NAXIS1"] / 2, mheader["NAXIS2"] / 2
 
-    # If we have pixel coordinates
     try:
+        # If we have pixel coordinates
         if header["CTYPE1"] == "PIXEL":
             crval1, crval2, ctype1, ctype2 = crpix1, crpix2, "PIXEL", "PIXEL"
+            cd11, cd12 = mheader["CD1_1"], mheader["CD1_2"]
+            cd21, cd22 = mheader["CD2_1"], mheader["CD2_2"]
 
-        # Otherwise:
+        # Otherwise fit WCS from footprint
         else:
-            crval1, crval2 = hwcs.all_pix2world(crpix1, crpix2, 1)
-            ctype1, ctype2 = "RA---TAN", "DEC--TAN"
 
+            ccval1, ccval2 = owcs.calc_footprint().T
+            cc_skycoord = SkyCoord(
+                ccval1, ccval2, unit="deg", frame=wcs_to_celestial_frame(owcs)
+            )
+            mwcs = fit_wcs_from_points(
+                xy=(
+                    np.array([0, 0, mheader["NAXIS1"] - 1, mheader["NAXIS1"] - 1]),
+                    np.array([0, mheader["NAXIS2"] - 1, mheader["NAXIS2"] - 1, 0]),
+                ),
+                world_coords=cc_skycoord,
+            )
+
+            # Can't use the wcs.to_header() method because it mixes PC and CD keywords
+            crval1, crval2 = mwcs.wcs.crval
+            crpix1, crpix2 = mwcs.wcs.crpix
+            ctype1, ctype2 = mwcs.wcs.ctype
+            (cd11, cd12), (cd21, cd22) = mwcs.wcs.cd
+
+        # Update header
         for key, val in zip(
-            ["CRPIX1", "CRPIX2", "CRVAL1", "CRVAL2", "CTYPE1", "CTYPE2"],
-            [crpix1, crpix2, float(crval1), float(crval2), ctype1, ctype2],
+                ["CRPIX1", "CRPIX2", "CRVAL1", "CRVAL2", "CTYPE1",
+                 "CTYPE2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"],
+                [crpix1, crpix2, float(crval1), float(crval2), ctype1,
+                 ctype2, cd11, cd12, cd21, cd22],
         ):
-            oheader[key] = val
+            mheader[key] = val
+
     except KeyError:
         return header
 
@@ -69,11 +92,11 @@ def header_reset_wcs(header):
     if "ZPN" in header["CTYPE1"]:
         for kw in ["PV2_1", "PV2_2", "PV2_3", "PV2_4", "PV2_5"]:
             try:
-                oheader.remove(kw)
+                mheader.remove(kw)
             except KeyError:
                 pass
 
-    return oheader
+    return mheader
 
 
 def header2wcs(header):
