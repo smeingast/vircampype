@@ -1,6 +1,7 @@
 import os
 
 from joblib import cpu_count
+from astropy.units import Unit
 from vircampype.pipeline.errors import *
 from vircampype.tools.systemtools import *
 from vircampype.miscellaneous.projections import *
@@ -641,28 +642,28 @@ class Setup(dict):
 
         # If given as a source mask instance
         elif isinstance(additional_source_masks, SourceMasks):
-            self.__additional_source_masks = additional_source_masks.mask_dict
+            self.__additional_source_masks = additional_source_masks
 
         # If specified as string, try to load supported predefined masks
         elif isinstance(additional_source_masks, str):
             if additional_source_masks.lower() == "corona_australis_deep":
                 self.__additional_source_masks = (
-                    CoronaAustralisDeepSourceMasks().mask_dict
+                    CoronaAustralisDeepSourceMasks()
                 )
             elif additional_source_masks.lower() == "corona_australis_wide":
                 self.__additional_source_masks = (
-                    CoronaAustralisWideSourceMasks().mask_dict
+                    CoronaAustralisWideSourceMasks()
                 )
             elif additional_source_masks.lower() == "corona_australis_control":
                 self.__additional_source_masks = (
-                    CoronaAustralisControlSourceMasks().mask_dict
+                    CoronaAustralisControlSourceMasks()
                 )
             elif additional_source_masks.lower() == "lupus_deep":
                 self.__additional_source_masks = (
-                    LupusDeepSourceMasks().mask_dict
+                    LupusDeepSourceMasks()
                 )
             elif additional_source_masks.lower() == "ophiuchus_deep":
-                self.__additional_source_masks = OphiuchusDeepSourceMasks().mask_dict
+                self.__additional_source_masks = OphiuchusDeepSourceMasks()
             else:
                 raise ValueError(
                     f"Source masks for '{additional_source_masks}' are not supported"
@@ -806,12 +807,16 @@ class Setup(dict):
     # =========================================================================== #
     # Other
     @property
+    def pixel_scale(self):
+        return 1 / 3 * Unit("arcsec")
+
+    @property
     def pixel_scale_arcsec(self):
-        return 1 / 3
+        return self.pixel_scale.to_value(Unit("arcsec"))
 
     @property
     def pixel_scale_degrees(self):
-        return self.pixel_scale_arcsec / 3600.0
+        return self.pixel_scale.to_value(Unit("deg"))
 
     @property
     def maximasking(self):
