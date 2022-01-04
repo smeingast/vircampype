@@ -511,7 +511,7 @@ def mjd2dateobs(mjd):
     return Time(mjd, format="mjd").fits
 
 
-def fix_vircam_headers(prime_header, data_headers):
+def fix_vircam_headers(prime_header, data_headers, reset_wcs):
     """Resets the WCS info and purges useless keywords from vircam headers."""
 
     try:
@@ -549,9 +549,10 @@ def fix_vircam_headers(prime_header, data_headers):
         except KeyError:
             pass
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
+        if reset_wcs:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
 
         # Remove useless keywords if set
         [
