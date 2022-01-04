@@ -9,20 +9,35 @@ import importlib
 
 from itertools import zip_longest
 
-__all__ = ["make_folder", "which", "read_yml", "yml2config", "run_commands_shell_parallel", "run_command_shell",
-           "get_resource_path", "copy_file", "remove_file", "remove_directory", "clean_directory", "notify",
-           "make_symlinks", "make_executable", "cmd_prepend_libraries"]
+__all__ = [
+    "make_folder",
+    "which",
+    "read_yml",
+    "yml2config",
+    "run_commands_shell_parallel",
+    "run_command_shell",
+    "get_resource_path",
+    "copy_file",
+    "remove_file",
+    "remove_directory",
+    "clean_directory",
+    "notify",
+    "make_symlinks",
+    "make_executable",
+    "cmd_prepend_libraries",
+]
 
 
 def make_folder(path: str):
-    """ Creates folder at specified path. """
+    """Creates folder at specified path."""
     if not os.path.exists(path):
         os.makedirs(path)
 
 
 def which(program: str):
     """
-    Returns the path for an arbitrary executable shell program defined in the PAHT environment variable.
+    Returns the path for an arbitrary executable shell program defined in the PAHT
+    environment variable.
 
     Parameters
     ----------
@@ -72,7 +87,8 @@ def read_yml(path_yml: str):
 
 def yml2config(path_yml: str, skip=None, **kwargs):
     """
-    Reads a YML file at a given path and converts the entries to a string that can be passed to astromatic tools.
+    Reads a YML file at a given path and converts the entries to a string that can be
+    passed to astromatic tools.
 
     Parameters
     ----------
@@ -81,7 +97,8 @@ def yml2config(path_yml: str, skip=None, **kwargs):
     skip : list, optional
         If set, ignore the given keywords in the list
     kwargs
-        Any available setup parameter can be overwritten (e.g. catalog_name="catalog.fits")
+        Any available setup parameter can be overwritten
+        (e.g. catalog_name="catalog.fits")
 
     Returns
     -------
@@ -130,16 +147,19 @@ def cmd_prepend_libraries(cmd: str):
             cmd = f"export LD_LIBRARY_PATH={sys_env['LD_LIBRARY_PATH']} && {cmd}"
         if "DYLD_LIBRARY_PATH" in sys_env:
             cmd = f"export DYLD_LIBRARY_PATH={sys_env['DYLD_LIBRARY_PATH']} && {cmd}"
-        # This is a silly workaround because DYLD_LIBRARY_PATH is for some reason not in sys_env
-        # even though it should be defined.
+        # This is a silly workaround because DYLD_LIBRARY_PATH is for some reason
+        # not in sys_env even though it should be defined.
         else:
-            dyld_library_path = "/opt/intel/oneapi/compiler/latest/mac/compiler/lib:/opt/intel/oneapi/mkl/latest/lib:"
+            dyld_library_path = "/opt/intel/oneapi/compiler/latest/mac/compiler/" \
+                                "lib:/opt/intel/oneapi/mkl/latest/lib:"
             cmd = f"export DYLD_LIBRARY_PATH={dyld_library_path} && {cmd}"
 
     return cmd
 
 
-def run_commands_shell_parallel(cmds, n_jobs: int = 1, shell: str = "zsh", silent: bool = True):
+def run_commands_shell_parallel(
+    cmds, n_jobs: int = 1, shell: str = "zsh", silent: bool = True
+):
     """
     Runs a list of shell commands in parallel.
 
@@ -160,10 +180,22 @@ def run_commands_shell_parallel(cmds, n_jobs: int = 1, shell: str = "zsh", silen
     cmds = [cmd_prepend_libraries(cmd) for cmd in cmds]
 
     if silent:
-        groups = [(subprocess.Popen(cmd, shell=True, executable=which(shell), stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL) for cmd in cmds)] * n_jobs
+        groups = [
+            (
+                subprocess.Popen(
+                    cmd,
+                    shell=True,
+                    executable=which(shell),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                for cmd in cmds
+            )
+        ] * n_jobs
     else:
-        groups = [(subprocess.Popen(cmd, shell=True, executable=which(shell)) for cmd in cmds)] * n_jobs
+        groups = [
+            (subprocess.Popen(cmd, shell=True, executable=which(shell)) for cmd in cmds)
+        ] * n_jobs
 
     # Run processes
     for processes in zip_longest(*groups):  # run len(processes) == limit at a time
@@ -191,8 +223,13 @@ def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
 
     # Run
     if silent:
-        subprocess.run(cmd, shell=True, executable=which(shell),
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            cmd,
+            shell=True,
+            executable=which(shell),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     else:
         subprocess.run(cmd, shell=True, executable=which(shell))
 
@@ -241,16 +278,22 @@ def remove_directory(path_folder: str):
 
 
 def clean_directory(directorypath: str, pattern: str = "*"):
-    """ Function to remove files in a directory, following a name pattern. """
+    """Function to remove files in a directory, following a name pattern."""
     if not directorypath.endswith("/"):
         directorypath = directorypath + "/"
     for f in glob.glob(directorypath + pattern):
         remove_file(f)
 
 
-def notify(message: str, title: str = None, subtitle: str = None, sound: str = "default",
-           open_url: str = None, ignore_dnd: bool = False):
-    """ macOS notification wrapper built around terminal-notifier """
+def notify(
+    message: str,
+    title: str = None,
+    subtitle: str = None,
+    sound: str = "default",
+    open_url: str = None,
+    ignore_dnd: bool = False,
+):
+    """macOS notification wrapper built around terminal-notifier"""
     me = "-message {!r}".format(message)
     ti = "-title {!r}".format(title) if title is not None else ""
     su = "-subtitle {!r}".format(subtitle) if subtitle is not None else ""
@@ -268,6 +311,6 @@ def make_symlinks(paths_files, paths_links):
 
 
 def make_executable(path: str):
-    """ Makes file executable """
+    """Makes file executable"""
     st = os.stat(path)
     os.chmod(path, st.st_mode | stat.S_IEXEC)
