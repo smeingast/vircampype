@@ -28,22 +28,39 @@ class SourceMasks:
 
     @property
     def ra(self):
-        return Quantity([r.center.icrs.ra.degree for r in self.regions])
+        return Quantity([r.center.icrs.ra for r in self.regions])
+
+    @property
+    def ra_deg(self):
+        return self.ra.to_value(Unit("deg"))
 
     @property
     def dec(self):
-        return Quantity([r.center.icrs.dec.degree for r in self.regions])
+        return Quantity([r.center.icrs.dec for r in self.regions])
+
+    @property
+    def dec_deg(self):
+        return self.dec.to_value(Unit("deg"))
 
     @property
     def size_deg(self):
         return Quantity([r.radius.to(Unit("deg")) for r in self.regions])
 
     def size_pix(self, pixel_scale=0.333 * Unit("arcsec")):
-        return Quantity([sd / pixel_scale for sd in self.size_deg]).decompose().value
+        """
 
-    @property
-    def mask_dict(self):
-        return dict(ra=self.ra, dec=self.dec, size=self.size_pix)
+        Parameters
+        ----------
+        pixel_scale : Quantity
+            Pixel scale as a Quantity. Default is 1/3 arcsec.
+
+        Returns
+        -------
+        np.ndarray
+            Array with mask sizes in pixels.
+
+        """
+        return Quantity([sd / pixel_scale for sd in self.size_deg]).decompose().value
 
     @classmethod
     def interp_2mass_size(cls):
