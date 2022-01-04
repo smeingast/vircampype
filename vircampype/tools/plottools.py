@@ -5,9 +5,12 @@ from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
 __all__ = ["plot_value_detector", "get_plotgrid"]
 
 
-def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axis_size=5, hlines=None):
+def plot_value_detector(
+    values, path, errors=None, ylabel=None, yrange=None, axis_size=5, hlines=None
+):
     """
-    Generates a plot to display a single statistical value (e.g. dark current or gain) for each detector.
+    Generates a plot to display a single statistical value (e.g. dark current or gain)
+    for each detector.
 
     Parameters
     ----------
@@ -36,15 +39,26 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
         yrange = [np.min(values) - np.std(values), np.max(values) + np.std(values)]
 
     if errors is not None:
-        yrange = np.min(np.array(values) - np.array(errors)) - 0.1 * np.std(values), \
-                 np.max(np.array(values) + np.array(errors)) + 0.1 * np.std(values)
+        yrange = np.min(np.array(values) - np.array(errors)) - 0.1 * np.std(
+            values
+        ), np.max(np.array(values) + np.array(errors)) + 0.1 * np.std(values)
 
     # Create figure
-    fig, ax = plt.subplots(nrows=1, ncols=1, **{"figsize": [axis_size, axis_size * 0.6]})
+    fig, ax = plt.subplots(
+        nrows=1, ncols=1, **{"figsize": [axis_size, axis_size * 0.6]}
+    )
 
     # Draw vertical dashed lines for each detector
-    ax.vlines(np.arange(len(values)) + 1, ymin=yrange[0], ymax=yrange[1],
-              linestyles="dashed", lw=0.5, colors="grey", zorder=0, alpha=0.8)
+    ax.vlines(
+        np.arange(len(values)) + 1,
+        ymin=yrange[0],
+        ymax=yrange[1],
+        linestyles="dashed",
+        lw=0.5,
+        colors="grey",
+        zorder=0,
+        alpha=0.8,
+    )
 
     # Draw horizontal lines if requested
     if hlines is not None:
@@ -53,11 +67,27 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
 
     # Draw data
     if errors is not None:
-        ax.errorbar(np.arange(len(values)) + 1, values, yerr=errors, fmt="none",
-                    ecolor="#08519c", capsize=3, zorder=1, lw=1.0)
+        ax.errorbar(
+            np.arange(len(values)) + 1,
+            values,
+            yerr=errors,
+            fmt="none",
+            ecolor="#08519c",
+            capsize=3,
+            zorder=1,
+            lw=1.0,
+        )
 
-    ax.scatter(np.arange(len(values)) + 1, values, facecolor="white",
-               edgecolor="#08519c", lw=1.0, s=25, marker="o", zorder=2)
+    ax.scatter(
+        np.arange(len(values)) + 1,
+        values,
+        facecolor="white",
+        edgecolor="#08519c",
+        lw=1.0,
+        s=25,
+        marker="o",
+        zorder=2,
+    )
 
     # Adjust axes
     ax.set_ylabel(ylabel)
@@ -75,7 +105,9 @@ def plot_value_detector(values, path, errors=None, ylabel=None, yrange=None, axi
 
     # Save plot
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+        warnings.filterwarnings(
+            "ignore", message="tight_layout : falling back to Agg renderer"
+        )
         fig.savefig(path, bbox_inches="tight")
     plt.close("all")
 
@@ -104,9 +136,19 @@ def get_plotgrid(layout, xsize=4, ysize=4):
     import matplotlib.pyplot as plt
 
     # Create figure
-    fig, axes = plt.subplots(ncols=layout[0], nrows=layout[1], **{"figsize": (layout[0] * xsize, layout[1] * ysize)},
-                             gridspec_kw={"hspace": 0.1, "wspace": 0.1, "left": 0.1,
-                                          "right": 0.9, "bottom": 0.1, "top": 0.9})
+    fig, axes = plt.subplots(
+        ncols=layout[0],
+        nrows=layout[1],
+        **{"figsize": (layout[0] * xsize, layout[1] * ysize)},
+        gridspec_kw={
+            "hspace": 0.1,
+            "wspace": 0.1,
+            "left": 0.1,
+            "right": 0.9,
+            "bottom": 0.1,
+            "top": 0.9,
+        }
+    )
 
     # Rearrange axes order
     if np.prod(layout) > 1:
