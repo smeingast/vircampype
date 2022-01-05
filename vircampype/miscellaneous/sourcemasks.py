@@ -8,8 +8,8 @@ __all__ = [
     "CoronaAustralisDeepSourceMasks",
     "CoronaAustralisWideSourceMasks",
     "CoronaAustralisControlSourceMasks",
-    "OphiuchusDeepSourceMasks",
     "LupusDeepSourceMasks",
+    "OphiuchusDeepSourceMasks",
 ]
 
 
@@ -124,19 +124,6 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
         super(CoronaAustralisWideSourceMasks, self).__init__(regions=regions_wide)
 
 
-class OphiuchusDeepSourceMasks(SourceMasks):
-    def __init__(self):
-
-        # Find mask file
-        path_masks = get_resource_path(
-            package=SourceMasks.path_package_masks(), resource="Ophiuchus_deep.reg"
-        )
-
-        # Read masks and call parent
-        regions = Regions.read(path_masks, format="ds9")
-        super(OphiuchusDeepSourceMasks, self).__init__(regions=regions)
-
-
 class LupusDeepSourceMasks(SourceMasks):
     def __init__(self):
 
@@ -148,3 +135,16 @@ class LupusDeepSourceMasks(SourceMasks):
         # Read masks and call parent
         regions = Regions.read(path_masks, format="ds9")
         super(LupusDeepSourceMasks, self).__init__(regions=regions)
+
+
+class OphiuchusDeepSourceMasks(SourceMasks):
+    def __init__(self):
+
+        # Find mask file
+        path_masks = get_resource_path(
+            package=SourceMasks.path_package_masks(), resource="Ophiuchus_deep.reg"
+        )
+
+        # Read masks and call parent
+        regions = Regions.read(path_masks, format="ds9")
+        super(OphiuchusDeepSourceMasks, self).__init__(regions=regions)
