@@ -8,8 +8,18 @@ from vircampype.tools.miscellaneous import flat_list
 from vircampype.tools.systemtools import make_folder, make_symlinks, copy_file
 
 
-def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_photo, n_jobs,
-                 reference_mag_lim, projection, phase3_photerr_internal, **kwargs):
+def build_mosaic(
+    name,
+    paths_scripts,
+    path_data,
+    path_pype,
+    path_master_astro_photo,
+    n_jobs,
+    reference_mag_lim,
+    projection,
+    phase3_photerr_internal,
+    **kwargs,
+):
 
     # Check if master catalogs are available
     path_master_astro = f"{path_master_astro_photo}MASTER-ASTROMETRY.fits.tab"
@@ -26,7 +36,12 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
     print(f"Found {len(paths_scripts):2d} scripts")
 
     # Loop over scripts
-    field_names, paths_folders_raw, paths_folders_resampled, paths_folders_statistics = [], [], [], []
+    (
+        field_names,
+        paths_folders_raw,
+        paths_folders_resampled,
+        paths_folders_statistics,
+    ) = ([], [], [], [])
     for ss in paths_scripts:
         yml = read_yml(ss)
         paths_folders_raw.append(yml["path_data"])
@@ -35,21 +50,39 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
         field_names.append(yml["name"])
 
     # Pipeline setup
-    setup = dict(name=name, path_data=path_data, path_pype=path_pype, n_jobs=n_jobs, projection=projection,
-                 phase3_photerr_internal=phase3_photerr_internal, reference_mag_lim=reference_mag_lim,
-                 external_headers=True, build_stacks=False, build_tile=True, build_phase3=True,
-                 archive=False, qc_plots=True, **kwargs)
+    setup = dict(
+        name=name,
+        path_data=path_data,
+        path_pype=path_pype,
+        n_jobs=n_jobs,
+        projection=projection,
+        phase3_photerr_internal=phase3_photerr_internal,
+        reference_mag_lim=reference_mag_lim,
+        external_headers=True,
+        build_stacks=False,
+        build_tile=True,
+        build_phase3=True,
+        archive=False,
+        qc_plots=True,
+        **kwargs,
+    )
 
     # Find raw images and keep only science frames
     paths_raw = flat_list(sorted([glob(p + "*.fits") for p in paths_folders_raw]))
-    temp = ["SKY" not in fits.getheader(pr)["HIERARCH ESO DPR TYPE"] for pr in paths_raw]
+    temp = [
+        "SKY" not in fits.getheader(pr)["HIERARCH ESO DPR TYPE"] for pr in paths_raw
+    ]
     paths_raw = [pr for pr, tt in zip(paths_raw, temp) if tt]
     links_raw = [f"{path_data}/{os.path.basename(f)}" for f in paths_raw]
     print(f"Found {len(paths_raw):4d} raw images")
 
     # Find resampled images and create link paths
-    paths_resampled = flat_list(sorted([glob(p + "*resamp.fits") for p in paths_folders_resampled]))
-    links_resampled = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled]
+    paths_resampled = flat_list(
+        sorted([glob(p + "*resamp.fits") for p in paths_folders_resampled])
+    )
+    links_resampled = [
+        f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled
+    ]
     print(f"Found {len(paths_resampled):4d} resampled images")
 
     # Dummy check
@@ -57,13 +90,22 @@ def build_mosaic(name, paths_scripts, path_data, path_pype, path_master_astro_ph
         raise ValueError("Raw and resampled images not matching")
 
     # Find resampled weights and create link paths
-    paths_resampled_weights = flat_list(sorted([glob(p + "*resamp.weight.fits") for p in paths_folders_resampled]))
-    links_resampled_weights = [f"{path_pype}{name}/resampled/{os.path.basename(f)}" for f in paths_resampled_weights]
+    paths_resampled_weights = flat_list(
+        sorted([glob(p + "*resamp.weight.fits") for p in paths_folders_resampled])
+    )
+    links_resampled_weights = [
+        f"{path_pype}{name}/resampled/{os.path.basename(f)}"
+        for f in paths_resampled_weights
+    ]
     print(f"Found {len(paths_resampled_weights):4d} resampled weights")
 
     # Find statistics files
-    paths_statistics = flat_list(sorted([glob(p + "*.fits") for p in paths_folders_statistics]))
-    links_statistics = [f"{path_pype}{name}/statistics/{os.path.basename(f)}" for f in paths_statistics]
+    paths_statistics = flat_list(
+        sorted([glob(p + "*.fits") for p in paths_folders_statistics])
+    )
+    links_statistics = [
+        f"{path_pype}{name}/statistics/{os.path.basename(f)}" for f in paths_statistics
+    ]
     print(f"Found {len(paths_statistics):4d} statistics files")
 
     # Dummy check
