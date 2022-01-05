@@ -1,5 +1,5 @@
 import glob
-from vircampype.visions.scripts.scamp.group_scamp_headers import group_scamp_headers
+from visions.scamp.group_scamp_headers import group_scamp_headers
 
 # Find scripts for VISIONS
 """ THIS WAS RUN BEFORE THE CONTROL FIELD SCRIPTS WERE THERE. THESE SHOULD BE EXCLUDED """

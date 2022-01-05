@@ -1,5 +1,5 @@
 import glob
-from vircampype.visions.scripts.scamp.group_scamp_headers import group_scamp_headers
+from visions.scamp.group_scamp_headers import group_scamp_headers
 
 # Find scripts for VISIONS
 path_pipe = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/"
