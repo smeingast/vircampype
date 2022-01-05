@@ -6,10 +6,10 @@ from vircampype.fits.common import FitsFiles
 
 
 class FitsTables(FitsFiles):
-
     def __init__(self, setup, file_paths=None):
         """
-        Class for Fits tables based on FitsFiles. Contains specific methods and functions applicable only to tables
+        Class for Fits tables based on FitsFiles. Contains specific methods and
+        functions applicable only to tables.
 
         Parameters
         ----------
@@ -53,7 +53,8 @@ class FitsTables(FitsFiles):
         Returns
         -------
         MasterZeroPoint
-            MasterZeroPoint instance holding for each file in self the corresponding MasterZeroPoint table.
+            MasterZeroPoint instance holding for each file in self the corresponding
+            MasterZeroPoint table.
 
         """
 
@@ -69,8 +70,10 @@ class FitsTables(FitsFiles):
             match_idx.append(master_zp_all_prov.index(bn))
 
         # Return exact match
-        return master_zp_all.__class__(setup=self.setup, file_paths=[master_zp_all.full_paths[idx]
-                                                                     for idx in match_idx])
+        return master_zp_all.__class__(
+            setup=self.setup,
+            file_paths=[master_zp_all.full_paths[idx] for idx in match_idx],
+        )
 
     # =========================================================================== #
     # I/O
@@ -111,7 +114,10 @@ class FitsTables(FitsFiles):
 
         """
 
-        return [Table.read(self.paths_full[file_index], hdu=h) for h in self.iter_data_hdu[file_index]]
+        return [
+            Table.read(self.paths_full[file_index], hdu=h)
+            for h in self.iter_data_hdu[file_index]
+        ]
 
     def hdu2table(self, hdu_index):
         """
@@ -132,7 +138,8 @@ class FitsTables(FitsFiles):
 
     def get_column_hdu(self, idx_hdu, column_name):
         """
-        Extracts a single column for a given HDU across all given tables in the current instance.
+        Extracts a single column for a given HDU across all given tables in the current
+        instance.
 
         Parameters
         ----------
@@ -209,7 +216,8 @@ class FitsTables(FitsFiles):
 
         Returns
         -------
-            List of extracted data for each column name [column_name1[hdu1,...], column_name2[hdu1, ...], ...]
+            List of extracted data for each column name [column_name1[hdu1,...],
+            column_name2[hdu1, ...], ...]
 
         """
         with fits.open(self.paths_full[idx_file]) as f:
@@ -226,7 +234,6 @@ class FitsTables(FitsFiles):
 
 
 class MasterTables(FitsTables):
-
     def __init__(self, setup, file_paths=None):
         super(MasterTables, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -248,7 +255,9 @@ class MasterTables(FitsTables):
         # Get the masterlinearity files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-LINEARITY"]
 
-        return MasterLinearity(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+        return MasterLinearity(
+            setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+        )
 
     @property
     def gain(self):
@@ -267,7 +276,9 @@ class MasterTables(FitsTables):
         # Get the mastergain files
         index = [idx for idx, key in enumerate(self.types) if key == "MASTER-GAIN"]
 
-        return MasterGain(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+        return MasterGain(
+            setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+        )
 
     @property
     def photometry(self):
@@ -282,16 +293,25 @@ class MasterTables(FitsTables):
         """
 
         # Import
-        from vircampype.fits.tables.sources import MasterPhotometry, MasterPhotometry2Mass
+        from vircampype.fits.tables.sources import (
+            MasterPhotometry,
+            MasterPhotometry2Mass,
+        )
 
         # Get the masterphotometry files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"]
+        index = [
+            idx for idx, key in enumerate(self.types) if key == "MASTER-PHOTOMETRY"
+        ]
 
         # Return photometry catalog
         if self.setup.phot_reference_catalog == "2mass":
-            return MasterPhotometry2Mass(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+            return MasterPhotometry2Mass(
+                setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+            )
         else:
-            return MasterPhotometry(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+            return MasterPhotometry(
+                setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+            )
 
     @property
     def astrometry(self):
@@ -309,7 +329,11 @@ class MasterTables(FitsTables):
         from vircampype.fits.tables.sources import MasterAstrometryGaia
 
         # Get the masterphotometry files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-ASTROMETRY"]
+        index = [
+            idx for idx, key in enumerate(self.types) if key == "MASTER-ASTROMETRY"
+        ]
 
         # Return photometry catalog
-        return MasterAstrometryGaia(setup=self.setup, file_paths=[self.paths_full[idx] for idx in index])
+        return MasterAstrometryGaia(
+            setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+        )
