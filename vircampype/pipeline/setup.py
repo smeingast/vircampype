@@ -647,23 +647,17 @@ class Setup(dict):
         # If specified as string, try to load supported predefined masks
         elif isinstance(additional_source_masks, str):
             if additional_source_masks.lower() == "corona_australis_deep":
-                self.__additional_source_masks = (
-                    CoronaAustralisDeepSourceMasks()
-                )
+                self.__additional_source_masks = CoronaAustralisDeepSourceMasks()
             elif additional_source_masks.lower() == "corona_australis_wide":
-                self.__additional_source_masks = (
-                    CoronaAustralisWideSourceMasks()
-                )
+                self.__additional_source_masks = CoronaAustralisWideSourceMasks()
             elif additional_source_masks.lower() == "corona_australis_control":
-                self.__additional_source_masks = (
-                    CoronaAustralisControlSourceMasks()
-                )
+                self.__additional_source_masks = CoronaAustralisControlSourceMasks()
             elif additional_source_masks.lower() == "lupus_deep":
-                self.__additional_source_masks = (
-                    LupusDeepSourceMasks()
-                )
+                self.__additional_source_masks = LupusDeepSourceMasks()
             elif additional_source_masks.lower() == "ophiuchus_deep":
                 self.__additional_source_masks = OphiuchusDeepSourceMasks()
+            elif additional_source_masks.lower() == "pipe_deep":
+                self.__additional_source_masks = PipeDeepSourceMasks()
             else:
                 raise ValueError(
                     f"Source masks for '{additional_source_masks}' are not supported"
