@@ -35,8 +35,13 @@ for ps in paths_scripts:
     hdr = fits.Header.fromtextfile(th)
     ww = WCS(hdr)
     frame = wcs_to_celestial_frame(ww)
-    sc_tile_centers.append(SkyCoord(*ww.wcs_pix2world(hdr["NAXIS1"] / 2,
-                                                      hdr["NAXIS2"] / 2, 1), frame=frame, unit="deg"))
+    sc_tile_centers.append(
+        SkyCoord(
+            *ww.wcs_pix2world(hdr["NAXIS1"] / 2, hdr["NAXIS2"] / 2, 1),
+            frame=frame,
+            unit="deg",
+        )
+    )
 
 
 # Merge into single SkyCoord instance
@@ -63,25 +68,33 @@ for idx in range(len(cra_all)):
         continue
 
     # Build query
-    queries.append(f"SELECT * FROM gaiaedr3.gaia_source WHERE "  # noqa
-                   f"1=CONTAINS(POINT('ICRS',{cra},{cdec}), CIRCLE('ICRS',ra,dec, 1.5)))")
+    queries.append(
+        f"SELECT * FROM gaiaedr3.gaia_source WHERE "  # noqa
+        f"1=CONTAINS(POINT('ICRS',{cra},{cdec}), CIRCLE('ICRS',ra,dec, 1.5)))"
+    )
 
     # Build output filename
     out_files.append(out_file)
 
     # Run query
-    # Gaia.launch_job_async(queries[-1], dump_to_file=True, output_format="fits", output_file=out_file)
+    # Gaia.launch_job_async(
+    #     queries[-1], dump_to_file=True, output_format="fits", output_file=out_file
+    # )
     # exit()
 
 
 def _mp_query(query, output_file):
-    """ parallelization function to query database """
-    Gaia.launch_job_async(query, dump_to_file=True, output_format="fits", output_file=output_file)
+    """parallelization function to query database"""
+    Gaia.launch_job_async(
+        query, dump_to_file=True, output_format="fits", output_file=output_file
+    )
 
 
 # Run jobs in parallel
 with Parallel(n_jobs=n_jobs) as parallel:
-    mp = parallel(delayed(_mp_query)(q, f) for q, f, _ in zip(queries, out_files, tqdm(queries)))
+    mp = parallel(
+        delayed(_mp_query)(q, f) for q, f, _ in zip(queries, out_files, tqdm(queries))
+    )
 
 
 # Run jobs in a loop
