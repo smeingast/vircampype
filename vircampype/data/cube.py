@@ -14,7 +14,6 @@ from astropy.convolution import Gaussian2DKernel
 
 
 class ImageCube(object):
-
     def __init__(self, setup, cube=None):
         """
         Parameters
@@ -163,7 +162,8 @@ class ImageCube(object):
 
     def __add__(self, other):
         """
-        Implements addition for ImageData. Here the cubes are added together and a new ImageCube instance is returned
+        Implements addition for ImageData. Here the cubes are added together and a new
+        ImageCube instance is returned.
 
         Parameters
         ----------
@@ -187,16 +187,20 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube + other)
         else:
-            raise TypeError("Addition for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Addition for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __iadd__(self, other):
         """
-        Implements addition with assignment for ImageData. Both ImageCube and ndarrays are supported as input.
+        Implements addition with assignment for ImageData. Both ImageCube and ndarrays
+        are supported as input.
 
         Parameters
         ----------
         other : ImageCube, np.ndarray
-            Second ImageData instance or ndarray with same shape from which the data is to be added
+            Second ImageData instance or ndarray with same shape from which the data is
+            to be added.
 
         Returns
         -------
@@ -218,11 +222,14 @@ class ImageCube(object):
             self.cube += other
             return self
         else:
-            raise TypeError("Addition for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Addition for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __sub__(self, other):
         """
-        Implements subtraction for ImageData. Here the cubes are subtracted and a new ImageCube instance is returned.
+        Implements subtraction for ImageData. Here the cubes are subtracted and a new
+        ImageCube instance is returned.
 
         Parameters
         ----------
@@ -246,16 +253,20 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube - other)
         else:
-            raise TypeError("Subtraction for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Subtraction for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __isub__(self, other):
         """
-        Implements subtraction with assignment for ImageData. Both ImageCube and ndarrays are supported as input.
+        Implements subtraction with assignment for ImageData. Both ImageCube and
+        ndarrays are supported as input.
 
         Parameters
         ----------
         other : ImageCube, np.ndarray
-            Second ImageData instance or ndarray with same shape which is to be subtracted
+            Second ImageData instance or ndarray with same shape which is to be
+            subtracted.
 
         Returns
         -------
@@ -277,11 +288,14 @@ class ImageCube(object):
             self.cube -= other
             return self
         else:
-            raise TypeError("Subtraction for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Subtraction for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __mul__(self, other):
         """
-        Implements multiplication for ImageData. Here the cubes are multiplied and a new ImageCube instance is returned.
+        Implements multiplication for ImageData. Here the cubes are multiplied and a
+        new ImageCube instance is returned.
 
         Parameters
         ----------
@@ -305,16 +319,20 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube * other)
         else:
-            raise TypeError("Multiplication for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Multiplication for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __imul__(self, other):
         """
-        Implements multiplication with assignment for ImageData. Both ImageCube and ndarrays are supported as input.
+        Implements multiplication with assignment for ImageData. Both ImageCube and
+        ndarrays are supported as input.
 
         Parameters
         ----------
         other : ImageCube, np.ndarray
-            Second ImageData instance or ndarray with same shape which is to be multiplied with self
+            Second ImageData instance or ndarray with same shape which is to be
+            multiplied with self.
 
         Returns
         -------
@@ -336,11 +354,14 @@ class ImageCube(object):
             self.cube *= other
             return self
         else:
-            raise TypeError("Multiplication for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Multiplication for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __truediv__(self, other):
         """
-        Implements division for ImageData. Here the cubes are divided and a new ImageCube instance is returned.
+        Implements division for ImageData. Here the cubes are divided and a new
+        ImageCube instance is returned.
 
         Parameters
         ----------
@@ -364,11 +385,14 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube / other)
         else:
-            raise TypeError("Division for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Division for {0:s} not implemented".format(str(type(other)))
+            )
 
     def __itruediv__(self, other):
         """
-        Implements division with assignment for ImageData. Both ImageCube and ndarrays are supported as input.
+        Implements division with assignment for ImageData. Both ImageCube and ndarrays
+        are supported as input.
 
         Parameters
         ----------
@@ -395,12 +419,16 @@ class ImageCube(object):
             self.cube /= other
             return self
         else:
-            raise TypeError("Division for {0:s} not implemented".format(str(type(other))))
+            raise TypeError(
+                "Division for {0:s} not implemented".format(str(type(other)))
+            )
 
     # =========================================================================== #
     # I/O
     # =========================================================================== #
-    def write_mef(self, path, prime_header=None, data_headers=None, overwrite=False, dtype=None):
+    def write_mef(
+        self, path, prime_header=None, data_headers=None, overwrite=False, dtype=None
+    ):
         """
         Write MEF Fits file to disk
 
@@ -431,8 +459,12 @@ class ImageCube(object):
             dtype = self.cube.dtype
 
         # Make HDUList from data and headers
-        hdulist = fits.HDUList(hdus=[fits.ImageHDU(data=d.astype(dtype), header=h)
-                                     for d, h in zip(self.cube[:], data_headers)])
+        hdulist = fits.HDUList(
+            hdus=[
+                fits.ImageHDU(data=d.astype(dtype), header=h)
+                for d, h in zip(self.cube[:], data_headers)
+            ]
+        )
 
         # Prepend PrimaryHDU and write
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
@@ -460,7 +492,9 @@ class ImageCube(object):
 
         # Find maximum and replace with NaN
         pos_max = np.expand_dims(np.nanargmax(self.cube, axis=0), axis=0)
-        pos_max_idx = np.arange(self.cube.shape[0]).reshape((len(self), 1, 1)) == pos_max
+        pos_max_idx = (
+            np.arange(self.cube.shape[0]).reshape((len(self), 1, 1)) == pos_max
+        )
         self.cube[pos_max_idx] = np.nan
 
         # In case we replaced bad columns, put back the NaNs
@@ -486,7 +520,9 @@ class ImageCube(object):
 
         # Find minimum and replace with NaN
         pos_min = np.expand_dims(np.nanargmin(self.cube, axis=0), axis=0)
-        pos_min_idx = np.arange(self.cube.shape[0]).reshape((len(self), 1, 1)) == pos_min
+        pos_min_idx = (
+            np.arange(self.cube.shape[0]).reshape((len(self), 1, 1)) == pos_min
+        )
         self.cube[pos_min_idx] = np.nan
 
         # In case we replaced bad columns, put back the NaNs
@@ -566,11 +602,25 @@ class ImageCube(object):
         """
 
         # Perform sigma clipping along first axis
-        self.cube = apply_sigma_clip(data=self.cube, sigma_level=sigma_level, sigma_iter=sigma_iter,
-                                     center_metric=center_metric, axis=0)
+        self.cube = apply_sigma_clip(
+            data=self.cube,
+            sigma_level=sigma_level,
+            sigma_iter=sigma_iter,
+            center_metric=center_metric,
+            axis=0,
+        )
 
-    def apply_masks(self, bpm=None, sources=None, mask_min=False, mask_max=False, mask_below=None,
-                    mask_above=None, sigma_level=None, sigma_iter=1):
+    def apply_masks(
+        self,
+        bpm=None,
+        sources=None,
+        mask_min=False,
+        mask_max=False,
+        mask_below=None,
+        mask_above=None,
+        sigma_level=None,
+        sigma_iter=1,
+    ):
         """
         Applies the above given masking methods to instance cube.
 
@@ -579,7 +629,8 @@ class ImageCube(object):
         bpm : ImageCube, optional
             Bad pixel mask as ImageCube instance. Must have same shape as self
         sources: ImageCube, optional
-            Similar to the bad pixel mask, a cube that holds a mask where sources are located.
+            Similar to the bad pixel mask, a cube that holds a mask where sources are
+            located.
         mask_min : bool, optional
             Whether the minimum in the stack should be masked
         mask_max : bool, optional
@@ -620,7 +671,11 @@ class ImageCube(object):
 
         # Sigma clipping
         if (sigma_level is not None) & (sigma_iter > 0):
-            self._sigma_clip(sigma_level=sigma_level, sigma_iter=sigma_iter, center_metric=np.nanmedian)
+            self._sigma_clip(
+                sigma_level=sigma_level,
+                sigma_iter=sigma_iter,
+                center_metric=np.nanmedian,
+            )
 
     def apply_masks_plane(self, sigma_level, sigma_iter):
         """
@@ -635,8 +690,12 @@ class ImageCube(object):
         """
 
         for plane in self:
-            plane[:] = apply_sigma_clip(data=plane, sigma_level=sigma_level,
-                                        sigma_iter=sigma_iter, center_metric=np.nanmedian)
+            plane[:] = apply_sigma_clip(
+                data=plane,
+                sigma_level=sigma_level,
+                sigma_iter=sigma_iter,
+                center_metric=np.nanmedian,
+            )
 
     # =========================================================================== #
     # Data manipulation
@@ -690,9 +749,11 @@ class ImageCube(object):
         metric : callable, optional
             Metric to be used to collapse cube
         axis : int, optional
-            axis along which to flatten (usually 0 if the shape of the data is not tampered with)
+            axis along which to flatten (usually 0 if the shape of the data is not
+            tampered with).
         weights : ImageCube, optional
-            Optionally an ImageCube instance containing the weights for a weighted average flattening
+            Optionally an ImageCube instance containing the weights for a weighted
+            average flattening.
         dtype : callable, optional
             Output data type
 
@@ -703,7 +764,8 @@ class ImageCube(object):
 
         """
 
-        # # In case a weighted average should be calculated (only possible with a masked array)
+        # # In case a weighted average should be calculated (only possible with a
+        # masked array)
         # if weights is not None:
         #
         #     # Weights must match input data
@@ -711,7 +773,8 @@ class ImageCube(object):
         #         raise ValueError("Weights don't match input")
         #
         #     # Calculate weighted average
-        #     flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis, weights=weights)
+        #     flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis,
+        #     weights=weights)
         #     """:type : np.ma.MaskedArray"""
         #
         #     # Fill NaNs back in and return
@@ -719,7 +782,8 @@ class ImageCube(object):
         #         warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
         #         return flat.filled(fill_value=np.nan).astype(dtype=dtype, copy=False)
 
-        # In case a weighted average should be calculated (only possible with a masked array)
+        # In case a weighted average should be calculated (only possible with a masked
+        # array)
         if (weights is not None) and (metric == "weighted"):
 
             # Weights must match input data
@@ -727,7 +791,9 @@ class ImageCube(object):
                 raise ValueError("Weights don't match input")
 
             # Calculate weighted average
-            flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis, weights=weights)  # noqa
+            flat = np.ma.average(  # noqa
+                np.ma.masked_invalid(self.cube), axis=axis, weights=weights
+            )
             """:type : np.ma.MaskedArray"""
 
             # Fill NaNs back in and return
@@ -748,8 +814,8 @@ class ImageCube(object):
         Parameters
         ----------
         norm : int, float, np.ndarray
-            Data by which to normalize the cube. In case of an integer, or float, we divide everything. In case of a
-            1D array, we normalize each plane.
+            Data by which to normalize the cube. In case of an integer, or float, we
+            divide everything. In case of a 1D array, we normalize each plane.
 
         Raises
         -------
@@ -759,7 +825,9 @@ class ImageCube(object):
         """
 
         # If we have a float or integer
-        if (isinstance(norm, (int, np.integer))) | (isinstance(norm, (int, np.floating))):
+        if (isinstance(norm, (int, np.integer))) | (
+            isinstance(norm, (int, np.floating))
+        ):
             self.cube /= norm
 
         # If we have an array...
@@ -794,15 +862,16 @@ class ImageCube(object):
 
     def linearize(self, coeff, texptime):
         """
-        Linearizes the data cube based on non-linearity coefficients. Will created multiple parallel processes (up to 4)
-        for better performance.
+        Linearizes the data cube based on non-linearity coefficients. Will created
+        multiple parallel processes (up to 4) for better performance.
 
         Parameters
         ----------
         coeff : iterable
-            If a list of coefficients (floats), the same non-linear inversion will be applied to all planes of the cube
-            If a list of lists with coefficients, it must have the length of the cube and each plane will be linearized
-            with the corresponding coefficients.
+            If a list of coefficients (floats), the same non-linear inversion will be
+            applied to all planes of the cube If a list of lists with coefficients, it
+            must have the length of the cube and each plane will be linearized with the
+            corresponding coefficients.
         texptime : iterable
             TEXPTIME for each plane in cube.
 
@@ -831,17 +900,26 @@ class ImageCube(object):
         if self.setup.n_jobs == 1:
             mp = []
             for a, b, c in zip(self.cube, cff, texptime):
-                mp.append(linearize_data(data=a, coeff=b, texptime=c, reset_read_overhead=1.0011))
+                mp.append(
+                    linearize_data(
+                        data=a, coeff=b, texptime=c, reset_read_overhead=1.0011
+                    )
+                )
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                mp = parallel(delayed(linearize_data)(a, b, c, d)
-                              for a, b, c, d in zip(self.cube, cff, texptime, repeat(1.0011)))
+                mp = parallel(
+                    delayed(linearize_data)(a, b, c, d)
+                    for a, b, c, d in zip(self.cube, cff, texptime, repeat(1.0011))
+                )
 
         else:
-            raise ValueError("'n_threads' not correctly set (n_threads = {0})"
-                             .format(self.setup.n_jobs))
+            raise ValueError(
+                "'n_threads' not correctly set (n_threads = {0})".format(
+                    self.setup.n_jobs
+                )
+            )
 
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
@@ -855,7 +933,8 @@ class ImageCube(object):
         masks : ImageCube
             Cube instance containing masks.
         smooth : bool, optional
-            Whether the destriping array should be smoothed with a spline before being applied.
+            Whether the destriping array should be smoothed with a spline before being
+            applied.
 
         """
 
@@ -865,16 +944,19 @@ class ImageCube(object):
 
         # Destripe in parallel
         with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-            mp = parallel(delayed(destripe_helper)(a, b, c) for a, b, c in zip(self.cube, masks, repeat(smooth)))
+            mp = parallel(
+                delayed(destripe_helper)(a, b, c)
+                for a, b, c in zip(self.cube, masks, repeat(smooth))
+            )
 
         # Set new data cube
         self.cube = np.squeeze(np.array(mp))
 
     def interpolate_nan(self):
         """
-        Interpolates NaNs for each plane in the cube. Interpolation is (for performance reasons) kept very simple,
-        where the original image is convolved with a given kernel and the NaNs are then replace with the convolved
-        pixel values.
+        Interpolates NaNs for each plane in the cube. Interpolation is (for performance
+        reasons) kept very simple, where the original image is convolved with a given
+        kernel and the NaNs are then replace with the convolved pixel values.
 
         """
 
@@ -895,27 +977,47 @@ class ImageCube(object):
         for plane in self:
 
             # Chop in smaller sub-regions for better performance
-            chopped, loc = chop_image(array=plane, npieces=self.setup.n_jobs * 2,
-                                      axis=chop_ax, overlap=overlap)
+            chopped, loc = chop_image(
+                array=plane,
+                npieces=self.setup.n_jobs * 2,
+                axis=chop_ax,
+                overlap=overlap,
+            )
 
             # Do interpolation
             if self.setup.n_jobs == 1:
                 mp = []
                 for ch in chopped:
-                    mp.append(interpolate_image(data=ch, kernel=kernel,
-                                                max_bad_neighbors=self.setup.interpolate_max_bad_neighbors))
+                    mp.append(
+                        interpolate_image(
+                            data=ch,
+                            kernel=kernel,
+                            max_bad_neighbors=self.setup.interpolate_max_bad_neighbors,
+                        )
+                    )
 
             elif self.setup.n_jobs > 1:
                 with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                    mp = parallel(delayed(interpolate_image)(d, k, m) for d, k, m in
-                                  zip(chopped, repeat(kernel), repeat(self.setup.interpolate_max_bad_neighbors)))
+                    mp = parallel(
+                        delayed(interpolate_image)(d, k, m)
+                        for d, k, m in zip(
+                            chopped,
+                            repeat(kernel),
+                            repeat(self.setup.interpolate_max_bad_neighbors),
+                        )
+                    )
 
             else:
                 raise ValueError(
-                    "'n_threads' not correctly set (n_threads = {0})".format(self.setup.n_jobs))
+                    "'n_threads' not correctly set (n_threads = {0})".format(
+                        self.setup.n_jobs
+                    )
+                )
 
             # Merge back into plane and put into cube
-            plane[:] = merge_chopped(arrays=mp, locations=loc, axis=chop_ax, overlap=overlap)
+            plane[:] = merge_chopped(
+                arrays=mp, locations=loc, axis=chop_ax, overlap=overlap
+            )
 
     def replace_nan(self, value):
         """
@@ -944,11 +1046,15 @@ class ImageCube(object):
 
         # Build mask for each plane in parallel
         with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-            mp = parallel(delayed(source_mask)(a, b, c, d) for a, b, c, d in
-                          zip(self.cube,
-                              repeat(self.setup.mask_sources_thresh),
-                              repeat(self.setup.mask_sources_min_area),
-                              repeat(self.setup.mask_sources_max_area)))
+            mp = parallel(
+                delayed(source_mask)(a, b, c, d)
+                for a, b, c, d in zip(
+                    self.cube,
+                    repeat(self.setup.mask_sources_thresh),
+                    repeat(self.setup.mask_sources_min_area),
+                    repeat(self.setup.mask_sources_max_area),
+                )
+            )
 
         return ImageCube(cube=np.array(mp), setup=self.setup)
 
@@ -1090,10 +1196,18 @@ class ImageCube(object):
             back, back_sig = list(zip(*[mmm(sky_vector=c) for c in self.cube]))[:2]
         else:
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                mp = parallel(delayed(mmm)(a, b, c, d, e, f, g)
-                              for a, b, c, d, e, f, g
-                              in zip(self.cube, repeat(False), repeat(False), repeat(False),
-                                     repeat(50), repeat(20), repeat(True)))
+                mp = parallel(
+                    delayed(mmm)(a, b, c, d, e, f, g)
+                    for a, b, c, d, e, f, g in zip(
+                        self.cube,
+                        repeat(False),
+                        repeat(False),
+                        repeat(False),
+                        repeat(50),
+                        repeat(20),
+                        repeat(True),
+                    )
+                )
             # Unpack
             back, back_sig = list(zip(*mp))[:2]
 
@@ -1127,9 +1241,15 @@ class ImageCube(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                mp = parallel(delayed(background_image)(a, b, c) for a, b, c
-                              in zip(self.cube, repeat(mesh_size), repeat(mesh_filtersize)))
+                mp = parallel(
+                    delayed(background_image)(a, b, c)
+                    for a, b, c in zip(
+                        self.cube, repeat(mesh_size), repeat(mesh_filtersize)
+                    )
+                )
 
         # Unpack result, put into ImageCubes, and return
         bg, bg_std = list(zip(*mp))
-        return ImageCube(cube=np.array(bg), setup=self.setup), ImageCube(cube=np.array(bg_std), setup=self.setup)
+        return ImageCube(cube=np.array(bg), setup=self.setup), ImageCube(
+            cube=np.array(bg_std), setup=self.setup
+        )
