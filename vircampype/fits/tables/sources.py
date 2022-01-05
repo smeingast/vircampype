@@ -6,7 +6,6 @@ from vircampype.fits.tables.common import FitsTables
 
 
 class SourceCatalogs(FitsTables):
-
     def __init__(self, setup, file_paths=None):
         super(SourceCatalogs, self).__init__(file_paths=file_paths, setup=setup)
 
@@ -21,7 +20,9 @@ class SourceCatalogs(FitsTables):
             List of filters for all tables in instance.
 
         """
-        return self.read_from_prime_headers(keywords=[self.setup.keywords.filter_name])[0]
+        return self.read_from_prime_headers(keywords=[self.setup.keywords.filter_name])[
+            0
+        ]
 
     @property
     def _key_ra(self):
@@ -117,13 +118,11 @@ class SourceCatalogs(FitsTables):
 
 
 class MasterPhotometry(SourceCatalogs):
-
     def __init__(self, setup, file_paths=None):
         super(MasterPhotometry, self).__init__(file_paths=file_paths, setup=setup)
 
 
 class MasterPhotometry2Mass(MasterPhotometry):
-
     def __init__(self, setup, file_paths=None):
         super(MasterPhotometry2Mass, self).__init__(file_paths=file_paths, setup=setup)
 
@@ -137,7 +136,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
 
     @staticmethod
     def _passband2idx(passband):
-        """ Helper to return filter index for flags. """
+        """Helper to return filter index for flags."""
         if "j" in passband.lower():
             return 0
         elif "h" in passband.lower():
@@ -151,7 +150,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
 
     @property
     def _qflags(self):
-        """ Reads quality flag column from catalog. """
+        """Reads quality flag column from catalog."""
 
         if self.__qflag is not None:
             return self.__qflag
@@ -160,14 +159,17 @@ class MasterPhotometry2Mass(MasterPhotometry):
         return self.__qflag
 
     def qflags(self, passband):
-        """ Return Quality flag for given filter. """
-        return [[[x[self._passband2idx(passband=passband)] for x in y] for y in z] for z in self._qflags]
+        """Return Quality flag for given filter."""
+        return [
+            [[x[self._passband2idx(passband=passband)] for x in y] for y in z]
+            for z in self._qflags
+        ]
 
     __cflag = None
 
     @property
     def _cflags(self):
-        """ Reads contamintation and confusion flag column from catalog. """
+        """Reads contamintation and confusion flag column from catalog."""
 
         if self.__cflag is not None:
             return self.__cflag
@@ -176,8 +178,11 @@ class MasterPhotometry2Mass(MasterPhotometry):
         return self.__cflag
 
     def cflags(self, passband):
-        """ Return contamination and confusion flag for given filter. """
-        return [[[x[self._passband2idx(passband=passband)] for x in y] for y in z] for z in self._cflags]
+        """Return contamination and confusion flag for given filter."""
+        return [
+            [[x[self._passband2idx(passband=passband)] for x in y] for y in z]
+            for z in self._cflags
+        ]
 
     @staticmethod
     def translate_passband(passband):
@@ -241,7 +246,12 @@ class MasterPhotometry2Mass(MasterPhotometry):
             List of lists for each catalog and extension in self.
 
         """
-        return [[y for y in x] for x in self.get_columns(column_name=self.translate_passband(passband=passband))]
+        return [
+            [y for y in x]
+            for x in self.get_columns(
+                column_name=self.translate_passband(passband=passband)
+            )
+        ]
 
     def mag_err(self, passband):
         """
@@ -258,7 +268,12 @@ class MasterPhotometry2Mass(MasterPhotometry):
             List of lists for each catalog and extension in self.
 
         """
-        return [[y for y in x] for x in self.get_columns(column_name="e_" + self.translate_passband(passband=passband))]
+        return [
+            [y for y in x]
+            for x in self.get_columns(
+                column_name="e_" + self.translate_passband(passband=passband)
+            )
+        ]
 
     def get_purge_index(self, passband):
         """
@@ -275,12 +290,18 @@ class MasterPhotometry2Mass(MasterPhotometry):
             Index array for cleaned sources.
 
         """
-        return np.array([True if (q[0] == "A") & (c[0] == "0") else False for q, c
-                         in zip(self.qflags(passband=passband)[0][0], self.cflags(passband=passband)[0][0])])
+        return np.array(
+            [
+                True if (q[0] == "A") & (c[0] == "0") else False
+                for q, c in zip(
+                    self.qflags(passband=passband)[0][0],
+                    self.cflags(passband=passband)[0][0],
+                )
+            ]
+        )
 
 
 class MasterAstrometry(SourceCatalogs):
-
     def __init__(self, setup, file_paths=None):
         super(MasterAstrometry, self).__init__(file_paths=file_paths, setup=setup)
 
@@ -294,7 +315,7 @@ class MasterAstrometry(SourceCatalogs):
 
     @property
     def epoch(self):
-        return 2000.
+        return 2000.0
 
     _pmra = None
 
@@ -348,23 +369,35 @@ class MasterAstrometry(SourceCatalogs):
         """
 
         from astropy.units import Unit
+
         udeg = Unit("deg")
         umasyr = Unit("mas/yr")
 
         skycoord_files = []
-        for fra, fdec, fpmra, fpmdec in \
-                zip(self.ra(key=key_ra), self.dec(key=key_dec), self.pmra(key=key_pmra), self.pmdec(key=key_pmdec)):
+        for fra, fdec, fpmra, fpmdec in zip(
+            self.ra(key=key_ra),
+            self.dec(key=key_dec),
+            self.pmra(key=key_pmra),
+            self.pmdec(key=key_pmdec),
+        ):
             skycoord_ext = []
             for ra, dec, pmra, pmdec in zip(fra, fdec, fpmra, fpmdec):
-                skycoord_ext.append(SkyCoord(ra=ra*udeg, dec=dec*udeg, pm_ra_cosdec=pmra*umasyr, pm_dec=pmdec*umasyr,
-                                             frame="icrs", obstime=Time(self.epoch, format="decimalyear")))
+                skycoord_ext.append(
+                    SkyCoord(
+                        ra=ra * udeg,
+                        dec=dec * udeg,
+                        pm_ra_cosdec=pmra * umasyr,
+                        pm_dec=pmdec * umasyr,
+                        frame="icrs",
+                        obstime=Time(self.epoch, format="decimalyear"),
+                    )
+                )
             skycoord_files.append(skycoord_ext)
 
         return skycoord_files
 
 
 class MasterAstrometryGaia(MasterAstrometry):
-
     def __init__(self, setup, file_paths=None):
         super(MasterAstrometryGaia, self).__init__(file_paths=file_paths, setup=setup)
 
@@ -386,4 +419,4 @@ class MasterAstrometryGaia(MasterAstrometry):
 
     @property
     def epoch(self):
-        return 2016.
+        return 2016.0
