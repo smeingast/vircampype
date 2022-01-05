@@ -10,7 +10,6 @@ from vircampype.fits.tables.common import MasterTables
 
 
 class MasterLinearity(MasterTables):
-
     def __init__(self, file_paths, setup=None):
         super(MasterLinearity, self).__init__(file_paths=file_paths, setup=setup)
 
@@ -36,7 +35,9 @@ class MasterLinearity(MasterTables):
             return self._nl10000
 
         # Retrieve values and return
-        self._nl10000 = self.read_from_data_headers(keywords=["HIERARCH PYPE QC NL10000"])[0]
+        self._nl10000 = self.read_from_data_headers(
+            keywords=["HIERARCH PYPE QC NL10000"]
+        )[0]
         return self._nl10000
 
     _coeff = None
@@ -57,7 +58,9 @@ class MasterLinearity(MasterTables):
         if self._coeff is not None:
             return self._coeff
 
-        self._coeff = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE COEFF LINEAR")
+        self._coeff = self._read_sequence_from_data_headers(
+            keyword="HIERARCH PYPE COEFF LINEAR"
+        )
         return self._coeff
 
     _coeff_poly = None
@@ -78,7 +81,9 @@ class MasterLinearity(MasterTables):
         if self._coeff_poly is not None:
             return self._coeff_poly
 
-        self._coeff_poly = self._read_sequence_from_data_headers(keyword="HIERARCH PYPE COEFF POLY")
+        self._coeff_poly = self._read_sequence_from_data_headers(
+            keyword="HIERARCH PYPE COEFF POLY"
+        )
         return self._coeff_poly
 
     _linearity_texp = None
@@ -153,11 +158,12 @@ class MasterLinearity(MasterTables):
 
         """
 
-        # Need -1 here since the coefficients do not take an empty primary header into account
-        if hdu_index-1 < 0:
-            raise ValueError("HDU with index {0} does not exits".format(hdu_index-1))
+        # Need -1 here since the coefficients do not take an empty primary header
+        # into account
+        if hdu_index - 1 < 0:
+            raise ValueError("HDU with index {0} does not exits".format(hdu_index - 1))
 
-        return [f[hdu_index-1] for f in self.coeff]
+        return [f[hdu_index - 1] for f in self.coeff]
 
     def file2coeff(self, file_index, hdu_index=None):
         """
@@ -179,7 +185,8 @@ class MasterLinearity(MasterTables):
         if hdu_index is None:
             hdu_index = self.iter_data_hdu[file_index]
 
-        # Need -1 here since the coefficients do not take an empty primary header into account
+        # Need -1 here since the coefficients do not take an empty primary header
+        # into account
         return [self.coeff[file_index][idx - 1] for idx in hdu_index]
 
     # =========================================================================== #
@@ -189,17 +196,26 @@ class MasterLinearity(MasterTables):
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}_detector.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
+            paths = [
+                "{0}{1}_detector.pdf".format(self.setup.folders["qc_linearity"], fp)
+                for fp in self.basenames
+            ]
 
         # Loop over files and create plots
         for path, nl in zip(paths, self.nl10000):
-            plot_value_detector(values=nl, path=path, ylabel="Non-linearity @10000ADU/TEXP=2 (%)",
-                                axis_size=axis_size, hlines=[0])
+            plot_value_detector(
+                values=nl,
+                path=path,
+                ylabel="Non-linearity @10000ADU/TEXP=2 (%)",
+                axis_size=axis_size,
+                hlines=[0],
+            )
 
     def qc_plot_linearity_fit(self, paths=None, axis_size=4):
 
         """
-        Create the QC plot for the linearity measurements. Should only be used together with the above method.
+        Create the QC plot for the linearity measurements. Should only be used together
+        with the above method.
 
         Parameters
         ----------
@@ -216,19 +232,32 @@ class MasterLinearity(MasterTables):
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}_fit.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
+            paths = [
+                "{0}{1}_fit.pdf".format(self.setup.folders["qc_linearity"], fp)
+                for fp in self.basenames
+            ]
 
         # Loop over files and create plots
-        for path, texp, flux, flux_lin, nl10000, coeff, coeff_poly in \
-                zip(paths, self.linearity_texp, self.flux, self.flux_linearized,
-                    self.nl10000, self.coeff, self.coeff_poly):
+        for path, texp, flux, flux_lin, nl10000, coeff, coeff_poly in zip(
+            paths,
+            self.linearity_texp,
+            self.flux,
+            self.flux_linearized,
+            self.nl10000,
+            self.coeff,
+            self.coeff_poly,
+        ):
 
             # Get plot grid
-            fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(
+                layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
+            )
             axes = axes.ravel()
 
             # Helpers
-            alltexp, allflux = [i for s in texp for i in s], [i for s in flux for i in s]
+            alltexp, allflux = [i for s in texp for i in s], [
+                i for s in flux for i in s
+            ]
             xmax = 1.05 * np.max(alltexp)
             ymax = 1.10 * np.max(self.setup.saturation_levels)
 
@@ -242,29 +271,73 @@ class MasterLinearity(MasterTables):
                 ax = axes[idx]
 
                 # Good raw flux
-                ax.scatter(np.array(texp[idx])[~bad], np.array(flux[idx])[~bad],
-                           c="#1f77b4", lw=0, s=40, alpha=0.7, zorder=1)
+                ax.scatter(
+                    np.array(texp[idx])[~bad],
+                    np.array(flux[idx])[~bad],
+                    c="#1f77b4",
+                    lw=0,
+                    s=40,
+                    alpha=0.7,
+                    zorder=1,
+                )
 
                 # Bad raw flux
-                ax.scatter(np.array(texp[idx])[bad], np.array(flux[idx])[bad],
-                           lw=1, s=40, facecolors="none", edgecolors="#1f77b4")
+                ax.scatter(
+                    np.array(texp[idx])[bad],
+                    np.array(flux[idx])[bad],
+                    lw=1,
+                    s=40,
+                    facecolors="none",
+                    edgecolors="#1f77b4",
+                )
 
                 # Linearized good flux
-                ax.scatter(np.array(texp[idx])[~bad], np.array(flux_lin[idx])[~bad],
-                           c="#ff7f0e", lw=0, s=40, alpha=0.7, zorder=2)
+                ax.scatter(
+                    np.array(texp[idx])[~bad],
+                    np.array(flux_lin[idx])[~bad],
+                    c="#ff7f0e",
+                    lw=0,
+                    s=40,
+                    alpha=0.7,
+                    zorder=2,
+                )
 
                 # Fit
-                ax.plot(texp[idx], linearity_fitfunc(texp[idx], *coeff_poly[idx][1:]), c="black", lw=0.8, zorder=0)
+                ax.plot(
+                    texp[idx],
+                    linearity_fitfunc(texp[idx], *coeff_poly[idx][1:]),
+                    c="black",
+                    lw=0.8,
+                    zorder=0,
+                )
 
                 # Saturation
-                ax.hlines(self.setup.saturation_levels[idx], 0, ceil_value(xmax, value=5),
-                          linestyles="dashed", colors="#7F7F7F", lw=1)
+                ax.hlines(
+                    self.setup.saturation_levels[idx],
+                    0,
+                    ceil_value(xmax, value=5),
+                    linestyles="dashed",
+                    colors="#7F7F7F",
+                    lw=1,
+                )
 
                 # Annotate non-linearity and detector ID
-                ax.annotate("NL$_{{10000}}$ (TEXP=2s)$=${}%".format(np.round(nl10000[idx], decimals=2)),
-                            xy=(0.03, 0.96), xycoords="axes fraction", ha="left", va="top")
-                ax.annotate("Det.ID: {0:0d}".format(idx + 1),
-                            xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
+                ax.annotate(
+                    "NL$_{{10000}}$ (TEXP=2s)$=${}%".format(
+                        np.round(nl10000[idx], decimals=2)
+                    ),
+                    xy=(0.03, 0.96),
+                    xycoords="axes fraction",
+                    ha="left",
+                    va="top",
+                )
+                ax.annotate(
+                    "Det.ID: {0:0d}".format(idx + 1),
+                    xy=(0.96, 0.03),
+                    xycoords="axes fraction",
+                    ha="right",
+                    va="bottom",
+                )
 
                 # Modify axes
                 if idx < self.setup.fpa_layout[1]:
@@ -293,7 +366,9 @@ class MasterLinearity(MasterTables):
 
             # Save plot
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                warnings.filterwarnings(
+                    "ignore", message="tight_layout : falling back to Agg renderer"
+                )
                 fig.savefig(path, bbox_inches="tight")
             plt.close("all")
 
@@ -305,13 +380,18 @@ class MasterLinearity(MasterTables):
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}_delta.pdf".format(self.setup.folders["qc_linearity"], fp) for fp in self.basenames]
+            paths = [
+                "{0}{1}_delta.pdf".format(self.setup.folders["qc_linearity"], fp)
+                for fp in self.basenames
+            ]
 
         # Loop over files and create plots
         for idx_file in range(self.n_files):
 
             # Get plot grid
-            fig, axes = get_plotgrid(layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size)
+            fig, axes = get_plotgrid(
+                layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
+            )
             axes = axes.ravel()
 
             # Grab variable for current file
@@ -325,29 +405,51 @@ class MasterLinearity(MasterTables):
                 coeff_hdu = coeff_file[idx_hdu]
 
                 # Generate test data
-                # data = np.linspace(1, self.setup.saturation_levels[idx_hdu] + 5000, 150)
                 data = np.linspace(1, 50000, 5000)
 
                 # Sample a few TEXPs
                 texps = [2, 5, 10]
-                data_lin = [linearize_data(data=data, coeff=coeff_hdu, texptime=t, reset_read_overhead=1.0011)
-                            for t in texps]
+                data_lin = [
+                    linearize_data(
+                        data=data,
+                        coeff=coeff_hdu,
+                        texptime=t,
+                        reset_read_overhead=1.0011,
+                    )
+                    for t in texps
+                ]
 
                 # Draw
                 for idx_texp in range(len(texps)):
-                    ax.plot(data, data_lin[idx_texp] - data, lw=2, alpha=0.8,
-                            label="TEXP={0}".format(texps[idx_texp]))
+                    ax.plot(
+                        data,
+                        data_lin[idx_texp] - data,
+                        lw=2,
+                        alpha=0.8,
+                        label="TEXP={0}".format(texps[idx_texp]),
+                    )
 
                 # Draw saturation level
-                ax.axvline(self.setup.saturation_levels[idx_hdu], ls="dashed", c="#7F7F7F",
-                           lw=1, zorder=0, label="Saturation")
+                ax.axvline(
+                    self.setup.saturation_levels[idx_hdu],
+                    ls="dashed",
+                    c="#7F7F7F",
+                    lw=1,
+                    zorder=0,
+                    label="Saturation",
+                )
 
                 # 1:1 line
                 ax.axhline(0, c="black", lw=1, zorder=0)
 
                 # Annotate Detector ID
-                ax.annotate("Det.ID: {0:0d}".format(idx_hdu + 1),
-                            xy=(0.96, 0.03), xycoords="axes fraction", ha="right", va="bottom")
+                ax.annotate(
+                    "Det.ID: {0:0d}".format(idx_hdu + 1),
+                    xy=(0.96, 0.03),
+                    xycoords="axes fraction",
+                    ha="right",
+                    va="bottom",
+                )
 
                 # Modify axes
                 if idx_hdu < self.setup.fpa_layout[1]:
@@ -378,11 +480,19 @@ class MasterLinearity(MasterTables):
                 yticks[0].set_visible(False)
 
             # Set label on last iteration
-            ax.legend(loc="lower left", bbox_to_anchor=(0.01, 1.02), ncol=5,  # noqa
-                      fancybox=False, shadow=False, frameon=False)
+            ax.legend(  # noqa
+                loc="lower left",
+                bbox_to_anchor=(0.01, 1.02),
+                ncol=5,  # noqa
+                fancybox=False,
+                shadow=False,
+                frameon=False,
+            )
 
             # Save plot
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="tight_layout : falling back to Agg renderer")
+                warnings.filterwarnings(
+                    "ignore", message="tight_layout : falling back to Agg renderer"
+                )
                 fig.savefig(path, bbox_inches="tight")
             plt.close("all")
