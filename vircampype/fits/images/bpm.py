@@ -3,7 +3,6 @@ from vircampype.fits.images.common import MasterImages
 
 
 class MasterBadPixelMask(MasterImages):
-
     def __init__(self, setup, file_paths=None):
         super(MasterImages, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -32,9 +31,16 @@ class MasterBadPixelMask(MasterImages):
 
         # Generate path for plots
         if paths is None:
-            paths = ["{0}{1}.pdf".format(self.setup.folders["qc_bpm"], fp) for fp in self.basenames]
+            paths = [
+                "{0}{1}.pdf".format(self.setup.folders["qc_bpm"], fp)
+                for fp in self.basenames
+            ]
 
         # Loop over files and create plots
         for bpm, path in zip(self.bpmfracs, paths):
-            plot_value_detector(values=[x * 100 for x in bpm], path=path,
-                                ylabel="Bad pixel fraction (%)", axis_size=axis_size,)
+            plot_value_detector(
+                values=[x * 100 for x in bpm],
+                path=path,
+                ylabel="Bad pixel fraction (%)",
+                axis_size=axis_size,
+            )
