@@ -57,7 +57,6 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
         folder += "/"
 
     # Define Gaia path
-    # path_gaia_raw = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/gaia_edr3_raw.fits"
     path_scamp_default = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
 
     # Find all raw folders
