@@ -18,6 +18,7 @@ def build_mosaic(
     reference_mag_lim,
     projection,
     phase3_photerr_internal,
+    build_phase3=True,
     **kwargs,
 ):
 
@@ -61,7 +62,7 @@ def build_mosaic(
         external_headers=True,
         build_stacks=False,
         build_tile=True,
-        build_phase3=True,
+        build_phase3=build_phase3,
         archive=False,
         qc_plots=True,
         **kwargs,
