@@ -22,6 +22,7 @@ kwargs = dict(
     reference_mag_lim=reference_mag_lim,
     phase3_photerr_internal=phase3_photerr_internal,
     build_class_star_library=False,
+    build_phase3=False,
 )
 
 # Build mosaic for North field
