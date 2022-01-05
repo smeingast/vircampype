@@ -70,7 +70,7 @@ for idx in range(len(cra_all)):
     # Build query
     queries.append(
         f"SELECT * FROM gaiaedr3.gaia_source WHERE "  # noqa
-        f"1=CONTAINS(POINT('ICRS',{cra},{cdec}), CIRCLE('ICRS',ra,dec, 1.5)))"
+        f"1=CONTAINS(POINT('ICRS',{cra},{cdec}), CIRCLE('ICRS',ra,dec, 1.0)))"
     )
 
     # Build output filename
