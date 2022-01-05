@@ -10,15 +10,16 @@ from vircampype.tools.systemtools import remove_file
 
 
 class FitsFiles:
-
     def __init__(self, setup, file_paths=None):
         """
-        Top-level class of FITS files. Contains basic information on file structure and the headers.
+        Top-level class of FITS files. Contains basic information on file structure and
+        the headers.
 
         Parameters
         ----------
         setup : str, dict, Setup
-            Either a string pointing to the location of a pipeline YML, or a dict, or a Setup instance.
+            Either a string pointing to the location of a pipeline YML, or a dict, or a
+            Setup instance.
         file_paths : iterable, optional.
             Paths to FITS files.
 
@@ -63,7 +64,9 @@ class FitsFiles:
         if os.path.isfile(item):
             self.paths_full[key] = item
         else:
-            raise FileNotFoundError("The specified file '{0}' does not exist.".format(item))
+            raise FileNotFoundError(
+                "The specified file '{0}' does not exist.".format(item)
+            )
 
     def __getitem__(self, key):
         return self.__class__(setup=self.setup, file_paths=self.paths_full[key])
@@ -72,10 +75,14 @@ class FitsFiles:
         return self.n_files
 
     def __add__(self, other):
-        return self.__class__(setup=self.setup, file_paths=self.paths_full + other.paths_full)
+        return self.__class__(
+            setup=self.setup, file_paths=self.paths_full + other.paths_full
+        )
 
     def __iadd__(self, other):
-        return self.__class__(setup=self.setup, file_paths=self.paths_full + other.paths_full)
+        return self.__class__(
+            setup=self.setup, file_paths=self.paths_full + other.paths_full
+        )
 
     # =========================================================================== #
     # I/O
@@ -90,9 +97,11 @@ class FitsFiles:
         path : str
             Path to folder.
         setup : str, dict, Setup
-            Either a string pointing to the location of a pipeline YML, or a dict, or a Setup instance.
+            Either a string pointing to the location of a pipeline YML, or a dict, or a
+            Setup instance.
         pattern : str, optional
-            Substring to identify FITS files. Default is None, which loads all files in the folder.
+            Substring to identify FITS files. Default is None, which loads all files in
+            the folder.
         exclude : str, optional
             Substring contained in filenames for files that should be excluded.
 
@@ -122,7 +131,10 @@ class FitsFiles:
     # =========================================================================== #
     @property
     def paths_headers(self):
-        return ["{0}{1}.header".format(self.setup.folders["headers"], x) for x in self.basenames]
+        return [
+            "{0}{1}.header".format(self.setup.folders["headers"], x)
+            for x in self.basenames
+        ]
 
     _headers = None
 
@@ -188,8 +200,8 @@ class FitsFiles:
 
     def read_from_prime_headers(self, keywords):
         """
-        Simple method to return a list with lists for the individual values of the supplied keys from the primary
-        headers
+        Simple method to return a list with lists for the individual values of the
+        supplied keys from the primary headers
 
         Parameters
         ----------
@@ -199,7 +211,8 @@ class FitsFiles:
         Returns
         -------
         iterable
-            List of lists for all input keywords (unpackable) containing the stored value in the headers
+            List of lists for all input keywords (unpackable) containing the stored
+            value in the headers
 
         Raises
         ------
@@ -212,8 +225,12 @@ class FitsFiles:
             raise TypeError("Keywords must be in a list!")
 
         # Return values
-        return [[h[k] for h in self.headers_primary] if k is not None else [None for _ in range(len(self))]
-                for k in keywords]
+        return [
+            [h[k] for h in self.headers_primary]
+            if k is not None
+            else [None for _ in range(len(self))]
+            for k in keywords
+        ]
 
     @property
     def headers_data(self):
@@ -227,11 +244,15 @@ class FitsFiles:
 
         """
 
-        return [[hdrs[i] for i in idx] for hdrs, idx in zip(self.headers, self.iter_data_hdu)]
+        return [
+            [hdrs[i] for i in idx]
+            for hdrs, idx in zip(self.headers, self.iter_data_hdu)
+        ]
 
     def read_from_data_headers(self, keywords, file_index=None):
         """
-        Method to return a list with lists for the individual values of the supplied keys from the data headers
+        Method to return a list with lists for the individual values of the supplied
+        keys from the data headers.
 
         Parameters
         ----------
@@ -243,8 +264,8 @@ class FitsFiles:
         Returns
         -------
         iterable
-            Triple stacked list: List which contains a list of all keywords which in turn contain the values from all
-            data headers
+            Triple stacked list: List which contains a list of all keywords which in
+            turn contain the values from all data headers.
 
         Raises
         ------
@@ -266,7 +287,8 @@ class FitsFiles:
 
     def _read_sequence_from_data_headers(self, keyword, start_index=0):
         """
-        Retrieves values from dataheaders that are atored in a sequence like 'keyword 0' - 'keyword 1' - ...
+        Retrieves values from dataheaders that are atored in a sequence like
+        'keyword 0' - 'keyword 1' - ...
 
         Parameters
         ----------
@@ -285,7 +307,11 @@ class FitsFiles:
         idx, temp = start_index, []
         while True:
             try:
-                temp.append(self.read_from_data_headers(keywords=["{0} {1}".format(keyword, idx)])[0])
+                temp.append(
+                    self.read_from_data_headers(
+                        keywords=["{0} {1}".format(keyword, idx)]
+                    )[0]
+                )
                 idx += 1
             except KeyError:
                 break
@@ -294,7 +320,7 @@ class FitsFiles:
         return [t.T.tolist() for t in temp]
 
     def delete_headers(self, idx_file=None):
-        """ Removes all extracted header files from the header directory. """
+        """Removes all extracted header files from the header directory."""
 
         if idx_file is None:
             [remove_file(filepath=p) for p in self.paths_headers]
@@ -306,22 +332,27 @@ class FitsFiles:
     # =========================================================================== #
     @property
     def n_data_hdu(self):
-        """ Number of data HDUs for each file """
+        """Number of data HDUs for each file"""
         return [len(h) for h in self.headers_data]
 
     @property
     def iter_data_hdu(self):
         """
-        Property which holds an iterator for each file containing the indices for data access. In general it is assumed
-        here that the primary HDU always has index 0. If there is only one HDU, then this is assumed to be the primary
-        HDU which also contains data. If there are extensions, then the primary HDU is not assumed to contain data!
+        Property which holds an iterator for each file containing the indices for data
+        access. In general it is assumed here that the primary HDU always has index 0.
+        If there is only one HDU, then this is assumed to be the primary HDU which also
+        contains data. If there are extensions, then the primary HDU is not assumed to
+        contain data!
 
         Returns
         -------
         iterable
             List of iterators for header indices of HDUs which hold data.
         """
-        return [range(0, 1) if len(hdrs) == 1 else range(1, len(hdrs)) for hdrs in self.headers]
+        return [
+            range(0, 1) if len(hdrs) == 1 else range(1, len(hdrs))
+            for hdrs in self.headers
+        ]
 
     _n_hdu = None
 
@@ -364,8 +395,11 @@ class FitsFiles:
             return self._time_obs
         else:
             pass
-        self._time_obs = Time(self.read_from_prime_headers([self.setup.keywords.date_mjd])[0],
-                              scale="utc", format="mjd")
+        self._time_obs = Time(
+            self.read_from_prime_headers([self.setup.keywords.date_mjd])[0],
+            scale="utc",
+            format="mjd",
+        )
 
         return self._time_obs
 
@@ -405,7 +439,8 @@ class FitsFiles:
     # =========================================================================== #
     def split_lag(self, max_lag, sort_mjd=False):
         """
-        Splitting function which splits the input files based on a given maximum time difference.
+        Splitting function which splits the input files based on a given maximum time
+        difference.
 
         Parameters
         ----------
@@ -449,7 +484,11 @@ class FitsFiles:
                 upper = split_indices[idx + 1]
 
                 # Append files
-                split_list.append(self.__class__(setup=self.setup, file_paths=sorted_paths[lower:upper]))
+                split_list.append(
+                    self.__class__(
+                        setup=self.setup, file_paths=sorted_paths[lower:upper]
+                    )
+                )
 
             # On the last iteration we get an Index error since there is no idx + 1
             except IndexError:
@@ -470,7 +509,8 @@ class FitsFiles:
         Parameters
         ----------
         window : float, int
-            Time window in minutes for which to create FitsList entries (+/- around self.mjd).
+            Time window in minutes for which to create FitsList entries
+            (+/- around self.mjd).
         remove_duplicates : bool, optional
             When set, list duplicates will be removed (default = True)
 
@@ -482,8 +522,14 @@ class FitsFiles:
         """
 
         # Keep everything within interval
-        split_indices = [[i for i, t in enumerate([abs(1440 * (mjd - m)) for m in self.mjd]) if t < window / 2] for
-                         mjd in self.mjd]
+        split_indices = [
+            [
+                i
+                for i, t in enumerate([abs(1440 * (mjd - m)) for m in self.mjd])
+                if t < window / 2
+            ]
+            for mjd in self.mjd
+        ]
 
         # Remove duplicates
         if remove_duplicates:
@@ -492,7 +538,11 @@ class FitsFiles:
         # Create FitsFiles entries for list
         split_list = []
         for s_idx in split_indices:
-            split_list.append(self.__class__(setup=self.setup, file_paths=[self.paths_full[idx] for idx in s_idx]))
+            split_list.append(
+                self.__class__(
+                    setup=self.setup, file_paths=[self.paths_full[idx] for idx in s_idx]
+                )
+            )
 
         # Return List
         return split_list
@@ -509,7 +559,8 @@ class FitsFiles:
         Returns
         -------
         iterable
-            List with split FitsFiles entries based on unique keyword-value combinations.
+            List with split FitsFiles entries based on unique keyword-value
+            combinations.
 
         """
 
@@ -527,7 +578,11 @@ class FitsFiles:
 
         split_list = []
         for s_idx in split_indices:
-            split_list.append(self.__class__(setup=self.setup, file_paths=[self.paths_full[idx] for idx in s_idx]))
+            split_list.append(
+                self.__class__(
+                    setup=self.setup, file_paths=[self.paths_full[idx] for idx in s_idx]
+                )
+            )
 
         return split_list
 
@@ -536,7 +591,8 @@ class FitsFiles:
     # =========================================================================== #
     def match_mjd(self, match_to, max_lag=None):
         """
-        Matches all entries in the current instance with the match_to instance according to the closest match in time.
+        Matches all entries in the current instance with the match_to instance
+        according to the closest match in time.
 
         Parameters
         ----------
@@ -573,8 +629,11 @@ class FitsFiles:
             # Raise Error when there is no file available within the maximum lag
             if max_lag is not None:
                 if np.min(mjd_diff) > max_lag:
-                    raise ValueError("No match within allowed time frame ({0} < {1})"
-                                     .format(max_lag, np.round(np.min(mjd_diff), decimals=4)))
+                    raise ValueError(
+                        "No match within allowed time frame ({0} < {1})".format(
+                            max_lag, np.round(np.min(mjd_diff), decimals=4)
+                        )
+                    )
 
             # Get minimum index and append files
             matched.append(match_to.paths_full[mjd_diff.index(min(mjd_diff))])
@@ -592,7 +651,8 @@ class FitsFiles:
         Returns
         -------
         MasterImages
-            MasterImages instance with all master fits files in the mastercalibration directory
+            MasterImages instance with all master fits files in the mastercalibration d
+            irectory.
 
         Raises
         ------
@@ -603,8 +663,9 @@ class FitsFiles:
         from vircampype.fits.images.common import MasterImages
 
         # Get paths in the master calibration directory
-        paths = (glob.glob(self.setup.folders["master_common"] + "*.fits") +
-                 glob.glob(self.setup.folders["master_object"] + "*.fits"))
+        paths = glob.glob(self.setup.folders["master_common"] + "*.fits") + glob.glob(
+            self.setup.folders["master_object"] + "*.fits"
+        )
 
         # If there is nothing, issue error
         if len(paths) < 1:
@@ -619,7 +680,8 @@ class FitsFiles:
         Returns
         -------
         MasterTables
-            MasterTables instance with all master fits tables in the mastercalibration directory
+            MasterTables instance with all master fits tables in the mastercalibration
+            directory.
 
         Raises
         ------
@@ -630,8 +692,9 @@ class FitsFiles:
         from vircampype.fits.tables.common import MasterTables
 
         # Get paths in the master calibration directory
-        paths = (glob.glob(self.setup.folders["master_common"] + "*.fits.tab") +
-                 glob.glob(self.setup.folders["master_object"] + "*.fits.tab"))
+        paths = glob.glob(
+            self.setup.folders["master_common"] + "*.fits.tab"
+        ) + glob.glob(self.setup.folders["master_object"] + "*.fits.tab")
 
         # If there is nothing, issue error
         if len(paths) < 1:
@@ -646,7 +709,8 @@ class FitsFiles:
         Returns
         -------
         MasterPhotometry
-            MasterPhotometry instance holding for all files in self the corresponding MasterPhotometry table.
+            MasterPhotometry instance holding for all files in self the corresponding
+            MasterPhotometry table.
 
         """
         return self.get_master_tables().photometry
