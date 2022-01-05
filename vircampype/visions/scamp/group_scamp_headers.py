@@ -9,12 +9,17 @@ from vircampype.tools.systemtools import which
 from vircampype.tools.fitstools import make_gaia_refcat
 from vircampype.tools.astromatic import sextractor2imagehdr
 from vircampype.tools.miscellaneous import flat_list, write_list
-from vircampype.tools.systemtools import read_yml, make_folder, make_executable, cmd_prepend_libraries
+from vircampype.tools.systemtools import (
+    read_yml,
+    make_folder,
+    make_executable,
+    cmd_prepend_libraries,
+)
 
 __all__ = ["group_scamp_headers"]
 
 
-def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.):
+def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.0):
 
     mjd_list_sorted = [mjd_list[i] for i in np.argsort(mjd_list)]
     paths_list_sorted = [paths_list[i] for i in np.argsort(mjd_list)]
@@ -23,7 +28,9 @@ def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.):
     lag_days = [a - b for a, b in zip(mjd_list_sorted[1:], mjd_list_sorted[:-1])]
 
     # Get the indices where the data is spread out over more than max_lag
-    split_indices = [i + 1 for k, i in zip(lag_days, range(len(lag_days))) if k > max_lag]
+    split_indices = [
+        i + 1 for k, i in zip(lag_days, range(len(lag_days))) if k > max_lag
+    ]
 
     # Add first and last index
     split_indices.insert(0, 0)
@@ -50,31 +57,43 @@ def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.):
     return split_list, split_list_mjd
 
 
-def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, prepare_scamp: bool = True):
+def group_scamp_headers(
+    paths_scripts: List, folder: str, path_gaia_raw: str, prepare_scamp: bool = True
+):
 
     # Check if folder ends with slash
     if not folder.endswith("/"):
         folder += "/"
 
     # Define Gaia path
-    path_scamp_default = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
+    path_scamp_default = (
+        "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
+    )
 
     # Find all raw folders
     paths_folders_procfinal = []
     for ps in paths_scripts:
         yml = read_yml(ps)
-        paths_folders_procfinal.append(yml["path_pype"] + yml["name"] + "/processed_final/")
+        paths_folders_procfinal.append(
+            yml["path_pype"] + yml["name"] + "/processed_final/"
+        )
 
     # Find all raw files
-    paths_images_all = flat_list([sorted(glob.glob(f"{pf}*.proc.final.fits")) for pf in paths_folders_procfinal])
+    paths_images_all = flat_list(
+        [sorted(glob.glob(f"{pf}*.proc.final.fits")) for pf in paths_folders_procfinal]
+    )
 
     # Find all scamp tables
-    paths_scamp_all = flat_list([sorted(glob.glob(f"{pf}*.scamp.fits.tab")) for pf in paths_folders_procfinal])
+    paths_scamp_all = flat_list(
+        [sorted(glob.glob(f"{pf}*.scamp.fits.tab")) for pf in paths_folders_procfinal]
+    )
 
     # There must be as many scamp tables as raw files
     if len(paths_images_all) != len(paths_scamp_all):
-        raise ValueError(f"Number of raw files ({len(paths_images_all)}) "
-                         f"does not match scamp tables ({len(paths_scamp_all)})")
+        raise ValueError(
+            f"Number of raw files ({len(paths_images_all)}) "
+            f"does not match scamp tables ({len(paths_scamp_all)})"
+        )
 
     # Print info
     print(f"Found {len(paths_scamp_all):2d} sextractor tables")
@@ -82,6 +101,7 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
     # Read image headers
     print("Extracting headers...")
     import pickle
+
     pickle_path = f"{folder}group_scamp_headers_{len(paths_images_all)}.pickle"
     try:
         image_headers_all, prime_headers_all = pickle.load(open(pickle_path, "rb"))
@@ -140,12 +160,14 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
                     group_final_paths.append(group_obid_paths[gidx])
                     group_final_mjd.append(group_obid_mjd[gidx])
 
-                # Merge, if last image of current group is close enough to first image of overall group
+                # Merge, if last image of current group is
+                # close enough to first image of overall group
                 elif np.max(group_obid_mjd[gidx]) - np.min(group_final_mjd[-1]) < 30:
                     group_final_paths[-1].extend(group_obid_paths[gidx])
                     group_final_mjd[-1].extend(group_obid_mjd[gidx])
 
-                # Also merge if first image of new sequence is close the last image in overall group
+                # Also merge if first image of new sequence is
+                # close the last image in overall group
                 elif np.min(group_obid_mjd[gidx]) - np.max(group_final_mjd[-1]) < 5:
                     group_final_paths[-1].extend(group_obid_paths[gidx])
                     group_final_mjd[-1].extend(group_obid_mjd[gidx])
@@ -192,7 +214,9 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
         for gfidx in range(len(group_final_paths)):
 
             # Determine epoch
-            epoch_out = float(np.nanmedian(Time(group_final_mjd[gfidx], format="mjd").decimalyear))
+            epoch_out = float(
+                np.nanmedian(Time(group_final_mjd[gfidx], format="mjd").decimalyear)
+            )
 
             # Make folder
             ff = f"{folder}{passband}_{epoch_out:0.5f}/"
@@ -204,7 +228,10 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
             write_list(path_file=path_out_tables, lst=group_final_paths[gfidx])
 
             # Write output header list
-            outheaders = [x.replace(".final.scamp.fits.tab", ".final.ahead") for x in group_final_paths[gfidx]]  # noqa
+            outheaders = [
+                x.replace(".final.scamp.fits.tab", ".final.ahead")  # noqa
+                for x in group_final_paths[gfidx]
+            ]
             path_out_aheaders = f"{ff}scamp_{passband}_{epoch_out:0.5f}.ahead.list"
             write_list(path_file=path_out_aheaders, lst=outheaders)
 
@@ -212,30 +239,43 @@ def group_scamp_headers(paths_scripts: List, folder: str, path_gaia_raw: str, pr
 
                 # Make gaia catalog
                 path_gaia_out = f"{ff}scamp_{passband}_{epoch_out:0.5f}.gaia.fits"
-                make_gaia_refcat(path_in=path_gaia_raw, path_out=path_gaia_out, epoch_in=2016., epoch_out=epoch_out)
+                make_gaia_refcat(
+                    path_in=path_gaia_raw,
+                    path_out=path_gaia_out,
+                    epoch_in=2016.0,
+                    epoch_out=epoch_out,
+                )
 
                 # Write header backup script
                 path_script_backup = f"{ff}header_backup.sh"
                 folder_backup = f"{ff}header_backup/"
                 make_folder(folder_backup)
-                outheaders_backup = [f"{folder_backup}{os.path.basename(o)}" for o in outheaders]
-                cmds = [f"cp -p {oo} {bb}" for oo, bb in zip(outheaders, outheaders_backup)]
+                outheaders_backup = [
+                    f"{folder_backup}{os.path.basename(o)}" for o in outheaders
+                ]
+                cmds = [
+                    f"cp -p {oo} {bb}" for oo, bb in zip(outheaders, outheaders_backup)
+                ]
                 write_list(path_file=path_script_backup, lst=cmds)
                 make_executable(path_script_backup)
 
                 # Write header restore script
                 path_script_restore = f"{ff}header_restore.sh"
-                cmds = [f"cp -p {bb} {oo}" for oo, bb in zip(outheaders, outheaders_backup)]
+                cmds = [
+                    f"cp -p {bb} {oo}" for oo, bb in zip(outheaders, outheaders_backup)
+                ]
                 write_list(path_file=path_script_restore, lst=cmds)
                 make_executable(path_script_restore)
 
                 # Write shell script
                 spath = f"{ff}scamp.sh"
-                scmd = f"{which('scamp')} -c {path_scamp_default} " \
-                       f"-HEADER_NAME @{path_out_aheaders} " \
-                       f"-ASTREFCAT_NAME {path_gaia_out} " \
-                       f"@{path_out_tables}\n" \
-                       f"{ff}header_backup.sh\n"
+                scmd = (
+                    f"{which('scamp')} -c {path_scamp_default} "
+                    f"-HEADER_NAME @{path_out_aheaders} "
+                    f"-ASTREFCAT_NAME {path_gaia_out} "
+                    f"@{path_out_tables}\n"
+                    f"{ff}header_backup.sh\n"
+                )
                 scmd = cmd_prepend_libraries(cmd=scmd)
                 with open(spath, "w") as ssh:
                     ssh.write(scmd)
