@@ -5,6 +5,7 @@ from vircampype.tools.systemtools import get_resource_path
 
 __all__ = [
     "SourceMasks",
+    "ChamaeleonDeepSourceMasks",
     "CoronaAustralisDeepSourceMasks",
     "CoronaAustralisWideSourceMasks",
     "CoronaAustralisControlSourceMasks",
@@ -74,6 +75,19 @@ class SourceMasks:
     @classmethod
     def path_package_masks(cls):
         return "vircampype.visions.masks"
+
+
+class ChamaeleonDeepSourceMasks(SourceMasks):
+    def __init__(self):
+
+        # Read masks from region file
+        path_masks = get_resource_path(
+            package=SourceMasks.path_package_masks(), resource="Chamaeleon_deep.reg"
+        )
+
+        # Call parent
+        regions = Regions.read(path_masks, format="ds9")
+        super(ChamaeleonDeepSourceMasks, self).__init__(regions=regions)
 
 
 class CoronaAustralisDeepSourceMasks(SourceMasks):

@@ -646,7 +646,9 @@ class Setup(dict):
 
         # If specified as string, try to load supported predefined masks
         elif isinstance(additional_source_masks, str):
-            if additional_source_masks.lower() == "corona_australis_deep":
+            if additional_source_masks.lower() == "chamaeleon_deep":
+                self.__additional_source_masks = ChamaeleonDeepSourceMasks()
+            elif additional_source_masks.lower() == "corona_australis_deep":
                 self.__additional_source_masks = CoronaAustralisDeepSourceMasks()
             elif additional_source_masks.lower() == "corona_australis_wide":
                 self.__additional_source_masks = CoronaAustralisWideSourceMasks()
