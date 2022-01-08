@@ -11,7 +11,7 @@ path_gaia_raw = (
 )
 
 # Run grouping function
-folder = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/Pipe/deep/"
+folder = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/Pipe/"
 group_scamp_headers(
     paths_scripts=paths_scripts,
     path_gaia_raw=path_gaia_raw,
