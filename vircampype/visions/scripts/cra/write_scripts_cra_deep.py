@@ -2,7 +2,7 @@ from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
 
 # Define paths
-path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/CrA/CrA_deep/"
+path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/CrA/deep/"
 path_data = "/Volumes/Data/VISIONS/198C-2009E/data_deep/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
