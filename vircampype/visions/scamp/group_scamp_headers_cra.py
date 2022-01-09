@@ -1,15 +1,20 @@
+import os
 import glob
 from visions.scamp.group_scamp_headers import group_scamp_headers
 
 # Find scripts for VISIONS
-""" THIS WAS RUN BEFORE THE CONTROL FIELD SCRIPTS WERE THERE. THESE SHOULD BE EXCLUDED """
-path_base = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VISIONS/CrA/"
+path_pipe = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/"
+path_base = f"{path_pipe}scripts/CrA/"
+path_gaia_raw = f"{path_pipe}scamp/CrA/gaia_edr3_raw.fits"
 paths_scripts = sorted(glob.glob(path_base + "/**/*yml"))
-
-# Find scripts for VHS and append
-path_base = "/Users/stefan/Dropbox/Projects/VISIONS/scripts/VHS/CrA/"
-paths_scripts += sorted(glob.glob(path_base + "/**/*yml"))
+# Remove symbolic links
+paths_scripts = [ps for ps in paths_scripts if not os.path.islink(ps)]
 
 # Run grouping function
-folder = "/Users/stefan/Dropbox/Projects/VISIONS/Scamp/CrA/"
-group_scamp_headers(paths_scripts=paths_scripts, folder=folder, prepare_scamp=True)
+folder = f"{path_pipe}scamp/CrA/"
+group_scamp_headers(
+    paths_scripts=paths_scripts,
+    folder=folder,
+    path_gaia_raw=path_gaia_raw,
+    prepare_scamp=True,
+)
