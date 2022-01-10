@@ -1,6 +1,7 @@
 import os
 import glob
 import numpy as np
+import matplotlib.pyplot as plt
 
 from typing import List
 from astropy.io import fits
@@ -156,13 +157,13 @@ def group_scamp_headers(
             else:
 
                 # If length of current list is too long already, make new batch
-                if len(group_final_mjd[-1]) > 450:
+                if len(group_final_mjd[-1]) > 180:
                     group_final_paths.append(group_obid_paths[gidx])
                     group_final_mjd.append(group_obid_mjd[gidx])
 
                 # Merge, if last image of current group is
                 # close enough to first image of overall group
-                elif np.max(group_obid_mjd[gidx]) - np.min(group_final_mjd[-1]) < 30:
+                elif np.max(group_obid_mjd[gidx]) - np.min(group_final_mjd[-1]) < 14:
                     group_final_paths[-1].extend(group_obid_paths[gidx])
                     group_final_mjd[-1].extend(group_obid_mjd[gidx])
 
@@ -193,7 +194,7 @@ def group_scamp_headers(
                 temp_mjd.append(group_final_mjd[gfidx])
 
             # If time difference to previous entry is too big, also append new batch
-            elif np.nanmin(group_final_mjd[gfidx]) - np.nanmax(temp_mjd[-1]) > 60:
+            elif np.nanmin(group_final_mjd[gfidx]) - np.nanmax(temp_mjd[-1]) > 14:
                 temp_paths.append(group_final_paths[gfidx])
                 temp_mjd.append(group_final_mjd[gfidx])
 
@@ -215,7 +216,7 @@ def group_scamp_headers(
 
             # Determine epoch
             epoch_out = float(
-                np.nanmedian(Time(group_final_mjd[gfidx], format="mjd").decimalyear)
+                np.nanmean(Time(group_final_mjd[gfidx], format="mjd").decimalyear)
             )
 
             # Make folder
