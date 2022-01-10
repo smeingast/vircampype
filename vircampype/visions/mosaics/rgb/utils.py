@@ -25,6 +25,13 @@ def jpg2fits(
     im_g = np.flipud(im_g.T).astype(np.float32)
     im_b = np.flipud(im_b.T).astype(np.float32)
 
+    # Check dimensions
+    shape_fits = (hdr["NAXIS2"], hdr["NAXIS1"])
+    if not im_r.shape == shape_fits:
+        raise ValueError(
+            f"JPG ({im_r.shape}) and FITS ({shape_fits}) dimensions not matching"
+        )
+
     # Find bad values on weights if given
     if paths_weights is not None:
 
