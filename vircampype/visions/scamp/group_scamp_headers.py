@@ -295,7 +295,8 @@ def group_scamp_headers(
                     f"{which('scamp')} -c {path_scamp_default} "
                     f"-HEADER_NAME @{path_out_aheaders} "
                     f"-ASTREFCAT_NAME {path_gaia_out} "
-                    f"@{path_out_tables}\n"
+                    f"@{path_out_tables} "
+                    f"&> {ff}scamp_log.txt\n"
                     f"{ff}header_backup.sh\n"
                 )
                 scmd = cmd_prepend_libraries(cmd=scmd)
