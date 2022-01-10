@@ -223,9 +223,30 @@ def group_scamp_headers(
             make_folder(ff)
 
             # Write output table list
-            # TODO: Copy files to local backup
             path_out_tables = f"{ff}scamp_{passband}_{epoch_out:0.5f}.files.list"
             write_list(path_file=path_out_tables, lst=group_final_paths[gfidx])
+
+            # Draw MJD histogram for checks
+            fig, ax = plt.subplots(
+                nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4))
+            )
+            bins = np.arange(
+                np.floor(np.min(group_final_mjd[gfidx])),
+                np.ceil(np.max(group_final_mjd[gfidx])) + 1,
+                1,
+            )
+
+            ax.hist(group_final_mjd[gfidx], bins=bins, zorder=0)
+            ax.axvline(
+                np.nanmean(Time(group_final_mjd[gfidx], format="mjd").mjd),
+                c="black",
+                zorder=1,
+                ls="dashed",
+            )
+            ax.set_xlabel("MJD")
+            ax.set_ylabel("N")
+            plt.savefig(f"{ff}mjd.pdf")
+            plt.close()
 
             # Write output header list
             outheaders = [
