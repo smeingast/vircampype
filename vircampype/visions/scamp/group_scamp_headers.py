@@ -65,7 +65,7 @@ def group_scamp_headers(
     if not folder.endswith("/"):
         folder += "/"
 
-    # Define Gaia path
+    # Define scamp default config path
     path_scamp_default = (
         "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
     )
