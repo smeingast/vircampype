@@ -91,13 +91,13 @@ def plot_contrast(path_log):
         else:
             label_colors.append("black")
 
-    # Draw lower limit
-    for ax in [ax0, ax1]:
-        ax.axhline(2, c="crimson", lw=0.5)
+    # Draw lower limits
+    ax1.axhline(2, c="orange", lw=0.5)
+    ax0.axhline(2, c="crimson", lw=0.5)
 
     # Labels
-    ax1.set_ylabel("Contrast1")
-    ax0.set_ylabel("Contrast2")
+    ax1.set_ylabel("Contrast (angle, scale)")
+    ax0.set_ylabel("Contrast (shift)")
 
     # Ticker
     for ax in [ax0, ax1]:
