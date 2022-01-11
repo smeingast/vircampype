@@ -26,7 +26,7 @@ kwargs = dict(
 )
 
 # Build mosaic for North field
-name = "Lupus_deep_H_N"
+name = "Lupus_deep_N_H"
 path_data = f"/Volumes/Data/Mosaics/Lupus/{name}/"
 build_mosaic(
     name=name,
@@ -37,7 +37,7 @@ build_mosaic(
 )
 
 # Build mosaic for South field
-name = "Lupus_deep_H_S"
+name = "Lupus_deep_S_H"
 path_data = f"/Volumes/Data/Mosaics/Lupus/{name}/"
 build_mosaic(
     name=name,
