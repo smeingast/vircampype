@@ -11,7 +11,7 @@ paths_files = sorted(glob(path_data + "CrA*/B/*.fits"))
 
 # Common kwargs
 kwargs = dict(
-    archive=True,
+    archive=False,
     projection="Corona_Australis_wide",
     additional_source_masks="Corona_Australis_wide",
     n_jobs=18,
@@ -21,8 +21,8 @@ kwargs = dict(
     name_suffix="_B",
     build_stacks=True,
     build_tile=True,
-    build_phase3=True,
-    build_class_star_library=True,
+    build_phase3=False,
+    build_class_star_library=False,
 )
 
 # Write scripts

@@ -14,7 +14,7 @@ write_scripts(
     paths_files=paths_files,
     path_pype=path_pype,
     path_scripts=path_scripts,
-    archive=True,
+    archive=False,
     projection="Corona_Australis_wide",
     additional_source_masks="Corona_Australis_wide",
     n_jobs=18,
@@ -24,8 +24,8 @@ write_scripts(
     name_suffix="_E",
     build_stacks=True,
     build_tile=True,
-    build_phase3=True,
-    build_class_star_library=True,
+    build_phase3=False,
+    build_class_star_library=False,
 )
 
 """ Four tiles are missing from this run. These were done later in run L. """
