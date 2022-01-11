@@ -15,7 +15,7 @@ paths_files_ks = sorted(glob(path_data + "CrA_deep_Ks*/*.fits"))
 kwargs = dict(
     path_pype=path_pype,
     path_scripts=path_scripts,
-    archive=True,
+    archive=False,
     projection="Corona_Australis_deep",
     additional_source_masks="Corona_Australis_deep",
     n_jobs=18,
@@ -24,7 +24,8 @@ kwargs = dict(
     name_suffix=None,
     build_stacks=True,
     build_tile=True,
-    build_phase3=True,
+    build_phase3=False,
+    build_class_star_library=False
 )
 
 # Write scripts
