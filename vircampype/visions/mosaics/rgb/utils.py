@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Generator, List, Union
 
 
+# Target ZPs
+def flux_scale_rgb(zeropoints_rgb):
+    zp_target_h, jh_sun, hk_sun = 25.0, 0.286, 0.076
+    zp_target = [zp_target_h - hk_sun, zp_target_h, jh_sun + zp_target_h]
+    scale_zp = [zpt - zp for zpt, zp in zip(zp_target, zeropoints_rgb)]
+    return [10 ** (s / 2.5) for s in scale_zp]
+
+
 def jpg2fits(
     path_jpg: Path,
     path_fits: Path,
@@ -58,3 +66,59 @@ def jpg2fits(
 
     hdu_b = fits.PrimaryHDU(data=im_b, header=hdr)
     hdu_b.writeto(str(path_jpg).replace(suffix, "_B.fits"), overwrite=overwrite)
+
+
+def prepare_rgb(path_r, path_g, path_b, zeropoints_rgb=None):
+
+    if zeropoints_rgb is None:
+        zeropoints_rgb = [25, 25, 25]
+
+    # Read data
+    dr, hr = fits.getdata(path_r, header=True)
+    dg, hg = fits.getdata(path_g, header=True)
+    db, hb = fits.getdata(path_b, header=True)
+
+    # Read weights
+    wr = fits.getdata(path_r.replace(".fits", ".weight.fits"))
+    wg = fits.getdata(path_g.replace(".fits", ".weight.fits"))
+    wb = fits.getdata(path_b.replace(".fits", ".weight.fits"))
+
+    # Set 0 weight pixels to invalid
+    dr[wr < 0.0001] = np.nan
+    dg[wg < 0.0001] = np.nan
+    db[wb < 0.0001] = np.nan
+
+    # Scale data to match sun-like ZP
+    fscl = flux_scale_rgb(zeropoints_rgb=zeropoints_rgb)
+    dr *= fscl[0]
+    dg *= fscl[1]
+    db *= fscl[2]
+
+    for pp, dd, hh in zip([path_r, path_g, path_b], [dr, dg, db], [hr, hg, hb]):
+        phdu = fits.PrimaryHDU(data=dd, header=hh)
+        phdu.writeto(pp.replace(".fits", "_scaled.fits"), overwrite=False)
+
+
+def tile_image(path, direction="y", npieces=2):
+    import os
+    from tifffile import imread, imwrite
+    from vircampype.tools.imagetools import chop_image
+    img = imread(path)
+
+    # Get name and extension
+    fname, fext = os.path.splitext(path)
+
+    if direction == "y":
+        axis = 0
+    elif direction == "x":
+        axis = 1
+    else:
+        raise ValueError
+    chopped = chop_image(img, axis=axis, npieces=npieces)
+    for idx in range(len(chopped)):
+        imwrite(f"{fname}_{idx}{fext}", data=chopped[idx])
+
+
+if __name__ == "__main__":
+    tile_image(path="/Volumes/Data/VISIONS/RGB/CrA/mosaic/L.tif",
+               direction="y", npieces=3)
