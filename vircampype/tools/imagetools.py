@@ -2,6 +2,7 @@ import warnings
 import itertools
 import numpy as np
 
+from typing import List
 from astropy import wcs
 from skimage.filters import sobel
 from scipy.ndimage import median_filter
@@ -147,7 +148,7 @@ def chop_image(array, npieces, axis=0, overlap=None):
 
     Returns
     -------
-    list
+    List
         List of sub-arrays constructed from the input
 
     """
