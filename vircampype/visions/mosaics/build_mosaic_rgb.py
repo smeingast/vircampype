@@ -82,7 +82,7 @@ def add_edge_gradient(img, npix):
 
 def build_mosaic_rgb(
     paths_tiles_wide: List,
-    paths_tiles_deep: List,
+    path_deep_stack: str,
     path_mosaic: str,
     name_mosaic: str,
     field_name: str,
@@ -124,29 +124,25 @@ def build_mosaic_rgb(
         raise ValueError("Catalogs for wide fields do not match tiles")
 
     # Find deep weights and source catalogs
-    paths_weights_deep = [
-        pt.replace(".fits", ".weight.fits") for pt in paths_tiles_deep
-    ]
-    paths_catalogs_deep = [
-        pt.replace(".fits", ".full.fits.ctab") for pt in paths_tiles_deep
-    ]
+    path_weight_dst = path_deep_stack.replace(".fits", ".weight.fits")
+    path_catalog_dst = path_deep_stack.replace(".fits", ".full.fits.ctab")
 
-    # Check if deep weights and catalogs exist
-    if len(paths_tiles_deep) != len([os.path.isfile(p) for p in paths_tiles_deep]):
-        raise ValueError("Tiles and weights for deep fields do not match")
-    if len(paths_tiles_deep) != len([os.path.isfile(p) for p in paths_catalogs_deep]):
-        raise ValueError("Catalogs for wide fields do not match tiles")
+    # Check if deep stack weight and catalog exist
+    if not os.path.exists(path_weight_dst):
+        raise ValueError("Weight for deep stack not found")
+    if not os.path.exists(path_catalog_dst):
+        raise ValueError("Source catalog for deep stack not found")
 
     # Require input to continue
     print(f"Found {len(paths_tiles_wide)} wide tiles")
-    print(f"Found {len(paths_tiles_deep)} deep tiles")
+    print(f"Found 1 deep stack")
     if (input("Continue (Y/n)") or "Y") != "Y":
         exit()
 
     # Combine wide and deep paths
-    paths_tiles_all = paths_tiles_wide + paths_tiles_deep
-    paths_weights_all = paths_weights_wide + paths_weights_deep
-    paths_catalogs_all = paths_catalogs_wide + paths_catalogs_deep
+    paths_tiles_all = paths_tiles_wide + [path_deep_stack]
+    paths_weights_all = paths_weights_wide + [path_weight_dst]
+    paths_catalogs_all = paths_catalogs_wide + [path_catalog_dst]
 
     # Generate output paths for all files
     paths_tiles_all_out = [
