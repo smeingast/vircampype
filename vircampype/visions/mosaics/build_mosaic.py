@@ -16,7 +16,7 @@ def build_mosaic(
     path_pype: str,
     path_master_astro_photo: str,
     n_jobs: int,
-    reference_mag_lim: tuple[int, int],
+    reference_mag_lim: tuple[float, float],
     projection: str,
     phase3_photerr_internal: float,
     build_phase3: bool = True,
