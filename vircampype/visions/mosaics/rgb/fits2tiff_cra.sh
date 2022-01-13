@@ -6,7 +6,8 @@ name_h=${directory}CrA_RGB_H
 name_ks=${directory}CrA_RGB_Ks
 name_l=${directory}CrA_RGB_L
 names_all=("$name_j" "$name_h" "$name_ks" "$name_l")
-numbers=(00 01 02 10 11 12 20 21 22)
+#numbers=(00 01 02 10 11 12 20 21 22)
+numbers=(11 01 02 10 00 12 20 21 22)
 path_config=/Volumes/Data/RGB/CrA/mosaic/stiff_manual.config
 
 # Set extraction levels (from auto mode on big tif file -3)
