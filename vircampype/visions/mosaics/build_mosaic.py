@@ -1,6 +1,7 @@
 import os
 
 from glob import glob
+from typing import List
 from astropy.io import fits
 from vircampype.pipeline.main import Pipeline
 from vircampype.tools.systemtools import read_yml
@@ -9,16 +10,16 @@ from vircampype.tools.systemtools import make_folder, make_symlinks, copy_file
 
 
 def build_mosaic(
-    name,
-    paths_scripts,
-    path_data,
-    path_pype,
-    path_master_astro_photo,
-    n_jobs,
-    reference_mag_lim,
-    projection,
-    phase3_photerr_internal,
-    build_phase3=True,
+    name: str,
+    paths_scripts: List,
+    path_data: str,
+    path_pype: str,
+    path_master_astro_photo: str,
+    n_jobs: int,
+    reference_mag_lim: tuple[int, int],
+    projection: str,
+    phase3_photerr_internal: float,
+    build_phase3: bool = True,
     **kwargs,
 ):
 
