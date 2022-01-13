@@ -1,8 +1,8 @@
 import PIL
 import numpy as np
 from PIL import Image
-from astropy.io import fits
 from pathlib import Path
+from astropy.io import fits
 from typing import Generator, List, Union
 
 
@@ -117,8 +117,3 @@ def tile_image(path, direction="y", npieces=2):
     chopped = chop_image(img, axis=axis, npieces=npieces)
     for idx in range(len(chopped)):
         imwrite(f"{fname}_{idx}{fext}", data=chopped[idx])
-
-
-if __name__ == "__main__":
-    tile_image(path="/Volumes/Data/VISIONS/RGB/CrA/mosaic/L.tif",
-               direction="y", npieces=3)
