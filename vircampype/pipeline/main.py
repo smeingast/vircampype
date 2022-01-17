@@ -839,19 +839,6 @@ class Pipeline:
                 message="PAWPRINT PHOTOMETRY already done", kind="warning", end=None
             )
 
-    def photerr_internal(self):
-        if not self.status.photerr_internal:
-            self.sources_resampled_crunched.photerr_internal()
-            if self.setup.qc_plots:
-                self.sources_resampled_crunched.plot_qc_photerr_internal()
-            self.update_status(photerr_internal=True)
-        else:
-            print_message(
-                message="INTERNAL PHOTOMETRIC ERROR already determined",
-                kind="warning",
-                end=None,
-            )
-
     def photometry_stacks(self):
         if not self.status.photometry_stacks:
             self.stacks.sextractor(preset="full")
@@ -872,6 +859,19 @@ class Pipeline:
         else:
             print_message(
                 message="TILE PHOTOMETRY already done", kind="warning", end=None
+            )
+
+    def photerr_internal(self):
+        if not self.status.photerr_internal:
+            self.sources_resampled_cal.photerr_internal()
+            if self.setup.qc_plots:
+                self.sources_resampled_cal.plot_qc_photerr_internal()
+            self.update_status(photerr_internal=True)
+        else:
+            print_message(
+                message="INTERNAL PHOTOMETRIC ERROR already determined",
+                kind="warning",
+                end=None,
             )
 
     # =========================================================================== #
