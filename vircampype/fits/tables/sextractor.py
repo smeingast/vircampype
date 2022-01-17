@@ -1719,7 +1719,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Write nearest neighbor photometry into matched photometry array
             matched_phot[:, tidx] = tables_all[tidx][idx[:, 0]]["MAG_AUTO_CAL"]  # noqa
-            matched_photerr[:, tidx] = tables_all[tidx][idx[:, 0]]["MAGERR_AUTO"]  # noqa
+            matched_photerr[:, tidx] = tables_all[tidx][idx[:, 0]][  # noqa
+                "MAGERR_AUTO"
+            ]
 
             # Mask bad matches
             matched_phot[bad_dis, tidx] = np.nan
@@ -1944,10 +1946,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 continue
             else:
                 message_calibration(
-                    n_current=idx_file+1,
+                    n_current=idx_file + 1,
                     n_total=self.n_files,
                     name=path_out,
-                    )
+                )
 
             zp_auto = self.read_from_data_headers(
                 keywords=["HIERARCH PYPE ZP MAG_AUTO"]
@@ -1994,7 +1996,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 continue
             else:
                 message_calibration(
-                    n_current=idx_file+1,
+                    n_current=idx_file + 1,
                     n_total=self.n_files,
                     name=path_out,
                 )
@@ -2181,7 +2183,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 continue
             else:
                 message_calibration(
-                    n_current=idx_file+1,
+                    n_current=idx_file + 1,
                     n_total=self.n_files,
                     name=path_out,
                 )
