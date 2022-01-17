@@ -1,4 +1,3 @@
-# Import
 import os
 import time
 import warnings
@@ -7,23 +6,23 @@ import numpy as np
 from astropy import wcs
 from astropy.io import fits
 from astropy.time import Time
+from typing import List, Union
+from astropy.table import Table
 from vircampype import __version__
 from astropy.coordinates import SkyCoord
 from vircampype.tools.messaging import *
 from vircampype.tools.photometry import *
-from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
-from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.fitstools import mjd2dateobs
 from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.mathtools import centroid_sphere
 from vircampype.tools.fitstools import add_float_to_header
+from vircampype.tools.tabletools import fits_column_kwargs
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
 __all__ = ["build_phase3_stacks", "build_phase3_tile"]
 
 
-def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs):
+def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
     """
     Converts the calibrated source catalogs to a phase 3 compliant standard.
 
@@ -90,29 +89,18 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs
         hdul_ctg_pipe = fits.open(stacks_catalogs.paths_full[idx_file])
 
         # Make primary HDU
-        phdr_stk = make_prime_header_stack(
+        phdr_stk = _make_prime_header_stack(
             hdulist_stack=hdul_stk_pipe,
             image_or_catalog="image",
             setup=setup,
             asson1=(os.path.basename(os.path.basename(path_wei_p3))),
         )
-        phdr_ctg = make_prime_header_stack(
+        phdr_ctg = _make_prime_header_stack(
             hdulist_stack=hdul_stk_pipe,
             image_or_catalog="catalog",
             setup=setup,
             prov1=os.path.basename(path_stk_p3),
         )
-
-        # Add internal photometric error to primary headers
-        if "photerr_internal" in kwargs:
-            for hdr in [phdr_stk, phdr_ctg]:
-                add_float_to_header(
-                    header=hdr,
-                    key="PHOTIERR",
-                    value=kwargs["photerr_internal"],
-                    comment="Internal photometric error (mag)",
-                    decimals=5,
-                )
 
         # Get passband
         passband = phdr_stk["FILTER"]
@@ -128,14 +116,14 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs
         ):
 
             # Make extension headers
-            hdr_hdu_stk = make_extension_header_stack(
+            hdr_hdu_stk = _make_extension_header_stack(
                 hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                 hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
                 image_or_catalog="image",
                 passband=passband,
                 mag_saturation=mag_saturation,
             )
-            hdr_hdu_ctg = make_extension_header_stack(
+            hdr_hdu_ctg = _make_extension_header_stack(
                 hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                 hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
                 image_or_catalog="catalog",
@@ -146,12 +134,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs
             tabledata = stacks_catalogs.filehdu2table(
                 file_index=idx_file, hdu_index=idx_hdu_ctg
             )
-            final_cols = make_phase3_columns(
-                data=tabledata,
-                mag_saturation=mag_saturation,
-                apertures=setup.apertures,
-                **kwargs,
-            )
+            final_cols = _make_phase3_columns(data=tabledata)
 
             # Make final HDUs
             hdul_stk_p3.append(
@@ -207,7 +190,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation, **kwargs
     )
 
 
-def make_prime_header_stack(
+def _make_prime_header_stack(
     hdulist_stack: fits.HDUList, image_or_catalog: str, setup, **kwargs
 ):
 
@@ -361,7 +344,7 @@ def make_prime_header_stack(
     return hdr
 
 
-def make_extension_header_stack(
+def _make_extension_header_stack(
     hdu_stk, hdu_ctg, image_or_catalog, passband, mag_saturation
 ):
 
@@ -542,20 +525,7 @@ def make_extension_header_stack(
     return hdr_out
 
 
-def build_phase3_tile(
-    tile_image, tile_catalog, pawprint_images, mag_saturation, **kwargs
-):
-    """
-    Generates phase 3 compliant tile + source catalog.
-
-    Parameters
-    ----------
-    tile_image : VircamScienceImages
-    tile_catalog : PhotometricCalibratedSextractorCatalogs
-    pawprint_images : VircamScienceImages
-    mag_saturation : int, float
-
-    """
+def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation):
 
     # Grab setup
     setup = tile_image.setup
@@ -576,7 +546,7 @@ def build_phase3_tile(
     # Passband
     passband = pawprint_images.passband[0]
 
-    # Check if the files are already there and skip if they are
+    # Check if the files are already there and return if they are
     check = [
         check_file_exists(pp3, silent=setup.silent)
         for pp3 in [path_tile_p3, path_weight_p3, path_catalog_p3]
@@ -592,11 +562,8 @@ def build_phase3_tile(
     hdul_catalog_in = fits.open(tile_catalog.paths_full[0])
     hdul_pawprints = [fits.open(path) for path in pawprint_images.paths_full]
 
-    # Grab those stupid keywords
-    # tl_ra, tl_dec, tl_offan = get_stupid_keywords(pawprint_images=pawprint_images)
-
     # Generate primary headers
-    phdr_tile, phdr_catalog, ehdr_catalog = make_tile_headers(
+    phdr_tile, phdr_catalog, ehdr_catalog = _make_tile_headers(
         hdul_tile=hdul_tile_in,
         hdul_catalog=hdul_catalog_in,
         hdul_pawprints=hdul_pawprints,
@@ -611,23 +578,7 @@ def build_phase3_tile(
     phdr_catalog.set("PROV1", value=os.path.basename(path_tile_p3), after="REFERENC")
 
     # Get table colums from pipeline catalog
-    final_cols = make_phase3_columns(
-        data=hdul_catalog_in[2].data,
-        mag_saturation=mag_saturation,
-        apertures=setup.apertures,
-        **kwargs,
-    )
-
-    # Add internal photometric error to prime header
-    if "photerr_internal" in kwargs:
-        for hdr in [phdr_tile, phdr_catalog]:
-            add_float_to_header(
-                header=hdr,
-                key="PHOTIERR",
-                value=kwargs["photerr_internal"],
-                comment="Internal photometric error (mag)",
-                decimals=5,
-            )
+    final_cols = _make_phase3_columns(data=hdul_catalog_in[2].data)
 
     # Make final HDUs
     hdul_tile_out = fits.PrimaryHDU(data=hdul_tile_in[0].data, header=phdr_tile)
@@ -709,8 +660,13 @@ def build_phase3_tile(
     )
 
 
-def make_tile_headers(
-    hdul_tile, hdul_catalog, hdul_pawprints, passband, mag_saturation, **kwargs
+def _make_tile_headers(
+    hdul_tile: fits.HDUList,
+    hdul_catalog: fits.HDUList,
+    hdul_pawprints: List,
+    passband: str,
+    mag_saturation: float,
+    **kwargs,
 ):
 
     # Grab stuff
@@ -1031,186 +987,57 @@ def make_tile_headers(
     return phdr_tile_out, phdr_ctg_out, ehdr_ctg_out
 
 
-# =========================================================================== #
-# Table formats
-_kwargs_column_mag = dict(disp="F8.4", unit="mag")
-_kwargs_column_coo = dict(format="1D", disp="F11.7", unit="deg")
-_kwargs_column_errminmaj = dict(format="1E", disp="F6.2", unit="mas")
-_kwargs_column_errpa = dict(format="1E", disp="F6.2", unit="deg")
-_kwargs_column_mjd = dict(format="1D", disp="F11.5")
-_kwargs_column_exp = dict(format="1E", disp="F6.1", unit="s")
-_kwargs_column_el = dict(format="1E", disp="F6.2")
-_kwargs_column_fwhm = dict(format="1E", disp="F6.2", unit="arcsec")
-_kwargs_column_class = dict(format="1E", disp="F6.3")
-_kwargs_column_sflg = dict(format="1I", disp="I3")
-_kwargs_column_cflg = dict(format="1L")
-_kwargs_column_qflg = dict(format="2A")
-
-
-def make_phase3_columns(data, apertures, photerr_internal=0.0, mag_saturation=0.0):
+def _make_phase3_columns(data: Union[np.recarray, Table]):
     """
     Reads a sextractor catalog as generated by the pipeline and returns the final FITS
     columns in a list.
 
     Parameters
     ----------
+    Union[np.recarray, Table]
+        Numpy array that allows field access using attributes.
 
     Returns
     -------
-    iterable
+    List
         List of FITS columns.
-    photerr_internal : int, float, optional
-        Internal photometrc error (added in quadrature to measured error).
-        Defaults to 0.
-    mag_saturation : int, float, optional
-        Saturation limit in mag. Values below are flagged.
 
     """
 
     # Read and clean aperture magnitudes, add internal photometric error
     mag_aper = data["MAG_APER_MATCHED_CAL"] + data["MAG_APER_MATCHED_CAL_ZPC_INTERP"]
-    # mag_aper = data["MAG_APER_MATCHED_CAL"]
-    magerr_aper = np.sqrt(data["MAGERR_APER"] ** 2 + photerr_internal ** 2)
-    mag_aper_bad = (mag_aper > 30.0) | (magerr_aper > 10)
-    mag_aper[mag_aper_bad], magerr_aper[mag_aper_bad] = np.nan, np.nan
+    magerr_aper = np.sqrt(data["MAGERR_APER"])
 
     # Read and clean auto magnitudes, add internal photometric error
     mag_auto = data["MAG_AUTO_CAL"] + data["MAG_AUTO_CAL_ZPC_INTERP"]
-    # mag_auto = data["MAG_AUTO_CAL"]
-    magerr_auto = np.sqrt(data["MAGERR_AUTO"] ** 2 + photerr_internal ** 2)
-    mag_auto_bad = (mag_auto > 30.0) | (magerr_auto > 10)
-    mag_auto[mag_auto_bad], magerr_auto[mag_auto_bad] = np.nan, np.nan
+    magerr_auto = np.sqrt(data["MAGERR_AUTO"])
 
-    # Compute best default magnitude (match aperture to source area)
-    rr = (2 * np.sqrt(data["ISOAREA_IMAGE"] / np.pi)).reshape(-1, 1)
-    aa = np.array(apertures).reshape(-1, 1)
-    _, idx_aper = (
-        NearestNeighbors(n_neighbors=mag_aper.shape[1], algorithm="auto")
-        .fit(aa)
-        .kneighbors(rr)
-    )
-    idx_best = idx_aper[:, 0]
-    mag_best = mag_aper.copy()[np.arange(len(data)), idx_best]
-    magerr_best = magerr_aper.copy()[np.arange(len(data)), idx_best]
-    rad_best = np.array(apertures)[idx_best]
-
-    # Sort aperture distance
-    # dis_aper_sorted = np.take_along_axis(dis_aper, idx_aper, axis=1)
-
-    # Norm distance to closest aperture
-    # dis_aper_sorted -= np.nanmin(dis_aper, axis=1)[:, np.newaxis] - 1
-
-    # Weighted magnitude (weights caluclated form distance to best fitting aperture
-    # weights = 1 / (dis_aper_sorted**2)
-    # ma = np.ma.MaskedArray(mag_aper, mask=~np.isfinite(mag_aper))
-    # mag_weighted = np.ma.average(ma, weights=weights, axis=1)
-    # mag_weighted = np.ma.filled(mag_weighted, fill_value=np.nan)
-    # me = np.ma.MaskedArray(magerr_aper, mask=~np.isfinite(magerr_aper))
-    # magerr_weighted = np.ma.average(me, weights=weights, axis=1)
-    # magerr_weighted = np.ma.filled(magerr_weighted, fill_value=np.nan)
-
-    # Copy sextractor flag
-    sflg = data["FLAGS"]
-
-    # Construct contamination flag
-    cflg = np.full(len(data), fill_value=False, dtype=bool)
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        cflg[
-            np.nanmin(mag_aper, axis=1) < mag_saturation
-        ] = True  # Values above saturation limit
-    cflg[data["SNR_WIN"] <= 0] = True  # Bad SNR
-    cflg[data["FLUX_AUTO"] < 0.01] = True  # Bad Flux measurement
-    cflg[data["FWHM_WORLD"] * 3600 <= 0.2] = True  # Bad FWHM
-    cflg[
-        ~np.isfinite(np.sum(data["MAG_APER"], axis=1))
-    ] = True  # All aperture magnitudes must be good
-    cflg[data["NIMG"] < 1] = True  # Must be images once
-    cflg[data["MJDEFF"] < 0] = True  # Must have a good MJD
-    cflg[data["FLAGS_WEIGHT"] > 0] = True  # No flags in weight
-    cflg[sflg >= 4] = True  # No bad Sextractor flags
-    cflg[
-        np.isnan(data["CLASS_STAR_INTERP"])
-    ] = True  # CLASS_STAR must have worked in sextractor
-
-    # Clean bad growth magnitudes
-    growth = data["MAG_APER_MATCHED_CAL"][:, 0] - data["MAG_APER_MATCHED_CAL"][:, 1]
-    mag_min, mag_max = np.nanmin(mag_auto), np.nanmax(mag_auto)
-    mag_range = np.linspace(mag_min, mag_max, 100)
-    idx_all = np.arange(len(mag_auto))
-
-    # Loop over magnitude range
-    bad_idx = []
-    for mm in mag_range:
-        # Grab all sources within 0.25 mag of current position
-        cidx_all = (mag_auto > mm - 0.25) & (mag_auto < mm + 0.25)
-        cidx_pnt = (
-            (data["CLASS_STAR_INTERP"] > 0.5)
-            & (mag_auto > mm - 0.25)
-            & (mag_auto < mm + 0.25)
-        )
-
-        # Filter presumably bad sources
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            mean, median, stddev = sigma_clipped_stats(
-                growth[cidx_pnt], sigma=5, maxiters=1
-            )
-            bad = (growth[cidx_all] < median - 0.05) & (
-                growth[cidx_all] < median - 3 * stddev
-            )
-
-        # Save bad sources
-        if np.sum(bad) > 0:
-            bad_idx.append(idx_all[cidx_all][bad])
-
-    # Flag outliers
-    cflg[flat_list(bad_idx)] = True
-
-    # Nebula filter from VISION
-    fv = (
-        (data["BACKGROUND"] / data["FLUX_APER"][:, 0] > 0.02)
-        & (data["MAG_APER_MATCHED"][:, 0] - data["MAG_APER_MATCHED"][:, 1] <= -0.2)
-        & (data["CLASS_STAR_INTERP"] < 0.5)
-    )
-    cflg[fv] = True
-
-    # Construct quality flag
-    qflg = np.full(len(data), fill_value="X", dtype=str)
-    qflg_d = (sflg < 4) & ~cflg
-    qflg[qflg_d] = "D"
-    qflg_c = (magerr_best < 0.21714) & (sflg < 4) & ~cflg
-    qflg[qflg_c] = "C"
-    qflg_b = (magerr_best < 0.15510) & (sflg < 4) & ~cflg
-    qflg[qflg_b] = "B"
-    qflg_a = (magerr_best < 0.10857) & (sflg < 4) & ~cflg
-    qflg[qflg_a] = "A"
-
-    # Get Skycoordinates
+    # Get Sky coordinates
     skycoord = SkyCoord(
         ra=data["ALPHAWIN_SKY"], dec=data["DELTAWIN_SKY"], frame="icrs", unit="deg"
     )
 
-    # Construct columns
-    col_id = fits.Column(
-        name="ID", array=skycoord2visionsid(skycoord=skycoord), format="21A"
+    # Construct position columns
+    col_ra = fits.Column(
+        name="RA", array=skycoord.icrs.ra.deg, **fits_column_kwargs["coo"]
     )
-    col_ra = fits.Column(name="RA", array=skycoord.icrs.ra.deg, **_kwargs_column_coo)
-    col_dec = fits.Column(name="DEC", array=skycoord.icrs.dec.deg, **_kwargs_column_coo)
+    col_dec = fits.Column(
+        name="DEC", array=skycoord.icrs.dec.deg, **fits_column_kwargs["coo"]
+    )
 
     # Position errors
     col_errmaj = fits.Column(
         name="ERRMAJ",
         array=data["ERRAWIN_WORLD"] * 3_600_000,
-        **_kwargs_column_errminmaj,
+        **fits_column_kwargs["errminmaj"],
     )
     col_errmin = fits.Column(
         name="ERMIN",
         array=data["ERRBWIN_WORLD"] * 3_600_000,
-        **_kwargs_column_errminmaj,
+        **fits_column_kwargs["errminmaj"],
     )
     col_errpa = fits.Column(
-        name="ERRPA", array=data["ERRTHETAWIN_SKY"], **_kwargs_column_errpa
+        name="ERRPA", array=data["ERRTHETAWIN_SKY"], **fits_column_kwargs["errpa"]
     )
 
     # Magnitudes
@@ -1220,58 +1047,37 @@ def make_phase3_columns(data, apertures, photerr_internal=0.0, mag_saturation=0.
         array=mag_aper,
         dim="({0})".format(ncol_mag_aper),
         format="{0}E".format(ncol_mag_aper),
-        **_kwargs_column_mag,
+        **fits_column_kwargs["mag"],
     )
     col_magerr_aper = fits.Column(
         name="MAGERR_APER",
         array=magerr_aper,
         dim="({0})".format(ncol_mag_aper),
         format="{0}E".format(ncol_mag_aper),
-        **_kwargs_column_mag,
+        **fits_column_kwargs["mag"],
     )
     col_mag_auto = fits.Column(
-        name="MAG_AUTO", array=mag_auto, format="1E", **_kwargs_column_mag
+        name="MAG_AUTO", array=mag_auto, format="1E", **fits_column_kwargs["mag"]
     )
     col_magerr_auto = fits.Column(
-        name="MAGERR_AUTO", array=magerr_auto, format="1E", **_kwargs_column_mag
+        name="MAGERR_AUTO", array=magerr_auto, format="1E", **fits_column_kwargs["mag"]
     )
-    col_mag_best = fits.Column(
-        name="MAG_BEST", array=mag_best, format="1E", **_kwargs_column_mag
-    )
-    col_magerr_best = fits.Column(
-        name="MAGERR_BEST", array=magerr_best, format="1E", **_kwargs_column_mag
-    )
-    col_rad_best = fits.Column(
-        name="RAD_BEST", array=rad_best / 2, format="1E", disp="F4.2"
-    )
-    # col_mag_weighted = fits.Column(name="MAG_WEIGHTED", array=mag_weighted,
-    #                                format="1E", **_kwargs_column_mag)
-    # col_magerr_weighted = fits.Column(name="MAGERR_WEIGHTED", array=magerr_weighted,
-    #                                   format="1E", **_kwargs_column_mag)
-
-    # Time and exptime
-    col_mjd = fits.Column(name="MJD_OBS", array=data["MJDEFF"], **_kwargs_column_mjd)
-    col_exp = fits.Column(name="EXPTIME", array=data["EXPTIME"], **_kwargs_column_exp)
 
     # Morphology
     col_fwhm = fits.Column(
-        name="FWHM", array=data["FWHM_WORLD"] * 3600, **_kwargs_column_fwhm
+        name="FWHM", array=data["FWHM_WORLD"] * 3600, **fits_column_kwargs["fwhm"]
     )
     col_ell = fits.Column(
-        name="ELLIPTICITY", array=data["ELLIPTICITY"], **_kwargs_column_el
-    )
-    col_class = fits.Column(
-        name="CLS", array=data["CLASS_STAR_INTERP"], **_kwargs_column_class
+        name="ELLIPTICITY", array=data["ELLIPTICITY"], **fits_column_kwargs["ell"]
     )
 
     # Flags
-    col_sflg = fits.Column(name="SFLG", array=sflg, **_kwargs_column_sflg)
-    col_cflg = fits.Column(name="CFLG", array=cflg, **_kwargs_column_cflg)
-    col_qflg = fits.Column(name="QFLG", array=qflg, **_kwargs_column_qflg)
+    col_sflg = fits.Column(
+        name="SFLG", array=data["FLAGS"], **fits_column_kwargs["sflg"]
+    )
 
     # Put into single list
     cols = [
-        col_id,
         col_ra,
         col_dec,
         col_errmaj,
@@ -1281,48 +1087,10 @@ def make_phase3_columns(data, apertures, photerr_internal=0.0, mag_saturation=0.
         col_magerr_aper,
         col_mag_auto,
         col_magerr_auto,
-        col_mag_best,
-        col_magerr_best,
-        col_rad_best,
-        # col_mag_weighted, col_magerr_weighted,
-        col_mjd,
-        col_exp,
         col_fwhm,
         col_ell,
-        col_class,
         col_sflg,
-        col_cflg,
-        col_qflg,
     ]
 
     # Return columns
     return cols
-
-
-def get_stupid_keywords(pawprint_images):
-
-    # Find keywords that are only in some headers
-    tl_ra, tl_dec, tl_ofa = None, None, None
-    for idx_file in range(len(pawprint_images)):
-
-        # Get primary header
-        hdr = pawprint_images.headers_primary[idx_file]
-
-        # Try to read the keywords
-        try:
-            tl_ra = hdr["ESO OCS SADT TILE RA"]
-            tl_dec = hdr["ESO OCS SADT TILE DEC"]
-            tl_ofa = hdr["ESO OCS SADT TILE OFFANGLE"]
-
-            # Break if found
-            break
-
-        # COntinue if not
-        except KeyError:
-            continue
-
-    # Dummy check that all have been found
-    if (tl_ra is None) | (tl_dec is None) | (tl_ofa is None):
-        raise ValueError("Could not determine some silly keywords...")
-
-    return tl_ra, tl_dec, tl_ofa
