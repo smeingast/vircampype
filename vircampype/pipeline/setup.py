@@ -38,6 +38,7 @@ class Setup(dict):
         self.__build_stacks = True
         self.__build_tile = True
         self.__build_phase3 = True
+        self.__build_public_catalog = False
         self.__archive = False
         self.__build_class_star_library = True
 
@@ -285,6 +286,14 @@ class Setup(dict):
     @build_class_star_library.setter
     def build_class_star_library(self, build_class_star_library):
         self.__build_class_star_library = build_class_star_library
+
+    @property
+    def build_public_catalog(self):
+        return self.__build_public_catalog
+
+    @build_public_catalog.setter
+    def build_public_catalog(self, build_public_catalog):
+        self.__build_public_catalog = build_public_catalog
 
     @property
     def archive(self):
