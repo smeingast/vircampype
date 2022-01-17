@@ -1,6 +1,7 @@
 import warnings
 import numpy as np
 
+from typing import Union
 from astropy.io import fits
 from astropy.table import Table
 from scipy.interpolate import interp1d
@@ -20,6 +21,7 @@ __all__ = [
     "table2bintablehdu",
     "interpolate_classification",
     "remove_duplicates_wcs",
+    "fill_masked_columns",
 ]
 
 
@@ -457,7 +459,7 @@ def remove_duplicates_wcs(
         # Run stilts
         cmd = (
             '{5} tmatch1 matcher=sky values="{0} {1}" params={2} '
-            'action=keep1 in={3} out={4}'
+            "action=keep1 in={3} out={4}"
             "".format(
                 key_lon, key_lat, sep, temp_name, temp_name_clean, which(bin_name)
             )
@@ -472,3 +474,26 @@ def remove_duplicates_wcs(
         remove_file(temp_name_clean)
 
         return table_cleaned
+
+
+def fill_masked_columns(table: Table, fill_value: Union[int, float]):
+    """
+    Loops over columns of tables and replaces masked columns with regular columns.
+
+    Parameters
+    ----------
+    table : Table
+        Astropy table instance.
+    fill_value : Union[int, float]
+        Fill value of masked entries in table.
+
+    Returns
+    -------
+    Table
+        Table instance with replaced columns
+
+    """
+    for cc in table.columns:
+        if isinstance(table[cc], MaskedColumn):
+            table[cc] = table[cc].filled(fill_value=fill_value)
+    return table
