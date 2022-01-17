@@ -22,7 +22,24 @@ __all__ = [
     "interpolate_classification",
     "remove_duplicates_wcs",
     "fill_masked_columns",
+    "fits_column_formats",
 ]
+
+# Table column formats
+fits_column_formats = dict(
+    mag=dict(disp="F8.4", unit="mag"),
+    coo=dict(format="1D", disp="F11.7", unit="deg"),
+    errminmaj=dict(format="1E", disp="F6.2", unit="mas"),
+    errpa=dict(format="1E", disp="F6.2", unit="deg"),
+    mjd=dict(format="1D", disp="F11.5"),
+    exp=dict(format="1E", disp="F6.1", unit="s"),
+    ell=dict(format="1E", disp="F6.2"),
+    fwhm=dict(format="1E", disp="F6.2", unit="arcsec"),
+    cls=dict(format="1E", disp="F6.3"),
+    sflg=dict(format="1I", disp="I3"),
+    cflg=dict(format="1L"),
+    qflg=dict(format="2A"),
+)
 
 
 def clean_source_table(
