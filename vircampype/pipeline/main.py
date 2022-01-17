@@ -388,14 +388,14 @@ class Pipeline:
         return catalogs
 
     @property
-    def _paths_sources_resampled_crunched(self):
+    def _paths_sources_resampled_cal(self):
         return [
             p.replace(".fits.tab", ".fits.ctab")
             for p in self._paths_sources_resampled_full
         ]
 
     @property
-    def sources_resampled_crunched(self):
+    def sources_resampled_cal(self):
 
         # Instantiate
         from vircampype.fits.tables.sextractor import (
@@ -403,7 +403,7 @@ class Pipeline:
         )
 
         catalogs = PhotometricCalibratedSextractorCatalogs(
-            file_paths=self._paths_sources_resampled_crunched, setup=self.setup
+            file_paths=self._paths_sources_resampled_cal, setup=self.setup
         )
 
         # Consistency check
@@ -414,7 +414,7 @@ class Pipeline:
         return catalogs
 
     @property
-    def _paths_sources_stacks_crunched(self):
+    def _paths_sources_stacks_cal(self):
         return [
             p.replace(".fits.tab", ".fits.ctab")
             for p in self._paths_sources_stacks_full
@@ -429,7 +429,7 @@ class Pipeline:
         )
 
         catalogs = PhotometricCalibratedSextractorCatalogs(
-            file_paths=self._paths_sources_stacks_crunched, setup=self.setup
+            file_paths=self._paths_sources_stacks_cal, setup=self.setup
         )
 
         # Consistency check
@@ -478,7 +478,7 @@ class Pipeline:
         )
 
         if len(catalog) != 1:
-            raise PipelineError("Crunched tile catalog not found")
+            raise PipelineError("Calibrated tile catalog not found")
 
         # Return
         return catalog
@@ -747,7 +747,6 @@ class Pipeline:
 
     def build_tile(self):
         if not self.status.tile:
-            # self.resampled.equalize_zero_point(stack_catalogs=self.sources_stacks_crunched)
             self.resampled.build_tile()
             self.update_status(tile=True)
         else:
