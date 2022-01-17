@@ -687,17 +687,14 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         table_master = master_phot.file2table(file_index=0)[0][mkeep]
 
         # Start loop over files
-        outpaths = []
         for idx_file in range(self.n_files):
 
             # Create output path
-            outpaths.append(
-                self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
-            )
+            path_out = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
 
             # Check if the file is already there and skip if it is
             if (
-                check_file_exists(file_path=outpaths[-1], silent=self.setup.silent)
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
                 continue
@@ -706,7 +703,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             message_calibration(
                 n_current=idx_file + 1,
                 n_total=self.n_files,
-                name=outpaths[-1],
+                name=path_out,
                 d_current=None,
                 d_total=None,
                 silent=self.setup.silent,
@@ -840,7 +837,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         )
 
             # Write to new output file
-            table_hdulist.writeto(outpaths[-1], overwrite=self.setup.overwrite)
+            table_hdulist.writeto(path_out, overwrite=self.setup.overwrite)
 
             # Close original file
             table_hdulist.close()
