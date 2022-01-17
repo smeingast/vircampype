@@ -22,11 +22,11 @@ __all__ = [
     "interpolate_classification",
     "remove_duplicates_wcs",
     "fill_masked_columns",
-    "fits_column_formats",
+    "fits_column_kwargs",
 ]
 
 # Table column formats
-fits_column_formats = dict(
+fits_column_kwargs = dict(
     mag=dict(disp="F8.4", unit="mag"),
     coo=dict(format="1D", disp="F11.7", unit="deg"),
     errminmaj=dict(format="1E", disp="F6.2", unit="mas"),
