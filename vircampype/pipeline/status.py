@@ -38,6 +38,7 @@ class PipelineStatus:
         qc_photometry_tile=False,
         qc_astrometry_tile=False,
         phase3=False,
+        public_catalog=False,
         archive=False,
     ):
 
@@ -78,6 +79,7 @@ class PipelineStatus:
         self.qc_photometry_tile = qc_photometry_tile
         self.qc_astrometry_tile = qc_astrometry_tile
         self.phase3 = phase3
+        self.public_catalog = public_catalog
         self.archive = archive
 
     def __str__(self):
@@ -122,6 +124,7 @@ class PipelineStatus:
             "qc_photometry_tile",
             "qc_astrometry_tile",
             "phase3",
+            "public_catalog",
             "archive",
         ]
 
