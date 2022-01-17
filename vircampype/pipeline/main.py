@@ -875,7 +875,29 @@ class Pipeline:
             )
 
     # =========================================================================== #
-    # QC astrometry
+    # QC
+    def qc_photometry_stacks(self):
+        if not self.status.qc_photometry_stacks:
+            self.sources_stacks_cal.plot_qc_phot_zp(axis_size=5)
+            self.sources_stacks_cal.plot_qc_phot_ref1d(axis_size=5)
+            self.sources_stacks_cal.plot_qc_phot_ref2d(axis_size=5)
+            self.update_status(qc_photometry_stacks=True)
+        else:
+            print_message(
+                message="STACKS QC PHOTOMETRY already done", kind="warning", end=None
+            )
+
+    def qc_photometry_tile(self):
+        if not self.status.qc_photometry_tile:
+            self.sources_tile_cal.plot_qc_phot_zp(axis_size=5)
+            self.sources_tile_cal.plot_qc_phot_ref1d(axis_size=5)
+            self.sources_tile_cal.plot_qc_phot_ref2d(axis_size=5)
+            self.update_status(qc_photometry_tile=True)
+        else:
+            print_message(
+                message="TILE QC PHOTOMETRY already done", kind="warning", end=None
+            )
+
     def qc_astrometry_stacks(self):
         if not self.status.qc_astrometry_stacks:
             self.sources_stacks_cal.plot_qc_astrometry_1d()
