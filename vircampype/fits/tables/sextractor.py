@@ -1060,165 +1060,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             end="\n",
         )
 
-    def add_statistics(self):
-
-        # Import
-        from vircampype.fits.images.common import FitsImages
-
-        # Processing info
-        print_header(header="ADDING STATISTICS", silent=self.setup.silent, right=None)
-        tstart = time.time()
-
-        for idx_file in range(self.n_files):
-
-            # Find files
-            path_mjd = self.paths_full[idx_file].replace(
-                ".full.fits.tab", ".mjd.eff.fits"
-            )
-            path_exptime = self.paths_full[idx_file].replace(
-                ".full.fits.tab", ".exptime.fits"
-            )
-            path_nimg = self.paths_full[idx_file].replace(
-                ".full.fits.tab", ".nimg.fits"
-            )
-            path_weight = self.paths_full[idx_file].replace(
-                ".full.fits.tab", ".weight.fits"
-            )
-
-            # Check if files are available
-            if (
-                not os.path.isfile(path_mjd)
-                & os.path.isfile(path_exptime)
-                & os.path.isfile(path_nimg)
-            ):
-                raise ValueError("Matches for image statistics not found")
-
-            # Instantiate
-            image_mjdeff = FitsImages(file_paths=path_mjd, setup=self.setup)
-
-            # Open current table file
-            hdul = fits.open(self.paths_full[idx_file], mode="update")
-
-            # Check if the last HDU was already modified
-            if "MJDEFF" in hdul[self.iter_data_hdu[idx_file][-1]].columns.names:
-                print_message(
-                    message="{0} already modified.".format(
-                        os.path.basename(self.paths_full[idx_file])
-                    ),
-                    kind="warning",
-                    end=None,
-                )
-                continue
-
-            # Loop over extensions
-            for idx_hdu_self, idx_hdu_stats in zip(
-                self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0])
-            ):
-
-                # Read table
-                table_hdu = self.filehdu2table(
-                    file_index=idx_file, hdu_index=idx_hdu_self
-                )
-
-                # Read stats
-                try:
-                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
-                    exptime = fits.getdata(path_exptime, idx_hdu_stats)
-                    nimg = fits.getdata(path_nimg, idx_hdu_stats)
-                    weight = fits.getdata(path_weight, idx_hdu_stats)
-                except IndexError:
-                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
-                    exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
-                    nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
-                    weight = fits.getdata(path_weight, idx_hdu_stats + 1)
-
-                # Renormalize weight
-                weight /= np.median(weight)
-
-                # Obtain wcs for statistics images (they all have the same projection)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", FITSFixedWarning)
-                    wcs_stats = WCS(header=image_mjdeff.headers_data[0][idx_hdu_stats])
-
-                # Convert to X/Y
-                xx, yy = wcs_stats.wcs_world2pix(
-                    table_hdu[self._key_ra], table_hdu[self._key_dec], 0
-                )
-                xx_image, yy_image = xx.astype(int), yy.astype(int)
-
-                # Mark bad data
-                bad = (
-                    (xx_image >= mjdeff.shape[1])
-                    | (xx_image < 0)
-                    | (yy_image >= mjdeff.shape[0])
-                    | (yy_image < 0)
-                )
-
-                # Just to be sort of safe,
-                # let's say we can't have more than 5% of sources outside the edges
-                if sum(bad) / len(bad) > 0.05:
-                    raise ValueError(
-                        "Too many sources are close to the image edge ({0}/{1}). "
-                        "Please check for issues. (file: {2}, TableHDU: {3})"
-                        "".format(
-                            sum(bad), len(bad), self.paths_full[idx_file], idx_hdu_self
-                        )
-                    )
-
-                # Reset bad coordinates to 0/0
-                xx_image[bad], yy_image[bad] = 0, 0
-
-                # Get values for each source from data arrays
-                mjdeff_sources, exptime_sources = (
-                    mjdeff[yy_image, xx_image],
-                    exptime[yy_image, xx_image],
-                )
-                nimg_sources, weight_sources = (
-                    nimg[yy_image, xx_image],
-                    weight[yy_image, xx_image],
-                )
-
-                # Mask bad sources
-                bad &= weight_sources < 0.0001
-                mjdeff_sources[bad], exptime_sources[bad], nimg_sources[bad] = (
-                    np.nan,
-                    0.0,
-                    0,
-                )
-
-                # Make new columns
-                new_cols = fits.ColDefs(
-                    [
-                        fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
-                        fits.Column(
-                            name="EXPTIME",
-                            format="E",
-                            array=exptime_sources,
-                            unit="seconds",
-                        ),
-                        fits.Column(
-                            name="NIMG",
-                            format="J",
-                            array=np.rint(nimg_sources).astype(int),
-                        ),
-                    ]
-                )
-
-                # Append new columns and replace HDU
-                hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(
-                    hdul[idx_hdu_self].data.columns + new_cols,
-                    header=hdul[idx_hdu_self].header,
-                )
-
-            hdul.flush()
-
-        # Print time
-        print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-            kind="okblue",
-            end="\n",
-        )
-
     def plot_qc_astrometry_1d(self, axis_size=5):
 
         # Import
@@ -1792,6 +1633,165 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Get median error of those
         return photerr_internal_dict
+
+    def add_statistics(self):
+
+        # Import
+        from vircampype.fits.images.common import FitsImages
+
+        # Processing info
+        print_header(header="ADDING STATISTICS", silent=self.setup.silent, right=None)
+        tstart = time.time()
+
+        for idx_file in range(self.n_files):
+
+            # Find files
+            path_mjd = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".mjd.eff.fits"
+            )
+            path_exptime = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".exptime.fits"
+            )
+            path_nimg = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".nimg.fits"
+            )
+            path_weight = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".weight.fits"
+            )
+
+            # Check if files are available
+            if (
+                not os.path.isfile(path_mjd)
+                & os.path.isfile(path_exptime)
+                & os.path.isfile(path_nimg)
+            ):
+                raise ValueError("Matches for image statistics not found")
+
+            # Instantiate
+            image_mjdeff = FitsImages(file_paths=path_mjd, setup=self.setup)
+
+            # Open current table file
+            hdul = fits.open(self.paths_full[idx_file], mode="update")
+
+            # Check if the last HDU was already modified
+            if "MJDEFF" in hdul[self.iter_data_hdu[idx_file][-1]].columns.names:
+                print_message(
+                    message="{0} already modified.".format(
+                        os.path.basename(self.paths_full[idx_file])
+                    ),
+                    kind="warning",
+                    end=None,
+                )
+                continue
+
+            # Loop over extensions
+            for idx_hdu_self, idx_hdu_stats in zip(
+                self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0])
+            ):
+
+                # Read table
+                table_hdu = self.filehdu2table(
+                    file_index=idx_file, hdu_index=idx_hdu_self
+                )
+
+                # Read stats
+                try:
+                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
+                    exptime = fits.getdata(path_exptime, idx_hdu_stats)
+                    nimg = fits.getdata(path_nimg, idx_hdu_stats)
+                    weight = fits.getdata(path_weight, idx_hdu_stats)
+                except IndexError:
+                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
+                    exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
+                    nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
+                    weight = fits.getdata(path_weight, idx_hdu_stats + 1)
+
+                # Renormalize weight
+                weight /= np.median(weight)
+
+                # Obtain wcs for statistics images (they all have the same projection)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", FITSFixedWarning)
+                    wcs_stats = WCS(header=image_mjdeff.headers_data[0][idx_hdu_stats])
+
+                # Convert to X/Y
+                xx, yy = wcs_stats.wcs_world2pix(
+                    table_hdu[self._key_ra], table_hdu[self._key_dec], 0
+                )
+                xx_image, yy_image = xx.astype(int), yy.astype(int)
+
+                # Mark bad data
+                bad = (
+                    (xx_image >= mjdeff.shape[1])
+                    | (xx_image < 0)
+                    | (yy_image >= mjdeff.shape[0])
+                    | (yy_image < 0)
+                )
+
+                # Just to be sort of safe,
+                # let's say we can't have more than 5% of sources outside the edges
+                if sum(bad) / len(bad) > 0.05:
+                    raise ValueError(
+                        "Too many sources are close to the image edge ({0}/{1}). "
+                        "Please check for issues. (file: {2}, TableHDU: {3})"
+                        "".format(
+                            sum(bad), len(bad), self.paths_full[idx_file], idx_hdu_self
+                        )
+                    )
+
+                # Reset bad coordinates to 0/0
+                xx_image[bad], yy_image[bad] = 0, 0
+
+                # Get values for each source from data arrays
+                mjdeff_sources, exptime_sources = (
+                    mjdeff[yy_image, xx_image],
+                    exptime[yy_image, xx_image],
+                )
+                nimg_sources, weight_sources = (
+                    nimg[yy_image, xx_image],
+                    weight[yy_image, xx_image],
+                )
+
+                # Mask bad sources
+                bad &= weight_sources < 0.0001
+                mjdeff_sources[bad], exptime_sources[bad], nimg_sources[bad] = (
+                    np.nan,
+                    0.0,
+                    0,
+                )
+
+                # Make new columns
+                new_cols = fits.ColDefs(
+                    [
+                        fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
+                        fits.Column(
+                            name="EXPTIME",
+                            format="E",
+                            array=exptime_sources,
+                            unit="seconds",
+                        ),
+                        fits.Column(
+                            name="NIMG",
+                            format="J",
+                            array=np.rint(nimg_sources).astype(int),
+                        ),
+                    ]
+                )
+
+                # Append new columns and replace HDU
+                hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(
+                    hdul[idx_hdu_self].data.columns + new_cols,
+                    header=hdul[idx_hdu_self].header,
+                )
+
+            hdul.flush()
+
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
 
     def paths_qc_plots(self, paths, prefix=""):
 
