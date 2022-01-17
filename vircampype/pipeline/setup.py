@@ -40,7 +40,6 @@ class Setup(dict):
         self.__build_phase3 = False
         self.__build_public_catalog = False
         self.__archive = False
-        self.__build_class_star_library = False
 
         # Data setup
         self.__maximasking = False
@@ -278,14 +277,6 @@ class Setup(dict):
     @build_phase3.setter
     def build_phase3(self, build_phase3):
         self.__build_phase3 = build_phase3
-
-    @property
-    def build_class_star_library(self):
-        return self.__build_class_star_library
-
-    @build_class_star_library.setter
-    def build_class_star_library(self, build_class_star_library):
-        self.__build_class_star_library = build_class_star_library
 
     @property
     def build_public_catalog(self):
