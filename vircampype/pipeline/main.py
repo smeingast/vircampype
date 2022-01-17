@@ -958,17 +958,13 @@ class Pipeline:
             n_jobs=n_jobs,
         )
 
-    def phase3(self):
+    def build_phase3(self):
         if not self.status.phase3:
-            # Check internal photometric error
-            if not isinstance(self.setup.phase3_photerr_internal, (int, float)):
-                raise ValueError("Specify internal photometric error in setup.")
             if self.setup.build_stacks:
                 build_phase3_stacks(
                     stacks_images=self.stacks,
                     stacks_catalogs=self.sources_stacks_cal,
                     mag_saturation=self.setup.reference_mag_lim[0],
-                    photerr_internal=self.setup.phase3_photerr_internal,
                 )
             if self.setup.build_tile:
                 build_phase3_tile(
@@ -976,7 +972,6 @@ class Pipeline:
                     tile_catalog=self.sources_tile_cal,
                     mag_saturation=self.setup.reference_mag_lim[0],
                     pawprint_images=self.resampled,
-                    photerr_internal=self.setup.phase3_photerr_internal,
                 )
             # if self.setup.compress_phase3:
             #     self.compress_phase3_images()
