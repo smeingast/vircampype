@@ -284,6 +284,7 @@ class SkyImages(FitsImages):
         tstart = time.time()
 
         # Run Sextractor with FWHM preset
+        print_message(message="Building FWHM table...", end="")
         fwhm_catalogs = self.sextractor(preset="fwhm", silent=True)
 
         # Loop over files
