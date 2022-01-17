@@ -832,7 +832,7 @@ class Pipeline:
     def photometry_pawprints(self):
         if not self.status.photometry_pawprints:
             self.resampled.sextractor(preset="full")
-            self.sources_resampled_full.crunch_source_catalogs()
+            self.sources_resampled_full.calibrate_photometry()
             self.update_status(photometry_pawprints=True)
         else:
             print_message(
@@ -842,8 +842,7 @@ class Pipeline:
     def photometry_stacks(self):
         if not self.status.photometry_stacks:
             self.stacks.sextractor(preset="full")
-            self.sources_stacks_full.add_statistics()
-            self.sources_stacks_full.crunch_source_catalogs()
+            self.sources_stacks_full.calibrate_photometry()
             self.update_status(photometry_stacks=True)
         else:
             print_message(
@@ -853,8 +852,7 @@ class Pipeline:
     def photometry_tile(self):
         if not self.status.photometry_tile:
             self.tile.sextractor(preset="full")
-            self.sources_tile_full.add_statistics()
-            self.sources_tile_full.crunch_source_catalogs()
+            self.sources_tile_full.calibrate_photometry()
             self.update_status(photometry_tile=True)
         else:
             print_message(
