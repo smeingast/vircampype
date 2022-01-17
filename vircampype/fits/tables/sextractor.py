@@ -675,6 +675,183 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             end="\n",
         )
 
+    def calibrate_photometry(self):
+
+        # Processing info
+        print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
+        tstart = time.time()
+
+        # Get master photometry catalog
+        master_phot = self.get_master_photometry()[0]
+        mkeep = master_phot.get_purge_index(passband=self.passband[0][0])
+        table_master = master_phot.file2table(file_index=0)[0][mkeep]
+
+        # Start loop over files
+        outpaths = []
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            outpaths.append(
+                self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
+            )
+
+            # Check if the file is already there and skip if it is
+            if (
+                check_file_exists(file_path=outpaths[-1], silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
+                continue
+
+            # Print processing info
+            message_calibration(
+                n_current=idx_file + 1,
+                n_total=self.n_files,
+                name=outpaths[-1],
+                d_current=None,
+                d_total=None,
+                silent=self.setup.silent,
+            )
+
+            # Load table
+            tables_file = self.file2table(file_index=idx_file)
+
+            # Load passband
+            passband = self.passband[idx_file]
+
+            # Define magnitude columns to calibrate
+            columns_mag = [
+                "MAG_APER",
+                "MAG_APER_MATCHED",
+                "MAG_AUTO",
+                "MAG_ISO",
+                "MAG_ISOCOR",
+                "MAG_PETRO",
+            ]
+            columns_magerr = [
+                "MAGERR_APER",
+                "MAGERR_APER",
+                "MAGERR_AUTO",
+                "MAGERR_ISO",
+                "MAGERR_ISOCOR",
+                "MAGERR_PETRO",
+            ]
+
+            # Read original HDUList
+            table_hdulist = fits.open(self.paths_full[idx_file], mode="readonly")
+
+            # Loop over tables
+            for tidx, tidx_hdu in zip(
+                range(len(tables_file)), self.iter_data_hdu[idx_file]
+            ):
+
+                tt = tables_file[tidx]
+
+                # Replace masked columns with regular columns
+                fill_masked_columns(table=tt, fill_value=np.nan)
+
+                # Add aperture correction to table
+                tt.add_column(
+                    (tt["MAG_APER"].data[:, -1] - tt["MAG_APER"].data.T).T,
+                    name="MAG_APER_COR",
+                )
+
+                # Add smoothed values to table
+                add_smoothed_value(
+                    table=tt, parameter="MAG_APER_COR", n_neighbors=100, max_dis=540
+                )
+                add_smoothed_value(
+                    table=tt, parameter="FWHM_WORLD", n_neighbors=100, max_dis=540
+                )
+                add_smoothed_value(
+                    table=tt, parameter="ELLIPTICITY", n_neighbors=100, max_dis=540
+                )
+
+                # Match apertures and add to table
+                tt.add_column(
+                    tt["MAG_APER"] + tt["MAG_APER_COR_INTERP"], name="MAG_APER_MATCHED"
+                )
+
+                # Compute ZP and add calibrated photometry to catalog
+                add_zp_2mass(
+                    table=tt,
+                    table_2mass=table_master,
+                    key_ra=self._key_ra,
+                    key_dec=self._key_dec,
+                    mag_lim_ref=master_phot.mag_lim(passband),
+                    method="weighted",
+                    passband_2mass=master_phot.translate_passband(passband),
+                    columns_mag=columns_mag,
+                    columns_magerr=columns_magerr,
+                )
+
+                # Add correction factor for the main calibrated mag measurement
+                sc1 = SkyCoord(tt[self._key_ra], tt[self._key_dec], unit="degree")
+                sc2 = SkyCoord(
+                    table_master["RAJ2000"], table_master["DEJ2000"], unit="degree"
+                )
+                pb = master_phot.translate_passband(self.passband[idx_file][0])
+                zp_auto = get_zeropoint(
+                    skycoord1=sc1,
+                    mag1=tt["MAG_AUTO_CAL"],
+                    skycoord2=sc2,
+                    method="all",
+                    mag2=table_master[pb],
+                    mag_limits_ref=master_phot.mag_lim(passband),
+                )
+                zp_aper = get_zeropoint(
+                    skycoord1=sc1,
+                    mag1=tt["MAG_APER_MATCHED_CAL"],
+                    skycoord2=sc2,
+                    method="all",
+                    mag2=table_master[pb],
+                    mag_limits_ref=master_phot.mag_lim(passband=passband),
+                )
+                tt.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
+                tt.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
+                add_smoothed_value(
+                    table=tt,
+                    parameter="MAG_AUTO_CAL_ZPC",
+                    n_neighbors=150,
+                    max_dis=1800,
+                )
+                add_smoothed_value(
+                    table=tt,
+                    parameter="MAG_APER_MATCHED_CAL_ZPC",
+                    n_neighbors=150,
+                    max_dis=1800,
+                )
+
+                # Replace HDU in original HDUList with modified table HDU
+                table_hdulist[tidx_hdu] = table2bintablehdu(tt)
+
+                # Also add ZP info to header
+                for attr in ["zp", "zperr"]:
+                    for key, val in getattr(tt, attr).items():
+                        if attr == "zp":
+                            comment = "Zero point (mag)"
+                        else:
+                            comment = "Standard error of ZP (mag)"
+                        add_float_to_header(
+                            header=table_hdulist[tidx_hdu].header,
+                            key=key,
+                            value=val,
+                            comment=comment,
+                            decimals=4,
+                        )
+
+            # Write to new output file
+            table_hdulist.writeto(outpaths[-1], overwrite=self.setup.overwrite)
+
+            # Close original file
+            table_hdulist.close()
+
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
+
     def crunch_source_catalogs(self):
 
         # Issue deprecation warning
