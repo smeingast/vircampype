@@ -677,6 +677,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
     def crunch_source_catalogs(self):
 
+        # Issue deprecation warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            warnings.warn("Catalog crunching is deprecated", DeprecationWarning)
+
         # Processing info
         print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
         tstart = time.time()
@@ -1751,10 +1756,24 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
     def plot_qc_phot_zp(self, paths=None, axis_size=5):
         """Generates ZP QC plot."""
 
+        # Processing info
+        print_header(header="QC PHOTOMETRY ZP", silent=self.setup.silent)
+        tstart = time.time()
+
         for idx_file in range(self.n_files):
 
             # Generate path for plot
-            path = self.paths_qc_plots(paths=paths, prefix="zp")[idx_file]
+            path_out = self.paths_qc_plots(paths=paths, prefix="zp")[idx_file]
+
+            # Check if file already exists
+            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+                continue
+            else:
+                message_calibration(
+                    n_current=idx_file+1,
+                    n_total=self.n_files,
+                    name=path_out,
+                    )
 
             zp_auto = self.read_from_data_headers(
                 keywords=["HIERARCH PYPE ZP MAG_AUTO"]
@@ -1767,23 +1786,44 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             plot_value_detector(
                 values=zp_auto,
                 errors=zperr_auto,
-                path=path,
+                path=path_out,
                 ylabel="ZP AUTO (mag)",
                 axis_size=axis_size,
                 yrange=(np.median(zp_auto) - 0.1, np.median(zp_auto) + 0.1),
             )
 
-    def plot_qc_phot_ref1d(self, axis_size=5):
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
+
+    def plot_qc_phot_ref1d(self, paths=None, axis_size=5):
 
         # Import
         from astropy.units import Unit
         import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
-        # Generate output paths
-        outpaths = self.paths_qc_plots(paths=None, prefix="phot.1D")
+        # Processing info
+        print_header(header="QC PHOTOMETRY REFERENCE 1D", silent=self.setup.silent)
+        tstart = time.time()
 
         for idx_file in range(len(self)):
+
+            # Generate path for plot
+            path_out = self.paths_qc_plots(paths=paths, prefix="phot.1D")[idx_file]
+
+            # Check if file already exists
+            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+                continue
+            else:
+                message_calibration(
+                    n_current=idx_file+1,
+                    n_total=self.n_files,
+                    name=path_out,
+                )
 
             # Get passband
             passband = self.passband[idx_file][0]
@@ -1793,8 +1833,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             mkeep = master_phot.get_purge_index(passband=passband)
 
             # Fetch magnitude and coordinates for master catalog
-            mag_master = master_phot.mag(passband=passband)[idx_file][0][mkeep]
-            master_skycoord = master_phot.skycoord()[idx_file][0][mkeep]
+            mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
+            master_skycoord = master_phot.skycoord()[0][0][mkeep]
 
             # Read tables
             tab_file = self.file2table(file_index=idx_file)
@@ -1935,8 +1975,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(outpaths[-1], bbox_inches="tight")
+                fig.savefig(path_out, bbox_inches="tight")
             plt.close("all")
+
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
 
     def plot_qc_phot_ref2d(self, axis_size=5):
 
@@ -1946,10 +1993,24 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from matplotlib.cm import get_cmap
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
+        # Processing info
+        print_header(header="QC PHOTOMETRY REFERENCE 2D", silent=self.setup.silent)
+        tstart = time.time()
+
         for idx_file in range(self.n_files):
 
             # Generate output path
-            outpath = self.paths_qc_plots(paths=None, prefix="phot.2D")[idx_file]
+            path_out = self.paths_qc_plots(paths=None, prefix="phot.2D")[idx_file]
+
+            # Check if file already exists
+            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+                continue
+            else:
+                message_calibration(
+                    n_current=idx_file+1,
+                    n_total=self.n_files,
+                    name=path_out,
+                )
 
             # Create figure for current file
             if len(self.iter_data_hdu[idx_file]) == 1:
@@ -2111,5 +2172,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(outpath, bbox_inches="tight")
+                fig.savefig(path_out, bbox_inches="tight")
             plt.close("all")
+
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
