@@ -29,11 +29,13 @@ class PipelineStatus:
         statistics_stacks=False,
         classification_stacks=False,
         photometry_stacks=False,
+        qc_photometry_stacks=False,
         qc_astrometry_stacks=False,
         tile=False,
         statistics_tile=False,
         classification_tile=False,
         photometry_tile=False,
+        qc_photometry_tile=False,
         qc_astrometry_tile=False,
         phase3=False,
         archive=False,
@@ -67,11 +69,13 @@ class PipelineStatus:
         self.statistics_stacks = statistics_stacks
         self.classification_stacks = classification_stacks
         self.photometry_stacks = photometry_stacks
+        self.qc_photometry_stacks = qc_photometry_stacks
         self.qc_astrometry_stacks = qc_astrometry_stacks
         self.tile = tile
         self.statistics_tile = statistics_tile
         self.classification_tile = classification_tile
         self.photometry_tile = photometry_tile
+        self.qc_photometry_tile = qc_photometry_tile
         self.qc_astrometry_tile = qc_astrometry_tile
         self.phase3 = phase3
         self.archive = archive
