@@ -35,12 +35,12 @@ class Setup(dict):
         self.__qc_plots = True
 
         # What to process
-        self.__build_stacks = True
+        self.__build_stacks = False
         self.__build_tile = True
-        self.__build_phase3 = True
+        self.__build_phase3 = False
         self.__build_public_catalog = False
         self.__archive = False
-        self.__build_class_star_library = True
+        self.__build_class_star_library = False
 
         # Data setup
         self.__maximasking = False
