@@ -39,6 +39,8 @@ fits2numpy = {
     "A": "a",
 }
 numpy2fits = {val: key for key, val in fits2numpy.items()}
+for i in np.arange(1, 30):
+    numpy2fits[f"U{i}"] = f"{i}A"
 
 
 def string2func(s):
