@@ -1136,7 +1136,7 @@ class Pipeline:
 
         # Phase 3
         if self.setup.build_phase3:
-            self.phase3()
+            self.build_phase3()
 
         # Archive results
         # TODO: Add 'build_public_catalog' catalog call here
