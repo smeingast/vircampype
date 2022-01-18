@@ -795,6 +795,7 @@ class Pipeline:
                 path_file_out=self._path_statistics_tile(mode="mjd.eff"),
                 overwrite=True,
             )
+            self.sources_tile_cal.add_statistics()
             self.update_status(statistics_tile=True)
         else:
             print_message(
