@@ -369,8 +369,18 @@ def table2bintablehdu(table):
         if len(table.field(key).shape) == 2:
             fits_format = str(table.field(key).shape[1]) + fits_format
 
+        if table.field(key).unit is not None:
+            unit = str(table.field(key).unit)
+        else:
+            unit = None
+
         cols_hdu.append(
-            fits.Column(name=key, array=table.field(key), format=fits_format)
+            fits.Column(
+                name=key,
+                array=table.field(key),
+                format=fits_format,
+                unit=unit,
+            )
         )
 
     # Return
