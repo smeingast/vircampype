@@ -1110,7 +1110,6 @@ class Pipeline:
         # Illumination correction, resampling, and image stats
         self.illumination_correction()
         self.resample()
-        self.build_statistics_resampled()
 
         # Calibrate pawprints and determine internal photometric error
         # self.photometry_pawprints()
@@ -1119,8 +1118,6 @@ class Pipeline:
         # Build and calibrate stacks
         if self.setup.build_stacks:
             self.build_stacks()
-            self.build_statistics_stacks()
-            self.classification_stacks()
             self.photometry_stacks()
             self.qc_photometry_stacks()
             self.qc_astrometry_stacks()
@@ -1128,8 +1125,6 @@ class Pipeline:
         # Build and calibrate tile
         if self.setup.build_tile:
             self.build_tile()
-            self.build_statistics_tile()
-            self.classification_tile()
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()
@@ -1138,11 +1133,12 @@ class Pipeline:
         if self.setup.build_phase3:
             self.build_phase3()
 
-        # Archive results
-        # TODO: Add 'build_public_catalog' catalog call here
-        # self.phase3_catalogs.build_public_catalog()
+        if self.setup.build_public_catalog:
+            self.build_statistics_resampled()
+            self.build_statistics_tile()
+            self.classification_tile()
+            self.build_public_catalog()
 
-        # exit()
         if self.setup.archive:
             self.archive()
 
