@@ -964,6 +964,15 @@ class Pipeline:
                 message="PHASE 3 files already built", kind="warning", end=None
             )
 
+    def build_public_catalog(self):
+        if not self.status.public_catalog:
+            self.sources_tile_cal.build_public_catalog(photerr_internal=0.005)
+            self.update_status(public_catalog=True)
+        else:
+            print_message(
+                message="PUBLIC CATALOG already built", kind="warning", end=None
+            )
+
     # =========================================================================== #
     # Cleaning/archiving
     def shallow_clean(self):
