@@ -713,10 +713,7 @@ def merge_with_2mass(
 
     # Read 2MASS coordinates
     skycoord_2mass = SkyCoord(
-        table_2mass[key_ra_2mass],
-        table_2mass[key_dec_2mass],
-        unit="deg",
-        frame="icrs"
+        table_2mass[key_ra_2mass], table_2mass[key_dec_2mass], unit="deg", frame="icrs"
     )
     skycoord_2mass_clean = SkyCoord(
         table_2mass_clean[key_ra_2mass],
@@ -731,7 +728,20 @@ def merge_with_2mass(
     magerr_2mass_clean = table_2mass_clean[f"e_{key_mag_2mass}"]
 
     # Find bright sources
-    idx_2mass_bright = mag_2mass < mag_limit
+    idx_2mass_bright = np.where(mag_2mass < mag_limit)[0]
+
+    # Also add sources that were flagged by Sextractor
+    sidx = (table["FLAGS"] == 4) | (table["FLAGS"] == 6)
+    skycoord_sat = skycoord[sidx]
+    idx_2mass_sat, dis_2mass_sat, _ = skycoord_sat.match_to_catalog_sky(
+        skycoord_2mass, nthneighbor=1
+    )
+    idx_2mass_sat = idx_2mass_sat[dis_2mass_sat < 0.5 * Unit("arcsec")]
+
+    # Merge and keep only unique
+    idx_2mass_bright = np.unique(np.concatenate([idx_2mass_bright, idx_2mass_sat]))
+
+    # Extract bright and saturated sources
     skycoord_2mass_bright = skycoord_2mass[idx_2mass_bright]
     mag_2mass_bright = mag_2mass[idx_2mass_bright]
 
@@ -775,7 +785,7 @@ def merge_with_2mass(
         xw, yw = wcs_weight.wcs_world2pix(
             skycoord_2mass_clean.ra[idx_temp_clean],
             skycoord_2mass_clean.dec[idx_temp_clean],
-            0
+            0,
         )
 
         # Extract weights around current pixel
@@ -795,6 +805,7 @@ def merge_with_2mass(
     # Remove bad sources from self
     table.remove_rows(idx_self_near_bright)  # noqa
 
+    # TODO: This can be done much easier by just concatenating tables
     # Make temporary empty table and write zeros into columns
     # This is much faster than iteratively adding rows in place with .add_row()
     table_temp = table[: len(idx_2mass_near_bright)]
