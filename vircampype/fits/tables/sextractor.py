@@ -2394,7 +2394,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Instantiate weights
         from vircampype.fits.images.common import FitsImages
-
         weightimages = FitsImages(file_paths=paths_weights, setup=self.setup)
 
         # Loop over self and merge
@@ -2437,7 +2436,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Clean master table
             keep_master = master_photometry.get_purge_index(passband=passband_2mass)
-            table_2mass = table_2mass[keep_master]
+            table_2mass_clean = table_2mass.copy()[keep_master]
 
             # Work in each extension
             for tidx, widx in zip(
@@ -2456,6 +2455,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 tables_file[tidx] = merge_with_2mass(
                     table=tables_file[tidx],
                     table_2mass=table_2mass,
+                    table_2mass_clean=table_2mass_clean,
                     mag_limit=mag_limit,
                     weight_image=weight_data,
                     weight_header=weight_hdr,
