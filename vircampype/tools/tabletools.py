@@ -760,7 +760,13 @@ def merge_with_2mass(
         xw, yw = wcs_weight.wcs_world2pix(
             skycoord_2mass.ra[idx_temp], skycoord_2mass.dec[idx_temp], 0
         )
-        weight_temp = weight_image_norm[yw.astype(int), xw.astype(int)]
+
+        # Extract weights around current pixel
+        weight_temp = np.full_like(yw, fill_value=0.0)
+        for xi, yi in zip([0, -1, 0, 1, 0], [0, 0, -1, 0, 1]):
+            weight_temp += weight_image_norm[yw.astype(int) + yi, xw.astype(int) + xi]
+        weight_temp /= 5.
+
         idx_temp = idx_temp[weight_temp > 0.0001]
         if np.sum(idx_temp) > 0:
             idx_2mass_near_bright.extend(idx_temp)
