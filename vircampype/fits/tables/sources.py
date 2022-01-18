@@ -292,7 +292,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         """
         return np.array(
             [
-                True if (q[0] == "A") & (c[0] == "0") else False
+                True if (q[0] == "A") & (c[0] in "0c") else False
                 for q, c in zip(
                     self.qflags(passband=passband)[0][0],
                     self.cflags(passband=passband)[0][0],
