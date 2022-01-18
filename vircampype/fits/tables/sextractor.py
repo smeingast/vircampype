@@ -2357,3 +2357,145 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             kind="okblue",
             end="\n",
         )
+
+    def build_public_catalog(self, photerr_internal=0.005):
+
+        # Processing info
+        print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
+        tstart = time.time()
+
+        # Load master photometry catalog
+        from vircampype.fits.tables.sources import MasterPhotometry2Mass
+
+        master_photometry = self.get_master_photometry()  # type: MasterPhotometry2Mass
+        mag_limit = self.setup.reference_mag_lim[0]
+
+        # Find classification tables
+        paths_cls = [
+            x.replace(".full.", ".cs.").replace(".ctab", ".tab")
+            for x in self.paths_full
+        ]
+
+        # Check if classification tables exist
+        if self.n_files != np.sum([os.path.exists(p) for p in paths_cls]):
+            raise ValueError("Classifiation tables not found")
+
+        # Instantiate classification tables
+        tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
+
+        # Find weight images
+        paths_weights = [
+            x.replace(".full.fits.ctab", ".weight.fits") for x in self.paths_full
+        ]
+
+        # Check if weight images exist
+        if self.n_files != np.sum([os.path.exists(p) for p in paths_weights]):
+            raise ValueError("Weight images not found")
+
+        # Instantiate weights
+        from vircampype.fits.images.common import FitsImages
+
+        weightimages = FitsImages(file_paths=paths_weights, setup=self.setup)
+
+        # Loop over self and merge
+        for idx_file in range(self.n_files):
+
+            # Create output path
+            path_out = self.paths_full[idx_file].replace(".ctab", ".ptab")
+            if path_out == self.paths_full[idx_file]:
+                raise ValueError("Can't set name of public catalog")
+
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+                continue
+
+            # Print processing info
+            if not self.setup.silent:
+                message_calibration(
+                    n_current=idx_file + 1,
+                    n_total=self.n_files,
+                    name=path_out,
+                    d_current=None,
+                    d_total=None,
+                )
+
+            # Grab passbands
+            passband = self.passband[idx_file]
+            passband_2mass = master_photometry.translate_passband(passband)
+
+            # Load current table in HDUList
+            hdulist_in = fits.open(self.paths_full[idx_file])
+
+            # Load source tables in current file
+            tables_file = self.file2table(file_index=idx_file)
+
+            # Load classification tables for current file
+            tables_class_file = tables_class.file2table(file_index=idx_file)
+
+            # Read master table
+            table_2mass = master_photometry.file2table(file_index=idx_file)[0]
+
+            # Clean master table
+            keep_master = master_photometry.get_purge_index(passband=passband_2mass)
+            table_2mass = table_2mass[keep_master]
+
+            # Work in each extension
+            for tidx, widx in zip(
+                range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
+            ):
+
+                # Interpolate source classification
+                interpolate_classification(tables_file[tidx], tables_class_file[tidx])
+
+                # Read weight
+                weight_data, weight_hdr = fits.getdata(
+                    paths_weights[0], widx, header=True
+                )
+
+                # Merge with 2MASS
+                tables_file[tidx] = merge_with_2mass(
+                    table=tables_file[tidx],
+                    table_2mass=table_2mass,
+                    mag_limit=mag_limit,
+                    weight_image=weight_data,
+                    weight_header=weight_hdr,
+                    key_ra="ALPHAWIN_SKY",
+                    key_dec="DELTAWIN_SKY",
+                    key_mag_2mass=passband_2mass,
+                )
+
+                # Convert to public format
+                tables_file[tidx] = convert2public(
+                    tables_file[tidx],
+                    photerr_internal=photerr_internal,
+                    apertures=self.setup.apertures,
+                    mag_saturation=mag_limit,
+                )
+
+            # Create primary header
+            phdr = fits.Header()
+            add_float_to_header(
+                header=phdr,
+                key="PHOTIERR",
+                value=photerr_internal,
+                comment="Internal photometric error (mag)",
+                decimals=4,
+            )
+            phdr["FILTER"] = hdulist_in[0].header[self.setup.keywords.filter_name]
+
+            # Create output file
+            hdulist_out = fits.HDUList(hdus=[fits.PrimaryHDU(header=phdr)])
+            [hdulist_out.append(table2bintablehdu(tc)) for tc in tables_file]
+
+            # Write to new output file
+            hdulist_out.writeto(path_out, overwrite=self.setup.overwrite)
+
+            # Close original file
+            hdulist_out.close()
+
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
