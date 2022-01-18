@@ -929,22 +929,6 @@ class Pipeline:
     def _paths_phase3_catalogs(self):
         return [x for x in self._paths_phase3 if "sources" in x]
 
-    @property
-    def phase3_catalogs(self):
-
-        # Instantiate
-        from vircampype.fits.tables.sources import Phase3Catalog
-
-        catalogs = Phase3Catalog(
-            file_paths=self._paths_phase3_catalogs, setup=self.setup
-        )
-
-        if len(catalogs) == 0:
-            raise PipelineError("No phase 3 catalogs found")
-
-        # Return
-        return catalogs
-
     def compress_phase3_images(self):
 
         # Maximum of three parallel jobs
