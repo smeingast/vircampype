@@ -699,6 +699,7 @@ def merge_with_2mass(
     weight_image: np.ndarray,
     weight_header: fits.Header,
     table_2mass: Table,
+    table_2mass_clean: Table,
     mag_limit: float,
     key_ra: str,
     key_dec: str,
@@ -710,12 +711,26 @@ def merge_with_2mass(
     # Read data columns
     skycoord = SkyCoord(table[key_ra], table[key_dec], unit="deg", frame="icrs")
 
-    # Read 2MASS columns
+    # Read 2MASS coordinates
     skycoord_2mass = SkyCoord(
-        table_2mass[key_ra_2mass], table_2mass[key_dec_2mass], unit="deg", frame="icrs"
+        table_2mass[key_ra_2mass],
+        table_2mass[key_dec_2mass],
+        unit="deg",
+        frame="icrs"
     )
+    skycoord_2mass_clean = SkyCoord(
+        table_2mass_clean[key_ra_2mass],
+        table_2mass_clean[key_dec_2mass],
+        unit="deg",
+        frame="icrs",
+    )
+
+    # Read 2MASS magnitudes
     mag_2mass = table_2mass[key_mag_2mass]
-    magerr_2mass = table_2mass[f"e_{key_mag_2mass}"]
+    mag_2mass_clean = table_2mass_clean[key_mag_2mass]
+    magerr_2mass_clean = table_2mass_clean[f"e_{key_mag_2mass}"]
+
+    # Find bright sources
     idx_2mass_bright = mag_2mass < mag_limit
     skycoord_2mass_bright = skycoord_2mass[idx_2mass_bright]
     mag_2mass_bright = mag_2mass[idx_2mass_bright]
@@ -745,31 +760,33 @@ def merge_with_2mass(
     for sc2mb, cr in zip(skycoord_2mass_bright, cleaning_radius):
 
         # Find all sources in self that are in the vicinity of the current bright source
-        idx_temp = np.where(sc2mb.separation(skycoord) <= cr)[0]
-        if np.sum(idx_temp) > 0:
-            idx_self_near_bright.extend(idx_temp)
+        idx_temp_bright = np.where(sc2mb.separation(skycoord) <= cr)[0]
+        if np.sum(idx_temp_bright) > 0:
+            idx_self_near_bright.extend(idx_temp_bright)
 
-        # Find all sources in the master table that are within the cleaned radius
-        idx_temp = np.where(sc2mb.separation(skycoord_2mass) <= cr)[0]
+        # Find all clean sources in the clean table that are within the cleaning radius
+        idx_temp_clean = np.where(sc2mb.separation(skycoord_2mass_clean) <= cr)[0]
 
         # Keep only those within footprint
-        keep = wcs_weight.footprint_contains(skycoord_2mass[idx_temp])
-        idx_temp = idx_temp[keep]
+        keep = wcs_weight.footprint_contains(skycoord_2mass_clean[idx_temp_clean])
+        idx_temp_clean = idx_temp_clean[keep]
 
         # Keep only those with non-0 weights
         xw, yw = wcs_weight.wcs_world2pix(
-            skycoord_2mass.ra[idx_temp], skycoord_2mass.dec[idx_temp], 0
+            skycoord_2mass_clean.ra[idx_temp_clean],
+            skycoord_2mass_clean.dec[idx_temp_clean],
+            0
         )
 
         # Extract weights around current pixel
         weight_temp = np.full_like(yw, fill_value=0.0)
         for xi, yi in zip([0, -1, 0, 1, 0], [0, 0, -1, 0, 1]):
             weight_temp += weight_image_norm[yw.astype(int) + yi, xw.astype(int) + xi]
-        weight_temp /= 5.
+        weight_temp /= 5.0
 
-        idx_temp = idx_temp[weight_temp > 0.0001]
-        if np.sum(idx_temp) > 0:
-            idx_2mass_near_bright.extend(idx_temp)
+        idx_temp_clean = idx_temp_clean[weight_temp > 0.0001]
+        if np.sum(idx_temp_clean) > 0:
+            idx_2mass_near_bright.extend(idx_temp_clean)
 
     # Only keep unique sources
     idx_self_near_bright = np.unique(idx_self_near_bright)
@@ -825,39 +842,50 @@ def merge_with_2mass(
     col_mjd = table.Column(name="MJD_2MASS", data=data, dtype=np.float32)
 
     # Add columns
-    table.add_columns([col_origin, col_mag_master, col_magerr_master,
-                       col_errmaj, col_errmin, col_errpa, col_mjd])
+    table.add_columns(
+        [
+            col_origin,
+            col_mag_master,
+            col_magerr_master,
+            col_errmaj,
+            col_errmin,
+            col_errpa,
+            col_mjd,
+        ]
+    )
 
     # Overwrite columns with new entries
     table["SURVEY"][-len(idx_2mass_near_bright):] = "2MASS"
 
-    table[key_ra][-len(idx_2mass_near_bright):] = skycoord_2mass[
+    table[key_ra][-len(idx_2mass_near_bright):] = skycoord_2mass_clean[
         idx_2mass_near_bright
     ].ra.degree
 
-    table[key_dec][-len(idx_2mass_near_bright):] = skycoord_2mass[
+    table[key_dec][-len(idx_2mass_near_bright):] = skycoord_2mass_clean[
         idx_2mass_near_bright
     ].dec.degree
 
-    table["MAG_2MASS"][-len(idx_2mass_near_bright):] = mag_2mass[idx_2mass_near_bright]
-
-    table["MAGERR_2MASS"][-len(idx_2mass_near_bright):] = magerr_2mass[
+    table["MAG_2MASS"][-len(idx_2mass_near_bright):] = mag_2mass_clean[
         idx_2mass_near_bright
     ]
 
-    table["ERRMAJ_2MASS"][-len(idx_2mass_near_bright):] = table_2mass["errMaj"][
+    table["MAGERR_2MASS"][-len(idx_2mass_near_bright):] = magerr_2mass_clean[
         idx_2mass_near_bright
     ]
 
-    table["ERRMIN_2MASS"][-len(idx_2mass_near_bright):] = table_2mass["errMin"][
+    table["ERRMAJ_2MASS"][-len(idx_2mass_near_bright):] = table_2mass_clean["errMaj"][
         idx_2mass_near_bright
     ]
 
-    table["ERRPA_2MASS"][-len(idx_2mass_near_bright):] = table_2mass["errPA"][
+    table["ERRMIN_2MASS"][-len(idx_2mass_near_bright):] = table_2mass_clean["errMin"][
         idx_2mass_near_bright
     ]
 
-    mjd2mass = Time(table_2mass["JD"][idx_2mass_near_bright], format="jd").mjd
+    table["ERRPA_2MASS"][-len(idx_2mass_near_bright):] = table_2mass_clean["errPA"][
+        idx_2mass_near_bright
+    ]
+
+    mjd2mass = Time(table_2mass_clean["JD"][idx_2mass_near_bright], format="jd").mjd
     table["MJD_2MASS"][-len(idx_2mass_near_bright):] = mjd2mass
 
     # Return modified table
