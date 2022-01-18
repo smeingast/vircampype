@@ -815,99 +815,57 @@ def merge_with_2mass(
     # Remove bad sources from self
     table.remove_rows(idx_self_near_bright)  # noqa
 
-    # TODO: This can be done much easier by just concatenating tables
-    # Make temporary empty table and write zeros into columns
-    # This is much faster than iteratively adding rows in place with .add_row()
-    table_temp = table[: len(idx_2mass_near_bright)]
-    for cc in table_temp.itercols():
+    # Add new cols to original catalog
+    table.add_column(np.full(len(table), fill_value="VISIONS"), name="SURVEY")
+    table.add_column(
+        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="MAG_2MASS"
+    )
+    table.add_column(
+        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="MAGERR_2MASS"
+    )
+    table.add_column(
+        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="ERRMAJ_2MASS"
+    )
+    table.add_column(
+        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="ERRMIN_2MASS"
+    )
+    table.add_column(
+        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="ERRPA_2MASS"
+    )
+    table.add_column(
+        np.full(len(table), fill_value=np.nan, dtype=np.float64), name="MJD_2MASS"
+    )
+
+    # Create new catalog with sources from 2MASS
+    table_new = Table()
+    for cc in table.itercols():
+
+        # Determine shape of array
+        shape = list(table[cc.name].shape)
+        shape[0] = len(idx_2mass_near_bright)
 
         if cc.dtype.kind == "f":
-            table_temp[cc.name] = np.full_like(
-                table_temp[cc.name], dtype=cc.dtype, fill_value=np.nan
-            )
+            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=np.nan)
         elif cc.dtype.kind == "i":
-            table_temp[cc.name] = np.full_like(
-                table_temp[cc.name], dtype=cc.dtype, fill_value=0
-            )
-        elif cc.dtype.kind == "S":
-            table_temp[cc.name] = np.full_like(
-                table_temp[cc.name], dtype=cc.dtype, fill_value=""  # noqa
-            )
+            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=0)
+        elif cc.dtype.kind in "SU":
+            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value="")
         elif cc.dtype.kind == "b":
-            table_temp[cc.name] = np.full_like(
-                table_temp[cc.name], dtype=cc.dtype, fill_value=False
-            )
+            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=False)
         else:
             raise ValueError(f"dtype '{cc.dtype.char}' not supported")
 
-    # Concatenate with original table
-    table = table_vstack([table, table_temp])
-
-    # Define survey column
-    col_origin = table.Column(
-        name="SURVEY",
-        data=np.full(len(table), fill_value="VISIONS"),
-        dtype=str,
-    )
-
-    # Define magnitude columns
-    data = np.full(len(table), fill_value=np.nan)
-    col_mag_master = table.Column(name="MAG_2MASS", data=data, dtype=np.float32)
-    col_magerr_master = table.Column(name="MAGERR_2MASS", data=data, dtype=np.float32)
-
-    # Define other columns
-    data = np.full(len(table), fill_value=np.nan)
-    col_errmaj = table.Column(name="ERRMAJ_2MASS", data=data, dtype=np.float32)
-    col_errmin = table.Column(name="ERRMIN_2MASS", data=data, dtype=np.float32)
-    col_errpa = table.Column(name="ERRPA_2MASS", data=data, dtype=np.float32)
-    col_mjd = table.Column(name="MJD_2MASS", data=data, dtype=np.float32)
-
-    # Add columns
-    table.add_columns(
-        [
-            col_origin,
-            col_mag_master,
-            col_magerr_master,
-            col_errmaj,
-            col_errmin,
-            col_errpa,
-            col_mjd,
-        ]
-    )
-
-    # Overwrite columns with new entries
-    table["SURVEY"][-len(idx_2mass_near_bright):] = "2MASS"
-
-    table[key_ra][-len(idx_2mass_near_bright):] = skycoord_2mass_clean[
-        idx_2mass_near_bright
-    ].ra.degree
-
-    table[key_dec][-len(idx_2mass_near_bright):] = skycoord_2mass_clean[
-        idx_2mass_near_bright
-    ].dec.degree
-
-    table["MAG_2MASS"][-len(idx_2mass_near_bright):] = mag_2mass_clean[
-        idx_2mass_near_bright
-    ]
-
-    table["MAGERR_2MASS"][-len(idx_2mass_near_bright):] = magerr_2mass_clean[
-        idx_2mass_near_bright
-    ]
-
-    table["ERRMAJ_2MASS"][-len(idx_2mass_near_bright):] = table_2mass_clean["errMaj"][
-        idx_2mass_near_bright
-    ]
-
-    table["ERRMIN_2MASS"][-len(idx_2mass_near_bright):] = table_2mass_clean["errMin"][
-        idx_2mass_near_bright
-    ]
-
-    table["ERRPA_2MASS"][-len(idx_2mass_near_bright):] = table_2mass_clean["errPA"][
-        idx_2mass_near_bright
-    ]
-
+    # Fill table
+    table_new["SURVEY"] = "2MASS"
+    table_new[key_ra] = skycoord_2mass_clean[idx_2mass_near_bright].ra.degree
+    table_new[key_dec] = skycoord_2mass_clean[idx_2mass_near_bright].dec.degree
+    table_new["MAG_2MASS"] = mag_2mass_clean[idx_2mass_near_bright]
+    table_new["MAGERR_2MASS"] = magerr_2mass_clean[idx_2mass_near_bright]
+    table_new["ERRMAJ_2MASS"] = table_2mass_clean["errMaj"][idx_2mass_near_bright]
+    table_new["ERRMIN_2MASS"] = table_2mass_clean["errMin"][idx_2mass_near_bright]
+    table_new["ERRPA_2MASS"] = table_2mass_clean["errPA"][idx_2mass_near_bright]
     mjd2mass = Time(table_2mass_clean["JD"][idx_2mass_near_bright], format="jd").mjd
-    table["MJD_2MASS"][-len(idx_2mass_near_bright):] = mjd2mass
+    table_new["MJD_2MASS"] = mjd2mass
 
-    # Return modified table
-    return table
+    # Stack tables and return
+    return table_vstack(tables=[table, table_new])
