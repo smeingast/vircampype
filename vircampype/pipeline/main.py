@@ -1122,6 +1122,7 @@ class Pipeline:
             self.build_statistics_stacks()
             self.classification_stacks()
             self.photometry_stacks()
+            self.qc_photometry_stacks()
             self.qc_astrometry_stacks()
 
         # Build and calibrate tile
@@ -1130,6 +1131,7 @@ class Pipeline:
             self.build_statistics_tile()
             self.classification_tile()
             self.photometry_tile()
+            self.qc_photometry_tile()
             self.qc_astrometry_tile()
 
         # Phase 3
