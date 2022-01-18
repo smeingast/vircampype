@@ -1,17 +1,21 @@
 import warnings
 import numpy as np
 
-from typing import Union
 from astropy.io import fits
-from astropy.table import Table
+from astropy.time import Time
+from astropy.units import Unit
+from typing import Union, List
 from scipy.interpolate import interp1d
+from astropy.table import Table, QTable
 from astropy.coordinates import SkyCoord
+from vircampype.tools.miscellaneous import *
+from astropy.wcs import WCS, FITSFixedWarning
 from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
+from astropy.table import vstack as table_vstack
 from vircampype.tools.photometry import get_zeropoint
 from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.modeling.functional_models import Gaussian1D
-from vircampype.tools.miscellaneous import convert_dtype, numpy2fits
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
 __all__ = [
@@ -23,6 +27,8 @@ __all__ = [
     "remove_duplicates_wcs",
     "fill_masked_columns",
     "fits_column_kwargs",
+    "convert2public",
+    "merge_with_2mass",
 ]
 
 # Table column formats
@@ -56,7 +62,6 @@ def clean_source_table(
     min_flux_radius=0.8,
     max_flux_radius=3.0,
 ):
-
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
 
@@ -161,7 +166,6 @@ def clean_source_table(
 
 
 def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
-
     # Construct clean source table
     table_clean, keep_clean = clean_source_table(
         table=table,
@@ -351,7 +355,6 @@ def add_zp_2mass(
 
 
 def table2bintablehdu(table):
-
     # Construct FITS columns from all table columns
     cols_hdu = []
     for key in table.keys():
@@ -513,4 +516,343 @@ def fill_masked_columns(table: Table, fill_value: Union[int, float]):
     for cc in table.columns:
         if isinstance(table[cc], MaskedColumn):
             table[cc] = table[cc].filled(fill_value=fill_value)
+    return table
+
+
+def convert2public(
+    table: Table,
+    photerr_internal: float,
+    apertures: List,
+    mag_saturation,
+):
+    # Read and clean aperture magnitudes, add internal photometric error
+    mag_aper = table["MAG_APER_MATCHED_CAL"] + table["MAG_APER_MATCHED_CAL_ZPC_INTERP"]
+    magerr_aper = np.sqrt(table["MAGERR_APER"] ** 2 + photerr_internal ** 2)
+    # mag_aper_bad = (mag_aper > 30.0) | (magerr_aper > 10)
+    # mag_aper[mag_aper_bad], magerr_aper[mag_aper_bad] = np.nan, np.nan
+
+    # Read and clean auto magnitudes, add internal photometric error
+    # mag_auto = data["MAG_AUTO_CAL"] + data["MAG_AUTO_CAL_ZPC_INTERP"]
+    # magerr_auto = np.sqrt(data["MAGERR_AUTO"] ** 2 + photerr_internal ** 2)
+    # mag_auto_bad = (mag_auto > 30.0) | (magerr_auto > 10)
+    # mag_auto[mag_auto_bad], magerr_auto[mag_auto_bad] = np.nan, np.nan
+
+    # Compute best default magnitude (match aperture to source area)
+    rr = (2 * np.sqrt(table["ISOAREA_IMAGE"] / np.pi)).reshape(-1, 1)
+    aa = np.array(apertures).reshape(-1, 1)
+    _, idx_aper = (
+        NearestNeighbors(n_neighbors=mag_aper.shape[1], algorithm="auto")
+        .fit(aa)
+        .kneighbors(rr)
+    )
+    idx_best = idx_aper[:, 0]
+    mag_best = mag_aper.copy()[np.arange(len(table)), idx_best]
+    magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
+    aper_best = np.array(apertures)[idx_best]
+
+    # Copy sextractor flag
+    sflg = table["FLAGS"]
+
+    # Construct contamination flag
+    cflg = np.full(len(table), fill_value=False, dtype=bool)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        cflg[
+            np.nanmin(mag_aper, axis=1) < mag_saturation
+        ] = True  # Values above saturation limit
+    cflg[table["SNR_WIN"] <= 0] = True  # Bad SNR
+    cflg[table["FLUX_AUTO"] < 0.01] = True  # Bad Flux measurement
+    cflg[table["FWHM_WORLD"] * 3600 <= 0.2] = True  # Bad FWHM
+    cflg[
+        ~np.isfinite(np.sum(table["MAG_APER"], axis=1))
+    ] = True  # All aperture magnitudes must be good
+    cflg[table["NIMG"] < 1] = True  # Must be images once
+    cflg[table["MJDEFF"] < 0] = True  # Must have a good MJD
+    cflg[table["FLAGS_WEIGHT"] > 0] = True  # No flags in weight
+    cflg[sflg >= 4] = True  # No bad Sextractor flags
+    cflg[
+        np.isnan(table["CLASS_STAR_INTERP"])
+    ] = True  # CLASS_STAR must have worked in sextractor
+
+    # Clean bad growth magnitudes
+    growth = table["MAG_APER_MATCHED_CAL"][:, 0] - table["MAG_APER_MATCHED_CAL"][:, 1]
+    mag_min, mag_max = np.nanmin(mag_best), np.nanmax(mag_best)
+    mag_range = np.linspace(mag_min, mag_max, 100)
+    idx_all = np.arange(len(mag_best))
+
+    # Loop over magnitude range
+    bad_idx = []
+    for mm in mag_range:
+
+        # Grab all sources within 0.25 mag of current position
+        cidx_all = (mag_best > mm - 0.25) & (mag_best < mm + 0.25)
+        cidx_pnt = (
+            (table["CLASS_STAR_INTERP"] > 0.5)
+            & (mag_best > mm - 0.25)
+            & (mag_best < mm + 0.25)
+        )
+
+        # Filter presumably bad sources
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            mean, median, stddev = sigma_clipped_stats(
+                growth[cidx_pnt], sigma=5, maxiters=1
+            )
+            bad = (growth[cidx_all] < median - 0.05) & (
+                growth[cidx_all] < median - 3 * stddev
+            )
+
+        # Save bad sources
+        if np.sum(bad) > 0:
+            bad_idx.append(idx_all[cidx_all][bad])
+
+    # Flag outliers
+    cflg[flat_list(bad_idx)] = True
+
+    # Nebula filter from VISION
+    fv = (
+        (table["BACKGROUND"] / table["FLUX_APER"][:, 0] > 0.02)
+        & (table["MAG_APER_MATCHED"][:, 0] - table["MAG_APER_MATCHED"][:, 1] <= -0.2)
+        & (table["CLASS_STAR_INTERP"] < 0.5)
+    )
+    cflg[fv] = True
+
+    # Construct quality flag
+    qflg = np.full(len(table), fill_value="X", dtype=str)
+    qflg_d = (sflg < 4) & ~cflg
+    qflg[qflg_d] = "D"
+    qflg_c = (magerr_best < 0.21714) & (sflg < 4) & ~cflg
+    qflg[qflg_c] = "C"
+    qflg_b = (magerr_best < 0.15510) & (sflg < 4) & ~cflg
+    qflg[qflg_b] = "B"
+    qflg_a = (magerr_best < 0.10857) & (sflg < 4) & ~cflg
+    qflg[qflg_a] = "A"
+
+    # Copy values from merged 2MASS columns
+    idx_2mass = table["SURVEY"] == "2MASS"
+    mag_best[idx_2mass] = table["MAG_2MASS"][idx_2mass]
+    magerr_best[idx_2mass] = table["MAGERR_2MASS"][idx_2mass]
+    table["CLASS_STAR_INTERP"][idx_2mass] = 0.99999
+    table["ERRAWIN_WORLD"][idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass] / 3600
+    table["ERRBWIN_WORLD"][idx_2mass] = table["ERRMIN_2MASS"][idx_2mass] / 3600
+    table["ERRTHETAWIN_SKY"][idx_2mass] = table["ERRPA_2MASS"][idx_2mass]
+    table["MJDEFF"][idx_2mass] = table["MJD_2MASS"][idx_2mass]
+    aper_best[idx_2mass] = np.nan
+    sflg[idx_2mass] = 0
+    cflg[idx_2mass] = False
+    qflg[idx_2mass] = "A"
+
+    # Get Skycoordinates
+    skycoord = SkyCoord(
+        ra=table["ALPHAWIN_SKY"], dec=table["DELTAWIN_SKY"], frame="icrs", unit="deg"
+    )
+
+    # Create table
+    table_out = QTable(
+        data=[
+            skycoord2visionsid(skycoord=skycoord),
+            skycoord.icrs.ra.deg * Unit("deg"),
+            skycoord.icrs.dec.deg * Unit("deg"),
+            table["ERRAWIN_WORLD"] * 3_600_000 * Unit("mas"),
+            table["ERRBWIN_WORLD"] * 3_600_000 * Unit("mas"),
+            table["ERRTHETAWIN_SKY"] * Unit("deg"),
+            mag_best * Unit("mag"),
+            magerr_best * Unit("mag"),
+            aper_best,
+            table["MJDEFF"] * Unit("day"),
+            table["EXPTIME"].value * Unit("s"),
+            table["FWHM_WORLD"] * 3600 * Unit("arcsec"),
+            table["ELLIPTICITY"],
+            table["CLASS_STAR_INTERP"],
+            sflg,
+            cflg,
+            qflg,
+            table["SURVEY"],
+        ],
+        names=[
+            "ID",
+            "RA",
+            "DEC",
+            "ERRMAJ",
+            "ERMIN",
+            "ERRPA",
+            "MAG",
+            "MAGERR",
+            "APER",
+            "MJD",
+            "EXPTIME",
+            "FWHM",
+            "ELLIPTICITY",
+            "CLS",
+            "SFLG",
+            "CFLG",
+            "QFLG",
+            "SURVEY",
+        ],
+    )
+
+    return table_out
+
+
+def merge_with_2mass(
+    table: Table,
+    weight_image: np.ndarray,
+    weight_header: fits.Header,
+    table_2mass: Table,
+    mag_limit: float,
+    key_ra: str,
+    key_dec: str,
+    key_mag_2mass: str,
+    key_ra_2mass: str = "RAJ2000",
+    key_dec_2mass: str = "DEJ2000",
+):
+
+    # Read data columns
+    skycoord = SkyCoord(table[key_ra], table[key_dec], unit="deg", frame="icrs")
+
+    # Read 2MASS columns
+    skycoord_2mass = SkyCoord(
+        table_2mass[key_ra_2mass], table_2mass[key_dec_2mass], unit="deg", frame="icrs"
+    )
+    mag_2mass = table_2mass[key_mag_2mass]
+    magerr_2mass = table_2mass[f"e_{key_mag_2mass}"]
+    idx_2mass_bright = mag_2mass < mag_limit
+    skycoord_2mass_bright = skycoord_2mass[idx_2mass_bright]
+    mag_2mass_bright = mag_2mass[idx_2mass_bright]
+
+    # Read WCS properties of weight
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FITSFixedWarning)
+        wcs_weight = WCS(weight_header)
+
+    # Normalize weight
+    weight_image_norm = weight_image / np.nanmean(weight_image)
+
+    # Keep only those from 2MASS that are within footprint
+    keep_bright = wcs_weight.footprint_contains(skycoord_2mass_bright)
+    skycoord_2mass_bright = skycoord_2mass_bright[keep_bright]
+    mag_2mass_bright = mag_2mass_bright[keep_bright]
+
+    # Define 2MASS cleaning radus
+    cleaning_radius = interp1d(
+        [-99, 5.00, 6.70, 8.70, 9.20, 10.5, 12, 99],
+        [100, 80, 60, 35, 20, 10, 5, 0],
+    )
+    cleaning_radius = cleaning_radius(mag_2mass_bright) * Unit("arcsec")
+
+    # Find all sources around the bright targets in the photometric reference catalog
+    idx_self_near_bright, idx_2mass_near_bright = [], []
+    for sc2mb, cr in zip(skycoord_2mass_bright, cleaning_radius):
+
+        # Find all sources in self that are in the vicinity of the current bright source
+        idx_temp = np.where(sc2mb.separation(skycoord) <= cr)[0]
+        if np.sum(idx_temp) > 0:
+            idx_self_near_bright.extend(idx_temp)
+
+        # Find all sources in the master table that are within the cleaned radius
+        idx_temp = np.where(sc2mb.separation(skycoord_2mass) <= cr)[0]
+
+        # Keep only those within footprint
+        keep = wcs_weight.footprint_contains(skycoord_2mass[idx_temp])
+        idx_temp = idx_temp[keep]
+
+        # Keep only those with non-0 weights
+        xw, yw = wcs_weight.wcs_world2pix(
+            skycoord_2mass.ra[idx_temp], skycoord_2mass.dec[idx_temp], 0
+        )
+        weight_temp = weight_image_norm[yw.astype(int), xw.astype(int)]
+        idx_temp = idx_temp[weight_temp > 0.0001]
+        if np.sum(idx_temp) > 0:
+            idx_2mass_near_bright.extend(idx_temp)
+
+    # Only keep unique sources
+    idx_self_near_bright = np.unique(idx_self_near_bright)
+    idx_2mass_near_bright = np.unique(idx_2mass_near_bright)
+
+    # Remove bad sources from self
+    table.remove_rows(idx_self_near_bright)  # noqa
+
+    # Make temporary empty table and write zeros into columns
+    # This is much faster than iteratively adding rows in place with .add_row()
+    table_temp = table[: len(idx_2mass_near_bright)]
+    for cc in table_temp.itercols():
+
+        if cc.dtype.kind == "f":
+            table_temp[cc.name] = np.full_like(
+                table_temp[cc.name], dtype=cc.dtype, fill_value=np.nan
+            )
+        elif cc.dtype.kind == "i":
+            table_temp[cc.name] = np.full_like(
+                table_temp[cc.name], dtype=cc.dtype, fill_value=0
+            )
+        elif cc.dtype.kind == "S":
+            table_temp[cc.name] = np.full_like(
+                table_temp[cc.name], dtype=cc.dtype, fill_value=""  # noqa
+            )
+        elif cc.dtype.kind == "b":
+            table_temp[cc.name] = np.full_like(
+                table_temp[cc.name], dtype=cc.dtype, fill_value=False
+            )
+        else:
+            raise ValueError(f"dtype '{cc.dtype.char}' not supported")
+
+    # Concatenate with original table
+    table = table_vstack([table, table_temp])
+
+    # Define survey column
+    col_origin = table.Column(
+        name="SURVEY",
+        data=np.full(len(table), fill_value="VISIONS"),
+        dtype=str,
+    )
+
+    # Define magnitude columns
+    data = np.full(len(table), fill_value=np.nan)
+    col_mag_master = table.Column(name="MAG_2MASS", data=data, dtype=np.float32)
+    col_magerr_master = table.Column(name="MAGERR_2MASS", data=data, dtype=np.float32)
+
+    # Define other columns
+    data = np.full(len(table), fill_value=np.nan)
+    col_errmaj = table.Column(name="ERRMAJ_2MASS", data=data, dtype=np.float32)
+    col_errmin = table.Column(name="ERRMIN_2MASS", data=data, dtype=np.float32)
+    col_errpa = table.Column(name="ERRPA_2MASS", data=data, dtype=np.float32)
+    col_mjd = table.Column(name="MJD_2MASS", data=data, dtype=np.float32)
+
+    # Add columns
+    table.add_columns([col_origin, col_mag_master, col_magerr_master,
+                       col_errmaj, col_errmin, col_errpa, col_mjd])
+
+    # Overwrite columns with new entries
+    table["SURVEY"][-len(idx_2mass_near_bright):] = "2MASS"
+
+    table[key_ra][-len(idx_2mass_near_bright):] = skycoord_2mass[
+        idx_2mass_near_bright
+    ].ra.degree
+
+    table[key_dec][-len(idx_2mass_near_bright):] = skycoord_2mass[
+        idx_2mass_near_bright
+    ].dec.degree
+
+    table["MAG_2MASS"][-len(idx_2mass_near_bright):] = mag_2mass[idx_2mass_near_bright]
+
+    table["MAGERR_2MASS"][-len(idx_2mass_near_bright):] = magerr_2mass[
+        idx_2mass_near_bright
+    ]
+
+    table["ERRMAJ_2MASS"][-len(idx_2mass_near_bright):] = table_2mass["errMaj"][
+        idx_2mass_near_bright
+    ]
+
+    table["ERRMIN_2MASS"][-len(idx_2mass_near_bright):] = table_2mass["errMin"][
+        idx_2mass_near_bright
+    ]
+
+    table["ERRPA_2MASS"][-len(idx_2mass_near_bright):] = table_2mass["errPA"][
+        idx_2mass_near_bright
+    ]
+
+    mjd2mass = Time(table_2mass["JD"][idx_2mass_near_bright], format="jd").mjd
+    table["MJD_2MASS"][-len(idx_2mass_near_bright):] = mjd2mass
+
+    # Return modified table
     return table
