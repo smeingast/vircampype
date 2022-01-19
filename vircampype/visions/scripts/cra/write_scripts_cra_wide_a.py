@@ -24,6 +24,6 @@ write_scripts(
     name_suffix="_A",
     build_stacks=True,
     build_tile=True,
-    build_phase3=False,
-    build_class_star_library=False,
+    build_phase3=True,
+    build_public_catalog=False,
 )
