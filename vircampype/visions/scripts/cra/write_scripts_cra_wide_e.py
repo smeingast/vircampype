@@ -24,8 +24,8 @@ write_scripts(
     name_suffix="_E",
     build_stacks=True,
     build_tile=True,
-    build_phase3=False,
-    build_class_star_library=False,
+    build_phase3=True,
+    build_public_catalog=False,
 )
 
 """ Four tiles are missing from this run. These were done later in run L. """
