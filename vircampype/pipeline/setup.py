@@ -176,7 +176,7 @@ class Setup(dict):
             self["folders"]["temp"],
         ]
 
-        if "calibration" not in self.name.lower():
+        if self.build_phase3:
             folders_common += [self["folders"]["phase3"]]
 
         # calibration-specific paths
@@ -197,13 +197,16 @@ class Setup(dict):
             self["folders"]["processed_final"],
             self["folders"]["qc_astrometry"],
             self["folders"]["resampled"],
-            self["folders"]["stacks"],
             self["folders"]["statistics"],
             self["folders"]["tile"],
             self["folders"]["qc_photometry"],
             self["folders"]["qc_illumcorr"],
             self["folders"]["illumcorr"],
         ]
+
+        # Create folder for stacks if set
+        if self.build_stacks:
+            folders_object += [self["folders"]["stacks"]]
 
         # Generate common paths
         for path in folders_common:
