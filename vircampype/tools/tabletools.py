@@ -657,7 +657,7 @@ def convert2public(
     # Copy values from merged 2MASS columns
     mag_best[idx_2mass] = table["MAG_2MASS"][idx_2mass]
     magerr_best[idx_2mass] = table["MAGERR_2MASS"][idx_2mass]
-    table["CLASS_STAR_INTERP"][idx_2mass] = 0.99999
+    table["CLASS_STAR_INTERP"][idx_2mass] = 1.0
     table["ERRAWIN_WORLD"][idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass] / 3600
     table["ERRBWIN_WORLD"][idx_2mass] = table["ERRMIN_2MASS"][idx_2mass] / 3600
     table["ERRTHETAWIN_SKY"][idx_2mass] = table["ERRPA_2MASS"][idx_2mass]
