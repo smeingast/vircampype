@@ -19,7 +19,7 @@ def build_mosaic(
     reference_mag_lim: tuple[float, float],
     projection: str,
     phase3_photerr_internal: float,
-    build_phase3: bool = True,
+    build_public_catalog: bool = True,
     **kwargs,
 ):
 
@@ -63,7 +63,8 @@ def build_mosaic(
         external_headers=True,
         build_stacks=False,
         build_tile=True,
-        build_phase3=build_phase3,
+        build_phase3=False,
+        build_public_catalog=build_public_catalog,
         archive=False,
         qc_plots=True,
         **kwargs,
