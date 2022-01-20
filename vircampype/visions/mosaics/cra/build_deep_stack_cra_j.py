@@ -27,6 +27,4 @@ build_mosaic(
     reference_mag_lim=reference_mag_lim,
     projection="Corona_Australis_deep",
     phase3_photerr_internal=phase3_photerr_internal,
-    build_class_star_library=False,
-    build_phase3=False,
 )
