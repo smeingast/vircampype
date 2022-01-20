@@ -694,7 +694,7 @@ def convert2public(
             "RA",
             "DEC",
             "ERRMAJ",
-            "ERMIN",
+            "ERRMIN",
             "ERRPA",
             "MAG",
             "MAGERR",
