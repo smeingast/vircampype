@@ -112,7 +112,10 @@ def build_mosaic(
 
     # Dummy check
     if len(paths_statistics) != 5 * len(paths_resampled):
-        raise ValueError("Statistics and image files not matching")
+        raise ValueError(
+            f"Statistics (n={len(paths_statistics)}) and image "
+            f"files (n={len(paths_resampled)}) not matching"
+        )
 
     # Require input to continue
     if (input("Continue (Y/n)") or "Y") != "Y":
