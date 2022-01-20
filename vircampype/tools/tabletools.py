@@ -673,15 +673,15 @@ def convert2public(
             skycoord2visionsid(skycoord=skycoord),
             skycoord.icrs.ra.deg * Unit("deg"),
             skycoord.icrs.dec.deg * Unit("deg"),
-            (table["ERRAWIN_WORLD"] * 3_600_000).astype(np.float32) * Unit("mas"),
-            (table["ERRBWIN_WORLD"] * 3_600_000).astype(np.float32) * Unit("mas"),
-            table["ERRTHETAWIN_SKY"].astype(np.float32) * Unit("deg"),
-            mag_best.astype(np.float32) * Unit("mag"),
-            magerr_best.astype(np.float32) * Unit("mag"),
-            aper_best.astype(np.float32),
+            (table["ERRAWIN_WORLD"].to(Unit("mas"))).astype(np.float32),
+            (table["ERRBWIN_WORLD"].to(Unit("mas"))).astype(np.float32),
+            table["ERRTHETAWIN_SKY"].to(Unit("deg")).astype(np.float32),
+            mag_best.to(Unit("mag")).astype(np.float32),
+            magerr_best.to(Unit("mag")).astype(np.float32),
+            aper_best.astype(np.float32) * Unit("pix"),
             table["MJDEFF"].astype(np.float64) * Unit("day"),
             table["EXPTIME"].value.astype(np.float32) * Unit("s"),
-            table["FWHM_WORLD"].astype(np.float32) * 3600 * Unit("arcsec"),
+            table["FWHM_WORLD"].to(Unit("arcsec")).astype(np.float32),
             table["ELLIPTICITY"].astype(np.float32),
             table["CLASS_STAR_INTERP"].astype(np.float32),
             sflg,
@@ -710,6 +710,19 @@ def convert2public(
             "SURVEY",
         ],
     )
+
+    # Assert units
+    assert table_out["RA"].unit == Unit("deg")
+    assert table_out["DEC"].unit == Unit("deg")
+    assert table_out["ERRMAJ"].unit == Unit("mas")
+    assert table_out["ERRMIN"].unit == Unit("mas")
+    assert table_out["ERRPA"].unit == Unit("deg")
+    assert table_out["MAG"].unit == Unit("mag")
+    assert table_out["MAGERR"].unit == Unit("mag")
+    assert table_out["APER"].unit == Unit("pix")
+    assert table_out["MJD"].unit == Unit("day")
+    assert table_out["EXPTIME"].unit == Unit("s")
+    assert table_out["FWHM"].unit == Unit("arcsec")
 
     return table_out
 
