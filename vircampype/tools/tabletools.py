@@ -639,8 +639,14 @@ def convert2public(
     qflg_a = (magerr_best < 0.10857) & (sflg < 4) & ~cflg
     qflg[qflg_a] = "A"
 
+    # Get indices for 2MASS and VISIONS entries
+    idx_visions = np.where(table["SURVEY"] == "VISIONS")[0]
+    idx_2mass = np.where(table["SURVEY"] == "2MASS")[0]
+
+    # Convert ERRPA to 2MASS convention
+    table["ERRTHETAWIN_SKY"][idx_visions] += 90
+
     # Add internal astrometric error
-    idx_visions = table["SURVEY"] == "VISIONS"
     table["ERRAWIN_WORLD"][idx_visions] = np.sqrt(
         table["ERRAWIN_WORLD"][idx_visions] ** 2 + (astrerr_internal / 3_600_000) ** 2
     )
@@ -649,7 +655,6 @@ def convert2public(
     )
 
     # Copy values from merged 2MASS columns
-    idx_2mass = table["SURVEY"] == "2MASS"
     mag_best[idx_2mass] = table["MAG_2MASS"][idx_2mass]
     magerr_best[idx_2mass] = table["MAGERR_2MASS"][idx_2mass]
     table["CLASS_STAR_INTERP"][idx_2mass] = 0.99999
