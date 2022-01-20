@@ -966,8 +966,16 @@ class Pipeline:
 
     def build_public_catalog(self):
         if not self.status.public_catalog:
-            self.sources_tile_cal.build_public_catalog(photerr_internal=0.005)
+
+            # Read systematic astrometric error
+            astrerr_internal = (
+                self.tile.read_from_prime_headers(keywords=["ASTIRMS"])[0][0]
+            )
+            self.sources_tile_cal.build_public_catalog(
+                photerr_internal=0.005, astrerr_internal=astrerr_internal
+            )
             self.update_status(public_catalog=True)
+
         else:
             print_message(
                 message="PUBLIC CATALOG already built", kind="warning", end=None
