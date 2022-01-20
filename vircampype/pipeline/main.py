@@ -1119,6 +1119,9 @@ class Pipeline:
         self.illumination_correction()
         self.resample()
 
+        # Build statistics (required for mosaics/deep stacks, not for phase 3)
+        self.build_statistics_resampled()
+
         # Calibrate pawprints and determine internal photometric error
         # self.photometry_pawprints()
         # self.photerr_internal()
@@ -1142,7 +1145,6 @@ class Pipeline:
             self.build_phase3()
 
         if self.setup.build_public_catalog:
-            self.build_statistics_resampled()
             self.build_statistics_tile()
             self.classification_tile()
             self.build_public_catalog()
