@@ -2117,14 +2117,14 @@ class SkyImagesResampled(SkyImagesProcessed):
             astirms = (
                 np.sqrt(
                     np.mean(astrms_dict["ASTIRMS1"]) ** 2
-                    + np.mean(astrms_dict["ASTIRMS1"]) ** 2
+                    + np.mean(astrms_dict["ASTIRMS2"]) ** 2
                 )
                 * 3_600_000
             )
             astrrms = (
                 np.sqrt(
                     np.mean(astrms_dict["ASTRRMS1"]) ** 2
-                    + np.mean(astrms_dict["ASTRRMS1"]) ** 2
+                    + np.mean(astrms_dict["ASTRRMS2"]) ** 2
                 )
                 * 3_600_000
             )
