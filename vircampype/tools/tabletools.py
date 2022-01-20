@@ -630,14 +630,10 @@ def convert2public(
 
     # Construct quality flag
     qflg = np.full(len(table), fill_value="X", dtype=str)
-    qflg_d = (sflg < 4) & ~cflg
-    qflg[qflg_d] = "D"
-    qflg_c = (magerr_best < 0.21714) & (sflg < 4) & ~cflg
-    qflg[qflg_c] = "C"
-    qflg_b = (magerr_best < 0.15510) & (sflg < 4) & ~cflg
-    qflg[qflg_b] = "B"
-    qflg_a = (magerr_best < 0.10857) & (sflg < 4) & ~cflg
-    qflg[qflg_a] = "A"
+    qflg[(sflg < 4) & ~cflg] = "D"
+    qflg[(magerr_best < 0.21714) & (sflg < 4) & ~cflg] = "C"
+    qflg[(magerr_best < 0.15510) & (sflg < 4) & ~cflg] = "B"
+    qflg[(magerr_best < 0.10857) & (sflg < 4) & ~cflg] = "A"
 
     # Get indices for 2MASS and VISIONS entries
     idx_visions = np.where(table["SURVEY"] == "VISIONS")[0]
