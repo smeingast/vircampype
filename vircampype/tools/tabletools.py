@@ -667,6 +667,28 @@ def convert2public(
     cflg[idx_2mass] = False
     qflg[idx_2mass] = "A"
 
+    # Final cleaning of VISIONS sources to kick out useless rows
+    idx_keep_visions = np.where(
+        (table["ERRAWIN_WORLD"][idx_visions] > 0.0)
+        & (table["ERRBWIN_WORLD"][idx_visions] > 0.0)
+        & (table["ERRTHETAWIN_SKY"][idx_visions] > 0.0)
+        & (mag_best[idx_visions] > 0.0)
+        & (mag_best[idx_visions] < 99.0)
+        & (magerr_best[idx_visions] > 0.0)
+        & (magerr_best[idx_visions] < 99.0)
+        & (table["MJDEFF"][idx_visions] > 0.0)
+        & (table["EXPTIME"][idx_visions] > 0.0)
+        & (table["FWHM_WORLD"][idx_visions] > 0.0)
+        & (table["ELLIPTICITY"][idx_visions] > 0.0)
+    )[0]
+    # Apply final index
+    idx_visions = idx_visions[idx_keep_visions]
+    idx_final = np.concatenate([idx_visions, idx_2mass])
+    table = table[idx_final]
+    aper_best = aper_best[idx_final]
+    mag_best, magerr_best = mag_best[idx_final], magerr_best[idx_final]
+    sflg, cflg, qflg = sflg[idx_final], cflg[idx_final], qflg[idx_final]
+
     # Get Skycoordinates
     skycoord = SkyCoord(
         ra=table["ALPHAWIN_SKY"], dec=table["DELTAWIN_SKY"], frame="icrs", unit="deg"
