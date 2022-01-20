@@ -533,7 +533,8 @@ def convert2public(
     table: Table,
     photerr_internal: float,
     apertures: List,
-    mag_saturation,
+    mag_saturation: float,
+    astrerr_internal: float = 0.0,
 ):
     # Read and clean aperture magnitudes, add internal photometric error
     mag_aper = table["MAG_APER_MATCHED_CAL"] + table["MAG_APER_MATCHED_CAL_ZPC_INTERP"]
@@ -637,6 +638,15 @@ def convert2public(
     qflg[qflg_b] = "B"
     qflg_a = (magerr_best < 0.10857) & (sflg < 4) & ~cflg
     qflg[qflg_a] = "A"
+
+    # Add internal astrometric error
+    idx_visions = table["SURVEY"] == "VISIONS"
+    table["ERRAWIN_WORLD"][idx_visions] = np.sqrt(
+        table["ERRAWIN_WORLD"][idx_visions] ** 2 + (astrerr_internal / 3_600_000) ** 2
+    )
+    table["ERRBWIN_WORLD"][idx_visions] = np.sqrt(
+        table["ERRBWIN_WORLD"][idx_visions] ** 2 + (astrerr_internal / 3_600_000) ** 2
+    )
 
     # Copy values from merged 2MASS columns
     idx_2mass = table["SURVEY"] == "2MASS"
