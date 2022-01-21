@@ -751,7 +751,7 @@ def convert2public(
             "ERRPA",
             "MAG",
             "MAGERR",
-            "APER",
+            "APERTURE",
             "MJD",
             "EXPTIME",
             "FWHM",
