@@ -785,7 +785,7 @@ class Pipeline:
 
     def build_statistics_tile(self):
         if not self.status.statistics_tile:
-            for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
+            for mode in ["mjd.int", "mjd.frac", "nimg", "exptime", "astrms"]:
                 images = self.resampled_statistics(mode=mode)
                 images.coadd_statistics_tile(mode=mode)
             # Combine MJD data
