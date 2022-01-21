@@ -1655,6 +1655,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_nimg = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".nimg.fits"
             )
+            path_astrms = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".astrms.fits"
+            )
             path_weight = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".weight.fits"
             )
@@ -1699,11 +1702,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats)
+                    astrms = fits.getdata(path_astrms, idx_hdu_stats)
                     weight = fits.getdata(path_weight, idx_hdu_stats)
                 except IndexError:
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
+                    astrms = fits.getdata(path_astrms, idx_hdu_stats + 1)
                     weight = fits.getdata(path_weight, idx_hdu_stats + 1)
 
                 # Renormalize weight
@@ -1747,18 +1752,16 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mjdeff[yy_image, xx_image],
                     exptime[yy_image, xx_image],
                 )
-                nimg_sources, weight_sources = (
+                nimg_sources, astrms_sources = (
                     nimg[yy_image, xx_image],
-                    weight[yy_image, xx_image],
+                    astrms[yy_image, xx_image],
                 )
+                weight_sources = weight[yy_image, xx_image]
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
-                mjdeff_sources[bad], exptime_sources[bad], nimg_sources[bad] = (
-                    np.nan,
-                    0.0,
-                    0,
-                )
+                mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
+                nimg_sources[bad], astrms_sources[bad] = 0, np.nan
 
                 # Make new columns
                 new_cols = fits.ColDefs(
@@ -1774,6 +1777,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                             name="NIMG",
                             format="J",
                             array=np.rint(nimg_sources).astype(int),
+                        ),
+                        fits.Column(
+                            name="ASTRMS",
+                            format="E",
+                            array=astrms_sources,
+                            unit="mas",
                         ),
                     ]
                 )
