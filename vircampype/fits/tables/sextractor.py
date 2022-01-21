@@ -1757,7 +1757,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Make new columns
                 new_cols = fits.ColDefs(
                     [
-                        fits.Column(name="MJDEFF", format="D", array=mjdeff_sources),
+                        fits.Column(
+                            name="MJDEFF", format="D", array=mjdeff_sources, unit="d"
+                        ),
                         fits.Column(
                             name="EXPTIME",
                             format="E",
