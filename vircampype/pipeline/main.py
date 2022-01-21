@@ -2,6 +2,7 @@ import os.path
 import time
 import glob
 
+from astropy.units import Unit
 from vircampype.tools.messaging import *
 from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
@@ -968,10 +969,8 @@ class Pipeline:
         if not self.status.public_catalog:
 
             # Read systematic astrometric error
-            astrerr_internal = (
-                self.tile.read_from_prime_headers(keywords=["ASTIRMS"])[0][0]
-            )
-            self.sources_tile_cal.build_public_catalog(photerr_internal=0.005)
+            pherr = 0.005 * Unit("mag")
+            self.sources_tile_cal.build_public_catalog(photerr_internal=pherr)
             self.update_status(public_catalog=True)
 
         else:

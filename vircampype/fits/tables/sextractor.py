@@ -7,6 +7,7 @@ import numpy as np
 from astropy.io import fits
 from itertools import repeat
 from astropy.time import Time
+from astropy.units import Quantity
 from joblib import Parallel, delayed
 from astropy.table import vstack, Table
 from vircampype.tools.plottools import *
@@ -2357,7 +2358,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             end="\n",
         )
 
-    def build_public_catalog(self, photerr_internal):
+    def build_public_catalog(self, photerr_internal: Quantity):
 
         # Processing info
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
