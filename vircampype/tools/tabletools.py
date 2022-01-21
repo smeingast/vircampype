@@ -5,6 +5,7 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.units import Unit
 from typing import Union, List
+from astropy.units import Quantity
 from scipy.interpolate import interp1d
 from astropy.table import Table, QTable
 from astropy.coordinates import SkyCoord
@@ -534,24 +535,56 @@ def fill_masked_columns(table: Table, fill_value: Union[int, float]):
 
 def convert2public(
     table: Table,
-    photerr_internal: float,
+    photerr_internal: Quantity,
     apertures: List,
-    mag_saturation: float,
+    mag_saturation: Quantity,
 ):
-    # Read and clean aperture magnitudes, add internal photometric error
-    mag_aper = table["MAG_APER_MATCHED_CAL"] + table["MAG_APER_MATCHED_CAL_ZPC_INTERP"]
-    magerr_aper = np.sqrt(table["MAGERR_APER"] ** 2 + photerr_internal ** 2)
-    # mag_aper_bad = (mag_aper > 30.0) | (magerr_aper > 10)
-    # mag_aper[mag_aper_bad], magerr_aper[mag_aper_bad] = np.nan, np.nan
 
-    # Read and clean auto magnitudes, add internal photometric error
-    # mag_auto = data["MAG_AUTO_CAL"] + data["MAG_AUTO_CAL_ZPC_INTERP"]
-    # magerr_auto = np.sqrt(data["MAGERR_AUTO"] ** 2 + photerr_internal ** 2)
-    # mag_auto_bad = (mag_auto > 30.0) | (magerr_auto > 10)
-    # mag_auto[mag_auto_bad], magerr_auto[mag_auto_bad] = np.nan, np.nan
+    # Extract coordinate columns
+    data_ra = table["ALPHAWIN_SKY"].quantity
+    data_dec = table["DELTAWIN_SKY"].quantity
+
+    # Magnitude and flux
+    data_flux_aper = table["FLUX_APER"]
+    data_flux_auto = table["FLUX_AUTO"]
+    data_mag_aper = table["MAG_APER"].quantity
+    data_magerr_aper = table["MAGERR_APER"].quantity
+    data_mag_aper_matched = table["MAG_APER_MATCHED"].quantity
+    data_mag_aper_matched_cal = table["MAG_APER_MATCHED_CAL"].quantity
+    data_mag_aper_matched_cal_zpc = table["MAG_APER_MATCHED_CAL_ZPC_INTERP"].quantity
+
+    # Compute total astrometric errors
+    data_erra = table["ERRAWIN_WORLD"].quantity
+    data_errb = table["ERRBWIN_WORLD"].quantity
+    data_errpa = table["ERRTHETAWIN_SKY"].quantity + 90.0 * Unit("deg")
+    astrms = table["ASTRMS"].quantity
+    data_erra_tot = np.sqrt((data_erra ** 2 + astrms ** 2))
+    data_errb_tot = np.sqrt((data_errb ** 2 + astrms ** 2))
+
+    # Get other columns
+    data_exptime = table["EXPTIME"].quantity
+    data_cls = table["CLASS_STAR_INTERP"]
+    data_mjd = table["MJDEFF"].quantity
+    data_nimg = table["NIMG"]
+    data_fwhm = table["FWHM_WORLD"].quantity
+    data_ellipticity = table["ELLIPTICITY"]
+    data_sflg = table["FLAGS"]
+    data_snr_win = table["SNR_WIN"]
+    data_flags_weight = table["FLAGS_WEIGHT"]
+    data_background = table["BACKGROUND"]
+    data_survey = table["SURVEY"]
+    data_isoarea_image = table["ISOAREA_IMAGE"]
+
+    # Get indices for 2MASS and VISIONS entries
+    idx_visions = np.where(data_survey == "VISIONS")[0]
+    idx_2mass = np.where(data_survey == "2MASS")[0]
+
+    # Read and clean aperture magnitudes, add internal photometric error
+    mag_aper = data_mag_aper_matched_cal + data_mag_aper_matched_cal_zpc
+    magerr_aper = np.sqrt(data_magerr_aper ** 2 + photerr_internal ** 2)
 
     # Compute best default magnitude (match aperture to source area)
-    rr = (2 * np.sqrt(table["ISOAREA_IMAGE"] / np.pi)).reshape(-1, 1)
+    rr = (2 * np.sqrt(data_isoarea_image / np.pi)).reshape(-1, 1)
     aa = np.array(apertures).reshape(-1, 1)
     _, idx_aper = (
         NearestNeighbors(n_neighbors=mag_aper.shape[1], algorithm="auto")
@@ -561,10 +594,7 @@ def convert2public(
     idx_best = idx_aper[:, 0]
     mag_best = mag_aper.copy()[np.arange(len(table)), idx_best]
     magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
-    aper_best = np.array(apertures)[idx_best]
-
-    # Copy sextractor flag
-    sflg = table["FLAGS"]
+    aper_best = np.array(apertures)[idx_best] * Unit("pix")
 
     # Construct contamination flag
     cflg = np.full(len(table), fill_value=False, dtype=bool)
@@ -573,22 +603,20 @@ def convert2public(
         cflg[
             np.nanmin(mag_aper, axis=1) < mag_saturation
         ] = True  # Values above saturation limit
-    cflg[table["SNR_WIN"] <= 0] = True  # Bad SNR
-    cflg[table["FLUX_AUTO"] < 0.01] = True  # Bad Flux measurement
-    cflg[table["FWHM_WORLD"] * 3600 <= 0.2] = True  # Bad FWHM
+    cflg[data_snr_win <= 0] = True  # Bad SNR
+    cflg[data_flux_auto < 0.01] = True  # Bad Flux measurement
+    cflg[data_fwhm.to(Unit("arcsec")) <= 0.2 * Unit("arcsec")] = True  # Bad FWHM
     cflg[
-        ~np.isfinite(np.sum(table["MAG_APER"], axis=1))
+        ~np.isfinite(np.sum(data_mag_aper, axis=1))
     ] = True  # All aperture magnitudes must be good
-    cflg[table["NIMG"] < 1] = True  # Must be images once
-    cflg[table["MJDEFF"] < 0] = True  # Must have a good MJD
-    cflg[table["FLAGS_WEIGHT"] > 0] = True  # No flags in weight
-    cflg[sflg >= 4] = True  # No bad Sextractor flags
-    cflg[
-        np.isnan(table["CLASS_STAR_INTERP"])
-    ] = True  # CLASS_STAR must have worked in sextractor
+    cflg[data_nimg < 1] = True  # Must be images once
+    cflg[data_mjd < 0] = True  # Must have a good MJD
+    cflg[data_flags_weight > 0] = True  # No flags in weight
+    cflg[data_sflg >= 4] = True  # No bad Sextractor flags
+    cflg[np.isnan(data_cls)] = True  # CLASS_STAR must have worked in sextractor
 
     # Clean bad growth magnitudes
-    growth = table["MAG_APER_MATCHED_CAL"][:, 0] - table["MAG_APER_MATCHED_CAL"][:, 1]
+    growth = data_mag_aper_matched_cal[:, 0] - data_mag_aper_matched_cal[:, 1]
     mag_min, mag_max = np.nanmin(mag_best), np.nanmax(mag_best)
     mag_range = np.linspace(mag_min, mag_max, 100)
     idx_all = np.arange(len(mag_best))
@@ -598,11 +626,13 @@ def convert2public(
     for mm in mag_range:
 
         # Grab all sources within 0.25 mag of current position
-        cidx_all = (mag_best > mm - 0.25) & (mag_best < mm + 0.25)
+        cidx_all = (mag_best > mm - 0.25 * Unit("mag")) & (
+            mag_best < mm + 0.25 * Unit("mag")
+        )
         cidx_pnt = (
-            (table["CLASS_STAR_INTERP"] > 0.5)
-            & (mag_best > mm - 0.25)
-            & (mag_best < mm + 0.25)
+            (data_cls > 0.5)
+            & (mag_best > mm - 0.25 * Unit("mag"))
+            & (mag_best < mm + 0.25 * Unit("mag"))
         )
 
         # Filter presumably bad sources
@@ -611,7 +641,7 @@ def convert2public(
             mean, median, stddev = sigma_clipped_stats(
                 growth[cidx_pnt], sigma=5, maxiters=1
             )
-            bad = (growth[cidx_all] < median - 0.05) & (
+            bad = (growth[cidx_all] < median - 0.05 * Unit("mag")) & (
                 growth[cidx_all] < median - 3 * stddev
             )
 
@@ -624,95 +654,93 @@ def convert2public(
 
     # Nebula filter from VISION
     fv = (
-        (table["BACKGROUND"] / table["FLUX_APER"][:, 0] > 0.02)
-        & (table["MAG_APER_MATCHED"][:, 0] - table["MAG_APER_MATCHED"][:, 1] <= -0.2)
-        & (table["CLASS_STAR_INTERP"] < 0.5)
+        (data_background / data_flux_aper[:, 0] > 0.02)
+        & (
+            data_mag_aper_matched[:, 0] - data_mag_aper_matched[:, 1]
+            <= -0.2 * Unit("mag")
+        )
+        & (data_cls < 0.5)
     )
     cflg[fv] = True
 
     # Construct quality flag
     qflg = np.full(len(table), fill_value="X", dtype=str)
-    qflg[(sflg < 4) & ~cflg] = "D"
-    qflg[(magerr_best < 0.21714) & (sflg < 4) & ~cflg] = "C"
-    qflg[(magerr_best < 0.15510) & (sflg < 4) & ~cflg] = "B"
-    qflg[(magerr_best < 0.10857) & (sflg < 4) & ~cflg] = "A"
-
-    # Get indices for 2MASS and VISIONS entries
-    idx_visions = np.where(table["SURVEY"] == "VISIONS")[0]
-    idx_2mass = np.where(table["SURVEY"] == "2MASS")[0]
-
-    # Convert ERRPA to 2MASS convention
-    table["ERRTHETAWIN_SKY"][idx_visions] += 90
-
-    # Add internal astrometric error
-    table["ERRAWIN_WORLD"][idx_visions] = np.sqrt(
-        table["ERRAWIN_WORLD"][idx_visions] ** 2 + (astrerr_internal / 3_600_000) ** 2
-    )
-    table["ERRBWIN_WORLD"][idx_visions] = np.sqrt(
-        table["ERRBWIN_WORLD"][idx_visions] ** 2 + (astrerr_internal / 3_600_000) ** 2
-    )
+    qflg[(data_sflg < 4) & ~cflg] = "D"
+    qflg[(magerr_best < 0.21714 * Unit("mag")) & (data_sflg < 4) & ~cflg] = "C"
+    qflg[(magerr_best < 0.15510 * Unit("mag")) & (data_sflg < 4) & ~cflg] = "B"
+    qflg[(magerr_best < 0.10857 * Unit("mag")) & (data_sflg < 4) & ~cflg] = "A"
 
     # Copy values from merged 2MASS columns
     mag_best[idx_2mass] = table["MAG_2MASS"][idx_2mass]
     magerr_best[idx_2mass] = table["MAGERR_2MASS"][idx_2mass]
-    table["CLASS_STAR_INTERP"][idx_2mass] = 1.0
-    table["ERRAWIN_WORLD"][idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass] / 3600
-    table["ERRBWIN_WORLD"][idx_2mass] = table["ERRMIN_2MASS"][idx_2mass] / 3600
-    table["ERRTHETAWIN_SKY"][idx_2mass] = table["ERRPA_2MASS"][idx_2mass]
-    table["MJDEFF"][idx_2mass] = table["MJD_2MASS"][idx_2mass]
+    data_cls[idx_2mass] = 1.0
+    data_erra_tot[idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass].to(data_erra.unit)
+    data_errb_tot[idx_2mass] = table["ERRMIN_2MASS"][idx_2mass].to(data_errb.unit)
+    data_errpa[idx_2mass] = table["ERRPA_2MASS"][idx_2mass].to(data_errpa.unit)
+    data_mjd[idx_2mass] = table["MJD_2MASS"][idx_2mass]
     aper_best[idx_2mass] = np.nan
-    sflg[idx_2mass] = 0
+    data_sflg[idx_2mass] = 0
     cflg[idx_2mass] = False
     qflg[idx_2mass] = "A"
 
     # Final cleaning of VISIONS sources to kick out useless rows
     idx_keep_visions = np.where(
-        (table["ERRAWIN_WORLD"][idx_visions] > 0.0)
-        & (table["ERRBWIN_WORLD"][idx_visions] > 0.0)
-        & (table["ERRTHETAWIN_SKY"][idx_visions] > 0.0)
-        & (mag_best[idx_visions] > 0.0)
-        & (mag_best[idx_visions] < 99.0)
-        & (magerr_best[idx_visions] > 0.0)
-        & (magerr_best[idx_visions] < 99.0)
-        & (table["MJDEFF"][idx_visions] > 0.0)
-        & (table["EXPTIME"][idx_visions] > 0.0)
-        & (table["FWHM_WORLD"][idx_visions] > 0.0)
-        & (table["ELLIPTICITY"][idx_visions] > 0.0)
+        (data_erra_tot[idx_visions] > 0.0 * Unit("mas"))
+        & (data_erra_tot[idx_visions] < 1000 * Unit("mas"))
+        & (data_errb_tot[idx_visions] > 0.0 * Unit("mas"))
+        & (data_errb_tot[idx_visions] < 1000.0 * Unit("mas"))
+        & (data_errpa[idx_visions] > 0.0 * Unit("deg"))
+        & (mag_best[idx_visions] > 0.0 * Unit("mag"))
+        & (mag_best[idx_visions] < 50.0 * Unit("mag"))
+        & (magerr_best[idx_visions] > 0.0 * Unit("mag"))
+        & (magerr_best[idx_visions] < 50.0 * Unit("mag"))
+        & (data_mjd[idx_visions] > 0.0 * Unit("d"))
+        & (data_exptime[idx_visions] > 0.0 * Unit("s"))
+        & (data_fwhm[idx_visions] > 0.0 * Unit("arcsec"))
+        & (data_ellipticity[idx_visions] > 0.0)
     )[0]
+
     # Apply final index
     idx_visions = idx_visions[idx_keep_visions]
     idx_final = np.concatenate([idx_visions, idx_2mass])
-    table = table[idx_final]
+    data_ra, data_dec = data_ra[idx_final], data_dec[idx_final]
     aper_best = aper_best[idx_final]
     mag_best, magerr_best = mag_best[idx_final], magerr_best[idx_final]
-    sflg, cflg, qflg = sflg[idx_final], cflg[idx_final], qflg[idx_final]
+    erra_tot, errb_tot = data_erra_tot[idx_final], data_errb_tot[idx_final]
+    errpa = data_errpa[idx_final]
+    sflg, cflg, qflg = data_sflg[idx_final], cflg[idx_final], qflg[idx_final]
+    data_mjd = data_mjd[idx_final]
+
+    data_exptime = data_exptime[idx_final]
+    data_fwhm = data_fwhm[idx_final]
+    data_ellipticity = data_ellipticity[idx_final]
+    data_cls = data_cls[idx_final]
+    data_survey = data_survey[idx_final]
 
     # Get Skycoordinates
-    skycoord = SkyCoord(
-        ra=table["ALPHAWIN_SKY"], dec=table["DELTAWIN_SKY"], frame="icrs", unit="deg"
-    )
+    skycoord = SkyCoord(ra=data_ra, dec=data_dec, frame="icrs")
 
     # Create table
     table_out = QTable(
         data=[
             skycoord2visionsid(skycoord=skycoord),
-            skycoord.icrs.ra.deg * Unit("deg"),
-            skycoord.icrs.dec.deg * Unit("deg"),
-            (table["ERRAWIN_WORLD"].to(Unit("mas"))).astype(np.float32),
-            (table["ERRBWIN_WORLD"].to(Unit("mas"))).astype(np.float32),
-            table["ERRTHETAWIN_SKY"].to(Unit("deg")).astype(np.float32),
+            data_ra.to(Unit("deg")).astype(np.float64),
+            data_dec.to(Unit("deg")).astype(np.float64),
+            erra_tot.to(Unit("mas")).astype(np.float32),
+            errb_tot.to(Unit("mas")).astype(np.float32),
+            errpa.to(Unit("deg")).astype(np.float32),
             mag_best.to(Unit("mag")).astype(np.float32),
             magerr_best.to(Unit("mag")).astype(np.float32),
-            aper_best.astype(np.float32) * Unit("pix"),
-            table["MJDEFF"].astype(np.float64) * Unit("day"),
-            table["EXPTIME"].value.astype(np.float32) * Unit("s"),
-            table["FWHM_WORLD"].to(Unit("arcsec")).astype(np.float32),
-            table["ELLIPTICITY"].astype(np.float32),
-            table["CLASS_STAR_INTERP"].astype(np.float32),
+            aper_best.to(Unit("pix")).astype(np.float32),
+            data_mjd.to(Unit("d")).astype(np.float64),
+            data_exptime.to(Unit("s")).astype(np.float32),
+            data_fwhm.to(Unit("arcsec")).astype(np.float32),
+            data_ellipticity.astype(np.float32),
+            data_cls.astype(np.float32),
             sflg,
             cflg,
             qflg,
-            table["SURVEY"],
+            data_survey,
         ],
         names=[
             "ID",
@@ -913,7 +941,7 @@ def merge_with_2mass(
     table_new["ERRMIN_2MASS"] = table_2mass_clean["errMin"][idx_2mass_near_bright]
     table_new["ERRPA_2MASS"] = table_2mass_clean["errPA"][idx_2mass_near_bright]
     mjd2mass = Time(table_2mass_clean["JD"][idx_2mass_near_bright], format="jd").mjd
-    table_new["MJD_2MASS"] = mjd2mass
+    table_new["MJD_2MASS"] = mjd2mass * Unit("d")
 
     # Stack tables and return
     return table_vstack(tables=[table, table_new])
