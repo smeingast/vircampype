@@ -2480,7 +2480,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             add_float_to_header(
                 header=phdr,
                 key="PHOTIERR",
-                value=photerr_internal,
+                value=photerr_internal.to_value(Unit("mag")),
                 comment="Internal photometric error (mag)",
                 decimals=4,
             )
