@@ -537,7 +537,6 @@ def convert2public(
     photerr_internal: float,
     apertures: List,
     mag_saturation: float,
-    astrerr_internal: float = 0.0,
 ):
     # Read and clean aperture magnitudes, add internal photometric error
     mag_aper = table["MAG_APER_MATCHED_CAL"] + table["MAG_APER_MATCHED_CAL_ZPC_INTERP"]
