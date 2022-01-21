@@ -7,14 +7,14 @@ import numpy as np
 from astropy.io import fits
 from itertools import repeat
 from astropy.time import Time
-from astropy.units import Quantity
 from joblib import Parallel, delayed
 from astropy.table import vstack, Table
 from vircampype.tools.plottools import *
-from astropy.coordinates import SkyCoord
 from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
 from vircampype.tools.mathtools import *
+from astropy.units import Quantity, Unit
+from astropy.coordinates import SkyCoord
 from vircampype.tools.tabletools import *
 from vircampype.tools.astromatic import *
 from vircampype.tools.photometry import *
@@ -2369,6 +2369,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         master_photometry = self.get_master_photometry()  # type: MasterPhotometry2Mass
         mag_limit = self.setup.reference_mag_lim[0]
+        if not hasattr(mag_limit, "unit"):
+            mag_limit *= Unit("mag")
 
         # Find classification tables
         paths_cls = [
