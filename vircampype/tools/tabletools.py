@@ -277,10 +277,15 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
             _, _, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
         par_std.append(iv_std)
 
+    # Add unit
+    unit = table[parameter].quantity.unit
+    par_weighted = np.concatenate(par_weighted).astype(np.float32) * unit
+    par_std = np.concatenate(par_std).astype(np.float32) * unit
+    assert par_weighted.unit == table[parameter].quantity.unit
+    assert par_std.unit == table[parameter].quantity.unit
+
     # Add columns to table
-    table.add_column(
-        np.concatenate(par_weighted).astype(np.float32), name=f"{parameter}_INTERP"
-    )
+    table.add_column(par_weighted, name=f"{parameter}_INTERP")
     table.add_column(
         np.concatenate(par_nsources).astype(np.int16),
         name=f"{parameter}_INTERP_NSOURCES",
@@ -289,9 +294,7 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         np.concatenate(par_max_dis).astype(np.float32),
         name=f"{parameter}_INTERP_MAXDIS",
     )
-    table.add_column(
-        np.concatenate(par_std).astype(np.float32), name=f"{parameter}_INTERP_STD"
-    )
+    table.add_column(par_std, name=f"{parameter}_INTERP_STD")
 
     # Return table
     return table
