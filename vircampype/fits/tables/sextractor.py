@@ -743,30 +743,24 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 tt = tables_file[tidx]
 
+                # Read aperture magnitudes
+                mag_aper = tt["MAG_APER"].quantity
+
                 # Replace masked columns with regular columns
                 fill_masked_columns(table=tt, fill_value=np.nan)
 
                 # Add aperture correction to table
-                tt.add_column(
-                    (tt["MAG_APER"].data[:, -1] - tt["MAG_APER"].data.T).T,
-                    name="MAG_APER_COR",
-                )
+                tt.add_column((mag_aper[:, -1] - mag_aper.T).T, name="MAG_APER_COR")
 
                 # Add smoothed values to table
-                add_smoothed_value(
-                    table=tt, parameter="MAG_APER_COR", n_neighbors=100, max_dis=540
-                )
-                add_smoothed_value(
-                    table=tt, parameter="FWHM_WORLD", n_neighbors=100, max_dis=540
-                )
-                add_smoothed_value(
-                    table=tt, parameter="ELLIPTICITY", n_neighbors=100, max_dis=540
-                )
+                kwarrg_asv = dict(n_neighbors=100, max_dis=540)
+                add_smoothed_value(table=tt, parameter="MAG_APER_COR", **kwarrg_asv)
+                add_smoothed_value(table=tt, parameter="FWHM_WORLD", **kwarrg_asv)
+                add_smoothed_value(table=tt, parameter="ELLIPTICITY", **kwarrg_asv)
 
                 # Match apertures and add to table
-                tt.add_column(
-                    tt["MAG_APER"] + tt["MAG_APER_COR_INTERP"], name="MAG_APER_MATCHED"
-                )
+                mag_aper_matched = mag_aper + tt["MAG_APER_COR_INTERP"]
+                tt.add_column(mag_aper_matched, name="MAG_APER_MATCHED")
 
                 # Compute ZP and add calibrated photometry to catalog
                 add_zp_2mass(
@@ -789,7 +783,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 pb = master_phot.translate_passband(self.passband[idx_file][0])
                 zp_auto = get_zeropoint(
                     skycoord1=sc1,
-                    mag1=tt["MAG_AUTO_CAL"],
+                    mag1=tt["MAG_AUTO_CAL"].quantity,
                     skycoord2=sc2,
                     method="all",
                     mag2=table_master[pb],
@@ -797,7 +791,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
                 zp_aper = get_zeropoint(
                     skycoord1=sc1,
-                    mag1=tt["MAG_APER_MATCHED_CAL"],
+                    mag1=tt["MAG_APER_MATCHED_CAL"].quantity,
                     skycoord2=sc2,
                     method="all",
                     mag2=table_master[pb],
@@ -805,17 +799,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
                 tt.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
                 tt.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
-                add_smoothed_value(
-                    table=tt,
-                    parameter="MAG_AUTO_CAL_ZPC",
+                kwarrg_asv = dict(
                     n_neighbors=150,
                     max_dis=1800,
                 )
+                add_smoothed_value(table=tt, parameter="MAG_AUTO_CAL_ZPC", **kwarrg_asv)
                 add_smoothed_value(
-                    table=tt,
-                    parameter="MAG_APER_MATCHED_CAL_ZPC",
-                    n_neighbors=150,
-                    max_dis=1800,
+                    table=tt, parameter="MAG_APER_MATCHED_CAL_ZPC", **kwarrg_asv
                 )
 
                 # Replace HDU in original HDUList with modified table HDU
@@ -2403,6 +2393,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Instantiate weights
         from vircampype.fits.images.common import FitsImages
+
         weightimages = FitsImages(file_paths=paths_weights, setup=self.setup)
 
         # Loop over self and merge
