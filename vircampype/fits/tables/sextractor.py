@@ -1762,7 +1762,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                             name="EXPTIME",
                             format="E",
                             array=exptime_sources,
-                            unit="seconds",
+                            unit="s",
                         ),
                         fits.Column(
                             name="NIMG",
