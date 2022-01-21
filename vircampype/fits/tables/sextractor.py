@@ -2367,7 +2367,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             end="\n",
         )
 
-    def build_public_catalog(self, photerr_internal, astrerr_internal):
+    def build_public_catalog(self, photerr_internal):
 
         # Processing info
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
@@ -2479,7 +2479,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     photerr_internal=photerr_internal,
                     apertures=self.setup.apertures,
                     mag_saturation=mag_limit,
-                    astrerr_internal=astrerr_internal,
                 )
 
             # Create primary header
@@ -2490,13 +2489,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 value=photerr_internal,
                 comment="Internal photometric error (mag)",
                 decimals=4,
-            )
-            add_float_to_header(
-                header=phdr,
-                key="ASTRIERR",
-                value=astrerr_internal,
-                comment="Internal astrometric error (mas)",
-                decimals=1,
             )
             phdr["FILTER"] = hdulist_in[0].header[self.setup.keywords.filter_name]
 

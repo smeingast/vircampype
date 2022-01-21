@@ -971,9 +971,7 @@ class Pipeline:
             astrerr_internal = (
                 self.tile.read_from_prime_headers(keywords=["ASTIRMS"])[0][0]
             )
-            self.sources_tile_cal.build_public_catalog(
-                photerr_internal=0.005, astrerr_internal=astrerr_internal
-            )
+            self.sources_tile_cal.build_public_catalog(photerr_internal=0.005)
             self.update_status(public_catalog=True)
 
         else:
