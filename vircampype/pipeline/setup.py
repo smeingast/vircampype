@@ -801,7 +801,8 @@ class Setup(dict):
         "exptime": "SUM",
         "mjd.int": "AVERAGE",
         "mjd.frac": "AVERAGE",
-        "astrms": "AVERAGE",
+        "astrms1": "AVERAGE",
+        "astrms2": "AVERAGE",
     }
 
     # =========================================================================== #
