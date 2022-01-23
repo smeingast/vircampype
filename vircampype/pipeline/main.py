@@ -14,7 +14,7 @@ from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 
 
 class Pipeline:
-    def __init__(self, setup, **kwargs):
+    def __init__(self, setup, reset_status=False, **kwargs):
         self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
         # Read status
@@ -27,6 +27,10 @@ class Pipeline:
         except FileNotFoundError:
             pass
 
+        # Reset status if requested
+        if reset_status:
+            self.reset_status()
+
     # =========================================================================== #
     def __str__(self):
         return self.status.__str__()
@@ -36,6 +40,10 @@ class Pipeline:
 
     def update_status(self, **kwargs):
         self.status.update(**kwargs)
+        self.status.save(path=self.path_status)
+
+    def reset_status(self):
+        self.status.reset()
         self.status.save(path=self.path_status)
 
     # =========================================================================== #
