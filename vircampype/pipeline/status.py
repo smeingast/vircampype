@@ -142,7 +142,7 @@ class PipelineStatus:
                 setattr(self, key, val)
 
     def reset(self):
-        """ Set all status attributes to False """
+        """Set all status attributes to False"""
         for attr in self.__attributes():
             self.update(**{attr: False})
 
