@@ -8,7 +8,6 @@ from astropy.io import fits
 from itertools import repeat
 from astropy.time import Time
 from joblib import Parallel, delayed
-from astropy.table import vstack, Table
 from vircampype.tools.plottools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
@@ -30,6 +29,7 @@ from sklearn.neighbors import NearestNeighbors
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.tools.messaging import message_qc_astrometry
+from astropy.table import Table, vstack as tvstack, hstack as thstack
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -498,7 +498,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
 
                 # Read current HDU for all files into a single table
-                tab = vstack(files.hdu2table(hdu_index=idx_hdu))
+                tab = tvstack(files.hdu2table(hdu_index=idx_hdu))
 
                 # Read header of current extension in first file
                 header = files.image_headers[0][idx_hdr]
@@ -2390,6 +2390,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         # Load master photometry catalog
+        from vircampype.fits.images.common import FitsImages
         from vircampype.fits.tables.sources import MasterPhotometry2Mass
 
         master_photometry = self.get_master_photometry()  # type: MasterPhotometry2Mass
@@ -2419,10 +2420,18 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         if self.n_files != np.sum([os.path.exists(p) for p in paths_weights]):
             raise ValueError("Weight images not found")
 
-        # Instantiate weights
-        from vircampype.fits.images.common import FitsImages
+        # Find stats tables
+        paths_stats = [f"{p}.stats" for p in self.paths_full]
 
+        # Check if stats tables exist
+        if self.n_files != np.sum([os.path.exists(p) for p in paths_stats]):
+            raise ValueError("Weight images not found")
+
+        # Instantiate weights
         weightimages = FitsImages(file_paths=paths_weights, setup=self.setup)
+
+        # Instantiate statistics tables
+        statstables = SextractorCatalogs(file_paths=paths_stats, setup=self.setup)
 
         # Loop over self and merge
         for idx_file in range(self.n_files):
@@ -2456,6 +2465,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Load source tables in current file
             tables_file = self.file2table(file_index=idx_file)
 
+            # Load stats tables
+            tables_stats = statstables.file2table(file_index=idx_file)
+
             # Load classification tables for current file
             tables_class_file = tables_class.file2table(file_index=idx_file)
 
@@ -2470,6 +2482,18 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             for tidx, widx in zip(
                 range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
             ):
+
+                # Stats and source table need to have same length
+                if len(tables_file[tidx]) != len(tables_stats[tidx]):
+                    raise ValueError(
+                        f"Source ({len(tables_file[tidx])}) and stats "
+                        f"({len(tables_stats[tidx])}) table do not have same length."
+                    )
+
+                # Stack source and stats tables
+                tables_file[tidx] = thstack(
+                    [tables_file[tidx], tables_stats[tidx]], join_type="exact"
+                )
 
                 # Interpolate source classification
                 interpolate_classification(tables_file[tidx], tables_class_file[tidx])
