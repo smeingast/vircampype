@@ -772,7 +772,7 @@ def convert2public(
     assert table_out["ERRPA"].unit == Unit("deg")
     assert table_out["MAG"].unit == Unit("mag")
     assert table_out["MAGERR"].unit == Unit("mag")
-    assert table_out["APER"].unit == Unit("pix")
+    assert table_out["APERTURE"].unit == Unit("pix")
     assert table_out["MJD"].unit == Unit("day")
     assert table_out["EXPTIME"].unit == Unit("s")
     assert table_out["FWHM"].unit == Unit("arcsec")
