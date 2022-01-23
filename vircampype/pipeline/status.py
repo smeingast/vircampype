@@ -141,6 +141,11 @@ class PipelineStatus:
             else:
                 setattr(self, key, val)
 
+    def reset(self):
+        """ Set all status attributes to False """
+        for attr in self.__attributes():
+            self.update(**{attr: False})
+
     def save(self, path):
         pickle.dump(self.status_dict, open(path, "wb"))
 
