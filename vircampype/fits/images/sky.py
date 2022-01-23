@@ -2215,8 +2215,12 @@ class SkyImagesResampled(SkyImagesProcessed):
             folder_statistics + bn.replace(".fits", ".mjd.int.fits")
             for bn in self.basenames
         ]
-        paths_astrms = [
-            folder_statistics + bn.replace(".fits", ".astrms.fits")
+        paths_astrms1 = [
+            folder_statistics + bn.replace(".fits", ".astrms1.fits")
+            for bn in self.basenames
+        ]
+        paths_astrms2 = [
+            folder_statistics + bn.replace(".fits", ".astrms2.fits")
             for bn in self.basenames
         ]
         paths_weight = [
@@ -2265,7 +2269,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdul_mjd_frac = fits.HDUList(
                 hdus=[fits.PrimaryHDU(header=hdr_prime.copy())]
             )
-            hdul_astrms = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_astrms1 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_astrms2 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
             # Loop over extensions
@@ -2299,15 +2304,10 @@ class SkyImagesResampled(SkyImagesProcessed):
                     keywords=["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"],
                     file_index=idx_file,
                 )
-                astrms = 3_600_000 * np.mean(
-                    np.sqrt(
-                        astirms1[0][0] ** 2
-                        + astirms2[0][0] ** 2
-                        + astrrms1[0][0] ** 2
-                        + astrrms2[0][0] ** 2
-                    )
-                )
-                arr_astrms = np.full(shape, fill_value=astrms, dtype=np.float32)
+                astrms1 = 3_600_000 * np.sqrt(astirms1[0][0] ** 2 + astrrms1[0][0] ** 2)
+                astrms2 = 3_600_000 * np.sqrt(astirms2[0][0] ** 2 + astrrms2[0][0] ** 2)
+                arr_astrms1 = np.full(shape, fill_value=astrms1, dtype=np.float32)
+                arr_astrms2 = np.full(shape, fill_value=astrms2, dtype=np.float32)
 
                 # Read weight
                 weight_hdu = fits.getdata(
@@ -2340,8 +2340,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                 hdul_mjd_int.append(
                     fits.ImageHDU(data=arr_mjd_int, header=header_resized)  # noqa
                 )
-                hdul_astrms.append(
-                    fits.ImageHDU(data=arr_astrms, header=header_resized)  # noqa
+                hdul_astrms1.append(
+                    fits.ImageHDU(data=arr_astrms1, header=header_resized)  # noqa
+                )
+                hdul_astrms2.append(
+                    fits.ImageHDU(data=arr_astrms2, header=header_resized)  # noqa
                 )
                 hdul_weights.append(
                     fits.ImageHDU(
@@ -2355,7 +2358,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdul_exptime.writeto(paths_exp[idx_file], overwrite=True)
             hdul_mjd_frac.writeto(paths_mjd_frac[idx_file], overwrite=True)
             hdul_mjd_int.writeto(paths_mjd_int[idx_file], overwrite=True)
-            hdul_astrms.writeto(paths_astrms[idx_file], overwrite=True)
+            hdul_astrms1.writeto(paths_astrms1[idx_file], overwrite=True)
+            hdul_astrms2.writeto(paths_astrms2[idx_file], overwrite=True)
             hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
 
         # Print time
