@@ -1625,16 +1625,33 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Get median error of those
         return photerr_internal_dict
 
-    def add_statistics(self):
+    def build_statistics_tables(self):
 
         # Import
         from vircampype.fits.images.common import FitsImages
 
         # Processing info
-        print_header(header="ADDING STATISTICS", silent=self.setup.silent, right=None)
+        print_header(header="STATISTICS TABLES", silent=self.setup.silent, right=None)
         tstart = time.time()
 
         for idx_file in range(self.n_files):
+
+            # Create output path
+            path_out = f"{self.paths_full[idx_file]}.stats"
+
+            # Check if file already exists
+            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+                continue
+
+            # Print processing info
+            message_calibration(
+                n_current=idx_file + 1,
+                n_total=self.n_files,
+                name=path_out,
+                d_current=None,
+                d_total=None,
+                silent=self.setup.silent,
+            )
 
             # Find files
             path_mjd = self.paths_full[idx_file].replace(
@@ -1646,8 +1663,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_nimg = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".nimg.fits"
             )
-            path_astrms = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".astrms.fits"
+            path_astrms1 = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".astrms1.fits"
+            )
+            path_astrms2 = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".astrms2.fits"
             )
             path_weight = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".weight.fits"
@@ -1658,6 +1678,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 not os.path.isfile(path_mjd)
                 & os.path.isfile(path_exptime)
                 & os.path.isfile(path_nimg)
+                & os.path.isfile(path_astrms1)
+                & os.path.isfile(path_astrms2)
             ):
                 raise ValueError("Matches for image statistics not found")
 
@@ -1665,20 +1687,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             image_mjdeff = FitsImages(file_paths=path_mjd, setup=self.setup)
 
             # Open current table file
-            hdul = fits.open(self.paths_full[idx_file], mode="update")
-
-            # Check if the last HDU was already modified
-            if "MJDEFF" in hdul[self.iter_data_hdu[idx_file][-1]].columns.names:
-                print_message(
-                    message="{0} already modified.".format(
-                        os.path.basename(self.paths_full[idx_file])
-                    ),
-                    kind="warning",
-                    end=None,
-                )
-                continue
+            hdul_in = fits.open(self.paths_full[idx_file], mode="readonly")
+            hdul_out = hdul_in.copy()
 
             # Loop over extensions
+            # TODO: Can this be replace with image_mjdeff.iter_data_hdu[0]?
             for idx_hdu_self, idx_hdu_stats in zip(
                 self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0])
             ):
@@ -1693,13 +1706,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats)
-                    astrms = fits.getdata(path_astrms, idx_hdu_stats)
+                    astrms1 = fits.getdata(path_astrms1, idx_hdu_stats)
+                    astrms2 = fits.getdata(path_astrms2, idx_hdu_stats)
                     weight = fits.getdata(path_weight, idx_hdu_stats)
                 except IndexError:
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
-                    astrms = fits.getdata(path_astrms, idx_hdu_stats + 1)
+                    astrms1 = fits.getdata(path_astrms1, idx_hdu_stats + 1)
+                    astrms2 = fits.getdata(path_astrms2, idx_hdu_stats + 1)
                     weight = fits.getdata(path_weight, idx_hdu_stats + 1)
 
                 # Renormalize weight
@@ -1739,20 +1754,22 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 xx_image[bad], yy_image[bad] = 0, 0
 
                 # Get values for each source from data arrays
-                mjdeff_sources, exptime_sources = (
+                mjdeff_sources, exptime_sources, nimg_sources = (
                     mjdeff[yy_image, xx_image],
                     exptime[yy_image, xx_image],
-                )
-                nimg_sources, astrms_sources = (
                     nimg[yy_image, xx_image],
-                    astrms[yy_image, xx_image],
                 )
-                weight_sources = weight[yy_image, xx_image]
+                astrms_sources1, astrms_sources2, weight_sources = (
+                    astrms1[yy_image, xx_image],
+                    astrms2[yy_image, xx_image],
+                    weight[yy_image, xx_image],
+                )
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
                 mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
-                nimg_sources[bad], astrms_sources[bad] = 0, np.nan
+                astrms_sources1[bad], astrms_sources1[bad] = np.nan, np.nan
+                nimg_sources[bad] = 0
 
                 # Make new columns
                 new_cols = fits.ColDefs(
@@ -1772,21 +1789,27 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                             array=np.rint(nimg_sources).astype(int),
                         ),
                         fits.Column(
-                            name="ASTRMS",
+                            name="ASTRMS1",
                             format="E",
-                            array=astrms_sources,
+                            array=astrms_sources1,
+                            unit="mas",
+                        ),
+                        fits.Column(
+                            name="ASTRMS2",
+                            format="E",
+                            array=astrms_sources2,
                             unit="mas",
                         ),
                     ]
                 )
 
-                # Append new columns and replace HDU
-                hdul[idx_hdu_self] = fits.BinTableHDU.from_columns(
-                    hdul[idx_hdu_self].data.columns + new_cols,
-                    header=hdul[idx_hdu_self].header,
+                hdul_out[idx_hdu_self] = fits.BinTableHDU.from_columns(
+                    new_cols, header=hdul_in[idx_hdu_self].header
                 )
 
-            hdul.flush()
+            # Write to new output file
+            hdul_out.writeto(path_out, overwrite=self.setup.overwrite)
+            hdul_out.close()
 
         # Print time
         print_message(
