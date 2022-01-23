@@ -559,8 +559,8 @@ def convert2public(
     data_errpa = table["ERRTHETAWIN_SKY"].quantity + 90.0 * Unit("deg")
     astrms1 = table["ASTRMS1"].quantity
     astrms2 = table["ASTRMS2"].quantity
-    data_erra_tot = np.sqrt((data_erra ** 2 + astrms1 ** 2))
-    data_errb_tot = np.sqrt((data_errb ** 2 + astrms2 ** 2))
+    data_erra_tot = np.sqrt(data_erra ** 2 + astrms1 ** 2)
+    data_errb_tot = np.sqrt(data_errb ** 2 + astrms2 ** 2)
 
     # Get other columns
     data_exptime = table["EXPTIME"].quantity
