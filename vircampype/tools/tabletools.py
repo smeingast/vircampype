@@ -557,9 +557,10 @@ def convert2public(
     data_erra = table["ERRAWIN_WORLD"].quantity
     data_errb = table["ERRBWIN_WORLD"].quantity
     data_errpa = table["ERRTHETAWIN_SKY"].quantity + 90.0 * Unit("deg")
-    astrms = table["ASTRMS"].quantity
-    data_erra_tot = np.sqrt((data_erra ** 2 + astrms ** 2))
-    data_errb_tot = np.sqrt((data_errb ** 2 + astrms ** 2))
+    astrms1 = table["ASTRMS1"].quantity
+    astrms2 = table["ASTRMS2"].quantity
+    data_erra_tot = np.sqrt((data_erra ** 2 + astrms1 ** 2))
+    data_errb_tot = np.sqrt((data_errb ** 2 + astrms2 ** 2))
 
     # Get other columns
     data_exptime = table["EXPTIME"].quantity
@@ -674,8 +675,8 @@ def convert2public(
     mag_best[idx_2mass] = table["MAG_2MASS"][idx_2mass]
     magerr_best[idx_2mass] = table["MAGERR_2MASS"][idx_2mass]
     data_cls[idx_2mass] = 1.0
-    data_erra_tot[idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass].to(data_erra.unit)
-    data_errb_tot[idx_2mass] = table["ERRMIN_2MASS"][idx_2mass].to(data_errb.unit)
+    data_erra_tot[idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass].to(data_erra_tot.unit)
+    data_errb_tot[idx_2mass] = table["ERRMIN_2MASS"][idx_2mass].to(data_errb_tot.unit)
     data_errpa[idx_2mass] = table["ERRPA_2MASS"][idx_2mass].to(data_errpa.unit)
     data_mjd[idx_2mass] = table["MJD_2MASS"][idx_2mass]
     aper_best[idx_2mass] = np.nan
