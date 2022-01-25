@@ -845,12 +845,19 @@ def _make_tile_headers(
         cen = centroid_sphere(skycoord=SkyCoord(fp, unit="degree"))
         hdr.set("RA", value=cen.ra.degree, comment="RA center")
         hdr.set("DEC", value=cen.dec.degree, comment="DEC center")
-        hdr.set(
-            "EXPTIME", value=2 * njitter * dit * ndit, comment="Total integration time"
-        )
+
+        # Compute total integration time (EXTPIME)
+        exptimes_pawprints = [hdul[0].header["EXPTIME"] for hdul in hdul_pawprints]
+        # Compute sum of integration times (TEXPTIME)
+        texptime = np.sum(exptimes_pawprints)
+        exptime = 2 * njitter * dit * ndit
+        # VIRCAM standard exptime does not account for missing pawprints
+        exptime *= len(hdul_pawprints) / (noffsets * njitter)
+
+        hdr.set("EXPTIME", value=exptime, comment="Total integration time")
         hdr.set(
             "TEXPTIME",
-            value=noffsets * njitter * dit * ndit,
+            value=texptime,
             comment="Sum of integration time of all exposures",
         )
         hdr.set("DATE", value=Time.now().fits, comment="Date of file creation")
