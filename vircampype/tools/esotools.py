@@ -846,12 +846,12 @@ def _make_tile_headers(
         hdr.set("RA", value=cen.ra.degree, comment="RA center")
         hdr.set("DEC", value=cen.dec.degree, comment="DEC center")
 
-        # Compute total integration time (EXTPIME)
-        exptimes_pawprints = [hdul[0].header["EXPTIME"] for hdul in hdul_pawprints]
         # Compute sum of integration times (TEXPTIME)
-        texptime = np.sum(exptimes_pawprints)
+        texptime = np.sum([hdul[0].header["EXPTIME"] for hdul in hdul_pawprints])
+
+        # Compute VISION standard exptime (EXTPIME)
         exptime = 2 * njitter * dit * ndit
-        # VIRCAM standard exptime does not account for missing pawprints
+        # Adjust value because standard does not account for missing pawprints
         exptime *= len(hdul_pawprints) / (noffsets * njitter)
 
         hdr.set("EXPTIME", value=exptime, comment="Total integration time")
