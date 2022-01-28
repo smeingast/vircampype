@@ -4,14 +4,13 @@ from vircampype.visions.scripts.write_scripts import write_scripts
 # Define paths
 path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/CrA/wide_F/"
 path_data = "/Volumes/Data/VISIONS/198C-2009H/data_wide/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009H/vircampype/"
 
 # Search for files
 paths_files_1 = sorted(glob(path_data + "CrA*/B/*.fits"))
 
 # Common kwargs
 kwargs = dict(
-    path_pype=path_pype,
+    path_pype="/Volumes/Data/VISIONS/198C-2009H/vircampype/",
     path_scripts=path_scripts,
     archive=False,
     projection="Corona_Australis_wide",
@@ -33,7 +32,7 @@ write_scripts(paths_files=paths_files_1, **kwargs)
 """ CrA_wide_1_5_3/B has grade C. Was repeated a few days later in run I """
 # Define paths
 path_data = "/Volumes/Data/VISIONS/198C-2009I/data_wide/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009I/vircampype/"
+kwargs["path_pype"] = "/Volumes/Data/VISIONS/198C-2009I/vircampype/"
 
 # Search for files
 paths_files_2 = sorted(glob(path_data + "CrA*/*.fits"))
