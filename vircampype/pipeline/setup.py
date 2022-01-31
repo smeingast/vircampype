@@ -64,7 +64,7 @@ class Setup(dict):
 
         # Photometry
         self.__reference_mag_lim = None
-        self.__phase3_photerr_internal_phase = None
+        self.__photerr_internal = None
         self.__target_zp = 25.0
 
         # Other
@@ -578,12 +578,12 @@ class Setup(dict):
         self.__reference_mag_lim = reference_mag_lim
 
     @property
-    def phase3_photerr_internal(self):
-        return self.__phase3_photerr_internal_phase
+    def photerr_internal(self):
+        return self.__photerr_internal
 
-    @phase3_photerr_internal.setter
-    def phase3_photerr_internal(self, phase3_photerr_internal):
-        self.__phase3_photerr_internal_phase = phase3_photerr_internal
+    @photerr_internal.setter
+    def photerr_internal(self, photerr_internal):
+        self.__photerr_internal = photerr_internal
 
     @property
     def target_zp(self):
