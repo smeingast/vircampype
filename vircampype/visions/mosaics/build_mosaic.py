@@ -18,7 +18,7 @@ def build_mosaic(
     n_jobs: int,
     reference_mag_lim: tuple[float, float],
     projection: str,
-    phase3_photerr_internal: float,
+    photerr_internal: float,
     build_public_catalog: bool = True,
     **kwargs,
 ):
@@ -58,7 +58,7 @@ def build_mosaic(
         path_pype=path_pype,
         n_jobs=n_jobs,
         projection=projection,
-        phase3_photerr_internal=phase3_photerr_internal,
+        photerr_internal=photerr_internal,
         reference_mag_lim=reference_mag_lim,
         external_headers=True,
         build_stacks=False,
@@ -112,7 +112,7 @@ def build_mosaic(
     print(f"Found {len(paths_statistics):4d} statistics files")
 
     # Dummy check
-    if len(paths_statistics) != 5 * len(paths_resampled):
+    if len(paths_statistics) != 7 * len(paths_resampled):
         raise ValueError(
             f"Statistics (n={len(paths_statistics)}) and image "
             f"files (n={len(paths_resampled)}) not matching"
