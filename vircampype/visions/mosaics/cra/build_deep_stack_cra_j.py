@@ -9,9 +9,6 @@ path_master_astro_photo = (
 )
 path_data = f"/Volumes/Data/Mosaics/CrA/{name}/"
 path_pype = f"/Volumes/Data/Mosaics/CrA/vircampype/"
-reference_mag_lim = (12.5, 15.5)
-phase3_photerr_internal = 0.005
-n_jobs = 10
 
 # Get script paths
 paths_scripts = sorted(glob.glob(f"{path_scripts}*_J_*.yml"))
@@ -22,9 +19,10 @@ build_mosaic(
     paths_scripts=paths_scripts,
     path_data=path_data,
     path_pype=path_pype,
-    n_jobs=n_jobs,
     path_master_astro_photo=path_master_astro_photo,
-    reference_mag_lim=reference_mag_lim,
+    n_jobs=10,
+    reference_mag_lim=(12.5, 15.5),
     projection="Corona_Australis_deep",
-    phase3_photerr_internal=phase3_photerr_internal,
+    photerr_internal=0.005,
+    build_public_catalog=True,
 )
