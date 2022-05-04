@@ -2,9 +2,7 @@ from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
 
 # Define paths
-path_scripts = (
-    "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/Ophiuchus/deep/"
-)
+path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/Ophiuchus/deep/"
 path_data = "/Volumes/Data/VISIONS/198C-2009A/data_deep/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009A/vircampype/"
 
@@ -25,17 +23,13 @@ kwargs = dict(
     phase3_photerr_internal=0.005,
     name_suffix=None,
     build_stacks=False,
-    build_tile=False,
+    build_tile=True,
     build_phase3=False,
-    build_class_star_library=False,
+    build_public_catalog=True,
     name_from_directory=True,
 )
 
-# Write scripts for J
+# Write scripts
 write_scripts(paths_files=paths_files_j, reference_mag_lim=(12.5, 15.5), **kwargs)
-
-# Write scripts for H
 write_scripts(paths_files=paths_files_h, reference_mag_lim=(12.0, 15.0), **kwargs)
-
-# Write scripts for Ks
 write_scripts(paths_files=paths_files_k, reference_mag_lim=(11.5, 14.5), **kwargs)
