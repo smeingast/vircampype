@@ -23,9 +23,9 @@ kwargs = dict(
     phase3_photerr_internal=0.005,
     name_suffix=None,
     build_stacks=False,
-    build_tile=True,
+    build_tile=False,
     build_phase3=False,
-    build_public_catalog=True,
+    build_public_catalog=False,
     name_from_directory=True,
 )
 
