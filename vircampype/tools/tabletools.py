@@ -559,8 +559,8 @@ def convert2public(
     data_errpa = table["ERRTHETAWIN_SKY"].quantity + 90.0 * Unit("deg")
     astrms1 = table["ASTRMS1"].quantity
     astrms2 = table["ASTRMS2"].quantity
-    data_erra_tot = np.sqrt(data_erra ** 2 + astrms1 ** 2)
-    data_errb_tot = np.sqrt(data_errb ** 2 + astrms2 ** 2)
+    data_erra_tot = np.sqrt(data_erra**2 + astrms1**2)
+    data_errb_tot = np.sqrt(data_errb**2 + astrms2**2)
 
     # Get other columns
     data_exptime = table["EXPTIME"].quantity
@@ -582,7 +582,7 @@ def convert2public(
 
     # Read and clean aperture magnitudes, add internal photometric error
     mag_aper = data_mag_aper_matched_cal + data_mag_aper_matched_cal_zpc
-    magerr_aper = np.sqrt(data_magerr_aper ** 2 + photerr_internal ** 2)
+    magerr_aper = np.sqrt(data_magerr_aper**2 + photerr_internal**2)
 
     # Compute best default magnitude (match aperture to source area)
     rr = (2 * np.sqrt(data_isoarea_image / np.pi)).reshape(-1, 1)
@@ -877,9 +877,16 @@ def merge_with_2mass(
 
         # Extract weights around current pixel
         weight_temp = np.full_like(yw, fill_value=0.0)
+        norm = 0
         for xi, yi in zip([0, -1, 0, 1, 0], [0, 0, -1, 0, 1]):
-            weight_temp += weight_image_norm[yw.astype(int) + yi, xw.astype(int) + xi]
-        weight_temp /= 5.0
+            try:
+                weight_temp += weight_image_norm[
+                    yw.astype(int) + yi, xw.astype(int) + xi
+                ]
+                norm += 1
+            except IndexError:
+                pass
+        weight_temp /= norm
 
         idx_temp_clean = idx_temp_clean[weight_temp > 0.0001]
         if np.sum(idx_temp_clean) > 0:
