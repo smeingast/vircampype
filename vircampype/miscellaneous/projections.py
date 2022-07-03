@@ -27,6 +27,7 @@ __all__ = [
     "OrionControlProjection",
     "PipeDeepProjection",
     "PipeControlProjection",
+    "SharksG15115",
 ]
 
 
@@ -353,4 +354,17 @@ class PipeControlProjection(Projection):
     def __header_file(self):
         return get_resource_path(
             package=self.headerpackage, resource="Pipe_control.header"
+        )
+
+
+class SharksG15115(Projection):
+    def __init__(self):
+        super(SharksG15115, self).__init__(
+            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+        )
+
+    @property
+    def __header_file(self):
+        return get_resource_path(
+            package=self.headerpackage, resource="Sharks_G15_1_1_5.header"
         )

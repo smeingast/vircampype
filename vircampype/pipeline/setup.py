@@ -883,8 +883,13 @@ class Setup(dict):
             elif projection.lower() == "pipe_deep":
                 self.__projection = PipeDeepProjection()
 
+            # Sharks
+            elif projection.lower() == "sharksg15115":
+                self.__projection = SharksG15115()
+
             # If no match found, raise error
             else:
+                print(projection)
                 raise PipelineError(f"Projection '{projection}' not supported")
         else:
             raise PipelineError(

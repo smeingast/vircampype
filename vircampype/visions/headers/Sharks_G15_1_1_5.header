@@ -1,0 +1,16 @@
+NAXIS   =                    2                                                  
+CTYPE1  = 'RA---TAN'          
+CTYPE2  = 'DEC--TAN'          
+CRVAL1  =        216.877220501
+CRVAL2  =      -0.296502641296
+CUNIT1  = 'deg     '                                                            
+CUNIT2  = 'deg     '                                                            
+CD1_1   =   -9.41666192702E-05
+CD1_2   =    9.07074710581E-08
+CD2_1   =   -9.07074710581E-08
+CD2_2   =   -9.41666192702E-05
+RADESYS = 'ICRS    '                                                            
+NAXIS1 =                13764
+NAXIS2 =                17072
+CRPIX1  =               6882.5
+CRPIX2  =               8536.5
