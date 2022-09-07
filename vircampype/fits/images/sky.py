@@ -562,6 +562,7 @@ class SkyImagesRaw(SkyImages):
         tstart = time.time()
 
         # Fetch the Masterfiles
+        master_gain = self.get_master_gain()
         master_dark = self.get_master_dark(ignore_dit=True)
         master_flat = self.get_master_flat()
         master_linearity = self.get_master_linearity()
@@ -647,7 +648,13 @@ class SkyImagesRaw(SkyImages):
                 # Grab current data header
                 dhdr = hdrs_data[idx_hdu]
 
-                # Grab parameters
+                # Grab gain and readnoise
+                gain = (
+                    master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
+                )
+                rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
+
+                # Grab other parameters
                 saturate = self.setup.saturation_levels[idx_hdu]
                 offseti, noffsets, chipid = (
                     phdr["OFFSET_I"],
@@ -657,7 +664,17 @@ class SkyImagesRaw(SkyImages):
                 photstab = offseti + noffsets * (chipid - 1)
                 dextinct = get_default_extinction(passband=self.passband[idx_file])
 
-                # Add entries
+                # Add stuff to header
+                dhdr.set(
+                    self.setup.keywords.gain,
+                    value=np.round(gain, 3),
+                    comment="Gain (e-/ADU)",
+                )
+                dhdr.set(
+                    self.setup.keywords.rdnoise,
+                    value=np.round(rdnoise, 3),
+                    comment="Read noise (e-)",
+                )
                 dhdr.set(
                     self.setup.keywords.saturate,
                     value=saturate,
@@ -1161,7 +1178,6 @@ class SkyImagesProcessed(SkyImages):
         tstart = time.time()
 
         # Fetch the Masterfiles
-        master_gain = self.get_master_gain()
         master_sky = self.get_master_sky(mode="dynamic")
         master_source_mask = self.get_master_source_mask()
 
@@ -1248,26 +1264,9 @@ class SkyImagesProcessed(SkyImages):
             hdrs_data = []
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
 
-                # Grab gain and readnoise
-                gain = (
-                    master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
-                )
-                rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
-
                 # Make new header for current HDU
                 hdr = self.headers_data[idx_file][idx_hdu].copy()
 
-                # Add stuff to header
-                hdr.set(
-                    self.setup.keywords.gain,
-                    value=np.round(gain, 3),
-                    comment="Gain (e-/ADU)",
-                )
-                hdr.set(
-                    self.setup.keywords.rdnoise,
-                    value=np.round(rdnoise, 3),
-                    comment="Read noise (e-)",
-                )
                 hdr.set(
                     "SKY",
                     value=np.round(sky[idx_hdu], 3),
