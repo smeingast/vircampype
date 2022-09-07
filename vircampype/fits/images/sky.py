@@ -1422,16 +1422,21 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         ]
 
         # MaxiMasking
-        if self.setup.maximasking:
+        if self.setup.maximask:
+
             # Build commands for MaxiMask
+            bin_mm = which("maximask")
+            if bin_mm is None:
+                raise ValueError("MaxiMask executable not found")
             cmds = [
-                "maximask.py {0} --single_mask True --n_jobs_intra 1 --n_jobs_inter 1"
-                "".format(n)
+                f"{bin_mm} {n} --batch_size 4 --single_mask True"
                 for n in self.paths_full
             ]
 
-            # Clean commands
+            # Construct output names for masks
             paths_masks = [x.replace(".fits", ".masks.fits") for x in self.paths_full]
+
+            # Clean commands
             cmds = [
                 c
                 for c, n, o in zip(cmds, paths_masks, outpaths)
@@ -1441,16 +1446,14 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             if len(paths_masks) != len(self):
                 raise ValueError("Something went wrong with MaxiMask")
 
-            # Run MaxiMask
+            # Run MaxiMask in parallel
             if len(cmds) > 0:
                 print_message(
-                    "Running MaxiMask on {0} files with {1} threads".format(
+                    "Running MaxiMask on {0} files with 2 threads".format(
                         len(cmds), self.setup.n_jobs
                     )
                 )
-            run_commands_shell_parallel(
-                cmds=cmds, n_jobs=self.setup.n_jobs, silent=True
-            )
+            run_commands_shell_parallel(cmds=cmds, n_jobs=2, silent=True)
 
             # Put masks into FitsImages object
             masks = FitsImages(setup=self.setup, file_paths=paths_masks)
@@ -1490,8 +1493,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Apply MaxiMask to image if set for better background determination
             if isinstance(masks, FitsImages):
-                mask = masks.file2cube(file_index=idx_file)
-                cube.cube[mask > 0] = np.nan
+                bpm_mm = masks.file2cube(file_index=idx_file)
+                cube.cube[(bpm_mm > 1) & (bpm_mm < 128)] = np.nan
 
             # Get background statistics
             cube.apply_masks(sources=master_mask)
@@ -1952,8 +1955,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             astirms2_mean = np.mean(list(zip(*cpkw_dict["ASTIRMS2"]))[0])
             astrrms1_mean = np.mean(list(zip(*cpkw_dict["ASTRRMS1"]))[0])
             astrrms2_mean = np.mean(list(zip(*cpkw_dict["ASTRRMS2"]))[0])
-            astirms = np.sqrt(astirms1_mean ** 2 + astirms2_mean ** 2) * 3_600_000
-            astrrms = np.sqrt(astrrms1_mean ** 2 + astrrms2_mean ** 2) * 3_600_000
+            astirms = np.sqrt(astirms1_mean**2 + astirms2_mean**2) * 3_600_000
+            astrrms = np.sqrt(astrrms1_mean**2 + astrrms2_mean**2) * 3_600_000
             prhdr_stk.set(
                 "ASTIRMS",
                 value=np.round(astirms, 2),
