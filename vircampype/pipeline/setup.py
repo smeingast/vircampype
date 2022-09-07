@@ -42,7 +42,7 @@ class Setup(dict):
         self.__archive = False
 
         # Data setup
-        self.__maximasking = False
+        self.__maximask = False
         self.__projection = None
 
         # Source masks
@@ -820,12 +820,12 @@ class Setup(dict):
         return self.pixel_scale.to_value(Unit("deg"))
 
     @property
-    def maximasking(self):
-        return self.__maximasking
+    def maximask(self):
+        return self.__maximask
 
-    @maximasking.setter
-    def maximasking(self, maximasking):
-        self.__maximasking = maximasking
+    @maximask.setter
+    def maximask(self, maximask):
+        self.__maximask = maximask
 
     @property
     def projection(self):
