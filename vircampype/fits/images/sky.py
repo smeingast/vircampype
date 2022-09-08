@@ -1594,7 +1594,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             header_coadd = skycoord2header(
                 skycoord=self.footprints_flat,
                 proj_code="ZEA",
-                enlarge=0.5,
+                enlarge=1.0,
                 rotation=np.deg2rad(np.round(rotation, 2)),
                 round_crval=True,
                 cdelt=self.setup.pixel_scale_degrees,
