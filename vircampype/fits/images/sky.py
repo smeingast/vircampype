@@ -1081,7 +1081,9 @@ class SkyImagesProcessed(SkyImages):
                     warnings.filterwarnings(
                         "ignore", message="Input data contains invalid values"
                     )
-                    cube.cube = astropy_sigma_clip(data=cube.cube, sigma=3, maxiters=1)
+                    cube.cube = astropy_sigma_clip(
+                        data=cube.cube, sigma=3, maxiters=3, axis=0
+                    )
 
                 # Create weights if needed
                 if self.setup.flat_metric == "weighted":
