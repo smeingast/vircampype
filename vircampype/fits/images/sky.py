@@ -1520,7 +1520,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Make primary header
             prime_header = fits.Header()
             prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
-            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = self.setup.maximasking
+            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = self.setup.maximask
             prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][
                 self.setup.keywords.date_mjd
             ]
