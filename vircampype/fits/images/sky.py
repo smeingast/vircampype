@@ -1061,6 +1061,9 @@ class SkyImagesProcessed(SkyImages):
                 # Get master calibration
                 sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
 
+                # Apply masks cube
+                cube.apply_masks(sources=sources, mask_max=True)
+
                 # Compute sky level in each plane
                 sky, sky_std = cube.background_planes()
                 sky_all.append(sky)
@@ -1073,8 +1076,7 @@ class SkyImagesProcessed(SkyImages):
                 sky_scaled, noise_scaled = cube.background_planes()
                 cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
 
-                # Apply masks to the normalized cube
-                cube.apply_masks(sources=sources, mask_max=True)
+                # Sigma clip
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
                         "ignore", message="Input data contains invalid values"
