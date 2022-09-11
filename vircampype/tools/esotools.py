@@ -591,7 +591,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     hdul_tile_out.writeto(path_tile_p3, overwrite=False, checksum=True)
     hdul_catalog_out.writeto(path_catalog_p3, overwrite=False, checksum=True)
 
-    # # There also has to be a weight map
+    # There also has to be a weight map
     with fits.open(tile_image.paths_full[0].replace(".fits", ".weight.fits")) as weight:
 
         # Start with clean header
