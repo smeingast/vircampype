@@ -1073,10 +1073,6 @@ class SkyImagesProcessed(SkyImages):
                 sky_scale = sky / np.mean(sky)
                 cube.normalize(norm=sky_scale)
 
-                # Subtract (scaled) constant sky level from each plane
-                sky_scaled, noise_scaled = cube.background_planes()
-                cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
-
                 # Sigma clip
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
@@ -1090,7 +1086,7 @@ class SkyImagesProcessed(SkyImages):
                 if self.setup.flat_metric == "weighted":
                     metric = "weighted"
                     weights = np.empty_like(cube.cube)
-                    weights[:] = (1 / noise_scaled)[:, np.newaxis, np.newaxis]
+                    weights[:] = (1 / sky_std)[:, np.newaxis, np.newaxis]
                     weights[~np.isfinite(cube.cube)] = 0.0
                 else:
                     metric = string2func(self.setup.flat_metric)
@@ -1186,6 +1182,14 @@ class SkyImagesProcessed(SkyImages):
         master_sky = self.get_master_sky(mode="dynamic")
         master_source_mask = self.get_master_source_mask()
 
+        # Read sky scales
+        sky_scale = master_sky._read_sequence_from_data_headers(
+            "HIERARCH PYPE SKY SCL", start_index=0
+        )
+        sky_mjd = master_sky._read_sequence_from_data_headers(
+            "HIERARCH PYPE SKY MJD", start_index=0
+        )
+
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
 
@@ -1214,6 +1218,15 @@ class SkyImagesProcessed(SkyImages):
 
             # Get master calibration
             sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+
+            # Scale sky
+            sscl = [x[idx_file] for x in sky_scale[idx_file]]
+            smjd = [x[idx_file] for x in sky_mjd[idx_file]]
+            # MJD must match
+            if (len(list(set(smjd))) != 1) | ((smjd[0] - self.mjd[idx_file]) * 86400 > 1):
+                raise ValueError("Sky scaling not matching")
+            sky.scale_planes(sscl)
+            sky -= sky.background_planes()[0][:, np.newaxis, np.newaxis]
 
             # Subtract dynamic sky
             cube -= sky
