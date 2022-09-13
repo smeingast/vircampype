@@ -3,6 +3,7 @@
 import warnings
 import numpy as np
 
+from typing import List
 from astropy.io import fits
 from itertools import repeat
 from joblib import Parallel, delayed
@@ -700,13 +701,13 @@ class ImageCube(object):
     # =========================================================================== #
     # Data manipulation
     # =========================================================================== #
-    def scale_planes(self, scales):
+    def scale_planes(self, scales: (np.ndarray, List)):
         """
         Scales each plane by the given value.
 
         Parameters
         ----------
-        scales : np.ndarray
+        scales : np.ndarray, List
             The scales for each plane. Must match length of cube
 
         """
