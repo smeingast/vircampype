@@ -657,8 +657,8 @@ def destripe_helper(array, mask=None, smooth=False):
 
     Parameters
     ----------
-    array : ndarray
-    mask : ndarray, optional
+    array : np.ndarray
+    mask : np.ndarray, optional
     smooth : bool, optional
 
     """
@@ -694,8 +694,8 @@ def destripe_helper(array, mask=None, smooth=False):
             med_destripe_interp = UnivariateSpline(yy, med_destripe, k=5)(yy)
             med_destripe -= med_destripe_interp
 
-        # Return destriped array
-        return array - np.expand_dims(med_destripe, axis=1) + mmm(array_copy)[0]  # noqa
+        # Return stripe pattern
+        return med_destripe - np.nanmedian(med_destripe)
 
 
 def circular_mask(array, coordinates, radius):

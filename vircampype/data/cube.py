@@ -953,8 +953,33 @@ class ImageCube(object):
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
             )
 
-        # Set new data cube
-        self.cube = np.squeeze(np.array(mp))
+        # Combine stripes for each detector row
+        destripe_01_04 = np.nanmean(np.stack(mp[0:4]), axis=0)
+        destripe_05_08 = np.nanmean(np.stack(mp[4:8]), axis=0)
+        destripe_09_12 = np.nanmean(np.stack(mp[8:12]), axis=0)
+        destripe_13_16 = np.nanmean(np.stack(mp[12:16]), axis=0)
+
+        # Apply destriping
+        self.cube[0:4] = self.cube[0:4] - np.expand_dims(destripe_01_04, axis=1)
+        self.cube[4:8] = self.cube[4:8] - np.expand_dims(destripe_05_08, axis=1)
+        self.cube[8:12] = self.cube[8:12] - np.expand_dims(destripe_09_12, axis=1)
+        self.cube[12:16] = self.cube[12:16] - np.expand_dims(destripe_13_16, axis=1)
+
+        # # Plot destripe pattern
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(1, 1)
+        # kw_plot = dict(lw=0.7, alpha=0.8)
+        # pcolors = ["crimson", "green", "blue", "black"]
+        # for pidx, pc in zip(range(0, 16, 4), pcolors):
+        #     for tidx in range(4):
+        #         ax.plot(mp[pidx + tidx] + 3 * pidx, c=pc, **kw_plot)
+        #     ax.plot(
+        #         np.nanmean(np.stack(mp[pidx : pidx + 4]), axis=0) + 3 * pidx,
+        #         c=pc,
+        #         lw=1.5,
+        #     )
+        # ax.set_ylim(-30, 60)
+        # plt.show()
 
     def interpolate_nan(self):
         """
