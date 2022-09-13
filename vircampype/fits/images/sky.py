@@ -1183,6 +1183,7 @@ class SkyImagesProcessed(SkyImages):
         master_source_mask = self.get_master_source_mask()
 
         # Read sky scales
+        assert isinstance(master_sky, FitsImages)
         sky_scale = master_sky._read_sequence_from_data_headers(
             "HIERARCH PYPE SKY SCL", start_index=0
         )
@@ -1223,7 +1224,9 @@ class SkyImagesProcessed(SkyImages):
             sscl = [x[idx_file] for x in sky_scale[idx_file]]
             smjd = [x[idx_file] for x in sky_mjd[idx_file]]
             # MJD must match
-            if (len(list(set(smjd))) != 1) | ((smjd[0] - self.mjd[idx_file]) * 86400 > 1):
+            if (len(list(set(smjd))) != 1) | (
+                (smjd[0] - self.mjd[idx_file]) * 86400 > 1
+            ):
                 raise ValueError("Sky scaling not matching")
             sky.scale_planes(sscl)
             sky -= sky.background_planes()[0][:, np.newaxis, np.newaxis]
