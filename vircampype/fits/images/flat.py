@@ -727,7 +727,7 @@ class FlatLampGain(FlatImages):
             ) != len(flats):
                 raise ValueError("Gain sequence not compatible!")
 
-            # Create master  name
+            # Create master name
             outpath = "{0}MASTER-GAIN.MJD_{1:0.4f}.fits.tab" "".format(
                 flats.setup.folders["master_common"], flats.mjd_mean
             )
