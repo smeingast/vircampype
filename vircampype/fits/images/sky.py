@@ -1071,7 +1071,7 @@ class SkyImagesProcessed(SkyImages):
 
                 # Normalize to same flux level
                 sky_scale = sky / np.mean(sky)
-                cube.normalize(norm=sky_scale[-1])
+                cube.normalize(norm=sky_scale)
 
                 # Subtract (scaled) constant sky level from each plane
                 sky_scaled, noise_scaled = cube.background_planes()
