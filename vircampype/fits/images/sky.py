@@ -1102,26 +1102,21 @@ class SkyImagesProcessed(SkyImages):
 
                 # Create header with sky measurements
                 hdr = fits.Header()
-                c1, c2, c3 = (
-                    "Measured sky (ADU)",
-                    "Measured sky noise (ADU)",
-                    "MJD of measured sky",
-                )
                 for cidx in range(len(sky)):
                     hdr.set(
                         "HIERARCH PYPE SKY MEAN {0}".format(cidx),
                         value=np.round(sky[cidx], 2),
-                        comment=c1,
+                        comment="Measured sky (ADU)",
                     )
                     hdr.set(
                         "HIERARCH PYPE SKY NOISE {0}".format(cidx),
                         value=np.round(sky_std[cidx], 2),
-                        comment=c2,
+                        comment="Measured sky noise (ADU)",
                     )
                     hdr.set(
                         "HIERARCH PYPE SKY MJD {0}".format(cidx),
                         value=np.round(files.mjd[cidx], 6),
-                        comment=c3,
+                        comment="MJD of measured sky",
                     )
 
                 # Append to list
