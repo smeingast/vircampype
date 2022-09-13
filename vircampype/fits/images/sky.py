@@ -1070,7 +1070,8 @@ class SkyImagesProcessed(SkyImages):
                 noise_all.append(sky_std)
 
                 # Normalize to same flux level
-                cube.normalize(norm=sky / np.mean(sky))
+                sky_scale = sky / np.mean(sky)
+                cube.normalize(norm=sky_scale[-1])
 
                 # Subtract (scaled) constant sky level from each plane
                 sky_scaled, noise_scaled = cube.background_planes()
@@ -1104,19 +1105,24 @@ class SkyImagesProcessed(SkyImages):
                 hdr = fits.Header()
                 for cidx in range(len(sky)):
                     hdr.set(
-                        "HIERARCH PYPE SKY MEAN {0}".format(cidx),
+                        f"HIERARCH PYPE SKY MEAN {cidx}",
                         value=np.round(sky[cidx], 2),
                         comment="Measured sky (ADU)",
                     )
                     hdr.set(
-                        "HIERARCH PYPE SKY NOISE {0}".format(cidx),
+                        f"HIERARCH PYPE SKY NOISE {cidx}",
                         value=np.round(sky_std[cidx], 2),
                         comment="Measured sky noise (ADU)",
                     )
                     hdr.set(
-                        "HIERARCH PYPE SKY MJD {0}".format(cidx),
+                        f"HIERARCH PYPE SKY MJD {cidx}",
                         value=np.round(files.mjd[cidx], 6),
                         comment="MJD of measured sky",
+                    )
+                    hdr.set(
+                        f"HIERARCH PYPE SKY SCL {cidx}",
+                        value=np.round(sky_scale[cidx], 6),
+                        comment="Sky scale",
                     )
 
                 # Append to list
