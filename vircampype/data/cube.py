@@ -713,6 +713,9 @@ class ImageCube(object):
         if len(scales) != len(self):
             raise ValueError("Provide scales for each plane!")
 
+        if isinstance(scales, list):
+            scales = np.array(scales)
+
         # Apply scales along first axis
         self.cube *= scales[:, np.newaxis, np.newaxis]
 
