@@ -211,8 +211,8 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         .kneighbors(stacked_raw)
     )
 
-    # Since this can require a LOT of RAM, I loop over chunks
-    n_sections = len(nn_dis_all) // 200000
+    # Since this can require a LOT of RAM, I loop over chunks (reset to 200000 if issue)
+    n_sections = len(nn_dis_all) // 300000
     n_sections = 1 if n_sections == 0 else n_sections
     par_weighted, par_nsources, par_max_dis, par_std = [], [], [], []
     for nn_dis, nn_idx in zip(
@@ -258,7 +258,7 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
             warnings.filterwarnings(
                 "ignore", message="Input data contains invalid values"
             )
-            wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3).mask
+            wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3, masked=True).mask
         weights_par[wmask] = 0.0
         # noinspection PyUnresolvedReferences
         par_weighted.append(
@@ -271,11 +271,8 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         nn_data[bad_data] = np.nan
 
         # Also compute standard deviation
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", message="Input data contains invalid values"
-            )
-            _, _, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5)
+        # _, _, iv_std = sigma_clipped_stats(nn_data, axis=1, sigma=2.5, maxiters=1)
+        iv_std = np.nanstd(nn_data, axis=1)
         par_std.append(iv_std)
 
     # Add unit
