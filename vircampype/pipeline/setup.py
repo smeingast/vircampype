@@ -46,6 +46,7 @@ class Setup(dict):
         self.__projection = None
 
         # Source masks
+        self.__mask_2mass_sources = True
         self.__additional_source_masks = None
 
         # Astromatic
@@ -630,6 +631,15 @@ class Setup(dict):
     def mask_sources_max_area(self):
         """Maximum area of sources that are masked (500x500 pix)."""
         return 250000
+
+    @property
+    def mask_2mass_sources(self):
+        """ Whether to build additional 2MAS source mask. """
+        return self.__mask_2mass_sources
+
+    @mask_2mass_sources.setter
+    def mask_2mass_sources(self, mask_2mass_sources):
+        self.__mask_2mass_sources = mask_2mass_sources
 
     @property
     def additional_source_masks(self):

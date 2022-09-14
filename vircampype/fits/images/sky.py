@@ -782,13 +782,19 @@ class SkyImagesProcessed(SkyImages):
                 silent=self.setup.silent,
             )
 
+            # Create empty mask list
+            mra, mdec, msize = [], [], []
+
             # Load positions and magnitudes of bright sources
             mag_master = master_phot.mag(passband=self.passband[idx_file])[0][0]
             bright = (mag_master > 1) & (mag_master < 9)
             mag_bright = mag_master[bright]
-            mra = list(master_phot.ra()[0][0][bright])
-            mdec = list(master_phot.dec()[0][0][bright])
-            msize = [int(x) for x in SourceMasks.interp_2mass_size()(mag_bright)]
+            if self.setup.mask_2mass_sources:
+                mra.extend(list(master_phot.ra()[0][0][bright]))
+                mdec.extend(list(master_phot.dec()[0][0][bright]))
+                msize.extend(
+                    [int(x) for x in SourceMasks.interp_2mass_size()(mag_bright)]
+                )
 
             # Merge with manual source masks
             if self.setup.additional_source_masks is not None:
