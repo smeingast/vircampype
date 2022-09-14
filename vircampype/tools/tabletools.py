@@ -211,8 +211,8 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         .kneighbors(stacked_raw)
     )
 
-    # Since this can require a LOT of RAM, I loop over chunks (reset to 200000 if issue)
-    n_sections = len(nn_dis_all) // 300000
+    # Since this can require a LOT of RAM, I loop over chunks
+    n_sections = len(nn_dis_all) // 10000
     n_sections = 1 if n_sections == 0 else n_sections
     par_weighted, par_nsources, par_max_dis, par_std = [], [], [], []
     for nn_dis, nn_idx in zip(
