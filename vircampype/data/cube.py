@@ -912,7 +912,7 @@ class ImageCube(object):
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
-            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                 mp = parallel(
                     delayed(linearize_data)(a, b, c, d)
                     for a, b, c, d in zip(self.cube, cff, texptime, repeat(1.0011))
@@ -1026,7 +1026,7 @@ class ImageCube(object):
                     )
 
             elif self.setup.n_jobs > 1:
-                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                     mp = parallel(
                         delayed(interpolate_image)(d, k, m)
                         for d, k, m in zip(
@@ -1224,7 +1224,7 @@ class ImageCube(object):
         if self.setup.n_jobs == 1:
             back, back_sig = list(zip(*[mmm(sky_vector=c) for c in self.cube]))[:2]
         else:
-            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                 mp = parallel(
                     delayed(mmm)(a, b, c, d, e, f, g)
                     for a, b, c, d, e, f, g in zip(
