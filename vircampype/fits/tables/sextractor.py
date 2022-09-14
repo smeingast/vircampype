@@ -909,7 +909,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Add smoothed stats to tables
             parameters = ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR"]
             for par in parameters:
-                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                     tables_file = parallel(
                         delayed(add_smoothed_value)(i, j)
                         for i, j in zip(tables_file, repeat(par))
@@ -920,7 +920,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 tables_class_file = tables_class.file2table(file_index=idx_file)
 
                 # Interpolate classification in parallel for each extension
-                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
                     tables_file = parallel(
                         delayed(interpolate_classification)(i, j)
                         for i, j in zip(tables_file, tables_class_file)
@@ -1533,7 +1533,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             np.stack([np.deg2rad(tt[self._key_ra]), np.deg2rad(tt[self._key_dec])]).T
             for tt in tables_all
         ]
-        with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
             mp = parallel(
                 delayed(__match_catalogs)(i, j)
                 for i, j in zip(stacked_table, repeat(stacked_master))
