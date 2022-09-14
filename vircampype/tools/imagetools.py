@@ -4,6 +4,7 @@ import numpy as np
 
 from typing import List
 from astropy import wcs
+from skimage.draw import disk
 from skimage.filters import sobel
 from scipy.ndimage import median_filter
 from vircampype.external.mmm import mmm
@@ -37,7 +38,6 @@ __all__ = [
     "grid_value_2d",
     "grid_value_2d_nn",
     "destripe_helper",
-    "circular_mask",
     "source_mask",
     "get_edge_skycoord_weight",
 ]
@@ -177,29 +177,29 @@ def chop_image(array, npieces, axis=0, overlap=None):
 
             # First slice
             if i == 0:
-                chopped.append(array[cut[i]:cut[i+1] + overlap, :])
+                chopped.append(array[cut[i] : cut[i + 1] + overlap, :])
 
             # Last slice
             elif i == npieces - 1:
-                chopped.append(array[cut[i] - overlap:cut[i+1], :])
+                chopped.append(array[cut[i] - overlap : cut[i + 1], :])
 
             # Everything else
             else:
-                chopped.append(array[cut[i] - overlap:cut[i+1] + overlap, :])
+                chopped.append(array[cut[i] - overlap : cut[i + 1] + overlap, :])
 
         elif axis == 1:
 
             # First slice
             if i == 0:
-                chopped.append(array[:, cut[i]:cut[i+1] + overlap])
+                chopped.append(array[:, cut[i] : cut[i + 1] + overlap])
 
             # Last slice
             elif i == npieces - 1:
-                chopped.append(array[:, cut[i] - overlap:cut[i+1]])
+                chopped.append(array[:, cut[i] - overlap : cut[i + 1]])
 
             # Everything else
             else:
-                chopped.append(array[:, cut[i] - overlap:cut[i+1] + overlap])
+                chopped.append(array[:, cut[i] - overlap : cut[i + 1] + overlap])
 
     # Return list of chopped arrays
     return chopped, cut
@@ -249,17 +249,17 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
             # First slice
             if i == 0:
-                merged[0: locations[i + 1], :] = arrays[i][
+                merged[0 : locations[i + 1], :] = arrays[i][
                     : arrays[i].shape[0] - overlap, :
                 ]
 
             # Last slice
             elif i == len(arrays) - 1:
-                merged[locations[i]:, :] = arrays[i][overlap:, :]
+                merged[locations[i] :, :] = arrays[i][overlap:, :]
 
             # In between
             else:
-                merged[locations[i]: locations[i + 1], :] = arrays[i][
+                merged[locations[i] : locations[i + 1], :] = arrays[i][
                     overlap:-overlap, :
                 ]
 
@@ -267,17 +267,17 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
             # First slice
             if i == 0:
-                merged[:, 0:locations[i + 1]] = arrays[i][
-                    :, :arrays[i].shape[1] - overlap
+                merged[:, 0 : locations[i + 1]] = arrays[i][
+                    :, : arrays[i].shape[1] - overlap
                 ]
 
             # Last slice
             elif i == len(arrays) - 1:
-                merged[:, locations[i]:] = arrays[i][:, overlap:]
+                merged[:, locations[i] :] = arrays[i][:, overlap:]
 
             # In between
             else:
-                merged[:, locations[i]: locations[i + 1]] = arrays[i][
+                merged[:, locations[i] : locations[i + 1]] = arrays[i][
                     :, overlap:-overlap
                 ]
 
@@ -302,7 +302,7 @@ def background_image(image, mesh_size, mesh_filtersize=3):
 
     # Tile image
     tiles = [
-        image[x: x + mesh_size, y: y + mesh_size]
+        image[x : x + mesh_size, y : y + mesh_size]
         for x in range(0, image.shape[0], mesh_size)
         for y in range(0, image.shape[1], mesh_size)
     ]
@@ -698,24 +698,6 @@ def destripe_helper(array, mask=None, smooth=False):
         return med_destripe - np.nanmedian(med_destripe)
 
 
-def circular_mask(array, coordinates, radius):
-    """Construct circular mask"""
-    (i1, i2), (nx, ny) = coordinates, array.shape
-
-    # Make grid
-    y, x = np.ogrid[-int(i1): nx - int(i1), -int(i2): ny - int(i2)]
-
-    # Create mask
-    mask = np.array(x * x + y * y <= radius * radius, dtype=bool)
-
-    # Check shape
-    if mask.shape != array.shape:
-        raise ValueError("Mask and array shape not matching")
-
-    # Return
-    return mask
-
-
 def source_mask(
     image: np.ndarray, kappa: (int, float), min_area: int = 3, max_area: int = 100000
 ):
@@ -788,14 +770,10 @@ def source_mask(
             centroid = regionprops[idx_large].centroid
 
             # Construct mask for current source
-            base = np.full_like(labels, fill_value=0, dtype=np.uint16)
-            mm = circular_mask(
-                array=base, coordinates=centroid, radius=np.ceil(2 * crad).astype(int)
+            aa, bb = disk(
+                centroid, np.ceil(2 * crad).astype(int), shape=mask_large.shape
             )
-            base[mm] = 1
-
-            # Save current source mask
-            mask_large += base
+            mask_large[aa, bb] = 1
 
     # Find those sources outside the given thresholds and set to 0
     # bad_sources = (sizes < minarea) | (sizes > maxarea)
