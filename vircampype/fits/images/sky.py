@@ -1377,11 +1377,11 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             cube = self.hdu2cube(hdu_index=idx_hdu)
 
             # Normalize to same flux level
-            sky, sky_std = cube.background_planes()
+            sky = cube.background_planes()[0]
             cube.normalize(norm=sky / np.mean(sky))
 
             # Subtract (scaled) constant sky level from each plane
-            sky_scaled, noise_scaled = cube.background_planes()
+            sky_scaled = cube.background_planes()[0]
             cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
 
             # Mask
@@ -1394,7 +1394,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                     sigma_lower=3,
                     sigma_upper=2,
                     maxiters=2,
-                    axis=(1, 2),
+                    axis=0,
                 )
 
             # Collapse cube
@@ -1431,6 +1431,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             kind="okblue",
             end="\n",
         )
+        exit()
 
     def build_master_weight_image(self):
         """This is unfortunately necessary since sometimes detector 16 in particular
