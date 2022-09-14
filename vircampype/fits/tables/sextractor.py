@@ -754,10 +754,17 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 tt.add_column((mag_aper[:, -1] - mag_aper.T).T, name="MAG_APER_COR")
 
                 # Add smoothed values to table
-                kwarrg_asv = dict(n_neighbors=100, max_dis=540)
-                add_smoothed_value(table=tt, parameter="MAG_APER_COR", **kwarrg_asv)
-                add_smoothed_value(table=tt, parameter="FWHM_WORLD", **kwarrg_asv)
-                add_smoothed_value(table=tt, parameter="ELLIPTICITY", **kwarrg_asv)
+                # Only works with threads here, otherwise table is not updated
+                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                    parallel(
+                        delayed(add_smoothed_value)(a, b, c, d)
+                        for a, b, c, d in zip(
+                            repeat(tt),
+                            ["MAG_APER_COR", "FWHM_WORLD", "ELLIPTICITY"],
+                            repeat(100),
+                            repeat(540),
+                        )
+                    )
 
                 # Match apertures and add to table
                 mag_aper_matched = mag_aper + tt["MAG_APER_COR_INTERP"]
@@ -800,14 +807,16 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
                 tt.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
                 tt.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
-                kwarrg_asv = dict(
-                    n_neighbors=150,
-                    max_dis=1800,
-                )
-                add_smoothed_value(table=tt, parameter="MAG_AUTO_CAL_ZPC", **kwarrg_asv)
-                add_smoothed_value(
-                    table=tt, parameter="MAG_APER_MATCHED_CAL_ZPC", **kwarrg_asv
-                )
+                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
+                    parallel(
+                        delayed(add_smoothed_value)(a, b, c, d)
+                        for a, b, c, d in zip(
+                            repeat(tt),
+                            ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"],
+                            repeat(150),
+                            repeat(1800),
+                        )
+                    )
 
                 # Replace HDU in original HDUList with modified table HDU
                 table_hdulist[tidx_hdu] = table2bintablehdu(tt)
