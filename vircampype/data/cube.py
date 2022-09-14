@@ -912,7 +912,9 @@ class ImageCube(object):
 
         elif self.setup.n_jobs > 1:
             # Start multithreaded processing of linearization
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            with Parallel(
+                n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+            ) as parallel:
                 mp = parallel(
                     delayed(linearize_data)(a, b, c, d)
                     for a, b, c, d in zip(self.cube, cff, texptime, repeat(1.0011))
@@ -947,7 +949,9 @@ class ImageCube(object):
             masks = repeat(None)
 
         # Destripe in parallel
-        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+        with Parallel(
+            n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+        ) as parallel:
             mp = parallel(
                 delayed(destripe_helper)(a, b, c)
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
@@ -1026,7 +1030,9 @@ class ImageCube(object):
                     )
 
             elif self.setup.n_jobs > 1:
-                with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+                with Parallel(
+                    n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+                ) as parallel:
                     mp = parallel(
                         delayed(interpolate_image)(d, k, m)
                         for d, k, m in zip(
@@ -1074,7 +1080,9 @@ class ImageCube(object):
         """
 
         # Build mask for each plane in parallel
-        with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+        with Parallel(
+            n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+        ) as parallel:
             mp = parallel(
                 delayed(source_mask)(a, b, c, d)
                 for a, b, c, d in zip(
@@ -1224,7 +1232,9 @@ class ImageCube(object):
         if self.setup.n_jobs == 1:
             back, back_sig = list(zip(*[mmm(sky_vector=c) for c in self.cube]))[:2]
         else:
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            with Parallel(
+                n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+            ) as parallel:
                 mp = parallel(
                     delayed(mmm)(a, b, c, d, e, f, g)
                     for a, b, c, d, e, f, g in zip(
@@ -1269,7 +1279,9 @@ class ImageCube(object):
         # Submit parallel jobs for background estimation in each cube plane
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            with Parallel(n_jobs=self.setup.n_jobs) as parallel:
+            with Parallel(
+                n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+            ) as parallel:
                 mp = parallel(
                     delayed(background_image)(a, b, c)
                     for a, b, c in zip(
