@@ -634,7 +634,7 @@ class Setup(dict):
 
     @property
     def mask_2mass_sources(self):
-        """ Whether to build additional 2MAS source mask. """
+        """Whether to build additional 2MAS source mask."""
         return self.__mask_2mass_sources
 
     @mask_2mass_sources.setter
