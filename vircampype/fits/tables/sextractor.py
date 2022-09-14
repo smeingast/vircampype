@@ -753,18 +753,26 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Add aperture correction to table
                 tt.add_column((mag_aper[:, -1] - mag_aper.T).T, name="MAG_APER_COR")
 
-                # Add smoothed values to table
-                # Only works with threads here, otherwise table is not updated
-                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                    parallel(
-                        delayed(add_smoothed_value)(a, b, c, d)
-                        for a, b, c, d in zip(
-                            repeat(tt),
-                            ["MAG_APER_COR", "FWHM_WORLD", "ELLIPTICITY"],
-                            repeat(100),
-                            repeat(540),
+                # Split table for parallelization
+                ttsi = np.array_split(
+                    np.arange(len(tt)), indices_or_sections=self.setup.n_jobs
+                )
+                tts = [tt[i] for i in ttsi]
+                for par in ["MAG_APER_COR", "FWHM_WORLD", "ELLIPTICITY"]:
+                    # Only works with threads, otherwise columns not added
+                    with Parallel(
+                        n_jobs=self.setup.n_jobs, prefer="threads"
+                    ) as parallel:
+                        parallel(
+                            delayed(add_smoothed_value)(a, b, c, d)
+                            for a, b, c, d in zip(
+                                tts,
+                                repeat(par),
+                                repeat(100),
+                                repeat(540),
+                            )
                         )
-                    )
+                tt = tvstack(tts)
 
                 # Match apertures and add to table
                 mag_aper_matched = mag_aper + tt["MAG_APER_COR_INTERP"]
@@ -782,6 +790,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     columns_mag=columns_mag,
                     columns_magerr=columns_magerr,
                 )
+
+                # Save ZP attributes
+                tattrs = dict(zp=tt.zp, zperr=tt.zperr)
 
                 # Add correction factor for the main calibrated mag measurement
                 sc1 = SkyCoord(tt[self._key_ra], tt[self._key_dec], unit="degree")
@@ -807,16 +818,31 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
                 tt.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
                 tt.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
-                with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                    parallel(
-                        delayed(add_smoothed_value)(a, b, c, d)
-                        for a, b, c, d in zip(
-                            repeat(tt),
-                            ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"],
-                            repeat(150),
-                            repeat(1800),
+
+                # Split table for parallelization
+                ttsi = np.array_split(
+                    np.arange(len(tt)), indices_or_sections=self.setup.n_jobs
+                )
+                tts = [tt[i] for i in ttsi]
+                for par in ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"]:
+                    # Only works with threads, otherwise columns not added
+                    with Parallel(
+                        n_jobs=self.setup.n_jobs, prefer="threads"
+                    ) as parallel:
+                        parallel(
+                            delayed(add_smoothed_value)(a, b, c, d)
+                            for a, b, c, d in zip(
+                                tts,
+                                repeat(par),
+                                repeat(150),
+                                repeat(1800),
+                            )
                         )
-                    )
+                tt = tvstack(tts)
+
+                # Add ZP attributes again
+                setattr(tt, "zp", tattrs["zp"])
+                setattr(tt, "zperr", tattrs["zperr"])
 
                 # Replace HDU in original HDUList with modified table HDU
                 table_hdulist[tidx_hdu] = table2bintablehdu(tt)
