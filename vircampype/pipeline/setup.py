@@ -923,6 +923,10 @@ class Setup(dict):
     def bin_stilts(self, bin_stilts):
         self.__bin_stilts = bin_stilts
 
+    @property
+    def joblib_backend(self):
+        return "threads"
+
 
 class HeaderKeywords:
     def __init__(
