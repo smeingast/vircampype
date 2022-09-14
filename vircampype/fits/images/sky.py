@@ -6,6 +6,7 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
+from skimage.draw import disk
 from astropy.table import Table
 from vircampype.external.mmm import mmm
 from vircampype.tools.wcstools import *
@@ -20,12 +21,12 @@ from vircampype.tools.viziertools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.astromatic import SwarpSetup
+from vircampype.tools.imagetools import upscale_image
 from vircampype.tools.astromatic import SextractorSetup
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from vircampype.miscellaneous.sourcemasks import SourceMasks
 from vircampype.tools.photometry import get_default_extinction
 from vircampype.fits.images.common import FitsImages, MasterImages
-from vircampype.tools.imagetools import upscale_image, circular_mask
 
 
 class SkyImages(FitsImages):
@@ -811,32 +812,31 @@ class SkyImagesProcessed(SkyImages):
             # Create empty list to hold all cubes for additional masks
             array_additional = np.full_like(cube.cube, fill_value=0, dtype=np.uint16)
 
-            # Loop over additional masks
-            for rr, dd, ss in zip(mra, mdec, msize):
+            # Loop over HDUs
+            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
 
-                # Loop over each HDU
-                for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+                # Grab WCS
+                ww = self.wcs[idx_file][idx_hdu]
 
-                    # Get pixel coordinates
-                    sx, sy = self.wcs[idx_file][idx_hdu].wcs_world2pix(rr, dd, 0)
+                # Check which mask is in image
+                mxx, myy = ww.wcs_world2pix(mra, mdec, 0)
 
-                    # Skip if too far away from current image
-                    naxis1 = self.headers_data[idx_file][idx_hdu]["NAXIS1"]
-                    naxis2 = self.headers_data[idx_file][idx_hdu]["NAXIS2"]
-                    if (
-                        (sx < -500)
-                        | (sy < -500)
-                        | (sx > naxis1 + 500)
-                        | (sy > naxis2 + 500)
-                    ):
-                        continue
+                # remove thise that are too far away from edges
+                naxis1 = self.headers_data[idx_file][idx_hdu]["NAXIS1"]
+                naxis2 = self.headers_data[idx_file][idx_hdu]["NAXIS2"]
+                keep = (
+                    (mxx > -300)
+                    & (myy > -300)
+                    & (mxx < naxis1 + 300)
+                    & (myy < naxis2 + 300)
+                )
 
-                    # If source is near image, create mask
-                    base = np.full_like(cube[idx_hdu], dtype=np.uint8, fill_value=0)
-                    mm = circular_mask(
-                        array=base, coordinates=(sy, sx), radius=ss
-                    ).astype(np.uint16)
-                    array_additional[idx_hdu] += mm
+                if np.sum(keep) == 0:
+                    continue
+
+                for sx, sy, ss in zip(mxx[keep], myy[keep], np.array(msize)[keep]):
+                    aa, bb = disk((sy, sx), ss, shape=(naxis2, naxis1))
+                    array_additional[idx_hdu][aa, bb] = 1
 
             # Automatically detect sources in cube
             cube_sources = cube.build_source_masks()
