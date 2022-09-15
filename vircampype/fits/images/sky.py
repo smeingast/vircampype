@@ -1293,9 +1293,9 @@ class SkyImagesProcessed(SkyImages):
                 sky, skysig = cube.background_planes()
 
             # Destriping again with smoothed values if set
-            # if self.setup.destripe:
-            #     sources = master_source_mask.file2cube(file_index=idx_file)
-            #     cube.destripe(masks=sources, smooth=True)
+            if self.setup.destripe:
+                sources = master_source_mask.file2cube(file_index=idx_file)
+                cube.destripe(masks=sources, smooth=True)
 
             # Dummy check if too many pixels where masked
             for plane in cube:
