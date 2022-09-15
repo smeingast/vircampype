@@ -1,5 +1,5 @@
-ALPHA_SKY                # Right ascension of barycenter (native)                    [deg]
-DELTA_SKY                # Declination of barycenter (native)                        [deg]
+ALPHAWIN_SKY             # Right ascension of barycenter (native)                    [deg]
+DELTAWIN_SKY             # Declination of barycenter (native)                        [deg]
 XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
 YWIN_IMAGE               # Windowed position estimate along y                        [pixel]
 ERRAWIN_IMAGE            # RMS windowed pos error along major axis                   [pixel]

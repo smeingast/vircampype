@@ -1,7 +1,7 @@
 XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
 YWIN_IMAGE               # Windowed position estimate along y                        [pixel]
-ALPHA_SKY                # Right ascension of barycenter (native)                    [deg]
-DELTA_SKY                # Declination of barycenter (native)                        [deg]
+ALPHAWIN_SKY             # Right ascension of barycenter (native)                    [deg]
+DELTAWIN_SKY             # Declination of barycenter (native)                        [deg]
 FWHM_WORLD               # FWHM assuming a gaussian core                             [deg]
 ELLIPTICITY              # 1 - B_IMAGE/A_IMAGE                                      
 MAG_AUTO                 # Kron-like elliptical aperture magnitude                   [mag]
