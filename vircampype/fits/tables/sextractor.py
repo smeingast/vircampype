@@ -2316,8 +2316,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Grab X/Y coordinates
                 x_hdu, y_hdu = (
-                    tab_hdu["X_IMAGE"][idx_final],
-                    tab_hdu["Y_IMAGE"][idx_final],
+                    tab_hdu["XWIN_IMAGE"][idx_final],
+                    tab_hdu["YWIN_IMAGE"][idx_final],
                 )
 
                 # Grid data with nearest neighbors
