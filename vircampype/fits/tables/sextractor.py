@@ -721,17 +721,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 "MAG_APER",
                 "MAG_APER_MATCHED",
                 "MAG_AUTO",
-                "MAG_ISO",
-                "MAG_ISOCOR",
-                "MAG_PETRO",
             ]
             columns_magerr = [
                 "MAGERR_APER",
                 "MAGERR_APER",
                 "MAGERR_AUTO",
-                "MAGERR_ISO",
-                "MAGERR_ISOCOR",
-                "MAGERR_PETRO",
             ]
 
             # Read original HDUList
