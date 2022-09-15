@@ -38,11 +38,11 @@ class SextractorCatalogs(SourceCatalogs):
 
     @property
     def _key_ra(self):
-        return "ALPHA_SKY"
+        return "ALPHAWIN_SKY"
 
     @property
     def _key_dec(self):
-        return "DELTA_SKY"
+        return "DELTAWIN_SKY"
 
     @property
     def iter_data_hdu(self):
