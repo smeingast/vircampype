@@ -760,6 +760,15 @@ class SkyImagesProcessed(SkyImages):
         master_sky = self.get_master_sky(mode="static")
         master_phot = self.get_master_photometry()
 
+        # Read sky scales
+        assert isinstance(master_sky, FitsImages)
+        sky_scale = master_sky._read_sequence_from_data_headers(
+            "HIERARCH PYPE SKY SCL", start_index=0
+        )
+        sky_mjd = master_sky._read_sequence_from_data_headers(
+            "HIERARCH PYPE SKY MJD", start_index=0
+        )
+
         # Loop over files
         for idx_file in range(self.n_files):
 
@@ -811,6 +820,17 @@ class SkyImagesProcessed(SkyImages):
 
             # Read master sky
             sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+
+            # Scale sky
+            sscl = [x[idx_file] for x in sky_scale[idx_file]]
+            smjd = [x[idx_file] for x in sky_mjd[idx_file]]
+            # MJD must match
+            if (len(list(set(smjd))) != 1) | (
+                (smjd[0] - self.mjd[idx_file]) * 86400 > 1
+            ):
+                raise ValueError("Sky scaling not matching")
+            sky.scale_planes(sscl)
+            sky -= sky.background_planes()[0][:, np.newaxis, np.newaxis]
 
             # Subtract static sky
             cube -= sky
@@ -1376,34 +1396,47 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Load data
             cube = self.hdu2cube(hdu_index=idx_hdu)
 
+            # Compute sky level in each plane
+            sky, sky_std = cube.background_planes()
+
+            # Mask 3 sigma level above sky
+            cube.apply_masks(mask_above=(sky + 3 * sky_std)[:, np.newaxis, np.newaxis])
+
             # Normalize to same flux level
-            sky = cube.background_planes()[0]
-            cube.normalize(norm=sky / np.mean(sky))
-
-            # Subtract (scaled) constant sky level from each plane
-            sky_scaled = cube.background_planes()[0]
-            cube.cube -= sky_scaled[:, np.newaxis, np.newaxis]
-
-            # Mask
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", message="Input data contains invalid values"
-                )
-                cube.cube = astropy_sigma_clip(
-                    data=cube.cube,
-                    sigma_lower=3,
-                    sigma_upper=2,
-                    maxiters=2,
-                    axis=0,
-                )
+            sky_scale = sky / np.mean(sky)
+            cube.normalize(norm=sky_scale)
 
             # Collapse cube
             collapsed = cube.flatten(
                 metric=np.nanmedian, axis=0, weights=None, dtype=None
             )
 
+            # Create header with sky measurements
+            hdr = fits.Header()
+            for cidx in range(len(sky)):
+                hdr.set(
+                    f"HIERARCH PYPE SKY MEAN {cidx}",
+                    value=np.round(sky[cidx], 2),
+                    comment="Measured sky (ADU)",
+                )
+                hdr.set(
+                    f"HIERARCH PYPE SKY NOISE {cidx}",
+                    value=np.round(sky_std[cidx], 2),
+                    comment="Measured sky noise (ADU)",
+                )
+                hdr.set(
+                    f"HIERARCH PYPE SKY MJD {cidx}",
+                    value=np.round(self.mjd[cidx], 6),
+                    comment="MJD of measured sky",
+                )
+                hdr.set(
+                    f"HIERARCH PYPE SKY SCL {cidx}",
+                    value=np.round(sky_scale[cidx], 6),
+                    comment="Sky scale",
+                )
+
             # Create header for extensions
-            data_headers.append(fits.Header())
+            data_headers.append(hdr)
 
             # Collapse extensions with specified metric and append to output
             master_cube.extend(data=collapsed.astype(np.float32))
@@ -1431,6 +1464,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             kind="okblue",
             end="\n",
         )
+        exit()
 
     def build_master_weight_image(self):
         """This is unfortunately necessary since sometimes detector 16 in particular
