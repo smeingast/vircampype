@@ -2,6 +2,7 @@
 # Import
 import warnings
 import numpy as np
+import matplotlib.pyplot as plt
 
 from typing import List
 from astropy.io import fits
@@ -930,7 +931,7 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def destripe(self, masks=None, smooth=False):
+    def destripe(self, masks=None, smooth=False, path_plot=None):
         """
         Destripes VIRCAM images
 
@@ -941,6 +942,8 @@ class ImageCube(object):
         smooth : bool, optional
             Whether the destriping array should be smoothed with a spline before being
             applied.
+        path_plot : str, optional
+            If set, path of QC plot.
 
         """
 
@@ -957,33 +960,44 @@ class ImageCube(object):
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
             )
 
-        # Combine stripes for each detector row
-        destripe_01_04 = np.nanmean(np.stack(mp[0:4]), axis=0)
-        destripe_05_08 = np.nanmean(np.stack(mp[4:8]), axis=0)
-        destripe_09_12 = np.nanmean(np.stack(mp[8:12]), axis=0)
-        destripe_13_16 = np.nanmean(np.stack(mp[12:16]), axis=0)
+        """ Combining each detector row does not work because in many instances, 
+        the amplitude of the striping pattern is very different between the 
+        detectors in a row."""
+        # # Combine stripes for each detector row
+        # destripe_01_04 = np.nanmean(np.stack(mp[0:4]), axis=0)
+        # destripe_05_08 = np.nanmean(np.stack(mp[4:8]), axis=0)
+        # destripe_09_12 = np.nanmean(np.stack(mp[8:12]), axis=0)
+        # destripe_13_16 = np.nanmean(np.stack(mp[12:16]), axis=0)
+        #
+        # # Apply destriping
+        # self.cube[0:4] = self.cube[0:4] - np.expand_dims(destripe_01_04, axis=1)
+        # self.cube[4:8] = self.cube[4:8] - np.expand_dims(destripe_05_08, axis=1)
+        # self.cube[8:12] = self.cube[8:12] - np.expand_dims(destripe_09_12, axis=1)
+        # self.cube[12:16] = self.cube[12:16] - np.expand_dims(destripe_13_16, axis=1)
 
-        # Apply destriping
-        self.cube[0:4] = self.cube[0:4] - np.expand_dims(destripe_01_04, axis=1)
-        self.cube[4:8] = self.cube[4:8] - np.expand_dims(destripe_05_08, axis=1)
-        self.cube[8:12] = self.cube[8:12] - np.expand_dims(destripe_09_12, axis=1)
-        self.cube[12:16] = self.cube[12:16] - np.expand_dims(destripe_13_16, axis=1)
+        # Destripe each plane separateley
+        for idx, _ in enumerate(self):
+            self.cube[idx] -= np.expand_dims(mp[idx], axis=1)
 
-        # # Plot destripe pattern
-        # import matplotlib.pyplot as plt
-        # fig, ax = plt.subplots(1, 1)
-        # kw_plot = dict(lw=0.7, alpha=0.8)
-        # pcolors = ["crimson", "green", "blue", "black"]
-        # for pidx, pc in zip(range(0, 16, 4), pcolors):
-        #     for tidx in range(4):
-        #         ax.plot(mp[pidx + tidx] + 3 * pidx, c=pc, **kw_plot)
-        #     ax.plot(
-        #         np.nanmean(np.stack(mp[pidx : pidx + 4]), axis=0) + 3 * pidx,
-        #         c=pc,
-        #         lw=1.5,
-        #     )
-        # ax.set_ylim(-30, 60)
-        # plt.show()
+        # Plot destripe pattern if requested
+        if path_plot is not None:
+
+            fig, ax = plt.subplots(1, 1, figsize=(25, 5))
+            kw_plot = dict(lw=0.4, alpha=0.8)
+            pcolors = ["crimson", "green", "blue", "black"]
+            for pidx, pc in zip(range(0, 16, 4), pcolors):
+                for tidx in range(4):
+                    ax.plot(mp[pidx + tidx] + 3 * pidx, c=pc, **kw_plot)
+                ax.plot(
+                    np.nanmean(np.stack(mp[pidx: pidx + 4]), axis=0) + 3 * pidx,
+                    c=pc,
+                    lw=1.0,
+                )
+            ax.set_ylim(-30, 60)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                fig.savefig(path_plot, bbox_inches="tight", dpi=300)
+            plt.close("all")
 
     def interpolate_nan(self):
         """
