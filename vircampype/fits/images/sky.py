@@ -1464,7 +1464,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             kind="okblue",
             end="\n",
         )
-        exit()
 
     def build_master_weight_image(self):
         """This is unfortunately necessary since sometimes detector 16 in particular
