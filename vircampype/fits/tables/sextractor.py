@@ -479,7 +479,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-            # magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
+            magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
             skycoord_master = master_phot.skycoord()[0][0][mkeep]
 
             data_headers, flx_scale, n_sources = [], [], []
@@ -515,60 +515,62 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     max_ellipticity=0.25,
                 )
 
-                # Compute illumination correction
+                # Compute zero point depending on IC mode
+                if self.setup.ic_mode == "variable":
+                    method = "all"
+                elif self.setup.ic_mode == "constant":
+                    method = "weighted"
+                else:
+                    raise ValueError(
+                        f"IC mode must be either 'variable' or 'constant', "
+                        f"not {self.setup.ic_mode}"
+                    )
                 zp_all = get_zeropoint(
                     skycoord1=SkyCoord(
                         tab[self._key_ra], tab[self._key_dec], unit="deg"
                     ),
                     mag1=tab["MAG_AUTO"],
+                    magerr1=tab["MAGERR_AUTO"],
                     skycoord2=skycoord_master,
                     mag2=mag_master,
+                    magerr2=magerr_master,
                     mag_limits_ref=master_phot.mag_lim(passband=passband),
-                    method="all",
+                    method=method,
                 )
 
-                # Remove all table entries without ZP entry
-                tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
+                # Compute illumination correction
+                if self.setup.ic_mode == "variable":
 
-                # Grid with NN interpolation
-                grid_zp = grid_value_2d_nn(
-                    x=tab["XWIN_IMAGE"],
-                    y=tab["YWIN_IMAGE"],
-                    values=zp_all,
-                    n_bins_x=header["NAXIS1"] // 50,
-                    n_bins_y=header["NAXIS2"] // 50,
-                    x_min=1,
-                    y_min=1,
-                    x_max=header["NAXIS1"],
-                    y_max=header["NAXIS2"],
-                    n_nearest_neighbors=50,
-                    metric="weighted",
-                    weights=1 / tab["MAGERR_AUTO"] ** 2,
-                )
+                    # Remove all table entries without ZP entry
+                    tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
 
-                # Resize to original image size
-                grid_zp = upscale_image(
-                    grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]), method="PIL"
-                )
+                    # Grid with NN interpolation
+                    grid_zp = grid_value_2d_nn(
+                        x=tab["XWIN_IMAGE"],
+                        y=tab["YWIN_IMAGE"],
+                        values=zp_all,
+                        n_bins_x=header["NAXIS1"] // 50,
+                        n_bins_y=header["NAXIS2"] // 50,
+                        x_min=1,
+                        y_min=1,
+                        x_max=header["NAXIS1"],
+                        y_max=header["NAXIS2"],
+                        n_nearest_neighbors=50,
+                        metric="weighted",
+                        weights=1 / tab["MAGERR_AUTO"] ** 2,
+                    )
 
-                # Constant value
-                # zp = get_zeropoint(
-                #     skycoord_cal=SkyCoord(
-                #         tab[self._key_ra], tab[self._key_dec], unit="deg"
-                #     ),
-                #     mag_cal=tab["MAG_AUTO"],
-                #     skycoord_ref=skycoord_master,
-                #     mag_ref=mag_master,
-                #     mag_limits_ref=master_phot.mag_lim(passband=passband),
-                #     method="weighted",
-                #     mag_err_cal=tab["MAGERR_AUTO"],
-                #     mag_err_ref=magerr_master,
-                # )[0]
-                # grid_zp = np.full(
-                #     (header["NAXIS1"], header["NAXIS2"]),
-                #     fill_value=zp,
-                #     dtype=np.float32,
-                # )
+                    # Resize to original image size
+                    grid_zp = upscale_image(
+                        grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]),
+                        method="PIL"
+                    )
+                else:
+                    grid_zp = np.full(
+                        (header["NAXIS1"], header["NAXIS2"]),
+                        fill_value=zp_all[0],
+                        dtype=np.float32,
+                    )
 
                 # Convert to flux scale
                 flx_scale.append(10 ** ((grid_zp - self.setup.target_zp) / 2.5))
