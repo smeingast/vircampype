@@ -64,6 +64,7 @@ class Setup(dict):
         self.__astr_reference_catalog = "GAIA"
 
         # Photometry
+        self.__ic_mode = "variable"
         self.__reference_mag_lim = None
         self.__photerr_internal = None
         self.__target_zp = 25.0
@@ -539,6 +540,14 @@ class Setup(dict):
 
     # =========================================================================== #
     # Photometry
+    @property
+    def ic_mode(self):
+        return self.__ic_mode
+
+    @ic_mode.setter
+    def ic_mode(self, ic_mode):
+        self.__ic_mode = ic_mode
+
     @property
     def apertures(self):
         """
