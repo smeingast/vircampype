@@ -171,9 +171,9 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     table_clean, keep_clean = clean_source_table(
         table=table,
         border_pix=25,
-        min_fwhm=0.8,
-        max_fwhm=6.0,
-        max_ellipticity=0.25,
+        min_fwhm=np.nanpercentile(table["FWHM_IMAGE"].data, 1),
+        max_fwhm=np.nanpercentile(table["FWHM_IMAGE"].data, 20),
+        max_ellipticity=np.nanpercentile(table["ELLIPTICITY"].data, 20),
         nndis_limit=5,
         min_snr=5,
         return_filter=True,
