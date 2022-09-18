@@ -748,6 +748,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Add aperture correction to table
                 tt.add_column((mag_aper[:, -1] - mag_aper.T).T, name="MAG_APER_COR")
 
+                # Detemrine clean catalog limits
+                min_fwhm = np.nanpercentile(tt["FWHM_IMAGE"].data, 1),
+                max_fwhm = np.nanpercentile(tt["FWHM_IMAGE"].data, 20),
+                max_ellipticity = np.nanpercentile(tt["ELLIPTICITY"].data, 20),
+
                 # Split table for parallelization
                 ttsi = np.array_split(
                     np.arange(len(tt)), indices_or_sections=self.setup.n_jobs
@@ -759,12 +764,15 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         n_jobs=self.setup.n_jobs, prefer="threads"
                     ) as parallel:
                         parallel(
-                            delayed(add_smoothed_value)(a, b, c, d)
-                            for a, b, c, d in zip(
+                            delayed(add_smoothed_value)(a, b, c, d, e, f, g)
+                            for a, b, c, d, e, f, g in zip(
                                 tts,
                                 repeat(par),
                                 repeat(100),
                                 repeat(540),
+                                repeat(min_fwhm),
+                                repeat(max_fwhm),
+                                repeat(max_ellipticity),
                             )
                         )
                 tt = tvstack(tts)
@@ -825,12 +833,15 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         n_jobs=self.setup.n_jobs, prefer="threads"
                     ) as parallel:
                         parallel(
-                            delayed(add_smoothed_value)(a, b, c, d)
-                            for a, b, c, d in zip(
+                            delayed(add_smoothed_value)(a, b, c, d, e, f, g)
+                            for a, b, c, d, e, f, g in zip(
                                 tts,
                                 repeat(par),
                                 repeat(150),
                                 repeat(1800),
+                                repeat(min_fwhm),
+                                repeat(max_fwhm),
+                                repeat(max_ellipticity),
                             )
                         )
                 tt = tvstack(tts)

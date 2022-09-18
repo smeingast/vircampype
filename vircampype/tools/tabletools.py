@@ -166,14 +166,22 @@ def clean_source_table(
         return table[good]
 
 
-def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
+def add_smoothed_value(
+    table,
+    parameter,
+    n_neighbors=100,
+    max_dis=540,
+    min_fwhm=0.8,
+    max_fwhm=6.0,
+    max_ellipticity=0.3,
+):
     # Construct clean source table
     table_clean, keep_clean = clean_source_table(
         table=table,
         border_pix=25,
-        min_fwhm=np.nanpercentile(table["FWHM_IMAGE"].data, 1),
-        max_fwhm=np.nanpercentile(table["FWHM_IMAGE"].data, 20),
-        max_ellipticity=np.nanpercentile(table["ELLIPTICITY"].data, 20),
+        min_fwhm=min_fwhm,
+        max_fwhm=max_fwhm,
+        max_ellipticity=max_ellipticity,
         nndis_limit=5,
         min_snr=5,
         return_filter=True,
