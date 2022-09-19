@@ -755,9 +755,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         parameter=par,
                         n_neighbors=100,
                         max_dis=720,
-                        min_fwhm=np.nanpercentile(tt["FWHM_IMAGE"].data, 1),
-                        max_fwhm=np.nanpercentile(tt["FWHM_IMAGE"].data, 20),
-                        max_ellipticity=np.nanpercentile(tt["ELLIPTICITY"].data, 20),
                     )
 
                 # Match apertures and add to table
@@ -808,9 +805,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         parameter=par,
                         n_neighbors=100,
                         max_dis=1800,
-                        min_fwhm=np.nanpercentile(tt["FWHM_IMAGE"].data, 1),
-                        max_fwhm=np.nanpercentile(tt["FWHM_IMAGE"].data, 20),
-                        max_ellipticity=np.nanpercentile(tt["ELLIPTICITY"].data, 20),
                     )
 
                 # Replace HDU in original HDUList with modified table HDU
