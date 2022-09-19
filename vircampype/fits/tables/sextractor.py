@@ -561,8 +561,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                     # Resize to original image size
                     grid_zp = upscale_image(
-                        grid_zp, new_size=(header["NAXIS1"], header["NAXIS2"]),
-                        method="PIL"
+                        grid_zp,
+                        new_size=(header["NAXIS1"], header["NAXIS2"]),
+                        method="PIL",
                     )
                 else:
                     grid_zp = np.full(
