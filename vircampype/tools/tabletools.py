@@ -166,24 +166,16 @@ def clean_source_table(
         return table[good]
 
 
-def add_smoothed_value(
-    table,
-    parameter,
-    n_neighbors=100,
-    max_dis=540,
-    min_fwhm=0.8,
-    max_fwhm=6.0,
-    max_ellipticity=0.3,
-):
+def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
     # Construct clean source table
     table_clean, keep_clean = clean_source_table(
         table=table,
         border_pix=25,
-        min_fwhm=min_fwhm,
-        max_fwhm=max_fwhm,
-        max_ellipticity=max_ellipticity,
+        min_fwhm=0.8,
+        max_fwhm=6.0,
+        max_ellipticity=0.25,
         nndis_limit=5,
-        min_snr=10,
+        min_snr=5,
         return_filter=True,
     )
 
@@ -236,9 +228,6 @@ def add_smoothed_value(
         bad_data = ~np.isfinite(nn_dis)
         nn_dis_temp = 0.0  # noqa
 
-        # Count sources
-        par_nsources.append(np.sum(~bad_data, axis=1))
-
         # Determine maximum distance used for each source
         par_max_dis.append(np.nanmax(nn_dis, axis=1))
 
@@ -254,6 +243,9 @@ def add_smoothed_value(
         # Weights just from SNR
         # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
         # weights = weights_snr.copy()
+
+        # Count sources
+        par_nsources.append(np.sum(weights > 0.0001, axis=1))
 
         # Compute weighted average
         if nn_data.ndim == 3:
