@@ -183,7 +183,7 @@ def add_smoothed_value(
         max_fwhm=max_fwhm,
         max_ellipticity=max_ellipticity,
         nndis_limit=5,
-        min_snr=5,
+        min_snr=10,
         return_filter=True,
     )
 
@@ -220,7 +220,7 @@ def add_smoothed_value(
     )
 
     # Since this can require a LOT of RAM, I loop over chunks
-    n_sections = len(nn_dis_all) // 10000
+    n_sections = len(nn_dis_all) // 100000
     n_sections = 1 if n_sections == 0 else n_sections
     par_weighted, par_nsources, par_max_dis, par_std = [], [], [], []
     for nn_dis, nn_idx in zip(
