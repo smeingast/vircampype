@@ -836,7 +836,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Close original file
             table_hdulist.close()
-            exit()
 
         # Print time
         print_message(
