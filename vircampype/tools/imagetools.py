@@ -285,7 +285,6 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
 
 def background_image(image, mesh_size, mesh_filtersize=3):
-
     # Image must be 2D
     if len(image.shape) != 2:
         raise ValueError(
