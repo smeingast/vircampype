@@ -643,20 +643,24 @@ class SkyImagesRaw(SkyImages):
             if self.setup.fix_vircam_headers:
                 fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
 
-            # Add stuff to data headers
-            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+            # Determine gain scale from flat
+            gain_scale_flat, _ = flat.background_planes()
 
-                # Grab current data header
-                dhdr = hdrs_data[idx_hdu]
+            # Add stuff to data headers
+            for idx_hdu, dhdr in enumerate(hdrs_data):
 
                 # Grab gain and readnoise
                 gain = (
-                    master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
+                    master_gain.gain[idx_file][idx_hdu - 1]
+                    * self.ndit_norm[idx_file]
+                    * gain_scale_flat[idx_hdu]
                 )
                 rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
 
                 # Grab other parameters
-                saturate = self.setup.saturation_levels[idx_hdu]
+                saturate = (
+                    self.setup.saturation_levels[idx_hdu] / gain_scale_flat[idx_hdu]
+                )
                 offseti, noffsets, chipid = (
                     phdr["OFFSET_I"],
                     phdr["NOFFSETS"],
