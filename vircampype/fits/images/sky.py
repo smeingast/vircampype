@@ -1268,8 +1268,10 @@ class SkyImagesProcessed(SkyImages):
             if self.setup.destripe:
                 sources = master_source_mask.file2cube(file_index=idx_file)
                 if self.setup.qc_plots:
-                    path_qc_destripe = f"{self.setup.folders['qc_sky']}" \
-                                       f"{self.basenames[idx_file]}_striping.pdf"
+                    path_qc_destripe = (
+                        f"{self.setup.folders['qc_sky']}"
+                        f"{self.basenames[idx_file]}_striping.pdf"
+                    )
                 else:
                     path_qc_destripe = None
                 cube.destripe(masks=sources, smooth=False, path_plot=path_qc_destripe)
