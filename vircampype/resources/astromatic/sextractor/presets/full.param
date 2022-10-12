@@ -12,29 +12,23 @@ CLASS_STAR               # S/G classifier output
 
 
 # =========================================================================== #
-# Positions pixel
+# Positions
 # =========================================================================== #
 XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
 YWIN_IMAGE               # Windowed position estimate along y                        [pixel]
-
-
-# =========================================================================== #
-# Positions world
-# =========================================================================== #
 ALPHAWIN_SKY             # Windowed right ascension  (native)                        [deg]
 DELTAWIN_SKY             # Windowed declination (native)                             [deg]
 
+
+# =========================================================================== #
+# Shape
+# =========================================================================== #
 AWIN_WORLD               # Windowed profile RMS along major axis (world units)       [deg]
 ERRAWIN_WORLD            # World RMS windowed pos error along major axis             [deg]
 BWIN_WORLD               # Windowed profile RMS along minor axis (world units)       [deg]
 ERRBWIN_WORLD            # World RMS windowed pos error along minor axis             [deg]
 THETAWIN_SKY             # Windowed position angle (CCW/world-x)                     [deg]
 ERRTHETAWIN_SKY          # Native windowed error ellipse pos. angle (east of north)  [deg]
-
-
-# =========================================================================== #
-# Shape
-# =========================================================================== #
 FWHM_IMAGE               # FWHM assuming a gaussian core                             [pixel]
 FWHM_WORLD               # FWHM assuming a gaussian core                             [deg]
 ELLIPTICITY              # 1 - B_IMAGE/A_IMAGE                                      
