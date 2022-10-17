@@ -3,12 +3,12 @@ import warnings
 import numpy as np
 
 from astropy.io import fits
-from vircampype.external.mmm import mmm
 from vircampype.tools.plottools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.fitstools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
+from astropy.stats import sigma_clipped_stats
 from vircampype.fits.images.common import FitsImages
 from vircampype.fits.images.common import MasterImages
 
@@ -101,7 +101,7 @@ class DarkImages(FitsImages):
                 # Determine dark current and std
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
-                    dc, dc_std, _ = mmm(collapsed)
+                    dc, _, dc_std = sigma_clipped_stats(collapsed)
 
                 # Norm to 1s also via DIT
                 dc, dc_std = dc / files.dit[0], dc_std / files.dit[0]
