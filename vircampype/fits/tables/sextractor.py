@@ -506,7 +506,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 tab = clean_source_table(
                     table=tab,
                     image_header=header,
-                    flux_max=header["SEXSATLV"] / 2,
+                    flux_max=header["SEXSATLV"] * 0.8,
                     border_pix=10,
                     nndis_limit=5,
                     min_fwhm=0.8,
