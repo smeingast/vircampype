@@ -21,6 +21,7 @@ setup(
         "scikit-learn>=0.23",
         "pillow>=6.1",
         "scikit-image>0.18",
+        "regions>=0.6",
     ],
     packages=["vircampype"],
     url="",
