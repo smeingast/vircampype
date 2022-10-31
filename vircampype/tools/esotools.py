@@ -265,7 +265,7 @@ def _make_prime_header_stack(
     )
     hdr.set(
         "PROCSOFT",
-        value="vircampype v{0}".format(__version__),
+        value=f"vircampype v{__version__}",
         comment="Reduction software",
     )
     hdr.set("REFERENC", value="", comment="Primary science publication")
