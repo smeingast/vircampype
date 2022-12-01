@@ -2182,7 +2182,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from vircampype.fits.images.common import FitsImages
         from vircampype.fits.tables.sources import MasterPhotometry2Mass
 
-        master_photometry = self.get_master_photometry()  # type: MasterPhotometry2Mass
+        master_phot = self.get_master_photometry()  # type: MasterPhotometry2Mass
         mag_limit = self.setup.reference_mag_lim[0]
         if not hasattr(mag_limit, "unit"):
             mag_limit *= Unit("mag")
@@ -2246,7 +2246,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Grab passbands
             passband = self.passband[idx_file]
-            passband_2mass = master_photometry.translate_passband(passband)
+            passband_2mass = master_phot.translate_passband(passband)
 
             # Load current table in HDUList
             hdulist_in = fits.open(self.paths_full[idx_file])
@@ -2261,10 +2261,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             tables_class_file = tables_class.file2table(file_index=idx_file)
 
             # Read master table
-            table_2mass = master_photometry.file2table(file_index=idx_file)[0]
+            table_2mass = master_phot.file2table(file_index=idx_file)[0]
+            table_2mass["QFLG_PB"] = master_phot.qflags(passband=passband_2mass)[0][0]
 
             # Clean master table
-            keep_master = master_photometry.get_purge_index(passband=passband_2mass)
+            keep_master = master_phot.get_purge_index(
+                passband=passband_2mass, allowed_qflags="ABCD", allowed_cflags="0cd"
+            )
             table_2mass_clean = table_2mass.copy()[keep_master]
 
             # Work in each extension
