@@ -275,14 +275,16 @@ class MasterPhotometry2Mass(MasterPhotometry):
             )
         ]
 
-    def get_purge_index(self, passband):
+    def get_purge_index(self, passband, allowed_qflags: str = "A"):
         """
-        Cleans catalog from bad measurements in a given passband
+        Cleans catalog from bad measurements in a given passband.
 
         Parameters
         ----------
         passband : str
             Passband.
+        allowed_qflags : str
+            Specifies which Qflags are not purged. e.g. 'A', or 'ABC'. Default is 'A'.
 
         Returns
         -------
@@ -292,7 +294,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         """
         return np.array(
             [
-                True if (q[0] == "A") & (c[0] in "0c") else False
+                True if (q[0] in allowed_qflags) & (c[0] in "0c") else False
                 for q, c in zip(
                     self.qflags(passband=passband)[0][0],
                     self.cflags(passband=passband)[0][0],
