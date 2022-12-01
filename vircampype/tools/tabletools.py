@@ -844,8 +844,9 @@ def merge_with_2mass(
 
     # Define 2MASS cleaning radus
     cleaning_radius = interp1d(
-        [-99, 5.00, 6.70, 8.70, 9.20, 10.5, 12, 99],
-        [100, 80, 60, 35, 20, 10, 5, 0],
+        [-10, 5.00, 6.70, 8.70, 9.20, 10.5, 12, 14, 99],
+        # [100, 80, 60, 35, 20, 10, 5, 0],
+        [50, 20, 10, 6, 5, 4, 2, 1, 0],
     )
     cleaning_radius = cleaning_radius(mag_2mass_bright) * Unit("arcsec")
 
