@@ -679,7 +679,7 @@ def convert2public(
     aper_best[idx_2mass] = np.nan
     data_sflg[idx_2mass] = 0
     cflg[idx_2mass] = False
-    qflg[idx_2mass] = "A"
+    qflg[idx_2mass] = table["QFLG_2MASS"][idx_2mass]
 
     # Final cleaning of VISIONS sources to kick out useless rows
     idx_keep_visions = np.where(
@@ -898,25 +898,16 @@ def merge_with_2mass(
     table.remove_rows(idx_self_near_bright)  # noqa
 
     # Add new cols to original catalog
+    kw_nan_f32 = dict(fill_value=np.nan, dtype=np.float32)
+    kw_nan_f64 = dict(fill_value=np.nan, dtype=np.float64)
     table.add_column(np.full(len(table), fill_value="VISIONS"), name="SURVEY")
-    table.add_column(
-        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="MAG_2MASS"
-    )
-    table.add_column(
-        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="MAGERR_2MASS"
-    )
-    table.add_column(
-        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="ERRMAJ_2MASS"
-    )
-    table.add_column(
-        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="ERRMIN_2MASS"
-    )
-    table.add_column(
-        np.full(len(table), fill_value=np.nan, dtype=np.float32), name="ERRPA_2MASS"
-    )
-    table.add_column(
-        np.full(len(table), fill_value=np.nan, dtype=np.float64), name="MJD_2MASS"
-    )
+    table.add_column(np.full(len(table), fill_value=""), name="QFLG_2MASS")
+    table.add_column(np.full(len(table), **kw_nan_f32), name="MAG_2MASS")
+    table.add_column(np.full(len(table), **kw_nan_f32), name="MAGERR_2MASS")
+    table.add_column(np.full(len(table), **kw_nan_f32), name="ERRMAJ_2MASS")
+    table.add_column(np.full(len(table), **kw_nan_f32), name="ERRMIN_2MASS")
+    table.add_column(np.full(len(table), **kw_nan_f32), name="ERRPA_2MASS")
+    table.add_column(np.full(len(table), **kw_nan_f64), name="MJD_2MASS")
 
     # Create new catalog with sources from 2MASS
     table_new = Table()
@@ -939,6 +930,7 @@ def merge_with_2mass(
 
     # Fill table
     table_new["SURVEY"] = "2MASS"
+    table_new["QFLG_2MASS"] = table_2mass_clean["QFLG_PB"][idx_2mass_near_bright]
     table_new[key_ra] = skycoord_2mass_clean[idx_2mass_near_bright].ra.degree
     table_new[key_dec] = skycoord_2mass_clean[idx_2mass_near_bright].dec.degree
     table_new["MAG_2MASS"] = mag_2mass_clean[idx_2mass_near_bright]
