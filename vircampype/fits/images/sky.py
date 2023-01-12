@@ -1092,7 +1092,7 @@ class SkyImagesProcessed(SkyImages):
                 sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
 
                 # Apply masks cube
-                cube.apply_masks(sources=sources, mask_max=True)
+                cube.apply_masks(sources=sources)
 
                 # Compute sky level in each plane
                 sky, sky_std = cube.background_planes()
