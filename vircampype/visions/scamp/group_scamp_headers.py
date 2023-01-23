@@ -268,6 +268,15 @@ def group_scamp_headers(
                     epoch_out=epoch_out,
                 )
 
+                # Make script to write epoch into headers
+                path_script_write_epoch = f"{ff}write_epoch.sh"
+                cmds = [
+                    f"sed 's/END/"
+                    f"{'EPOCH':<8}={epoch_out:>21.5f} \/ Effective epoch\\nEND/g' {oo}"  # noqa
+                    for oo in outheaders
+                ]
+                write_list(path_file=path_script_write_epoch, lst=cmds)
+
                 # Write header backup script
                 path_script_backup = f"{ff}header_backup.sh"
                 folder_backup = f"{ff}header_backup/"
@@ -297,6 +306,7 @@ def group_scamp_headers(
                     f"-ASTREFCAT_NAME {path_gaia_out} "
                     f"@{path_out_tables} "
                     f"&> {ff}scamp_log.txt\n"
+                    f"{ff}write_epoch.sh\n"
                     f"{ff}header_backup.sh\n"
                 )
                 scmd = cmd_prepend_libraries(cmd=scmd)
