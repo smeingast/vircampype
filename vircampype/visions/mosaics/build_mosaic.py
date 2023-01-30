@@ -89,8 +89,11 @@ def build_mosaic(
     print(f"Found {len(paths_resampled):4d} resampled images")
 
     # Dummy check
-    if len(paths_raw) != len(paths_resampled):
-        raise ValueError("Raw and resampled images not matching")
+    n_raw, n_resampled = len(paths_raw), len(paths_resampled)
+    if n_raw != n_resampled:
+        raise ValueError(
+            f"Raw (n={n_raw}) and resampled (n={n_resampled}) images not matching"
+        )
 
     # Find resampled weights and create link paths
     paths_resampled_weights = flat_list(
