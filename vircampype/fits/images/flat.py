@@ -405,7 +405,7 @@ class FlatLampLin(FlatImages):
 
                 # Do curve fit (force positive in first order term, negative in second
                 # order term)
-                coeff, _ = curve_fit(
+                coeff, _ = curve_fit(  # noqa
                     linearity_fitfunc,
                     texptime_clean,
                     flux_clean,
