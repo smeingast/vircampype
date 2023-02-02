@@ -19,7 +19,7 @@ def build_mosaic(
     reference_mag_lim: tuple[float, float],
     projection: str,
     photerr_internal: float,
-    build_public_catalog: bool = True,
+    build_public_catalog: bool,
     **kwargs,
 ):
 
