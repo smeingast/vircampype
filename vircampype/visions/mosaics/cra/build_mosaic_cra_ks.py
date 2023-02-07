@@ -9,7 +9,7 @@ path_master_astro_photo = f"{path_visions}Pipeline/other/master-astro-photo/CrA_
 path_data = f"/Volumes/Data/Mosaics/CrA/{name}/"
 path_pype = f"/Volumes/Data/Mosaics/CrA/vircampype/"
 projection = "Corona_Australis_wide"
-reference_mag_lim = (12.0, 15.0)  # Ks VHS
+reference_mag_lim = (12.0, 15.0)  # TODO: Check if this limit is correct
 photerr_internal = 0.005
 n_jobs = 10
 
