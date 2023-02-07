@@ -2236,7 +2236,7 @@ class SkyImagesResampled(SkyImagesProcessed):
 
                 # Put background info into header
                 hdul_tile[0].header.set(
-                    "BACKMOD", value=np.round(backmod, 3), comment="Background mode"
+                    "BACKMODE", value=np.round(backmod, 3), comment="Background mode"
                 )
                 hdul_tile[0].header.set(
                     "BACKSIG", value=np.round(backsig, 3), comment="Background sigma"
