@@ -26,5 +26,5 @@ build_mosaic(
     reference_mag_lim=reference_mag_lim,
     projection=projection,
     photerr_internal=photerr_internal,
-    build_public_catalog=True,
+    build_public_catalog=False,
 )
