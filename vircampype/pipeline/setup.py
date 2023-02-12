@@ -818,10 +818,10 @@ class Setup(dict):
     image_statistics_combine_type = {
         "nimg": "SUM",
         "exptime": "SUM",
-        "mjd.int": "AVERAGE",
-        "mjd.frac": "AVERAGE",
-        "astrms1": "AVERAGE",
-        "astrms2": "AVERAGE",
+        "mjd.int": "WEIGHTED",
+        "mjd.frac": "WEIGHTED",
+        "astrms1": "WEIGHTED",
+        "astrms2": "WEIGHTED",
     }
 
     # =========================================================================== #
