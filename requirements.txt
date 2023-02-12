@@ -1,0 +1,11 @@
+numpy
+scipy
+matplotlib
+astropy
+astroquery
+pyya
+joblib
+scikit-learn
+pillow
+scikit-image
+regions
