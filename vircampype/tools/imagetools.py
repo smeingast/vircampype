@@ -40,6 +40,8 @@ __all__ = [
     "destripe_helper",
     "source_mask",
     "get_edge_skycoord_weight",
+    "coordinate_array",
+    "tile_image"
 ]
 
 
@@ -78,7 +80,6 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
 
     # In case we want to exclude pixels surrounded by other bad pixels
     if max_bad_neighbors is not None:
-
         # Make kernel for neighbor counts
         nan_kernel = np.ones(shape=(3, 3))
 
@@ -172,9 +173,7 @@ def chop_image(array, npieces, axis=0, overlap=None):
 
     chopped = []
     for i in range(npieces):
-
         if axis == 0:
-
             # First slice
             if i == 0:
                 chopped.append(array[cut[i] : cut[i + 1] + overlap, :])
@@ -188,7 +187,6 @@ def chop_image(array, npieces, axis=0, overlap=None):
                 chopped.append(array[cut[i] - overlap : cut[i + 1] + overlap, :])
 
         elif axis == 1:
-
             # First slice
             if i == 0:
                 chopped.append(array[:, cut[i] : cut[i + 1] + overlap])
@@ -244,9 +242,7 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
     merged = np.empty(shape=shape, dtype=arrays[0].dtype)
     for i in range(len(arrays)):
-
         if axis == 0:
-
             # First slice
             if i == 0:
                 merged[0 : locations[i + 1], :] = arrays[i][
@@ -264,7 +260,6 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
                 ]
 
         elif axis == 1:
-
             # First slice
             if i == 0:
                 merged[:, 0 : locations[i + 1]] = arrays[i][
@@ -369,7 +364,6 @@ def upscale_image(image, new_size, method="pil", order=3):
             Image.fromarray(image).resize(size=new_size, resample=Image.BICUBIC)  # noqa
         )
     elif "spline" in method.lower():
-
         # Detemrine edge coordinates of input wrt output size
         xedge, yedge = np.linspace(0, new_size[0], image.shape[0] + 1), np.linspace(
             0, new_size[1], image.shape[1] + 1
@@ -475,7 +469,6 @@ def grid_value_2d(
 
         # Compute weighted average instead of median if weights are provided
         if weights is not None:
-
             # Empty stat matrix
             stat = np.full((nx, ny), fill_value=np.nan)
 
@@ -484,7 +477,6 @@ def grid_value_2d(
 
             # Evaluate statistic for each bin
             for cidx in idx_combinations:
-
                 # Get filter for current bin
                 fil = (nbx == cidx[0]) & (nby == cidx[1])
 
@@ -602,7 +594,6 @@ def grid_value_2d_nn(
 
     # Obtain median values at each grid pixel
     if metric == "weighted":
-
         # Weights must be provided
         if weights is None:
             raise ValueError("Must provide weights")
@@ -751,10 +742,8 @@ def source_mask(
 
     # Create large region circular masks
     if len(idx_large_all) > 0:
-
         # Loop over large sources
         for idx_large in idx_large_all:
-
             # Skip if eccentricity is too large (e.g. bad rows or columns)
             if regionprops[idx_large].eccentricity > 0.8:
                 continue
@@ -851,3 +840,17 @@ def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> Sky
     return SkyCoord(
         *skycoo_edge, frame=wcs_to_celestial_frame(weight_wcs), unit="degree"
     )
+
+
+def coordinate_array(image: np.ndarray) -> (np.ndarray, np.ndarray):
+    """ Creates arrays of same shape as input, but holds x and y pixel coordinates. """
+    return np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+
+
+def tile_image(image, s1: int, s2: int) -> List:
+    """ Splits an image into tiles of given size s1 and s2. """
+    return [
+        image[x: x + s1, y: y + s2]
+        for x in range(0, image.shape[0], s1)
+        for y in range(0, image.shape[1], s2)
+    ]
