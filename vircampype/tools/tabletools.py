@@ -561,7 +561,11 @@ def convert2public(
 
     # Get other columns
     data_exptime = table["EXPTIME"].quantity
-    data_cls = table["CLASS_STAR_INTERP"]
+    try:
+        data_cls = table["CLASS_STAR_INTERP"]
+    except KeyError:
+        data_cls = np.full_like(data_exptime.value, fill_value=1.0)
+
     data_mjd = table["MJDEFF"].quantity
     data_nimg = table["NIMG"]
     data_fwhm = table["FWHM_WORLD"].quantity
