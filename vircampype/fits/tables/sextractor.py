@@ -56,7 +56,6 @@ class SextractorCatalogs(SourceCatalogs):
         return [range(2, len(hdrs), 2) for hdrs in self.headers]
 
     def read_from_image_headers(self, keywords, file_index=None):
-
         if not isinstance(keywords, list):
             raise TypeError("Keywords must be in a list!")
 
@@ -106,7 +105,6 @@ class SextractorCatalogs(SourceCatalogs):
         return " ".join(self.paths_full)
 
     def scamp(self):
-
         # Construct XML path
         path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
 
@@ -214,7 +212,6 @@ class SextractorCatalogs(SourceCatalogs):
     # PSFEx
     # =========================================================================== #
     def psfex(self, preset):
-
         # Processing info
         print_header(
             header="PSFEx",
@@ -260,7 +257,6 @@ class SextractorCatalogs(SourceCatalogs):
         # Read source tables and stack all HDUs in a file
         options = []
         for i in range(self.n_files):
-
             # Read tables for current file
             tables = self.file2table(file_index=i)
 
@@ -374,11 +370,9 @@ class SextractorCatalogs(SourceCatalogs):
 
         self._image_headers = []
         for idx in range(self.n_files):
-
             # Try to read the database
             try:
                 with open(self._paths_image_headers[idx], "rb") as f:
-
                     # If the file is there, load the headers...
                     self._image_headers.append(pickle.load(f))
 
@@ -387,7 +381,6 @@ class SextractorCatalogs(SourceCatalogs):
 
             # If not found we move on to read the headers from the fits file
             except FileNotFoundError:
-
                 headers = sextractor2imagehdr(path=self.paths_full[idx])
 
                 # When done for all headers dump them into the designated database
@@ -407,7 +400,6 @@ class SextractorCatalogs(SourceCatalogs):
 
     @property
     def time_obs(self):
-
         # Check if already determined
         if self._time_obs is not None:
             return self._time_obs
@@ -458,7 +450,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Now loop through separated files
         for files, idx_print in zip(split, range(1, len(split) + 1)):
-
             # Create master dark name
             outpath = self.setup.folders[
                 "master_object"
@@ -485,7 +476,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             for idx_hdu, idx_hdr in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
-
                 # Print processing info
                 message_calibration(
                     n_current=idx_print,
@@ -539,7 +529,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Compute illumination correction
                 if self.setup.ic_mode == "variable":
-
                     # Remove all table entries without ZP entry
                     tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
 
@@ -617,7 +606,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Loop over extensions and construct final illumination correction
             for idx_hdu, fscl, nn in zip(files.iter_data_hdu[0], flx_scale, n_sources):
-
                 # Append to output
                 illumcorr.extend(data=fscl.astype(np.float32))
 
@@ -679,7 +667,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         )
 
     def calibrate_photometry(self):
-
         # Processing info
         print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
         tstart = time.time()
@@ -691,7 +678,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Start loop over files
         for idx_file in range(self.n_files):
-
             # Create output path
             path_out = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
 
@@ -737,7 +723,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             for tidx, tidx_hdu in zip(
                 range(len(tables_file)), self.iter_data_hdu[idx_file]
             ):
-
                 tt = tables_file[tidx]
 
                 # Read aperture magnitudes
@@ -839,7 +824,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         )
 
     def plot_qc_astrometry_1d(self, axis_size=5):
-
         # Import
         import matplotlib.pyplot as plt
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
@@ -863,7 +847,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Loop over files
         for idx_file in range(len(self)):
-
             # Generate outpath
             outpath_sep = "{0}{1}_astr_referr_sep.pdf".format(
                 self.setup.folders["qc_astrometry"], self.names[idx_file]
@@ -901,7 +884,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Loop over extensions
             for idx_hdu in range(len(sc_file)):
-
                 # Print processing info
                 message_calibration(
                     n_current=idx_file + 1,
@@ -975,7 +957,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     [ax_all1[idx_hdu], ax_all2[idx_hdu]],
                     ["Separation (mas)", "Position angle (deg)"],
                 ):
-
                     # Annotate detector ID
                     ax.annotate(
                         "Det.ID: {0:0d}".format(idx_hdu + 1),
@@ -1031,7 +1012,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
     def plot_qc_astrometry_2d(
         self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"
     ):
-
         # Import
         import matplotlib.pyplot as plt
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
@@ -1048,7 +1028,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Loop over files
         for idx_file in range(len(self)):
-
             # Generate outpath
             outpath = "{0}{1}_astr_referror2d.pdf".format(
                 self.setup.folders["qc_astrometry"], self.names[idx_file]
@@ -1087,7 +1066,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Loop over extensions
             im, sep_all = None, []
             for idx_hdu in range(len(sc_file)):
-
                 # Print processing info
                 message_calibration(
                     n_current=idx_file + 1,
@@ -1233,7 +1211,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
 
     def _merged_table(self, clean=True):
-
         # Import
         from astropy import table
         from astropy.utils.metadata import MergeConflictWarning
@@ -1283,7 +1260,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         return table_master
 
     def _photerr_internal_all(self):
-
         # Only works if there are multiple catalogs available
         if len(self) <= 1:
             raise ValueError("Internal photometric error requires multiple catalogs.")
@@ -1331,7 +1307,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Now loop over all individual tables and find matches
         for tidx in range(len(tables_all)):
-
             # Grad current match
             dis, idx = dis_all[tidx], idx_all[tidx]
 
@@ -1358,7 +1333,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         return phot_median, phot_err, photerr_median
 
     def photerr_internal(self):
-
         # Create pickle path
         pickle_path = "{0}photerr_interal.p".format(self.setup.folders["temp"])
 
@@ -1368,7 +1342,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # If not there, compute internal error
         except FileNotFoundError:
-
             # Print info
             print_header(
                 header="INTERNAL PHOTOMETRIC ERROR",
@@ -1415,7 +1388,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         return photerr_internal_dict
 
     def build_statistics_tables(self):
-
         # Import
         from vircampype.fits.images.common import FitsImages
 
@@ -1424,7 +1396,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         for idx_file in range(self.n_files):
-
             # Create output path
             path_out = f"{self.paths_full[idx_file]}.stats"
 
@@ -1484,7 +1455,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             for idx_hdu_self, idx_hdu_stats in zip(
                 self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0])
             ):
-
                 # Read table
                 table_hdu = self.filehdu2table(
                     file_index=idx_file, hdu_index=idx_hdu_self
@@ -1608,7 +1578,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
 
     def paths_qc_plots(self, paths, prefix=""):
-
         if paths is None:
             return [
                 "{0}{1}.{2}.pdf".format(self.setup.folders["qc_photometry"], fp, prefix)
@@ -1618,7 +1587,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             return paths
 
     def plot_qc_photerr_internal(self):
-
         # Import
         import matplotlib.pyplot as plt
 
@@ -1658,7 +1626,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
         ax_all = ax_all.ravel()
         for idx in range(len(mag_ranges) - 1):
-
             # Grab current axes and sources
             ax = ax_all[idx]
             mag_lo, mag_hi = mag_ranges[idx], mag_ranges[idx + 1]
@@ -1751,7 +1718,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         for idx_file in range(self.n_files):
-
             # Generate path for plot
             path_out = self.paths_qc_plots(paths=paths, prefix="zp")[idx_file]
 
@@ -1790,7 +1756,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
 
     def plot_qc_phot_ref1d(self, paths=None, axis_size=5):
-
         # Import
         from astropy.units import Unit
         import matplotlib.pyplot as plt
@@ -1801,7 +1766,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         for idx_file in range(len(self)):
-
             # Generate path for plot
             path_out = self.paths_qc_plots(paths=paths, prefix="phot.1D")[idx_file]
 
@@ -1843,7 +1807,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Loop over extensions
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
                 # Grab axes
                 ax = ax_file[idx_hdu]
 
@@ -1976,7 +1939,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
 
     def plot_qc_phot_ref2d(self, axis_size=5):
-
         # Import
         from astropy.units import Unit
         import matplotlib.pyplot as plt
@@ -1988,7 +1950,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         for idx_file in range(self.n_files):
-
             # Generate output path
             path_out = self.paths_qc_plots(paths=None, prefix="phot.2D")[idx_file]
 
@@ -2036,7 +1997,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             im = None
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
                 # Grab axes
                 ax = ax_file[idx_hdu]
 
@@ -2173,7 +2133,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
 
     def build_public_catalog(self, photerr_internal: Quantity):
-
         # Processing info
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
         tstart = time.time()
@@ -2194,8 +2153,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         ]
 
         # Check if classification tables exist
-        if self.n_files != np.sum([os.path.exists(p) for p in paths_cls]):
-            raise ValueError("Classifiation tables not found")
+        if self.setup.source_classification:
+            if self.n_files != np.sum([os.path.exists(p) for p in paths_cls]):
+                raise ValueError("Classifiation tables not found")
 
         # Instantiate classification tables
         tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
@@ -2224,7 +2184,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Loop over self and merge
         for idx_file in range(self.n_files):
-
             # Create output path
             path_out = self.paths_full[idx_file].replace(".ctab", ".ptab")
             if path_out == self.paths_full[idx_file]:
@@ -2257,9 +2216,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Load stats tables
             tables_stats = statstables.file2table(file_index=idx_file)
 
-            # Load classification tables for current file
-            tables_class_file = tables_class.file2table(file_index=idx_file)
-
             # Read master table
             table_2mass = master_phot.file2table(file_index=idx_file)[0]
             table_2mass["QFLG_PB"] = master_phot.qflags(passband=passband_2mass)[0][0]
@@ -2274,7 +2230,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             for tidx, widx in zip(
                 range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
             ):
-
                 # Stats and source table need to have same length
                 if len(tables_file[tidx]) != len(tables_stats[tidx]):
                     raise ValueError(
@@ -2288,7 +2243,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 )
 
                 # Interpolate source classification
-                interpolate_classification(tables_file[tidx], tables_class_file[tidx])
+                if self.setup.source_classification:
+                    tables_class_file = tables_class.file2table(file_index=idx_file)
+                    interpolate_classification(
+                        tables_file[tidx], tables_class_file[tidx]
+                    )
 
                 # Read weight
                 weight_data, weight_hdr = fits.getdata(
