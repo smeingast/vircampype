@@ -27,4 +27,5 @@ build_mosaic(
     projection=projection,
     photerr_internal=photerr_internal,
     build_public_catalog=True,
+    source_classification=False,
 )
