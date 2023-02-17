@@ -40,6 +40,7 @@ class Setup(dict):
         self.__build_phase3 = False
         self.__build_public_catalog = False
         self.__archive = False
+        self.__source_classification = False
 
         # Data setup
         self.__maximask = False
@@ -290,6 +291,14 @@ class Setup(dict):
     @build_public_catalog.setter
     def build_public_catalog(self, build_public_catalog):
         self.__build_public_catalog = build_public_catalog
+
+    @property
+    def source_classification(self):
+        return self.__source_classification
+
+    @source_classification.setter
+    def source_classification(self, source_classification):
+        self.__source_classification = source_classification
 
     @property
     def archive(self):
