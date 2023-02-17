@@ -1159,7 +1159,8 @@ class Pipeline:
 
         if self.setup.build_public_catalog:
             self.build_statistics_tile()
-            self.classification_tile()
+            if self.setup.source_classification:
+                self.classification_tile()
             self.build_public_catalog()
 
         if self.setup.archive:
