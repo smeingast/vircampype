@@ -2220,6 +2220,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             table_2mass = master_phot.file2table(file_index=idx_file)[0]
             table_2mass["QFLG_PB"] = master_phot.qflags(passband=passband_2mass)[0][0]
 
+            # Fill masked columns with NaNs
+            table_2mass = fill_masked_columns(table_2mass, fill_value=np.nan)
+
             # Clean master table
             keep_master = master_phot.get_purge_index(
                 passband=passband_2mass, allowed_qflags="ABCD", allowed_cflags="0cd"
