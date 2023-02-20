@@ -219,7 +219,6 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         np.array_split(nn_dis_all, n_sections, axis=0),
         np.array_split(nn_idx_all, n_sections, axis=0),
     ):
-
         # Mask everything beyond maxdis, then bring back at least 20 sources,
         # regardless of their separation
         nn_dis_temp = nn_dis.copy()
@@ -309,7 +308,6 @@ def add_zp_2mass(
     columns_magerr=None,
     method="weighted",
 ):
-
     if columns_mag is None:
         columns_mag = ["MAG_AUTO"]
     if columns_magerr is None:
@@ -359,7 +357,6 @@ def table2bintablehdu(table):
     # Construct FITS columns from all table columns
     cols_hdu = []
     for key in table.keys():
-
         # Get numpy dtype
         dtype = convert_dtype(str(table.field(key).dtype))
 
@@ -526,7 +523,10 @@ def fill_masked_columns(table: Table, fill_value: Union[int, float]):
     """
     for cc in table.columns:
         if isinstance(table[cc], MaskedColumn):
-            table[cc] = table[cc].filled(fill_value=fill_value)
+            try:
+                table[cc] = table[cc].filled(fill_value=fill_value)
+            except TypeError:
+                pass
     return table
 
 
@@ -536,7 +536,6 @@ def convert2public(
     apertures: List,
     mag_saturation: Quantity,
 ):
-
     # Extract coordinate columns
     data_ra = table["ALPHAWIN_SKY"].quantity
     data_dec = table["DELTAWIN_SKY"].quantity
@@ -626,7 +625,6 @@ def convert2public(
     # Loop over magnitude range
     bad_idx = []
     for mm in mag_range:
-
         # Grab all sources within 0.25 mag of current position
         cidx_all = (mag_best > mm - 0.25 * Unit("mag")) & (
             mag_best < mm + 0.25 * Unit("mag")
@@ -795,7 +793,6 @@ def merge_with_2mass(
     key_ra_2mass: str = "RAJ2000",
     key_dec_2mass: str = "DEJ2000",
 ):
-
     # Read data columns
     skycoord = SkyCoord(table[key_ra], table[key_dec], unit="deg", frame="icrs")
 
@@ -857,7 +854,6 @@ def merge_with_2mass(
     # Find all sources around the bright targets in the photometric reference catalog
     idx_self_near_bright, idx_2mass_near_bright = [], []
     for sc2mb, cr in zip(skycoord_2mass_bright, cleaning_radius):
-
         # Find all sources in self that are in the vicinity of the current bright source
         idx_temp_bright = np.where(sc2mb.separation(skycoord) <= cr)[0]
         if np.sum(idx_temp_bright) > 0:
@@ -916,7 +912,6 @@ def merge_with_2mass(
     # Create new catalog with sources from 2MASS
     table_new = Table()
     for cc in table.itercols():
-
         # Determine shape of array
         shape = list(table[cc.name].shape)
         shape[0] = len(idx_2mass_near_bright)
