@@ -3,7 +3,7 @@ scipy
 matplotlib
 astropy
 astroquery
-pyya
+pyyaml
 joblib
 scikit-learn
 pillow
