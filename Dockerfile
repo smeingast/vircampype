@@ -9,6 +9,33 @@ RUN apk add py3-scipy py3-scikit-learn py3-matplotlib
 RUN apk add py3-pip 
 
 
+WORKDIR /root
+RUN apk add fftw-dev libtool automake autoconf make cmake openblas-dev  curl-dev cfitsio-dev 
+RUN git clone https://github.com/astromatic/sextractor.git
+RUN git clone https://github.com/astromatic/scamp.git
+RUN git clone https://github.com/astromatic/swarp.git
+# Install sextractor
+WORKDIR /root/sextractor
+#RUN /usr/bin/cpufreq-selector -g performance
+RUN ./autogen.sh
+RUN ./configure  --enable-openblas --with-openblas-incdir=/usr/include
+RUN make 
+RUN make install
+# Install Scamp
+#RUN apk add curl-dev
+WORKDIR /root/scamp
+RUN ./autogen.sh
+RUN ./configure --enable-openblas --with-openblas-incdir=/usr/include
+RUN make
+RUN make install
+# Install Swarp
+WORKDIR /root/swarp
+#RUN apk add cfitsio-dev
+RUN ./autogen.sh
+RUN ./configure 
+RUN make
+RUN make install
+
 
 # COMMENT THIS OUT LATER
 COPY . /usr/src/app/
