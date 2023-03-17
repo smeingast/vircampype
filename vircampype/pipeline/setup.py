@@ -4,8 +4,9 @@ from joblib import cpu_count
 from astropy.units import Unit
 from vircampype.pipeline.errors import *
 from vircampype.tools.systemtools import *
-from vircampype.miscellaneous.projections import *
+from vircampype.visions.projections import *
 from vircampype.miscellaneous.sourcemasks import *
+from vircampype.miscellaneous.projection import Projection
 
 
 class Setup(dict):
