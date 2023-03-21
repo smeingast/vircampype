@@ -1,0 +1,3 @@
+include vircampype/visions/headers/*header
+include-recursive vircampype/resources/*
+
