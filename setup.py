@@ -1,6 +1,6 @@
 import sys
 from vircampype import __version__
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 # Require Python 3
 if sys.version_info < (3, 7):
@@ -23,7 +23,8 @@ setup(
         "scikit-image>0.18",
         "regions>=0.6",
     ],
-    packages=["vircampype"],
+    packages=find_packages(),
+    include_package_data=True,
     url="",
     license="",
     author="Stefan Meingast",
