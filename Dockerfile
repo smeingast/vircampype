@@ -1,7 +1,7 @@
 from alpine:latest
 
 RUN apk update
-RUN apk add python3 git
+RUN apk add python3 git linux-headers libffi-dev
 # MUSL fails installing scipy and numpy using pip,
 # therefore install it before pip is executed
 RUN apk add lapack g++ gfortran
@@ -50,4 +50,4 @@ RUN pip install -r requirements.txt
 RUN python setup.py build
 RUN python setup.py install
 RUN pip install vircampype
-
+RUN ln -s /usr/src/app/vircampype/pipeline/worker.py /usr/bin/vircampype
