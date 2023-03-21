@@ -1,3 +1,4 @@
 include vircampype/visions/headers/*header
-include-recursive vircampype/resources/*
+recursive-include vircampype/resources/*
+recursive-exclude *__pycache__*
 
