@@ -1,53 +1,53 @@
-from alpine:latest
+FROM alpine:latest
 
+# Add libraries
 RUN apk update
-RUN apk add python3 git linux-headers libffi-dev
+RUN apk add --no-cache python3 git linux-headers libffi-dev lapack g++ gfortran
+RUN apk add --no-cache fftw-dev libtool automake autoconf make cmake openblas-dev curl-dev cfitsio-dev
+RUN apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing plplot-dev
+RUN apk add --no-cache py3-pip
 # MUSL fails installing scipy and numpy using pip,
 # therefore install it before pip is executed
-RUN apk add lapack g++ gfortran
 RUN apk add py3-scipy py3-scikit-learn py3-matplotlib
-RUN apk add py3-pip 
 
-
+# Download sources
 WORKDIR /root
-RUN apk add fftw-dev libtool automake autoconf make cmake openblas-dev  curl-dev cfitsio-dev 
 RUN git clone https://github.com/astromatic/sextractor.git
 RUN git clone https://github.com/astromatic/scamp.git
 RUN git clone https://github.com/astromatic/swarp.git
-# Install sextractor
+RUN git clone https://github.com/smeingast/vircampype.git
+
+# Install SExtractor
 WORKDIR /root/sextractor
-#RUN /usr/bin/cpufreq-selector -g performance
 RUN ./autogen.sh
 RUN ./configure  --enable-openblas --with-openblas-incdir=/usr/include
 RUN make 
 RUN make install
+
 # Install Scamp
-#RUN apk add curl-dev
+# TODO: Check if plplot works (it does not for now...)
 WORKDIR /root/scamp
 RUN ./autogen.sh
-RUN ./configure --enable-openblas --with-openblas-incdir=/usr/include
+RUN ./configure --enable-openblas --with-openblas-incdir=/usr/include --enable-plplot --with-plplot-incdir=/usr/include
 RUN make
 RUN make install
+
 # Install Swarp
 WORKDIR /root/swarp
-#RUN apk add cfitsio-dev
 RUN ./autogen.sh
 RUN ./configure 
 RUN make
 RUN make install
 
-
-# COMMENT THIS OUT LATER
-COPY . /usr/src/app/
-
-WORKDIR /usr/src/app
-
-# REPLACE BY GIT CLONE
-#RUN git clone bla .
-
-
+# Install pipeline
+WORKDIR /root/vircampype
 RUN pip install -r requirements.txt
-RUN python setup.py build
-RUN python setup.py install
-RUN pip install vircampype
-RUN ln -s /usr/src/app/vircampype/pipeline/worker.py /usr/bin/vircampype
+RUN pip install .
+
+# Set alias for pipeline worker
+RUN ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype
+
+# Clean up
+RUN rm -rf /root/sextractor /root/scamp /root/swarp /root/vircampype/.git && \
+    apk del git build-base gfortran automake autoconf cmake && \
+    rm -rf /var/cache/apk/*
