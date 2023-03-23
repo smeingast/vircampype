@@ -1,11 +1,11 @@
 numpy
 scipy
-matplotlib
 astropy
+pillow
+scikit-learn
+scikit-image
+matplotlib
 astroquery
 pyyaml
 joblib
-scikit-learn
-pillow
-scikit-image
 regions
