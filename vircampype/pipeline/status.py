@@ -146,10 +146,12 @@ class PipelineStatus:
         for attr in self.__attributes():
             self.update(**{attr: False})
 
-    def save(self, path):
-        pickle.dump(self.status_dict, open(path, "wb"))
+    def save(self, path: str):
+        with open(path, "wb") as f:
+            pickle.dump(self.status_dict, f)
 
-    def read(self, path):
-        status = pickle.load(open(path, "rb"))
-        for key, val in status.items():
-            setattr(self, key, val)
+    def read(self, path: str):
+        with open(path, "rb") as f:
+            status = pickle.load(f)
+            for key, val in status.items():
+                setattr(self, key, val)
