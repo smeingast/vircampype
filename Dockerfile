@@ -30,8 +30,7 @@ RUN apk update && \
 WORKDIR /root
 RUN git clone https://github.com/astromatic/sextractor.git && \
     git clone https://github.com/astromatic/scamp.git && \
-    git clone https://github.com/astromatic/swarp.git && \
-    git clone https://github.com/smeingast/vircampype.git
+    git clone https://github.com/astromatic/swarp.git
 
 # Install SExtractor, Scamp, and Swarp
 RUN apk add --no-cache --virtual .build-deps build-base && \
@@ -53,6 +52,7 @@ RUN apk add --no-cache --virtual .build-deps build-base && \
     apk del .build-deps
 
 # Install pipeline
+COPY . /root/vircampype
 WORKDIR /root/vircampype
 RUN pip install -r requirements.txt && \
     pip install .
@@ -61,6 +61,6 @@ RUN pip install -r requirements.txt && \
 RUN ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype
 
 # Clean up
-RUN rm -rf /root/sextractor /root/scamp /root/swarp /root/vircampype/.git && \
+RUN rm -rf /root/sextractor /root/scamp /root/swarp && \
     apk del git build-base gfortran automake autoconf cmake && \
     rm -rf /var/cache/apk/*
