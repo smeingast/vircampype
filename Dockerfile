@@ -19,7 +19,7 @@ RUN apk update && \
         openblas-dev \
         curl-dev \
         cfitsio-dev \
-        --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+        --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \
         plplot-dev \
         py3-pip \
         py3-scipy \
