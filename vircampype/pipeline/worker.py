@@ -7,21 +7,33 @@ import sys
 import argparse
 from vircampype.pipeline.main import Pipeline
 
-# Setup parser
-parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
-parser.add_argument("-s", "--setup", help="Input setup file", type=str, required=True)
 
-# Parse arguments
-args = parser.parse_args()
+def main():
+    # Setup parser
+    parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
+    parser.add_argument(
+        "-s",
+        "--setup",
+        help="Input setup file",
+        type=str,
+        required=True
+    )
 
-# Initialize pipeline
-pipeline = Pipeline(setup=args.setup)
+    # Parse arguments
+    args = parser.parse_args()
 
-# Set console title
-sys.stdout.write("\x1b]2;{0}\x07".format(pipeline.setup.name))
+    # Initialize pipeline
+    pipeline = Pipeline(setup=args.setup)
 
-# Run pipeline
-if "calibration" in pipeline.setup.name.lower():
-    pipeline.process_calibration()
-else:
-    pipeline.process_science()
+    # Set console title
+    sys.stdout.write("\x1b]2;{0}\x07".format(pipeline.setup.name))
+
+    # Run pipeline
+    if "calibration" in pipeline.setup.name.lower():
+        pipeline.process_calibration()
+    else:
+        pipeline.process_science()
+
+
+if __name__ == "__main__":
+    main()
