@@ -7,18 +7,22 @@ import sys
 import argparse
 from vircampype.tools.datatools import *
 from vircampype.pipeline.main import Pipeline
+from vircampype.tools.systemtools import clean_directory
 
 
 def main():
     # Setup parser
     parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
-    parser.add_argument("-s", "--setup", help="Input setup file", type=list)
+    parser.add_argument(
+        "-s", "--setup", help="Input setup file", type=str, default=None
+    )
     parser.add_argument(
         "--sort",
         help="Sort files by passing their paths (e.g. /path/to/files/*fits)",
         nargs="+",
         default=None,
     )
+    parser.add_argument("--reset", help="Reset pipeline progress", action="store_true")
 
     # Parse arguments
     args = parser.parse_args()
@@ -36,6 +40,12 @@ def main():
 
     # Set console title
     sys.stdout.write("\x1b]2;{0}\x07".format(pipeline.setup.name))
+
+    # Reset temp and header folders if flag is set
+    if args.reset:
+        print("Reset")
+        clean_directory(pipeline.setup.folders["temp"])
+        clean_directory(pipeline.setup.folders["headers"])
 
     # Run pipeline
     if "calibration" in pipeline.setup.name.lower():
