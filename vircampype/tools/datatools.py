@@ -16,6 +16,9 @@ def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
     if not path_calibration.endswith("/"):
         path_calibration += "/"
 
+    # Make calibration folder
+    make_folder(path=path_calibration)
+
     # Find files
     paths_all = glob.glob(pathname="{0}*{1}".format(path_all, extension))
 
