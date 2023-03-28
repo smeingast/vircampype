@@ -18,7 +18,8 @@ def main():
     )
     parser.add_argument(
         "--sort",
-        help="Sort files by passing their paths (e.g. /path/to/files/*fits)",
+        help="Sort files into calibration and individual object folders"
+             " by passing their paths (e.g. /path/to/files/*fits)",
         nargs="+",
         default=None,
     )
