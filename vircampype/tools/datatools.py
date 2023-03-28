@@ -22,6 +22,9 @@ def sort_vircam_calibration(path_all, path_calibration, extension=".fits"):
     # Find files
     paths_all = glob.glob(pathname="{0}*{1}".format(path_all, extension))
 
+    if len(paths_all) == 0:
+        raise ValueError("No files found!")
+
     # Get category
     catg_all = [fits.getheader(filename=f)["HIERARCH ESO DPR CATG"] for f in paths_all]
 
@@ -57,6 +60,9 @@ def sort_vircam_science(path, extension=".fits"):
     paths_orig = glob.glob(pathname="{0}*{1}".format(path, extension))
     file_names = [os.path.basename(f) for f in paths_orig]
     paths_dirs = ["{0}/".format(os.path.dirname(f)) for f in paths_orig]
+
+    if len(paths_orig) == 0:
+        raise ValueError("No files found!")
 
     # Get Object Name
     obj = [
