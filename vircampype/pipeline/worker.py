@@ -47,6 +47,7 @@ def main():
         print("Reset")
         clean_directory(pipeline.setup.folders["temp"])
         clean_directory(pipeline.setup.folders["headers"])
+        return
 
     # Run pipeline
     if "calibration" in pipeline.setup.name.lower():
