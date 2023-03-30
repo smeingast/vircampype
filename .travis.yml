@@ -2,5 +2,5 @@ language: bash
 services:
   - docker
 script:
-  - docker build -t vcp .
+  - docker build .
   - docker run vcp
