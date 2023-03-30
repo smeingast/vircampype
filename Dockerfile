@@ -1,30 +1,19 @@
-FROM alpine:latest
+FROM fedora:37
+ARG BUILD_OPTION=user
 
-# Add libraries
-RUN apk update && \
-    apk add --no-cache \
-        python3 \
-        git \
-        linux-headers \
-        libffi-dev \
-        lapack \
-        g++ \
-        gfortran \
-        fftw-dev \
-        libtool \
-        automake \
-        autoconf \
-        make \
-        cmake \
-        openblas-dev \
-        curl-dev \
-        cfitsio-dev \
-        --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \
-        plplot-dev \
-        py3-pip \
-        py3-scipy \
-        py3-scikit-learn \
-        py3-matplotlib
+# Install libraries
+RUN dnf install -y git automake gcc gcc-c++ libtool fftw-devel \
+    openblas-devel cfitsio-devel plplot-devel libcurl-devel \
+    python3-devel python3-pip python3-cython
+
+# Set Python alias
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+
+# Install more stuff for dev mode
+RUN if [ "$BUILD_OPTION" = "dev" ] ; then \
+        dnf install -y python3-ipython ImageMagick ; \
+    fi
 
 # Download sources
 WORKDIR /root
@@ -32,35 +21,42 @@ RUN git clone https://github.com/astromatic/sextractor.git && \
     git clone https://github.com/astromatic/scamp.git && \
     git clone https://github.com/astromatic/swarp.git
 
-# Install SExtractor, Scamp, and Swarp
-RUN apk add --no-cache --virtual .build-deps build-base && \
-    cd sextractor && \
-    ./autogen.sh && \
-    ./configure --enable-openblas --with-openblas-incdir=/usr/include && \
-    make && \
-    make install && \
-    cd ../scamp && \
-    ./autogen.sh && \
-    ./configure --enable-openblas --with-openblas-incdir=/usr/include --enable-plplot --with-plplot-incdir=/usr/include && \
-    make && \
-    make install && \
-    cd ../swarp && \
-    ./autogen.sh && \
-    ./configure && \
-    make && \
-    make install && \
-    apk del .build-deps
+# Install SExtractor
+WORKDIR /root/sextractor
+RUN ./autogen.sh
+RUN ./configure --enable-openblas
+RUN make
+RUN make install
 
-# Install pipeline
+# Install Scamp
+WORKDIR /root/scamp
+RUN ./autogen.sh
+RUN ./configure --enable-openblas --enable-plplot
+RUN make
+RUN make install
+
+# Install Swarp
+WORKDIR /root/swarp
+RUN ./autogen.sh
+RUN ./configure
+RUN make
+RUN make install
+
+# Copy pipeline
 COPY . /root/vircampype
 WORKDIR /root/vircampype
-RUN pip install -r requirements.txt && \
-    pip install .
 
-# Set alias for pipeline worker
-RUN ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype
+# Install requirements
+RUN pip install -r requirements.txt
 
-# Clean up
-RUN rm -rf /root/sextractor /root/scamp /root/swarp && \
-    apk del git build-base gfortran automake autoconf cmake && \
-    rm -rf /var/cache/apk/*
+# Only install pipeline as user
+RUN if [ "$BUILD_OPTION" = "user" ] ; then \
+        pip install . && \
+        rm -rf /root/scamp /root/sextractor /root/swarp && \
+        dnf clean all && rm -rf /var/cache/dnf/* /tmp/* /var/tmp/ && \
+        dnf remove -y git automake gcc gcc-c++ libtool python3-pip && \
+        ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype; \
+    fi
+
+# Set working directory
+WORKDIR /home
