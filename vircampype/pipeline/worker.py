@@ -44,7 +44,6 @@ def main():
 
     # Reset temp and header folders if flag is set
     if args.reset:
-        print("Reset")
         clean_directory(pipeline.setup.folders["temp"])
         clean_directory(pipeline.setup.folders["headers"])
         return
