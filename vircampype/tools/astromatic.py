@@ -1,3 +1,5 @@
+import numpy as np
+
 from astropy.io import fits
 from collections.abc import Iterable
 from vircampype.tools.systemtools import *
@@ -31,12 +33,18 @@ def sextractor2imagehdr(path):
 
     # Read image headers into tables
     with fits.open(path) as hdulist:
-        headers = [
-            fits.Header.fromstring(
-                "\n".join(hdulist[i].data["Field Header Card"][0]), sep="\n"
+        headers = []
+        for i in range(1, len(hdulist), 2):
+            fhc = hdulist[i].data["Field Header Card"][0]
+            fhc = np.array(
+                [
+                    item.decode("UTF-8") if isinstance(item, bytes) else item
+                    for item in fhc
+                ]
             )
-            for i in range(1, len(hdulist), 2)
-        ]
+            header_string = "\n".join(fhc)
+            header = fits.Header.fromstring(header_string, sep="\n")
+            headers.append(header)
 
     # Convert to headers and return
     return headers
@@ -63,7 +71,6 @@ def read_aheaders(path: str):
 
     # Open file
     with open(path, "r") as file:
-
         # Read textfile
         data = file.read()
 
@@ -72,7 +79,6 @@ def read_aheaders(path: str):
 
     # Loop over HDUs
     for hdu in hdus:
-
         # Skip if only whitespace
         if hdu.isspace():
             continue
