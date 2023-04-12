@@ -9,14 +9,17 @@ RUN dnf install -y git automake gcc gcc-c++ libtool fftw-devel \
 # Set Python alias
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
+# Set workdir
+WORKDIR /root
 
 # Install more stuff for dev mode
 RUN if [ "$BUILD_OPTION" = "dev" ] ; then \
-        dnf install -y python3-ipython ImageMagick ; \
+        dnf install -y python3-ipython ImageMagick && \ 
+        git clone https://github.com/granttremblay/eso_fits_tools.git && \
+        cd eso_fits_tools && make && cp dfits fitsort /usr/bin/ ; \
     fi
 
 # Download sources
-WORKDIR /root
 RUN git clone https://github.com/astromatic/sextractor.git && \
     git clone https://github.com/astromatic/scamp.git && \
     git clone https://github.com/astromatic/swarp.git
@@ -55,7 +58,7 @@ RUN if [ "$BUILD_OPTION" = "user" ] ; then \
         rm -rf /root/scamp /root/sextractor /root/swarp && \
         dnf clean all && rm -rf /var/cache/dnf/* /tmp/* /var/tmp/ && \
         dnf remove -y git automake gcc gcc-c++ libtool python3-pip && \
-        ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype; \
+        ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype ; \
     fi
 
 # Set working directory
