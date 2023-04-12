@@ -49,6 +49,7 @@ class Setup(dict):
         # Source masks
         self.__mask_2mass_sources = True
         self.__additional_source_masks = None
+        self.__mask_bright_sources = True
 
         # Processing
         self.__sky_n_min = 5
@@ -652,6 +653,14 @@ class Setup(dict):
     def mask_sources_max_area(self):
         """Maximum area of sources that are masked (500x500 pix)."""
         return 250000
+
+    @property
+    def mask_bright_sources(self):
+        return self.__mask_bright_sources
+
+    @mask_bright_sources.setter
+    def mask_bright_sources(self, mask_bright_sources):
+        self.__mask_bright_sources = mask_bright_sources
 
     @property
     def mask_2mass_sources(self):

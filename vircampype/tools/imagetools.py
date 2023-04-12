@@ -689,7 +689,11 @@ def destripe_helper(array, mask=None, smooth=False):
 
 
 def source_mask(
-    image: np.ndarray, kappa: (int, float), min_area: int = 3, max_area: int = 100000
+    image: np.ndarray,
+    kappa: (int, float),
+    min_area: int = 3,
+    max_area: int = 100000,
+    mask_bright_sources: bool = True,
 ):
     """
     Create source mask from input images based on thresholding
@@ -704,6 +708,8 @@ def source_mask(
         Minimum area of sources in pixels.
     max_area : int, optional
         Maximum area of sources in pixels.
+    mask_bright_sources : bool, optional
+        Whether additional circualr patches should be drawn on bright sources.
 
     Returns
     -------
@@ -735,7 +741,12 @@ def source_mask(
     sizes = np.array([r.area for r in regionprops])
 
     # Get index of large labels
-    idx_large_all = [i for i, x in enumerate((sizes > 200) & (sizes < max_area)) if x]
+    if mask_bright_sources:
+        idx_large_all = [
+            i for i, x in enumerate((sizes > 200) & (sizes < max_area)) if x
+        ]
+    else:
+        idx_large_all = []
 
     # Empty list to store masks
     mask_large = np.full_like(image, dtype=np.uint16, fill_value=0)

@@ -1098,12 +1098,13 @@ class ImageCube(object):
             n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
         ) as parallel:
             mp = parallel(
-                delayed(source_mask)(a, b, c, d)
-                for a, b, c, d in zip(
+                delayed(source_mask)(a, b, c, d, e)
+                for a, b, c, d, e in zip(
                     self.cube,
                     repeat(self.setup.mask_sources_thresh),
                     repeat(self.setup.mask_sources_min_area),
                     repeat(self.setup.mask_sources_max_area),
+                    repeat(self.setup.mask_bright_sources),
                 )
             )
 
