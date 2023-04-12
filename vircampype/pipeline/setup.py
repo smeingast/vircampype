@@ -25,7 +25,6 @@ class Setup(dict):
             if k not in attributes:
                 raise PipelineError(f"Incorrect setup parameter used: '{k}'")
 
-        # =========================================================================== #
         # Set default attribute values
         self.__name = None
         self.__path_data = None
@@ -50,6 +49,9 @@ class Setup(dict):
         # Source masks
         self.__mask_2mass_sources = True
         self.__additional_source_masks = None
+
+        # Processing
+        self.__sky_n_min = 5
 
         # Astromatic
         self.__bin_sex = "sex"
@@ -718,7 +720,11 @@ class Setup(dict):
     @property
     def sky_n_min(self):
         """Minimum number of images to merge to an offset image."""
-        return 5
+        return self.__sky_n_min
+
+    @sky_n_min.setter
+    def sky_n_min(self, sky_n_min):
+        self.__sky_n_min = sky_n_min
 
     @property
     def sky_metric(self):
