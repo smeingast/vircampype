@@ -782,7 +782,7 @@ def _make_tile_headers(
     add_float_to_header(
         header=phdr_tile_out,
         key="BACKMOD",
-        value=phdr_tile_in["BACKMOD"],
+        value=phdr_tile_in["BACKMODE"],
         decimals=3,
         comment="Background mode",
     )
