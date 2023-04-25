@@ -37,6 +37,7 @@ class Setup(dict):
         # What to process
         self.__build_stacks = False
         self.__build_tile = True
+        self.__calibrate_pawprints = False
         self.__build_phase3 = False
         self.__build_public_catalog = False
         self.__archive = False
@@ -279,6 +280,14 @@ class Setup(dict):
     @build_tile.setter
     def build_tile(self, build_tile):
         self.__build_tile = build_tile
+
+    @property
+    def calibrate_pawprints(self):
+        return self.__calibrate_pawprints
+
+    @calibrate_pawprints.setter
+    def calibrate_pawprints(self, calibrate_pawprints):
+        self.__calibrate_pawprints = calibrate_pawprints
 
     @property
     def build_phase3(self):

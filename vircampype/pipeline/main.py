@@ -1136,7 +1136,8 @@ class Pipeline:
         self.build_statistics_resampled()
 
         # Calibrate pawprints and determine internal photometric error
-        # self.photometry_pawprints()
+        if self.setup.calibrate_pawprints:
+            self.photometry_pawprints()
         # self.photerr_internal()
 
         # Build and calibrate stacks
