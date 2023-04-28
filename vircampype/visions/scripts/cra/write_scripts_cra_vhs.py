@@ -25,6 +25,7 @@ kwargs = dict(
     external_headers=True,
     build_stacks=False,
     build_tile=True,
+    build_tile_only=True,
     build_phase3=False,
     build_class_star_library=False,
 )

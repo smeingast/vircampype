@@ -1,6 +1,7 @@
-import os.path
-import time
+import sys
 import glob
+import time
+import os.path
 
 from astropy.units import Unit
 from vircampype.tools.messaging import *
@@ -1150,6 +1151,9 @@ class Pipeline:
         # Build and calibrate tile
         if self.setup.build_tile:
             self.build_tile()
+            if self.setup.build_tile_only:
+                print_end(tstart=t0)
+                sys.exit()
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()

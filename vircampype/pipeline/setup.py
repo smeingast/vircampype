@@ -37,6 +37,7 @@ class Setup(dict):
         # What to process
         self.__build_stacks = False
         self.__build_tile = True
+        self.__build_tile_only = False
         self.__calibrate_pawprints = False
         self.__build_phase3 = False
         self.__build_public_catalog = False
@@ -280,6 +281,14 @@ class Setup(dict):
     @build_tile.setter
     def build_tile(self, build_tile):
         self.__build_tile = build_tile
+
+    @property
+    def build_tile_only(self):
+        return self.__build_tile_only
+
+    @build_tile_only.setter
+    def build_tile_only(self, build_tile_only):
+        self.__build_tile_only = build_tile_only
 
     @property
     def calibrate_pawprints(self):
