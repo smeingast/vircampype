@@ -24,9 +24,9 @@ kwargs = dict(
     build_public_catalog=True,
     build_stacks=False,
     build_tile=True,
+    build_tile_only=False,
     external_headers=True,
     n_jobs=16,
-    build_tile_only=False,
     projection="Corona_Australis_wide",
     source_classification=False,
 )

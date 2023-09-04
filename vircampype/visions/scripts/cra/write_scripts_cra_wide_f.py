@@ -13,17 +13,16 @@ kwargs = dict(
     path_pype="/Volumes/Data/VISIONS/198C-2009H/vircampype/",
     path_scripts=path_scripts,
     archive=False,
+    build_phase3=False,
+    build_public_catalog=True,
+    build_stacks=False,
+    build_tile=True,
+    build_tile_only=False,
     projection="Corona_Australis_wide",
-    additional_source_masks="Corona_Australis_wide",
     n_jobs=18,
     external_headers=True,
     reference_mag_lim=(12.0, 15.0),
-    phase3_photerr_internal=0.005,
     name_suffix="_F",
-    build_stacks=True,
-    build_tile=True,
-    build_phase3=True,
-    build_public_catalog=False,
 )
 
 # Write scripts
