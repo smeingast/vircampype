@@ -18,16 +18,17 @@ unique_directories_ks = sorted(list(set([os.path.dirname(x) + "/" for x in files
 
 # Common kwargs
 kwargs = dict(
-    n_jobs=16,
-    projection="Corona_Australis_wide",
     additional_source_masks="Corona_Australis_wide",
     archive=False,
-    external_headers=True,
+    build_phase3=False,
+    build_public_catalog=True,
     build_stacks=False,
     build_tile=True,
-    build_tile_only=True,
-    build_phase3=False,
-    build_class_star_library=False,
+    external_headers=True,
+    n_jobs=16,
+    build_tile_only=False,
+    projection="Corona_Australis_wide",
+    source_classification=False,
 )
 
 # J
