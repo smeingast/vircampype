@@ -12,6 +12,7 @@ __all__ = [
     "LupusDeepSourceMasks",
     "OphiuchusDeepSourceMasks",
     "PipeDeepSourceMasks",
+    "OrionWideSourceMasks",
 ]
 
 
@@ -176,3 +177,18 @@ class PipeDeepSourceMasks(SourceMasks):
         # Read masks and call parent
         regions = Regions.read(path_masks, format="ds9")
         super(PipeDeepSourceMasks, self).__init__(regions=regions)
+
+
+class OrionWideSourceMasks(SourceMasks):
+    def __init__(self):
+
+        # Find mask file
+        path_masks = get_resource_path(
+            package=SourceMasks.path_package_masks(), resource="Orion_wide.reg"
+        )
+
+        # Read wide masks
+        regions_wide = Regions.read(path_masks, format="ds9")
+
+        # Call parent
+        super(OrionWideSourceMasks, self).__init__(regions=regions_wide)

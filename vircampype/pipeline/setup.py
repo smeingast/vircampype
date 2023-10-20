@@ -13,7 +13,6 @@ class Setup(dict):
     """Pipeline setup."""
 
     def __init__(self, *arg, **kw):
-
         # Initialize dict
         super(Setup, self).__init__(*arg, **kw)
 
@@ -696,7 +695,6 @@ class Setup(dict):
 
     @additional_source_masks.setter
     def additional_source_masks(self, additional_source_masks):
-
         # If given as a dict manually
         if isinstance(additional_source_masks, dict):
             self.__additional_source_masks = additional_source_masks
@@ -721,6 +719,8 @@ class Setup(dict):
                 self.__additional_source_masks = OphiuchusDeepSourceMasks()
             elif additional_source_masks.lower() == "pipe_deep":
                 self.__additional_source_masks = PipeDeepSourceMasks()
+            elif additional_source_masks.lower() == "orion_wide":
+                self.__additional_source_masks = OrionWideSourceMasks()
             else:
                 raise ValueError(
                     f"Source masks for '{additional_source_masks}' are not supported"
@@ -900,7 +900,6 @@ class Setup(dict):
         elif projection is None:
             self.__projection = None
         elif isinstance(projection, str):
-
             # Chamaeleon
             if projection.lower() == "chamaeleon_wide":
                 self.__projection = ChamaeleonWideProjection()
@@ -996,7 +995,6 @@ class HeaderKeywords:
         saturate="SATURATE",
         airmass="AIRMASS",
     ):
-
         self.object = obj
         self.filter_name = filter_name
         self.type = dpr_type
