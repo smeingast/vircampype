@@ -54,6 +54,8 @@ class Setup(dict):
 
         # Processing
         self.__sky_n_min = 5
+        self.__background_mesh_size = 64
+        self.__background_mesh_filtersize = 3
 
         # Astromatic
         self.__bin_sex = "sex"
@@ -72,7 +74,7 @@ class Setup(dict):
         # Photometry
         self.__ic_mode = "variable"
         self.__reference_mag_lim = None
-        self.__photerr_internal = None
+        self.__photerr_internal = 0.005
         self.__target_zp = 25.0
 
         # Other
@@ -761,11 +763,19 @@ class Setup(dict):
     # Background mesh
     @property
     def background_mesh_size(self):
-        return 64
+        return self.__background_mesh_size
+
+    @background_mesh_size.setter
+    def background_mesh_size(self, background_mesh_size):
+        self.__background_mesh_size = background_mesh_size
 
     @property
     def background_mesh_filtersize(self):
-        return 3
+        return self.__background_mesh_filtersize
+
+    @background_mesh_filtersize.setter
+    def background_mesh_filtersize(self, background_mesh_filtersize):
+        self.__background_mesh_filtersize = background_mesh_filtersize
 
     # =========================================================================== #
     # Astrometry
