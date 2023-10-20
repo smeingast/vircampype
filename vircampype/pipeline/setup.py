@@ -54,6 +54,7 @@ class Setup(dict):
 
         # Processing
         self.__sky_n_min = 5
+        self.__subtract_background = True
         self.__background_mesh_size = 64
         self.__background_mesh_filtersize = 3
 
@@ -654,7 +655,11 @@ class Setup(dict):
 
     @property
     def subtract_background(self):
-        return True
+        return self.__subtract_background
+
+    @subtract_background.setter
+    def subtract_background(self, subtract_background):
+        self.__subtract_background = subtract_background
 
     # =========================================================================== #
     # Source masks
