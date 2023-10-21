@@ -68,7 +68,6 @@ class Pipeline:
     # VIRCAM splitter
     @property
     def raw_split(self):
-
         if self._raw_split is not None:
             return self._raw_split
 
@@ -148,7 +147,6 @@ class Pipeline:
 
     @property
     def processed_basic_science(self):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesProcessedScience
 
@@ -175,7 +173,6 @@ class Pipeline:
 
     @property
     def processed_basic_offset(self):
-
         # Return if no offset files
         if self.raw_offset is None:
             return None
@@ -213,7 +210,6 @@ class Pipeline:
 
     @property
     def processed_science_final(self):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesProcessedScience
 
@@ -263,7 +259,6 @@ class Pipeline:
 
     @property
     def resampled(self):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesResampled
 
@@ -281,7 +276,6 @@ class Pipeline:
 
     @property
     def stacks(self):
-
         # Instantiate
         from vircampype.fits.images.sky import Stacks
 
@@ -310,7 +304,6 @@ class Pipeline:
 
     @property
     def sources_processed_final_scamp(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import SextractorCatalogs
 
@@ -334,7 +327,6 @@ class Pipeline:
 
     @property
     def sources_processed_illumcorr(self):
-
         # Insantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -357,7 +349,6 @@ class Pipeline:
 
     @property
     def sources_resampled_full(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -380,7 +371,6 @@ class Pipeline:
 
     @property
     def sources_stacks_full(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -406,7 +396,6 @@ class Pipeline:
 
     @property
     def sources_resampled_cal(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             PhotometricCalibratedSextractorCatalogs,
@@ -432,7 +421,6 @@ class Pipeline:
 
     @property
     def sources_stacks_cal(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             PhotometricCalibratedSextractorCatalogs,
@@ -455,7 +443,6 @@ class Pipeline:
 
     @property
     def sources_tile_full(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -477,7 +464,6 @@ class Pipeline:
 
     @property
     def sources_tile_cal(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             PhotometricCalibratedSextractorCatalogs,
@@ -505,7 +491,6 @@ class Pipeline:
         ]
 
     def resampled_statistics(self, mode):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesResampled
 
@@ -618,9 +603,7 @@ class Pipeline:
             )
 
     def build_master_sky_dynamic(self):
-
         if not self.status.master_sky_dynamic:
-
             # If mixed data is requested
             if self.setup.sky_mix_science:
                 self.processed_basic_science_and_offset.build_master_sky_dynamic()
@@ -948,7 +931,6 @@ class Pipeline:
         return [x for x in self._paths_phase3 if "sources" in x]
 
     def compress_phase3_images(self):
-
         # Maximum of three parallel jobs
         n_jobs = 3 if self.setup.n_jobs > 3 else self.setup.n_jobs
 
@@ -984,10 +966,11 @@ class Pipeline:
 
     def build_public_catalog(self):
         if not self.status.public_catalog:
-
             # Read systematic astrometric error
-            pherr = 0.005 * Unit("mag")
-            self.sources_tile_cal.build_public_catalog(photerr_internal=pherr)
+            # pherr = 0.005 * Unit("mag")
+            self.sources_tile_cal.build_public_catalog(
+                photerr_internal=self.setup.photerr_internal * Unit("mag"),
+            )
             self.update_status(public_catalog=True)
 
         else:
@@ -1024,7 +1007,6 @@ class Pipeline:
         all remaining FITS images."""
 
         if not self.status.archive:
-
             print_header(
                 header="ARCHIVING", silent=self.setup.silent, left=None, right=None
             )
