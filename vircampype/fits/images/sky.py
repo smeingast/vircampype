@@ -1113,7 +1113,7 @@ class SkyImagesProcessed(SkyImages):
                     )
 
                 # Create weights if needed
-                if self.setup.flat_metric == "weighted":
+                if self.setup.sky_metric == "weighted":
                     metric = "weighted"
                     weights = np.empty_like(cube.cube)
                     weights[:] = (1 / sky_std)[:, np.newaxis, np.newaxis]
