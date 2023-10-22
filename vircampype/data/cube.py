@@ -425,6 +425,27 @@ class ImageCube(object):
                 "Division for {0:s} not implemented".format(str(type(other)))
             )
 
+    def __copy__(self):
+        """
+        Implements copy for ImageData. Here the cube is copied and a new ImageCube
+        instance is returned.
+
+        Returns
+        -------
+        ImageCube
+            New ImageData instance with copied data
+
+        """
+
+        return ImageCube(setup=self.setup, cube=self.cube.copy())
+
+    def copy(self):
+        """
+        Implements copy for ImageData. Here the cube is copied and a new ImageCube
+        """
+
+        return self.__copy__()
+
     # =========================================================================== #
     # I/O
     # =========================================================================== #
