@@ -1074,6 +1074,10 @@ class SkyImagesProcessed(SkyImages):
                 # Apply masks cube
                 cube.apply_masks(sources=sources)
 
+                # Destripe
+                if self.setup.destripe:
+                    cube.destripe(smooth=False)
+
                 # Compute sky level in each plane
                 sky, sky_std = cube.background_planes()
                 sky_all.append(sky)
@@ -1226,7 +1230,19 @@ class SkyImagesProcessed(SkyImages):
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
-            # Get master calibration
+            # Destriping
+            if self.setup.destripe:
+                sources = master_source_mask.file2cube(file_index=idx_file)
+                if self.setup.qc_plots:
+                    path_qc_destripe = (
+                        f"{self.setup.folders['qc_sky']}"
+                        f"{self.basenames[idx_file]}_striping.pdf"
+                    )
+                else:
+                    path_qc_destripe = None
+                cube.destripe(masks=sources, smooth=False, path_plot=path_qc_destripe)
+
+            # Get master sky
             sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
 
             # Scale sky
