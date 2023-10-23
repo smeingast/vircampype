@@ -57,6 +57,7 @@ class Setup(dict):
         self.__subtract_background = True
         self.__background_mesh_size = 64
         self.__background_mesh_filtersize = 3
+        self.__sky_combine_metric = "weighted"
 
         # Astromatic
         self.__bin_sex = "sex"
@@ -762,8 +763,12 @@ class Setup(dict):
         self.__sky_n_min = sky_n_min
 
     @property
-    def sky_metric(self):
-        return "weighted"
+    def sky_combine_metric(self):
+        return self.__sky_combine_metric
+
+    @sky_combine_metric.setter
+    def sky_combine_metric(self, sky_combine_metric):
+        self.__sky_combine_metric = sky_combine_metric
 
     # =========================================================================== #
     # Background mesh
