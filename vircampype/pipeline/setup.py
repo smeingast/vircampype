@@ -63,6 +63,7 @@ class Setup(dict):
         self.__bin_scamp = "scamp"
         self.__bin_swarp = "swarp"
         self.__bin_psfex = "psfex"
+        self.__bin_noisechisel = "astnoisechisel"
         self.__swarp_back_size = 384
         self.__swarp_back_filtersize = 3
         self.__sex_back_size = 64
@@ -833,6 +834,14 @@ class Setup(dict):
     @bin_psfex.setter
     def bin_psfex(self, bin_psfex):
         self.__bin_psfex = bin_psfex
+
+    @property
+    def bin_noisechisel(self):
+        return self.__bin_noisechisel
+
+    @bin_noisechisel.setter
+    def bin_noisechisel(self, bin_noisechisel):
+        self.__bin_noisechisel = bin_noisechisel
 
     @property
     def swarp_back_size(self):
