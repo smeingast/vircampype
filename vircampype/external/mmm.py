@@ -379,6 +379,6 @@ def mmm(
     return skymod, sigma, skew
 
 
-def skymode(**kwargs):
+def skymode(sky_vector, **kwargs):
     """Dummy function to return only the sky mode value."""
-    return mmm(**kwargs)[0]
+    return mmm(sky_vector=sky_vector, **kwargs)[0]
