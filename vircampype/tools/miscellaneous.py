@@ -50,7 +50,7 @@ def string2func(s):
 
     if s.lower() == "median":
         return np.nanmedian
-    elif s.lower() == "mean":
+    if s.lower() == "mean":
         return np.nanmean
     if s.lower() == "clipped_median":
         return clipped_median
