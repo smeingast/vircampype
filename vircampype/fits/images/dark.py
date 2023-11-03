@@ -61,6 +61,7 @@ class DarkImages(FitsImages):
 
             # Get master linearity
             master_linearity = files.get_master_linearity()
+            master_bpm = files.get_master_bpm()
 
             # Start looping over detectors
             data_headers = []
@@ -87,6 +88,11 @@ class DarkImages(FitsImages):
 
                 # Linearize data
                 cube.linearize(coeff=lcff, texptime=files.texptime)
+
+                # Destripe
+                if self.setup.destripe:
+                    bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
+                    cube.destripe(average_bad_planes=False, masks=bpm)
 
                 # Masking methods
                 cube.apply_masks(
