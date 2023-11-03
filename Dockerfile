@@ -1,4 +1,4 @@
-FROM fedora:37
+FROM fedora:38
 ARG BUILD_OPTION=user
 
 # Install libraries
