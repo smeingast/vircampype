@@ -1097,8 +1097,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Determine number of bins (with given radius at least 10 sources)
                 stacked = np.stack([x_hdu, y_hdu]).T
+                n_neighbors = 50 if len(stacked) > 50 else len(stacked)
                 dis, _ = (
-                    NearestNeighbors(n_neighbors=51, algorithm="auto")
+                    NearestNeighbors(n_neighbors=n_neighbors, algorithm="auto")
                     .fit(stacked)
                     .kneighbors(stacked)
                 )
