@@ -47,8 +47,8 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
     # There must be equally as many catalogs as stacks
     if len(stacks_images) != len(stacks_catalogs):
         raise ValueError(
-            "Images (n={0}) and catalogs (n={1}) not matching"
-            "".format(len(stacks_images), len(stacks_catalogs))
+            f"Images (n={len(stacks_images)}) and "
+            f"catalogs (n={len(stacks_catalogs)}) not matching"
         )
 
     # Also the names must match
@@ -61,10 +61,9 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
 
     # Loop over files
     for idx_file in range(len(stacks_images)):
-
         # Construct phase 3 paths and names
-        path_stk_p3 = "{0}{1}_st_{2:>02d}.fits".format(
-            setup.folders["phase3"], setup.name, idx_file + 1
+        path_stk_p3 = (
+            f"{setup.folders['phase3']}{setup.name}" f"_st_{idx_file + 1:>02d}.fits"
         )
         path_ctg_p3 = path_stk_p3.replace(".fits", ".sources.fits")
         path_wei_p3 = path_stk_p3.replace(".fits", ".weight.fits")
@@ -114,7 +113,6 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
             stacks_images.iter_data_hdu[idx_file],
             stacks_catalogs.iter_data_hdu[idx_file],
         ):
-
             # Make extension headers
             hdr_hdu_stk = _make_extension_header_stack(
                 hdu_stk=hdul_stk_pipe[idx_hdu_stk],
@@ -152,7 +150,6 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
         with fits.open(
             stacks_images.paths_full[idx_file].replace(".fits", ".weight.fits")
         ) as weight:
-
             # Make empty primary header
             phdr_weight = fits.Header()
 
@@ -172,7 +169,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
                 for eidx in range(1, len(weight)):
                     wcs_wei = wcs.WCS(weight[eidx].header)
                     ehdr_wei = wcs_wei.to_header()
-                    ehdr_wei.set(keyword="EXTNAME", value="DET1.CHIP{0}".format(eidx))
+                    ehdr_wei.set(keyword="EXTNAME", value=f"DET1.CHIP{eidx}")
 
                     # Reset header
                     weight[eidx].header = ehdr_wei
@@ -193,7 +190,6 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
 def _make_prime_header_stack(
     hdulist_stack: fits.HDUList, image_or_catalog: str, setup, **kwargs
 ):
-
     # Make new empty header
     hdr = fits.Header()
 
@@ -322,20 +318,18 @@ def _make_prime_header_stack(
         idx = 0
         while True:
             try:
-                prov = hdulist_stack[0].header[
-                    "HIERARCH PYPE ARCNAME {0:02d}".format(idx)
-                ]
+                prov = hdulist_stack[0].header[f"HIERARCH PYPE ARCNAME {idx:02d}"]
                 hdr.set(
-                    "PROV{0}".format(idx + 1),
+                    f"PROV{idx + 1}",
                     value=prov,
-                    comment="Processing provenance {0}".format(idx + 1),
+                    comment=f"Processing provenance {idx + 1}",
                 )
             except KeyError:
                 break
             idx += 1
 
     else:
-        raise ValueError("Mode '{0}' not supported".format(image_or_catalog))
+        raise ValueError(f"Mode '{image_or_catalog}' not supported")
 
     # Add kwargs
     for k, v in kwargs.items():
@@ -347,7 +341,6 @@ def _make_prime_header_stack(
 def _make_extension_header_stack(
     hdu_stk, hdu_ctg, image_or_catalog, passband, mag_saturation
 ):
-
     # Start with empty header
     hdr_stk = hdu_stk.header
     hdr_out = fits.Header()
@@ -394,13 +387,9 @@ def _make_extension_header_stack(
     zps, zperrs, idx = [], [], 0
     while True:
         try:
-            zps.append(
-                hdu_ctg.header["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(idx + 1)]
-            )
+            zps.append(hdu_ctg.header[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx + 1}"])
             zperrs.append(
-                hdu_ctg.header[
-                    "HIERARCH PYPE ZP ERR MAG_APER_MATCHED {0}".format(idx + 1)
-                ]
+                hdu_ctg.header[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {idx + 1}"]
             )
         except KeyError:
             break
@@ -526,7 +515,6 @@ def _make_extension_header_stack(
 
 
 def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation):
-
     # Grab setup
     setup = tile_image.setup
 
@@ -539,7 +527,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
         raise ValueError("Only one tile allowed")
 
     # Generate outpath
-    path_tile_p3 = "{0}{1}_tl.fits".format(setup.folders["phase3"], setup.name)
+    path_tile_p3 = f"{setup.folders['phase3']}{setup.name}_tl.fits"
     path_weight_p3 = path_tile_p3.replace(".fits", ".weight.fits")
     path_catalog_p3 = path_tile_p3.replace(".fits", ".sources.fits")
 
@@ -593,7 +581,6 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
 
     # There also has to be a weight map
     with fits.open(tile_image.paths_full[0].replace(".fits", ".weight.fits")) as weight:
-
         # Start with clean header
         hdr_weight = fits.Header()
 
@@ -668,7 +655,6 @@ def _make_tile_headers(
     mag_saturation: float,
     **kwargs,
 ):
-
     # Grab stuff
     phdr_tile_in = hdul_tile[0].header
     e2hdr_ctg_in = hdul_catalog[2].header
@@ -700,13 +686,9 @@ def _make_tile_headers(
     zps, zperrs, idx = [], [], 0
     while True:
         try:
-            zps.append(
-                e2hdr_ctg_in["HIERARCH PYPE ZP MAG_APER_MATCHED {0}".format(idx + 1)]
-            )
+            zps.append(e2hdr_ctg_in[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx + 1}"])
             zperrs.append(
-                e2hdr_ctg_in[
-                    "HIERARCH PYPE ZP ERR MAG_APER_MATCHED {0}".format(idx + 1)
-                ]
+                e2hdr_ctg_in[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {idx + 1}"]
             )
         except KeyError:
             break
@@ -902,7 +884,7 @@ def _make_tile_headers(
         # hdr.set("ISAMP", value=False)
         hdr.set(
             "PROCSOFT",
-            value="vircampype v{0}".format(__version__),
+            value=f"vircampype v{__version__}",
             comment="Reduction software",
         )
         hdr.set("REFERENC", value="", comment="Primary science publication")
@@ -976,11 +958,11 @@ def _make_tile_headers(
     idx = 0
     while True:
         try:
-            prov = phdr_tile_in["HIERARCH PYPE ARCNAME {0:04d}".format(idx)]
+            prov = phdr_tile_in[f"HIERARCH PYPE ARCNAME {idx:04d}"]
             phdr_tile_out.set(
-                "PROV{0}".format(idx + 1),
+                f"PROV{idx + 1}",
                 value=prov,
-                comment="Processing provenance {0}".format(idx + 1),
+                comment=f"Processing provenance {idx + 1}",
             )
         except KeyError:
             break
@@ -1052,15 +1034,15 @@ def _make_phase3_columns(data: Union[np.recarray, Table]):
     col_mag_aper = fits.Column(
         name="MAG_APER",
         array=mag_aper,
-        dim="({0})".format(ncol_mag_aper),
-        format="{0}E".format(ncol_mag_aper),
+        dim=f"({ncol_mag_aper})",
+        format=f"{ncol_mag_aper}E",
         **fits_column_kwargs["mag"],
     )
     col_magerr_aper = fits.Column(
         name="MAGERR_APER",
         array=magerr_aper,
-        dim="({0})".format(ncol_mag_aper),
-        format="{0}E".format(ncol_mag_aper),
+        dim=f"({ncol_mag_aper})",
+        format=f"{ncol_mag_aper}E",
         **fits_column_kwargs["mag"],
     )
     col_mag_auto = fits.Column(
