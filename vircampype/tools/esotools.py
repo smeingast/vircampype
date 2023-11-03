@@ -64,7 +64,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
 
         # Construct phase 3 paths and names
         path_stk_p3 = "{0}{1}_st_{2:>02d}.fits".format(
-            setup.folders["phase3"], setup["name"], idx_file + 1
+            setup.folders["phase3"], setup.name, idx_file + 1
         )
         path_ctg_p3 = path_stk_p3.replace(".fits", ".sources.fits")
         path_wei_p3 = path_stk_p3.replace(".fits", ".weight.fits")
@@ -539,7 +539,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
         raise ValueError("Only one tile allowed")
 
     # Generate outpath
-    path_tile_p3 = "{0}{1}_tl.fits".format(setup.folders["phase3"], setup["name"])
+    path_tile_p3 = "{0}{1}_tl.fits".format(setup.folders["phase3"], setup.name)
     path_weight_p3 = path_tile_p3.replace(".fits", ".weight.fits")
     path_catalog_p3 = path_tile_p3.replace(".fits", ".sources.fits")
 
