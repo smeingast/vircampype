@@ -682,7 +682,7 @@ def destripe_helper(array, mask=None, smooth=False):
         if smooth:
             yy = np.arange(len(med_destripe))  # noqa
             med_destripe_interp = UnivariateSpline(
-                yy, med_destripe, k=3, s=200 * len(yy)
+                yy, med_destripe, k=3, s=100 * len(yy)
             )(yy)
             med_destripe -= med_destripe_interp
 
