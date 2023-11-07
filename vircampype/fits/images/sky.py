@@ -1175,6 +1175,7 @@ class SkyImagesProcessed(SkyImages):
             if self.setup.qc_plots:
                 msky = MasterSky(setup=self.setup, file_paths=outpath)
                 msky.qc_plot_sky(paths=None, axis_size=5)
+                msky.qc_plot_sky_stability(paths=None, axis_size=5)
 
         # Print time
         print_message(
@@ -2692,7 +2693,7 @@ class MasterSky(MasterImages):
     # =========================================================================== #
     # QC
     # =========================================================================== #
-    def paths_qc_plots(self, paths):
+    def paths_qc_plots(self, paths, mode):
         """
         Generates paths for QC plots
 
@@ -2700,6 +2701,8 @@ class MasterSky(MasterImages):
         ----------
         paths : iterable
             Input paths to override internal paths
+        mode : str
+            QC mode. Can be either "sky" or "sky_stability".
 
         Returns
         -------
@@ -2708,10 +2711,18 @@ class MasterSky(MasterImages):
         """
 
         if paths is None:
-            return [
-                "{0}{1}.pdf".format(self.setup.folders["qc_sky"], fp)
-                for fp in self.basenames
-            ]
+            if mode == "sky":
+                return [
+                    f"{self.setup.folders['qc_sky']}{fp}.pdf"
+                    for fp in self.basenames
+                ]
+            elif mode == "sky_stability":
+                return [
+                    f"{self.setup.folders['qc_sky']}{fp}_stability.pdf"
+                    for fp in self.basenames
+                ]
+            else:
+                raise ValueError(f"Unknown QC sky plot mode: {mode}")
         else:
             return paths
 
@@ -2733,7 +2744,7 @@ class MasterSky(MasterImages):
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Plot paths
-        paths = self.paths_qc_plots(paths=paths)
+        paths = self.paths_qc_plots(paths=paths, mode="sky")
 
         for sky, noise, mjd, path in zip(self.sky, self.noise, self.sky_mjd, paths):
             # Get plot grid
@@ -2817,6 +2828,63 @@ class MasterSky(MasterImages):
                 xticks, yticks = ax.xaxis.get_major_ticks(), ax.yaxis.get_major_ticks()
                 xticks[0].set_visible(False)
                 yticks[0].set_visible(False)
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="tight_layout : falling back to Agg renderer"
+                )
+                fig.savefig(path, bbox_inches="tight")
+            plt.close("all")
+
+    def qc_plot_sky_stability(self, paths=None, axis_size=5):
+
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
+        # Plot paths
+        paths = self.paths_qc_plots(paths=paths, mode="sky_stability")
+
+        for sky, mjd, path in zip(self.sky, self.sky_mjd, paths):
+
+            # Subtract median from eavh sky level
+            sky = [s - np.median(s) for s in sky]
+
+            # Get some helper variables
+            mjd_floor = np.floor(np.min(mjd))
+            xmin, xmax = 0.999 * np.min(24 * (mjd - mjd_floor)), 1.001 * np.max(
+                24 * (mjd - mjd_floor)
+            )
+            ymin, ymax = np.min(sky), np.max(sky)
+
+            # Create figure
+            fig, ax = plt.subplots(
+                nrows=1, ncols=1, **{"figsize": [axis_size, axis_size * 0.6]}
+            )
+
+            for ss, mm in zip(sky, mjd):
+                ax.plot(24 * (mm - mjd_floor), ss, alpha=0.75)
+
+            # Labels
+            ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
+            ax.set_ylabel("Sky level - median (ADU)")
+
+            # Set ranges
+            ax.set_xlim(
+                xmin=floor_value(data=xmin, value=0.02),
+                xmax=ceil_value(data=xmax, value=0.02),
+            )
+            ax.set_ylim(
+                ymin=floor_value(data=ymin, value=10),
+                ymax=ceil_value(data=ymax, value=10),
+            )
+
+            # Set ticks
+            ax.xaxis.set_major_locator(MaxNLocator(5))
+            ax.xaxis.set_minor_locator(AutoMinorLocator())
+            ax.yaxis.set_major_locator(MaxNLocator(5))
+            ax.yaxis.set_minor_locator(AutoMinorLocator())
 
             # Save plot
             with warnings.catch_warnings():
