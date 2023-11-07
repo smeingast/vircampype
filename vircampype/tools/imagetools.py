@@ -41,7 +41,7 @@ __all__ = [
     "source_mask",
     "get_edge_skycoord_weight",
     "coordinate_array",
-    "tile_image"
+    "tile_image",
 ]
 
 
@@ -681,7 +681,9 @@ def destripe_helper(array, mask=None, smooth=False):
         # Apply smoothing if set
         if smooth:
             yy = np.arange(len(med_destripe))  # noqa
-            med_destripe_interp = UnivariateSpline(yy, med_destripe, k=5)(yy)
+            med_destripe_interp = UnivariateSpline(
+                yy, med_destripe, k=3, s=200 * len(yy)
+            )(yy)
             med_destripe -= med_destripe_interp
 
         # Return stripe pattern
