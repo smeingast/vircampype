@@ -672,7 +672,7 @@ def destripe_helper(array, mask=None, smooth=False):
             if np.sum(~np.isfinite(med_destripe)) == 0:
                 break
             med_destripe = interpolate_replace_nans(
-                med_destripe, kernel=Gaussian1DKernel(5)
+                med_destripe, kernel=Gaussian1DKernel(5), boundary="extend"
             )
             ii += 1
             if ii > 100:
