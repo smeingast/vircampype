@@ -404,10 +404,6 @@ class FitsFiles:
         return self._time_obs
 
     @property
-    def time_obs_mean(self):
-        return Time(self.mjd_mean, format="mjd")
-
-    @property
     def mjd(self):
         """
         Property that holds all MJDs for the observations in a list.
@@ -433,6 +429,14 @@ class FitsFiles:
         """
 
         return np.mean(self.mjd)
+
+    @property
+    def time_obs_mean(self):
+        return Time(self.mjd_mean, format="mjd")
+
+    @property
+    def epoch_mean(self):
+        return self.time_obs_mean.decimalyear
 
     # =========================================================================== #
     # Splitting
