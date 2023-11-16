@@ -476,6 +476,20 @@ class Setup(dict):
             for path in folders_object:
                 make_folder(path=path)
 
+    @property
+    def dict(self):
+
+        # Get complete dict
+        dd = asdict(self)
+
+        # Remove path attributes and folder setup
+        del dd["path_data"]
+        del dd["path_pype"]
+        del dd["folders"]
+
+        # Return
+        return dd
+
 
 class HeaderKeywords:
     def __init__(
