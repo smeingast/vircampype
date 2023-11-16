@@ -1,11 +1,9 @@
 import os
 
 from joblib import cpu_count
-from astropy.units import Unit
-from dataclasses import dataclass
-from astropy.units import Quantity
 from typing import Union, List, Optional
 from vircampype.pipeline.errors import *
+from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
 from vircampype.visions.projections import *
 from vircampype.miscellaneous.sourcemasks import *
