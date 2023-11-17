@@ -1076,7 +1076,7 @@ class MasterIlluminationCorrection(MasterImages):
             cube = self.file2cube(file_index=idx_file)
 
             # Determine vmin/vmax
-            vmin, vmax = np.percentile(cube, 0.1), np.percentile(cube, 99.9)
+            vmin, vmax = np.percentile(cube.cube, 0.1), np.percentile(cube.cube, 99.9)
 
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
 
