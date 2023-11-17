@@ -33,7 +33,7 @@ class Setup(dict):
     archive: bool = False
 
     # Data setup
-    pixel_scale: Quantity = 1 / 3 * Unit("arcsec")
+    pixel_scale_arcsec: Union[int, float] = 1 / 3
     maximask: bool = False
     projection: Optional[Union[str, Projection]] = None
 
