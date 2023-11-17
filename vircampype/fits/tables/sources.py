@@ -6,8 +6,19 @@ from vircampype.fits.tables.common import FitsTables
 
 
 class SourceCatalogs(FitsTables):
-    def __init__(self, setup, file_paths=None):
-        super(SourceCatalogs, self).__init__(file_paths=file_paths, setup=setup)
+    def __init__(
+        self,
+        setup,
+        file_paths=None,
+        key_ra="RA",
+        key_dec="DEC",
+    ):
+        super(SourceCatalogs, self).__init__(
+            file_paths=file_paths,
+            setup=setup,
+        )
+        self.key_ra = key_ra
+        self.key_dec = key_dec
 
     @property
     def passband(self):
@@ -24,24 +35,12 @@ class SourceCatalogs(FitsTables):
             0
         ]
 
-    @property
-    def _key_ra(self):
-        return "RA"
-
-    @property
-    def _key_dec(self):
-        return "DEC"
-
     _ra = None
 
-    def ra(self, key=None):
+    @property
+    def ra(self):
         """
         Extracts all RA entries in tables.
-
-        Parameters
-        ----------
-        key : str, optional
-            Used to override default key for RA
 
         Returns
         -------
@@ -54,23 +53,16 @@ class SourceCatalogs(FitsTables):
         if self._ra is not None:
             return self._ra
 
-        # Override RA key
-        kra = key if key is not None else self._key_ra
-
         # Retun columns
-        self._ra = [[y for y in x] for x in self.get_columns(column_name=kra)]
+        self._ra = [[y for y in x] for x in self.get_columns(column_name=self.key_ra)]
         return self._ra
 
     _dec = None
 
-    def dec(self, key=None):
+    @property
+    def dec(self):
         """
         Extracts all RA entries in tables.
-
-        Parameters
-        ----------
-        key : str, optional
-            Used to override default key for RA
 
         Returns
         -------
@@ -83,22 +75,14 @@ class SourceCatalogs(FitsTables):
         if self._dec is not None:
             return self._dec
 
-        # Override DEC key
-        kdec = key if key is not None else self._key_dec
-
         # Get data from columns
-        self._dec = [[y for y in x] for x in self.get_columns(column_name=kdec)]
+        self._dec = [[y for y in x] for x in self.get_columns(column_name=self.key_dec)]
         return self._dec
 
-    def skycoord(self, key_ra=None, key_dec=None):
+    @property
+    def skycoord(self):
         """
         Constructs SkyCoord object from ra/dec
-        Parameters
-        ----------
-        key_ra : str, optional
-            Key for RA in table.
-        key_dec : str, optional
-            Key for DEC in table.
 
         Returns
         -------
@@ -108,7 +92,7 @@ class SourceCatalogs(FitsTables):
         """
 
         skycoord_files = []
-        for fra, fdec in zip(self.ra(key=key_ra), self.dec(key=key_dec)):
+        for fra, fdec in zip(self.ra, self.dec):
             skycoord_ext = []
             for ra, dec in zip(fra, fdec):
                 skycoord_ext.append(SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg"))
@@ -118,21 +102,22 @@ class SourceCatalogs(FitsTables):
 
 
 class MasterPhotometry(SourceCatalogs):
-    def __init__(self, setup, file_paths=None):
-        super(MasterPhotometry, self).__init__(file_paths=file_paths, setup=setup)
+    def __init__(self, setup, file_paths=None, **kwargs):
+        super(MasterPhotometry, self).__init__(
+            file_paths=file_paths, setup=setup, **kwargs
+        )
 
 
 class MasterPhotometry2Mass(MasterPhotometry):
     def __init__(self, setup, file_paths=None):
-        super(MasterPhotometry2Mass, self).__init__(file_paths=file_paths, setup=setup)
-
-    @property
-    def _key_ra(self):
-        return "RAJ2000"
-
-    @property
-    def _key_dec(self):
-        return "DEJ2000"
+        super(MasterPhotometry2Mass, self).__init__(
+            file_paths=file_paths,
+            setup=setup,
+            key_ra="RAJ2000",
+            key_dec="DEJ2000",
+            key_pmra=None,
+            key_pmdec=None,
+        )
 
     @staticmethod
     def _passband2idx(passband):
@@ -308,64 +293,71 @@ class MasterPhotometry2Mass(MasterPhotometry):
 
 
 class MasterAstrometry(SourceCatalogs):
-    def __init__(self, setup, file_paths=None):
-        super(MasterAstrometry, self).__init__(file_paths=file_paths, setup=setup)
+    def __init__(self, setup, file_paths=None, **kwargs):
+        super(MasterAstrometry, self).__init__(
+            file_paths=file_paths, setup=setup, **kwargs
+        )
 
-    @property
-    def _key_pmra(self):
-        return "pmra"
 
-    @property
-    def _key_pmdec(self):
-        return "pmdec"
+class MasterAstrometryGaia(MasterAstrometry):
+    def __init__(
+        self,
+        setup,
+        file_paths=None,
+        key_pmra="pmra",
+        key_pmdec="pmdec",
+    ):
+        super(MasterAstrometryGaia, self).__init__(
+            file_paths=file_paths,
+            setup=setup,
+            key_ra="ra",
+            key_dec="dec",
+        )
+        self.key_pmra = key_pmra
+        self.key_pmdec = key_pmdec
 
     @property
     def epoch(self):
-        return 2000.0
+        """Returns epoch of catalog."""
+        return self.read_from_prime_headers(keywords=["EPOCH"])[0][0]
+
+    @property
+    def iter_data_hdu(self):
+        """Override iter_data_hdu"""
+        return [range(2, len(hdrs), 2) for hdrs in self.headers]
 
     _pmra = None
 
-    def pmra(self, key=None):
-
+    @property
+    def pmra(self):
         # Check if already determined
         if self._pmra is not None:
             return self._pmra
 
-        # Override RA key
-        kpmra = key if key is not None else self._key_pmra
-
         # Retun columns
-        self._pmra = [[y for y in x] for x in self.get_columns(column_name=kpmra)]
+        self._pmra = [
+            [y for y in x] for x in self.get_columns(column_name=self.key_pmra)
+        ]
         return self._pmra
 
     _pmdec = None
 
-    def pmdec(self, key=None):
-
+    @property
+    def pmdec(self):
         # Check if already determined
         if self._pmdec is not None:
             return self._pmdec
 
-        # Override RA key
-        kpmdec = key if key is not None else self._key_pmdec
-
         # Retun columns
-        self._pmdec = [[y for y in x] for x in self.get_columns(column_name=kpmdec)]
+        self._pmdec = [
+            [y for y in x] for x in self.get_columns(column_name=self.key_pmdec)
+        ]
         return self._pmdec
 
-    def skycoord(self, key_ra=None, key_dec=None, key_pmra=None, key_pmdec=None):
+    @property
+    def skycoord(self):
         """
-        Constructs SkyCoord object from ra/dec
-        Parameters
-        ----------
-        key_ra : str, optional
-            Key for RA in table.
-        key_dec : str, optional
-            Key for DEC in table.
-        key_pmra : str, optional
-            Key for PM along RA in table.
-        key_pmdec : str, optional
-            Key for PM along Dec in table.
+        Constructs SkyCoord object from ra/dec (overrides SourceCatalog property).
 
         Returns
         -------
@@ -381,10 +373,10 @@ class MasterAstrometry(SourceCatalogs):
 
         skycoord_files = []
         for fra, fdec, fpmra, fpmdec in zip(
-            self.ra(key=key_ra),
-            self.dec(key=key_dec),
-            self.pmra(key=key_pmra),
-            self.pmdec(key=key_pmdec),
+            self.ra,
+            self.dec,
+            self.pmra,
+            self.pmdec,
         ):
             skycoord_ext = []
             for ra, dec, pmra, pmdec in zip(fra, fdec, fpmra, fpmdec):
@@ -401,28 +393,3 @@ class MasterAstrometry(SourceCatalogs):
             skycoord_files.append(skycoord_ext)
 
         return skycoord_files
-
-
-class MasterAstrometryGaia(MasterAstrometry):
-    def __init__(self, setup, file_paths=None):
-        super(MasterAstrometryGaia, self).__init__(file_paths=file_paths, setup=setup)
-
-    @property
-    def _key_ra(self):
-        return "RA_ICRS"
-
-    @property
-    def _key_dec(self):
-        return "DE_ICRS"
-
-    @property
-    def _key_pmra(self):
-        return "pmRA"
-
-    @property
-    def _key_pmdec(self):
-        return "pmDE"
-
-    @property
-    def epoch(self):
-        return 2016.0
