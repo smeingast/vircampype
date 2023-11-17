@@ -64,7 +64,6 @@ class DarkImages(FitsImages):
             # Start looping over detectors
             data_headers = []
             for d in files.iter_data_hdu[0]:
-
                 # Print processing info
                 if not self.setup.silent:
                     message_calibration(
