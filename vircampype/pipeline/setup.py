@@ -160,8 +160,7 @@ class Setup(dict):
         self.path_coadd_header = self.path_coadd.replace(".fits", ".ahead")
 
         # Other
-        self.pixel_scale_arcsec = self.pixel_scale.to_value(Unit("arcsec"))
-        self.pixel_scale_degrees = self.pixel_scale.to_value(Unit("deg"))
+        self.pixel_scale_degrees = self.pixel_scale_arcsec / 3600
         self.__set_projection()
         self.__set_additional_source_masks()
 
