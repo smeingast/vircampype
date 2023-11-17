@@ -32,16 +32,10 @@ from astropy.table import Table, vstack as tvstack, hstack as thstack
 
 
 class SextractorCatalogs(SourceCatalogs):
-    def __init__(self, setup, file_paths=None):
-        super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
-
-    @property
-    def _key_ra(self):
-        return "ALPHAWIN_SKY"
-
-    @property
-    def _key_dec(self):
-        return "DELTAWIN_SKY"
+    def __init__(self, setup, file_paths=None, **kwargs):
+        super(SextractorCatalogs, self).__init__(
+            file_paths=file_paths, setup=setup, **kwargs
+        )
 
     @property
     def iter_data_hdu(self):
@@ -369,7 +363,10 @@ class SextractorCatalogs(SourceCatalogs):
 class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
     def __init__(self, setup, file_paths=None):
         super(AstrometricCalibratedSextractorCatalogs, self).__init__(
-            file_paths=file_paths, setup=setup
+            file_paths=file_paths,
+            setup=setup,
+            key_ra="ALPHAWIN_SKY",
+            key_dec="DELTAWIN_SKY",
         )
 
     def build_master_illumination_correction(self):
@@ -467,9 +464,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         f"not {self.setup.ic_mode}"
                     )
                 zp_all = get_zeropoint(
-                    skycoord1=SkyCoord(
-                        tab[self._key_ra], tab[self._key_dec], unit="deg"
-                    ),
+                    skycoord1=SkyCoord(tab[self.key_ra], tab[self.key_dec], unit="deg"),
                     mag1=tab["MAG_AUTO"],
                     magerr1=tab["MAGERR_AUTO"],
                     skycoord2=skycoord_master,
@@ -702,8 +697,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 add_zp_2mass(
                     table=tt,
                     table_2mass=table_master,
-                    key_ra=self._key_ra,
-                    key_dec=self._key_dec,
+                    key_ra=self.key_ra,
+                    key_dec=self.key_dec,
                     mag_lim_ref=master_phot.mag_lim(passband),
                     method="weighted",
                     passband_2mass=master_phot.translate_passband(passband),
@@ -712,7 +707,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
 
                 # Add correction factor for the main calibrated mag measurement
-                sc1 = SkyCoord(tt[self._key_ra], tt[self._key_dec], unit="degree")
+                sc1 = SkyCoord(tt[self.key_ra], tt[self.key_dec], unit="degree")
                 sc2 = SkyCoord(
                     table_master["RAJ2000"], table_master["DEJ2000"], unit="degree"
                 )
@@ -1185,8 +1180,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Remove all sources without a match from the master table
         stacked = np.stack(
             [
-                np.deg2rad(table_master[self._key_ra]),
-                np.deg2rad(table_master[self._key_dec]),
+                np.deg2rad(table_master[self.key_ra]),
+                np.deg2rad(table_master[self.key_dec]),
             ]
         ).T
         dis, idx = (
@@ -1203,8 +1198,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         table_master = remove_duplicates_wcs(
             table=table_master,
             sep=1,
-            key_lon=self._key_ra,
-            key_lat=self._key_dec,
+            key_lon=self.key_ra,
+            key_lat=self.key_dec,
             temp_dir=self.setup.folders["temp"],
             bin_name=self.setup.bin_stilts,
         )
@@ -1241,12 +1236,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         stacked_master = np.stack(
             [
-                np.deg2rad(table_master[self._key_ra]),
-                np.deg2rad(table_master[self._key_dec]),
+                np.deg2rad(table_master[self.key_ra]),
+                np.deg2rad(table_master[self.key_dec]),
             ]
         ).T
         stacked_table = [
-            np.stack([np.deg2rad(tt[self._key_ra]), np.deg2rad(tt[self._key_dec])]).T
+            np.stack([np.deg2rad(tt[self.key_ra]), np.deg2rad(tt[self.key_dec])]).T
             for tt in tables_all
         ]
         with Parallel(
@@ -1439,7 +1434,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Convert to X/Y
                 xx, yy = wcs_stats.wcs_world2pix(
-                    table_hdu[self._key_ra], table_hdu[self._key_dec], 0
+                    table_hdu[self.key_ra], table_hdu[self.key_dec], 0
                 )
                 xx_image, yy_image = xx.astype(int), yy.astype(int)
 
@@ -1771,7 +1766,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Construct skycoordinates
                 sc_hdu = SkyCoord(
-                    ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg"
+                    ra=tab_hdu[self.key_ra], dec=tab_hdu[self.key_dec], unit="deg"
                 )
 
                 # Xmatch science with reference
@@ -1964,7 +1959,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Construct skycoordinates
                 sc_hdu = SkyCoord(
-                    ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg"
+                    ra=tab_hdu[self.key_ra], dec=tab_hdu[self.key_dec], unit="deg"
                 )
 
                 # Xmatch science with reference
