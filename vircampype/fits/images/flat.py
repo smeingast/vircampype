@@ -298,7 +298,7 @@ class FlatTwilight(FlatImages):
 
             # Interpolate NaNs if set (cosmetic function can't be used since this would
             # also apply e.g. de-striping)
-            if self.setup.interpolate_nan_bool:
+            if self.setup.interpolate_nan:
                 cube.interpolate_nan()
 
             # Replace remaining NaNs with 0 weight
