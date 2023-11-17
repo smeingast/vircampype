@@ -29,7 +29,7 @@ __all__ = [
 class ChamaeleonDeepProjection(Projection):
     def __init__(self):
         super(ChamaeleonDeepProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Chamaeleon_deep"
         )
 
     @property
@@ -42,7 +42,7 @@ class ChamaeleonDeepProjection(Projection):
 class ChamaeleonWideProjection(Projection):
     def __init__(self):
         super(ChamaeleonWideProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Chamaeleon_wide"
         )
 
     @property
@@ -55,7 +55,9 @@ class ChamaeleonWideProjection(Projection):
 class ChamaeleonControlProjection(Projection):
     def __init__(self):
         super(ChamaeleonControlProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Chamaeleon_control",
         )
 
     @property
@@ -68,7 +70,9 @@ class ChamaeleonControlProjection(Projection):
 class CoronaAustralisDeepProjection(Projection):
     def __init__(self):
         super(CoronaAustralisDeepProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Corona_Australis_deep",
         )
 
     @property
@@ -81,7 +85,8 @@ class CoronaAustralisDeepProjection(Projection):
 class CoronaAustralisWideProjection(Projection):
     def __init__(self):
         super(CoronaAustralisWideProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file),
+            name="Corona_Australis_wide",
         )
 
     @property
@@ -94,7 +99,9 @@ class CoronaAustralisWideProjection(Projection):
 class CoronaAustralisControlProjection(Projection):
     def __init__(self):
         super(CoronaAustralisControlProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Corona_Australis_control",
         )
 
     @property
@@ -107,7 +114,9 @@ class CoronaAustralisControlProjection(Projection):
 class LupusDeepNProjection(Projection):
     def __init__(self):
         super(LupusDeepNProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Lupus_deep_n",
         )
 
     @property
@@ -120,7 +129,9 @@ class LupusDeepNProjection(Projection):
 class LupusDeepSProjection(Projection):
     def __init__(self):
         super(LupusDeepSProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Lupus_deep_s",
         )
 
     @property
@@ -133,7 +144,7 @@ class LupusDeepSProjection(Projection):
 class LupusWideProjection(Projection):
     def __init__(self):
         super(LupusWideProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Lupus_wide"
         )
 
     @property
@@ -146,7 +157,9 @@ class LupusWideProjection(Projection):
 class LupusControlNProjection(Projection):
     def __init__(self):
         super(LupusControlNProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Lupus_control_n",
         )
 
     @property
@@ -159,7 +172,9 @@ class LupusControlNProjection(Projection):
 class LupusControlSProjection(Projection):
     def __init__(self):
         super(LupusControlSProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Lupus_control_s",
         )
 
     @property
@@ -172,7 +187,7 @@ class LupusControlSProjection(Projection):
 class MuscaWideProjection(Projection):
     def __init__(self):
         super(MuscaWideProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Musca_wide"
         )
 
     @property
@@ -185,7 +200,7 @@ class MuscaWideProjection(Projection):
 class OphiuchusDeepProjection(Projection):
     def __init__(self):
         super(OphiuchusDeepProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Ophiuchus_deep"
         )
 
     @property
@@ -198,7 +213,7 @@ class OphiuchusDeepProjection(Projection):
 class OphiuchusWideProjection(Projection):
     def __init__(self):
         super(OphiuchusWideProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Ophiuchus_wide"
         )
 
     @property
@@ -211,7 +226,9 @@ class OphiuchusWideProjection(Projection):
 class OphiuchusControlProjection(Projection):
     def __init__(self):
         super(OphiuchusControlProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Ophiuchus_control",
         )
 
     @property
@@ -224,7 +241,7 @@ class OphiuchusControlProjection(Projection):
 class OrionWideProjection(Projection):
     def __init__(self):
         super(OrionWideProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file)
+            header=fits.Header.fromtextfile(self.__header_file), name="Orion_wide"
         )
 
     @property
@@ -237,7 +254,9 @@ class OrionWideProjection(Projection):
 class OrionControlProjection(Projection):
     def __init__(self):
         super(OrionControlProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Orion_control",
         )
 
     @property
@@ -250,7 +269,9 @@ class OrionControlProjection(Projection):
 class PipeDeepProjection(Projection):
     def __init__(self):
         super(PipeDeepProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Pipe_deep",
         )
 
     @property
@@ -263,7 +284,9 @@ class PipeDeepProjection(Projection):
 class PipeControlProjection(Projection):
     def __init__(self):
         super(PipeControlProjection, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Pipe_control",
         )
 
     @property
@@ -276,7 +299,9 @@ class PipeControlProjection(Projection):
 class SharksG15115(Projection):
     def __init__(self):
         super(SharksG15115, self).__init__(
-            header=fits.Header.fromtextfile(self.__header_file), force_header=True
+            header=fits.Header.fromtextfile(self.__header_file),
+            force_header=True,
+            name="Sharks_G15_1_1_5",
         )
 
     @property
