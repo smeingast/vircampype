@@ -86,15 +86,17 @@ class DarkImages(FitsImages):
                 # Linearize data
                 cube.linearize(coeff=lcff, texptime=files.texptime)
 
+                # Masking methods
+                bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
+                cube.apply_masks(
+                    bpm=bpm,
+                    mask_min=self.setup.dark_mask_min,
+                    mask_max=self.setup.dark_mask_max,
+                )
+
                 # Destripe
                 if self.setup.destripe:
-                    bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
-                    cube.destripe(average_bad_planes=False, masks=bpm)
-
-                # Masking methods
-                cube.apply_masks(
-                    mask_min=self.setup.dark_mask_min, mask_max=self.setup.dark_mask_max
-                )
+                    cube.destripe(masks=bpm, average_bad_planes=False, smooth=True)
 
                 # Flatten data
                 collapsed = cube.flatten(
