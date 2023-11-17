@@ -37,17 +37,15 @@ class DarkImages(FitsImages):
         for files, fidx in zip(
             split, range(1, len(split) + 1)
         ):  # type: DarkImages, int
-
             # Check sequence suitability for Dark (same number of HDUs and NDIT)
             files.check_compatibility(n_hdu_max=1, n_ndit_max=1, n_dit_max=1)
 
             # Create Mastedark name
-            outpath = "{0}MASTER-DARK.DIT_{1}.NDIT_{2}.MJD_{3:0.4f}.fits" "".format(
-                files.setup.folders["master_common"],
-                files.dit[0],
-                files.ndit[0],
-                files.mjd_mean,
-            )
+            outpath = (f"{files.setup.folders['master_common']}"
+                       f"MASTER-DARK.DIT_{files.dit[0]}"
+                       f".NDIT_{files.ndit[0]}"
+                       f".MJD_{files.mjd_mean:0.4f}"
+                       f".fits")
 
             # Check if the file is already there and skip if it is
             if (
