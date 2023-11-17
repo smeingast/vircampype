@@ -1005,7 +1005,6 @@ class ImageCube(object):
 
         # Plot destripe pattern if requested
         if path_plot is not None:
-
             fig, ax = plt.subplots(1, 1, figsize=(25, 5))
             kw_plot = dict(lw=0.4, alpha=0.8)
             pcolors = ["crimson", "green", "blue", "black"]
@@ -1013,7 +1012,7 @@ class ImageCube(object):
                 for tidx in range(4):
                     ax.plot(mp[pidx + tidx] + 3 * pidx, c=pc, **kw_plot)
                 ax.plot(
-                    np.nanmean(np.stack(mp[pidx: pidx + 4]), axis=0) + 3 * pidx,
+                    np.nanmedian(np.stack(mp[pidx : pidx + 4]), axis=0) + 3 * pidx,
                     c=pc,
                     lw=1.0,
                 )
