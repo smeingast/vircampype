@@ -643,6 +643,7 @@ class ImageCube(object):
         mask_above=None,
         sigma_level=None,
         sigma_iter=1,
+        sigma_center_metric=np.nanmedian,
     ):
         """
         Applies the above given masking methods to instance cube.
@@ -666,6 +667,8 @@ class ImageCube(object):
             sigma-level in clipping.
         sigma_iter : int, optional
             Iterations of sigma clipping.
+        sigma_center_metric : callable, optional
+            Metric to calculate the center of the data; default is np.nanmedian.
 
         """
 
@@ -697,7 +700,7 @@ class ImageCube(object):
             self._sigma_clip(
                 sigma_level=sigma_level,
                 sigma_iter=sigma_iter,
-                center_metric=np.nanmedian,
+                center_metric=sigma_center_metric,
             )
 
     def apply_masks_plane(self, sigma_level, sigma_iter):
