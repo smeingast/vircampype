@@ -7,7 +7,8 @@ __all__ = ["Projection"]
 
 
 class Projection:
-    def __init__(self, header, force_header=False):
+    def __init__(self, header, force_header=False, name=""):
+        self.name = name
         self.header = header
         self.force_header = force_header
 
