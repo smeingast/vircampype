@@ -1,5 +1,6 @@
 import os
 
+from astropy.io import fits
 from joblib import cpu_count
 from typing import Union, List, Optional
 from vircampype.pipeline.errors import *
@@ -502,6 +503,15 @@ class Setup(dict):
 
         # Return
         return dd
+
+    def add_setup_to_header(self, header: fits.Header):
+        """Adds setup to header."""
+        for key, val in self.dict.items():
+            if isinstance(val, tuple):
+                val = str(val)
+            if isinstance(val, Projection):
+                val = val.name
+            header.set(f"HIERARCH PYPE SETUP {key.upper()}", value=val, comment="")
 
 
 class HeaderKeywords:
