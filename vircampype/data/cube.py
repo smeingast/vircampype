@@ -1281,7 +1281,7 @@ class ImageCube(object):
                         repeat(False),
                         repeat(False),
                         repeat(False),
-                        repeat(50),
+                        repeat(500),
                         repeat(20),
                         repeat(True),
                     )
