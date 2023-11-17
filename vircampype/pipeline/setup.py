@@ -71,12 +71,19 @@ class Setup(dict):
     weight_mask_rel_min: Union[int, float] = 0.5
 
     # Source masks
+    mask_2mass_sources: bool = True
+    additional_source_masks: Optional[Union[str, SourceMasks]] = None
+    source_mask_method: str = "noisechisel"
+    source_masks_niter: int = 3
+    source_mask_closing: bool = True
+    source_masks_closing_size: int = 5
+    # Noisechisel setup
+    # ...
+    # Internal source detection setup
     mask_sources_thresh: Union[int, float] = 3
     mask_sources_min_area: Union[int, float] = 3
     mask_sources_max_area: Union[int, float] = 250000
-    mask_2mass_sources: bool = True
     mask_bright_sources: bool = True
-    additional_source_masks: Optional[Union[str, SourceMasks]] = None
 
     # Master calibration lookup
     master_max_lag_bpm: Union[int, float] = 14
@@ -87,11 +94,19 @@ class Setup(dict):
     master_max_lag_weight: Union[int, float] = 14
     master_max_lag_linearity: Union[int, float] = 14
 
-    # Processing
+    # Sky
     sky_n_min: int = 5
     sky_mix_science: bool = True
     sky_window: Union[int, float] = 180
+    sky_mask_min: bool = True
+    sky_mask_max: bool = True
+    sky_rel_lo: Union[int, float] = 0.3
+    sky_rel_hi: Union[int, float] = 1.7
+    sky_sigma_level: Union[int, float] = 3
+    sky_sigma_iter: int = 1
     sky_combine_metric: str = "weighted"
+
+    # Processing
     subtract_background: bool = True
     background_mesh_size: int = 64
     background_mesh_filtersize: int = 3
