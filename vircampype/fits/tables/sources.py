@@ -115,8 +115,6 @@ class MasterPhotometry2Mass(MasterPhotometry):
             setup=setup,
             key_ra="RAJ2000",
             key_dec="DEJ2000",
-            key_pmra=None,
-            key_pmdec=None,
         )
 
     @staticmethod
