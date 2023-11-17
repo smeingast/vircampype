@@ -116,6 +116,7 @@ class Setup(dict):
 
     # Astrometry
     astr_reference_catalog: str = "GAIA"
+    warp_gaia: bool = True
     external_headers: bool = False
 
     # Photometry
