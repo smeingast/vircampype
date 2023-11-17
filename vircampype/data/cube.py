@@ -1132,7 +1132,70 @@ class ImageCube(object):
                 )
             )
 
-        return ImageCube(cube=np.array(mp), setup=self.setup)
+        return ImageCube(cube=np.array(mp).astype(bool), setup=self.setup)
+
+    def build_masks_noisechisel(self):
+        """
+        Runs noisechisel on the cube and returns the masks.
+
+        Returns
+        -------
+        ImageCube
+            Noisechisel masks.
+
+        """
+
+        # Write cube to temp file on disk
+        path_temp_data = (
+            f"{self.setup.folders['temp']}{os.path.basename(tempfile.mktemp())}.fits"
+        )
+
+        self.write_mef(
+            path=path_temp_data,
+            overwrite=True,
+            dtype=np.float32,
+        )
+
+        # Create temp paths for noisechisel
+        paths_temp_noisechisel = [
+            path_temp_data.replace(".fits", f"_{i:02d}.fits")
+            for i in range(1, len(self) + 1)
+        ]
+
+        # Build NoiseChisel commands (add sleep so that the I/O is spread out)
+        cmds = [
+            (
+                f"sleep {(i - 1) % self.setup.n_jobs * 0.2}; "
+                f"{which(self.setup.bin_noisechisel)} {path_temp_data} "
+                f"--hdu {i} "
+                f"-o {pto} "
+                f"-N 1 "
+                f"-q --rawoutput --cleangrowndet --qthresh 0.8 --erode 2 "
+                f"--detgrowquant 1.0 --tilesize=64,64  --meanmedqdiff 0.01"
+            )
+            for i, pto in zip(range(1, len(self) + 1), paths_temp_noisechisel)
+        ]
+
+        # Run noisechisel in parallel
+        run_commands_shell_parallel(cmds=cmds, silent=False, n_jobs=self.setup.n_jobs)
+
+        # Read results
+        masks_noisechisel = np.array(
+            [
+                fits.getdata(filename=path, ext=1).astype(np.float32)
+                for path in paths_temp_noisechisel
+            ]
+        )
+
+        # Replace NaNs with 1
+        masks_noisechisel[np.isnan(masks_noisechisel)] = 1
+
+        # Delete temp files
+        os.remove(path_temp_data)
+        [os.remove(path) for path in paths_temp_noisechisel]
+
+        # Return
+        return ImageCube(cube=masks_noisechisel.astype(bool), setup=self.setup)
 
     # =========================================================================== #
     # Properties
