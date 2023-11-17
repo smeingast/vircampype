@@ -129,7 +129,12 @@ class SextractorCatalogs(SourceCatalogs):
                 "AHEADER_NAME",
                 "ASTREF_CATALOG",
                 "ASTREFCAT_NAME",
+                "ASTREFCENT_KEYS",
                 "ASTREFERR_KEYS",
+                "ASTREFPROP_KEYS",
+                "ASTREFPROPERR_KEYS",
+                "ASTREFMAG_KEY",
+                "ASTREFMAGERR_KEY",
                 "FLAGS_MASK",
                 "WEIGHTFLAGS_MASK",
                 "ASTR_FLAGSMASK",
@@ -138,13 +143,20 @@ class SextractorCatalogs(SourceCatalogs):
         )
 
         # Construct command for scamp
-        cmd = (f"{scs.bin} {self._scamp_catalog_paths} "
-               f"-c {scs.default_config} "
-               f"-HEADER_NAME {self._scamp_header_paths(joined=True)} "
-               f"-ASTREF_CATALOG FILE "
-               f"-ASTREFCAT_NAME {astrefact_name} "
-               f"-ASTREFERR_KEYS XERR_WORLD,YERR_WORLD "
-               f"-XML_NAME {path_xml} {options}")
+        cmd = (
+            f"{scs.bin} {self._scamp_catalog_paths} "
+            f"-c {scs.default_config} "
+            f"-HEADER_NAME {self._scamp_header_paths(joined=True)} "
+            f"-ASTREF_CATALOG FILE "
+            f"-ASTREFCAT_NAME {astrefact_name} "
+            f"-ASTREFCENT_KEYS ra,dec "
+            f"-ASTREFERR_KEYS ra_error,dec_error "
+            f"-ASTREFPROP_KEYS pmra,pmdec "
+            f"-ASTREFPROPERR_KEYS pmra_error,pmdec_error "
+            f"-ASTREFMAG_KEY mag "
+            f"-ASTREFMAGERR_KEY mag_error "
+            f"-XML_NAME {path_xml} {options}"
+        )
 
         # Run Scamp
         run_command_shell(cmd, silent=False)
