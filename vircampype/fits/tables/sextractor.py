@@ -422,7 +422,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
             magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
-            skycoord_master = master_phot.skycoord()[0][0][mkeep]
+            skycoord_master = master_phot.skycoord[0][0][mkeep]
 
             data_headers, flx_scale, n_sources = [], [], []
             for idx_hdu, idx_hdr in zip(
@@ -788,7 +788,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         fpa_layout = self.setup.fpa_layout
 
         # Obtain master coordinates
-        sc_master_raw = self.get_master_astrometry().skycoord()[0][0]
+        sc_master_raw = self.get_master_astrometry().skycoord[0][0]
 
         # Apply space motion to match data obstime
         with warnings.catch_warnings():
@@ -812,7 +812,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 continue
 
             # Grab coordinates
-            sc_file = self.skycoord()[idx_file]
+            sc_file = self.skycoord[idx_file]
 
             # Coadd mode
             if len(self) == 1:
@@ -976,7 +976,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         fpa_layout = self.setup.fpa_layout
 
         # Obtain master coordinates
-        sc_master = self.get_master_astrometry().skycoord()[0][0]
+        sc_master = self.get_master_astrometry().skycoord[0][0]
 
         # Loop over files
         for idx_file in range(len(self)):
@@ -993,7 +993,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
             yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
             snr_file = self.get_column_file(idx_file=idx_file, column_name="SNR_WIN")
-            sc_file = self.skycoord()[idx_file]
+            sc_file = self.skycoord[idx_file]
 
             # Apply space motion to match data obstime
             with warnings.catch_warnings():
@@ -1741,7 +1741,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-            master_skycoord = master_phot.skycoord()[0][0][mkeep]
+            master_skycoord = master_phot.skycoord[0][0][mkeep]
 
             # Read tables
             tab_file = self.file2table(file_index=idx_file)
@@ -1938,7 +1938,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-            skycoord_master = master_phot.skycoord()[0][0][mkeep]
+            skycoord_master = master_phot.skycoord[0][0][mkeep]
 
             # Keep only soruces within mag limit
             mag_lim = master_phot.mag_lim(self.passband[idx_file])
