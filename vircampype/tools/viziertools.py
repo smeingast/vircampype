@@ -65,4 +65,22 @@ def download_gaia(skycoord, radius):
     del result.meta["description"]
     result.meta["NAME"] = "Gaia EDR3"
 
+    # Rename columns
+    result.rename_column("RA_ICRS", "ra")
+    result.rename_column("e_RA_ICRS", "ra_error")
+    result.rename_column("DE_ICRS", "dec")
+    result.rename_column("e_DE_ICRS", "dec_error")
+    result.rename_column("Source", "source_id")
+    result.rename_column("Plx", "parallax")
+    result.rename_column("e_Plx", "parallax_error")
+    result.rename_column("pmRA", "pmra")
+    result.rename_column("e_pmRA", "pmra_error")
+    result.rename_column("pmDE", "pmdec")
+    result.rename_column("e_pmDE", "pmdec_error")
+    result.rename_column("Gmag", "mag")
+    result.rename_column("e_Gmag", "mag_error")
+    result.rename_column("FG", "flux")
+    result.rename_column("e_FG", "flux_error")
+    result.rename_column("RUWE", "ruwe")
+
     return result
