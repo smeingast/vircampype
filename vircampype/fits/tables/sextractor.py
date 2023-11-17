@@ -106,7 +106,7 @@ class SextractorCatalogs(SourceCatalogs):
 
     def scamp(self):
         # Construct XML path
-        path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
+        path_xml = f"{self.setup.folders['qc_astrometry']}scamp.xml"
 
         # Check for external headers
         ehdrs = [os.path.isfile(p) for p in self._scamp_header_paths(joined=False)]
@@ -115,6 +115,9 @@ class SextractorCatalogs(SourceCatalogs):
         if np.sum(ehdrs) == len(self):
             print("Scamp headers already exist")
             return
+
+        # Load astrometric reference
+        astrefact_name = self.get_master_astrometry().paths_full[0]
 
         # Load Scamp setup
         scs = ScampSetup(setup=self.setup)
@@ -131,7 +134,8 @@ class SextractorCatalogs(SourceCatalogs):
                 "HEADER_NAME",
                 "AHEADER_NAME",
                 "ASTREF_CATALOG",
-                "ASTREF_BAND",
+                "ASTREFCAT_NAME",
+                "ASTREFERR_KEYS",
                 "FLAGS_MASK",
                 "WEIGHTFLAGS_MASK",
                 "ASTR_FLAGSMASK",
@@ -139,39 +143,14 @@ class SextractorCatalogs(SourceCatalogs):
             ],
         )
 
-        # Get passband
-        if "gaia" in self.setup.astr_reference_catalog.lower():
-            catalog_name = "GAIA-EDR3"
-            band_name = "G"
-        elif "2mass" in self.setup.astr_reference_catalog.lower():
-            catalog_name = "2MASS"
-            bands = list(set(self.passband))
-            if len(bands) != 1:
-                raise ValueError("Sequence contains multiple filters")
-            else:
-                band_name = bands[0][0]  # This should only keep J,H, and K for 2MASS
-                band_name = "Ks" if "k" in band_name.lower() else band_name
-        else:
-            raise ValueError(
-                "Astrometric reference catalog '{0}' not supported"
-                "".format(self.setup.astr_reference_catalog)
-            )
-
         # Construct command for scamp
-        cmd = (
-            "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_CATALOG {4} "
-            "-ASTREF_BAND {5} -XML_NAME {6} {7}"
-            "".format(
-                scs.bin,
-                self._scamp_catalog_paths,
-                scs.default_config,
-                self._scamp_header_paths(joined=True),
-                catalog_name,
-                band_name,
-                path_xml,
-                options,
-            )
-        )
+        cmd = (f"{scs.bin} {self._scamp_catalog_paths} "
+               f"-c {scs.default_config} "
+               f"-HEADER_NAME {self._scamp_header_paths(joined=True)} "
+               f"-ASTREF_CATALOG FILE "
+               f"-ASTREFCAT_NAME {astrefact_name} "
+               f"-ASTREFERR_KEYS XERR_WORLD,YERR_WORLD "
+               f"-XML_NAME {path_xml} {options}")
 
         # Run Scamp
         run_command_shell(cmd, silent=False)
@@ -180,33 +159,6 @@ class SextractorCatalogs(SourceCatalogs):
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
-
-        # # Normalize FLXSCALE across all headers
-        # flxscale = []
-        # for path_ahead in self._scamp_header_paths():
-        #     hdrs = read_aheaders(path=path_ahead)
-        #     flxscale.extend([h["FLXSCALE"] for h in hdrs])
-        #
-        #     # Make a backup
-        #     path_backup = path_ahead + ".backup"
-        #     if not os.path.isfile(path_backup):
-        #         copyfile(path_ahead, path_backup)
-        #
-        # # Compute norm
-        # flxscale_norm = np.mean(flxscale)
-        #
-        # # Loop again and rewrite this time
-        # for path_ahead in self._scamp_header_paths():
-        #     hdrs = read_aheaders(path=path_ahead)
-        #     for h in hdrs:
-        #         h["FSCLORIG"] = (h["FLXSCALE"], "Original scamp flux scale")
-        #         h["FSCLSTCK"] = (h["FLXSCALE"] /
-        #                          flxscale_norm,
-        #                          "SCAMP relative flux scale for stacks")
-        #         del h["FLXSCALE"]
-        #
-        #     # Rewrite file with new scale
-        #     write_aheaders(headers=hdrs, path=path_ahead)
 
     # =========================================================================== #
     # PSFEx
