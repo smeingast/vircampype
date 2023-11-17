@@ -1,5 +1,7 @@
 # =========================================================================== #
 # Import
+import os
+import tempfile
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +13,7 @@ from joblib import Parallel, delayed
 from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
 from vircampype.tools.imagetools import *
+from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
 from astropy.convolution import Gaussian2DKernel
 
@@ -955,7 +958,14 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def destripe(self, masks=None, smooth=False, path_plot=None):
+    def destripe(
+        self,
+        masks=None,
+        smooth=False,
+        path_plot=None,
+        combine_bad_planes=False,
+        force_combine_planes=False,
+    ):
         """
         Destripes VIRCAM images
 
@@ -968,12 +978,16 @@ class ImageCube(object):
             applied.
         path_plot : str, optional
             If set, path of QC plot.
+        combine_bad_planes : bool, optional
+            Whether bad planes should be combined.
+        force_combine_planes : bool, optional
+            Whether bad planes should be combined even if they are not flagged as bad.
 
         """
 
         # Set masks to iterable if not set
         if masks is None:
-            masks = repeat(None)
+            masks = np.full_like(self.cube, False, dtype=bool)
 
         # Destripe in parallel
         with Parallel(
@@ -984,24 +998,42 @@ class ImageCube(object):
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
             )
 
-        """ Combining each detector row does not work because in many instances, 
-        the amplitude of the striping pattern is very different between the 
-        detectors in a row."""
-        # # Combine stripes for each detector row
-        # destripe_01_04 = np.nanmean(np.stack(mp[0:4]), axis=0)
-        # destripe_05_08 = np.nanmean(np.stack(mp[4:8]), axis=0)
-        # destripe_09_12 = np.nanmean(np.stack(mp[8:12]), axis=0)
-        # destripe_13_16 = np.nanmean(np.stack(mp[12:16]), axis=0)
-        #
-        # # Apply destriping
-        # self.cube[0:4] = self.cube[0:4] - np.expand_dims(destripe_01_04, axis=1)
-        # self.cube[4:8] = self.cube[4:8] - np.expand_dims(destripe_05_08, axis=1)
-        # self.cube[8:12] = self.cube[8:12] - np.expand_dims(destripe_09_12, axis=1)
-        # self.cube[12:16] = self.cube[12:16] - np.expand_dims(destripe_13_16, axis=1)
+        # Count bad pixels in each plane
+        nbad = np.sum(masks, axis=2)
 
-        # Destripe each plane separateley
-        for idx, _ in enumerate(self):
-            self.cube[idx] -= np.expand_dims(mp[idx], axis=1)
+        # Identify rows with more than 50% masked pixels
+        bad_rows = nbad > (nbad.shape[1] * 0.5)
+
+        # Count number of bad rows in each plane
+        nbad_rows = np.sum(bad_rows, axis=1)
+
+        # Identify bad planes as those that have more than 1/3 bad rows
+        bad_planes = nbad_rows > (self.shape[2] * 1 / 3)
+
+        cube_destripe_avg = self.copy()
+        if combine_bad_planes:
+            # Combine stripes for each detector row
+            destripe_01_04 = np.nanmedian(np.stack(mp[0:4]), axis=0)
+            destripe_05_08 = np.nanmedian(np.stack(mp[4:8]), axis=0)
+            destripe_09_12 = np.nanmedian(np.stack(mp[8:12]), axis=0)
+            destripe_13_16 = np.nanmedian(np.stack(mp[12:16]), axis=0)
+
+            # Apply average destriping to separate cube
+            cube_destripe_avg.cube[0:4] -= np.expand_dims(destripe_01_04, axis=1)
+            cube_destripe_avg.cube[4:8] -= np.expand_dims(destripe_05_08, axis=1)
+            cube_destripe_avg.cube[8:12] -= np.expand_dims(destripe_09_12, axis=1)
+            cube_destripe_avg.cube[12:16] -= np.expand_dims(destripe_13_16, axis=1)
+
+        # Loop over planes
+        for idx, bad in enumerate(bad_planes):
+            if force_combine_planes:
+                self.cube[idx] = cube_destripe_avg[idx]
+            # If bad plane, take average destriping
+            elif bad & combine_bad_planes:
+                self.cube[idx] = cube_destripe_avg[idx]
+            # If good plane, take single destriping
+            else:
+                self.cube[idx] -= np.expand_dims(mp[idx], axis=1)
 
         # Plot destripe pattern if requested
         if path_plot is not None:
