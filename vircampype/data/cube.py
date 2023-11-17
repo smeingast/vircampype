@@ -1165,7 +1165,7 @@ class ImageCube(object):
 
         return ImageCube(cube=np.array(mp).astype(bool), setup=self.setup)
 
-    def build_masks_noisechisel(self):
+    def build_source_masks_noisechisel(self):
         """
         Runs noisechisel on the cube and returns the masks.
 
