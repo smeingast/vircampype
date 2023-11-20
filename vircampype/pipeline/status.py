@@ -51,9 +51,8 @@ class PipelineStatus:
 
         # Set science attributes
         self.processed_raw_basic = processed_raw_basic
-        self.master_sky_static = master_sky_static
         self.master_source_mask = master_source_mask
-        self.master_sky_dynamic = master_sky_dynamic
+        self.master_sky = master_sky
         self.master_photometry = master_photometry
         self.master_astrometry = master_astrometry
         self.processed_raw_final = processed_raw_final
@@ -97,9 +96,8 @@ class PipelineStatus:
             "master_flat",
             "master_weight_global",
             "processed_raw_basic",
-            "master_sky_static",
             "master_source_mask",
-            "master_sky_dynamic",
+            "master_sky",
             "master_photometry",
             "master_astrometry",
             "processed_raw_final",
