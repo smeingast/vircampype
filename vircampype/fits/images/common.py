@@ -971,6 +971,30 @@ class MasterImages(FitsImages):
         )
 
     @property
+    def sky(self):
+        """
+        Retrieves all static MasterSky images.
+
+        Returns
+        -------
+        MasterSky
+            All MasterSky images as a MasterSky instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.sky import MasterSky
+
+        # Get the masterbpm files
+        index = [
+            idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"
+        ]
+
+        return MasterSky(
+            setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+        )
+
+    @property
     def sky_static(self):
         """
         Retrieves all static MasterSky images.
