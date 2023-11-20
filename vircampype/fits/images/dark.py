@@ -96,7 +96,7 @@ class DarkImages(FitsImages):
 
                 # Destripe
                 if self.setup.destripe:
-                    cube.destripe(masks=bpm, average_bad_planes=False, smooth=True)
+                    cube.destripe(masks=bpm, combine_bad_planes=False, smooth=True)
 
                 # Flatten data
                 collapsed = cube.flatten(
