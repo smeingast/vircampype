@@ -75,7 +75,6 @@ class FlatTwilight(FlatImages):
             # Start looping over detectors
             data_headers = []
             for d in files.iter_data_hdu[0]:
-
                 # Print processing info
                 message_calibration(
                     n_current=fidx,
@@ -253,7 +252,6 @@ class FlatTwilight(FlatImages):
 
         # Loop over files and apply calibration
         for idx in range(len(master_flats)):
-
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpaths[idx], silent=self.setup.silent)
@@ -330,7 +328,6 @@ class FlatLampLin(FlatImages):
     # Master Linearity
     # =========================================================================== #
     def build_master_linearity(self, darks):
-
         # Processing info
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
         tstart = time.time()
@@ -340,7 +337,6 @@ class FlatLampLin(FlatImages):
         split_dark = darks.split_lag(max_lag=self.setup.linearity_max_lag)
 
         for sflats, sdarks, fidx in zip(split_flat, split_dark, range(len(split_flat))):
-
             # Check exposure sequence
             if (sflats.dit != sdarks.dit) | (sflats.ndit != sdarks.ndit):
                 raise ValueError("Linearity flat/dark sequence is broken")
@@ -366,7 +362,6 @@ class FlatLampLin(FlatImages):
 
             # Start detector loop
             for idx_hdu in sflats.iter_data_hdu[0]:
-
                 # Print processing info
                 message_calibration(
                     n_current=fidx + 1,
@@ -555,7 +550,6 @@ class FlatLampCheck(FlatImages):
 
         # Now loop through separated files and build Masterbpm
         for files, idx_print in zip(split, range(1, len(split) + 1)):
-
             # Check sequence compatibility
             files.check_compatibility(
                 n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3
@@ -582,7 +576,6 @@ class FlatLampCheck(FlatImages):
             # Start looping over detectors
             data_headers = []
             for d in files.iter_data_hdu[0]:
-
                 # Print processing info
                 if not self.setup.silent:
                     message_calibration(
@@ -711,7 +704,6 @@ class FlatLampGain(FlatImages):
 
         # Now loop through separated files and build the Gain Table
         for idx in range(len(split_flats)):
-
             # Grab files
             flats, darks = split_flats[idx], split_darks[idx]
 
@@ -941,7 +933,6 @@ class MasterFlat(MasterImages):
         paths = self.paths_qc_plots(paths=paths)
 
         for flux, mjd, gs, path in zip(self.flux, self.flux_mjd, self.gainscale, paths):
-
             # Get plot grid
             fig, axes = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -958,7 +949,6 @@ class MasterFlat(MasterImages):
 
             # Loop and plot
             for idx in range(len(flux)):
-
                 # Grab axes
                 ax = axes[idx]
 
@@ -1059,7 +1049,6 @@ class MasterIlluminationCorrection(MasterImages):
         return self.read_from_data_headers(keywords=["HIERARCH PYPE IC STD"])[0]
 
     def qc_plot2d(self, paths=None, axis_size=4):
-
         # Import
         import matplotlib.pyplot as plt
         from matplotlib.cm import get_cmap
@@ -1073,7 +1062,6 @@ class MasterIlluminationCorrection(MasterImages):
             ]
 
         for idx_file in range(self.n_files):
-
             # Create figure
             fig, ax_file = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -1088,7 +1076,6 @@ class MasterIlluminationCorrection(MasterImages):
             vmin, vmax = np.percentile(cube.cube, 0.1), np.percentile(cube.cube, 99.9)
 
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
                 # Fetch current axes
                 ax = ax_file[idx_hdu]
 
