@@ -45,7 +45,6 @@ class FlatTwilight(FlatImages):
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):
-
             # Check flat sequence (at least three files, same nHDU, same NDIT,
             # and same filter)
             files.check_compatibility(
@@ -53,9 +52,9 @@ class FlatTwilight(FlatImages):
             )
 
             # Create Master name
-            outpath = "{0}MASTER-FLAT.MJD_{1:0.4f}.FIL_{2}.fits" "".format(
-                files.setup.folders["master_common"], files.mjd_mean, files.passband[0]
-            )
+            outpath = (f"{files.setup.folders['master_common']}"
+                       f"MASTER-TWILIGHT-FLAT.MJD_"
+                       f"{files.mjd_mean:0.4f}.FIL_{files.passband[0]}.fits")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
