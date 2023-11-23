@@ -24,7 +24,7 @@ class Pipeline:
         )
         self.status = PipelineStatus()
         try:
-            self.status.read(path=self.path_status)
+            self.status.load(path=self.path_status)
         except FileNotFoundError:
             pass
 
