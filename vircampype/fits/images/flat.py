@@ -25,7 +25,7 @@ class FlatTwilight(FlatImages):
     def __init__(self, setup, file_paths=None):
         super(FlatTwilight, self).__init__(setup=setup, file_paths=file_paths)
 
-    def build_master_flat(self):
+    def build_master_twilight_flat(self):
         """
         Builds a masterflat from the given flat fields. Also calculates a global gain
         harmonization which is applied to all detectors. Different filters (as reported
@@ -1028,6 +1028,16 @@ class MasterFlat(MasterImages):
                 )
                 fig.savefig(path, bbox_inches="tight")
             plt.close("all")
+
+
+class MasterTwilightFlat(MasterFlat):
+    def __init__(self, setup, file_paths=None):
+        super(MasterTwilightFlat, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class MasterSkyFlat(MasterFlat):
+    def __init__(self, setup, file_paths=None):
+        super(MasterSkyFlat, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class MasterWeight(MasterImages):
