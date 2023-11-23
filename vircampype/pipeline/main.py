@@ -569,7 +569,9 @@ class Pipeline:
                 self.update_status(master_flat=True)
             else:
                 print_message(
-                    message="MASTER-FLAT already created", kind="warning", end=None
+                    message="MASTER-TWILIGHT-FLAT already created",
+                    kind="warning",
+                    end=None,
                 )
 
     def build_master_weight_global(self):
