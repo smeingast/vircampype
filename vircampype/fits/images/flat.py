@@ -243,11 +243,11 @@ class FlatTwilight(FlatImages):
         tstart = time.time()
 
         # Get unique Master flats
-        master_flats = self.get_unique_master_flats()
+        master_flats = self.get_unique_master_twilight_flats()
 
         # Generate outpaths
         outpaths = [
-            x.replace("MASTER-FLAT", "MASTER-WEIGHT-GLOBAL")
+            x.replace("MASTER-TWILIGHT-FLAT", "MASTER-WEIGHT-GLOBAL")
             for x in master_flats.paths_full
         ]
 
