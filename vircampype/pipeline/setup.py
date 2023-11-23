@@ -180,6 +180,7 @@ class Setup(dict):
         self.pixel_scale_degrees = self.pixel_scale_arcsec / 3600
         self.__set_projection()
         self.__set_additional_source_masks()
+        self.__check_flat_type()
 
     # Fixed properties that users can't change
     @property
@@ -257,6 +258,10 @@ class Setup(dict):
             27.0,
             30.0,
         ]
+
+    def __check_flat_type(self):
+        if self.flat_type.lower() not in ["sky", "twilight"]:
+            raise PipelineError("Flat type must be either 'sky' or 'twilight'")
 
     def __set_projection(self):
 
