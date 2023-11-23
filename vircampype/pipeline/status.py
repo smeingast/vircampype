@@ -8,7 +8,7 @@ class PipelineStatus:
         master_linearity: bool = False,
         master_dark: bool = False,
         master_gain: bool = False,
-        master_flat: bool = False,
+        master_twilight_flat: bool = False,
         master_weight_global: bool = False,
         processed_raw_basic: bool = False,
         master_source_mask: bool = False,
@@ -46,7 +46,7 @@ class PipelineStatus:
         self.master_linearity = master_linearity
         self.master_dark = master_dark
         self.master_gain = master_gain
-        self.master_flat = master_flat
+        self.master_twilight_flat = master_twilight_flat
         self.master_weight_global = master_weight_global
 
         # Set science attributes
@@ -93,7 +93,7 @@ class PipelineStatus:
             "master_linearity",
             "master_dark",
             "master_gain",
-            "master_flat",
+            "master_twilight_flat",
             "master_weight_global",
             "processed_raw_basic",
             "master_source_mask",
