@@ -2,12 +2,12 @@ import os
 
 from astropy.io import fits
 from joblib import cpu_count
-from typing import Union, List, Optional
 from vircampype.pipeline.errors import *
 from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
 from vircampype.visions.projections import *
 from vircampype.miscellaneous.sourcemasks import *
+from typing import Union, List, Optional, Literal
 from vircampype.miscellaneous.projection import Projection
 
 
@@ -56,6 +56,7 @@ class Setup(dict):
     linearity_max_lag: Union[int, float] = 1
 
     # Flats
+    flat_type: Literal["sky", "twilight"] = "sky"
     flat_max_lag: Union[int, float] = 1
     flat_mask_min: bool = True
     flat_mask_max: bool = True
