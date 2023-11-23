@@ -89,8 +89,8 @@ class Setup(dict):
     # Master calibration lookup
     master_max_lag_bpm: Union[int, float] = 14
     master_max_lag_dark: Union[int, float] = 14
+    master_max_lag_twilight_flat: Union[int, float] = 14
     master_max_lag_sky: Union[int, float] = 60
-    master_max_lag_flat: Union[int, float] = 14
     master_max_lag_gain: Union[int, float] = 14
     master_max_lag_weight: Union[int, float] = 14
     master_max_lag_linearity: Union[int, float] = 14
