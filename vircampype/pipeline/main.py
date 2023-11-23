@@ -595,33 +595,24 @@ class Pipeline:
                 message="MASTER-SOURCE-MASK already created", kind="warning", end=None
             )
 
-    def build_master_sky_static(self):
-        if not self.status.master_sky_static:
-            self.processed_basic_science_and_offset.build_master_sky_static()
-            self.update_status(master_sky_static=True)
-        else:
-            print_message(
-                message="MASTER-SKY-STATIC already created", kind="warning", end=None
-            )
-
-    def build_master_sky_dynamic(self):
-        if not self.status.master_sky_dynamic:
+    def build_master_sky(self):
+        if not self.status.master_sky:
             # If mixed data is requested
             if self.setup.sky_mix_science:
-                self.processed_basic_science_and_offset.build_master_sky_dynamic()
+                self.processed_basic_science_and_offset.build_master_sky()
 
             # If no offset is present and mixing not requested, build from science
             elif self.processed_basic_offset is None:
-                self.processed_basic_science.build_master_sky_dynamic()
+                self.processed_basic_science.build_master_sky()
 
             # Otherwise build only from offset
             else:
-                self.processed_basic_offset.build_master_sky_dynamic()
+                self.processed_basic_offset.build_master_sky()
 
-            self.update_status(master_sky_dynamic=True)
+            self.update_status(master_sky=True)
         else:
             print_message(
-                message="MASTER-SKY-DYNAMIC already created", kind="warning", end=None
+                message="MASTER-SKY already created", kind="warning", end=None
             )
 
     def build_master_photometry(self):
@@ -1099,9 +1090,8 @@ class Pipeline:
         # Build static sky, source masks, dynamic sky, and master photometry
         self.build_master_photometry()
         self.build_master_astrometry()
-        self.build_master_sky_static()
         self.build_master_source_mask()
-        self.build_master_sky_dynamic()
+        self.build_master_sky()
 
         # Final science data and weight maps
         self.process_science_final()
