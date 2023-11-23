@@ -195,7 +195,7 @@ class FlatTwilight(FlatImages):
                 decimals=6,
             )
             prime_header[self.setup.keywords.date_ut] = files.time_obs_mean.fits
-            prime_header[self.setup.keywords.object] = "MASTER-FLAT"
+            prime_header[self.setup.keywords.object] = "MASTER-TWILIGHT-FLAT"
             add_int_to_header(
                 header=prime_header, key="HIERARCH PYPE N_FILES", value=len(files)
             )
