@@ -135,6 +135,7 @@ class SextractorCatalogs(SourceCatalogs):
                 "ASTREFPROPERR_KEYS",
                 "ASTREFMAG_KEY",
                 "ASTREFMAGERR_KEY",
+                "ASTREFOBSDATE_KEY",
                 "FLAGS_MASK",
                 "WEIGHTFLAGS_MASK",
                 "ASTR_FLAGSMASK",
@@ -155,6 +156,7 @@ class SextractorCatalogs(SourceCatalogs):
             f"-ASTREFPROPERR_KEYS pmra_error,pmdec_error "
             f"-ASTREFMAG_KEY mag "
             f"-ASTREFMAGERR_KEY mag_error "
+            f"-ASTREFOBSDATE_KEY obsdate "
             f"-XML_NAME {path_xml} {options}"
         )
 
