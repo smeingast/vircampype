@@ -562,10 +562,10 @@ class Pipeline:
                     message="MASTER-LINEARITY already created", kind="warning", end=None
                 )
 
-    def build_master_flat(self):
+    def build_master_twilight_flat(self):
         if self.flat_twilight is not None:
-            if not self.status.master_flat:
-                self.flat_twilight.build_master_flat()
+            if not self.status.master_twilight_flat:
+                self.flat_twilight.build_master_twilight_flat()
                 self.update_status(master_flat=True)
             else:
                 print_message(
@@ -1077,7 +1077,7 @@ class Pipeline:
         self.build_master_gain()
 
         # Master flat
-        self.build_master_flat()
+        self.build_master_twilight_flat()
 
         # Global master weight
         self.build_master_weight_global()
