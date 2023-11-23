@@ -566,7 +566,7 @@ class Pipeline:
         if self.flat_twilight is not None:
             if not self.status.master_twilight_flat:
                 self.flat_twilight.build_master_twilight_flat()
-                self.update_status(master_flat=True)
+                self.update_status(master_twilight_flat=True)
             else:
                 print_message(
                     message="MASTER-TWILIGHT-FLAT already created",
