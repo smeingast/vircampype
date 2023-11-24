@@ -785,9 +785,21 @@ class SkyImagesProcessed(SkyImages):
         # Build additional source masks
         additional_masks = self.__build_additional_masks()
 
+        # Construct final output names
+        outpaths = [
+            self.setup.folders["master_object"]
+            + f"MASTER-SOURCE-MASK.{self.mjd[i]:0.4f}.FIL_{self.passband[i]}.fits"
+            for i in range(self.n_files)
+        ]
+
+        # Check if all files exist and return if they do
+        if all([check_file_exists(file_path=oo, silent=False) for oo in outpaths]):
+            return
+
         # Start looping over detectors
         paths_temp_mask = []
         for d in self.iter_data_hdu[0]:
+
             # Make temp filename
             paths_temp_mask.append(
                 f"{self.setup.folders['temp']}"
@@ -930,15 +942,6 @@ class SkyImagesProcessed(SkyImages):
                 overwrite=True,
             )
 
-        # TODO: Remove paths_temp_mask files
-
-        # Rearrange files to make a source mask for each image
-        outpaths = [
-            self.setup.folders["master_object"]
-            + f"MASTER-SOURCE-MASK.{self.mjd[i]:0.4f}.FIL_{self.passband[i]}.fits"
-            for i in range(self.n_files)
-        ]
-
         # Load all of them into a FitsImages instance
         masks_temp = FitsImages(setup=self.setup, file_paths=paths_temp_mask)
 
@@ -947,16 +950,6 @@ class SkyImagesProcessed(SkyImages):
             # # Check if file exists
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
-
-            # # Print processing info
-            # message_calibration(
-            #     n_current=idx_file + 1,
-            #     n_total=len(self.iter_data_hdu[0]),
-            #     name=outpath,
-            #     d_current=None,
-            #     d_total=None,
-            #     silent=self.setup.silent,
-            # )
 
             # Load all masks for this file
             masks = masks_temp.hdu2cube(hdu_index=idx_file + 1, dtype=np.uint8)
@@ -985,6 +978,9 @@ class SkyImagesProcessed(SkyImages):
                 dtype=np.uint8,
                 overwrite=True,
             )
+
+        # Remove all temp files
+        [remove_file(f) for f in paths_temp_mask]
 
         # Print time
         print_message(
