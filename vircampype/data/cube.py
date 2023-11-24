@@ -817,7 +817,6 @@ class ImageCube(object):
         # In case a weighted average should be calculated (only possible with a masked
         # array)
         if (weights is not None) and (metric == "weighted"):
-
             # Weights must match input data
             if self.shape != weights.shape:
                 raise ValueError("Weights don't match input")
@@ -864,13 +863,11 @@ class ImageCube(object):
 
         # If we have an array...
         elif isinstance(norm, (np.ndarray, list)):
-
             if isinstance(norm, list):
                 norm = np.asarray(norm)
 
             # ...with one dimension
             if norm.ndim == 1:
-
                 # Dimensions must match!
                 if len(self) != len(norm):
                     raise ValueError("Normalization shape incorrect")
@@ -880,7 +877,6 @@ class ImageCube(object):
 
             # ...with more dimensions...
             else:
-
                 # ...the norm-shape must match the cube shape
                 if self.shape != norm.shape:
                     raise ValueError("Normalization cube shape incorrect")
@@ -1078,7 +1074,6 @@ class ImageCube(object):
 
         # Loop through planes and interpolate
         for plane in self:
-
             # Chop in smaller sub-regions for better performance
             chopped, loc = chop_image(
                 array=plane,
