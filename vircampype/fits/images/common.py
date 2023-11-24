@@ -930,24 +930,26 @@ class MasterImages(FitsImages):
         )
 
     @property
-    def flat(self):
+    def twilight_flat(self):
         """
-        Holds all MasterFlat images.
+        Holds all MasterTwilightFlat images.
 
         Returns
         -------
-        MasterFlat
-            All MasterFlat images as a MasterFlat instance.
+        MasterTwilightFlat
+            All MasterTwilightFlat images as a MasterTwilightFlat instance.
 
         """
 
         # Import
-        from vircampype.fits.images.flat import MasterFlat
+        from vircampype.fits.images.flat import MasterTwilightFlat
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-FLAT"]
+        index = [
+            idx for idx, key in enumerate(self.types) if key == "MASTER-TWILIGHT-FLAT"
+        ]
 
-        return MasterFlat(
+        return MasterTwilightFlat(
             setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
         )
 
@@ -981,9 +983,7 @@ class MasterImages(FitsImages):
         from vircampype.fits.images.sky import MasterSky
 
         # Get the masterbpm files
-        index = [
-            idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"
-        ]
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"]
 
         return MasterSky(
             setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
