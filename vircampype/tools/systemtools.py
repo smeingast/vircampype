@@ -259,26 +259,78 @@ def get_resource_path(package: str, resource: str):
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
 
 
-def copy_file(a: str, b: str):
+def copy_file(a: str, b: str) -> None:
+    """
+    Function that copies a file from a source path to a destination.
+
+    Parameters
+    ----------
+    a : str
+        Source file path.
+    b : str
+        Destination file path.
+
+    Returns
+    -------
+    None
+    """
     shutil.copy2(a, b)
 
 
-def remove_file(filepath: str):
+def remove_file(filepath: str) -> None:
+    """
+    Function to remove a file. If the file is not found, the function does nothing.
+
+    Parameters
+    ----------
+    filepath : str
+        The path to the file to remove.
+
+    Returns
+    -------
+    None
+    """
     try:
         os.remove(filepath)
     except OSError:
         pass
 
 
-def remove_directory(path_folder: str):
+def remove_directory(path_folder: str) -> None:
+    """
+    Function to remove a directory.
+    If the directory is not found, the function does nothing.
+
+    Parameters
+    ----------
+    path_folder : str
+        The path to the folder to remove.
+
+    Returns
+    -------
+    None
+    """
     try:
         shutil.rmtree(path_folder)
     except FileNotFoundError:
         pass
 
 
-def clean_directory(directorypath: str, pattern: str = "*"):
-    """Function to remove files in a directory, following a name pattern."""
+def clean_directory(directorypath: str, pattern: str = "*") -> None:
+    """
+    Function to remove files in a directory, following a name pattern.
+
+    Parameters
+    ----------
+    directorypath : str
+        The directory that needs to be cleaned.
+    pattern : str, optional
+        The name pattern to match file names. Default is "*", matching all files.
+
+    Returns
+    -------
+    None
+    """
     if not directorypath.endswith("/"):
         directorypath = directorypath + "/"
     for f in glob.glob(directorypath + pattern):
