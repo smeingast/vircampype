@@ -29,24 +29,39 @@ __all__ = [
 ]
 
 
-def make_folder(path: str):
-    """Creates folder at specified path."""
+def make_folder(path: str) -> None:
+    """
+    Creates a folder at the specified path.
+
+    Parameters
+    ----------
+    path : str
+        Path where the new folder should be created.
+
+    Returns
+    -------
+    None
+    """
     if not os.path.exists(path):
         os.makedirs(path)
 
 
-def which(program: str):
+def which(program: str) -> str:
     """
-    Returns the path for an arbitrary executable shell program defined in the PAHT
+    Returns the path for an arbitrary executable shell program defined in the PATH
     environment variable.
 
     Parameters
     ----------
     program : str
-        Shell binary name
+        Shell binary name.
 
+    Returns
+    -------
+    str
+        The full path to the executable shell program. If the program is not found,
+        returns an informative message.
     """
-    import os
 
     # Check if path contains file and is executable
     def is_exe(f_path):
@@ -73,16 +88,32 @@ def which(program: str):
                 return exe_file
 
     # If we don't find anything, we return None
-    return None
+    return f"No executable found for specified program {program}."
 
 
 def read_yml(path_yml: str):
+    """
+    Reads a YAML file and returns its content.
+
+    Parameters
+    ----------
+    path_yml : str
+        Path to the YAML file to read.
+
+    Returns
+    -------
+    object
+        The data from the YAML file. Could be a list, dict, etc.
+        Depending on the YAML contents. If an error occurs during reading,
+        None is returned.
+    """
     # Read YAML
     with open(path_yml, "r") as stream:
         try:
             return yaml.full_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
+            return None
 
 
 def yml2config(path_yml: str, skip=None, **kwargs):
