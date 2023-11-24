@@ -66,7 +66,6 @@ class FitsImages(FitsFiles):
 
     @property
     def texptime(self):
-
         # Check if already determined
         if self._texptime is not None:
             return self._texptime
@@ -591,7 +590,6 @@ class FitsImages(FitsFiles):
 
         # Now get the closest in time for each entry
         for f, idx in zip(self, indices):
-
             # Construct FitsFiles class
             a = self.__class__(setup=self.setup, file_paths=[f])
             b = match_to.__class__(
@@ -641,14 +639,12 @@ class FitsImages(FitsFiles):
 
         # Now get the closest in time for each entry
         for f, idx in zip(self, indices):
-
             # Issue error if no files can be found
             if len(idx) < 1:
                 raise ValueError("Could not find matching filter")
 
             # Otherwise append closest in time
             else:
-
                 # Construct FitsFiles class
                 a = self.__class__(setup=self.setup, file_paths=[f])
                 b = match_to.__class__(
@@ -805,7 +801,6 @@ class FitsImages(FitsFiles):
         raise ValueError("Not all images have weights")
 
     def get_master_weight_image(self):
-
         # Import
         from vircampype.fits.images.flat import MasterWeight
 
@@ -958,7 +953,6 @@ class MasterImages(FitsImages):
 
     @property
     def source_mask(self):
-
         # Import
         from vircampype.fits.images.sky import MasterSourceMask
 
