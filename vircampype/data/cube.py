@@ -1025,6 +1025,7 @@ class ImageCube(object):
             cube_destripe_avg.cube[12:16] -= np.expand_dims(destripe_13_16, axis=1)
 
         # Loop over planes
+        # TODO: Replace all bad rows with average destriping instead of full planes?
         for idx, bad in enumerate(bad_planes):
             if force_combine_planes:
                 self.cube[idx] = cube_destripe_avg[idx]
