@@ -706,30 +706,31 @@ class FitsImages(FitsFiles):
             ignore_dit=ignore_dit,
         )
 
-    def get_master_flat(self):
+    def get_master_twilight_flat(self):
         """
         Get for each file in self the corresponding MasterFlat.
 
         Returns
         -------
-        MasterFlat
-            MasterFlat instance holding for each file in self the corresponding
-            Masterflat file.
+        MasterTwilightFlat
+            MasterTwilightFlat instance holding for each file in self the corresponding
+            MasterTwilightFlat file.
 
         """
 
         # Match and return
         return self.match_passband(
-            match_to=self.get_master_images().flat,
-            max_lag=self.setup.master_max_lag_flat,
+            match_to=self.get_master_images().twilight_flat,
+            max_lag=self.setup.master_max_lag_twilight_flat,
         )
 
-    def get_unique_master_flats(self):
-        """Returns unique Master Flats as MasterFlat instance."""
-        from vircampype.fits.images.flat import MasterFlat
+    def get_unique_master_twilight_flats(self):
+        """Returns unique master twilight flats as MasterTwilightFlat instance."""
+        from vircampype.fits.images.flat import MasterTwilightFlat
 
-        return MasterFlat(
-            setup=self.setup, file_paths=list(set(self.get_master_flat().paths_full))
+        return MasterTwilightFlat(
+            setup=self.setup,
+            file_paths=list(set(self.get_master_twilight_flat().paths_full)),
         )
 
     def get_master_source_mask(self):
