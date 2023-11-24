@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import importlib
 
+from typing import List
 from itertools import zip_longest
 
 __all__ = [
@@ -76,7 +77,6 @@ def which(program: str):
 
 
 def read_yml(path_yml: str):
-
     # Read YAML
     with open(path_yml, "r") as stream:
         try:
@@ -113,7 +113,6 @@ def yml2config(path_yml: str, skip=None, **kwargs):
     # Loop over setup and construct command
     s = ""
     for key, val in setup.items():
-
         # Skip if set
         if skip is not None:
             if key.lower() in [s.lower() for s in skip]:
@@ -136,7 +135,6 @@ def yml2config(path_yml: str, skip=None, **kwargs):
 
 
 def cmd_prepend_libraries(cmd: str):
-
     # Get system environment
     sys_env = os.environ.copy()
 
@@ -150,8 +148,10 @@ def cmd_prepend_libraries(cmd: str):
         # This is a silly workaround because DYLD_LIBRARY_PATH is for some reason
         # not in sys_env even though it should be defined.
         else:
-            dyld_library_path = "/opt/intel/oneapi/compiler/latest/mac/compiler/" \
-                                "lib:/opt/intel/oneapi/mkl/latest/lib:"
+            dyld_library_path = (
+                "/opt/intel/oneapi/compiler/latest/mac/compiler/"
+                "lib:/opt/intel/oneapi/mkl/latest/lib:"
+            )
             cmd = f"export DYLD_LIBRARY_PATH={dyld_library_path} && {cmd}"
 
     return cmd
@@ -344,25 +344,71 @@ def notify(
     sound: str = "default",
     open_url: str = None,
     ignore_dnd: bool = False,
-):
-    """macOS notification wrapper built around terminal-notifier"""
+) -> None:
+    """
+    macOS notification wrapper built around terminal-notifier.
+
+    Parameters
+    ----------
+    message : str
+        The message to display in the notification.
+    title : str, optional
+        The title of the notification. Default is None.
+    subtitle : str, optional
+        The subtitle of the notification. Default is None.
+    sound : str, optional
+        The sound to play with the notification. Default is "default".
+    open_url : str, optional
+        The URL to open when the notification is clicked. Default is None.
+    ignore_dnd : bool, optional
+        If True, the notification will bypass Do Not Disturb mode. Default is False.
+
+    Returns
+    -------
+    None
+    """
     me = "-message {!r}".format(message)
     ti = "-title {!r}".format(title) if title is not None else ""
     su = "-subtitle {!r}".format(subtitle) if subtitle is not None else ""
     so = "-sound {!r}".format(sound) if sound is not None else ""
     op = "-open {!r}".format(open_url) if open_url is not None else ""
     ig = "-ignoreDnD" if ignore_dnd else ""
-    print("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
     os.system("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
 
 
-def make_symlinks(paths_files, paths_links):
+def make_symlinks(paths_files: List[str], paths_links: List[str]) -> None:
+    """
+    Create symbolic links for all items in paths_files to corresponding paths in
+    paths_links
+
+    Parameters
+    ----------
+    paths_files : List[str]
+        List of source paths.
+    paths_links : List[str]
+        List of destination paths for the symbolic links.
+
+    Returns
+    -------
+    None
+    """
     for pp, ll in zip(paths_files, paths_links):
         if not os.path.isfile(ll):
             os.symlink(pp, ll)
 
 
-def make_executable(path: str):
-    """Makes file executable"""
+def make_executable(path: str) -> None:
+    """
+    Make a file executable.
+
+    Parameters
+    ----------
+    path : str
+        Path to the file to make executable
+
+    Returns
+    -------
+    None
+    """
     st = os.stat(path)
     os.chmod(path, st.st_mode | stat.S_IEXEC)
