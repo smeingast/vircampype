@@ -91,7 +91,7 @@ def which(program: str) -> str:
     return f"No executable found for specified program {program}."
 
 
-def read_yml(path_yml: str):
+def read_yml(path_yml: str) -> dict:
     """
     Reads a YAML file and returns its content.
 
@@ -102,7 +102,7 @@ def read_yml(path_yml: str):
 
     Returns
     -------
-    object
+    dict
         The data from the YAML file. Could be a list, dict, etc.
         Depending on the YAML contents. If an error occurs during reading,
         None is returned.
@@ -113,7 +113,7 @@ def read_yml(path_yml: str):
             return yaml.full_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-            return None
+            raise ValueError(f"Could not read YAML file at {path_yml}.")
 
 
 def yml2config(path_yml: str, skip=None, **kwargs):
