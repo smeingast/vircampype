@@ -116,7 +116,7 @@ def read_yml(path_yml: str) -> dict:
             raise ValueError(f"Could not read YAML file at {path_yml}.")
 
 
-def yml2config(path_yml: str, skip=None, **kwargs):
+def yml2config(path_yml: str, skip=None, **kwargs) -> str:
     """
     Reads a YML file at a given path and converts the entries to a string that can be
     passed to astromatic tools.
@@ -165,12 +165,34 @@ def yml2config(path_yml: str, skip=None, **kwargs):
     return s
 
 
-def cmd_prepend_libraries(cmd: str):
+def cmd_prepend_libraries(cmd: str) -> str:
+    """
+    Prepends libraries to the command based on the system environment.
+
+    Parameters
+    ----------
+    cmd : str
+        The command to which libraries are to be prepended.
+
+    Returns
+    -------
+    str
+        The modified command with libraries prepended.
+        If system is MacOS (darwin) and LD_LIBRARY_PATH or DYLD_LIBRARY_PATH
+        are in the system environment, these are prepended to the command.
+        If DYLD_LIBRARY_PATH is not in the system environment, a fallback is used.
+
+    Notes
+    -----
+    This function serves as a workaround for a known issue on macOS systems
+    where dynamic libraries need to be manually appended.
+    Ref: https://stackoverflow.com/questions/48657710/
+    """
+
     # Get system environment
     sys_env = os.environ.copy()
 
     # If in a Mac, we need to append the dynamic libraries manually
-    # https://stackoverflow.com/questions/48657710/dyld-library-path-and-ld-library-path-cannot-be-used-by-pythons-os-and-subproce
     if sys.platform == "darwin":
         if "LD_LIBRARY_PATH" in sys_env:
             cmd = f"export LD_LIBRARY_PATH={sys_env['LD_LIBRARY_PATH']} && {cmd}"
@@ -265,7 +287,7 @@ def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
         subprocess.run(cmd, shell=True, executable=which(shell))
 
 
-def get_resource_path(package: str, resource: str):
+def get_resource_path(package: str, resource: str) -> str:
     """
     Returns the path to an included resource.
 
