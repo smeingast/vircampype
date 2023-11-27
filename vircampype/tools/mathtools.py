@@ -3,6 +3,7 @@ import numpy as np
 
 from astropy.units import Unit
 from fractions import Fraction
+from typing import Union, Callable
 from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
@@ -29,8 +30,12 @@ __all__ = [
 
 
 def apply_sigma_clip(
-    data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0
-):
+    data: np.ndarray,
+    sigma_level: Union[int, float] = 3,
+    sigma_iter: int = 1,
+    center_metric: Callable = np.nanmedian,
+    axis: int = 0
+) -> np.ndarray:
     """
     Performs sigma clipping of data.
 
