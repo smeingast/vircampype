@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List
+from typing import List, Callable, Any
 
 __all__ = [
     "string2list",
@@ -43,7 +43,28 @@ for i in np.arange(1, 30):
     numpy2fits[f"U{i}"] = f"{i}A"
 
 
-def string2func(s):
+def string2func(s: str) -> Callable:
+    """
+    Converts a string to a corresponding statistical function.
+
+    The allowed input functions are "median", "mean", "clipped_median" and
+    "clipped_mean". Input is case-insensitive.
+
+    Parameters
+    ----------
+    s : str
+        Input string representing a function name.
+
+    Returns
+    -------
+    Callable
+        Corresponding statistical function.
+
+    Raises
+    ------
+    ValueError
+        If input string does not correspond to an allowed function.
+    """
 
     # Import
     from vircampype.tools.mathtools import clipped_median, clipped_mean
@@ -57,7 +78,7 @@ def string2func(s):
     if s.lower() == "clipped_mean":
         return clipped_mean
     else:
-        raise ValueError("Metric '{0}' not suppoerted".format(s))
+        raise ValueError(f"Metric '{s}' not supported")
 
 
 def func2string(func):
@@ -82,8 +103,22 @@ def func2string(func):
         return "mean"
 
 
-def flat_list(inlist):
-    """Flattens a list with sublists."""
+def flat_list(inlist: List[List[Any]]) -> List[Any]:
+    """
+    Flattens a list with sublists.
+
+    Parameters
+    ----------
+    inlist : List[List[Any]]
+        The input list of lists to be flattened.
+
+    Returns
+    -------
+    List[Any]
+        A flattened list where each element of the sublists is now an
+        element of a single list.
+    """
+
     return [item for sublist in inlist for item in sublist]
 
 
