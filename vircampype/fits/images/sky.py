@@ -9,6 +9,7 @@ import numpy as np
 from astropy.io import fits
 from skimage.draw import disk
 from astropy.table import Table
+from skimage.morphology import square
 from vircampype.external.mmm import mmm
 from vircampype.tools.wcstools import *
 from vircampype.tools.plottools import *
@@ -21,8 +22,8 @@ from vircampype.tools.systemtools import *
 from vircampype.tools.viziertools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
-from skimage.morphology import square, closing
 from vircampype.tools.astromatic import SwarpSetup
+from scipy.ndimage.morphology import binary_closing
 from vircampype.tools.imagetools import upscale_image
 from vircampype.tools.astromatic import SextractorSetup
 from vircampype.miscellaneous.sourcemasks import SourceMasks
@@ -799,7 +800,6 @@ class SkyImagesProcessed(SkyImages):
         # Start looping over detectors
         paths_temp_mask = []
         for d in self.iter_data_hdu[0]:
-
             # Make temp filename
             paths_temp_mask.append(
                 f"{self.setup.folders['temp']}"
@@ -927,9 +927,10 @@ class SkyImagesProcessed(SkyImages):
                 # Apply closing operation if set
                 if self.setup.source_mask_closing:
                     for pidx, plane in enumerate(mask_sources):
-                        mask_sources.cube[pidx] = closing(
+                        mask_sources.cube[pidx] = binary_closing(
                             plane,
-                            footprint=square(self.setup.source_masks_closing_size),
+                            structure=square(self.setup.source_masks_closing_size),
+                            iterations=self.setup.source_masks_closing_iter,
                         )
 
                 # Add additional masks to source masks
