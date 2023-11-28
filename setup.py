@@ -2,14 +2,10 @@ import sys
 from vircampype import __version__
 from setuptools import setup, find_packages
 
-# Require Python 3
-if sys.version_info < (3, 7):
-    sys.exit("Sorry, Python < 3.7 is not supported")
-
-
 setup(
     name="vircampype",
     version=__version__,
+    python_requires='>=3.11',
     install_requires=[
         "numpy>=1.17",
         "scipy>=1.3",
