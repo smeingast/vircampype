@@ -1197,8 +1197,12 @@ class ImageCube(object):
                 f"--hdu {i} "
                 f"-o {pto} "
                 f"-N 1 "
-                f"-q --rawoutput --cleangrowndet --qthresh 0.8 --erode 2 "
-                f"--detgrowquant 1.0 --tilesize=64,64  --meanmedqdiff 0.01"
+                f"-q --rawoutput --cleangrowndet "
+                f"--qthresh {self.setup.noisechisel_qthresh} "
+                f"--erode {self.setup.noisechisel_erode} "
+                f"--detgrowquant {self.setup.noisechisel_detgrowquant} "
+                f"--tilesize={self.setup.noisechisel_tilesize} "
+                f"--meanmedqdiff {self.setup.noisechisel_meanmedqdiff}"
             )
             for i, pto in zip(range(1, len(self) + 1), paths_temp_noisechisel)
         ]
