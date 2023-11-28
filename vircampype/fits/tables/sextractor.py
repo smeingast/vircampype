@@ -1317,7 +1317,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             phot_median, phot_err, photerr_median = self._photerr_internal_all()
 
             # Get the 5% brightest sources
-            good = phot_median >= self.setup.reference_mag_lim[0]
+            good = phot_median >= self.setup.reference_mag_lo
             idx_bright = phot_median[good] < np.percentile(phot_median[good], 5)
 
             # Determine interal photometric error
