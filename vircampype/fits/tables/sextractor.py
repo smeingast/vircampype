@@ -2104,7 +2104,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from vircampype.fits.tables.sources import MasterPhotometry2Mass
 
         master_phot = self.get_master_photometry()  # type: MasterPhotometry2Mass
-        mag_limit = self.setup.reference_mag_lim[0]
+        mag_limit = self.setup.reference_mag_lo
         if not hasattr(mag_limit, "unit"):
             mag_limit *= Unit("mag")
 
