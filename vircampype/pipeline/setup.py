@@ -6,14 +6,13 @@ from vircampype.pipeline.errors import *
 from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
 from vircampype.visions.projections import *
-from vircampype.miscellaneous.sourcemasks import *
 from typing import Union, List, Optional, Literal
+from vircampype.miscellaneous.sourcemasks import *
 from vircampype.miscellaneous.projection import Projection
 
 
 @dataclass
 class Setup(dict):
-
     # Pipeline setup
     name: str = None
     path_data: str = None
@@ -33,10 +32,38 @@ class Setup(dict):
     source_classification: bool = False
     archive: bool = False
 
-    # Data setup
-    pixel_scale_arcsec: Union[int, float] = 1 / 3
-    maximask: bool = False
+    # Phase 3
+    compress_phase3: bool = True
+    fpack_quantization_factor: int = 16
+
+    # Optional processing steps
+    destripe: bool = True
+    interpolate_nan: bool = True
+    interpolate_max_bad_neighbors: int = 3
+
+    # Projection
     projection: Optional[Union[str, Projection]] = None
+
+    # Astrometry
+    warp_gaia: bool = True
+    external_headers: bool = False
+
+    # Photometry
+    phot_reference_catalog: Literal["2MASS"] = "2MASS"
+    reference_mag_lo: Union[int, float] = None
+    reference_mag_hi: Union[int, float] = None
+    target_zp: float = 25.0
+    illumination_correction_mode: Literal["variable", "constant"] = "variable"
+    photometric_error_floor: float = 0.005
+
+    # Master calibration lookup
+    master_max_lag_bpm: Union[int, float] = 14
+    master_max_lag_dark: Union[int, float] = 14
+    master_max_lag_twilight_flat: Union[int, float] = 14
+    master_max_lag_sky: Union[int, float] = 60
+    master_max_lag_gain: Union[int, float] = 14
+    master_max_lag_weight: Union[int, float] = 14
+    master_max_lag_linearity: Union[int, float] = 14
 
     # Bad pixel masks
     bpm_max_lag: Union[int, float] = 1
@@ -47,7 +74,7 @@ class Setup(dict):
     dark_max_lag: Union[int, float] = 1
     dark_mask_min: bool = True
     dark_mask_max: bool = True
-    dark_metric: str = "mean"
+    dark_metric: Literal["mean", "median", "clipped_mean", "clipped_median"] = "mean"
 
     # Gain
     gain_max_lag: Union[int, float] = 1
@@ -64,37 +91,36 @@ class Setup(dict):
     flat_rel_hi: Union[int, float] = 1.7
     flat_sigma_level: Union[int, float] = 3
     flat_sigma_iter: int = 1
-    flat_metric: str = "weighted"
+    __flmet = Literal["weighted", "mean", "median", "clipped_mean", "clipped_median"]
+    flat_metric: __flmet = "weighted"
 
     # Weights
-    weight_mask_abs_max: Union[int, float] = 1.7
     weight_mask_abs_min: Union[int, float] = 0.3
-    weight_mask_rel_max: Union[int, float] = 1.5
+    weight_mask_abs_max: Union[int, float] = 1.7
     weight_mask_rel_min: Union[int, float] = 0.5
+    weight_mask_rel_max: Union[int, float] = 1.5
+    build_individual_weights_maximask: bool = False
 
     # Source masks
     mask_2mass_sources: bool = True
     additional_source_masks: Optional[Union[str, SourceMasks]] = None
-    source_mask_method: str = "noisechisel"
-    source_masks_niter: int = 3
+    source_mask_method: Literal["noisechisel", "built-in"] = "noisechisel"
+    source_masks_n_min: int = 5
+    source_masks_n_iter: int = 2
     source_mask_closing: bool = True
     source_masks_closing_size: int = 5
-    # Noisechisel setup
-    # ...
-    # Internal source detection setup
+    source_masks_closing_iter: int = 2
+    # Noisechisel setup for source masks
+    noisechisel_qthresh: float = 0.8
+    noisechisel_erode: int = 2
+    noisechisel_detgrowquant: float = 1.0
+    noisechisel_tilesize: str = "64,64"
+    noisechisel_meanmedqdiff: float = 0.01
+    # Built-in setup for source masks
     mask_sources_thresh: Union[int, float] = 3
     mask_sources_min_area: Union[int, float] = 3
     mask_sources_max_area: Union[int, float] = 250000
     mask_bright_sources: bool = True
-
-    # Master calibration lookup
-    master_max_lag_bpm: Union[int, float] = 14
-    master_max_lag_dark: Union[int, float] = 14
-    master_max_lag_twilight_flat: Union[int, float] = 14
-    master_max_lag_sky: Union[int, float] = 60
-    master_max_lag_gain: Union[int, float] = 14
-    master_max_lag_weight: Union[int, float] = 14
-    master_max_lag_linearity: Union[int, float] = 14
 
     # Sky
     sky_n_min: int = 5
@@ -106,16 +132,20 @@ class Setup(dict):
     sky_rel_hi: Union[int, float] = 1.7
     sky_sigma_level: Union[int, float] = 3
     sky_sigma_iter: int = 1
-    sky_combine_metric: str = "weighted"
+    __skymet = Literal["weighted", "mean", "median", "clipped_mean", "clipped_median"]
+    sky_combine_metric: __skymet = "weighted"
 
-    # Processing
+    # Background model
     subtract_background: bool = True
     background_mesh_size: int = 64
     background_mesh_filtersize: int = 3
-    destripe: bool = True
-    interpolate_nan: bool = True
-    interpolate_max_bad_neighbors: int = 3
+
+    # Statistics images
     image_statistics_resize_factor: Union[int, float] = 0.25
+
+    # Sextractor
+    sex_back_size: int = 64
+    sex_back_filtersize: int = 3
 
     # Binary names
     bin_sex: str = "sex"
@@ -125,33 +155,10 @@ class Setup(dict):
     bin_noisechisel: str = "astnoisechisel"
     bin_stilts: str = "stilts"
 
-    # Astromatic
-    swarp_back_size: int = 384
-    swarp_back_filtersize: int = 3
-    sex_back_size: int = 64
-    sex_back_filtersize: int = 3
-
-    # Astrometry
-    astr_reference_catalog: str = "GAIA"
-    warp_gaia: bool = True
-    external_headers: bool = False
-
-    # Photometry
-    phot_reference_catalog: str = "2MASS"
-    reference_mag_lim: tuple = None
-    target_zp: float = 25.0
-    ic_mode: str = "variable"
-    photerr_internal: float = 0.005
-
     # Folders
     folders: dict = None
 
-    # Phase 3
-    compress_phase3: bool = True
-    fpack_quantization_factor: int = 16
-
     def __post_init__(self):
-
         # Simple setup check
         if self.name is None:
             raise PipelineError("Pipeline setup needs a name")
@@ -177,7 +184,6 @@ class Setup(dict):
         self.path_coadd_header = self.path_coadd.replace(".fits", ".ahead")
 
         # Other
-        self.pixel_scale_degrees = self.pixel_scale_arcsec / 3600
         self.__set_projection()
         self.__set_additional_source_masks()
         self.__check_flat_type()
@@ -204,22 +210,22 @@ class Setup(dict):
     def __default_saturation_levels(self) -> List[float]:
         """Saturation levels for each detector."""
         return [
-            33000.,
-            32000.,
-            33000.,
-            32000.,
-            24000.,
-            24000.,
-            35000.,
-            33000.,
-            35000.,
-            35000.,
-            37000.,
-            34000.,
-            33000.,
-            35000.,
-            34000.,
-            34000.,
+            33000.0,
+            32000.0,
+            33000.0,
+            32000.0,
+            24000.0,
+            24000.0,
+            35000.0,
+            33000.0,
+            35000.0,
+            35000.0,
+            37000.0,
+            34000.0,
+            33000.0,
+            35000.0,
+            34000.0,
+            34000.0,
         ]
 
     @property
@@ -264,7 +270,6 @@ class Setup(dict):
             raise PipelineError("Flat type must be either 'sky' or 'twilight'")
 
     def __set_projection(self):
-
         # If the atrtibute is already a Projection instance, do nothing
         if isinstance(self.projection, Projection):
             return
@@ -333,7 +338,6 @@ class Setup(dict):
             )
 
     def __set_additional_source_masks(self):
-
         # If given as a dict manually, do nothing
         if isinstance(self.additional_source_masks, dict):
             return
@@ -407,7 +411,6 @@ class Setup(dict):
             raise ValueError("Please provide a pipeline setup")
 
     def __add_folder_tree(self):
-
         """Adds pipeline folder tree to setup."""
         self.folders["pype"] = self.path_pype
         self.folders["raw"] = self.path_data
@@ -498,7 +501,6 @@ class Setup(dict):
 
     @property
     def dict(self):
-
         # Get complete dict
         dd = asdict(self)
 
