@@ -940,13 +940,13 @@ class Pipeline:
                 build_phase3_stacks(
                     stacks_images=self.stacks,
                     stacks_catalogs=self.sources_stacks_cal,
-                    mag_saturation=self.setup.reference_mag_lim[0],
+                    mag_saturation=self.setup.reference_mag_lo,
                 )
             if self.setup.build_tile:
                 build_phase3_tile(
                     tile_image=self.tile,
                     tile_catalog=self.sources_tile_cal,
-                    mag_saturation=self.setup.reference_mag_lim[0],
+                    mag_saturation=self.setup.reference_mag_lo,
                     pawprint_images=self.resampled,
                 )
             # if self.setup.compress_phase3:
