@@ -361,7 +361,8 @@ def pixelscale_from_header(header: fits.Header) -> float:
         If the CUNIT1 or CUNIT2 of the CD matrix are not in degrees.
     """
     assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
-    return np.sqrt(header["CD1_1"] ** 2 + header["CD2_1"] ** 2)
+    determinant = header["CD1_1"]*header["CD2_2"] - header["CD1_2"]*header["CD2_1"]
+    return np.sqrt(abs(determinant))
 
 
 def rotationangle_from_header(header: fits.Header, degrees: bool = True) -> float:
