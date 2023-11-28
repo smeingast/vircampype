@@ -1379,7 +1379,10 @@ class SkyImagesProcessed(SkyImages):
                 temp_cube.apply_masks(sources=sources)
 
                 # Compute background and sigma
-                bg, bgsig = temp_cube.background()
+                bg, bgsig = temp_cube.background(
+                    mesh_size=self.setup.background_mesh_size,
+                    mesh_filtersize=self.setup.background_mesh_filtersize,
+                )
 
                 # Save to temp file
                 # path_temp = f"{self.setup.folders['temp']}temp_background.fits"
