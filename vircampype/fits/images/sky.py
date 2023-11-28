@@ -858,7 +858,7 @@ class SkyImagesProcessed(SkyImages):
                     aa, bb = disk((sy, sx), ss, shape=(naxis2, naxis1))
                     mask_additional.cube[idx_file][aa, bb] = True
 
-            for i in range(self.setup.source_masks_niter):
+            for i in range(self.setup.source_masks_n_iter):
                 # Copy original array
                 cube_masked = cube_raw.copy()
                 cube_raw_temp = cube_raw.copy()
