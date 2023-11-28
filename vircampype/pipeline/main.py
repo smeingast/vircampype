@@ -962,7 +962,7 @@ class Pipeline:
             # Read systematic astrometric error
             # pherr = 0.005 * Unit("mag")
             self.sources_tile_cal.build_public_catalog(
-                photerr_internal=self.setup.photerr_internal * Unit("mag"),
+                photerr_internal=self.setup.photometric_error_floor * Unit("mag"),
             )
             self.update_status(public_catalog=True)
 
