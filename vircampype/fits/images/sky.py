@@ -1586,7 +1586,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         ]
 
         # MaxiMasking
-        if self.setup.maximask:
+        if self.setup.build_individual_weights_maximask:
             # Build commands for MaxiMask
             bin_mm = which("maximask")
             if bin_mm is None:
@@ -1674,7 +1674,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Make primary header
             prime_header = fits.Header()
             prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
-            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = self.setup.maximask
+            prime_header[
+                "HIERARCH PYPE SETUP MAXIMASK"
+            ] = self.setup.build_individual_weights_maximask
             prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][
                 self.setup.keywords.date_mjd
             ]
