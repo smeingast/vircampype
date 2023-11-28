@@ -319,10 +319,10 @@ class SkyImages(FitsImages):
             # Get percentiles image quality measurements
             fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
             fwhm_lo = round_decimals_down(
-                np.nanpercentile(fwhms, 0.5) * self.setup.pixel_scale_arcsec, decimals=2
+                np.nanpercentile(fwhms, 0.5) * (1 / 3), decimals=2
             )
             fwhm_hi = round_decimals_up(
-                np.nanpercentile(fwhms, 99.5) * self.setup.pixel_scale_arcsec,
+                np.nanpercentile(fwhms, 99.5) * (1 / 3),
                 decimals=2,
             )
 
@@ -1733,7 +1733,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                     proj_code="ZEA",
                     rotation=np.deg2rad(rot),
                     enlarge=0.5,
-                    cdelt=self.setup.pixel_scale_degrees,
+                    cdelt=(1 / 3) / 3600,
                 )
                 area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
 
@@ -1745,7 +1745,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 enlarge=1.0,
                 rotation=np.deg2rad(np.round(rotation, 2)),
                 round_crval=True,
-                cdelt=self.setup.pixel_scale_degrees,
+                cdelt=(1 / 3) / 3600,
             )
 
         # Dummy check
