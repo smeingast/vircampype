@@ -201,7 +201,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         tuple
             Tuple with upper and lower magnitude limits.
         """
-        if self.setup.reference_mag_lim is not None:
+        if None not in (self.setup.reference_mag_lo, self.setup.reference_mag_hi):
             return self.setup.reference_mag_lo, self.setup.reference_mag_hi
 
         # In case this is not given in the setup, default to standard values for bands
