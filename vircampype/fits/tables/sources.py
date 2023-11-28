@@ -1,6 +1,7 @@
 import numpy as np
 
 from astropy.time import Time
+from typing import Tuple, List
 from astropy.coordinates import SkyCoord
 from vircampype.fits.tables.common import FitsTables
 
@@ -38,13 +39,13 @@ class SourceCatalogs(FitsTables):
     _ra = None
 
     @property
-    def ra(self):
+    def ra(self) -> List[List[float]]:
         """
         Extracts all RA entries in tables.
 
         Returns
         -------
-        iterable
+        List
             List of lists containing RAs
 
         """
@@ -60,13 +61,13 @@ class SourceCatalogs(FitsTables):
     _dec = None
 
     @property
-    def dec(self):
+    def dec(self) -> List[List[float]]:
         """
         Extracts all RA entries in tables.
 
         Returns
         -------
-        iterable
+        List
             List of lists containing RAs
 
         """
@@ -192,14 +193,25 @@ class MasterPhotometry2Mass(MasterPhotometry):
         else:
             raise ValueError("Passband '{0}' not defined".format(passband))
 
-    def mag_lim(self, passband):
+    def mag_lim(self, passband: str) -> Tuple[float, float]:
         """
         Fetches magnitude limits in setup.
+
+        Parameters
+        ----------
+        passband : str
+            The passband for which to fetch the magnitude limits.
 
         Returns
         -------
         tuple
-            Tuple with upper and lower magnitude limits.
+            Tuple with lower and upper magnitude limits.
+
+        Raises
+        ------
+        ValueError
+            If the passband is not available.
+
         """
         if None not in (self.setup.reference_mag_lo, self.setup.reference_mag_hi):
             return self.setup.reference_mag_lo, self.setup.reference_mag_hi
