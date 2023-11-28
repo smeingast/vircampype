@@ -1382,16 +1382,16 @@ class ImageCube(object):
         # Return
         return np.asarray(back), np.asarray(back_sig)
 
-    def background(self, mesh_size=None, mesh_filtersize=None):
+    def background(self, mesh_size, mesh_filtersize):
         """
         Creates background and noise cubes.
 
         Parameters
         ----------
-        mesh_size : int, optional
-            Requested mesh size in pixels. Defaults to value in setup.
-        mesh_filtersize : int, optional
-            2D median filter size for meshes. Defaults to value in setup.
+        mesh_size : int
+            Requested mesh size in pixels.
+        mesh_filtersize : int
+            2D median filter size for meshes.
 
         Returns
         -------
@@ -1399,12 +1399,6 @@ class ImageCube(object):
             Tuple of ImageCubes (background, noise)
 
         """
-        # Set defaults if not specified otherwise
-        if mesh_size is None:
-            mesh_size = self.setup.background_mesh_size
-        if mesh_filtersize is None:
-            mesh_filtersize = self.setup.background_mesh_filtersize
-
         # Submit parallel jobs for background estimation in each cube plane
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
