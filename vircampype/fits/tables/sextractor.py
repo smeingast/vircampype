@@ -468,14 +468,14 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
 
                 # Compute zero point depending on IC mode
-                if self.setup.ic_mode == "variable":
+                if self.setup.illumination_correction_mode == "variable":
                     method = "all"
-                elif self.setup.ic_mode == "constant":
+                elif self.setup.illumination_correction_mode == "constant":
                     method = "weighted"
                 else:
                     raise ValueError(
                         f"IC mode must be either 'variable' or 'constant', "
-                        f"not {self.setup.ic_mode}"
+                        f"not {self.setup.illumination_correction_mode}"
                     )
                 zp_all = get_zeropoint(
                     skycoord1=SkyCoord(tab[self.key_ra], tab[self.key_dec], unit="deg"),
@@ -489,7 +489,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
 
                 # Compute illumination correction
-                if self.setup.ic_mode == "variable":
+                if self.setup.illumination_correction_mode == "variable":
                     # Remove all table entries without ZP entry
                     tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
 
