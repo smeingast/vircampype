@@ -776,7 +776,7 @@ class SkyImagesProcessed(SkyImages):
         tstart = time.time()
 
         self.check_compatibility(
-            n_files_min=self.setup.sky_n_min, n_hdu_max=1, n_filter_max=1
+            n_files_min=self.setup.source_masks_n_min, n_hdu_max=1, n_filter_max=1
         )
 
         # Fetch master BPM
