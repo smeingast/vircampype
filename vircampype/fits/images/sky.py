@@ -916,8 +916,13 @@ class SkyImagesProcessed(SkyImages):
                 # Run source detection
                 if self.setup.source_mask_method.lower() == "noisechisel":
                     mask_sources = cube_raw_temp.build_source_masks_noisechisel()
-                else:
+                elif self.setup.source_mask_method.lower() == "built-in":
                     mask_sources = cube_raw_temp.build_source_masks()
+                else:
+                    raise ValueError(
+                        f"Source masking method "
+                        f"'{self.setup.source_mask_method}' not supported"
+                    )
 
                 # Apply closing operation if set
                 if self.setup.source_mask_closing:
