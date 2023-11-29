@@ -1,3 +1,4 @@
+import numpy as np
 from regions import Regions
 from astropy.units import Unit, Quantity
 from scipy.interpolate import interp1d
@@ -17,7 +18,7 @@ __all__ = [
 
 
 class SourceMasks:
-    def __init__(self, regions):
+    def __init__(self, regions, name=""):
         """
         Source mask base class.
 
@@ -28,6 +29,7 @@ class SourceMasks:
         """
 
         self.regions = regions
+        self.name = name
 
     @property
     def ra(self):
@@ -49,7 +51,7 @@ class SourceMasks:
     def size_deg(self):
         return Quantity([r.radius.to(Unit("deg")) for r in self.regions])
 
-    def size_pix(self, pixel_scale=1/3 * Unit("arcsec")):
+    def size_pix(self, pixel_scale: Quantity = 1 / 3 * Unit("arcsec")) -> np.ndarray:
         """
 
         Parameters
@@ -80,7 +82,6 @@ class SourceMasks:
 
 class ChamaeleonDeepSourceMasks(SourceMasks):
     def __init__(self):
-
         # Read masks from region file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="Chamaeleon_deep.reg"
@@ -88,12 +89,13 @@ class ChamaeleonDeepSourceMasks(SourceMasks):
 
         # Call parent
         regions = Regions.read(path_masks, format="ds9")
-        super(ChamaeleonDeepSourceMasks, self).__init__(regions=regions)
+        super(ChamaeleonDeepSourceMasks, self).__init__(
+            regions=regions, name="Chamaeleon_deep"
+        )
 
 
 class CoronaAustralisDeepSourceMasks(SourceMasks):
     def __init__(self):
-
         # Read masks from region file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="CrA_deep.reg"
@@ -101,12 +103,13 @@ class CoronaAustralisDeepSourceMasks(SourceMasks):
 
         # Call parent
         regions = Regions.read(path_masks, format="ds9")
-        super(CoronaAustralisDeepSourceMasks, self).__init__(regions=regions)
+        super(CoronaAustralisDeepSourceMasks, self).__init__(
+            regions=regions, name="CrA_deep"
+        )
 
 
 class CoronaAustralisControlSourceMasks(SourceMasks):
     def __init__(self):
-
         # Find mask file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="CrA_control.reg"
@@ -114,12 +117,13 @@ class CoronaAustralisControlSourceMasks(SourceMasks):
 
         # Read masks and call parent
         regions = Regions.read(path_masks, format="ds9")
-        super(CoronaAustralisControlSourceMasks, self).__init__(regions=regions)
+        super(CoronaAustralisControlSourceMasks, self).__init__(
+            regions=regions, name="CrA_control"
+        )
 
 
 class CoronaAustralisWideSourceMasks(SourceMasks):
     def __init__(self):
-
         # Read deep and control masks
         regions_deep = CoronaAustralisDeepSourceMasks().regions
         regions_control = CoronaAustralisControlSourceMasks().regions
@@ -137,12 +141,13 @@ class CoronaAustralisWideSourceMasks(SourceMasks):
         regions_wide.extend(regions_control)
 
         # Call parent
-        super(CoronaAustralisWideSourceMasks, self).__init__(regions=regions_wide)
+        super(CoronaAustralisWideSourceMasks, self).__init__(
+            regions=regions_wide, name="CrA_wide"
+        )
 
 
 class LupusDeepSourceMasks(SourceMasks):
     def __init__(self):
-
         # Find mask file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="Lupus_deep.reg"
@@ -150,12 +155,11 @@ class LupusDeepSourceMasks(SourceMasks):
 
         # Read masks and call parent
         regions = Regions.read(path_masks, format="ds9")
-        super(LupusDeepSourceMasks, self).__init__(regions=regions)
+        super(LupusDeepSourceMasks, self).__init__(regions=regions, name="Lupus_deep")
 
 
 class OphiuchusDeepSourceMasks(SourceMasks):
     def __init__(self):
-
         # Find mask file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="Ophiuchus_deep.reg"
@@ -163,12 +167,13 @@ class OphiuchusDeepSourceMasks(SourceMasks):
 
         # Read masks and call parent
         regions = Regions.read(path_masks, format="ds9")
-        super(OphiuchusDeepSourceMasks, self).__init__(regions=regions)
+        super(OphiuchusDeepSourceMasks, self).__init__(
+            regions=regions, name="Ophiuchus_deep"
+        )
 
 
 class PipeDeepSourceMasks(SourceMasks):
     def __init__(self):
-
         # Find mask file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="Pipe_deep.reg"
@@ -176,12 +181,11 @@ class PipeDeepSourceMasks(SourceMasks):
 
         # Read masks and call parent
         regions = Regions.read(path_masks, format="ds9")
-        super(PipeDeepSourceMasks, self).__init__(regions=regions)
+        super(PipeDeepSourceMasks, self).__init__(regions=regions, name="Pipe_deep")
 
 
 class OrionWideSourceMasks(SourceMasks):
     def __init__(self):
-
         # Find mask file
         path_masks = get_resource_path(
             package=SourceMasks.path_package_masks(), resource="Orion_wide.reg"
@@ -191,4 +195,6 @@ class OrionWideSourceMasks(SourceMasks):
         regions_wide = Regions.read(path_masks, format="ds9")
 
         # Call parent
-        super(OrionWideSourceMasks, self).__init__(regions=regions_wide)
+        super(OrionWideSourceMasks, self).__init__(
+            regions=regions_wide, name="Orion_wide"
+        )
