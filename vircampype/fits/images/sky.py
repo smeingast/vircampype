@@ -760,9 +760,7 @@ class SkyImagesProcessed(SkyImages):
             additional_masks["ra"].extend(self.setup.additional_source_masks.ra_deg)
             additional_masks["dec"].extend(self.setup.additional_source_masks.dec_deg)
             additional_masks["size"].extend(
-                self.setup.additional_source_masks.size_pix(
-                    pixel_scale=self.setup.pixel_scale
-                )
+                self.setup.additional_source_masks.size_pix()
             )
 
         return additional_masks
