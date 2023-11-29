@@ -517,7 +517,9 @@ class Setup(dict):
         for key, val in self.dict.items():
             if isinstance(val, tuple):
                 val = str(val)
-            if isinstance(val, Projection):
+            elif isinstance(val, Projection):
+                val = val.name
+            elif isinstance(val, SourceMasks):
                 val = val.name
             header.set(f"HIERARCH PYPE SETUP {key.upper()}", value=val, comment="")
 
