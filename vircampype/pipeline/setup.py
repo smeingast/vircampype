@@ -111,11 +111,11 @@ class Setup(dict):
     source_masks_closing_size: int = 5
     source_masks_closing_iter: int = 2
     # Noisechisel setup for source masks
-    noisechisel_qthresh: float = 0.8
+    noisechisel_qthresh: float = 0.9
     noisechisel_erode: int = 2
     noisechisel_detgrowquant: float = 1.0
-    noisechisel_tilesize: str = "64,64"
-    noisechisel_meanmedqdiff: float = 0.01
+    noisechisel_tilesize: str = "32,32"
+    noisechisel_meanmedqdiff: float = 0.02
     # Built-in setup for source masks
     mask_sources_thresh: Union[int, float] = 3
     mask_sources_min_area: Union[int, float] = 3
