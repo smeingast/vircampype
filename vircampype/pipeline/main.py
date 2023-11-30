@@ -1,7 +1,9 @@
 import sys
 import glob
 import time
+import json
 import os.path
+import logging
 
 from astropy.units import Unit
 from vircampype.tools.messaging import *
@@ -13,24 +15,50 @@ from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.fitstools import compress_images, combine_mjd_images
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 
+logger = logging.getLogger(__name__)
+
 
 class Pipeline:
     def __init__(self, setup, reset_status=False, **kwargs):
         self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
-        # Read status
-        self.path_status = "{0}{1}".format(
-            self.setup.folders["temp"], "pipeline_status.p"
+        # Set up logging
+        path_logfile = f"{self.setup.folders['temp']}pipeline.log"
+        open(path_logfile, "w").close()  # Clear previous file
+        log_level = getattr(logging, self.setup.log_level.upper())
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
         )
+        logger.setLevel(log_level)
+        file_handler = logging.FileHandler(path_logfile)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+        # Start logging
+        logger.info("Initializing Pipeline")
+        logger.info(f"Pipeline setup: {json.dumps(self.setup.dict, indent=4)}")
+
+        # Instantiate status
+        logger.info("Instantiating pipeline status")
         self.status = PipelineStatus()
+
+        # Read status
+        logger.info("Try to read previous pipeline status")
+        self.path_status = os.path.join(self.setup.folders["temp"], "pipeline_status.p")
         try:
             self.status.load(path=self.path_status)
+            logger.info(f"Previous pipeline status found at {self.path_status}")
         except FileNotFoundError:
+            logger.info(f"No previous pipeline status found at {self.path_status}")
             pass
+        logger.info(
+            f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
+        )
 
         # Reset status if requested
         if reset_status:
             self.reset_status()
+            logger.info("Pipeline status has been reset.")
 
     # =========================================================================== #
     def __str__(self):
