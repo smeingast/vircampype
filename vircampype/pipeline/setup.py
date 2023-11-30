@@ -110,6 +110,7 @@ class Setup(dict):
     source_mask_closing: bool = True
     source_masks_closing_size: int = 5
     source_masks_closing_iter: int = 2
+    source_masks_destripe: bool = True
     # Noisechisel setup for source masks
     noisechisel_qthresh: float = 0.9
     noisechisel_erode: int = 2

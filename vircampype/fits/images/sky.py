@@ -899,6 +899,12 @@ class SkyImagesProcessed(SkyImages):
                     - 10 * sky_std[:, np.newaxis, np.newaxis]
                 )
 
+                # destripe on last iteration
+                if (
+                    i == self.setup.source_masks_n_iter - 1
+                ) & self.setup.source_masks_destripe:
+                    cube_raw_temp.destripe(masks=mask_additional)
+
                 """ Destriping here is very problematic. Firstly, I can't average,
                 because I have only frames of a single detector and secondly, any
                 extended emission that covers a large part of the image will affect
