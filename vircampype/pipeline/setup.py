@@ -21,6 +21,7 @@ class Setup(dict):
     silent: bool = False
     overwrite: bool = False
     qc_plots: bool = True
+    log_level: str = "info"
 
     # What to process
     calibrate_pawprints: bool = False
