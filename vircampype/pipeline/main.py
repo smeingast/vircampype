@@ -51,14 +51,16 @@ class Pipeline:
         except FileNotFoundError:
             logger.info(f"No previous pipeline status found at {self.path_status}")
             pass
-        logger.info(
-            f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
-        )
 
         # Reset status if requested
         if reset_status:
             self.reset_status()
             logger.info("Pipeline status has been reset.")
+
+        # Log status
+        logger.info(
+            f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
+        )
 
     # =========================================================================== #
     def __str__(self):
