@@ -170,3 +170,16 @@ class PipelineStatus:
         with open(path, "rb") as f:
             status = pickle.load(f)
             self.update(**status)
+
+    @property
+    def dict(self) -> dict:
+        """
+        Returns the status dictionary.
+
+        Returns
+        -------
+        dict
+            The status dictionary.
+
+        """
+        return dataclasses.asdict(self)
