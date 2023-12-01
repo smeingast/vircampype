@@ -10,6 +10,7 @@ from typing import Union, Optional
 from vircampype.pipeline.misc import *
 from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
+from vircampype.pipeline.log import PipelineLog
 from astropy.io.fits.verify import VerifyWarning
 from vircampype.tools.wcstools import header_reset_wcs
 from vircampype.tools.systemtools import which, run_commands_shell_parallel
@@ -508,10 +509,14 @@ def mjd2dateobs(mjd):
 
 def fix_vircam_headers(prime_header, data_headers):
     """Resets the WCS info and purges useless keywords from vircam headers."""
+    log = PipelineLog()
 
     try:
+        log.info("Attempting to rewrite WCS info in headers")
+
         tra = str(prime_header["HIERARCH ESO TEL TARG ALPHA"])
         tde = str(prime_header["HIERARCH ESO TEL TARG DELTA"])
+        log.info(f"Found RA/DEC in headers: {tra} / {tde}")
 
         # Get declination sign and truncate string if necessary
         if tde.startswith("-"):
@@ -527,20 +532,23 @@ def fix_vircam_headers(prime_header, data_headers):
         # Compute field RA/DEC
         fra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
         fde = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
+        log.info(f"Computed RA/DEC: {fra} / {fde}")
 
     except KeyError:
+        log.warning("Could not find RA/DEC in headers")
         fra, fde = None, None
 
     for idx_hdr in range(len(data_headers)):
         # Overwrite with consistently working keyword
         try:
-            data_headers[idx_hdr]["CRVAL1"] = (
-                fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
-            )
-            data_headers[idx_hdr]["CRVAL2"] = (
-                fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
-            )
+            crval1 = fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
+            log.info(f"Overwriting CRVAL1 with {crval1} in extension {idx_hdr + 1}")
+            data_headers[idx_hdr]["CRVAL1"] = crval1
+            crval2 = fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
+            log.info(f"Overwriting CRVAL2 with {crval2} in extension {idx_hdr + 1}")
+            data_headers[idx_hdr]["CRVAL2"] = crval2
         except KeyError:
+            log.warning("Could not reset CRVAL1/CRVAL2 in headers")
             pass
 
         with warnings.catch_warnings():
@@ -548,16 +556,14 @@ def fix_vircam_headers(prime_header, data_headers):
             data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
 
         # Remove useless keywords if set
-        [
+        for kw in useless_extension_keywords:
+            # log.info(f"Removing '{kw}' from extension {idx_hdr + 1}")
             data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
-            for kw in useless_extension_keywords
-        ]
 
     # Purge also primary header
-    [
+    for kw in useless_primary_keywords:
+        # log.info(f"Removing '{kw}' from primary header")
         prime_header.remove(kw, ignore_missing=True, remove_all=True)
-        for kw in useless_primary_keywords
-    ]
 
 
 def compress_images(images, q=4, exe="fpack", n_jobs=1):
