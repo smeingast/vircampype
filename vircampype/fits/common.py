@@ -1,5 +1,6 @@
 import os
 import glob
+import json
 import pickle
 import numpy as np
 
@@ -125,6 +126,9 @@ class FitsFiles:
 
         # Return new instance
         return cls(setup=setup, file_paths=file_paths)
+
+    def basenames2log(self, indent=4):
+        return f"{json.dumps(self.basenames, indent=indent)}"
 
     # =========================================================================== #
     # Headers
