@@ -1,14 +1,8 @@
 import logging
-from typing import Dict, Optional
+
+from typing import Optional
+from vircampype.pipeline.misc import Borg
 from vircampype.pipeline.setup import Setup
-
-
-class Borg:
-    _shared_state: Dict = {}
-
-    def __init__(self):
-        """Borg pattern to allow shared state (Monostate pattern)."""
-        self.__dict__ = self._shared_state
 
 
 class PipelineLog(Borg):
