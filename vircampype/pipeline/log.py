@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, Optional
 from vircampype.pipeline.setup import Setup
 
 
@@ -14,7 +14,7 @@ class Borg:
 class PipelineLog(Borg):
     initialized: bool = False
 
-    def __init__(self, setup: Setup):
+    def __init__(self, setup: Optional[Setup] = None):
         """
         Custom logging class utilizing Borg pattern to allow a shared logging setup.
 
@@ -25,7 +25,7 @@ class PipelineLog(Borg):
 
         """
         super().__init__()
-        if not self.initialized:
+        if (setup is not None) & (not self.initialized):
             path_logfile = f"{setup.folders['temp']}pipeline.log"
             open(path_logfile, "w").close()  # Clear previous file
             logging.basicConfig(

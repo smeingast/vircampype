@@ -559,7 +559,7 @@ class SkyImagesRaw(SkyImages):
         )
 
         # Fetch log
-        log = PipelineLog(setup=self.setup)
+        log = PipelineLog()
         log.info(f"Processing {self.n_files} basic raw files:\n{self.basenames2log}")
         tstart = time.time()
 
