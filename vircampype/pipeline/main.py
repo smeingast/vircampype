@@ -15,8 +15,6 @@ from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.fitstools import compress_images, combine_mjd_images
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 
-logger = logging.getLogger(__name__)
-
 
 class Pipeline:
     def __init__(self, setup, reset_status=False, **kwargs):
@@ -25,14 +23,13 @@ class Pipeline:
         # Set up logging
         path_logfile = f"{self.setup.folders['temp']}pipeline.log"
         open(path_logfile, "w").close()  # Clear previous file
-        log_level = getattr(logging, self.setup.log_level.upper())
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
+        logging.basicConfig(
+            filename=path_logfile,
+            level=getattr(logging, self.setup.log_level.upper()),
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            datefmt='%y-%b-%d -- %H:%M:%S',
         )
-        logger.setLevel(log_level)
-        file_handler = logging.FileHandler(path_logfile)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        logger = logging.getLogger(__name__)
 
         # Start logging
         logger.info("Initializing Pipeline")
