@@ -568,19 +568,23 @@ class SkyImagesRaw(SkyImages):
         master_gain = self.get_master_gain()
         log.info(f"Master gain:\n{master_gain.basenames2log}")
         master_dark = self.get_master_dark(ignore_dit=True)
+        log.info(f"Master dark:\n{master_dark.basenames2log}")
         master_linearity = self.get_master_linearity()
+        log.info(f"Master linearity:\n{master_linearity.basenames2log}")
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
             # Create output path
-            outpath = "{0}{1}.proc.basic{2}".format(
-                self.setup.folders["processed_basic"],
-                self.names[idx_file],
-                self.extensions[idx_file],
-            )
+            outpath = (f"{self.setup.folders['processed_basic']}"
+                       f"{self.names[idx_file]}.proc.basic"
+                       f"{self.extensions[idx_file]}")
+
+            # Log processing info
+            log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -593,6 +597,16 @@ class SkyImagesRaw(SkyImages):
                 silent=self.setup.silent,
             )
 
+            # Log more info
+            log.info(f"Number of extensions: {len(self.iter_data_hdu[idx_file])}")
+            log.info(f"Filter name: {self.passband[idx_file]}")
+            log.info(f"Target designation: {self.setup.name}")
+            log.info(f"Dark file name: {master_dark.basenames[idx_file]}")
+            log.info(f"Linearity file name: {master_linearity.basenames[idx_file]}")
+            log.info(f"Gain: {master_gain.gain[idx_file]}")
+            log.info(f"Read noise: {master_gain.rdnoise[idx_file]}")
+            log.info(f"Saturation levels: {self.setup.saturation_levels}")
+
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
@@ -601,9 +615,11 @@ class SkyImagesRaw(SkyImages):
             lcff = master_linearity.file2coeff(file_index=idx_file)
 
             # Norm to NDIT=1
+            log.info(f"Normalizing to NDIT=1; using NDIT={self.ndit[idx_file]}")
             cube.normalize(norm=self.ndit[idx_file])
 
             # Linearize
+            log.info(f"Linearizing data; using linearity coefficients:\n{lcff}")
             cube.linearize(coeff=lcff, texptime=self.texptime[idx_file])
 
             # Subtract with dark
@@ -611,6 +627,7 @@ class SkyImagesRaw(SkyImages):
 
             # Divide by flat if set
             if self.setup.flat_type == "twilight":
+                log.info("Dividing by twilight flat")
                 master_flat = self.get_master_twilight_flat()
                 mflat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
                 cube /= mflat
@@ -645,15 +662,21 @@ class SkyImagesRaw(SkyImages):
 
             # Fix headers
             if self.setup.fix_vircam_headers:
+                log.info("Fixing headers")
                 fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
 
             # Add stuff to data headers
             for idx_hdu, dhdr in enumerate(hdrs_data):
+                log.info(f"Modify data headers; extension {idx_hdu + 1}")
                 # Grab gain and readnoise
+                log.info(f"Scaling gain {master_gain.gain[idx_file][idx_hdu - 1]} "
+                         f"with NDIT={self.ndit[idx_file]}")
                 gain = (
                     master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
                 )
+                log.info(f"New gain: {gain}")
                 rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
+                log.info(f"Read noise: {rdnoise}")
 
                 # Grab other parameters
                 offseti, noffsets, chipid = (
@@ -662,7 +685,10 @@ class SkyImagesRaw(SkyImages):
                     dhdr["HIERARCH ESO DET CHIP NO"],
                 )
                 photstab = offseti + noffsets * (chipid - 1)
+                log.info(f"Photometric stability ID: {photstab}")
                 dextinct = get_default_extinction(passband=self.passband[idx_file])
+                log.info(f"Setting default extinction to {dextinct} "
+                         f"for band {self.passband[idx_file]}")
 
                 # Add stuff to header
                 dhdr.set(
@@ -711,6 +737,8 @@ class SkyImagesRaw(SkyImages):
                     airmass = get_airmass_from_header(
                         header=dhdr, time=dhdr[self.setup.keywords.date_ut]
                     )
+                    log.info(f"Setting airmass to {airmass}")
+
                     dhdr.set(
                         self.setup.keywords.airmass,
                         value=airmass,
@@ -718,6 +746,8 @@ class SkyImagesRaw(SkyImages):
                     )
 
             # Write to disk
+            log.info(f"Writing to disk:\n{outpath}")
+            exit()
             cube.write_mef(
                 path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32"
             )
