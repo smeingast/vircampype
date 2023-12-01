@@ -2,7 +2,6 @@ import gc
 import os
 import copy
 import time
-import json
 import glob
 import logging
 import warnings
@@ -24,6 +23,7 @@ from vircampype.tools.systemtools import *
 from vircampype.tools.viziertools import *
 from vircampype.data.cube import ImageCube
 from vircampype.tools.miscellaneous import *
+from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.astromatic import SwarpSetup
 from scipy.ndimage.morphology import binary_closing
 from vircampype.tools.imagetools import upscale_image
@@ -558,14 +558,15 @@ class SkyImagesRaw(SkyImages):
             header="BASIC RAW PROCESSING", right=None, silent=self.setup.silent
         )
 
-        # Fetch logger
-        logger.info(f"Processing {self.n_files} basic raw files: "
-                    f"{json.dumps(self.basenames, indent=4)}")
+        # Fetch log
+        log = PipelineLog(setup=self.setup)
+        log.info(f"Processing {self.n_files} basic raw files:\n{self.basenames2log}")
         tstart = time.time()
 
         # Fetch the Masterfiles
-        logger.info("Fetching master files")
+        log.info("Fetching master files")
         master_gain = self.get_master_gain()
+        log.info(f"Master gain:\n{master_gain.basenames2log}")
         master_dark = self.get_master_dark(ignore_dit=True)
         master_linearity = self.get_master_linearity()
 
