@@ -2,7 +2,9 @@ import gc
 import os
 import copy
 import time
+import json
 import glob
+import logging
 import warnings
 import numpy as np
 
@@ -29,6 +31,8 @@ from vircampype.tools.astromatic import SextractorSetup
 from vircampype.miscellaneous.sourcemasks import SourceMasks
 from vircampype.tools.photometry import get_default_extinction
 from vircampype.fits.images.common import FitsImages, MasterImages
+
+logger = logging.getLogger(__name__)
 
 
 class SkyImages(FitsImages):
@@ -553,9 +557,14 @@ class SkyImagesRaw(SkyImages):
         print_header(
             header="BASIC RAW PROCESSING", right=None, silent=self.setup.silent
         )
+
+        # Fetch logger
+        logger.info(f"Processing {self.n_files} basic raw files: "
+                    f"{json.dumps(self.basenames, indent=4)}")
         tstart = time.time()
 
         # Fetch the Masterfiles
+        logger.info("Fetching master files")
         master_gain = self.get_master_gain()
         master_dark = self.get_master_dark(ignore_dit=True)
         master_linearity = self.get_master_linearity()
