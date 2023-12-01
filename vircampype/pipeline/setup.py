@@ -12,7 +12,7 @@ from vircampype.miscellaneous.projection import Projection
 
 
 @dataclass
-class Setup(dict):
+class Setup:
     # Pipeline setup
     name: str = None
     path_data: str = None
