@@ -3,12 +3,12 @@ import glob
 import time
 import json
 import os.path
-import logging
 
 from astropy.units import Unit
 from vircampype.tools.messaging import *
 from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
+from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.errors import PipelineError
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.status import PipelineStatus
@@ -20,42 +20,33 @@ class Pipeline:
     def __init__(self, setup, reset_status=False, **kwargs):
         self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
-        # Set up logging
-        path_logfile = f"{self.setup.folders['temp']}pipeline.log"
-        open(path_logfile, "w").close()  # Clear previous file
-        logging.basicConfig(
-            filename=path_logfile,
-            level=getattr(logging, self.setup.log_level.upper()),
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            datefmt='%y-%b-%d -- %H:%M:%S',
-        )
-        logger = logging.getLogger(__name__)
-
         # Start logging
-        logger.info("Initializing Pipeline")
-        logger.info(f"Pipeline setup: {json.dumps(self.setup.dict, indent=4)}")
+        self.log = PipelineLog(setup=self.setup)
+
+        self.log.info("Initializing Pipeline")
+        self.log.info(f"Pipeline setup: {json.dumps(self.setup.dict, indent=4)}")
 
         # Instantiate status
-        logger.info("Instantiating pipeline status")
+        self.log.info("Instantiating pipeline status")
         self.status = PipelineStatus()
 
         # Read status
-        logger.info("Try to read previous pipeline status")
+        self.log.info("Try to read previous pipeline status")
         self.path_status = os.path.join(self.setup.folders["temp"], "pipeline_status.p")
         try:
             self.status.load(path=self.path_status)
-            logger.info(f"Previous pipeline status found at {self.path_status}")
+            self.log.info(f"Previous pipeline status found at {self.path_status}")
         except FileNotFoundError:
-            logger.info(f"No previous pipeline status found at {self.path_status}")
+            self.log.info(f"No previous pipeline status found at {self.path_status}")
             pass
 
         # Reset status if requested
         if reset_status:
             self.reset_status()
-            logger.info("Pipeline status has been reset.")
+            self.log.info("Pipeline status has been reset.")
 
         # Log status
-        logger.info(
+        self.log.info(
             f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
         )
 
