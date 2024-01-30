@@ -39,7 +39,8 @@ for udj in unique_directories_j:
         name=name,
         path_data=udj,
         path_pype=path_pype,
-        reference_mag_lim=(13.0, 15.5),
+        reference_mag_lo=13.0,
+        reference_mag_hi=15.5,
         **kwargs
     )
 
@@ -56,7 +57,8 @@ for udks in unique_directories_ks:
         name=name,
         path_data=udks,
         path_pype=path_pype,
-        reference_mag_lim=(12.0, 14.5),
+        reference_mag_lo=12.0,
+        reference_mag_hi=14.5,
         **kwargs
     )
 
