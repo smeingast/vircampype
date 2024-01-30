@@ -506,6 +506,12 @@ class Setup:
         # Get complete dict
         dd = asdict(self)
 
+        # Replace projection and source masks with their names
+        if isinstance(dd["projection"], Projection):
+            dd["projection"] = dd["projection"].name
+        if isinstance(dd["additional_source_masks"], SourceMasks):
+            dd["additional_source_masks"] = dd["additional_source_masks"].name
+
         # Remove path attributes and folder setup
         del dd["path_data"]
         del dd["path_pype"]
