@@ -13,10 +13,10 @@ class Projection:
         self.force_header = force_header
 
     def __str__(self):
-        return self.wcs.__str__()
+        return self.name
 
     def __repr__(self):
-        return self.wcs.__repr__()
+        return self.name
 
     @property
     def headerpackage(self):
