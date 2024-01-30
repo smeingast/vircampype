@@ -2,11 +2,12 @@ import os
 import glob
 import yaml
 
-# Define base path
+# Define paths
+cloud_home = os.getenv('CLOUD_HOME')
 path_data = "/Volumes/Data/VHS/CrA/data_vhs/"
 path_pype = "/Volumes/Data/VHS/CrA/vircampype/"
-path_scripts_j = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/CrA/VHS_J/"
-path_scripts_ks = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/CrA/VHS_Ks/"
+path_scripts_j = f"{cloud_home}/Projects/VISIONS/Pipeline/scripts/CrA/VHS_J/"
+path_scripts_ks = f"{cloud_home}/Projects/VISIONS/Pipeline/scripts/CrA/VHS_Ks/"
 
 # Find all files recursively
 files_j = glob.glob(path_data + "**/J/*fits")
