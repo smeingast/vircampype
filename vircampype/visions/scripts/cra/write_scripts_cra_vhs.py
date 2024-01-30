@@ -29,7 +29,7 @@ kwargs = dict(
     external_headers=True,
     n_jobs=16,
     projection="Corona_Australis_wide",
-    source_classification=False,
+    source_classification=True,
 )
 
 # J
