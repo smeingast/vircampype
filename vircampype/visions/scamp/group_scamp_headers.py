@@ -1,11 +1,14 @@
 import os
 import glob
+import pickle
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import List
 from astropy.io import fits
 from astropy.time import Time
+from astropy.table import Table
 from vircampype.tools.systemtools import which
 from vircampype.tools.fitstools import make_gaia_refcat
 from vircampype.tools.astromatic import sextractor2imagehdr
@@ -21,7 +24,6 @@ __all__ = ["group_scamp_headers"]
 
 
 def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.0):
-
     mjd_list_sorted = [mjd_list[i] for i in np.argsort(mjd_list)]
     paths_list_sorted = [paths_list[i] for i in np.argsort(mjd_list)]
 
@@ -59,16 +61,16 @@ def split_mjd(paths_list, mjd_list, max_lag: (int, float) = 50.0):
 
 
 def group_scamp_headers(
-    paths_scripts: List, folder: str, path_gaia_raw: str, prepare_scamp: bool = True
+        paths_scripts: List, folder: str, path_gaia_raw: str, prepare_scamp: bool = True
 ):
-
     # Check if folder ends with slash
     if not folder.endswith("/"):
         folder += "/"
 
     # Define scamp default config path
     path_scamp_default = (
-        "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
+        f"{os.environ['CLOUD_HOME']}"
+        f"/Projects/VISIONS/Pipeline/scamp/scamp_template.config"
     )
 
     # Find all raw folders
@@ -81,13 +83,17 @@ def group_scamp_headers(
 
     # Find all raw files
     paths_images_all = flat_list(
-        [sorted(glob.glob(f"{pf}*.proc.final.fits")) for pf in paths_folders_procfinal]
+        [glob.glob(f"{pf}*.proc.final.fits") for pf in paths_folders_procfinal]
     )
+    # Eliminate duplicates
+    paths_images_all = sorted(list(set(paths_images_all)))
 
     # Find all scamp tables
     paths_scamp_all = flat_list(
-        [sorted(glob.glob(f"{pf}*.scamp.fits.tab")) for pf in paths_folders_procfinal]
+        [glob.glob(f"{pf}*.scamp.fits.tab") for pf in paths_folders_procfinal]
     )
+    # Eliminate duplicates
+    paths_scamp_all = sorted(list(set(paths_scamp_all)))
 
     # There must be as many scamp tables as raw files
     if len(paths_images_all) != len(paths_scamp_all):
@@ -101,7 +107,6 @@ def group_scamp_headers(
 
     # Read image headers
     print("Extracting headers...")
-    import pickle
 
     pickle_path = f"{folder}group_scamp_headers_{len(paths_images_all)}.pickle"
     try:
@@ -211,6 +216,12 @@ def group_scamp_headers(
         if len(paths_scamp_cpb) != len(flat_list(group_final_paths)):
             raise ValueError("Something went wrong. Header numbers don't add up")
 
+        # Read reference catalog if requested
+        if prepare_scamp:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                gaia_raw = Table.read(path_gaia_raw)
+
         # Write individual groups to disk
         for gfidx in range(len(group_final_paths)):
 
@@ -262,20 +273,33 @@ def group_scamp_headers(
                 # Make gaia catalog
                 path_gaia_out = f"{ff}scamp_{passband}_{epoch_out:0.5f}.gaia.fits"
                 make_gaia_refcat(
-                    path_in=path_gaia_raw,
-                    path_out=path_gaia_out,
+                    table_in=gaia_raw,
+                    path_ldac_out=path_gaia_out,
                     epoch_in=2016.0,
                     epoch_out=epoch_out,
+                    key_ra="ra",
+                    key_ra_error="ra_error",
+                    key_dec="dec",
+                    key_dec_error="dec_error",
+                    key_pmra="pmra",
+                    key_pmra_error="pmra_error",
+                    key_pmdec="pmdec",
+                    key_pmdec_error="pmdec_error",
+                    key_ruwe="ruwe",
+                    key_gmag="phot_g_mean_mag",
+                    key_gflux="phot_g_mean_flux",
+                    key_gflux_error="phot_g_mean_flux_error",
                 )
 
                 # Make script to write epoch into headers
                 path_script_write_epoch = f"{ff}write_epoch.sh"
                 cmds = [
-                    f"sed 's/END/"
-                    f"{'EPOCH':<8}={epoch_out:>21.5f} \/ Effective epoch\\nEND/g' {oo}"  # noqa
+                    rf"sed -i '' 's/END/"
+                    rf"{'EPOCH':<8}={epoch_out:>21.5f} \/ Effective epoch\nEND/g' {oo}"  # noqa
                     for oo in outheaders
                 ]
                 write_list(path_file=path_script_write_epoch, lst=cmds)
+                make_executable(path_script_write_epoch)
 
                 # Write header backup script
                 path_script_backup = f"{ff}header_backup.sh"
