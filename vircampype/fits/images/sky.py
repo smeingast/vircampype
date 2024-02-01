@@ -747,7 +747,6 @@ class SkyImagesRaw(SkyImages):
 
             # Write to disk
             log.info(f"Writing to disk:\n{outpath}")
-            exit()
             cube.write_mef(
                 path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32"
             )
