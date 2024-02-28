@@ -11,8 +11,8 @@ class SourceCatalogs(FitsTables):
         self,
         setup,
         file_paths=None,
-        key_ra="RA",
-        key_dec="DEC",
+        key_ra="ra",
+        key_dec="dec",
     ):
         super(SourceCatalogs, self).__init__(
             file_paths=file_paths,
