@@ -334,7 +334,7 @@ class MasterAstrometryGaia(MasterAstrometry):
     @property
     def iter_data_hdu(self):
         """Override iter_data_hdu"""
-        return [range(2, len(hdrs), 2) for hdrs in self.headers]
+        return [range(2, len(hdrs) + 1, 2) for hdrs in self.headers]
 
     _pmra = None
 
