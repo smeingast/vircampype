@@ -794,3 +794,19 @@ def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False)
 
         # Write to disk
         hdul_o.writeto(path_file_out, overwrite=overwrite)
+
+
+if __name__ == "__main__":
+    path_base = "/Users/stefan/iCloud/Projects/VISIONS/Pipeline/other/download/"
+    t_in_path = f"{path_base}merged.fits"
+    t_out = f"{path_base}merged.ldac.fits"
+    t_in = Table.read(t_in_path)
+    e_in = 2016.0
+    e_out = 2016.0
+    make_gaia_refcat(table_in=t_in, path_ldac_out=t_out, epoch_in=e_in, epoch_out=e_out,
+                     key_ra="ra", key_ra_error="ra_error", key_dec="dec",
+                     key_dec_error="dec_error", key_pmra="pmra",
+                     key_pmra_error="pmra_error", key_pmdec="pmdec",
+                     key_pmdec_error="pmdec_error", key_ruwe="ruwe",
+                     key_gmag="phot_g_mean_mag", key_gflux="phot_g_mean_flux",
+                     key_gflux_error="phot_g_mean_flux_error")
