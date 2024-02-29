@@ -15,14 +15,15 @@ from astropy.wcs.utils import wcs_to_celestial_frame
 Gaia.login(user="smeing01", password="1hGFjW?vjKxJpEL")
 
 # Setup
-out_path = "/Users/stefan/Dropbox/Data/Gaia/EDR3/Download/"
+out_path = "/Users/stefan/iCloud/Projects/VISIONS/Pipeline/other/download/"
 
 # Change to directory
 os.chdir(out_path)
 
 # Find scripts
-path_base = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/Ophiuchus/"
-paths_scripts = sorted(glob.glob(path_base + "/**/*yml"))
+path_base = "/Users/stefan/iCloud/Projects/VISIONS/Pipeline/scripts/CrA/wide_A/"
+# paths_scripts = sorted(glob.glob(path_base + "/**/*yml"))
+paths_scripts = sorted(glob.glob(path_base + "*yml"))
 
 # Find tile centers
 sc_tile_centers = []
@@ -51,7 +52,7 @@ sc_tile_centers = SkyCoord(sc_tile_centers)
 cra_all, cdec_all = sc_tile_centers.icrs.ra.degree, sc_tile_centers.icrs.dec.degree
 
 # Number of parallel jobs
-n_jobs = 12
+n_jobs = 10
 
 
 # Build queries
@@ -61,7 +62,7 @@ for idx in range(len(cra_all)):
     # Get limits
     cra, cdec = cra_all[idx], cdec_all[idx]
 
-    out_file = out_path + f"{idx:05d}_ra{cra:0>6.2f}_dec{cdec:0>6.2f}.fits"
+    out_file = out_path + f"{idx:05d}_ra{cra:0>6.2f}_dec{cdec:0>6.2f}.fits.gz"
 
     # Skip if file exists already
     if os.path.isfile(out_file):
