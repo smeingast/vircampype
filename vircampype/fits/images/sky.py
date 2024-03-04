@@ -2295,9 +2295,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
         # Construct commands for swarping
-        cmd = "{0} {1} -c {2} {3}".format(
-            sws.bin, " ".join(self.paths_full), sws.default_config, ss
-        )
+        cmd = f"{sws.bin} {' '.join(self.paths_full)} -c '{sws.default_config}' {ss}"
 
         # Run Swarp
         if (
