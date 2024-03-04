@@ -327,7 +327,10 @@ def copy_file(a: str, b: str) -> None:
     -------
     None
     """
-    shutil.copy2(a, b)
+    try:
+        shutil.copy2(a, b)
+    except OSError:
+        shutil.copy(a, b)
 
 
 def remove_file(filepath: str) -> None:
