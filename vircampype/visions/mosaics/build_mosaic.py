@@ -14,18 +14,18 @@ def build_mosaic(
     paths_scripts: List,
     path_data: str,
     path_pype: str,
-    path_master_astro_photo: str,
+    path_master_astro: str,
+    path_master_photo: str,
     n_jobs: int,
-    reference_mag_lim: tuple[float, float],
+    reference_mag_lo: float,
+    reference_mag_hi: float,
     projection: str,
-    photerr_internal: float,
+    photometric_error_floor: float,
     build_public_catalog: bool,
     **kwargs,
 ):
 
     # Check if master catalogs are available
-    path_master_astro = f"{path_master_astro_photo}MASTER-ASTROMETRY.fits.tab"
-    path_master_photo = f"{path_master_astro_photo}MASTER-PHOTOMETRY.fits.tab"
     if os.path.isfile(path_master_astro) * os.path.isfile(path_master_photo) != 1:
         raise ValueError("Master tables not found")
 
@@ -58,8 +58,9 @@ def build_mosaic(
         path_pype=path_pype,
         n_jobs=n_jobs,
         projection=projection,
-        photerr_internal=photerr_internal,
-        reference_mag_lim=reference_mag_lim,
+        photometric_error_floor=photometric_error_floor,
+        reference_mag_lo=reference_mag_lo,
+        reference_mag_hi=reference_mag_hi,
         external_headers=True,
         build_stacks=False,
         build_tile=True,
@@ -150,9 +151,8 @@ def build_mosaic(
     pipe.status.processed_raw_basic = True
     pipe.status.master_photometry = True
     pipe.status.master_astrometry = True
-    pipe.status.master_sky_static = True
+    pipe.status.master_sky = True
     pipe.status.master_source_mask = True
-    pipe.status.master_sky_dynamic = True
     pipe.status.processed_raw_final = True
     pipe.status.master_weight_image = True
     pipe.status.astrometry = True
