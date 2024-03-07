@@ -158,9 +158,9 @@ def yml2config(path_yml: str, skip=None, **kwargs) -> str:
 
         # Overwrite with kwargs
         if key in kwargs:
-            s += "-{0} {1} ".format(key.upper(), kwargs[key])
+            s += f"-{key.upper()} {kwargs[key]} "
         else:
-            s += "-{0} {1} ".format(key.upper(), val)
+            s += f"-{key.upper()} {val} "
 
     return s
 
