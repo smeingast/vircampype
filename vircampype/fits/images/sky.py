@@ -212,26 +212,26 @@ class SkyImages(FitsImages):
                 **kwargs_yml,
             )
         else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
+            raise ValueError(f"Preset '{preset}' not supported")
 
         # Construct commands for source extraction
-        cmds = [
-            "{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
-            "".format(
-                sxs.bin, sxs.default_config, image, sxs.default_nnw, catalog, weight, ss
-            )
-            for image, catalog, weight in zip(
-                self.paths_full,
-                path_tables_clean,
-                self.get_master_weight_global().paths_full,
-            )
-        ]
+        cmds = [(f"{sxs.bin} -c {sxs.default_config} {image} "
+                 f"-STARNNW_NAME {sxs.default_nnw} "
+                 f"-CATALOG_NAME {catalog} "
+                 f"-WEIGHT_IMAGE {weight} {ss}")
+                for image, catalog, weight in
+                zip(
+                    self.paths_full,
+                    path_tables_clean,
+                    self.get_master_weight_global().paths_full,
+                )
+                ]
 
         # Add kwargs to commands
         for key, val in kwargs.items():
             for cmd_idx in range(len(cmds)):
                 try:
-                    cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
+                    cmds[cmd_idx] += f"-{key.upper()} {val[cmd_idx]}"
                 except IndexError:
                     cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val)
 
