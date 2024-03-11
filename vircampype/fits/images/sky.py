@@ -233,7 +233,11 @@ class SkyImages(FitsImages):
                 try:
                     cmds[cmd_idx] += f"-{key.upper()} {val[cmd_idx]}"
                 except IndexError:
-                    cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val)
+                    cmds[cmd_idx] += f"-{key.upper()} {val}"
+
+        # Spaces are cancer. I really do not know how else to solve this shit!
+        cmds = [c.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
+                          "/Users/stefan/iCloud") for c in cmds]
 
         # Return commands if set
         if return_cmds:
