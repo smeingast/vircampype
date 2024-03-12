@@ -235,7 +235,7 @@ class SkyImages(FitsImages):
                 except IndexError:
                     cmds[cmd_idx] += f"-{key.upper()} {val}"
 
-        # Spaces are cancer. I really do not know how else to solve this shit!
+        # TODO: Spaces are cancer. I really do not know how else to solve this shit!
         cmds = [c.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
                           "/Users/stefan/iCloud") for c in cmds]
 
@@ -2301,6 +2301,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Construct commands for swarping
         cmd = f"{sws.bin} {' '.join(self.paths_full)} -c '{sws.default_config}' {ss}"
 
+        # TODO: Same as for Sextractor...
+        cmd = cmd.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
+                          "/Users/stefan/iCloud")
+
         # Run Swarp
         if (
             not check_file_exists(
@@ -2741,8 +2745,12 @@ class SkyImagesResampled(SkyImagesProcessed):
             sws.bin, path_temp_images, sws.default_config, ss
         )
 
+        # TODO: Same as for Sextractor...
+        cmd = cmd.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
+                          "/Users/stefan/iCloud")
+
         # Run Swarp
-        print_message(message="Coadding {0}".format(os.path.basename(outpath)))
+        print_message(message=f"Coadding {os.path.basename(outpath)}")
         run_command_shell(cmd=cmd, silent=True)
 
         # Remove temp image lists
