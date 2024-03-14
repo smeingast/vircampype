@@ -45,6 +45,9 @@ class Setup:
     # Projection
     projection: Optional[Union[str, Projection]] = None
 
+    # Saturation levels
+    set_saturation_levels: str = "default"
+
     # Astrometry
     warp_gaia: bool = True
     external_headers: bool = False
@@ -231,9 +234,37 @@ class Setup:
         ]
 
     @property
+    def __sv_saturation_levels(self) -> List[float]:
+        """Saturation levels for each detector."""
+        return [
+            30000.0,
+            32000.0,
+            33000.0,
+            32000.0,
+            24000.0,
+            30000.0,
+            32000.0,
+            33000.0,
+            35000.0,
+            32000.0,
+            35000.0,
+            32000.0,
+            33000.0,
+            34000.0,
+            33000.0,
+            35000.0,
+        ]
+
+    @property
     def saturation_levels(self) -> List[Union[int, float]]:
         """Returns the saturation level for a given detector."""
-        return self.__default_saturation_levels
+        if self.set_saturation_levels == "default":
+            return self.__default_saturation_levels
+        elif self.set_saturation_levels == "sv":
+            return self.__sv_saturation_levels
+        else:
+            raise PipelineError("Saturation levels not set correctly. "
+                                "Only 'default' or 'sv' allowed.")
 
     @property
     def image_statistics_combine_type(self) -> dict:
