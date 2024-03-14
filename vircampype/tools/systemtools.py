@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 import stat
@@ -26,6 +27,7 @@ __all__ = [
     "make_symlinks",
     "make_executable",
     "cmd_prepend_libraries",
+    "remove_ansi_codes",
 ]
 
 
@@ -468,3 +470,24 @@ def make_executable(path: str) -> None:
     """
     st = os.stat(path)
     os.chmod(path, st.st_mode | stat.S_IEXEC)
+
+
+def remove_ansi_codes(s: str) -> str:
+    """
+    Remove ANSI escape codes from the string s.
+
+    Parameters
+    ----------
+    s : str
+        The string to remove escape codes from.
+
+    Returns
+    -------
+    str
+        The string s with all ANSI escape codes removed.
+
+    """
+    # ANSI escape codes start with the sequence ESC[,
+    # followed by a semicolon-separated series of numbers, and end with an 'm'
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', s)
