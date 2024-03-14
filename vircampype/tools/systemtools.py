@@ -258,7 +258,8 @@ def run_commands_shell_parallel(
             p.wait()
 
 
-def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
+def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False)\
+        -> tuple[str, str]:
     """
     Runs a single shell command in the specified shell.
 
@@ -271,22 +272,37 @@ def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False):
     silent : bool
         Whether to run silently.
 
+    Returns
+    ----------
+    tuple
+        The stdout and stderr of the command.
     """
 
     # Append dynamic libraries
     cmd = cmd_prepend_libraries(cmd)
 
     # Run
-    if silent:
-        subprocess.run(
-            cmd,
-            shell=True,
-            executable=which(shell),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    else:
-        subprocess.run(cmd, shell=True, executable=which(shell))
+    result = subprocess.run(
+        cmd,
+        shell=True,
+        executable=which(shell),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Decode the command output
+    stdout = result.stdout.decode().strip()
+    stderr = result.stderr.decode().strip()
+
+    # If not in silent mode, print the output to terminal
+    if not silent:
+        if stdout:
+            print(stdout)
+        if stderr:
+            print(stderr)
+
+    # Return command outputs (stdout and stderr)
+    return remove_ansi_codes(stdout), remove_ansi_codes(stderr)
 
 
 def get_resource_path(package: str, resource: str) -> str:
