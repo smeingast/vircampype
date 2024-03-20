@@ -87,7 +87,7 @@ class Setup:
     linearity_max_lag: Union[int, float] = 1
 
     # Flats
-    flat_type: Literal["sky", "twilight"] = "sky"
+    flat_type: Literal["sky", "twilight"] = "twilight"
     flat_max_lag: Union[int, float] = 1
     flat_mask_min: bool = True
     flat_mask_max: bool = True
