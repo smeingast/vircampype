@@ -25,6 +25,7 @@ from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
 from astropy.wcs import WCS, FITSFixedWarning
 from sklearn.neighbors import NearestNeighbors
+from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.tabletools import add_zp_2mass
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.tools.messaging import message_qc_astrometry
@@ -99,6 +100,23 @@ class SextractorCatalogs(SourceCatalogs):
         return " ".join(self.paths_full)
 
     def scamp(self):
+
+        # Fetch log
+        log = PipelineLog()
+
+        # Processing info
+        print_header(header="SCAMP", silent=self.setup.silent)
+        tstart = time.time()
+        log.info(f"Running scamp on {self.n_files} files:\n{self.basenames2log}")
+
+        # Print source count in eachdata extension to log
+        for idx, fn in enumerate(self.basenames):
+            log.info(f"File: {fn}")
+            tables = self.file2table(file_index=idx)
+            for hdu, tt in zip(self.iter_data_hdu[idx], tables):
+                log.info(f"Extension {hdu}: {len(tt)}/{len(tt[tt["FLAGS"] == 0])} "
+                         f"total/FLAGS=0 sources")
+
         # Construct XML path
         path_xml = f"{self.setup.folders['qc_astrometry']}scamp.xml"
 
@@ -112,6 +130,9 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Load astrometric reference
         astrefact_name = self.get_master_astrometry().paths_full[0]
+
+        # Add to log
+        log.info(f"Astrometric reference: {astrefact_name}")
 
         # Load Scamp setup
         scs = ScampSetup(setup=self.setup)
@@ -160,13 +181,27 @@ class SextractorCatalogs(SourceCatalogs):
             f"-XML_NAME {path_xml} {options}"
         )
 
+        # Add scamp command to log
+        log.info(f"Scamp command: {cmd}")
+
         # Run Scamp
-        run_command_shell(cmd, silent=False)
+        stdout, stderr = run_command_shell(cmd, silent=False)
+
+        # Add stdout and stderr to log
+        log.info(f"Scamp stdout:\n{stdout}")
+        log.info(f"Scamp stderr:\n{stderr}")
 
         # Some basic QC on XML
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
+
+        # Print time
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
 
     # =========================================================================== #
     # PSFEx
