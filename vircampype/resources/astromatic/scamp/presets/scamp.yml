@@ -25,7 +25,7 @@ ASTREFERR_KEYS:         ERRA_WORLD, ERRB_WORLD, ERRTHETA_WORLD
 ASTREFMAG_KEY:          MAG             # Local ref.cat. magnitude parameter
 ASTREFMAGERR_KEY:       MAGERR          # Local ref.cat. mag. error parameter
 ASTREFOBSDATE_KEY:      OBSDATE         # Local ref.cat. obs. date parameter
-ASTREFMAG_LIMITS:       10.0,20.0      # Select magnitude range in ASTREF_BAND
+ASTREFMAG_LIMITS:       10.0,21.0      # Select magnitude range in ASTREF_BAND
 SAVE_REFCATALOG:        N               # Save ref catalogs in FITS-LDAC format?
 REFOUT_CATPATH:         .               # Save path for reference catalogs
 
