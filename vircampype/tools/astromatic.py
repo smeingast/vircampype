@@ -370,10 +370,10 @@ class ScampSetup(AstromaticSetup):
             Package path.
         """
 
-        return "{0}.presets".format(self.package)
+        return f"{self.package}.presets"
 
     @property
-    def default_config(self):
+    def path_config_default(self) -> str:
         """
         Searches for default config file in resources.
 
@@ -384,6 +384,52 @@ class ScampSetup(AstromaticSetup):
 
         """
         return get_resource_path(package=self.package, resource="default.config")
+
+    @property
+    def path_config_preset(self) -> str:
+        """
+        Searches for default config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        if self.setup.scamp_mode == "loose":
+            return self.__path_config_loose
+        elif self.setup.scamp_mode == "fix_focalplane":
+            return self.__path_config_fix_focalplane
+        else:
+            raise ValueError(f"Scamp mode '{self.setup.scamp_mode}' not supported")
+
+    @property
+    def __path_config_loose(self) -> str:
+        """
+        Searches for loose config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        return get_resource_path(package=self.package_presets,
+                                 resource="scamp_loose.yml")
+
+    @property
+    def __path_config_fix_focalplane(self) -> str:
+        """
+        Searches for fix focalplane config file in resources.
+
+        Returns
+        -------
+        str
+            Path to default config
+
+        """
+        return get_resource_path(package=self.package_presets,
+                                 resource="scamp_ffp.yml")
 
     @staticmethod
     def qc_types(joined=False):
