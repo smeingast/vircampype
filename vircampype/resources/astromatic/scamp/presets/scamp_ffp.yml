@@ -49,7 +49,7 @@ FULLOUTCAT_NAME:        full.cat        # Full output catalog filename
 #----------------------------- Pattern matching -------------------------------
 
 MATCH:                  Y               # Do pattern-matching (Y/N) ?
-MATCH_NMAX:             0               # Max.number of detections for MATCHing
+MATCH_NMAX:             20000               # Max.number of detections for MATCHing
                                        # (0=auto)
 PIXSCALE_MAXERR:        1.05             # Max scale-factor uncertainty
 POSANGLE_MAXERR:        5.0             # Max position-angle uncertainty (deg)
