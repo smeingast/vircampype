@@ -113,7 +113,7 @@ PHOT_IMAFLAGSMASK:      0x0             # Photometry rejection mask on IMAFLAGS
 
 SN_THRESHOLDS:          10.0,100.0      # S/N thresholds (in sigmas) for all and
                                        # high-SN sample
-FWHM_THRESHOLDS:        0.8,5.0       # FWHM thresholds (in pixels) for sources
+FWHM_THRESHOLDS:        0.8,10.0       # FWHM thresholds (in pixels) for sources
 ELLIPTICITY_MAX:        0.25             # Max. source ellipticity
 FLAGS_MASK:             0x00f0          # Global rejection mask on SEx FLAGS
 WEIGHTFLAGS_MASK:       0x00ff          # Global rejec. mask on SEx FLAGS_WEIGHT
