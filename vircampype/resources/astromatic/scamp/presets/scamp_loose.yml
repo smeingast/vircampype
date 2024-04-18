@@ -49,7 +49,7 @@ FULLOUTCAT_NAME:        full.cat        # Full output catalog filename
 #----------------------------- Pattern matching -------------------------------
 
 MATCH:                  Y               # Do pattern-matching (Y/N) ?
-MATCH_NMAX:             0               # Max.number of detections for MATCHing
+MATCH_NMAX:             20000               # Max.number of detections for MATCHing
                                        # (0=auto)
 PIXSCALE_MAXERR:        1.05             # Max scale-factor uncertainty
 POSANGLE_MAXERR:        5.0             # Max position-angle uncertainty (deg)
@@ -113,7 +113,7 @@ PHOT_IMAFLAGSMASK:      0x0             # Photometry rejection mask on IMAFLAGS
 
 SN_THRESHOLDS:          10.0,200.0      # S/N thresholds (in sigmas) for all and
                                        # high-SN sample
-FWHM_THRESHOLDS:        0.8,5.0       # FWHM thresholds (in pixels) for sources
+FWHM_THRESHOLDS:        0.8,10.0       # FWHM thresholds (in pixels) for sources
 ELLIPTICITY_MAX:        0.25             # Max. source ellipticity
 FLAGS_MASK:             0x00f0          # Global rejection mask on SEx FLAGS
 WEIGHTFLAGS_MASK:       0x00ff          # Global rejec. mask on SEx FLAGS_WEIGHT
