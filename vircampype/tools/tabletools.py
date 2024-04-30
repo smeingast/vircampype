@@ -801,6 +801,8 @@ def convert2public(
     assert table_out["ERRMAJ"].unit == Unit("mas")
     assert table_out["ERRMIN"].unit == Unit("mas")
     assert table_out["ERRPA"].unit == Unit("deg")
+    assert table_out["RAERR"].unit == Unit("mas")
+    assert table_out["DECERR"].unit == Unit("mas")
     assert table_out["MAG"].unit == Unit("mag")
     assert table_out["MAGERR"].unit == Unit("mag")
     assert table_out["APERTURE"].unit == Unit("pix")
