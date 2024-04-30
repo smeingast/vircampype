@@ -1840,6 +1840,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             weightout_name=self.setup.path_coadd_weight,
             nthreads=self.setup.n_jobs,
             resample_suffix=sws.resample_suffix,
+            resampling_type=self.setup.resampling_kernel.upper(),
             gain_keyword=self.setup.keywords.gain,
             satlev_keyword=self.setup.keywords.saturate,
             fscale_keyword="FSCLSTCK",

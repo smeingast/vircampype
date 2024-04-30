@@ -153,6 +153,11 @@ class Setup:
     sex_back_size: int = 64
     sex_back_filtersize: int = 3
 
+    # Swarp
+    __resampling_kernel = Literal[
+        "nearest", "bilinear", "lanczos2", "lanczos3", "lanczos4"]
+    resampling_kernel: __resampling_kernel = "lanczos3"
+
     # Binary names
     bin_sex: str = "sex"
     bin_scamp: str = "scamp"
