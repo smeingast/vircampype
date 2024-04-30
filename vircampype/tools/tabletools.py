@@ -727,6 +727,11 @@ def convert2public(
     aper_best = aper_best[idx_final]
     mag_best, magerr_best = mag_best[idx_final], magerr_best[idx_final]
     erra_tot, errb_tot = data_erra_tot[idx_final], data_errb_tot[idx_final]
+    ra_error, dec_error, ra_dec_corr = (
+        data_ra_error[idx_final],
+        data_dec_error[idx_final],
+        data_ra_dec_corr[idx_final],
+    )
     errpa = data_errpa[idx_final]
     sflg, cflg, qflg = data_sflg[idx_final], cflg[idx_final], qflg[idx_final]
     data_mjd = data_mjd[idx_final]
@@ -749,6 +754,9 @@ def convert2public(
             erra_tot.to(Unit("mas")).astype(np.float32),
             errb_tot.to(Unit("mas")).astype(np.float32),
             errpa.to(Unit("deg")).astype(np.float32),
+            ra_error.to(Unit("mas")).astype(np.float32),
+            dec_error.to(Unit("mas")).astype(np.float32),
+            ra_dec_corr.astype(np.float32),
             mag_best.to(Unit("mag")).astype(np.float32),
             magerr_best.to(Unit("mag")).astype(np.float32),
             aper_best.to(Unit("pix")).astype(np.float32),
@@ -769,6 +777,9 @@ def convert2public(
             "ERRMAJ",
             "ERRMIN",
             "ERRPA",
+            "RAERR",
+            "DECERR",
+            "RADECCORR",
             "MAG",
             "MAGERR",
             "APERTURE",
