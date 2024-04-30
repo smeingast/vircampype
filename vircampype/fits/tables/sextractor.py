@@ -139,9 +139,7 @@ class SextractorCatalogs(SourceCatalogs):
 
         # Load preset
         options = yml2config(
-            path_yml=get_resource_path(
-                package=scs.package_presets, resource="scamp.yml"
-            ),
+            path_yml=scs.path_config_preset,
             nthreads=self.setup.n_jobs,
             checkplot_type=scs.qc_types(joined=True),
             checkplot_name=scs.qc_names(joined=True),
@@ -167,7 +165,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Construct command for scamp
         cmd = (
             f"{scs.bin} {self._scamp_catalog_paths} "
-            f"-c {scs.default_config} "
+            f"-c {scs.path_config_default} "
             f"-HEADER_NAME {self._scamp_header_paths(joined=True)} "
             f"-ASTREF_CATALOG FILE "
             f"-ASTREFCAT_NAME {astrefact_name} "
