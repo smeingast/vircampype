@@ -552,11 +552,31 @@ def convert2public(
     # Compute total astrometric errors
     data_erra = table["ERRAWIN_WORLD"].quantity
     data_errb = table["ERRBWIN_WORLD"].quantity
+    # Sextractor values are from -90 to +90
     data_errpa = table["ERRTHETAWIN_SKY"].quantity + 90.0 * Unit("deg")
     astrms1 = table["ASTRMS1"].quantity
     astrms2 = table["ASTRMS2"].quantity
     data_erra_tot = np.sqrt(data_erra**2 + astrms1**2)
     data_errb_tot = np.sqrt(data_errb**2 + astrms2**2)
+
+    # Now for a few sources the minor axis is larger than the major axis
+    # For these we need to flip a and b and adjust the angle
+    needs_flipping = data_erra_tot < data_errb_tot
+    old_a = data_erra_tot[needs_flipping].copy()
+    old_b = data_errb_tot[needs_flipping].copy()
+    data_erra_tot[needs_flipping] = old_b
+    data_errb_tot[needs_flipping] = old_a
+    data_errpa[needs_flipping] = np.where(data_errpa[needs_flipping] > 90 * Unit("deg"),
+                                          data_errpa[needs_flipping] - 90 * Unit("deg"),
+                                          data_errpa[needs_flipping] + 90 * Unit("deg"))
+
+    # Convert to ra/dec error and correlation coeff
+    data_ra_error, data_dec_error, data_ra_dec_corr = convert_position_error(
+        errmaj=data_erra_tot, errmin=data_errb_tot, errpa=data_errpa.value
+    )
+    # Add units
+    data_ra_error = data_ra_error * Unit("deg")
+    data_dec_error = data_dec_error * Unit("deg")
 
     # Get other columns
     data_exptime = table["EXPTIME"].quantity
