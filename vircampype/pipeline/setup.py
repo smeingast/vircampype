@@ -566,19 +566,19 @@ class Setup:
 
 class HeaderKeywords:
     def __init__(
-        self,
-        obj="OBJECT",
-        filter_name="HIERARCH ESO INS FILT1 NAME",
-        dpr_type="HIERARCH ESO DPR TYPE",
-        dpr_category="HIERARCH ESO DPR CATG",
-        dit="HIERARCH ESO DET DIT",
-        ndit="HIERARCH ESO DET NDIT",
-        date_mjd="MJD-OBS",
-        date_ut="DATE-OBS",
-        gain="GAIN",
-        rdnoise="RDNOISE",
-        saturate="SATURATE",
-        airmass="AIRMASS",
+            self,
+            obj="OBJECT",
+            filter_name="HIERARCH ESO INS FILT1 NAME",
+            dpr_type="HIERARCH ESO DPR TYPE",
+            dpr_category="HIERARCH ESO DPR CATG",
+            dit="HIERARCH ESO DET DIT",
+            ndit="HIERARCH ESO DET NDIT",
+            date_mjd="MJD-OBS",
+            date_ut="DATE-OBS",
+            gain="GAIN",
+            rdnoise="RDNOISE",
+            saturate="SATURATE",
+            airmass="AIRMASS",
     ):
         self.object = obj
         self.filter_name = filter_name
