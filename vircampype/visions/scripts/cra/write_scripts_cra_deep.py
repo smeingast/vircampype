@@ -1,8 +1,10 @@
+import os
 from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
 
 # Define paths
-path_scripts = "/Users/stefan/Dropbox/Projects/VISIONS/Pipeline/scripts/CrA/deep/"
+cloud_home = os.getenv("CLOUD_HOME")
+path_scripts = f"{cloud_home}/Projects/VISIONS/Pipeline/scripts/CrA/deep/"
 path_data = "/Volumes/Data/VISIONS/198C-2009E/data_deep/"
 path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
 
@@ -23,12 +25,17 @@ kwargs = dict(
     path_pype=path_pype,
     path_scripts=path_scripts,
     projection="Corona_Australis_deep",
-    n_jobs=18,
+    n_jobs=10,
     external_headers=True,
     name_suffix=None,
+    photometric_error_floor=0.005
+
 )
 
 # Write scripts
-write_scripts(paths_files=paths_files_j, reference_mag_lim=(12.5, 15.5), **kwargs)
-write_scripts(paths_files=paths_files_h, reference_mag_lim=(12.0, 15.0), **kwargs)
-write_scripts(paths_files=paths_files_ks, reference_mag_lim=(11.5, 14.5), **kwargs)
+write_scripts(paths_files=paths_files_j, reference_mag_lo=12.5, reference_mag_hi=15.5,
+              **kwargs)
+write_scripts(paths_files=paths_files_h, reference_mag_lo=12.0, reference_mag_hi=15.0,
+              **kwargs)
+write_scripts(paths_files=paths_files_ks, reference_mag_lo=11.5, reference_mag_hi=14.5,
+              **kwargs)
