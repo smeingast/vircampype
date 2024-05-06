@@ -19,6 +19,7 @@ n_jobs = 10
 # Get script paths
 paths_scripts = sorted(glob.glob(f"{path_scripts}*.yml"))
 
+# Build mosaic
 build_mosaic(
     name=name,
     paths_scripts=paths_scripts,
