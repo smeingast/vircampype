@@ -16,7 +16,7 @@ reference_mag_hi = 15.5
 photometric_error_floor = 0.005
 n_jobs = 10
 
-# Get all script paths
+# Get script paths
 paths_scripts = sorted(glob.glob(f"{dir_scripts}*_J_*.yml"))
 
 # Build mosaic
