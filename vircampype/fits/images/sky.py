@@ -162,6 +162,10 @@ class SkyImages(FitsImages):
 
         """
 
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Running sextractor with preset '{preset}' on {self.n_files} files")
+
         # Load Sextractor setup
         sxs = SextractorSetup(setup=self.setup)
 
@@ -303,6 +307,11 @@ class SkyImages(FitsImages):
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
 
     def build_class_star_library(self):
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Building class star library for {self.n_files} files")
+
         # Import
         from vircampype.fits.tables.sextractor import SextractorCatalogs
 
@@ -356,6 +365,7 @@ class SkyImages(FitsImages):
 
             # Determine FWHM range
             fwhm_range = np.arange(fwhm_lo - 0.05, fwhm_hi + 0.11, 0.05)
+            log.info(f"FWHM range: {fwhm_range}")
 
             # Safety check for fwhm range
             if len(fwhm_range) > 30:
@@ -387,7 +397,7 @@ class SkyImages(FitsImages):
 
             # Run Sextractor
             n_jobs_sex = (
-                6 if self.setup.n_jobs > 6 else self.setup.n_jobs
+                5 if self.setup.n_jobs > 5 else self.setup.n_jobs
             )  # max of 6 parallel jobs
             run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
 
