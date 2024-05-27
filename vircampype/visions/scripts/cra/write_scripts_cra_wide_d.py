@@ -1,10 +1,11 @@
 from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
+from vircampype.visions.locations import path_data_ssd, path_visions_proj
 
 # Define paths
-path_data = "/Volumes/Data/VISIONS/198C-2009E/data_wide/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009E/vircampype/"
-path_scripts = "/Users/stefan/iCloud/Projects/VISIONS/Pipeline/scripts/CrA/wide_D/"
+path_data = f"{path_data_ssd}VISIONS/198C-2009E/data_wide/"
+path_pype = f"{path_data_ssd}VISIONS/198C-2009E/vircampype/"
+path_scripts = f"{path_visions_proj}Pipeline/scripts/CrA/wide_D/"
 
 # Search for files
 paths_files = sorted(glob(path_data + "CrA*/B/*.fits"))
@@ -15,9 +16,9 @@ write_scripts(
     additional_source_masks="Corona_Australis_wide",
     archive=False,
     build_phase3=False,
-    build_public_catalog=False,
+    build_public_catalog=True,
     build_stacks=False,
-    build_tile=False,
+    build_tile=True,
     build_tile_only=False,
     path_pype=path_pype,
     path_scripts=path_scripts,
@@ -27,5 +28,5 @@ write_scripts(
     reference_mag_lo=12.0,
     reference_mag_hi=15.0,
     name_suffix="_D",
-    source_classification=False,
+    source_classification=True,
 )
