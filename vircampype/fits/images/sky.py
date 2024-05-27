@@ -139,7 +139,13 @@ class SkyImages(FitsImages):
             for x in self.paths_full
         ]
 
-    def sextractor(self, preset="scamp", silent=None, return_cmds=False, **kwargs):
+    def sextractor(self,
+                   preset="scamp",
+                   silent=None,
+                   return_cmds=False,
+                   check_double_image=True,
+                   **kwargs
+                   ):
         """
         Runs sextractor based on given presets.
 
@@ -151,6 +157,8 @@ class SkyImages(FitsImages):
             Can overrides setup on messaging.
         return_cmds : bool, optional
             Return list of sextractor shell commands instead of running them.
+        check_double_image : bool, optional
+            Check for double image and modify command accordingly if found.
 
         """
 
@@ -226,6 +234,17 @@ class SkyImages(FitsImages):
                     self.get_master_weight_global().paths_full,
                 )
                 ]
+
+        # Check if there is a "double image" available for each command
+        if check_double_image:
+            for idx, _ in enumerate(cmds):
+                root, ext = os.path.splitext(self.paths_full[idx])
+                path_di = f"{root}.di{ext}"
+                if os.path.isfile(path_di):
+                    cmds[idx] = cmds[idx].replace(self.paths_full[idx],
+                                                  f"{path_di},{self.paths_full[idx]}")
+                    # Issue warning
+                    log.warning(f"Double image found for {self.paths_full[idx]}")
 
         # Add kwargs to commands
         for key, val in kwargs.items():
@@ -345,7 +364,8 @@ class SkyImages(FitsImages):
             # Construct sextractor commands
             cmds = [
                 self.sextractor(
-                    preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True
+                    preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True,
+                    check_double_image=True,
                 )[idx_file]
                 for ss in fwhm_range
             ]
