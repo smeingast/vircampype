@@ -104,7 +104,7 @@ def func2string(func):
         return "mean"
 
 
-def flat_list(inlist: List[List[Any]]) -> List[Any]:
+def flat_list(inlist: List[Union[List[Any], np.ndarray]]) -> List[Any]:
     """
     Flattens a list with sublists.
 
