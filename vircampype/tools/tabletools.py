@@ -16,7 +16,6 @@ from sklearn.neighbors import NearestNeighbors
 from astropy.table import vstack as table_vstack
 from vircampype.tools.photometry import get_zeropoint
 from astropy.stats import sigma_clip, sigma_clipped_stats
-from astropy.modeling.functional_models import Gaussian1D
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
 __all__ = [
@@ -235,10 +234,8 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
         nn_data = table_clean[parameter].data[nn_idx].copy()
 
         # Compute weights (Gauss with max_dis / 2 std)
-        weights = (
-            Gaussian1D(amplitude=1, mean=0, stddev=max_dis / 2)(nn_dis)
-            * table_clean["SNR_WIN"].data[nn_idx]
-        )
+        weights = (np.exp(-0.5*(nn_dis/(max_dis/2)) ** 2) *
+                   table_clean["SNR_WIN"].data[nn_idx])
         weights[bad_data] = 0.0
         # Weights just from SNR
         # weights_snr = table_clean["SNR_WIN"].data[nn_idx]
@@ -258,7 +255,7 @@ def add_smoothed_value(table, parameter, n_neighbors=100, max_dis=540):
             warnings.filterwarnings(
                 "ignore", message="Input data contains invalid values"
             )
-            wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=3, masked=True).mask
+            wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=2, masked=True).mask
         weights_par[wmask] = 0.0
         # noinspection PyUnresolvedReferences
         par_weighted.append(
@@ -640,7 +637,7 @@ def convert2public(
     # Clean bad growth magnitudes
     growth = data_mag_aper_matched_cal[:, 0] - data_mag_aper_matched_cal[:, 1]
     mag_min, mag_max = np.nanmin(mag_best), np.nanmax(mag_best)
-    mag_range = np.linspace(mag_min, mag_max, 100)
+    mag_range = np.arange(mag_min.value, mag_max.value + 0.25, 0.25) * Unit("mag")
     idx_all = np.arange(len(mag_best))
 
     # Loop over magnitude range
