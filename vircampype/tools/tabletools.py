@@ -1030,11 +1030,11 @@ def sextractor_nanify_bad_values(table: Table) -> None:
         "FLUX_AUTO": lambda x: x <= 0,
         "FLUXERR_AUTO": lambda x: x <= 0,
         "MAG_AUTO": lambda x: x >= 0,
-        "MAGERR_AUTO": lambda x: x >= 0,
+        "MAGERR_AUTO": lambda x: x <= 0,
         "FLUX_APER": lambda x: x <= 0,
         "FLUXERR_APER": lambda x: x <= 0,
         "MAG_APER": lambda x: x >= 0,
-        "MAGERR_APER": lambda x: x >= 0,
+        "MAGERR_APER": lambda x: x <= 0,
         "SNR_WIN": lambda x: x <= 0
     }
 
