@@ -11,11 +11,11 @@ from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
 from astropy.wcs import WCS, FITSFixedWarning
 from astropy.table.column import MaskedColumn
-from typing import Union, List, Dict, Callable
 from sklearn.neighbors import NearestNeighbors
 from astropy.table import vstack as table_vstack
 from vircampype.tools.photometry import get_zeropoint
 from astropy.stats import sigma_clip, sigma_clipped_stats
+from typing import Union, List, Dict, Callable, Optional, Generator
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
 __all__ = [
@@ -30,6 +30,7 @@ __all__ = [
     "convert2public",
     "merge_with_2mass",
     "sextractor_nanify_bad_values",
+    "split_table",
 ]
 
 # Table column formats
@@ -1042,3 +1043,34 @@ def sextractor_nanify_bad_values(table: Table) -> None:
     for column, condition in conditions.items():
         bad_values = condition(table[column])
         table[column][bad_values] = np.nan
+
+
+def split_table(table: Table, n_splits: int) -> Generator[Table, None, None]:
+    """
+    Splits a large Astropy Table into smaller tables evenly.
+
+    Parameters:
+    ----------
+    table : Table
+        The Astropy Table to be split.
+    n_chunks : int
+        The number of parts to split the table into.
+
+    Yields:
+    -------
+    Table
+        Each part of the split table as a new Astropy Table instance.
+    """
+    len_table = len(table)
+    split_size = len_table // n_splits  # Calculate the number of rows in each part
+
+    # Generate each subtable
+    for i in range(n_splits):
+        start = i * split_size
+        # If this is the last slice, include any remaining rows due to integer division
+        if i == n_splits - 1:
+            end = len_table
+        else:
+            end = start + split_size
+        # Yield a view/slice of the original table
+        yield table[start:end]
