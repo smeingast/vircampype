@@ -63,6 +63,7 @@ def clean_source_table(
     border_pix=20,
     min_flux_radius=0.8,
     max_flux_radius=3.0,
+    finite_columns: Optional[List[str]] = None,
 ):
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
@@ -159,6 +160,11 @@ def clean_source_table(
             good &= table["FLUX_MAX"] <= flux_max
         except KeyError:
             pass
+
+    # Finally, check for finite values in columns
+    if finite_columns is not None:
+        for col in finite_columns:
+            good &= np.isfinite(table[col])
 
     # Return cleaned table
     if return_filter:
