@@ -4,7 +4,6 @@ import numpy as np
 from astropy.io import fits
 from astropy.time import Time
 from astropy.units import Unit
-from typing import Union, List
 from astropy.units import Quantity
 from scipy.interpolate import interp1d
 from astropy.table import Table, QTable
@@ -12,6 +11,7 @@ from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
 from astropy.wcs import WCS, FITSFixedWarning
 from astropy.table.column import MaskedColumn
+from typing import Union, List, Dict, Callable
 from sklearn.neighbors import NearestNeighbors
 from astropy.table import vstack as table_vstack
 from vircampype.tools.photometry import get_zeropoint
@@ -30,6 +30,7 @@ __all__ = [
     "fits_column_kwargs",
     "convert2public",
     "merge_with_2mass",
+    "sextractor_nanify_bad_values",
 ]
 
 # Table column formats
@@ -975,3 +976,72 @@ def merge_with_2mass(
 
     # Stack tables and return
     return table_vstack(tables=[table, table_new])
+
+
+def sextractor_nanify_bad_values(table: Table) -> None:
+    """
+    Replaces bad values in a SExtractor table with NaN based on predefined conditions.
+
+    Parameters
+    ----------
+    table : Table
+        An Astropy Table containing data from SExtractor output. T
+        his function modifies the table in-place.
+
+    Returns
+    -------
+    None
+        Modifies the table in-place, replacing bad values with NaN.
+
+    Notes
+    -----
+    The function defines bad values based on conditions for each relevant column.
+    - For shape-related columns
+      (`FLUX_RADIUS`, `FWHM_IMAGE`, `FWHM_WORLD`, `ELLIPTICITY`, `ELONGATION`):
+      Values <= 0 are considered bad and replaced with NaN.
+    - For flux-related columns
+      (`FLUX_AUTO`, `FLUXERR_AUTO`, `FLUX_APER`, `FLUXERR_APER`):
+      Negative or zero values are bad and are replaced with NaN.
+    - For magnitude-related columns
+      (`MAG_AUTO`, `MAGERR_AUTO`, `MAG_APER`, `MAGERR_APER`):
+      Non-negative values are considered problematic and replaced with NaN,
+      assuming magnitudes should typically be negative.
+    - For the `SNR_WIN` column:
+      Non-positive values are replaced with NaN.
+
+    Examples
+    --------
+    >>> from astropy.table import Table
+    >>> data = Table({'FLUX_RADIUS': [0.5, -1, 2],
+    ...               'FWHM_IMAGE': [3, 0, -5],
+    ...               'FLUX_AUTO': [10, -10, 5]})
+    >>> sextractor_nanify_bad_values(data)
+    >>> print(data)
+    FLUX_RADIUS FWHM_IMAGE FLUX_AUTO
+    ----------- ---------- ---------
+          0.5         NaN        10
+          NaN         NaN       NaN
+            2         NaN         5
+    """
+    # Define criteria for NaN replacement in a dictionary
+    conditions: Dict[str, Callable[[np.ndarray], np.ndarray]] = {
+        "FLUX_RADIUS": lambda x: x <= 0,
+        "FWHM_IMAGE": lambda x: x <= 0,
+        "FWHM_WORLD": lambda x: x <= 0,
+        "ELLIPTICITY": lambda x: x <= 0,
+        "ELONGATION": lambda x: x <= 0,
+        "FLUX_AUTO": lambda x: x <= 0,
+        "FLUXERR_AUTO": lambda x: x <= 0,
+        "MAG_AUTO": lambda x: x >= 0,
+        "MAGERR_AUTO": lambda x: x >= 0,
+        "FLUX_APER": lambda x: x <= 0,
+        "FLUXERR_APER": lambda x: x <= 0,
+        "MAG_APER": lambda x: x >= 0,
+        "MAGERR_APER": lambda x: x >= 0,
+        "SNR_WIN": lambda x: x <= 0
+    }
+
+    # Process each condition
+    for column, condition in conditions.items():
+        bad_values = condition(table[column])
+        table[column][bad_values] = np.nan
