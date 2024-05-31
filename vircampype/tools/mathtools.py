@@ -3,10 +3,12 @@ import numpy as np
 
 from astropy.units import Unit
 from fractions import Fraction
-from typing import Union, Callable
+from astropy.stats import sigma_clip
 from astropy.coordinates import SkyCoord
+from typing import Union, Callable, Tuple
 from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
+from sklearn.neighbors import NearestNeighbors
 
 
 __all__ = [
@@ -26,6 +28,7 @@ __all__ = [
     "linearity_fitfunc",
     "clipped_mean",
     "cart2pol",
+    "interpolate_value",
 ]
 
 
@@ -715,3 +718,103 @@ def cart2pol(x, y):
 
     """
     return np.arctan2(y, x), np.hypot(x, y)
+
+
+def interpolate_value(
+    x: float,
+    y: float,
+    x0: np.ndarray,
+    y0: np.ndarray,
+    val0: np.ndarray,
+    additional_weights0: np.ndarray,
+    n_neighbors: int = 100,
+    max_dis: float = 540,
+    n_fixed: int = 20
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Interpolate a value and its standard deviation based on the nearest neighbors' data.
+
+    Parameters
+    ----------
+    x : float
+        The x-coordinate of the point to interpolate.
+    y : float
+        The y-coordinate of the point to interpolate.
+    x0 : np.ndarray
+        The x-coordinates of the input data points.
+    y0 : np.ndarray
+        The y-coordinates of the input data points.
+    val0 : np.ndarray
+        The values of the input data points.
+    additional_weights0 : np.ndarray
+        Additional weights to apply to each data point during interpolation.
+    n_neighbors : int, optional
+        The number of nearest neighbors to consider (default is 100).
+    max_dis : float, optional
+        The maximum distance to consider for interpolation (default is 540).
+    n_fixed : int, optional
+        The minimum number of neighbors to include, regardless of distance
+        (default is 20).
+
+    Returns
+    -------
+    val : np.ndarray
+        The interpolated values.
+    val_std : np.ndarray
+        The standard deviations of the interpolated values.
+    n_sources_per_source : np.ndarray
+        The number of sources used for each interpolation.
+    max_dis_per_source : np.ndarray
+        The maximum distance used for each source during interpolation.
+    """
+    # Set n_neighbors to length of clean input catalog if too large
+
+    # Determine number of data points
+    num_points = len(x0)
+
+    # Set n_neighbors and n_fixed to valid values based on the input size
+    n_neighbors = min(num_points, n_neighbors)
+    n_fixed = min(num_points, n_fixed)
+
+    # Stack coordinates
+    stacked0 = np.column_stack([x0, y0])
+    stacked = np.column_stack([x, y])
+
+    # Grab nearest neighbors
+    nn_model = NearestNeighbors(n_neighbors=n_neighbors).fit(stacked0)
+    nn_dis, nn_idx = nn_model.kneighbors(stacked)
+
+    # Ensure at least n_fixed neighbors are considered
+    nn_dis_fixed = nn_dis[:, :n_fixed]
+    nn_dis = np.where(nn_dis > max_dis, np.nan, nn_dis)
+    nn_dis[:, :n_fixed] = nn_dis_fixed
+
+    # Grab nearest neighbor data and compute max distance and number of sources
+    nn_data = val0[nn_idx]
+    max_dis_per_source = np.nanmax(nn_dis, axis=1)
+    n_sources_per_source = np.sum(np.isfinite(nn_dis), axis=1)
+
+    # Compute weight based on gaussian distance metric and additional weights
+    weights = np.exp(-0.5 * (nn_dis / (max_dis / 2)) ** 2) * additional_weights0[nn_idx]
+
+    # Replicate weights to third dimension if required
+    if nn_data.ndim == 3:
+        weights = np.repeat(weights[:, :, np.newaxis], nn_data.shape[2], axis=2)
+
+    # Compute mask based on sigma-clipped data array
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Input data contains invalid values")
+        wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=2, masked=True).mask
+
+    # Set weights to zero for masked values
+    weights[wmask] = 0.0
+    bad_idx = ~np.isfinite(nn_data)
+    nn_data[bad_idx], weights[bad_idx] = 0, 0
+
+    # Compute weighted average and std
+    val = np.average(nn_data, axis=1, weights=weights)
+    val_std = np.sqrt(np.average((nn_data - val[:, np.newaxis]) ** 2,
+                                 axis=1, weights=weights))
+
+    # Return interpolated value, standard deviation, number of sources, and max distance
+    return val, val_std, n_sources_per_source, max_dis_per_source
