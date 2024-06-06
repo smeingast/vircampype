@@ -13,9 +13,7 @@ from astropy.wcs import WCS, FITSFixedWarning
 from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
 from astropy.table import vstack as table_vstack
-from vircampype.tools.photometry import get_zeropoint
-from astropy.stats import sigma_clip, sigma_clipped_stats
-from typing import Union, List, Dict, Callable, Optional, Generator
+from typing import Union, List, Dict, Callable, Optional, Generator, Tuple
 from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
 __all__ = [
@@ -56,14 +54,18 @@ def clean_source_table(
     return_filter=False,
     min_snr=10,
     nndis_limit=None,
+    flux_auto_min=None,
+    flux_auto_max=None,
     flux_max=None,
+    flux_max_percentiles: Optional[Tuple] = None,
     max_ellipticity=0.25,
-    min_fwhm=1.0,
+    min_fwhm=0.5,
     max_fwhm=8.0,
-    border_pix=20,
+    min_distance_to_edge=20,
     min_flux_radius=0.8,
     max_flux_radius=3.0,
     finite_columns: Optional[List[str]] = None,
+    n_jobs: Optional[int] = None,
 ):
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
@@ -73,7 +75,7 @@ def clean_source_table(
         # Get distance to nearest neighbor for cleaning
         stacked = np.stack([table["XWIN_IMAGE"], table["YWIN_IMAGE"]]).T
         nndis = (
-            NearestNeighbors(n_neighbors=2, algorithm="auto")
+            NearestNeighbors(n_neighbors=2, algorithm="auto", n_jobs=n_jobs)
             .fit(stacked)
             .kneighbors(stacked)[0][:, -1]
         )
@@ -95,19 +97,19 @@ def clean_source_table(
         pass
 
     try:
-        good &= table["ISOAREA_IMAGE"] > 3
+        good &= table["ISOAREA_IMAGE"] > 5
     except KeyError:
         pass
 
     try:
-        good &= table["ISOAREA_IMAGE"] < 1000
+        good &= table["ISOAREA_IMAGE"] < 2000
     except KeyError:
         pass
 
-    try:
-        good &= np.sum(table["MAG_APER"] > 0, axis=1) == 0
-    except KeyError:
-        pass
+    # try:
+    #     good &= np.sum(table["MAG_APER"] > 0, axis=1) == 0
+    # except KeyError:
+    #     pass
 
     # try:
     #     good &= (np.sum(np.diff(table["MAG_APER"], axis=1) > 0, axis=1) == 0)
@@ -144,20 +146,42 @@ def clean_source_table(
     # Also the other edge
     if image_header is not None:
         try:
-            good &= table["XWIN_IMAGE"] > border_pix
-            good &= table["XWIN_IMAGE"] < image_header["NAXIS1"] - border_pix
+            good &= table["XWIN_IMAGE"] > min_distance_to_edge
+            good &= table["XWIN_IMAGE"] < image_header["NAXIS1"] - min_distance_to_edge
         except KeyError:
             pass
 
         try:
-            good &= table["YWIN_IMAGE"] > border_pix
-            good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - border_pix
+            good &= table["YWIN_IMAGE"] > min_distance_to_edge
+            good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - min_distance_to_edge
+        except KeyError:
+            pass
+
+    if flux_auto_min is not None:
+        try:
+            good &= table["FLUX_AUTO"] >= flux_auto_min
+        except KeyError:
+            pass
+
+    if flux_auto_max is not None:
+        try:
+            good &= table["FLUX_AUTO"] <= flux_auto_max
         except KeyError:
             pass
 
     if flux_max is not None:
         try:
             good &= table["FLUX_MAX"] <= flux_max
+        except KeyError:
+            pass
+
+    if flux_max_percentiles is not None:
+        if flux_max_percentiles[1] < flux_max_percentiles[0]:
+            raise ValueError("Percentiles must be in increasing order")
+        try:
+            percentiles = np.nanpercentile(table["FLUX_MAX"], flux_max_percentiles)
+            good &= ((table["FLUX_MAX"] >= percentiles[0]) &
+                     (table["FLUX_MAX"] <= percentiles[1]))
         except KeyError:
             pass
 
