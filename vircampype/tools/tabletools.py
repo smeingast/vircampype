@@ -18,8 +18,6 @@ from vircampype.tools.systemtools import run_command_shell, remove_file, which
 
 __all__ = [
     "clean_source_table",
-    "add_smoothed_value",
-    "add_zp_2mass",
     "table2bintablehdu",
     "interpolate_classification",
     "remove_duplicates_wcs",
