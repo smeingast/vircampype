@@ -1,6 +1,6 @@
 import glob
 from vircampype.visions.mosaics.build_mosaic import build_mosaic
-from vircampype.visions.locations import path_data_ssd, path_visions_proj
+from vircampype.visions.locations import path_data_pleiades, path_visions_proj
 
 # Setup for pipeline
 name = "CrA_mosaic_H_A"
@@ -8,8 +8,8 @@ path_scripts = f"{path_visions_proj}Pipeline/scripts/CrA/wide_A/"
 path_master_astro_photo = f"{path_visions_proj}Pipeline/master-astro-photo/CrA_wide/"
 path_master_astro = f"{path_master_astro_photo}MASTER-ASTROMETRY.fits.tab"
 path_master_photo = f"{path_master_astro_photo}MASTER-PHOTOMETRY.fits.tab"
-path_data = f"{path_data_ssd}Mosaics/CrA/{name}/"
-path_pype = f"{path_data_ssd}Mosaics/CrA/vircampype/"
+path_data = f"{path_data_pleiades}Mosaics/CrA/{name}/"
+path_pype = f"{path_data_pleiades}Mosaics/CrA/vircampype/"
 projection = "Corona_Australis_wide"
 reference_mag_lo = 12.0
 reference_mag_hi = 15.0
