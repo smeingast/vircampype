@@ -1,10 +1,11 @@
 from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
+from vircampype.visions.locations import path_data_pleiades, path_visions_proj
 
 # Define paths
-path_scripts = "/Users/stefan/iCloud/Projects/VISIONS/Pipeline/scripts/CrA/wide_E/"
-path_data = "/Volumes/Data/VISIONS/198C-2009H/data_wide/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009H/vircampype/"
+path_data = f"{path_data_pleiades}VISIONS/198C-2009H/data_wide/"
+path_pype = f"{path_data_pleiades}VISIONS/198C-2009H/vircampype/"
+path_scripts = f"{path_visions_proj}Pipeline/scripts/CrA/wide_E/"
 
 # Search for files
 paths_files = sorted(glob(path_data + "CrA*/A/*.fits"))
@@ -33,8 +34,8 @@ write_scripts(
 """ Four tiles are missing from this run. These were done later in run L. """
 
 # Define paths
-path_data = "/Volumes/Data/VISIONS/198C-2009L/data_wide/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009L/vircampype/"
+path_data = f"{path_data_pleiades}VISIONS/198C-2009L/data_wide/"
+path_pype = f"{path_data_pleiades}VISIONS/198C-2009L/vircampype/"
 
 # Search for files
 paths_files = sorted(glob(path_data + "CrA*/*.fits"))
