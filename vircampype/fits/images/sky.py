@@ -239,7 +239,7 @@ class SkyImages(FitsImages):
                 )
                 ]
 
-        # Check if there is a "double image" available for each command
+        # Check if there is a detection image available for each command
         if check_double_image:
             for idx, _ in enumerate(cmds):
                 root, ext = os.path.splitext(self.paths_full[idx])
@@ -247,8 +247,9 @@ class SkyImages(FitsImages):
                 if os.path.isfile(path_di):
                     cmds[idx] = cmds[idx].replace(self.paths_full[idx],
                                                   f"{path_di},{self.paths_full[idx]}")
-                    # Issue warning
-                    log.warning(f"Double image found for {self.paths_full[idx]}")
+                    log.info(f"Double image mode\n"
+                             f"Detection image '{path_di}'\n"
+                             f"Measurement image '{self.paths_full[idx]}'")
 
         # Add kwargs to commands
         for key, val in kwargs.items():
