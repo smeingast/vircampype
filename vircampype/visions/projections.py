@@ -8,6 +8,7 @@ __all__ = [
     "ChamaeleonControlProjection",
     "CoronaAustralisDeepProjection",
     "CoronaAustralisWideProjection",
+    "CoronaAustralisWideLQProjection",
     "CoronaAustralisControlProjection",
     "LupusDeepNProjection",
     "LupusDeepSProjection",
@@ -93,6 +94,20 @@ class CoronaAustralisWideProjection(Projection):
     def __header_file(self):
         return get_resource_path(
             package=self.headerpackage, resource="Corona_Australis_wide.header"
+        )
+
+
+class CoronaAustralisWideLQProjection(Projection):
+    def __init__(self):
+        super(CoronaAustralisWideLQProjection, self).__init__(
+            header=fits.Header.fromtextfile(self.__header_file),
+            name="Corona_Australis_wide_lq",
+        )
+
+    @property
+    def __header_file(self):
+        return get_resource_path(
+            package=self.headerpackage, resource="Corona_Australis_wide_lq.header"
         )
 
 

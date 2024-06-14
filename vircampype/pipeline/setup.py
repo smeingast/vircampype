@@ -330,6 +330,8 @@ class Setup:
             # Corona Australis
             elif self.projection.lower() == "corona_australis_wide":
                 self.projection = CoronaAustralisWideProjection()
+            elif self.projection.lower() == "corona_australis_wide_lq":
+                self.projection = CoronaAustralisWideLQProjection()
             elif self.projection.lower() == "corona_australis_deep":
                 self.projection = CoronaAustralisDeepProjection()
             elif self.projection.lower() == "corona_australis_control":
