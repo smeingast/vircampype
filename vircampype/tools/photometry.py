@@ -122,6 +122,10 @@ def get_zeropoint(
             weights = (1 / err_tot ** 2).T.copy()
             weights[mask] = 0.0
 
+            # Make sure data and weights do not contain NaNs
+            mask = np.isnan(mag_diff) | np.isnan(mag_err_cal)
+            mag_diff[mask], weights[mask] = 0.0, 0.0
+
             # Compute weighted average
             zp = np.average(mag_diff, weights=weights, axis=0)
             temp = mag_diff.copy()
