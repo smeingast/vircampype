@@ -226,6 +226,40 @@ class MasterPhotometry2Mass(MasterPhotometry):
         else:
             raise ValueError(f"Passband '{passband}' not available")
 
+    def mag_lim_lo(self, passband) -> float:
+        """
+        Fetches lower magnitude limit for given passband.
+
+        Parameters
+        ----------
+        passband : str
+            Passband.
+
+        Returns
+        -------
+        float
+            Lower magnitude limit.
+
+        """
+        return self.mag_lim(passband=passband)[0]
+
+    def mag_lim_hi(self, passband) -> float:
+        """
+        Fetches upper magnitude limit for given passband.
+
+        Parameters
+        ----------
+        passband : str
+            Passband.
+
+        Returns
+        -------
+        float
+            Upper magnitude limit.
+
+        """
+        return self.mag_lim(passband=passband)[1]
+
     def mag(self, passband):
         """
         Returns magnitude in catalog based on keyword.
