@@ -5,10 +5,10 @@ from astropy.units import Unit
 from fractions import Fraction
 from astropy.stats import sigma_clip
 from astropy.coordinates import SkyCoord
-from typing import Union, Callable, Tuple
 from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
 from sklearn.neighbors import NearestNeighbors
+from typing import Union, Callable, Tuple, Optional
 
 
 __all__ = [
@@ -28,6 +28,7 @@ __all__ = [
     "linearity_fitfunc",
     "clipped_mean",
     "cart2pol",
+    "get_nearest_neighbors",
     "interpolate_value",
 ]
 
@@ -718,6 +719,81 @@ def cart2pol(x, y):
 
     """
     return np.arctan2(y, x), np.hypot(x, y)
+
+
+def get_nearest_neighbors(
+        x: np.ndarray,
+        y: np.ndarray,
+        x0: np.ndarray,
+        y0: np.ndarray,
+        n_neighbors: int = 100,
+        max_dis: float = 540.0,
+        n_fixed: int = 20,
+        n_jobs: Optional[int] = None,
+        **kwargs
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Find the nearest neighbors for a set of coordinates.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        The x-coordinates of the target points.
+    y : np.ndarray
+        The y-coordinates of the target points.
+    x0 : np.ndarray
+        The x-coordinates of the source points.
+    y0 : np.ndarray
+        The y-coordinates of the source points.
+    n_neighbors : int, optional
+        The number of nearest neighbors to find. Default is 100.
+    max_dis : float, optional
+        The maximum distance to consider when finding nearest neighbors. Distances
+        larger than this value will be set to NaN. Default is 540.
+    n_fixed : int, optional
+        The minimum number of neighbors to include, regardless of distance.
+        Default is 20.
+    n_jobs : int or None, optional
+        The number of parallel jobs to run for neighbors search. None means 1.
+        -1 means using all processors. Default is None.
+    **kwargs
+        Additional keyword arguments to pass to the NearestNeighbors constructor.
+
+    Returns
+    -------
+    nn_dis : np.ndarray
+        Array of distances to the nearest neighbors, shaped (len(x), n_neighbors).
+    nn_idx : np.ndarray
+        Array of indices of the nearest neighbors, shaped (len(x), n_neighbors).
+
+    Notes
+    -----
+    This function uses a KDTree to efficiently find the nearest neighbors of each
+    target point (x, y) from a set of source points (x0, y0). If the distance to
+    a neighbor exceeds `max_dis`, it is replaced with NaN. At least `n_fixed`
+    neighbors are always included, regardless of the distance.
+    """
+
+    # Set n_neighbors and n_fixed to valid values based on the input size
+    n0 = len(x0)
+    n_neighbors = min(n0, n_neighbors)
+    n_fixed = min(n0, n_fixed)
+
+    # Stack coordinates
+    stacked0 = np.column_stack([x0, y0])
+    stacked = np.column_stack([x, y])
+
+    # Grab nearest neighbors
+    nn_model = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=n_jobs, **kwargs).fit(stacked0)
+    nn_dis, nn_idx = nn_model.kneighbors(stacked)
+
+    # Ensure at least n_fixed neighbors are considered
+    nn_dis_fixed = nn_dis[:, :n_fixed]
+    nn_dis = np.where(nn_dis > max_dis, np.nan, nn_dis)
+    nn_dis[:, :n_fixed] = nn_dis_fixed
+
+    # Return nearest neighbors
+    return nn_dis, nn_idx
 
 
 def interpolate_value(
