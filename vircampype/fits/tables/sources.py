@@ -224,7 +224,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         elif "k" in passband.lower():
             return 11.0, 14.5
         else:
-            raise ValueError("Passband '{0}' not available".format(passband))
+            raise ValueError(f"Passband '{passband}' not available")
 
     def mag(self, passband):
         """
