@@ -139,13 +139,14 @@ class SkyImages(FitsImages):
             for x in self.paths_full
         ]
 
-    def sextractor(self,
-                   preset="scamp",
-                   silent=None,
-                   return_cmds=False,
-                   check_double_image=True,
-                   **kwargs
-                   ):
+    def sextractor(
+        self,
+        preset="scamp",
+        silent=None,
+        return_cmds=False,
+        check_double_image=True,
+        **kwargs,
+    ):
         """
         Runs sextractor based on given presets.
 
@@ -227,17 +228,19 @@ class SkyImages(FitsImages):
             raise ValueError(f"Preset '{preset}' not supported")
 
         # Construct commands for source extraction
-        cmds = [(f"{sxs.bin} -c {sxs.default_config} {image} "
-                 f"-STARNNW_NAME {sxs.default_nnw} "
-                 f"-CATALOG_NAME {catalog} "
-                 f"-WEIGHT_IMAGE {weight} {ss}")
-                for image, catalog, weight in
-                zip(
-                    self.paths_full,
-                    path_tables_clean,
-                    self.get_master_weight_global().paths_full,
-                )
-                ]
+        cmds = [
+            (
+                f"{sxs.bin} -c {sxs.default_config} {image} "
+                f"-STARNNW_NAME {sxs.default_nnw} "
+                f"-CATALOG_NAME {catalog} "
+                f"-WEIGHT_IMAGE {weight} {ss}"
+            )
+            for image, catalog, weight in zip(
+                self.paths_full,
+                path_tables_clean,
+                self.get_master_weight_global().paths_full,
+            )
+        ]
 
         # Check if there is a detection image available for each command
         if check_double_image:
@@ -245,11 +248,14 @@ class SkyImages(FitsImages):
                 root, ext = os.path.splitext(self.paths_full[idx])
                 path_di = f"{root}.di{ext}"
                 if os.path.isfile(path_di):
-                    cmds[idx] = cmds[idx].replace(self.paths_full[idx],
-                                                  f"{path_di},{self.paths_full[idx]}")
-                    log.info(f"Double image mode\n"
-                             f"Detection image '{path_di}'\n"
-                             f"Measurement image '{self.paths_full[idx]}'")
+                    cmds[idx] = cmds[idx].replace(
+                        self.paths_full[idx], f"{path_di},{self.paths_full[idx]}"
+                    )
+                    log.info(
+                        f"Double image mode\n"
+                        f"Detection image '{path_di}'\n"
+                        f"Measurement image '{self.paths_full[idx]}'"
+                    )
 
         # Add kwargs to commands
         for key, val in kwargs.items():
@@ -374,7 +380,10 @@ class SkyImages(FitsImages):
             # Construct sextractor commands
             cmds = [
                 self.sextractor(
-                    preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True,
+                    preset="class_star",
+                    seeing_fwhm=ss,
+                    return_cmds=True,
+                    silent=True,
                     check_double_image=True,
                 )[idx_file]
                 for ss in fwhm_range
@@ -394,14 +403,23 @@ class SkyImages(FitsImages):
                 catalog_path_exists.append(os.path.isfile(catalog_paths[-1]))
 
             # Log all catalog paths and existing catalogs
-            [log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}") for idx, c in enumerate(catalog_paths)]
-            [log.info(f"Catalog exists {idx + 1}/{len(cmds)}: {cpe}") for idx, cpe in enumerate(catalog_path_exists)]
+            [
+                log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}")
+                for idx, c in enumerate(catalog_paths)
+            ]
+            [
+                log.info(f"Catalog exists {idx + 1}/{len(cmds)}: {cpe}")
+                for idx, cpe in enumerate(catalog_path_exists)
+            ]
 
             # Remove shell commands for existing catalogs
             cmds = [c for c, cpe in zip(cmds, catalog_path_exists) if not cpe]
 
             # Log sextractor commands
-            [log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}") for idx, c in enumerate(cmds)]
+            [
+                log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}")
+                for idx, c in enumerate(cmds)
+            ]
 
             # Run Sextractor
             n_jobs_sex = (
@@ -436,17 +454,11 @@ class SkyImages(FitsImages):
 
                     # Add coordinates only on first iteration
                     if idx_fwhm == 0:
-                        tables_out[tidx]["XWIN_IMAGE"] = tables_fwhm[tidx][
-                            "XWIN_IMAGE"
-                        ]
-                        tables_out[tidx]["YWIN_IMAGE"] = tables_fwhm[tidx][
-                            "YWIN_IMAGE"
-                        ]
+                        tables_out[tidx]["XWIN_IMAGE"] = tables_fwhm[tidx]["XWIN_IMAGE"]
+                        tables_out[tidx]["YWIN_IMAGE"] = tables_fwhm[tidx]["YWIN_IMAGE"]
 
                     # Add classifier
-                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(
-                        fwhm_range[idx_fwhm]
-                    )
+                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(fwhm_range[idx_fwhm])
                     tables_out[tidx][cs_column_name] = tables_fwhm[tidx]["CLASS_STAR"]
 
             # Make FITS table
@@ -631,9 +643,11 @@ class SkyImagesRaw(SkyImages):
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
             # Create output path
-            outpath = (f"{self.setup.folders['processed_basic']}"
-                       f"{self.names[idx_file]}.proc.basic"
-                       f"{self.extensions[idx_file]}")
+            outpath = (
+                f"{self.setup.folders['processed_basic']}"
+                f"{self.names[idx_file]}.proc.basic"
+                f"{self.extensions[idx_file]}"
+            )
 
             # Log processing info
             log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
@@ -725,8 +739,10 @@ class SkyImagesRaw(SkyImages):
             for idx_hdu, dhdr in enumerate(hdrs_data):
                 log.info(f"Modify data headers; extension {idx_hdu + 1}")
                 # Grab gain and readnoise
-                log.info(f"Scaling gain {master_gain.gain[idx_file][idx_hdu - 1]} "
-                         f"with NDIT={self.ndit[idx_file]}")
+                log.info(
+                    f"Scaling gain {master_gain.gain[idx_file][idx_hdu - 1]} "
+                    f"with NDIT={self.ndit[idx_file]}"
+                )
                 gain = (
                     master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
                 )
@@ -743,8 +759,10 @@ class SkyImagesRaw(SkyImages):
                 photstab = offseti + noffsets * (chipid - 1)
                 log.info(f"Photometric stability ID: {photstab}")
                 dextinct = get_default_extinction(passband=self.passband[idx_file])
-                log.info(f"Setting default extinction to {dextinct} "
-                         f"for band {self.passband[idx_file]}")
+                log.info(
+                    f"Setting default extinction to {dextinct} "
+                    f"for band {self.passband[idx_file]}"
+                )
 
                 # Add stuff to header
                 dhdr.set(
@@ -1779,9 +1797,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Make primary header
             prime_header = fits.Header()
             prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
-            prime_header[
-                "HIERARCH PYPE SETUP MAXIMASK"
-            ] = self.setup.build_individual_weights_maximask
+            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = (
+                self.setup.build_individual_weights_maximask
+            )
             prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][
                 self.setup.keywords.date_mjd
             ]
@@ -2354,10 +2372,6 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Construct commands for swarping
         cmd = f"{sws.bin} {' '.join(self.paths_full)} -c '{sws.default_config}' {ss}"
 
-        # TODO: Same as for Sextractor...
-        cmd = cmd.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
-                          "/Users/stefan/iCloud")
-
         # Run Swarp
         if (
             not check_file_exists(
@@ -2797,10 +2811,6 @@ class SkyImagesResampled(SkyImagesProcessed):
         cmd = "{0} @{1} -c {2} {3}".format(
             sws.bin, path_temp_images, sws.default_config, ss
         )
-
-        # TODO: Same as for Sextractor...
-        cmd = cmd.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
-                          "/Users/stefan/iCloud")
 
         # Run Swarp
         print_message(message=f"Coadding {os.path.basename(outpath)}")
