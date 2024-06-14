@@ -259,13 +259,14 @@ class SkyImages(FitsImages):
                 except IndexError:
                     cmds[cmd_idx] += f"-{key.upper()} {val}"
 
-        # TODO: Spaces are cancer. I really do not know how else to solve this shit!
-        cmds = [c.replace("/Users/stefan/Library/Mobile Documents/com~apple~CloudDocs",
-                          "/Users/stefan/iCloud") for c in cmds]
-
         # Return commands if set
         if return_cmds:
             return cmds
+
+        # Log all sextractor commands
+        log.info("Sextractor commands:")
+        for c in cmds:
+            log.info(c)
 
         # Run Sextractor
         n_jobs_sex = (
@@ -330,6 +331,7 @@ class SkyImages(FitsImages):
         for idx_file in range(self.n_files):
             # Create output paths
             outpath = self.paths_full[idx_file].replace(".fits", ".cs.fits.tab")
+            log.info(f"File {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if (
@@ -366,11 +368,11 @@ class SkyImages(FitsImages):
 
             # Determine FWHM range
             fwhm_range = np.arange(fwhm_lo - 0.05, fwhm_hi + 0.11, 0.05)
-            log.info(f"FWHM range: {fwhm_range}")
 
             # Safety check for fwhm range
             if len(fwhm_range) > 30:
                 fwhm_range = np.around(np.arange(0.45, 1.91, 0.05), decimals=2)
+            log.info(f"Final FWHM range: {fwhm_range}")
 
             # Construct sextractor commands
             cmds = [
@@ -389,12 +391,20 @@ class SkyImages(FitsImages):
                     ".class_star{0:4.2f}.fits.tab".format(fwhm_range[idx]),
                 )
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
+                log.info(f"Catalog path {idx + 1}/{len(cmds)}: {catalog_paths[-1]}")
 
                 # Check if catalog already exists
                 catalog_path_exists.append(os.path.isfile(catalog_paths[-1]))
 
+            # Log all catalog paths and existing catalogs
+            [log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}") for idx, c in enumerate(catalog_paths)]
+            [log.info(f"Catalog exists {idx + 1}/{len(cmds)}: {cpe}") for idx, cpe in enumerate(catalog_path_exists)]
+
             # Remove shell commands for existing catalogs
             cmds = [c for c, cpe in zip(cmds, catalog_path_exists) if not cpe]
+
+            # Log sextractor commands
+            [log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}") for idx, c in enumerate(cmds)]
 
             # Run Sextractor
             n_jobs_sex = (
@@ -404,31 +414,42 @@ class SkyImages(FitsImages):
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
+            log.info(f"Loaded {len(catalogs)} catalogs")
 
             # Make output HDUList
             tables_out = [Table() for _ in self.iter_data_hdu[idx_file]]
 
             # Loop over files
-            for idx_seeing in range(catalogs.n_files):
+            for idx_fwhm in range(catalogs.n_files):
+
+                # Log current FWHM value
+                log.info(f"Processing FWHM {fwhm_range[idx_fwhm]:4.2f}")
+
                 # Read tables for current seeing
-                tables_seeing = catalogs.file2table(file_index=idx_seeing)
+                tables_fwhm = catalogs.file2table(file_index=idx_fwhm)
+                log.info(f"Loaded {len(tables_fwhm)} FWHM tables")
 
                 # Add classifier and coordinates for all HDUs
-                for tidx in range(len(tables_seeing)):
+                for tidx in range(len(tables_fwhm)):
+
+                    # Log current catalog and number of sources
+                    log.info(f"Processing HDU {tidx + 1}/{len(tables_fwhm)}")
+                    log.info(f"Number of sources: {len(tables_fwhm[tidx])}")
+
                     # Add coordinates only on first iteration
-                    if idx_seeing == 0:
-                        tables_out[tidx]["XWIN_IMAGE"] = tables_seeing[tidx][
+                    if idx_fwhm == 0:
+                        tables_out[tidx]["XWIN_IMAGE"] = tables_fwhm[tidx][
                             "XWIN_IMAGE"
                         ]
-                        tables_out[tidx]["YWIN_IMAGE"] = tables_seeing[tidx][
+                        tables_out[tidx]["YWIN_IMAGE"] = tables_fwhm[tidx][
                             "YWIN_IMAGE"
                         ]
 
                     # Add classifier
                     cs_column_name = "CLASS_STAR_{0:4.2f}".format(
-                        fwhm_range[idx_seeing]
+                        fwhm_range[idx_fwhm]
                     )
-                    tables_out[tidx][cs_column_name] = tables_seeing[tidx]["CLASS_STAR"]
+                    tables_out[tidx][cs_column_name] = tables_fwhm[tidx]["CLASS_STAR"]
 
             # Make FITS table
             header_prime = fits.Header()
@@ -441,9 +462,11 @@ class SkyImages(FitsImages):
             hdul = fits.HDUList(hdus=[fits.PrimaryHDU(header=header_prime)])
             [hdul.append(fits.BinTableHDU(t)) for t in tables_out]
             hdul.writeto(outpath, overwrite=True)
+            log.info(f"Saved to '{outpath}'")
 
             # Remove sextractor catalog
             [os.remove(f) for f in catalogs.paths_full]
+            log.info("Removed sextractor catalogs")
 
         # Print time
         print_message(
