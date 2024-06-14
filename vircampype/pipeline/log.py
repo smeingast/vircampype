@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 from typing import Optional
 from vircampype.pipeline.misc import Borg
@@ -20,7 +21,9 @@ class PipelineLog(Borg):
         """
         super().__init__()
         if (setup is not None) & (not self.initialized):
-            path_logfile = f"{setup.folders['temp']}pipeline.log"
+            now = datetime.datetime.now()
+            date_string = now.strftime("%Y%m%d_%H%M%S")
+            path_logfile = f"{setup.folders['temp']}pipeline_{date_string}.log"
             open(path_logfile, "w").close()  # Clear previous file
             logging.basicConfig(
                 filename=path_logfile,
