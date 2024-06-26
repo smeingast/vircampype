@@ -1799,7 +1799,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Import
         from astropy.units import Unit
         import matplotlib.pyplot as plt
-        from matplotlib.cm import get_cmap
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Processing info
@@ -1906,7 +1905,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 )
 
                 # Draw
-                kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": get_cmap("RdBu", 20)}
+                kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": plt.get_cmap("RdBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
                 # ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7,

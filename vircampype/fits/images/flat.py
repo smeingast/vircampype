@@ -1049,9 +1049,9 @@ class MasterIlluminationCorrection(MasterImages):
         return self.read_from_data_headers(keywords=["HIERARCH PYPE IC STD"])[0]
 
     def qc_plot2d(self, paths=None, axis_size=4):
+
         # Import
         import matplotlib.pyplot as plt
-        from matplotlib.cm import get_cmap
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots
@@ -1084,7 +1084,7 @@ class MasterIlluminationCorrection(MasterImages):
                     cube[idx_hdu],
                     vmin=vmin,
                     vmax=vmax,
-                    cmap=get_cmap("RdYlBu_r", 30),
+                    cmap=plt.get_cmap("RdYlBu_r", 30),
                     origin="lower",
                 )
 
