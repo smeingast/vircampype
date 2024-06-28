@@ -373,31 +373,55 @@ def fill_masked_columns(table: Table, fill_value: Union[int, float]):
 
 
 def convert2public(
-    table: Table,
-    photerr_internal: Quantity,
+    input_table: Table,
+    photerr_internal: float,
     apertures: List,
-    mag_saturation: Quantity,
+    mag_saturation: float,
 ):
-    # Extract coordinate columns
-    data_ra = table["ALPHAWIN_SKY"].quantity
-    data_dec = table["DELTAWIN_SKY"].quantity
 
-    # Magnitude and flux
-    data_flux_aper = table["FLUX_APER"]
-    data_flux_auto = table["FLUX_AUTO"]
-    data_mag_aper = table["MAG_APER"].quantity
-    data_magerr_aper = table["MAGERR_APER"].quantity
-    data_mag_aper_matched = table["MAG_APER_MATCHED"].quantity
-    data_mag_aper_matched_cal = table["MAG_APER_MATCHED_CAL"].quantity
-    data_mag_aper_matched_cal_zpc = table["MAG_APER_MATCHED_CAL_ZPC_INTERP"].quantity
+    # Fill masked columns with NaN
+    input_table = fill_masked_columns(table=input_table, fill_value=np.nan)
 
-    # Compute total astrometric errors
-    data_erra = table["ERRAWIN_WORLD"].quantity
-    data_errb = table["ERRBWIN_WORLD"].quantity
+    # Grab all columns
+    data_ra = input_table["ALPHAWIN_SKY"].value
+    data_dec = input_table["DELTAWIN_SKY"].value
+    data_flux_aper = input_table["FLUX_APER"]
+    data_flux_auto = input_table["FLUX_AUTO"]
+    # data_mag_aper = input_table["MAG_APER"].value
+    data_magerr_aper = input_table["MAGERR_APER"].value
+    data_mag_aper_matched = input_table["MAG_APER_MATCHED"].value
+    data_mag_aper_matched_cal = input_table["MAG_APER_MATCHED_CAL"].value
+    # data_mag_aper_matched_cal_zpc = table["MAG_APER_MATCHED_CAL_ZPC_INTERP"].value
+    data_erra = input_table["ERRAWIN_WORLD"].value
+    data_errb = input_table["ERRBWIN_WORLD"].value
     # Sextractor values are from -90 to +90
-    data_errpa = table["ERRTHETAWIN_SKY"].quantity + 90.0 * Unit("deg")
-    astrms1 = table["ASTRMS1"].quantity
-    astrms2 = table["ASTRMS2"].quantity
+    data_errpa = input_table["ERRTHETAWIN_SKY"].value + 90.0
+    astrms1 = input_table["ASTRMS1"].value
+    astrms2 = input_table["ASTRMS2"].value
+    data_exptime = input_table["EXPTIME"].value
+    data_mjd = input_table["MJDEFF"].value
+    data_nimg = input_table["NIMG"]
+    data_fwhm = input_table["FWHM_WORLD"].value
+    data_ellipticity = 1 - data_errb / data_erra
+    data_sflg = input_table["FLAGS"]
+    data_snr_win = input_table["SNR_WIN"]
+    data_flags_weight = input_table["FLAGS_WEIGHT"]
+    data_background = input_table["BACKGROUND"]
+    data_survey = input_table["SURVEY"]
+    data_isoarea_image = input_table["ISOAREA_IMAGE"]
+    try:
+        data_cls = input_table["CLASS_STAR_INTERP"]
+    except KeyError:
+        data_cls = np.full_like(data_exptime.value, fill_value=1.0)
+    data_mag_2mass = input_table["MAG_2MASS"]
+    data_magerr_2mass = input_table["MAGERR_2MASS"]
+    data_errmaj_2mass = input_table["ERRMAJ_2MASS"]
+    data_errmin_2mass = input_table["ERRMIN_2MASS"]
+    data_errpa_2mass = input_table["ERRPA_2MASS"]
+    data_mjd_2mass = input_table["MJD_2MASS"]
+    data_qflg_2mass = input_table["QFLG_2MASS"]
+
+    # Compute total error
     data_erra_tot = np.sqrt(data_erra**2 + astrms1**2)
     data_errb_tot = np.sqrt(data_errb**2 + astrms2**2)
 
@@ -408,42 +432,21 @@ def convert2public(
     old_b = data_errb_tot[needs_flipping].copy()
     data_erra_tot[needs_flipping] = old_b
     data_errb_tot[needs_flipping] = old_a
-    data_errpa[needs_flipping] = np.where(data_errpa[needs_flipping] > 90 * Unit("deg"),
-                                          data_errpa[needs_flipping] - 90 * Unit("deg"),
-                                          data_errpa[needs_flipping] + 90 * Unit("deg"))
+    data_errpa[needs_flipping] = np.where(data_errpa[needs_flipping] > 90,
+                                          data_errpa[needs_flipping] - 90,
+                                          data_errpa[needs_flipping] + 90)
 
     # Convert to ra/dec error and correlation coeff
     data_ra_error, data_dec_error, data_ra_dec_corr = convert_position_error(
-        errmaj=data_erra_tot, errmin=data_errb_tot, errpa=data_errpa.value
+        errmaj=data_erra_tot, errmin=data_errb_tot, errpa=data_errpa, degrees=True
     )
-    # Add units
-    data_ra_error = data_ra_error * Unit("deg")
-    data_dec_error = data_dec_error * Unit("deg")
-
-    # Get other columns
-    data_exptime = table["EXPTIME"].quantity
-    try:
-        data_cls = table["CLASS_STAR_INTERP"]
-    except KeyError:
-        data_cls = np.full_like(data_exptime.value, fill_value=1.0)
-
-    data_mjd = table["MJDEFF"].quantity
-    data_nimg = table["NIMG"]
-    data_fwhm = table["FWHM_WORLD"].quantity
-    data_ellipticity = table["ELLIPTICITY"]
-    data_sflg = table["FLAGS"]
-    data_snr_win = table["SNR_WIN"]
-    data_flags_weight = table["FLAGS_WEIGHT"]
-    data_background = table["BACKGROUND"]
-    data_survey = table["SURVEY"]
-    data_isoarea_image = table["ISOAREA_IMAGE"]
 
     # Get indices for 2MASS and VISIONS entries
     idx_visions = np.where(data_survey == "VISIONS")[0]
     idx_2mass = np.where(data_survey == "2MASS")[0]
 
     # Read and clean aperture magnitudes, add internal photometric error
-    mag_aper = data_mag_aper_matched_cal + data_mag_aper_matched_cal_zpc
+    mag_aper = data_mag_aper_matched_cal  # (+ data_mag_aper_matched_cal_zpc)
     magerr_aper = np.sqrt(data_magerr_aper**2 + photerr_internal**2)
 
     # Compute best default magnitude (match aperture to source area)
@@ -455,46 +458,66 @@ def convert2public(
         .kneighbors(rr)
     )
     idx_best = idx_aper[:, 0]
-    mag_best = mag_aper.copy()[np.arange(len(table)), idx_best]
-    magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
-    aper_best = np.array(apertures)[idx_best] * Unit("pix")
+    mag_best = mag_aper.copy()[np.arange(len(input_table)), idx_best]
+    magerr_best = magerr_aper.copy()[np.arange(len(input_table)), idx_best]
+    aper_best = np.array(apertures)[idx_best]
 
-    # Construct contamination flag
-    cflg = np.full(len(table), fill_value=False, dtype=bool)
+    # Bad saturation
+    cflg = np.full(len(input_table), fill_value=False, dtype=bool)
+    cflg_reason = np.full(len(input_table), fill_value=0, dtype=int)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
-        cflg[
-            np.nanmin(mag_aper, axis=1) < mag_saturation
-        ] = True  # Values above saturation limit
-    cflg[data_snr_win <= 0] = True  # Bad SNR
-    cflg[data_flux_auto < 0.01] = True  # Bad Flux measurement
-    cflg[data_fwhm.to(Unit("arcsec")) <= 0.2 * Unit("arcsec")] = True  # Bad FWHM
-    cflg[
-        ~np.isfinite(np.sum(data_mag_aper, axis=1))
-    ] = True  # All aperture magnitudes must be good
-    cflg[data_nimg < 1] = True  # Must be images once
-    cflg[data_mjd < 0] = True  # Must have a good MJD
-    cflg[data_flags_weight > 0] = True  # No flags in weight
-    cflg[data_sflg >= 4] = True  # No bad Sextractor flags
-    cflg[np.isnan(data_cls)] = True  # CLASS_STAR must have worked in sextractor
+        fil_magaper = np.nanmin(mag_aper, axis=1) < mag_saturation
+        cflg[fil_magaper] = True
+        cflg_reason[fil_magaper] += 1
+    # Bad flux measurement
+    fil_flux_auto = data_flux_auto < 0.01
+    cflg[fil_flux_auto] = True
+    cflg_reason[fil_flux_auto] += 2
+    # Bad SNR
+    fil_snr = data_snr_win <= 0
+    cflg[fil_snr] = True
+    cflg_reason[fil_snr] += 4
+    # Bad number of images
+    fil_nimg = data_nimg < 1
+    cflg[fil_nimg] = True
+    cflg_reason[fil_nimg] += 8
+    # Bad sextractor flags
+    fil_sflg = data_sflg >= 4
+    cflg[fil_sflg] = True
+    cflg_reason[fil_sflg] += 16
+    # Bad weight flag
+    fil_flags_weight = data_flags_weight > 0
+    cflg[fil_flags_weight] = True
+    cflg_reason[fil_flags_weight] += 32
+    # Bad FWHM
+    fil_fwhm = data_fwhm * 3600 <= 0.2
+    cflg[fil_fwhm] = True
+    cflg_reason[fil_fwhm] += 64
+    # Bad MJD
+    fil_mjd = data_mjd < 0
+    cflg[fil_mjd] = True
+    cflg_reason[fil_mjd] += 128
+    # Bad class star
+    fil_cls = np.isnan(data_cls)
+    cflg[fil_cls] = True  # CLASS_STAR must have worked in sextractor
+    cflg_reason[fil_cls] += 256
 
     # Clean bad growth magnitudes
     growth = data_mag_aper_matched_cal[:, 0] - data_mag_aper_matched_cal[:, 1]
     mag_min, mag_max = np.nanmin(mag_best), np.nanmax(mag_best)
-    mag_range = np.arange(mag_min.value, mag_max.value + 0.25, 0.25) * Unit("mag")
+    mag_range = np.arange(mag_min, mag_max + 0.25, 0.25)
     idx_all = np.arange(len(mag_best))
 
     # Loop over magnitude range
     bad_idx = []
     for mm in mag_range:
         # Grab all sources within 0.25 mag of current position
-        cidx_all = (mag_best > mm - 0.25 * Unit("mag")) & (
-            mag_best < mm + 0.25 * Unit("mag")
-        )
+        cidx_all = (mag_best > mm - 0.25) & (mag_best < mm + 0.25)
         cidx_pnt = (
             (data_cls > 0.5)
-            & (mag_best > mm - 0.25 * Unit("mag"))
-            & (mag_best < mm + 0.25 * Unit("mag"))
+            & (mag_best > mm - 0.25)
+            & (mag_best < mm + 0.25)
         )
 
         # Filter presumably bad sources
@@ -503,7 +526,7 @@ def convert2public(
             mean, median, stddev = sigma_clipped_stats(
                 growth[cidx_pnt], sigma=5, maxiters=1
             )
-            bad = (growth[cidx_all] < median - 0.05 * Unit("mag")) & (
+            bad = (growth[cidx_all] < median - 0.05) & (
                 growth[cidx_all] < median - 3 * stddev
             )
 
@@ -512,53 +535,53 @@ def convert2public(
             bad_idx.append(idx_all[cidx_all][bad])
 
     # Flag outliers
-    cflg[flat_list(bad_idx)] = True
+    fil_growth = flat_list(bad_idx)
+    cflg[fil_growth] = True
+    cflg_reason[fil_growth] += 512
 
     # Nebula filter from VISION
-    fv = (
+    fil_neb = (
         (data_background / data_flux_aper[:, 0] > 0.02)
-        & (
-            data_mag_aper_matched[:, 0] - data_mag_aper_matched[:, 1]
-            <= -0.2 * Unit("mag")
-        )
+        & (data_mag_aper_matched[:, 0] - data_mag_aper_matched[:, 1] >= 0.2)
         & (data_cls < 0.5)
     )
-    cflg[fv] = True
+    cflg[fil_neb] = True
+    cflg_reason[fil_neb] += 1024
 
     # Construct quality flag
-    qflg = np.full(len(table), fill_value="X", dtype=str)
+    qflg = np.full(len(input_table), fill_value="X", dtype=str)
     qflg[(data_sflg < 4) & ~cflg] = "D"
-    qflg[(magerr_best < 0.21714 * Unit("mag")) & (data_sflg < 4) & ~cflg] = "C"
-    qflg[(magerr_best < 0.15510 * Unit("mag")) & (data_sflg < 4) & ~cflg] = "B"
-    qflg[(magerr_best < 0.10857 * Unit("mag")) & (data_sflg < 4) & ~cflg] = "A"
+    qflg[(magerr_best < 0.21714) & (data_sflg < 4) & ~cflg] = "C"
+    qflg[(magerr_best < 0.15510) & (data_sflg < 4) & ~cflg] = "B"
+    qflg[(magerr_best < 0.10857) & (data_sflg < 4) & ~cflg] = "A"
 
     # Copy values from merged 2MASS columns
-    mag_best[idx_2mass] = table["MAG_2MASS"][idx_2mass]
-    magerr_best[idx_2mass] = table["MAGERR_2MASS"][idx_2mass]
+    mag_best[idx_2mass] = data_mag_2mass[idx_2mass]
+    magerr_best[idx_2mass] = data_magerr_2mass[idx_2mass]
     data_cls[idx_2mass] = 1.0
-    data_erra_tot[idx_2mass] = table["ERRMAJ_2MASS"][idx_2mass].to(data_erra_tot.unit)
-    data_errb_tot[idx_2mass] = table["ERRMIN_2MASS"][idx_2mass].to(data_errb_tot.unit)
-    data_errpa[idx_2mass] = table["ERRPA_2MASS"][idx_2mass].to(data_errpa.unit)
-    data_mjd[idx_2mass] = table["MJD_2MASS"][idx_2mass]
+    data_erra_tot[idx_2mass] = data_errmaj_2mass[idx_2mass]
+    data_errb_tot[idx_2mass] = data_errmin_2mass[idx_2mass]
+    data_errpa[idx_2mass] = data_errpa_2mass[idx_2mass]
+    data_mjd[idx_2mass] = data_mjd_2mass[idx_2mass]
     aper_best[idx_2mass] = np.nan
     data_sflg[idx_2mass] = 0
     cflg[idx_2mass] = False
-    qflg[idx_2mass] = table["QFLG_2MASS"][idx_2mass]
+    qflg[idx_2mass] = data_qflg_2mass[idx_2mass]
 
     # Final cleaning of VISIONS sources to kick out useless rows
     idx_keep_visions = np.where(
-        (data_erra_tot[idx_visions] > 0.0 * Unit("mas"))
-        & (data_erra_tot[idx_visions] < 1000 * Unit("mas"))
-        & (data_errb_tot[idx_visions] > 0.0 * Unit("mas"))
-        & (data_errb_tot[idx_visions] < 1000.0 * Unit("mas"))
-        & (data_errpa[idx_visions] > 0.0 * Unit("deg"))
-        & (mag_best[idx_visions] > 0.0 * Unit("mag"))
-        & (mag_best[idx_visions] < 50.0 * Unit("mag"))
-        & (magerr_best[idx_visions] > 0.0 * Unit("mag"))
-        & (magerr_best[idx_visions] < 50.0 * Unit("mag"))
-        & (data_mjd[idx_visions] > 0.0 * Unit("d"))
-        & (data_exptime[idx_visions] > 0.0 * Unit("s"))
-        & (data_fwhm[idx_visions] > 0.0 * Unit("arcsec"))
+        (data_erra_tot[idx_visions] > 0.0)
+        & (data_erra_tot[idx_visions] < 1000 / 3600)
+        & (data_errb_tot[idx_visions] > 0.0)
+        & (data_errb_tot[idx_visions] < 1000.0 / 3600)
+        & (data_errpa[idx_visions] > 0.0)
+        & (mag_best[idx_visions] > 0.0)
+        & (mag_best[idx_visions] < 50.0)
+        & (magerr_best[idx_visions] > 0.0)
+        & (magerr_best[idx_visions] < 50.0)
+        & (data_mjd[idx_visions] > 0.0)
+        & (data_exptime[idx_visions] > 0.0)
+        & (data_fwhm[idx_visions] > 0.0)
         & (data_ellipticity[idx_visions] > 0.0)
     )[0]
 
@@ -576,6 +599,7 @@ def convert2public(
     )
     errpa = data_errpa[idx_final]
     sflg, cflg, qflg = data_sflg[idx_final], cflg[idx_final], qflg[idx_final]
+    cflg_reason = cflg_reason[idx_final]
     data_mjd = data_mjd[idx_final]
 
     data_exptime = data_exptime[idx_final]
@@ -584,31 +608,32 @@ def convert2public(
     data_cls = data_cls[idx_final]
     data_survey = data_survey[idx_final]
 
-    # Get Skycoordinates
-    skycoord = SkyCoord(ra=data_ra, dec=data_dec, frame="icrs")
+    # Instantiate SkyCoords
+    skycoord = SkyCoord(ra=data_ra, dec=data_dec, frame="icrs", unit="deg")
 
     # Create table
-    table_out = QTable(
+    output_table = QTable(
         data=[
             skycoord2visionsid(skycoord=skycoord),
-            data_ra.to(Unit("deg")).astype(np.float64),
-            data_dec.to(Unit("deg")).astype(np.float64),
-            erra_tot.to(Unit("mas")).astype(np.float32),
-            errb_tot.to(Unit("mas")).astype(np.float32),
-            errpa.to(Unit("deg")).astype(np.float32),
-            ra_error.to(Unit("mas")).astype(np.float32),
-            dec_error.to(Unit("mas")).astype(np.float32),
+            data_ra.astype(np.float64) * Unit("deg"),
+            data_dec.astype(np.float64) * Unit("deg"),
+            (erra_tot * 3600).astype(np.float32) * Unit("mas"),
+            (errb_tot * 3600).astype(np.float32) * Unit("mas"),
+            errpa.astype(np.float32) * Unit("deg"),
+            (ra_error * 3600).astype(np.float32) * Unit("mas"),
+            (dec_error * 3600).astype(np.float32) * Unit("mas"),
             ra_dec_corr.astype(np.float32),
-            mag_best.to(Unit("mag")).astype(np.float32),
-            magerr_best.to(Unit("mag")).astype(np.float32),
-            aper_best.to(Unit("pix")).astype(np.float32),
-            data_mjd.to(Unit("d")).astype(np.float64),
-            data_exptime.to(Unit("s")).astype(np.float32),
-            data_fwhm.to(Unit("arcsec")).astype(np.float32),
+            mag_best.astype(np.float32) * Unit("mag"),
+            magerr_best.astype(np.float32) * Unit("mag"),
+            aper_best.astype(np.float32) * Unit("pix"),
+            data_mjd.astype(np.float64) * Unit("d"),
+            data_exptime.astype(np.float32) * Unit("s"),
+            (data_fwhm * 3600).astype(np.float32) * Unit("arcsec"),
             data_ellipticity.astype(np.float32),
             data_cls.astype(np.float32),
             sflg,
             cflg,
+            cflg_reason,
             qflg,
             data_survey,
         ],
@@ -632,27 +657,28 @@ def convert2public(
             "CLS",
             "SFLG",
             "CFLG",
+            "CFLG_REASON",
             "QFLG",
             "SURVEY",
         ],
     )
 
     # Assert units
-    assert table_out["RA"].unit == Unit("deg")
-    assert table_out["DEC"].unit == Unit("deg")
-    assert table_out["ERRMAJ"].unit == Unit("mas")
-    assert table_out["ERRMIN"].unit == Unit("mas")
-    assert table_out["ERRPA"].unit == Unit("deg")
-    assert table_out["RAERR"].unit == Unit("mas")
-    assert table_out["DECERR"].unit == Unit("mas")
-    assert table_out["MAG"].unit == Unit("mag")
-    assert table_out["MAGERR"].unit == Unit("mag")
-    assert table_out["APERTURE"].unit == Unit("pix")
-    assert table_out["MJD"].unit == Unit("day")
-    assert table_out["EXPTIME"].unit == Unit("s")
-    assert table_out["FWHM"].unit == Unit("arcsec")
+    assert output_table["RA"].unit == Unit("deg")
+    assert output_table["DEC"].unit == Unit("deg")
+    assert output_table["ERRMAJ"].unit == Unit("mas")
+    assert output_table["ERRMIN"].unit == Unit("mas")
+    assert output_table["ERRPA"].unit == Unit("deg")
+    assert output_table["RAERR"].unit == Unit("mas")
+    assert output_table["DECERR"].unit == Unit("mas")
+    assert output_table["MAG"].unit == Unit("mag")
+    assert output_table["MAGERR"].unit == Unit("mag")
+    assert output_table["APERTURE"].unit == Unit("pix")
+    assert output_table["MJD"].unit == Unit("day")
+    assert output_table["EXPTIME"].unit == Unit("s")
+    assert output_table["FWHM"].unit == Unit("arcsec")
 
-    return table_out
+    return output_table
 
 
 def merge_with_2mass(
