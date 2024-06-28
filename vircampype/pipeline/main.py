@@ -1022,7 +1022,7 @@ class Pipeline:
             )
             tstart = time.time()
 
-            # Deep clean
+            # Shallow clean
             self.shallow_clean()
 
             if compress_fits:
