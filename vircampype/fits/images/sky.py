@@ -2346,6 +2346,10 @@ class SkyImagesResampled(SkyImagesProcessed):
     #     kind="okblue", end="\n")
 
     def build_tile(self):
+
+        # Fetch log
+        log = PipelineLog()
+
         # Processing info
         print_header(
             header="CREATING TILE",
@@ -2354,9 +2358,11 @@ class SkyImagesResampled(SkyImagesProcessed):
             right=None,
         )
         tstart = time.time()
+        log.info(f"Creating tile with {len(self)} images:\n{self.basenames2log()}")
 
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
+        log.info(f"Loaded Swarp preset used: {sws.preset_coadd}")
 
         ss = yml2config(
             path_yml=sws.preset_coadd,
@@ -2372,6 +2378,9 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Construct commands for swarping
         cmd = f"{sws.bin} {' '.join(self.paths_full)} -c '{sws.default_config}' {ss}"
 
+        # Add swarp command to log
+        log.info(f"Swarp command: {cmd}")
+
         # Run Swarp
         if (
             not check_file_exists(
@@ -2380,7 +2389,11 @@ class SkyImagesResampled(SkyImagesProcessed):
             and not self.setup.overwrite
         ):
             # Run Swarp
-            run_command_shell(cmd=cmd, silent=True)
+            stdout, stderr = run_command_shell(cmd=cmd, silent=True)
+
+            # Add stdout and stderr to log
+            log.info(f"Scamp stdout:\n{stdout}")
+            log.info(f"Scamp stderr:\n{stderr}")
 
             # Compute estimate of astrometric RMS
             cpkw = ["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"]
@@ -2400,6 +2413,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
                 * 3_600_000
             )
+            log.info(f"Internal astr. dispersion RMS: {astirms:.2f} mas")
+            log.info(f"External astr. dispersion RMS: {astrrms:.2f} mas")
 
             # Copy/add primary header entries
             with fits.open(
@@ -2432,6 +2447,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     backmod, backsig, backskew = mmm(coadd[:: coadd.size // 50_000_000])
                 else:
                     backmod, backsig, backskew = mmm(coadd)
+                log.info(f"Background mode: {backmod:.3f}")
+                log.info(f"Background sigma: {backsig:.3f}")
+                log.info(f"Background skew: {backskew:.3f}")
 
                 # Put background info into header
                 hdul_tile[0].header.set(
@@ -2448,15 +2466,19 @@ class SkyImagesResampled(SkyImagesProcessed):
                 self.setup.add_setup_to_header(header=hdul_tile[0].header)
 
                 # Add archive names of input
+                log.info("Adding ARCFILE names to header:")
                 arcnames = self.read_from_prime_headers(keywords=["ARCFILE"])[0]
                 for idx in range(len(arcnames)):
                     hdul_tile[0].header.set(
                         "HIERARCH PYPE ARCNAME {0:04d}".format(idx), arcnames[idx]
                     )
+                    log.info(f"ARCFILE {idx:04d}: {arcnames[idx]}")
 
         # Print time
+        ttime = time.time() - tstart
+        log.info(f"Elapsed time for tile creation: {ttime:.2f}s")
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {ttime:.2f}s",
             kind="okblue",
             end="\n",
         )
