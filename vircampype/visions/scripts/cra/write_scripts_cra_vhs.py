@@ -1,13 +1,13 @@
 import os
 import glob
 import yaml
+from vircampype.visions.locations import path_data_pleiades, path_visions_proj
 
 # Define paths
-cloud_home = os.getenv('CLOUD_HOME')
-path_data = "/Volumes/Data/VHS/CrA/data_vhs/"
-path_pype = "/Volumes/Data/VHS/CrA/vircampype/"
-path_scripts_j = f"{cloud_home}/Projects/VISIONS/Pipeline/scripts/CrA/VHS_J/"
-path_scripts_ks = f"{cloud_home}/Projects/VISIONS/Pipeline/scripts/CrA/VHS_Ks/"
+path_data = f"{path_data_pleiades}/VHS/CrA/data_vhs/"
+path_pype = f"{path_data_pleiades}/VHS/CrA/vircampype/"
+path_scripts_j = f"{path_visions_proj}/Pipeline/scripts/CrA/VHS_J/"
+path_scripts_ks = f"{path_visions_proj}/Pipeline/scripts/CrA/VHS_Ks/"
 
 # Find all files recursively
 files_j = glob.glob(path_data + "**/J/*fits")
@@ -45,14 +45,14 @@ for udj in unique_directories_j:
     )
 
     # Write YML
-    path_yml = "{0}{1}.yml".format(path_scripts_j, name)
+    path_yml = f"{path_scripts_j}{name}.yml"
     file = open(path_yml, "w")
     yaml.dump(setup, file)
     file.close()
 
 # Ks
 for udks in unique_directories_ks:
-    name = "{0}_{1}".format(udks.split("data_vhs/")[1].split("/")[0], "Ks")
+    name = f"{udks.split('data_vhs/')[1].split('/')[0]}_{'Ks'}"
     setup = dict(
         name=name,
         path_data=udks,
@@ -63,7 +63,7 @@ for udks in unique_directories_ks:
     )
 
     # Write YML
-    path_yml = "{0}{1}.yml".format(path_scripts_ks, name)
+    path_yml = f"{path_scripts_ks}{name}.yml"
     file = open(path_yml, "w")
     yaml.dump(setup, file)
     file.close()

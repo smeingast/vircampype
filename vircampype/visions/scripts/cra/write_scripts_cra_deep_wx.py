@@ -1,12 +1,11 @@
-import os
 from glob import glob
 from vircampype.visions.scripts.write_scripts import write_scripts
+from vircampype.visions.locations import path_data_pleiades, path_visions_proj
 
 # Define paths
-cloud_home = os.environ["CLOUD_HOME"]
-path_scripts = f"{cloud_home}/Projects/VISIONS/Pipeline/scripts/CrA/deep_wx/"
-path_data = "/Volumes/Data/VISIONS/198C-2009M_CrA/CrA_deep_wx_1/"
-path_pype = "/Volumes/Data/VISIONS/198C-2009M_CrA/vircampype/"
+path_data = f"{path_data_pleiades}VISIONS/198C-2009M_CrA/CrA_deep_wx_1/"
+path_pype = f"{path_data_pleiades}VISIONS/198C-2009M_CrA/vircampype/"
+path_scripts = f"{path_visions_proj}Pipeline/scripts/CrA/deep_wx/"
 
 # Search for files
 paths_files = sorted(glob(path_data + "*.fits"))
@@ -14,7 +13,7 @@ paths_files = sorted(glob(path_data + "*.fits"))
 # Write scripts
 write_scripts(
     paths_files=paths_files,
-    additional_source_masks="Corona_Australis_wide",
+    additional_source_masks="Corona_Australis_deep",
     archive=False,
     build_phase3=False,
     build_public_catalog=True,
