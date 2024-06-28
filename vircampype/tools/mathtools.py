@@ -814,9 +814,9 @@ def interpolate_value(
 
     Parameters
     ----------
-    x : float
+    x : np.ndarray
         The x-coordinate of the point to interpolate.
-    y : float
+    y : np.ndarray
         The y-coordinate of the point to interpolate.
     x0 : np.ndarray
         The x-coordinates of the input data points.
