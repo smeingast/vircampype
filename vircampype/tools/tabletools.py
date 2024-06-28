@@ -10,6 +10,7 @@ from astropy.table import Table, QTable
 from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
 from astropy.wcs import WCS, FITSFixedWarning
+from astropy.stats import sigma_clipped_stats
 from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
 from astropy.table import vstack as table_vstack
