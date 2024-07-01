@@ -977,7 +977,6 @@ class Pipeline:
     def build_public_catalog(self):
         if not self.status.public_catalog:
             # Read systematic astrometric error
-            # pherr = 0.005 * Unit("mag")
             self.sources_tile_cal.build_public_catalog(
                 photerr_internal=self.setup.photometric_error_floor,
             )
