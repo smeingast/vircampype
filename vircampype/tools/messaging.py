@@ -142,10 +142,24 @@ def print_message(
         log_method(message)
 
 
-def print_start(obj=""):
-    print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
-    print(BColors.OKGREEN + "{0:^74}".format("{0}".format(obj)) + BColors.ENDC)
-    print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
+def print_start(obj: str = "") -> float:
+    """
+    Prints a start message with specified object name and returns the current time.
+
+    Parameters
+    ----------
+    obj : str, optional
+        The object name to be included in the start message.
+        Default is an empty string.
+
+    Returns
+    -------
+    float
+        The current time in seconds since the Epoch.
+    """
+    print(f"{BColors.OKGREEN}{'_'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{obj:^74}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾'*80}{BColors.ENDC}")
     return time.time()
 
 
