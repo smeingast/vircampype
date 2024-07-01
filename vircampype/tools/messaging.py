@@ -238,7 +238,9 @@ def message_calibration(
             logger.info(message)
 
 
-def check_file_exists(file_path, silent=True):
+def check_file_exists(
+    file_path: str, silent: bool = True, logger: Optional[PipelineLog] = None
+) -> bool:
     """
     Helper method to check if a file already exists.
 
@@ -248,28 +250,26 @@ def check_file_exists(file_path, silent=True):
         Path to file.
     silent : bool, optional
         Whether a warning message should be printed if the file exists.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the warning message.
 
     Returns
     -------
     bool
         True if file exists, otherwise False.
-
     """
 
-    # Check if file exists or overwrite is set
     if os.path.isfile(file_path):
-
-        # Issue warning of not silent
         if not silent:
+            filename = os.path.basename(file_path)
             print_message(
-                message="{0} already exists.".format(os.path.basename(file_path)),
+                message=f"{filename} already exists.",
                 kind="warning",
                 end=None,
+                logger=logger,
             )
-
         return True
-    else:
-        return False
+    return False
 
 
 def message_qc_astrometry(separation):
