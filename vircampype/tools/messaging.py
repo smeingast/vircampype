@@ -51,7 +51,7 @@ def print_header(
     logger: Optional[PipelineLog] = None,
 ):
     """
-    Prints a helper message.
+    Prints a helper message with optional logging.
 
     Parameters
     ----------
