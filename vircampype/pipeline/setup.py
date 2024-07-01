@@ -562,8 +562,15 @@ class Setup:
         # Return
         return dd
 
-    def add_setup_to_header(self, header: fits.Header):
-        """Adds setup to header."""
+    def add_setup_to_header(self, header: fits.Header) -> None:
+        """
+        Adds setup information to a FITS header.
+
+        Parameters
+        ----------
+        header : fits.Header
+            The FITS header to which the setup information will be added.
+        """
         for key, val in self.dict.items():
             if isinstance(val, tuple):
                 val = str(val)
@@ -571,7 +578,34 @@ class Setup:
                 val = val.name
             elif isinstance(val, SourceMasks):
                 val = val.name
-            header.set(f"HIERARCH PYPE SETUP {key.upper()}", value=val, comment="")
+
+            # Iteratively clip the value if it is too long
+            key_upper = key.upper()
+            if isinstance(val, str):
+                while len(val) > 0:
+                    try:
+                        header.set(
+                            keyword=f"HIERARCH PYPE SETUP {key_upper}",
+                            value=val,
+                            comment="",
+                        )
+                        # Loop over cards and verify
+                        for card in header.cards:
+                            card.verify("silentfix")
+                        break
+                    except ValueError as e:
+                        if "too long" in str(e):
+                            val = val[1:]
+                        else:
+                            raise
+                else:
+                    raise ValueError(
+                        f"Value for key '{key_upper}' is too long and cannot be shortened further."
+                    )
+            else:
+                header.set(
+                    keyword=f"HIERARCH PYPE SETUP {key_upper}", value=val, comment=""
+                )
 
 
 class HeaderKeywords:
