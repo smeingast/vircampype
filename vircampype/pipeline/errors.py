@@ -1,7 +1,9 @@
-from typing import Optional
-from vircampype.pipeline.log import PipelineLog
+from typing import Optional, TYPE_CHECKING
 
-__all__ = ["PipelineValueError", "PipelineFileNotFoundError"]
+if TYPE_CHECKING:
+    from vircampype.pipeline.log import PipelineLog
+
+__all__ = ["PipelineValueError", "PipelineFileNotFoundError", "PipelineTypeError"]
 
 
 class PipelineError(Exception):
@@ -17,7 +19,7 @@ class PipelineError(Exception):
 
     """
 
-    def __init__(self, message: str, logger: Optional[PipelineLog] = None):
+    def __init__(self, message: str, logger: Optional["PipelineLog"] = None):
         super().__init__(message)
         if logger:
             logger.error(message)
@@ -25,14 +27,17 @@ class PipelineError(Exception):
 
 class PipelineValueError(PipelineError, ValueError):
     """Raised to indicate a value error in the pipeline execution."""
+
     pass
 
 
 class PipelineFileNotFoundError(PipelineError, FileNotFoundError):
     """Raised to indicate a file not found error in the pipeline execution."""
+
     pass
 
 
 class PipelineTypeError(PipelineError, TypeError):
     """Raised to indicate a type error in the pipeline execution."""
+
     pass
