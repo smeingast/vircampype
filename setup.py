@@ -1,4 +1,3 @@
-import sys
 from vircampype import __version__
 from setuptools import setup, find_packages
 
