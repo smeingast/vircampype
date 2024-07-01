@@ -1,6 +1,8 @@
 import os
 import time
-from typing import Optional
+from typing import Optional, Sequence
+
+from astropy.stats import sigma_clipped_stats
 
 from vircampype.pipeline.log import PipelineLog
 
@@ -272,19 +274,24 @@ def check_file_exists(
     return False
 
 
-def message_qc_astrometry(separation):
+def message_qc_astrometry(
+    separation: Sequence[float], logger: Optional[PipelineLog] = None
+) -> None:
     """
-    Print astrometry QC message
+    Prints and logs an astrometry QC message.
 
     Parameters
     ----------
-    separation
+    separation : Sequence[float]
         Separation quantity.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the QC message.
+        If not provided, logging is skipped.
 
+    Returns
+    -------
+    None
     """
-
-    # Import
-    from astropy.stats import sigma_clipped_stats
 
     # Compute stats
     sep_mean, _, sep_std = sigma_clipped_stats(
@@ -294,16 +301,18 @@ def message_qc_astrometry(separation):
     # Choose color
     if sep_mean < 50:
         color = BColors.OKGREEN
-    elif (sep_mean >= 50) & (sep_mean < 100):
+    elif 50 <= sep_mean < 100:
         color = BColors.WARNING
     else:
         color = BColors.FAIL
 
-    print(
-        color
-        + "\nExternal astrometric error (mas; mean/std): {0:6.1f}/{1:6.1f}".format(
-            sep_mean, sep_std
-        )
-        + BColors.ENDC,
-        end="\n",
+    common_message = (
+        f"External astrometric error (mas; mean/std): {sep_mean:6.1f}/{sep_std:6.1f}"
     )
+    colored_message = f"{color}\n{common_message}{BColors.ENDC}"
+
+    print(colored_message, end="\n")
+
+    # Log the message
+    if logger:
+        logger.info(common_message)
