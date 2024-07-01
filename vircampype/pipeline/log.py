@@ -34,13 +34,13 @@ class PipelineLog(Borg):
             self.initialized = True
 
     @staticmethod
-    def get_logger():
+    def get_logger() -> logging.Logger:
         """
         Getter for logger instance.
 
         Returns
         ----------
-        Logger
+        logging.Logger
             An instance of logger.
         """
         return logging.getLogger(__name__)
