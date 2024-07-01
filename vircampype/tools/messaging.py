@@ -188,48 +188,54 @@ def print_end(tstart: float, logger: Optional[PipelineLog] = None) -> None:
 
 
 def message_calibration(
-    n_current, n_total, name, d_current=None, d_total=None, silent=False, end=""
-):
+    n_current: int,
+    n_total: int,
+    name: str,
+    d_current: Optional[int] = None,
+    d_total: Optional[int] = None,
+    silent: bool = False,
+    end: str = "",
+    logger: Optional[PipelineLog] = None,
+) -> None:
     """
     Prints the calibration message for image processing.
 
     Parameters
     ----------
-    n_current :  int
+    n_current : int
         Current file index in the loop.
     n_total : int
         Total number of files to process.
     name : str
         Output filename.
-    d_current : int, optional
+    d_current : Optional[int], optional
         Current detector index in the loop.
-    d_total : int, optional
+    d_total : Optional[int], optional
         Total number of detectors to process.
     silent : bool, optional
-        If set, nothing will be printed
+        If set, nothing will be printed.
     end : str, optional
-        End of line. Default is "".
-
+        End of line. Default is an empty string.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the message. If not provided, logging is skipped.
     """
 
     if not silent:
-
         if (d_current is not None) and (d_total is not None):
-            print(
-                "\r{0:<8.8s} {1:^62.62s} {2:>8.8s}".format(
-                    str(n_current) + "/" + str(n_total),
-                    os.path.basename(name),
-                    str(d_current) + "/" + str(d_total),
-                ),
-                end=end,
+            message = (
+                f"\r{n_current}/{n_total:<8.8s} "
+                f"{os.path.basename(name):^62.62s} "
+                f"{d_current}/{d_total:>8.8s}"
             )
         else:
-            print(
-                "\r{0:<10.10s} {1:>69.69s}".format(
-                    str(n_current) + "/" + str(n_total), os.path.basename(name)
-                ),
-                end=end,
+            message = (
+                f"\r{n_current}/{n_total:<10.10s} {os.path.basename(name):>69.69s}"
             )
+        print(message, end=end)
+
+        # Log the message
+        if logger:
+            logger.info(message)
 
 
 def check_file_exists(file_path, silent=True):
