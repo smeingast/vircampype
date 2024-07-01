@@ -163,14 +163,28 @@ def print_start(obj: str = "") -> float:
     return time.time()
 
 
-def print_end(tstart):
-    print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
-    print(
-        BColors.OKGREEN
-        + "{0:^74}".format("All done in {0:0.1f}s".format(time.time() - tstart))
-        + BColors.ENDC
-    )
-    print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
+def print_end(tstart: float, logger: Optional[PipelineLog] = None) -> None:
+    """
+    Prints an end message indicating completion time and logs the message
+    if a logger is provided.
+
+    Parameters
+    ----------
+    tstart : float
+        The start time in seconds since the Epoch.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the end message.
+        If not provided, logging is skipped.
+    """
+    end_message = f"All done in {time.time() - tstart:0.1f}s"
+
+    print(f"{BColors.OKGREEN}{'_'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{end_message:^74}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾'*80}{BColors.ENDC}")
+
+    # Log the end message
+    if logger:
+        logger.info(end_message)
 
 
 def message_calibration(
