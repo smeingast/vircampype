@@ -2,12 +2,12 @@ import os
 
 from astropy.io import fits
 from joblib import cpu_count
-from vircampype.pipeline.errors import *
 from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
 from vircampype.visions.projections import *
 from typing import Union, List, Optional, Literal
 from vircampype.miscellaneous.sourcemasks import *
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.miscellaneous.projection import Projection
 
 
@@ -174,11 +174,11 @@ class Setup:
     def __post_init__(self):
         # Simple setup check
         if self.name is None:
-            raise PipelineError("Pipeline setup needs a name")
+            raise PipelineValueError("Pipeline setup needs a name")
         if (self.path_data is None) | (os.path.exists(self.path_data) is False):
-            raise PipelineError("Please provide valid path to data")
+            raise PipelineValueError("Please provide valid path to data")
         if self.path_pype is None:
-            raise PipelineError("Please provide valid path for pipeline output")
+            raise PipelineValueError("Please provide valid path for pipeline output")
         if self.n_jobs > cpu_count():
             raise ValueError("More parallel jobs than available CPUs requested.")
 
@@ -271,7 +271,7 @@ class Setup:
         elif self.set_saturation_levels == "sv":
             return self.__sv_saturation_levels
         else:
-            raise PipelineError(
+            raise PipelineValueError(
                 "Saturation levels not set correctly. "
                 "Only 'default' or 'sv' allowed."
             )
@@ -310,7 +310,7 @@ class Setup:
 
     def __check_flat_type(self):
         if self.flat_type.lower() not in ["sky", "twilight"]:
-            raise PipelineError("Flat type must be either 'sky' or 'twilight'")
+            raise PipelineValueError("Flat type must be either 'sky' or 'twilight'")
 
     def __set_projection(self):
         # If the atrtibute is already a Projection instance, do nothing
@@ -376,9 +376,9 @@ class Setup:
             # If no match found, raise error
             else:
                 print(self.projection)
-                raise PipelineError(f"Projection '{self.projection}' not supported")
+                raise PipelineValueError(f"Projection '{self.projection}' not supported")
         else:
-            raise PipelineError(
+            raise PipelineValueError(
                 "Projection must be provided as string or Projection instance"
             )
 
