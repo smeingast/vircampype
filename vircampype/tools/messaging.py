@@ -1,5 +1,8 @@
 import os
 import time
+from typing import Optional
+
+from vircampype.pipeline.log import PipelineLog
 
 __all__ = [
     "print_message",
@@ -71,32 +74,60 @@ def print_header(header, silent=True, left="File", right="Extension"):
             print("{0:<55s}{1:>25s}".format(left, right))
 
 
-def print_message(message, kind=None, end=""):
+def print_message(
+    message: str,
+    kind: Optional[str] = None,
+    end: Optional[str] = "",
+    logger: Optional[PipelineLog] = None,
+):
     """
-    Generic message printer.
+    Generic message printer with optional logging.
 
     Parameters
     ----------
     message : str
-        Message to print.
-    kind : str
-        Type of message.
-    end : str, None, optional
+        The message to print.
+    kind : str, optional
+        Type of message (e.g., 'warning', 'fail', 'okblue', 'okgreen').
+    end : str, optional
+        End character for the print function.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the messages.
 
+    Raises
+    ------
+    ValueError
+        If the message type specified in `kind` is not implemented.
     """
 
+    log_methods = {
+        None: lambda msg: logger.info(msg) if logger else None,
+        "warning": lambda msg: logger.warning(msg) if logger else None,
+        "fail": lambda msg: logger.error(msg) if logger else None,
+        "okblue": lambda msg: logger.info(msg) if logger else None,
+        "okgreen": lambda msg: logger.info(msg) if logger else None,
+    }
+
     if kind is None:
-        print("\r{0:<80s}".format(message), end=end)
+        formatted_message = f"\r{message:<80s}"
     elif kind.lower() == "warning":
-        print(BColors.WARNING + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.WARNING}\r{message:<80s}{BColors.ENDC}"
     elif kind.lower() == "fail":
-        print(BColors.FAIL + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.FAIL}\r{message:<80s}{BColors.ENDC}"
     elif kind.lower() == "okblue":
-        print(BColors.OKBLUE + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.OKBLUE}\r{message:<80s}{BColors.ENDC}"
     elif kind.lower() == "okgreen":
-        print(BColors.OKGREEN + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.OKGREEN}\r{message:<80s}{BColors.ENDC}"
     else:
         raise ValueError("Implement more types.")
+
+    # Print the formatted message
+    print(formatted_message, end=end)
+
+    # Log the message
+    log_method = log_methods.get(kind.lower() if kind else None, None)
+    if log_method:
+        log_method(message)
 
 
 def print_start(obj=""):
