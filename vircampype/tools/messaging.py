@@ -223,19 +223,20 @@ def message_calibration(
     """
 
     if not silent:
+        n_current_str = f"{n_current}/{n_total}"
+        d_current_str = f"{d_current}/{d_total}"
+        name_str = os.path.basename(name)
         if (d_current is not None) and (d_total is not None):
             message = (
-                f"\r{n_current}/{n_total:<8.8s} "
-                f"{os.path.basename(name):^62.62s} "
-                f"{d_current}/{d_total:>8.8s}"
+                f"\r{n_current_str:<8.8s} "
+                f"{name_str:^62.62s} "
+                f"{d_current_str:>8.8s}"
             )
         else:
-            message = (
-                f"\r{n_current}/{n_total:<10.10s} {os.path.basename(name):>69.69s}"
-            )
-        print(message, end=end)
+            message = f"\r{n_current_str:<10.10s} {name_str:>69.69s}"
 
-        # Log the message
+        # Print and log message
+        print(message, end=end)
         if logger:
             logger.info(message)
 
@@ -311,8 +312,7 @@ def message_qc_astrometry(
     )
     colored_message = f"{color}\n{common_message}{BColors.ENDC}"
 
+    # Print and log message
     print(colored_message, end="\n")
-
-    # Log the message
     if logger:
         logger.info(common_message)
