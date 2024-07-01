@@ -152,6 +152,7 @@ class Setup:
     # Sextractor
     sex_back_size: int = 64
     sex_back_filtersize: int = 3
+    sex_detection_image_path: Optional[str] = None
 
     # Swarp
     __resampling_kernel = Literal[
