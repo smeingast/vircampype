@@ -43,7 +43,13 @@ def print_colors_shell():
     print(BColors.UNDERLINE + "UNDERLINE" + BColors.ENDC)
 
 
-def print_header(header, silent=True, left="File", right="Extension"):
+def print_header(
+    header: str,
+    silent: bool = True,
+    left: Optional[str] = "File",
+    right: Optional[str] = "Extension",
+    logger: Optional[PipelineLog] = None,
+):
     """
     Prints a helper message.
 
@@ -54,10 +60,11 @@ def print_header(header, silent=True, left="File", right="Extension"):
     silent : bool, optional
         Whether a message should be printed. If set, nothing happens.
     left : str, optional
-        Left side of print message. Default is 'File'
+        Left side of print message. Default is 'File'.
     right : str, optional
         Right side of print message. Default is 'Extension'.
-
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the messages.
     """
 
     if left is None:
@@ -68,10 +75,15 @@ def print_header(header, silent=True, left="File", right="Extension"):
 
     if not silent:
         print()
-        print(BColors.HEADER + header + BColors.ENDC)
-        print("{:‾<80}".format(""))
-        if not (left == "") & (right == ""):
-            print("{0:<55s}{1:>25s}".format(left, right))
+        print(f"{BColors.HEADER}{header}{BColors.ENDC}")
+        print(f"{'‾' * 80}")
+        if left or right:
+            print(f"{left:<55s}{right:>25s}")
+
+    # Log the message
+    log_message = f"Header: {header}\nLeft: {left}\nRight: {right}"
+    if logger:
+        logger.info(log_message)
 
 
 def print_message(
