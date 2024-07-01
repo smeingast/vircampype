@@ -4,15 +4,20 @@ import time
 import json
 import os.path
 
-from vircampype.tools.messaging import *
 from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.log import PipelineLog
-from vircampype.pipeline.errors import PipelineError
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.status import PipelineStatus
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.fitstools import compress_images, combine_mjd_images
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
+from vircampype.tools.messaging import (
+    print_message,
+    print_header,
+    print_start,
+    print_end,
+)
 
 
 class Pipeline:
@@ -173,7 +178,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_science):
-            raise PipelineError("Raw and processed science images not matching.")
+            raise PipelineValueError("Raw and processed science images not matching.")
 
         return images
 
@@ -203,7 +208,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_offset):
-            raise PipelineError("Raw and processed offset images not matching.")
+            raise PipelineValueError("Raw and processed offset images not matching.")
 
         return images
 
@@ -236,7 +241,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_science):
-            raise PipelineError("Raw and processed science images not matching.")
+            raise PipelineValueError("Raw and processed science images not matching.")
 
         return images
 
@@ -283,7 +288,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_science):
-            raise PipelineError("Raw and resampled images not matching.")
+            raise PipelineValueError("Raw and resampled images not matching.")
 
         return images
 
@@ -300,7 +305,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != 6:
-            raise PipelineError("Stacks incomplete")
+            raise PipelineValueError("Stacks incomplete")
 
         return images
 
@@ -330,7 +335,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.processed_science_final):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -355,7 +360,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.processed_science_final):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -377,7 +382,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.resampled):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -399,7 +404,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.stacks):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -424,7 +429,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.resampled):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -449,7 +454,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.stacks):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -470,7 +475,7 @@ class Pipeline:
         )
 
         if len(catalog) != 1:
-            raise PipelineError("Tile catalog not found")
+            raise PipelineValueError("Tile catalog not found")
 
         # Return
         return catalog
@@ -491,7 +496,7 @@ class Pipeline:
         )
 
         if len(catalog) != 1:
-            raise PipelineError("Calibrated tile catalog not found")
+            raise PipelineValueError("Calibrated tile catalog not found")
 
         # Return
         return catalog
@@ -517,7 +522,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.resampled):
-            raise PipelineError("Image statistics incomplete")
+            raise PipelineValueError("Image statistics incomplete")
 
         # Return
         return images
@@ -691,7 +696,7 @@ class Pipeline:
                     [os.path.isfile(p) for p in self._paths_processed_science_final]
                 )
                 if (nehdr != nfproc) | (nehdr == 0):
-                    raise PipelineError(
+                    raise PipelineValueError(
                         f"Not enough external headers present ({nehdr}/{nfproc})"
                     )
             else:
