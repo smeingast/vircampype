@@ -155,7 +155,8 @@ class Setup:
 
     # Swarp
     __resampling_kernel = Literal[
-        "nearest", "bilinear", "lanczos2", "lanczos3", "lanczos4"]
+        "nearest", "bilinear", "lanczos2", "lanczos3", "lanczos4"
+    ]
     resampling_kernel: __resampling_kernel = "lanczos3"
 
     # Binary names
@@ -269,8 +270,10 @@ class Setup:
         elif self.set_saturation_levels == "sv":
             return self.__sv_saturation_levels
         else:
-            raise PipelineError("Saturation levels not set correctly. "
-                                "Only 'default' or 'sv' allowed.")
+            raise PipelineError(
+                "Saturation levels not set correctly. "
+                "Only 'default' or 'sv' allowed."
+            )
 
     @property
     def image_statistics_combine_type(self) -> dict:
@@ -460,12 +463,12 @@ class Setup:
         self.folders["master_common"] = f"{self.path_pype}{'master'}/"
         self.folders["master_object"] = f"{self.folders['object']}{'master'}/"
         self.folders["temp"] = f"{self.folders['object']}{'temp'}/"
-        self.folders[
-            "processed_basic"
-        ] = f"{self.folders['object']}{'processed_basic'}/"
-        self.folders[
-            "processed_final"
-        ] = f"{self.folders['object']}{'processed_final'}/"
+        self.folders["processed_basic"] = (
+            f"{self.folders['object']}{'processed_basic'}/"
+        )
+        self.folders["processed_final"] = (
+            f"{self.folders['object']}{'processed_final'}/"
+        )
         self.folders["resampled"] = f"{self.folders['object']}{'resampled'}/"
         self.folders["illumcorr"] = f"{self.folders['object']}{'illumcorr'}/"
         self.folders["qc"] = f"{self.folders['object']}{'qc'}/"
@@ -573,19 +576,19 @@ class Setup:
 
 class HeaderKeywords:
     def __init__(
-            self,
-            obj="OBJECT",
-            filter_name="HIERARCH ESO INS FILT1 NAME",
-            dpr_type="HIERARCH ESO DPR TYPE",
-            dpr_category="HIERARCH ESO DPR CATG",
-            dit="HIERARCH ESO DET DIT",
-            ndit="HIERARCH ESO DET NDIT",
-            date_mjd="MJD-OBS",
-            date_ut="DATE-OBS",
-            gain="GAIN",
-            rdnoise="RDNOISE",
-            saturate="SATURATE",
-            airmass="AIRMASS",
+        self,
+        obj="OBJECT",
+        filter_name="HIERARCH ESO INS FILT1 NAME",
+        dpr_type="HIERARCH ESO DPR TYPE",
+        dpr_category="HIERARCH ESO DPR CATG",
+        dit="HIERARCH ESO DET DIT",
+        ndit="HIERARCH ESO DET NDIT",
+        date_mjd="MJD-OBS",
+        date_ut="DATE-OBS",
+        gain="GAIN",
+        rdnoise="RDNOISE",
+        saturate="SATURATE",
+        airmass="AIRMASS",
     ):
         self.object = obj
         self.filter_name = filter_name
