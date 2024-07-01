@@ -5,6 +5,8 @@ from typing import Optional
 from vircampype.pipeline.misc import Borg
 from vircampype.pipeline.setup import Setup
 
+__all__ = ["PipelineLog"]
+
 
 class PipelineLog(Borg):
     initialized: bool = False
