@@ -292,11 +292,9 @@ class SkyImages(FitsImages):
 
         # Print time
         if not silent:
-            print_message(
-                message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-                kind="okblue",
-                end="\n",
-            )
+            tt_message = f"\n-> Elapsed time: {time.time() - tstart}s"
+            log.info(tt_message)
+            print_message(message=tt_message, kind="okblue", end="\n")
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import (
@@ -309,7 +307,7 @@ class SkyImages(FitsImages):
         elif (preset == "ic") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
         else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
+            raise ValueError(f"Preset '{preset}' not supported")
 
         # Return Table instance
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
