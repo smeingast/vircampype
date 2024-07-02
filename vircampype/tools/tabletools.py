@@ -4,8 +4,6 @@ import numpy as np
 from astropy.io import fits
 from astropy.time import Time
 from astropy.units import Unit
-from astropy.units import Quantity
-from scipy.interpolate import interp1d
 from astropy.table import Table, QTable
 from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
@@ -179,8 +177,9 @@ def clean_source_table(
             raise ValueError("Percentiles must be in increasing order")
         try:
             percentiles = np.nanpercentile(table["FLUX_MAX"], flux_max_percentiles)
-            good &= ((table["FLUX_MAX"] >= percentiles[0]) &
-                     (table["FLUX_MAX"] <= percentiles[1]))
+            good &= (table["FLUX_MAX"] >= percentiles[0]) & (
+                table["FLUX_MAX"] <= percentiles[1]
+            )
         except KeyError:
             pass
 
@@ -228,8 +227,11 @@ def table2bintablehdu(table):
     return fits.BinTableHDU.from_columns(columns=cols_hdu)
 
 
-def interpolate_classification(source_table, classification_table):
+def interpolate_classification(source_table, classification_table, verbose=True):
     """Helper tool to interpolate classification from library"""
+
+    if verbose:
+        print("Interpolating classification...")
 
     # Grab coordinates
     xx_source, yy_source = source_table["XWIN_IMAGE"], source_table["YWIN_IMAGE"]
@@ -265,8 +267,19 @@ def interpolate_classification(source_table, classification_table):
 
     # Loop over each source
     class_star_interp = []
-    for sc, ac in zip(source_table["FWHM_WORLD_INTERP"] * 3600, array_class.T):
-        class_star_interp.append(interp1d(fwhm_range, ac, fill_value="extrapolate")(sc))
+    total_iterations = len(
+        source_table["FWHM_WORLD_INTERP"]
+    )  # Total number of iterations
+    for i, (sc, ac) in enumerate(
+        zip(source_table["FWHM_WORLD_INTERP"] * 3600, array_class.T)
+    ):
+        class_star_interp.append(np.interp(x=sc, xp=fwhm_range, fp=ac))
+        # Print progress every 100 iterations
+        if verbose and (i % 100 == 0 or i == total_iterations - 1):
+            print(
+                    f"\r{i + 1}/{total_iterations} ({(i + 1) / total_iterations * 100:.2f}%)",
+                    end="",
+                )
     class_star_interp = np.array(class_star_interp, dtype=np.float32)
 
     # Mask bad values
@@ -433,9 +446,11 @@ def convert2public(
     old_b = data_errb_tot[needs_flipping].copy()
     data_erra_tot[needs_flipping] = old_b
     data_errb_tot[needs_flipping] = old_a
-    data_errpa[needs_flipping] = np.where(data_errpa[needs_flipping] > 90,
-                                          data_errpa[needs_flipping] - 90,
-                                          data_errpa[needs_flipping] + 90)
+    data_errpa[needs_flipping] = np.where(
+        data_errpa[needs_flipping] > 90,
+        data_errpa[needs_flipping] - 90,
+        data_errpa[needs_flipping] + 90,
+    )
 
     # Convert to ra/dec error and correlation coeff
     data_ra_error, data_dec_error, data_ra_dec_corr = convert_position_error(
@@ -515,11 +530,7 @@ def convert2public(
     for mm in mag_range:
         # Grab all sources within 0.25 mag of current position
         cidx_all = (mag_best > mm - 0.25) & (mag_best < mm + 0.25)
-        cidx_pnt = (
-            (data_cls > 0.5)
-            & (mag_best > mm - 0.25)
-            & (mag_best < mm + 0.25)
-        )
+        cidx_pnt = (data_cls > 0.5) & (mag_best > mm - 0.25) & (mag_best < mm + 0.25)
 
         # Filter presumably bad sources
         with warnings.catch_warnings():
@@ -746,12 +757,9 @@ def merge_with_2mass(
     mag_2mass_bright = mag_2mass_bright[keep_bright]
 
     # Define 2MASS cleaning radus
-    cleaning_radius = interp1d(
-        [-10, 5.00, 6.70, 8.70, 9.20, 10.5, 12, 14, 99],
-        # [100, 80, 60, 35, 20, 10, 5, 0],
-        [50, 20, 10, 6, 5, 4, 2, 1, 0],
-    )
-    cleaning_radius = cleaning_radius(mag_2mass_bright) * Unit("arcsec")
+    x_values = np.array([-10, 5.00, 6.70, 8.70, 9.20, 10.5, 12, 14, 99])
+    y_values = np.array([50, 20, 10, 6, 5, 4, 2, 1, 0])
+    cleaning_radius = np.interp(mag_2mass_bright, x_values, y_values) * Unit("arcsec")
 
     # Find all sources around the bright targets in the photometric reference catalog
     idx_self_near_bright, idx_2mass_near_bright = [], []
@@ -906,7 +914,7 @@ def sextractor_nanify_bad_values(table: Table) -> None:
         "FLUXERR_APER": lambda x: x <= 0,
         "MAG_APER": lambda x: x >= 0,
         "MAGERR_APER": lambda x: x <= 0,
-        "SNR_WIN": lambda x: x <= 0
+        "SNR_WIN": lambda x: x <= 0,
     }
 
     # Process each condition
