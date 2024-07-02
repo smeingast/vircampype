@@ -1,7 +1,7 @@
 numpy==2.0.0
 scipy==1.14.0
 astropy==6.1.1
-pillow==10.3.0
+pillow==10.4.0
 scikit-learn==1.5.0
 scikit-image==0.24.0
 matplotlib==3.9.0
@@ -9,4 +9,4 @@ astroquery==0.4.7
 pyyaml==6.0.1
 joblib==1.4.2
 regions==0.9
-setuptools==70.1.1
+setuptools==70.2.0
