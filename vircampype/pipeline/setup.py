@@ -168,6 +168,9 @@ class Setup:
     bin_noisechisel: str = "astnoisechisel"
     bin_stilts: str = "stilts"
 
+    # Miscellanous
+    survey_name: str = "VISIONS"
+
     # Folders
     folders: dict = None
 
