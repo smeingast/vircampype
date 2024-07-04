@@ -1,19 +1,21 @@
 import warnings
-import numpy as np
+from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
 
+import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.stats import sigma_clipped_stats
+from astropy.table import QTable, Table
+from astropy.table import vstack as table_vstack
+from astropy.table.column import MaskedColumn
 from astropy.time import Time
 from astropy.units import Unit
-from astropy.table import Table, QTable
-from astropy.coordinates import SkyCoord
-from vircampype.tools.miscellaneous import *
 from astropy.wcs import WCS, FITSFixedWarning
-from astropy.stats import sigma_clipped_stats
-from astropy.table.column import MaskedColumn
 from sklearn.neighbors import NearestNeighbors
-from astropy.table import vstack as table_vstack
-from typing import Union, List, Dict, Callable, Optional, Generator, Tuple
-from vircampype.tools.systemtools import run_command_shell, remove_file, which
+
+from vircampype.tools.mathtools import find_neighbors_within_distance
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.systemtools import remove_file, run_command_shell, which
 
 __all__ = [
     "clean_source_table",
