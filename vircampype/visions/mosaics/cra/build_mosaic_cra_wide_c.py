@@ -19,7 +19,6 @@ reference_mag_lo = 12.0
 reference_mag_hi = 15.0
 photometric_error_floor = 0.005
 n_jobs = 10
-detection_image_path = f"{path_data_betelgeuse}CrA/CrA_mosaic_H_di/CrA_mosaic_H.di.fits"
 
 # Get script paths
 paths_scripts = sorted(glob.glob(f"{path_scripts}*.yml"))
@@ -39,5 +38,4 @@ build_mosaic(
     photometric_error_floor=photometric_error_floor,
     build_public_catalog=True,
     source_classification=True,
-    sex_detection_image_path=detection_image_path,
 )
