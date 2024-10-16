@@ -3,7 +3,6 @@ from vircampype.visions.mosaics.build_mosaic import build_mosaic
 from vircampype.visions.locations import (
     path_data_pleiades,
     path_visions_proj,
-    path_data_betelgeuse,
 )
 
 # Setup for pipeline
