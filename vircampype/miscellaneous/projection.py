@@ -44,7 +44,7 @@ class Projection:
 
     @property
     def headerpackage(self):
-        return "vircampype.visions.headers"
+        return "vircampype.miscellaneous.headers"
 
     @property
     def wcs(self):
@@ -162,7 +162,7 @@ class CoronaAustralisDeepProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(
-            package=self.headerpackage, resource="Corona_Australis_deep.header"
+            package=self.headerpackage, resource="CrA_deep.header"
         )
 
 
@@ -176,7 +176,7 @@ class CoronaAustralisWideProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(
-            package=self.headerpackage, resource="Corona_Australis_wide.header"
+            package=self.headerpackage, resource="CrA_wide.header"
         )
 
 
@@ -190,7 +190,7 @@ class CoronaAustralisWideLQProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(
-            package=self.headerpackage, resource="Corona_Australis_wide_lq.header"
+            package=self.headerpackage, resource="CrA_wide_lq.header"
         )
 
 
@@ -205,7 +205,7 @@ class CoronaAustralisControlProjection(Projection):
     @property
     def __header_file(self):
         return get_resource_path(
-            package=self.headerpackage, resource="Corona_Australis_control.header"
+            package=self.headerpackage, resource="CrA_control.header"
         )
 
 
