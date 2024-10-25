@@ -2423,6 +2423,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             with fits.open(
                 self.setup.path_coadd, mode="update"
             ) as hdul_tile, fits.open(self.paths_full[0], mode="readonly") as hdu_paw0:
+
                 hdul_tile[0].header.set(
                     keyword=self.setup.keywords.object,
                     value=hdu_paw0[0].header[self.setup.keywords.object],
