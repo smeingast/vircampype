@@ -113,8 +113,10 @@ class SextractorCatalogs(SourceCatalogs):
             log.info(f"File: {fn}")
             tables = self.file2table(file_index=idx)
             for hdu, tt in zip(self.iter_data_hdu[idx], tables):
-                log.info(f"Extension {hdu}: {len(tt)}/{len(tt[tt["FLAGS"] == 0])} "
-                         f"total/FLAGS=0 sources")
+                log.info(
+                    f"Extension {hdu}: {len(tt)}/{len(tt[tt["FLAGS"] == 0])} "
+                    f"total/FLAGS=0 sources"
+                )
 
         # Construct XML path
         path_xml = f"{self.setup.folders['qc_astrometry']}scamp.xml"
