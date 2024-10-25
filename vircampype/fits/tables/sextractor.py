@@ -2152,7 +2152,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             end="\n",
         )
 
-    def build_public_catalog(self, photerr_internal: Quantity):
+    def build_public_catalog(self, photerr_internal: float):
+
+        # Fetch log
+        log = PipelineLog()
+
         # Processing info
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
         tstart = time.time()
@@ -2162,9 +2166,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from vircampype.fits.tables.sources import MasterPhotometry2Mass
 
         master_phot = self.get_master_photometry()  # type: MasterPhotometry2Mass
-        mag_limit = self.setup.reference_mag_lo
-        if not hasattr(mag_limit, "unit"):
-            mag_limit *= Unit("mag")
 
         # Find classification tables
         paths_cls = [
@@ -2204,10 +2205,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Loop over self and merge
         for idx_file in range(self.n_files):
+
+            # Log current filename
+            log.info(f"Processing file: {self.paths_full[idx_file]}")
+
             # Create output path
             path_out = self.paths_full[idx_file].replace(".ctab", ".ptab")
             if path_out == self.paths_full[idx_file]:
                 raise ValueError("Can't set name of public catalog")
+            log.info(f"Creating public catalog: {path_out}")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=path_out, silent=self.setup.silent):
@@ -2226,102 +2232,195 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Grab passbands
             passband = self.passband[idx_file]
             passband_2mass = master_phot.translate_passband(passband)
+            log.info(f"Passband input: {passband}; passband 2MASS: {passband_2mass}")
 
             # Load current table in HDUList
             hdulist_in = fits.open(self.paths_full[idx_file])
+            log.info(f"Found {len(hdulist_in)} HDUs in current file")
 
             # Load source tables in current file
             tables_file = self.file2table(file_index=idx_file)
+            log.info(f"Loaded {len(tables_file)} input tables")
 
             # Load stats tables
             tables_stats = statstables.file2table(file_index=idx_file)
+            log.info(f"Loaded {len(tables_stats)} stats tables")
+
+            # Load classification tables if set
+            tables_class_file = None
+            if self.setup.source_classification:
+                tables_class_file = tables_class.file2table(file_index=idx_file)
+                log.info(f"Loaded {len(tables_class_file)} classification tables")
 
             # Read master table
             table_2mass = master_phot.file2table(file_index=idx_file)[0]
+            log.info(f"Loaded 2MASS table with {len(table_2mass)} sources")
             table_2mass["QFLG_PB"] = master_phot.qflags(passband=passband_2mass)[0][0]
 
             # Fill masked columns with NaNs
             table_2mass = fill_masked_columns(table_2mass, fill_value=np.nan)
 
             # Clean master table
+            allowed_qflags, allowed_cflags = "ABCD", "0cd"
+            log.info(
+                f"Cleaning master table with qflags: {allowed_qflags}, "
+                f"cflags: {allowed_cflags}"
+            )
             keep_master = master_phot.get_purge_index(
-                passband=passband_2mass, allowed_qflags="ABCD", allowed_cflags="0cd"
+                passband=passband_2mass,
+                allowed_qflags=allowed_qflags,
+                allowed_cflags=allowed_cflags,
             )
             table_2mass_clean = table_2mass.copy()[keep_master]
+            log.info(f"Cleaned master table; sources left: {len(table_2mass_clean)}")
 
             # Work in each extension
             for tidx, widx in zip(
                 range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
             ):
+
+                # Determine lengths
+                len_table_full = len(tables_file[tidx])
+                len_table_stats = len(tables_stats[tidx])
+
+                # Log current extension
+                log.info(f"Working on extension {tidx + 1}")
+                log.info(f"Source table length: {len_table_full}")
+                log.info(f"Stats table length: {len_table_stats}")
+
                 # Stats and source table need to have same length
-                if len(tables_file[tidx]) != len(tables_stats[tidx]):
-                    raise ValueError(
-                        f"Source ({len(tables_file[tidx])}) and stats "
-                        f"({len(tables_stats[tidx])}) table do not have same length."
+                if len_table_full != len_table_stats:
+                    msg = (
+                        f"Source ({len_table_full}) and stats ({len_table_stats}) "
+                        f"table do not have same length."
                     )
+                    log.error(msg)
+                    raise ValueError(msg)
 
                 # Stack source and stats tables
                 tables_file[tidx] = thstack(
                     [tables_file[tidx], tables_stats[tidx]], join_type="exact"
                 )
+                log.info(f"Stacked source and stats tables")
 
-                # Interpolate source classification
+                # Length of source and classification table must be equal within 0.1%
                 if self.setup.source_classification:
-                    tables_class_file = tables_class.file2table(file_index=idx_file)
+                    len_table_cls = len(tables_class_file[tidx])
+
+                    # Check length of the source and classification table
+                    log.info("Checking classification table length")
+                    log.info(f"Length of source table: {len_table_full}")
+                    log.info(f"Length of classification table: {len_table_cls}")
+                    if np.abs(len_table_full / len_table_cls - 1) > 0.005:
+                        msg = (
+                            f"Source ({len_table_full}) and classification "
+                            f"({len_table_cls}) tables do not have similar length."
+                        )
+                        log.error(msg)
+                        raise ValueError(msg)
+
+                    # If the check passes, make a match
+                    log.info("Matching classification and source table")
+                    x_full = tables_file[tidx]["XWIN_IMAGE"]
+                    y_full = tables_file[tidx]["YWIN_IMAGE"]
+                    x_cs = tables_class_file[tidx]["XWIN_IMAGE"]
+                    y_cs = tables_class_file[tidx]["YWIN_IMAGE"]
+                    xy_cs = np.column_stack((x_cs, y_cs))
+                    xy_full = np.column_stack((x_full, y_full))
+                    nbrs = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(xy_cs)
+                    distances, indices = nbrs.kneighbors(xy_full)
+                    distances, indices = distances.ravel(), indices.ravel()
+
+                    # Apply a distance threshold to filter matches
+                    distance_threshold = 0.1  # Adjust this threshold based on your data
+                    log.info(f"Applying distance threshold of {distance_threshold}")
+                    good_matches = distances < distance_threshold
+                    good_indices = indices[good_matches]
+                    len_table_final = len(good_indices)
+                    log.info(f"Good matches: {len_table_final}")
+
+                    # New table length must be similar to the original table length
+                    log.info("Checking final table length")
+                    log.info(f"Length of source table: {len_table_full}")
+                    log.info(f"Length of matched table: {len_table_final}")
+                    if np.abs(len_table_full / len_table_final - 1) > 0.005:
+                        msg = (
+                            f"Matching of source and classification table failed. "
+                            f"New table length ({len_table_final}) is not similar "
+                            f"the original table length ({len_table_full})."
+                        )
+                        log.error(msg)
+                        raise ValueError(msg)
+
+                    # Filter the full and cs tables based on the good matches
+                    log.info("Applying match indices")
+                    tables_file[tidx] = tables_file[tidx][good_matches]
+                    tables_class_file[tidx] = tables_class_file[tidx][good_indices]
+
+                    # Interpolate source classification
+                    log.info(f"Interpolating source classification")
                     interpolate_classification(
                         tables_file[tidx], tables_class_file[tidx]
                     )
 
                 # Read weight
+                log.info("Reading weight")
                 weight_data, weight_hdr = fits.getdata(
                     paths_weights[0], widx, header=True
                 )
 
                 # Merge with 2MASS
+                # TODO: Add logging here and check speed improvements
+                log.info("Merging with 2MASS")
                 tables_file[tidx] = merge_with_2mass(
                     table=tables_file[tidx],
                     table_2mass=table_2mass,
                     table_2mass_clean=table_2mass_clean,
-                    mag_limit=mag_limit,
+                    mag_limit=master_phot.mag_lim_lo(passband=passband_2mass),
                     weight_image=weight_data,
                     weight_header=weight_hdr,
                     key_ra="ALPHAWIN_SKY",
                     key_dec="DELTAWIN_SKY",
+                    key_ra_2mass="RAJ2000",
+                    key_dec_2mass="DEJ2000",
                     key_mag_2mass=passband_2mass,
+                    survey_name=self.setup.survey_name,
                 )
 
                 # Convert to public format
+                log.info("Converting to public format")
                 tables_file[tidx] = convert2public(
                     tables_file[tidx],
                     photerr_internal=photerr_internal,
                     apertures=self.setup.apertures,
-                    mag_saturation=mag_limit,
+                    mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
+                    survey_name=self.setup.survey_name,
                 )
 
             # Create primary header
+            log.info("Creating primary header")
             phdr = fits.Header()
             add_float_to_header(
                 header=phdr,
                 key="PHOTIERR",
-                value=photerr_internal.to_value(Unit("mag")),
+                value=photerr_internal,
                 comment="Internal photometric error (mag)",
                 decimals=4,
             )
             phdr["FILTER"] = hdulist_in[0].header[self.setup.keywords.filter_name]
 
             # Create output file
+            log.info("Creating TableHDU")
             hdulist_out = fits.HDUList(hdus=[fits.PrimaryHDU(header=phdr)])
             [hdulist_out.append(table2bintablehdu(tc)) for tc in tables_file]
 
             # Write to new output file
+            log.info("Writing to disk")
             hdulist_out.writeto(path_out, overwrite=self.setup.overwrite)
 
             # Close original file
             hdulist_out.close()
 
         # Print time
-        print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-            kind="okblue",
-            end="\n",
-        )
+        pmsg = f"\n-> Elapsed time: {time.time() - tstart:.2f}s"
+        print_message(message=pmsg, kind="okblue", end="\n", logger=log)
