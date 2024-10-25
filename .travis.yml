@@ -1,6 +1,0 @@
-language: bash
-services:
-  - docker
-script:
-  - docker build .
-  - docker run vcp
