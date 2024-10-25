@@ -438,6 +438,16 @@ def convert2public(
     data_mjd_2mass = input_table["MJD_2MASS"]
     data_qflg_2mass = input_table["QFLG_2MASS"]
 
+    # Convert 2MASS ERRMAJ/ERRMIN/ERRPA to ra/dec error and correlation coeff
+    data_ra_error_2mass, data_dec_error_2mass, data_ra_dec_corr_2mass = (
+        convert_position_error(
+            errmaj=data_errmaj_2mass,
+            errmin=data_errmin_2mass,
+            errpa=data_errpa_2mass,
+            degrees=True,
+        )
+    )
+
     # Compute total error
     data_erra_tot = np.sqrt(data_erra**2 + astrms1**2)
     data_errb_tot = np.sqrt(data_errb**2 + astrms2**2)
@@ -577,6 +587,9 @@ def convert2public(
     data_erra_tot[idx_2mass] = data_errmaj_2mass[idx_2mass]
     data_errb_tot[idx_2mass] = data_errmin_2mass[idx_2mass]
     data_errpa[idx_2mass] = data_errpa_2mass[idx_2mass]
+    data_ra_error[idx_2mass] = data_ra_error_2mass[idx_2mass]
+    data_dec_error[idx_2mass] = data_dec_error_2mass[idx_2mass]
+    data_ra_dec_corr[idx_2mass] = data_ra_dec_corr_2mass[idx_2mass]
     data_mjd[idx_2mass] = data_mjd_2mass[idx_2mass]
     aper_best[idx_2mass] = np.nan
     data_sflg[idx_2mass] = 0
@@ -584,25 +597,25 @@ def convert2public(
     qflg[idx_2mass] = data_qflg_2mass[idx_2mass]
 
     # Final cleaning of VISIONS sources to kick out useless rows
-    idx_keep_visions = np.where(
-        (data_erra_tot[idx_visions] > 0.0)
-        & (data_erra_tot[idx_visions] < 1000 / 3600)
-        & (data_errb_tot[idx_visions] > 0.0)
-        & (data_errb_tot[idx_visions] < 1000.0 / 3600)
-        & (data_errpa[idx_visions] > 0.0)
-        & (mag_best[idx_visions] > 0.0)
-        & (mag_best[idx_visions] < 50.0)
-        & (magerr_best[idx_visions] > 0.0)
-        & (magerr_best[idx_visions] < 50.0)
-        & (data_mjd[idx_visions] > 0.0)
-        & (data_exptime[idx_visions] > 0.0)
-        & (data_fwhm[idx_visions] > 0.0)
-        & (data_ellipticity[idx_visions] > 0.0)
+    idx_keep_survey = np.where(
+        (data_erra_tot[idx_survey] > 0.0)
+        & (data_erra_tot[idx_survey] < 1000 / 3600)
+        & (data_errb_tot[idx_survey] > 0.0)
+        & (data_errb_tot[idx_survey] < 1000.0 / 3600)
+        & (data_errpa[idx_survey] > 0.0)
+        & (mag_best[idx_survey] > 0.0)
+        & (mag_best[idx_survey] < 50.0)
+        & (magerr_best[idx_survey] > 0.0)
+        & (magerr_best[idx_survey] < 50.0)
+        & (data_mjd[idx_survey] > 0.0)
+        & (data_exptime[idx_survey] > 0.0)
+        & (data_fwhm[idx_survey] > 0.0)
+        & (data_ellipticity[idx_survey] > 0.0)
     )[0]
 
     # Apply final index
-    idx_visions = idx_visions[idx_keep_visions]
-    idx_final = np.concatenate([idx_visions, idx_2mass])
+    idx_survey = idx_survey[idx_keep_survey]
+    idx_final = np.concatenate([idx_survey, idx_2mass])
     data_ra, data_dec = data_ra[idx_final], data_dec[idx_final]
     aper_best = aper_best[idx_final]
     mag_best, magerr_best = mag_best[idx_final], magerr_best[idx_final]
