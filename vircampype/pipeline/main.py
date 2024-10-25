@@ -1,36 +1,58 @@
 import sys
 import glob
 import time
+import json
 import os.path
 
-from astropy.units import Unit
-from vircampype.tools.messaging import *
 from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
-from vircampype.pipeline.errors import PipelineError
+from vircampype.pipeline.log import PipelineLog
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.status import PipelineStatus
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.fitstools import compress_images, combine_mjd_images
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
+from vircampype.tools.messaging import (
+    print_message,
+    print_header,
+    print_start,
+    print_end,
+)
 
 
 class Pipeline:
     def __init__(self, setup, reset_status=False, **kwargs):
         self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
-        # Read status
-        self.path_status = "{0}{1}".format(
-            self.setup.folders["temp"], "pipeline_status.p"
-        )
+        # Start logging
+        self.log = PipelineLog(setup=self.setup)
+
+        self.log.info("Initializing Pipeline")
+        self.log.info(f"Pipeline setup: {json.dumps(self.setup.dict, indent=4)}")
+
+        # Instantiate status
+        self.log.info("Instantiating pipeline status")
         self.status = PipelineStatus()
+
+        # Read status
+        self.log.info("Try to read previous pipeline status")
+        self.path_status = os.path.join(self.setup.folders["temp"], "pipeline_status.p")
         try:
-            self.status.read(path=self.path_status)
+            self.status.load(path=self.path_status)
+            self.log.info(f"Previous pipeline status found at {self.path_status}")
         except FileNotFoundError:
+            self.log.info(f"No previous pipeline status found at {self.path_status}")
             pass
 
         # Reset status if requested
         if reset_status:
             self.reset_status()
+            self.log.info("Pipeline status has been reset.")
+
+        # Log status
+        self.log.info(
+            f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
+        )
 
     # =========================================================================== #
     def __str__(self):
@@ -68,7 +90,6 @@ class Pipeline:
     # VIRCAM splitter
     @property
     def raw_split(self):
-
         if self._raw_split is not None:
             return self._raw_split
 
@@ -148,7 +169,6 @@ class Pipeline:
 
     @property
     def processed_basic_science(self):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesProcessedScience
 
@@ -158,7 +178,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_science):
-            raise PipelineError("Raw and processed science images not matching.")
+            raise PipelineValueError("Raw and processed science images not matching.")
 
         return images
 
@@ -175,7 +195,6 @@ class Pipeline:
 
     @property
     def processed_basic_offset(self):
-
         # Return if no offset files
         if self.raw_offset is None:
             return None
@@ -189,7 +208,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_offset):
-            raise PipelineError("Raw and processed offset images not matching.")
+            raise PipelineValueError("Raw and processed offset images not matching.")
 
         return images
 
@@ -213,7 +232,6 @@ class Pipeline:
 
     @property
     def processed_science_final(self):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesProcessedScience
 
@@ -223,7 +241,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_science):
-            raise PipelineError("Raw and processed science images not matching.")
+            raise PipelineValueError("Raw and processed science images not matching.")
 
         return images
 
@@ -263,7 +281,6 @@ class Pipeline:
 
     @property
     def resampled(self):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesResampled
 
@@ -271,7 +288,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.raw_science):
-            raise PipelineError("Raw and resampled images not matching.")
+            raise PipelineValueError("Raw and resampled images not matching.")
 
         return images
 
@@ -281,7 +298,6 @@ class Pipeline:
 
     @property
     def stacks(self):
-
         # Instantiate
         from vircampype.fits.images.sky import Stacks
 
@@ -289,7 +305,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != 6:
-            raise PipelineError("Stacks incomplete")
+            raise PipelineValueError("Stacks incomplete")
 
         return images
 
@@ -310,7 +326,6 @@ class Pipeline:
 
     @property
     def sources_processed_final_scamp(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import SextractorCatalogs
 
@@ -320,7 +335,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.processed_science_final):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -334,7 +349,6 @@ class Pipeline:
 
     @property
     def sources_processed_illumcorr(self):
-
         # Insantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -346,7 +360,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.processed_science_final):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -357,7 +371,6 @@ class Pipeline:
 
     @property
     def sources_resampled_full(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -369,7 +382,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.resampled):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -380,7 +393,6 @@ class Pipeline:
 
     @property
     def sources_stacks_full(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -392,7 +404,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.stacks):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -406,7 +418,6 @@ class Pipeline:
 
     @property
     def sources_resampled_cal(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             PhotometricCalibratedSextractorCatalogs,
@@ -418,7 +429,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.resampled):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -432,7 +443,6 @@ class Pipeline:
 
     @property
     def sources_stacks_cal(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             PhotometricCalibratedSextractorCatalogs,
@@ -444,7 +454,7 @@ class Pipeline:
 
         # Consistency check
         if len(catalogs) != len(self.stacks):
-            raise PipelineError("Images and catalogs not matching.")
+            raise PipelineValueError("Images and catalogs not matching.")
 
         # Return
         return catalogs
@@ -455,7 +465,6 @@ class Pipeline:
 
     @property
     def sources_tile_full(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
@@ -466,7 +475,7 @@ class Pipeline:
         )
 
         if len(catalog) != 1:
-            raise PipelineError("Tile catalog not found")
+            raise PipelineValueError("Tile catalog not found")
 
         # Return
         return catalog
@@ -477,7 +486,6 @@ class Pipeline:
 
     @property
     def sources_tile_cal(self):
-
         # Instantiate
         from vircampype.fits.tables.sextractor import (
             PhotometricCalibratedSextractorCatalogs,
@@ -488,7 +496,7 @@ class Pipeline:
         )
 
         if len(catalog) != 1:
-            raise PipelineError("Calibrated tile catalog not found")
+            raise PipelineValueError("Calibrated tile catalog not found")
 
         # Return
         return catalog
@@ -505,7 +513,6 @@ class Pipeline:
         ]
 
     def resampled_statistics(self, mode):
-
         # Instantiate
         from vircampype.fits.images.sky import SkyImagesResampled
 
@@ -515,7 +522,7 @@ class Pipeline:
 
         # Consistency check
         if len(images) != len(self.resampled):
-            raise PipelineError("Image statistics incomplete")
+            raise PipelineValueError("Image statistics incomplete")
 
         # Return
         return images
@@ -577,14 +584,16 @@ class Pipeline:
                     message="MASTER-LINEARITY already created", kind="warning", end=None
                 )
 
-    def build_master_flat(self):
+    def build_master_twilight_flat(self):
         if self.flat_twilight is not None:
-            if not self.status.master_flat:
-                self.flat_twilight.build_master_flat()
-                self.update_status(master_flat=True)
+            if not self.status.master_twilight_flat:
+                self.flat_twilight.build_master_twilight_flat()
+                self.update_status(master_twilight_flat=True)
             else:
                 print_message(
-                    message="MASTER-FLAT already created", kind="warning", end=None
+                    message="MASTER-TWILIGHT-FLAT already created",
+                    kind="warning",
+                    end=None,
                 )
 
     def build_master_weight_global(self):
@@ -608,35 +617,24 @@ class Pipeline:
                 message="MASTER-SOURCE-MASK already created", kind="warning", end=None
             )
 
-    def build_master_sky_static(self):
-        if not self.status.master_sky_static:
-            self.processed_basic_science_and_offset.build_master_sky_static()
-            self.update_status(master_sky_static=True)
-        else:
-            print_message(
-                message="MASTER-SKY-STATIC already created", kind="warning", end=None
-            )
-
-    def build_master_sky_dynamic(self):
-
-        if not self.status.master_sky_dynamic:
-
+    def build_master_sky(self):
+        if not self.status.master_sky:
             # If mixed data is requested
             if self.setup.sky_mix_science:
-                self.processed_basic_science_and_offset.build_master_sky_dynamic()
+                self.processed_basic_science_and_offset.build_master_sky()
 
             # If no offset is present and mixing not requested, build from science
             elif self.processed_basic_offset is None:
-                self.processed_basic_science.build_master_sky_dynamic()
+                self.processed_basic_science.build_master_sky()
 
             # Otherwise build only from offset
             else:
-                self.processed_basic_offset.build_master_sky_dynamic()
+                self.processed_basic_offset.build_master_sky()
 
-            self.update_status(master_sky_dynamic=True)
+            self.update_status(master_sky=True)
         else:
             print_message(
-                message="MASTER-SKY-DYNAMIC already created", kind="warning", end=None
+                message="MASTER-SKY already created", kind="warning", end=None
             )
 
     def build_master_photometry(self):
@@ -698,7 +696,7 @@ class Pipeline:
                     [os.path.isfile(p) for p in self._paths_processed_science_final]
                 )
                 if (nehdr != nfproc) | (nehdr == 0):
-                    raise PipelineError(
+                    raise PipelineValueError(
                         f"Not enough external headers present ({nehdr}/{nfproc})"
                     )
             else:
@@ -948,7 +946,6 @@ class Pipeline:
         return [x for x in self._paths_phase3 if "sources" in x]
 
     def compress_phase3_images(self):
-
         # Maximum of three parallel jobs
         n_jobs = 3 if self.setup.n_jobs > 3 else self.setup.n_jobs
 
@@ -965,13 +962,13 @@ class Pipeline:
                 build_phase3_stacks(
                     stacks_images=self.stacks,
                     stacks_catalogs=self.sources_stacks_cal,
-                    mag_saturation=self.setup.reference_mag_lim[0],
+                    mag_saturation=self.setup.reference_mag_lo,
                 )
             if self.setup.build_tile:
                 build_phase3_tile(
                     tile_image=self.tile,
                     tile_catalog=self.sources_tile_cal,
-                    mag_saturation=self.setup.reference_mag_lim[0],
+                    mag_saturation=self.setup.reference_mag_lo,
                     pawprint_images=self.resampled,
                 )
             # if self.setup.compress_phase3:
@@ -984,10 +981,10 @@ class Pipeline:
 
     def build_public_catalog(self):
         if not self.status.public_catalog:
-
             # Read systematic astrometric error
-            pherr = 0.005 * Unit("mag")
-            self.sources_tile_cal.build_public_catalog(photerr_internal=pherr)
+            self.sources_tile_cal.build_public_catalog(
+                photerr_internal=self.setup.photometric_error_floor,
+            )
             self.update_status(public_catalog=True)
 
         else:
@@ -1024,13 +1021,12 @@ class Pipeline:
         all remaining FITS images."""
 
         if not self.status.archive:
-
             print_header(
                 header="ARCHIVING", silent=self.setup.silent, left=None, right=None
             )
             tstart = time.time()
 
-            # Deep clean
+            # Shallow clean
             self.shallow_clean()
 
             if compress_fits:
@@ -1095,7 +1091,7 @@ class Pipeline:
         self.build_master_gain()
 
         # Master flat
-        self.build_master_flat()
+        self.build_master_twilight_flat()
 
         # Global master weight
         self.build_master_weight_global()
@@ -1115,9 +1111,8 @@ class Pipeline:
         # Build static sky, source masks, dynamic sky, and master photometry
         self.build_master_photometry()
         self.build_master_astrometry()
-        self.build_master_sky_static()
         self.build_master_source_mask()
-        self.build_master_sky_dynamic()
+        self.build_master_sky()
 
         # Final science data and weight maps
         self.process_science_final()

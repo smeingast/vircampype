@@ -6,9 +6,11 @@ import numpy as np
 from astropy.io import fits
 from astropy.time import Time
 from astropy.table import Table
+from typing import Union, Optional
 from vircampype.pipeline.misc import *
 from astropy.coordinates import SkyCoord
 from vircampype.tools.miscellaneous import *
+from vircampype.pipeline.log import PipelineLog
 from astropy.io.fits.verify import VerifyWarning
 from vircampype.tools.wcstools import header_reset_wcs
 from vircampype.tools.systemtools import which, run_commands_shell_parallel
@@ -174,7 +176,6 @@ def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
     with fits.open(path_1, mode="update") as hdulist_1, fits.open(
         path_2, mode="readonly"
     ) as hdulist_2:
-
         # Loop over files and update header
         for k in keywords:
             hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
@@ -253,9 +254,7 @@ def make_mef_image(
 
     # Construct image HDUs from input
     for pidx, ac in zip(range(len(paths_input)), add_constant):
-
         with fits.open(paths_input[pidx]) as file:
-
             # Determine constant to add
             if isinstance(ac, (int, float)):
                 const = ac
@@ -301,10 +300,8 @@ def merge_headers(path_1, path_2, primary_only=False):
     with fits.open(path_1, mode="update") as hdulist_1, fits.open(
         path_2, mode="readonly"
     ) as hdulist_2:
-
         # Iterate over HDUs
         for hdu1, hdu2 in zip(hdulist_1, hdulist_2):
-
             # Check for Primary HDU
             if primary_only:
                 if not isinstance(hdu1, fits.PrimaryHDU):
@@ -314,7 +311,6 @@ def merge_headers(path_1, path_2, primary_only=False):
 
             # Iterate over every item in 2
             for key2, val2 in hdu2.header.items():
-
                 if key2 in skip_list:
                     continue
 
@@ -513,10 +509,14 @@ def mjd2dateobs(mjd):
 
 def fix_vircam_headers(prime_header, data_headers):
     """Resets the WCS info and purges useless keywords from vircam headers."""
+    log = PipelineLog()
 
     try:
+        log.info("Attempting to rewrite WCS info in headers")
+
         tra = str(prime_header["HIERARCH ESO TEL TARG ALPHA"])
         tde = str(prime_header["HIERARCH ESO TEL TARG DELTA"])
+        log.info(f"Found RA/DEC in headers: {tra} / {tde}")
 
         # Get declination sign and truncate string if necessary
         if tde.startswith("-"):
@@ -532,21 +532,23 @@ def fix_vircam_headers(prime_header, data_headers):
         # Compute field RA/DEC
         fra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
         fde = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
+        log.info(f"Computed RA/DEC: {fra} / {fde}")
 
     except KeyError:
+        log.warning("Could not find RA/DEC in headers")
         fra, fde = None, None
 
     for idx_hdr in range(len(data_headers)):
-
         # Overwrite with consistently working keyword
         try:
-            data_headers[idx_hdr]["CRVAL1"] = (
-                fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
-            )
-            data_headers[idx_hdr]["CRVAL2"] = (
-                fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
-            )
+            crval1 = fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
+            log.info(f"Overwriting CRVAL1 with {crval1} in extension {idx_hdr + 1}")
+            data_headers[idx_hdr]["CRVAL1"] = crval1
+            crval2 = fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
+            log.info(f"Overwriting CRVAL2 with {crval2} in extension {idx_hdr + 1}")
+            data_headers[idx_hdr]["CRVAL2"] = crval2
         except KeyError:
+            log.warning("Could not reset CRVAL1/CRVAL2 in headers")
             pass
 
         with warnings.catch_warnings():
@@ -554,16 +556,14 @@ def fix_vircam_headers(prime_header, data_headers):
             data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
 
         # Remove useless keywords if set
-        [
+        for kw in useless_extension_keywords:
+            # log.info(f"Removing '{kw}' from extension {idx_hdr + 1}")
             data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
-            for kw in useless_extension_keywords
-        ]
 
     # Purge also primary header
-    [
+    for kw in useless_primary_keywords:
+        # log.info(f"Removing '{kw}' from primary header")
         prime_header.remove(kw, ignore_missing=True, remove_all=True)
-        for kw in useless_primary_keywords
-    ]
 
 
 def compress_images(images, q=4, exe="fpack", n_jobs=1):
@@ -604,55 +604,88 @@ def compress_images(images, q=4, exe="fpack", n_jobs=1):
 
 
 def make_gaia_refcat(
-    path_in, path_out, epoch_in=2016.0, epoch_out=None, overwrite=False
-):
+    table_in: Table,
+    path_ldac_out: str,
+    epoch_in: Union[int, float] = 2016.0,
+    epoch_out: Optional[Union[int, float]] = None,
+    key_ra: str = "ra",
+    key_ra_error: str = "ra_error",
+    key_dec: str = "dec",
+    key_dec_error: str = "dec_error",
+    key_pmra: str = "pmra",
+    key_pmra_error: str = "pmra_error",
+    key_pmdec: str = "pmdec",
+    key_pmdec_error: str = "pmdec_error",
+    key_ruwe: str = "ruwe",
+    key_gmag: str = "mag",
+    key_gflux: str = "flux",
+    key_gflux_error: str = "flux_error"
+) -> Table:
     """
     Generates an astrometric reference catalog based on downloaded Gaia data.
 
 
     Parameters
     ----------
-    path_in : str
-        Path to input raw fits catalog.
-    path_out : str
-        Output path.
+    table_in : Table
+        Input table.
+    path_ldac_out : str
+        Path to output table.
     epoch_in : float
         Input epoch of catalog.
     epoch_out : float, optional
         If set, transforms the coordinates to the given output epoch.
-    overwrite : bool
-        If set, overwrites output files that already exist. Default is False.
+    key_ra : str, optional
+        Key for RA.
+    key_ra_error : str, optional
+        Key for RA error.
+    key_dec : str, optional
+        Key for DEC.
+    key_dec_error : str, optional
+        Key for DEC error.
+    key_pmra : str, optional
+        Key for proper motion in RA.
+    key_pmra_error : str, optional
+        Key for proper motion error in RA.
+    key_pmdec : str, optional
+        Key for proper motion in DEC.
+    key_pmdec_error : str, optional
+        Key for proper motion error in DEC.
+    key_ruwe : str, optional
+        Key for RUWE.
+    key_gmag : str, optional
+        Key for G magnitude.
+    key_gflux : str, optional
+        Key for G flux.
+    key_gflux_error : str, optional
+        Key for G flux error.
+
+    Returns
+    -------
+    Table
+        Output table.
 
     """
 
-    # If file is already there, check trigger and stop
-    if not overwrite:
-        if os.path.isfile(path_out):
-            print(f"'{os.path.basename(path_out)}' already exists.")
-            return
-
-    # Read catalog
-    data_in = Table.read(path_in)
-
     # Clean data
     keep = (
-        np.isfinite(data_in["ra"])
-        & np.isfinite(data_in["dec"])
-        & np.isfinite(data_in["phot_g_mean_flux"])
-        & np.isfinite(data_in["phot_g_mean_flux_error"])
-        & np.isfinite(data_in["pmra"])
-        & np.isfinite(data_in["pmdec"])
-        & (data_in["ruwe"] < 1.5)
+        np.isfinite(table_in[key_ra])
+        & np.isfinite(table_in[key_dec])
+        & np.isfinite(table_in[key_gflux])
+        & np.isfinite(table_in[key_gflux_error])
+        & np.isfinite(table_in[key_pmra])
+        & np.isfinite(table_in[key_pmdec])
+        & (table_in[key_ruwe] < 1.5)
     )
-    data_in = data_in[keep]
+    table_in = table_in[keep]
 
     # Transform positions
     if epoch_out is not None:
         sc = SkyCoord(
-            ra=data_in["ra"],
-            dec=data_in["dec"],
-            pm_ra_cosdec=data_in["pmra"],
-            pm_dec=data_in["pmdec"],
+            ra=table_in[key_ra],
+            dec=table_in[key_dec],
+            pm_ra_cosdec=table_in[key_pmra],
+            pm_dec=table_in[key_pmdec],
             obstime=Time(epoch_in, format="decimalyear"),
         )
         with warnings.catch_warnings():
@@ -664,45 +697,48 @@ def make_gaia_refcat(
         epoch_out = epoch_in
 
     # Create output table
-    data_out = Table()
+    table_out = Table()
 
     # Add positions
-    data_out["X_WORLD"] = sc.ra.degree
-    data_out["XERR_WORLD"] = data_in["ra_error"].value / 3_600_000
-    data_out["Y_WORLD"] = sc.dec.degree
-    data_out["YERR_WORLD"] = data_in["dec_error"].value / 3_600_000
+    table_out["ra"] = sc.ra.degree
+    table_out["ra_error"] = table_in[key_ra_error].value / 3_600_000
+    table_out["dec"] = sc.dec.degree
+    table_out["dec_error"] = table_in[key_dec_error].value / 3_600_000
 
     # Add proper motions
-    data_out["PM_ALPHA"] = data_in["pmra"].value
-    data_out["PMERR_ALPHA"] = data_in["pmra_error"].value
-    data_out["PM_DELTA"] = data_in["pmdec"].value
-    data_out["PMERR_DELTA"] = data_in["pmdec_error"].value
+    table_out["pmra"] = table_in[key_pmra].value
+    table_out["pmra_error"] = table_in[key_pmra_error].value
+    table_out["pmdec"] = table_in[key_pmdec].value
+    table_out["pmdec_error"] = table_in[key_pmdec_error].value
 
     # Add magnitudes
-    data_out["MAG"] = data_in["phot_g_mean_mag"].value
-    data_out["MAGERR"] = (
+    table_out["mag"] = table_in[key_gmag].value
+    table_out["mag_error"] = (
         1.0857
-        * data_in["phot_g_mean_flux_error"].value
-        / data_in["phot_g_mean_flux"].value
+        * table_in[key_gflux_error].value
+        / table_in[key_gflux].value
     )
 
     # Add date
-    data_out["OBSDATE"] = epoch_out
+    table_out["obsdate"] = epoch_out
 
     # Sort by DEC
-    sortindex = np.argsort(data_out["Y_WORLD"])
-    for nn in data_out.columns.keys():
-        data_out[nn] = data_out[nn][sortindex]
+    sortindex = np.argsort(table_out["dec"])
+    for nn in table_out.columns.keys():
+        table_out[nn] = table_out[nn][sortindex]
 
     # Write temporary fits_table
     path_temp = "/tmp/astr_ref_temp.cat.fits"
-    data_out.write(path_temp, overwrite=True)
+    table_out.write(path_temp, overwrite=True)
 
     # Convert to LDAC
-    fits2ldac(path_in=path_temp, path_out=path_out)
+    fits2ldac(path_in=path_temp, path_out=path_ldac_out)
 
     # Remove temporary file
     os.remove(path_temp)
+
+    # Return warped table
+    return table_out
 
 
 def fits2ldac(path_in, path_out, extension=1):
@@ -735,9 +771,7 @@ def fits2ldac(path_in, path_out, extension=1):
 
 
 def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False):
-
     with fits.open(path_file_a) as hdul_a, fits.open(path_file_b) as hdul_b:
-
         # Files must have same number of HDUs
         if len(hdul_a) != len(hdul_b):
             raise ValueError("Files incompatible")
@@ -747,7 +781,6 @@ def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False)
 
         # Loop over HDUs and combine
         for hdu_a, hdu_b in zip(hdul_a, hdul_b):
-
             da, db = hdu_a.data, hdu_b.data
             if (da is None) & (db is None):
                 hdul_o.append(hdu_a)
@@ -761,3 +794,19 @@ def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False)
 
         # Write to disk
         hdul_o.writeto(path_file_out, overwrite=overwrite)
+
+
+if __name__ == "__main__":
+    path_base = "/Users/stefan/iCloud/Projects/VISIONS/Pipeline/other/download/"
+    t_in_path = f"{path_base}merged.fits"
+    t_out = f"{path_base}merged.ldac.fits"
+    t_in = Table.read(t_in_path)
+    e_in = 2016.0
+    e_out = 2016.0
+    make_gaia_refcat(table_in=t_in, path_ldac_out=t_out, epoch_in=e_in, epoch_out=e_out,
+                     key_ra="ra", key_ra_error="ra_error", key_dec="dec",
+                     key_dec_error="dec_error", key_pmra="pmra",
+                     key_pmra_error="pmra_error", key_pmdec="pmdec",
+                     key_pmdec_error="pmdec_error", key_ruwe="ruwe",
+                     key_gmag="phot_g_mean_mag", key_gflux="phot_g_mean_flux",
+                     key_gflux_error="phot_g_mean_flux_error")

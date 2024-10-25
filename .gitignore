@@ -6,4 +6,4 @@ vircampype/visions/other
 vircampype.egg-info
 .DS_Store
 *pyc
-docker-compose.yml
+*code-workspace

@@ -1,5 +1,6 @@
 import os
 import glob
+import json
 import pickle
 import numpy as np
 
@@ -125,6 +126,9 @@ class FitsFiles:
 
         # Return new instance
         return cls(setup=setup, file_paths=file_paths)
+
+    def basenames2log(self, indent=4):
+        return f"{json.dumps(self.basenames, indent=indent)}"
 
     # =========================================================================== #
     # Headers
@@ -404,10 +408,6 @@ class FitsFiles:
         return self._time_obs
 
     @property
-    def time_obs_mean(self):
-        return Time(self.mjd_mean, format="mjd")
-
-    @property
     def mjd(self):
         """
         Property that holds all MJDs for the observations in a list.
@@ -433,6 +433,14 @@ class FitsFiles:
         """
 
         return np.mean(self.mjd)
+
+    @property
+    def time_obs_mean(self):
+        return Time(self.mjd_mean, format="mjd")
+
+    @property
+    def epoch_mean(self):
+        return self.time_obs_mean.decimalyear
 
     # =========================================================================== #
     # Splitting

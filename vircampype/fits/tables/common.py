@@ -304,7 +304,7 @@ class MasterTables(FitsTables):
         ]
 
         # Return photometry catalog
-        if self.setup.phot_reference_catalog == "2mass":
+        if self.setup.phot_reference_catalog.lower() == "2mass":
             return MasterPhotometry2Mass(
                 setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
             )

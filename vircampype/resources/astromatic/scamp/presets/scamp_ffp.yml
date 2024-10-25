@@ -25,7 +25,7 @@ ASTREFERR_KEYS:         ERRA_WORLD, ERRB_WORLD, ERRTHETA_WORLD
 ASTREFMAG_KEY:          MAG             # Local ref.cat. magnitude parameter
 ASTREFMAGERR_KEY:       MAGERR          # Local ref.cat. mag. error parameter
 ASTREFOBSDATE_KEY:      OBSDATE         # Local ref.cat. obs. date parameter
-ASTREFMAG_LIMITS:       10.0,20.0      # Select magnitude range in ASTREF_BAND
+ASTREFMAG_LIMITS:       10.0,21.0      # Select magnitude range in ASTREF_BAND
 SAVE_REFCATALOG:        N               # Save ref catalogs in FITS-LDAC format?
 REFOUT_CATPATH:         .               # Save path for reference catalogs
 
@@ -49,20 +49,20 @@ FULLOUTCAT_NAME:        full.cat        # Full output catalog filename
 #----------------------------- Pattern matching -------------------------------
 
 MATCH:                  Y               # Do pattern-matching (Y/N) ?
-MATCH_NMAX:             0               # Max.number of detections for MATCHing
+MATCH_NMAX:             20000               # Max.number of detections for MATCHing
                                        # (0=auto)
 PIXSCALE_MAXERR:        1.05             # Max scale-factor uncertainty
-POSANGLE_MAXERR:        3.0             # Max position-angle uncertainty (deg)
-POSITION_MAXERR:        3.0             # Max positional uncertainty (arcmin)
+POSANGLE_MAXERR:        5.0             # Max position-angle uncertainty (deg)
+POSITION_MAXERR:        5.0             # Max positional uncertainty (arcmin)
 MATCH_RESOL:            0               # Matching resolution (arcsec); 0=auto
 MATCH_FLIPPED:          N               # Allow matching with flipped axes?
-MOSAIC_TYPE:            LOOSE       # UNCHANGED, SAME_CRVAL, SHARE_PROJAXIS,
+MOSAIC_TYPE:            FIX_FOCALPLANE       # UNCHANGED, SAME_CRVAL, SHARE_PROJAXIS,
                                        # FIX_FOCALPLANE or LOOSE
-FIXFOCALPLANE_NMIN:     1               # Min number of dets for FIX_FOCALPLANE
+FIXFOCALPLANE_NMIN:     250               # Min number of dets for FIX_FOCALPLANE
 
 #---------------------------- Cross-identification ----------------------------
 
-CROSSID_RADIUS:         2.5             # Cross-id initial radius (arcsec)
+CROSSID_RADIUS:         3.0             # Cross-id initial radius (arcsec)
 
 #---------------------------- Astrometric solution ----------------------------
 
@@ -75,8 +75,8 @@ CENTROIDERR_KEYS:       ERRAWIN_IMAGE,ERRBWIN_IMAGE,ERRTHETAWIN_IMAGE
                                        # Cat. params for centroid err ellipse
 DISTORT_KEYS:           XWIN_IMAGE,YWIN_IMAGE # Cat. parameters or FITS keywords
 DISTORT_GROUPS:         1,1             # Polynom group for each context key
-DISTORT_DEGREES:        4               # Polynom degree for each group
-FOCDISTORT_DEGREE:      1               # Polynom degree for focal plane coords
+DISTORT_DEGREES:        3               # Polynom degree for each group
+FOCDISTORT_DEGREE:      2               # Polynom degree for focal plane coords
 ASTREF_WEIGHT:          1.0             # Relative weight of ref.astrom.cat.
 ASTRACCURACY_TYPE:      SIGMA-PIXEL     # SIGMA-PIXEL, SIGMA-ARCSEC,
                                        # or TURBULENCE-ARCSEC
@@ -111,9 +111,9 @@ PHOT_IMAFLAGSMASK:      0x0             # Photometry rejection mask on IMAFLAGS
 
 #----------------------------- Source selection -------------------------------
 
-SN_THRESHOLDS:          10.0,200.0      # S/N thresholds (in sigmas) for all and
+SN_THRESHOLDS:          10.0,100.0      # S/N thresholds (in sigmas) for all and
                                        # high-SN sample
-FWHM_THRESHOLDS:        0.8,5.0       # FWHM thresholds (in pixels) for sources
+FWHM_THRESHOLDS:        0.8,10.0       # FWHM thresholds (in pixels) for sources
 ELLIPTICITY_MAX:        0.25             # Max. source ellipticity
 FLAGS_MASK:             0x00f0          # Global rejection mask on SEx FLAGS
 WEIGHTFLAGS_MASK:       0x00ff          # Global rejec. mask on SEx FLAGS_WEIGHT

@@ -1,12 +1,15 @@
 import warnings
-import numpy as np
-
-from astropy.units import Unit
 from fractions import Fraction
-from astropy.coordinates import SkyCoord
-from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
+from typing import Callable, List, Optional, Tuple, Union
 
+import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.stats import sigma_clip, sigma_clipped_stats
+from astropy.units import Unit
+from scipy.spatial import cKDTree
+from sklearn.neighbors import NearestNeighbors
+
+from vircampype.tools.miscellaneous import *
 
 __all__ = [
     "apply_sigma_clip",
@@ -25,12 +28,19 @@ __all__ = [
     "linearity_fitfunc",
     "clipped_mean",
     "cart2pol",
+    "get_nearest_neighbors",
+    "interpolate_value",
+    "find_neighbors_within_distance",
 ]
 
 
 def apply_sigma_clip(
-    data, sigma_level=3, sigma_iter=1, center_metric=np.nanmedian, axis=0
-):
+    data: np.ndarray,
+    sigma_level: Union[int, float] = 3,
+    sigma_iter: int = 1,
+    center_metric: Callable = np.nanmedian,
+    axis: int = 0,
+) -> np.ndarray:
     """
     Performs sigma clipping of data.
 
@@ -127,10 +137,10 @@ def cuberoot_idl(
     # Normalize to a + bx + cx^2 + x^3=0
     a, b, c = c0 / c3, c1 / c3, c2 / c3
 
-    q = (c ** 2 - 3 * b) / 9
-    r = (2 * c ** 3 - 9 * c * b + 27 * a) / 54
+    q = (c**2 - 3 * b) / 9
+    r = (2 * c**3 - 9 * c * b + 27 * a) / 54
 
-    index1 = r ** 2 < q ** 3
+    index1 = r**2 < q**3
     index2 = ~index1
     count1, count2 = np.sum(index1), np.sum(index2)
 
@@ -140,7 +150,7 @@ def cuberoot_idl(
         qf = q[index1]
         cf = c[index1]
 
-        theta = np.arccos(rf / qf ** 1.5)
+        theta = np.arccos(rf / qf**1.5)
         solution1[index1] = -2 * np.sqrt(qf) * np.cos(theta / 3) - cf / 3
         solution2[index1] = -2 * np.sqrt(qf) * np.cos((theta + 2 * np.pi) / 3) - cf / 3
         solution3[index1] = -2 * np.sqrt(qf) * np.cos((theta - 2 * np.pi) / 3) - cf / 3
@@ -153,7 +163,7 @@ def cuberoot_idl(
         cf = c[index2]
 
         # Get the one real root
-        h = -rf / np.abs(rf) * (np.abs(rf) + np.sqrt(rf ** 2 - qf ** 3)) ** (1 / 3)
+        h = -rf / np.abs(rf) * (np.abs(rf) + np.sqrt(rf**2 - qf**3)) ** (1 / 3)
         k = h.copy()
 
         zindex = np.isclose(h, 0, atol=1.0e-5)
@@ -207,12 +217,10 @@ def cuberoot(a, b, c, d, return_real=False):
 
         # Calculate stuff to get the roots
         delta0, delta1 = (
-            c ** 2.0 - 3.0 * d * b,
-            2.0 * c ** 3.0 - 9.0 * d * c * b + 27.0 * d ** 2.0 * a,
+            c**2.0 - 3.0 * d * b,
+            2.0 * c**3.0 - 9.0 * d * c * b + 27.0 * d**2.0 * a,
         )
-        z = ((delta1 + np.sqrt(delta1 ** 2.0 - 4.0 * delta0 ** 3.0)) / 2.0) ** (
-            1.0 / 3.0
-        )
+        z = ((delta1 + np.sqrt(delta1**2.0 - 4.0 * delta0**3.0)) / 2.0) ** (1.0 / 3.0)
 
         u1, u2, u3 = 1.0, (-1.0 + 1j * np.sqrt(3)) / 2.0, (-1.0 - 1j * np.sqrt(3)) / 2.0
 
@@ -257,7 +265,7 @@ def squareroot(a, b, c, return_real=False):
     c, b = complex(c), complex(b)
 
     # Calculate stuff to get the roots
-    delta = np.sqrt(b ** 2.0 - 4 * c * a)
+    delta = np.sqrt(b**2.0 - 4 * c * a)
     x1, x2 = (-b + delta) / (2 * c), (-b - delta) / (2 * c)
 
     # Just return real part
@@ -275,7 +283,7 @@ def linearity_fitfunc(x, b1, b2, b3):
     kk = mindit / x
     return np.sum(
         [
-            coeff[j - 1] * x ** j * ((1 + kk) ** j - kk ** j)
+            coeff[j - 1] * x**j * ((1 + kk) ** j - kk**j)
             for j in range(1, len(coeff) + 1)
         ],
         axis=0,
@@ -353,8 +361,8 @@ def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
     ----------
     array : np.ndarray
         Array to destripe.
-    method : callable
-        Method to apply along given axes. Default is np.nanmedian.
+    method : str
+        Method to apply along given axes. Default is "median".
     axis : int, tuple[int]
         Axes along which to destripe.
     norm : bool, optional
@@ -472,13 +480,13 @@ def meshgrid(array, size=128):
     advantage that the edges are always included!"""
     # Return
     if array.ndim == 1:
-        return np.uint32((np.mgrid[0: array.shape[0] - 1: complex(n[0])]))
+        return np.uint32((np.mgrid[0 : array.shape[0] - 1 : complex(n[0])]))
     if array.ndim == 2:
         return np.uint32(
             (
                 np.mgrid[
-                    0: array.shape[0] - 1: complex(n[0]),
-                    0: array.shape[1] - 1: complex(n[1]),
+                    0 : array.shape[0] - 1 : complex(n[0]),
+                    0 : array.shape[1] - 1 : complex(n[1]),
                 ]
             )
         )
@@ -486,9 +494,9 @@ def meshgrid(array, size=128):
         return np.uint32(
             (
                 np.mgrid[
-                    0: array.shape[0] - 1: complex(n[0]),
-                    0: array.shape[1] - 1: complex(n[1]),
-                    0: array.shape[2] - 1: complex(n[2]),
+                    0 : array.shape[0] - 1 : complex(n[0]),
+                    0 : array.shape[1] - 1 : complex(n[1]),
+                    0 : array.shape[2] - 1 : complex(n[2]),
                 ]
             )
         )
@@ -637,7 +645,7 @@ def centroid_sphere(skycoord):
     mean_z = np.mean(skycoord[good].cartesian.z)
 
     # Push mean to triangle surface
-    cenlen = np.sqrt(mean_x ** 2 + mean_y ** 2 + mean_z ** 2)
+    cenlen = np.sqrt(mean_x**2 + mean_y**2 + mean_z**2)
     xsur, ysur, zsur = mean_x / cenlen, mean_y / cenlen, mean_z / cenlen
 
     # Convert back to spherical coordinates and return
@@ -668,8 +676,23 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-def round_decimals_up(number: float, decimals: int = 2):
-    """Returns a value rounded up to a specific number of decimal places."""
+def round_decimals_up(
+    number: Union[float, np.ndarray], decimals: int = 2
+) -> Union[float, np.ndarray]:
+    """
+    Rounds a number or each element of an array up to a specific number of decimal places.
+
+    Parameters:
+    - number (float or np.ndarray): The number or array of numbers to round up.
+    - decimals (int): The number of decimal places to round up to. Must be a non-negative integer.
+
+    Returns:
+    - float or np.ndarray: The rounded up number or array of numbers.
+
+    Raises:
+    - TypeError: If 'decimals' is not an integer.
+    - ValueError: If 'decimals' is negative.
+    """
     if not isinstance(decimals, int):
         raise TypeError("decimal places must be an integer")
     elif decimals < 0:
@@ -677,12 +700,27 @@ def round_decimals_up(number: float, decimals: int = 2):
     elif decimals == 0:
         return np.ceil(number)
 
-    factor = 10 ** decimals
+    factor = 10**decimals
     return np.ceil(number * factor) / factor
 
 
-def round_decimals_down(number: float, decimals: int = 2):
-    """Returns a value rounded down to a specific number of decimal places."""
+def round_decimals_down(
+    number: Union[float, np.ndarray], decimals: int = 2
+) -> Union[float, np.ndarray]:
+    """
+    Rounds a number or each element of an array down to a specific number of decimal places.
+
+    Parameters:
+    - number (float or np.ndarray): The number or array of numbers to round down.
+    - decimals (int): The number of decimal places to round down to. Must be a non-negative integer.
+
+    Returns:
+    - float or np.ndarray: The rounded down number or array of numbers.
+
+    Raises:
+    - TypeError: If 'decimals' is not an integer.
+    - ValueError: If 'decimals' is negative.
+    """
     if not isinstance(decimals, int):
         raise TypeError("decimal places must be an integer")
     elif decimals < 0:
@@ -690,7 +728,7 @@ def round_decimals_down(number: float, decimals: int = 2):
     elif decimals == 0:
         return np.floor(number)
 
-    factor = 10 ** decimals
+    factor = 10**decimals
     return np.floor(number * factor) / factor
 
 
@@ -710,3 +748,246 @@ def cart2pol(x, y):
 
     """
     return np.arctan2(y, x), np.hypot(x, y)
+
+
+def get_nearest_neighbors(
+    x: np.ndarray,
+    y: np.ndarray,
+    x0: np.ndarray,
+    y0: np.ndarray,
+    n_neighbors: int = 100,
+    max_dis: float = 540.0,
+    n_fixed: int = 20,
+    n_jobs: Optional[int] = None,
+    **kwargs
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Find the nearest neighbors for a set of coordinates.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        The x-coordinates of the target points.
+    y : np.ndarray
+        The y-coordinates of the target points.
+    x0 : np.ndarray
+        The x-coordinates of the source points.
+    y0 : np.ndarray
+        The y-coordinates of the source points.
+    n_neighbors : int, optional
+        The number of nearest neighbors to find. Default is 100.
+    max_dis : float, optional
+        The maximum distance to consider when finding nearest neighbors. Distances
+        larger than this value will be set to NaN. Default is 540.
+    n_fixed : int, optional
+        The minimum number of neighbors to include, regardless of distance.
+        Default is 20.
+    n_jobs : int or None, optional
+        The number of parallel jobs to run for neighbors search. None means 1.
+        -1 means using all processors. Default is None.
+    **kwargs
+        Additional keyword arguments to pass to the NearestNeighbors constructor.
+
+    Returns
+    -------
+    nn_dis : np.ndarray
+        Array of distances to the nearest neighbors, shaped (len(x), n_neighbors).
+    nn_idx : np.ndarray
+        Array of indices of the nearest neighbors, shaped (len(x), n_neighbors).
+
+    Notes
+    -----
+    This function uses a KDTree to efficiently find the nearest neighbors of each
+    target point (x, y) from a set of source points (x0, y0). If the distance to
+    a neighbor exceeds `max_dis`, it is replaced with NaN. At least `n_fixed`
+    neighbors are always included, regardless of the distance.
+    """
+
+    # Set n_neighbors and n_fixed to valid values based on the input size
+    n0 = len(x0)
+    n_neighbors = min(n0, n_neighbors)
+    n_fixed = min(n0, n_fixed)
+
+    # Stack coordinates
+    stacked0 = np.column_stack([x0, y0])
+    stacked = np.column_stack([x, y])
+
+    # Grab nearest neighbors
+    nn_model = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=n_jobs, **kwargs).fit(
+        stacked0
+    )
+    nn_dis, nn_idx = nn_model.kneighbors(stacked)
+
+    # Ensure at least n_fixed neighbors are considered
+    nn_dis_fixed = nn_dis[:, :n_fixed]
+    nn_dis = np.where(nn_dis > max_dis, np.nan, nn_dis)
+    nn_dis[:, :n_fixed] = nn_dis_fixed
+
+    # Return nearest neighbors
+    return nn_dis, nn_idx
+
+
+def interpolate_value(
+    x: np.ndarray,
+    y: np.ndarray,
+    x0: np.ndarray,
+    y0: np.ndarray,
+    val0: np.ndarray,
+    additional_weights0: np.ndarray,
+    n_neighbors: int = 100,
+    max_dis: float = 540,
+    n_fixed: int = 20,
+    nn_dis: Optional[np.ndarray] = None,
+    nn_idx: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Interpolate a value and its standard deviation based on the nearest neighbors' data.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        The x-coordinate of the point to interpolate.
+    y : np.ndarray
+        The y-coordinate of the point to interpolate.
+    x0 : np.ndarray
+        The x-coordinates of the input data points.
+    y0 : np.ndarray
+        The y-coordinates of the input data points.
+    val0 : np.ndarray
+        The values of the input data points.
+    additional_weights0 : np.ndarray
+        Additional weights to apply to each data point during interpolation.
+    n_neighbors : int, optional
+        The number of nearest neighbors to consider (default is 100).
+    max_dis : float, optional
+        The maximum distance to consider for interpolation (default is 540).
+    n_fixed : int, optional
+        The minimum number of neighbors to include, regardless of distance
+        (default is 20).
+    nn_dis : np.ndarray, optional
+        The distances to the nearest neighbors. Enables reusing the nearest
+        neighbors for multiple interpolations.
+    nn_idx : np.ndarray, optional
+        The indices of the nearest neighbors. Enables reusing the nearest
+        neighbors for multiple interpolations.
+
+    Returns
+    -------
+    val : np.ndarray
+        The interpolated values.
+    val_std : np.ndarray
+        The standard deviations of the interpolated values.
+    n_sources_per_source : np.ndarray
+        The number of sources used for each interpolation.
+    max_dis_per_source : np.ndarray
+        The maximum distance used for each source during interpolation.
+    """
+
+    # If nearest neighbors are not provided, compute them
+    if nn_dis is None or nn_idx is None:
+        print("BAD")
+        nn_dis, nn_idx = get_nearest_neighbors(
+            x=x,
+            y=y,
+            x0=x0,
+            y0=y0,
+            n_neighbors=n_neighbors,
+            max_dis=max_dis,
+            n_fixed=n_fixed,
+        )
+
+    # Grab nearest neighbor data and
+    nn_data = val0[nn_idx]
+    nn_additional_weights = additional_weights0[nn_idx]
+
+    # Compute weight based on gaussian distance metric and additional weights
+    weights = np.exp(-0.5 * (nn_dis / (max_dis / 2)) ** 2) * nn_additional_weights
+
+    # Replicate weights to third dimension if required
+    if nn_data.ndim == 3:
+        weights = np.repeat(weights[:, :, np.newaxis], nn_data.shape[2], axis=2)
+
+    # Compute mask based on sigma-clipped data array
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Input data contains invalid values")
+        wmask = sigma_clip(nn_data, axis=1, sigma=2.5, maxiters=2, masked=True).mask
+
+    # Set weights to zero for masked values
+    weights[wmask] = 0.0
+    bad_idx = ~np.isfinite(nn_data)
+    nn_data[bad_idx], weights[bad_idx] = 0, 0
+
+    # Compute weighted average and std
+    vals = np.average(nn_data, axis=1, weights=weights)
+    vals_std = np.sqrt(
+        np.average((nn_data - vals[:, np.newaxis]) ** 2, axis=1, weights=weights)
+    )
+
+    # Return interpolated value, standard deviation, number of sources, and max distance
+    return vals, vals_std, n_sources_per_source, max_dis_per_source
+
+
+def find_neighbors_within_distance(
+    coords1: SkyCoord,
+    coords2: SkyCoord,
+    distance_limit_arcmin: float,
+    compute_distances: bool = False,
+) -> Tuple[List[List[int]], Optional[List[List[float]]]]:
+    """
+    Find all neighbors within a given distance limit using KD-Tree.
+
+    Parameters
+    ----------
+    coords1 : SkyCoord
+        The set of SkyCoord instances to find neighbors for.
+    coords2 : SkyCoord
+        The set of SkyCoord instances to search within.
+    distance_limit_arcmin : float
+        The distance limit within which to search for neighbors, in arcminutes.
+    compute_distances : bool, optional
+        Whether to compute and return the distances to the neighbors. Default is False.
+
+    Returns
+    -------
+    neighbors : List[List[int]]
+        A list where each entry contains the indices of neighbors within the distance limit for each entry in coords1.
+    distances_arcmin : Optional[List[List[float]]]
+        A list where each entry contains the distances to the neighbors within the distance limit for each entry in coords1,
+        in arcminutes. Returns None if compute_distances is False.
+    """
+    # Convert RA/Dec to Cartesian coordinates for KD-Tree
+    xyz1 = np.vstack(
+        [
+            coords1.cartesian.x.value,
+            coords1.cartesian.y.value,
+            coords1.cartesian.z.value,
+        ]
+    ).T
+    xyz2 = np.vstack(
+        [
+            coords2.cartesian.x.value,
+            coords2.cartesian.y.value,
+            coords2.cartesian.z.value,
+        ]
+    ).T
+
+    # Build KD-Trees
+    tree1 = cKDTree(xyz1)
+    tree2 = cKDTree(xyz2)
+
+    # Query all points within the distance limit
+    # Convert the distance limit to radians (since Cartesian coordinates are unitless)
+    distance_limit_rad = np.radians(distance_limit_arcmin / 60.0)
+    neighbors = tree1.query_ball_tree(tree2, distance_limit_rad)
+
+    distances_arcmin = None
+    if compute_distances:
+        # Calculate the actual distances in arcminutes
+        distances_arcmin = []
+        for i, neighbor_indices in enumerate(neighbors):
+            source_coord = coords1[i]
+            neighbor_coords = coords2[neighbor_indices]
+            separations = source_coord.separation(neighbor_coords)
+            distances_arcmin.append(separations.to_value("arcmin").tolist())
+
+    return neighbors, distances_arcmin

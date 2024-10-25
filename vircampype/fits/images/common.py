@@ -66,7 +66,6 @@ class FitsImages(FitsFiles):
 
     @property
     def texptime(self):
-
         # Check if already determined
         if self._texptime is not None:
             return self._texptime
@@ -591,7 +590,6 @@ class FitsImages(FitsFiles):
 
         # Now get the closest in time for each entry
         for f, idx in zip(self, indices):
-
             # Construct FitsFiles class
             a = self.__class__(setup=self.setup, file_paths=[f])
             b = match_to.__class__(
@@ -641,14 +639,12 @@ class FitsImages(FitsFiles):
 
         # Now get the closest in time for each entry
         for f, idx in zip(self, indices):
-
             # Issue error if no files can be found
             if len(idx) < 1:
                 raise ValueError("Could not find matching filter")
 
             # Otherwise append closest in time
             else:
-
                 # Construct FitsFiles class
                 a = self.__class__(setup=self.setup, file_paths=[f])
                 b = match_to.__class__(
@@ -706,30 +702,31 @@ class FitsImages(FitsFiles):
             ignore_dit=ignore_dit,
         )
 
-    def get_master_flat(self):
+    def get_master_twilight_flat(self):
         """
         Get for each file in self the corresponding MasterFlat.
 
         Returns
         -------
-        MasterFlat
-            MasterFlat instance holding for each file in self the corresponding
-            Masterflat file.
+        MasterTwilightFlat
+            MasterTwilightFlat instance holding for each file in self the corresponding
+            MasterTwilightFlat file.
 
         """
 
         # Match and return
         return self.match_passband(
-            match_to=self.get_master_images().flat,
-            max_lag=self.setup.master_max_lag_flat,
+            match_to=self.get_master_images().twilight_flat,
+            max_lag=self.setup.master_max_lag_twilight_flat,
         )
 
-    def get_unique_master_flats(self):
-        """Returns unique Master Flats as MasterFlat instance."""
-        from vircampype.fits.images.flat import MasterFlat
+    def get_unique_master_twilight_flats(self):
+        """Returns unique master twilight flats as MasterTwilightFlat instance."""
+        from vircampype.fits.images.flat import MasterTwilightFlat
 
-        return MasterFlat(
-            setup=self.setup, file_paths=list(set(self.get_master_flat().paths_full))
+        return MasterTwilightFlat(
+            setup=self.setup,
+            file_paths=list(set(self.get_master_twilight_flat().paths_full)),
         )
 
     def get_master_source_mask(self):
@@ -746,14 +743,9 @@ class FitsImages(FitsFiles):
             match_to=self.get_master_images().source_mask, max_lag=1 / 86400
         )
 
-    def get_master_sky(self, mode: str):
+    def get_master_sky(self):
         """
         Get for each file in self the corresponding Mastersky.
-
-        Parameters
-        ----------
-        mode : str
-            Either 'static' or 'dynamic'
 
         Returns
         -------
@@ -764,20 +756,10 @@ class FitsImages(FitsFiles):
         """
 
         # Match and return
-        if "static" in mode.lower():
-            return self.match_passband(
-                match_to=self.get_master_images().sky_static,
-                max_lag=self.setup.master_max_lag_sky / 1440.0,
-            )
-        elif "dynamic" in mode.lower():
-            return self.match_passband(
-                match_to=self.get_master_images().sky_dynamic,
-                max_lag=self.setup.master_max_lag_sky / 1440.0,
-            )
-        else:
-            raise ValueError(
-                "Mode '{0}' not supported for fetching master sky".format(mode)
-            )
+        return self.match_passband(
+            match_to=self.get_master_images().sky,
+            max_lag=self.setup.master_max_lag_sky / 1440.0,
+        )
 
     def get_master_weight_global(self):
         """
@@ -819,7 +801,6 @@ class FitsImages(FitsFiles):
         raise ValueError("Not all images have weights")
 
     def get_master_weight_image(self):
-
         # Import
         from vircampype.fits.images.flat import MasterWeight
 
@@ -949,30 +930,31 @@ class MasterImages(FitsImages):
         )
 
     @property
-    def flat(self):
+    def twilight_flat(self):
         """
-        Holds all MasterFlat images.
+        Holds all MasterTwilightFlat images.
 
         Returns
         -------
-        MasterFlat
-            All MasterFlat images as a MasterFlat instance.
+        MasterTwilightFlat
+            All MasterTwilightFlat images as a MasterTwilightFlat instance.
 
         """
 
         # Import
-        from vircampype.fits.images.flat import MasterFlat
+        from vircampype.fits.images.flat import MasterTwilightFlat
 
         # Get the masterbpm files
-        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-FLAT"]
+        index = [
+            idx for idx, key in enumerate(self.types) if key == "MASTER-TWILIGHT-FLAT"
+        ]
 
-        return MasterFlat(
+        return MasterTwilightFlat(
             setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
         )
 
     @property
     def source_mask(self):
-
         # Import
         from vircampype.fits.images.sky import MasterSourceMask
 
@@ -982,6 +964,28 @@ class MasterImages(FitsImages):
         ]
 
         return MasterSourceMask(
+            setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
+        )
+
+    @property
+    def sky(self):
+        """
+        Retrieves all static MasterSky images.
+
+        Returns
+        -------
+        MasterSky
+            All MasterSky images as a MasterSky instance.
+
+        """
+
+        # Import
+        from vircampype.fits.images.sky import MasterSky
+
+        # Get the masterbpm files
+        index = [idx for idx, key in enumerate(self.types) if key == "MASTER-SKY"]
+
+        return MasterSky(
             setup=self.setup, file_paths=[self.paths_full[idx] for idx in index]
         )
 

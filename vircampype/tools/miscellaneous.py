@@ -1,5 +1,6 @@
+from typing import Any, Callable, List, Tuple, Union
+
 import numpy as np
-from typing import List
 
 __all__ = [
     "string2list",
@@ -12,6 +13,7 @@ __all__ = [
     "numpy2fits",
     "skycoord2visionsid",
     "write_list",
+    "convert_position_error",
 ]
 
 
@@ -43,21 +45,42 @@ for i in np.arange(1, 30):
     numpy2fits[f"U{i}"] = f"{i}A"
 
 
-def string2func(s):
+def string2func(s: str) -> Callable:
+    """
+    Converts a string to a corresponding statistical function.
+
+    The allowed input functions are "median", "mean", "clipped_median" and
+    "clipped_mean". Input is case-insensitive.
+
+    Parameters
+    ----------
+    s : str
+        Input string representing a function name.
+
+    Returns
+    -------
+    Callable
+        Corresponding statistical function.
+
+    Raises
+    ------
+    ValueError
+        If input string does not correspond to an allowed function.
+    """
 
     # Import
-    from vircampype.tools.mathtools import clipped_median, clipped_mean
+    from vircampype.tools.mathtools import clipped_mean, clipped_median
 
     if s.lower() == "median":
         return np.nanmedian
-    elif s.lower() == "mean":
+    if s.lower() == "mean":
         return np.nanmean
     if s.lower() == "clipped_median":
         return clipped_median
     if s.lower() == "clipped_mean":
         return clipped_mean
     else:
-        raise ValueError("Metric '{0}' not suppoerted".format(s))
+        raise ValueError(f"Metric '{s}' not supported")
 
 
 def func2string(func):
@@ -82,8 +105,22 @@ def func2string(func):
         return "mean"
 
 
-def flat_list(inlist):
-    """Flattens a list with sublists."""
+def flat_list(inlist: List[Union[List[Any], np.ndarray]]) -> List[Any]:
+    """
+    Flattens a list with sublists.
+
+    Parameters
+    ----------
+    inlist : List[List[Any]]
+        The input list of lists to be flattened.
+
+    Returns
+    -------
+    List[Any]
+        A flattened list where each element of the sublists is now an
+        element of a single list.
+    """
+
     return [item for sublist in inlist for item in sublist]
 
 
@@ -137,6 +174,7 @@ def prune_list(ll, n_min):
     return ll
 
 
+# TODO: This should only be used for the vizier catalog
 def skycoord2visionsid(skycoord):
     """
     Constructs the VISIONS ID from astropy sky coordinates.
@@ -184,3 +222,71 @@ def write_list(path_file: str, lst: List):
     with open(path_file, "w") as outfile:
         outfile.write("\n".join(lst))
         outfile.write("\n")
+
+
+# TODO: Make sure this works correctly with PAs East of North
+def convert_position_error(
+    errmaj: Union[np.ndarray, list, tuple],
+    errmin: Union[np.ndarray, list, tuple],
+    errpa: Union[np.ndarray, list, tuple],
+    degrees: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculate the Right Ascension (RA) and Declination (Dec) errors and
+    their correlation coefficient from major and minor errors and position angle.
+
+    Parameters
+    ----------
+    errmaj : np.ndarray, list, tuple
+        Major axis errors.
+    errmin : np.ndarray, list, tuple
+        Minor axis errors.
+    errpa : np.ndarray, list, tuple
+        Position angle of error ellipse (East of North);
+        in degrees if degrees=True, otherwise in radians.
+    degrees : bool, optional
+        Indicates whether the position angle is in degrees (default is True).
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        RA error, Dec error, and RA-Dec correlation coefficient, each as an np.ndarray.
+
+    Notes
+    -----
+    The function converts position angle errors from degrees to radians if necessary,
+    calculates cosine and sine of these angles, and uses these to compute elements of
+    the covariance matrix. Variances along the RA and Dec directions and the covariance
+    between RA and Dec are also computed, which are then used to derive the standard
+    deviations (errors) and correlation coefficient.
+
+    """
+    # Make sure the input is a numpy array
+    errmaj, errmin = np.asarray(errmaj), np.asarray(errmin)
+
+    # Convert position angles from degrees to radians
+    if degrees:
+        theta_rad = np.deg2rad(errpa)
+    else:
+        theta_rad = np.asarray(errpa)
+
+    # Calculate the components of the rotation matrix for each set
+    cos_theta = np.cos(theta_rad)
+    sin_theta = np.sin(theta_rad)
+
+    # Preallocate the 3D matrix array (N sets of 2x2 matrices)
+    cc = np.zeros((len(errmaj), 2, 2))
+
+    # Define each element of the covariance matrices
+    cc[:, 0, 0] = cos_theta**2 * errmin**2 + sin_theta**2 * errmaj**2
+    cc[:, 0, 1] = (cos_theta * sin_theta) * (errmaj**2 - errmin**2)
+    cc[:, 1, 0] = cc[:, 0, 1]
+    cc[:, 1, 1] = sin_theta**2 * errmin**2 + cos_theta**2 * errmaj**2
+
+    # Compute the RA and Dec errors and correlation coefficients
+    ra_error = np.sqrt(cc[:, 0, 0])
+    dec_error = np.sqrt(cc[:, 1, 1])
+    ra_dec_corr = cc[:, 0, 1] / np.sqrt(cc[:, 0, 0] * cc[:, 1, 1])
+
+    # Return
+    return ra_error, dec_error, ra_dec_corr

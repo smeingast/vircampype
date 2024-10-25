@@ -41,7 +41,7 @@ __all__ = [
     "source_mask",
     "get_edge_skycoord_weight",
     "coordinate_array",
-    "tile_image"
+    "tile_image",
 ]
 
 
@@ -672,7 +672,7 @@ def destripe_helper(array, mask=None, smooth=False):
             if np.sum(~np.isfinite(med_destripe)) == 0:
                 break
             med_destripe = interpolate_replace_nans(
-                med_destripe, kernel=Gaussian1DKernel(5)
+                med_destripe, kernel=Gaussian1DKernel(5), boundary="extend"
             )
             ii += 1
             if ii > 100:
@@ -681,7 +681,9 @@ def destripe_helper(array, mask=None, smooth=False):
         # Apply smoothing if set
         if smooth:
             yy = np.arange(len(med_destripe))  # noqa
-            med_destripe_interp = UnivariateSpline(yy, med_destripe, k=5)(yy)
+            med_destripe_interp = UnivariateSpline(
+                yy, med_destripe, k=3, s=100 * len(yy)
+            )(yy)
             med_destripe -= med_destripe_interp
 
         # Return stripe pattern

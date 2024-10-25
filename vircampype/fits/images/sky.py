@@ -1,32 +1,39 @@
-import os
 import copy
-import time
+import gc
 import glob
+import logging
+import os
+import time
 import warnings
-import numpy as np
 
-from astropy.io import fits
-from skimage.draw import disk
-from astropy.table import Table
-from vircampype.external.mmm import mmm
-from vircampype.tools.wcstools import *
-from vircampype.tools.plottools import *
-from vircampype.tools.fitstools import *
-from vircampype.tools.messaging import *
-from vircampype.tools.mathtools import *
+import numpy as np
 from astropy.coordinates import SkyCoord
-from vircampype.tools.tabletools import *
-from vircampype.tools.systemtools import *
-from vircampype.tools.viziertools import *
+from astropy.io import fits
+from astropy.table import Table
+from scipy.ndimage.morphology import binary_closing
+from skimage.draw import disk
+from skimage.morphology import square
+
 from vircampype.data.cube import ImageCube
-from vircampype.tools.miscellaneous import *
-from vircampype.tools.astromatic import SwarpSetup
-from vircampype.tools.imagetools import upscale_image
-from vircampype.tools.astromatic import SextractorSetup
-from astropy.stats import sigma_clip as astropy_sigma_clip
-from vircampype.miscellaneous.sourcemasks import SourceMasks
-from vircampype.tools.photometry import get_default_extinction
+from vircampype.external.mmm import mmm
 from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.miscellaneous.sourcemasks import SourceMasks
+from vircampype.pipeline.errors import *
+from vircampype.pipeline.log import PipelineLog
+from vircampype.tools.astromatic import SextractorSetup, SwarpSetup
+from vircampype.tools.fitstools import *
+from vircampype.tools.imagetools import upscale_image
+from vircampype.tools.mathtools import *
+from vircampype.tools.messaging import *
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.photometry import get_default_extinction
+from vircampype.tools.plottools import *
+from vircampype.tools.systemtools import *
+from vircampype.tools.tabletools import *
+from vircampype.tools.viziertools import *
+from vircampype.tools.wcstools import *
+
+logger = logging.getLogger(__name__)
 
 
 class SkyImages(FitsImages):
@@ -133,7 +140,13 @@ class SkyImages(FitsImages):
             for x in self.paths_full
         ]
 
-    def sextractor(self, preset="scamp", silent=None, return_cmds=False, **kwargs):
+    def sextractor(
+        self,
+        preset="scamp",
+        silent=None,
+        return_cmds=False,
+        **kwargs,
+    ):
         """
         Runs sextractor based on given presets.
 
@@ -148,6 +161,9 @@ class SkyImages(FitsImages):
 
         """
 
+        # Fetch log
+        log = PipelineLog()
+
         # Load Sextractor setup
         sxs = SextractorSetup(setup=self.setup)
 
@@ -157,10 +173,10 @@ class SkyImages(FitsImages):
         # Processing info
         print_header(
             header="SOURCE DETECTION",
-            left="Running Sextractor with preset '{0}' on {1} files"
-            "".format(preset, len(self)),
+            left=f"Running Sextractor with preset '{preset}' on {len(self)} files",
             right=None,
             silent=silent,
+            logger=log,
         )
         tstart = time.time()
 
@@ -206,13 +222,15 @@ class SkyImages(FitsImages):
                 **kwargs_yml,
             )
         else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
+            raise ValueError(f"Preset '{preset}' not supported")
 
         # Construct commands for source extraction
         cmds = [
-            "{0} -c {1} {2} -STARNNW_NAME {3} -CATALOG_NAME {4} -WEIGHT_IMAGE {5} {6}"
-            "".format(
-                sxs.bin, sxs.default_config, image, sxs.default_nnw, catalog, weight, ss
+            (
+                f"{sxs.bin} -c {sxs.default_config} {image} "
+                f"-STARNNW_NAME {sxs.default_nnw} "
+                f"-CATALOG_NAME {catalog} "
+                f"-WEIGHT_IMAGE {weight} {ss}"
             )
             for image, catalog, weight in zip(
                 self.paths_full,
@@ -221,17 +239,43 @@ class SkyImages(FitsImages):
             )
         ]
 
+        # Check if there is a detection image available for each command
+        # TODO: Check if this works
+        if self.setup.sex_detection_image_path is not None:
+            # Check if detection image exists
+            if not os.path.isfile(self.setup.sex_detection_image_path):
+                emsg = f"Detection image not found at {self.setup.sex_detection_image_path}"
+                log.error(emsg)
+                raise FileNotFoundError(emsg)
+
+            # Add detection image to sextractor command
+            for idx, _ in enumerate(cmds):
+                cmds[idx] = cmds[idx].replace(
+                    self.paths_full[idx],
+                    f"{self.setup.sex_detection_image_path},{self.paths_full[idx]}",
+                )
+                log.info(
+                    f"Double image mode\n"
+                    f"Detection image '{self.setup.sex_detection_image_path}'\n"
+                    f"Measurement image '{self.paths_full[idx]}'"
+                )
+
         # Add kwargs to commands
         for key, val in kwargs.items():
-            for cmd_idx in range(len(cmds)):
+            for cmd_idx, _ in enumerate(cmds):
                 try:
-                    cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val[cmd_idx])
+                    cmds[cmd_idx] += f"-{key.upper()} {val[cmd_idx]}"
                 except IndexError:
-                    cmds[cmd_idx] += "-{0} {1}".format(key.upper(), val)
+                    cmds[cmd_idx] += f"-{key.upper()} {val}"
 
         # Return commands if set
         if return_cmds:
             return cmds
+
+        # Log all sextractor commands
+        log.info("Sextractor commands:")
+        for c in cmds:
+            log.info(c)
 
         # Run Sextractor
         n_jobs_sex = (
@@ -251,16 +295,13 @@ class SkyImages(FitsImages):
 
         # Print time
         if not silent:
-            print_message(
-                message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-                kind="okblue",
-                end="\n",
-            )
+            tt_message = f"\n-> Elapsed time: {time.time() - tstart:.2f}s"
+            print_message(message=tt_message, kind="okblue", end="\n", logger=log)
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import (
-            SextractorCatalogs,
             AstrometricCalibratedSextractorCatalogs,
+            SextractorCatalogs,
         )
 
         if preset.lower() in ["scamp", "class_star", "fwhm", "psfex"]:
@@ -268,12 +309,18 @@ class SkyImages(FitsImages):
         elif (preset == "ic") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
         else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
+            raise PipelineValueError(
+                logger=log, message=f"Preset '{preset}' not supported"
+            )
 
         # Return Table instance
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
 
     def build_class_star_library(self):
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Building class star library for {self.n_files} files")
 
         # Import
         from vircampype.fits.tables.sextractor import SextractorCatalogs
@@ -290,9 +337,9 @@ class SkyImages(FitsImages):
 
         # Loop over files
         for idx_file in range(self.n_files):
-
             # Create output paths
             outpath = self.paths_full[idx_file].replace(".fits", ".cs.fits.tab")
+            log.info(f"File {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if (
@@ -319,13 +366,10 @@ class SkyImages(FitsImages):
 
             # Get percentiles image quality measurements
             fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
-            fwhm_lo = round_decimals_down(
-                np.nanpercentile(fwhms, 0.5) * self.setup.pixel_scale_arcsec, decimals=2
-            )
-            fwhm_hi = round_decimals_up(
-                np.nanpercentile(fwhms, 99.5) * self.setup.pixel_scale_arcsec,
-                decimals=2,
-            )
+            fwhm_percentiles = np.percentile(fwhms, [0.5, 99.5])
+            fwhm_lo = round_decimals_down(fwhm_percentiles[0] / 3, decimals=2)
+            fwhm_hi = round_decimals_up(fwhm_percentiles[1] / 3, decimals=2)
+            log.info(f"FWHM range: {fwhm_lo} - {fwhm_hi}")
 
             # Determine FWHM range
             fwhm_range = np.arange(fwhm_lo - 0.05, fwhm_hi + 0.11, 0.05)
@@ -333,11 +377,15 @@ class SkyImages(FitsImages):
             # Safety check for fwhm range
             if len(fwhm_range) > 30:
                 fwhm_range = np.around(np.arange(0.45, 1.91, 0.05), decimals=2)
+            log.info(f"Final FWHM range: {fwhm_range}")
 
             # Construct sextractor commands
             cmds = [
                 self.sextractor(
-                    preset="class_star", seeing_fwhm=ss, return_cmds=True, silent=True
+                    preset="class_star",
+                    seeing_fwhm=ss,
+                    return_cmds=True,
+                    silent=True,
                 )[idx_file]
                 for ss in fwhm_range
             ]
@@ -350,48 +398,69 @@ class SkyImages(FitsImages):
                     ".class_star{0:4.2f}.fits.tab".format(fwhm_range[idx]),
                 )
                 catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
+                log.info(f"Catalog path {idx + 1}/{len(cmds)}: {catalog_paths[-1]}")
 
                 # Check if catalog already exists
                 catalog_path_exists.append(os.path.isfile(catalog_paths[-1]))
 
+            # Log all catalog paths and existing catalogs
+            [
+                log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}")
+                for idx, c in enumerate(catalog_paths)
+            ]
+            [
+                log.info(f"Catalog exists {idx + 1}/{len(cmds)}: {cpe}")
+                for idx, cpe in enumerate(catalog_path_exists)
+            ]
+
             # Remove shell commands for existing catalogs
             cmds = [c for c, cpe in zip(cmds, catalog_path_exists) if not cpe]
 
+            # Log sextractor commands
+            [
+                log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}")
+                for idx, c in enumerate(cmds)
+            ]
+
             # Run Sextractor
             n_jobs_sex = (
-                6 if self.setup.n_jobs > 6 else self.setup.n_jobs
-            )  # max of 6 parallel jobs
+                5 if self.setup.n_jobs > 5 else self.setup.n_jobs
+            )  # max of 5 parallel jobs
+            log.info(f"Running {len(cmds)} sextractor commands in parallel")
             run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
+            log.info(f"Loaded {len(catalogs)} catalogs")
 
             # Make output HDUList
             tables_out = [Table() for _ in self.iter_data_hdu[idx_file]]
 
             # Loop over files
-            for idx_seeing in range(catalogs.n_files):
+            for idx_fwhm in range(catalogs.n_files):
+
+                # Log current FWHM value
+                log.info(f"Processing FWHM {fwhm_range[idx_fwhm]:4.2f}")
 
                 # Read tables for current seeing
-                tables_seeing = catalogs.file2table(file_index=idx_seeing)
+                tables_fwhm = catalogs.file2table(file_index=idx_fwhm)
+                log.info(f"Loaded {len(tables_fwhm)} FWHM tables")
 
                 # Add classifier and coordinates for all HDUs
-                for tidx in range(len(tables_seeing)):
+                for tidx in range(len(tables_fwhm)):
+
+                    # Log current catalog and number of sources
+                    log.info(f"Processing HDU {tidx + 1}/{len(tables_fwhm)}")
+                    log.info(f"Number of sources: {len(tables_fwhm[tidx])}")
 
                     # Add coordinates only on first iteration
-                    if idx_seeing == 0:
-                        tables_out[tidx]["XWIN_IMAGE"] = tables_seeing[tidx][
-                            "XWIN_IMAGE"
-                        ]
-                        tables_out[tidx]["YWIN_IMAGE"] = tables_seeing[tidx][
-                            "YWIN_IMAGE"
-                        ]
+                    if idx_fwhm == 0:
+                        tables_out[tidx]["XWIN_IMAGE"] = tables_fwhm[tidx]["XWIN_IMAGE"]
+                        tables_out[tidx]["YWIN_IMAGE"] = tables_fwhm[tidx]["YWIN_IMAGE"]
 
                     # Add classifier
-                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(
-                        fwhm_range[idx_seeing]
-                    )
-                    tables_out[tidx][cs_column_name] = tables_seeing[tidx]["CLASS_STAR"]
+                    cs_column_name = "CLASS_STAR_{0:4.2f}".format(fwhm_range[idx_fwhm])
+                    tables_out[tidx][cs_column_name] = tables_fwhm[tidx]["CLASS_STAR"]
 
             # Make FITS table
             header_prime = fits.Header()
@@ -404,9 +473,11 @@ class SkyImages(FitsImages):
             hdul = fits.HDUList(hdus=[fits.PrimaryHDU(header=header_prime)])
             [hdul.append(fits.BinTableHDU(t)) for t in tables_out]
             hdul.writeto(outpath, overwrite=True)
+            log.info(f"Saved to '{outpath}'")
 
             # Remove sextractor catalog
             [os.remove(f) for f in catalogs.paths_full]
+            log.info("Removed sextractor catalogs")
 
         # Print time
         print_message(
@@ -416,7 +487,6 @@ class SkyImages(FitsImages):
         )
 
     def build_master_psf(self, preset):
-
         # Run Sextractor with PSFEX preset
         sources_psfex = self.sextractor(preset="psfex")
 
@@ -438,7 +508,6 @@ class SkyImages(FitsImages):
 
         # Loop over self
         for idx_file in range(self.n_files):
-
             # Create output path
             outpath = "{0}{1}.ic{2}".format(
                 self.setup.folders["illumcorr"],
@@ -474,7 +543,6 @@ class SkyImages(FitsImages):
             # Modify read noise, gain, and saturation keywords in headers
             data_headers = []
             for idx_hdr in range(len(self.headers_data[idx_file])):
-
                 # Load current header
                 hdr = self.headers_data[idx_file][idx_hdr]
 
@@ -496,7 +564,6 @@ class SkyImages(FitsImages):
                 ]
                 mod_func = [np.divide, np.multiply, np.divide]
                 for kw, func in zip(keywords, mod_func):
-
                     # Read comment
                     comment = self.headers_data[idx_file][idx_hdr].comments[kw]
 
@@ -555,31 +622,40 @@ class SkyImagesRaw(SkyImages):
         super(SkyImagesRaw, self).__init__(setup=setup, file_paths=file_paths)
 
     def process_raw_basic(self):
-
         # Processing info
         print_header(
             header="BASIC RAW PROCESSING", right=None, silent=self.setup.silent
         )
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Processing {self.n_files} basic raw files:\n{self.basenames2log}")
         tstart = time.time()
 
         # Fetch the Masterfiles
+        log.info("Fetching master files")
         master_gain = self.get_master_gain()
+        log.info(f"Master gain:\n{master_gain.basenames2log}")
         master_dark = self.get_master_dark(ignore_dit=True)
-        master_flat = self.get_master_flat()
+        log.info(f"Master dark:\n{master_dark.basenames2log}")
         master_linearity = self.get_master_linearity()
+        log.info(f"Master linearity:\n{master_linearity.basenames2log}")
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
-
             # Create output path
-            outpath = "{0}{1}.proc.basic{2}".format(
-                self.setup.folders["processed_basic"],
-                self.names[idx_file],
-                self.extensions[idx_file],
+            outpath = (
+                f"{self.setup.folders['processed_basic']}"
+                f"{self.names[idx_file]}.proc.basic"
+                f"{self.extensions[idx_file]}"
             )
+
+            # Log processing info
+            log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -592,22 +668,40 @@ class SkyImagesRaw(SkyImages):
                 silent=self.setup.silent,
             )
 
+            # Log more info
+            log.info(f"Number of extensions: {len(self.iter_data_hdu[idx_file])}")
+            log.info(f"Filter name: {self.passband[idx_file]}")
+            log.info(f"Target designation: {self.setup.name}")
+            log.info(f"Dark file name: {master_dark.basenames[idx_file]}")
+            log.info(f"Linearity file name: {master_linearity.basenames[idx_file]}")
+            log.info(f"Gain: {master_gain.gain[idx_file]}")
+            log.info(f"Read noise: {master_gain.rdnoise[idx_file]}")
+            log.info(f"Saturation levels: {self.setup.saturation_levels}")
+
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
             # Get master calibration
             dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
-            flat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
             lcff = master_linearity.file2coeff(file_index=idx_file)
 
             # Norm to NDIT=1
+            log.info(f"Normalizing to NDIT=1; using NDIT={self.ndit[idx_file]}")
             cube.normalize(norm=self.ndit[idx_file])
 
             # Linearize
+            log.info(f"Linearizing data; using linearity coefficients:\n{lcff}")
             cube.linearize(coeff=lcff, texptime=self.texptime[idx_file])
 
-            # Process with dark, flat, and sky
-            cube = (cube - dark) / flat
+            # Subtract with dark
+            cube -= dark
+
+            # Divide by flat if set
+            if self.setup.flat_type == "twilight":
+                log.info("Dividing by twilight flat")
+                master_flat = self.get_master_twilight_flat()
+                mflat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
+                cube /= mflat
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
@@ -622,16 +716,14 @@ class SkyImagesRaw(SkyImages):
                 comment="Dark file name",
             )
             phdr.set(
-                "FLATFILE",
-                value=master_flat.basenames[idx_file],
-                comment="Flat file name",
-            )
-            phdr.set(
                 "LINFILE",
                 value=master_linearity.basenames[idx_file],
                 comment="Linearity file name",
             )
             phdr.set("FILTER", value=self.passband[idx_file], comment="Filter name")
+
+            # Add setup to header
+            self.setup.add_setup_to_header(header=phdr)
 
             # Copy data headers
             hdrs_data = [
@@ -641,33 +733,37 @@ class SkyImagesRaw(SkyImages):
 
             # Fix headers
             if self.setup.fix_vircam_headers:
+                log.info("Fixing headers")
                 fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
-
-            # Determine gain scale from flat
-            gain_scale_flat, _ = flat.background_planes()
 
             # Add stuff to data headers
             for idx_hdu, dhdr in enumerate(hdrs_data):
-
+                log.info(f"Modify data headers; extension {idx_hdu + 1}")
                 # Grab gain and readnoise
-                gain = (
-                    master_gain.gain[idx_file][idx_hdu - 1]
-                    * self.ndit_norm[idx_file]
-                    * gain_scale_flat[idx_hdu]
+                log.info(
+                    f"Scaling gain {master_gain.gain[idx_file][idx_hdu - 1]} "
+                    f"with NDIT={self.ndit[idx_file]}"
                 )
+                gain = (
+                    master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
+                )
+                log.info(f"New gain: {gain}")
                 rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
+                log.info(f"Read noise: {rdnoise}")
 
                 # Grab other parameters
-                saturate = (
-                    self.setup.saturation_levels[idx_hdu] / gain_scale_flat[idx_hdu]
-                )
                 offseti, noffsets, chipid = (
                     phdr["OFFSET_I"],
                     phdr["NOFFSETS"],
                     dhdr["HIERARCH ESO DET CHIP NO"],
                 )
                 photstab = offseti + noffsets * (chipid - 1)
+                log.info(f"Photometric stability ID: {photstab}")
                 dextinct = get_default_extinction(passband=self.passband[idx_file])
+                log.info(
+                    f"Setting default extinction to {dextinct} "
+                    f"for band {self.passband[idx_file]}"
+                )
 
                 # Add stuff to header
                 dhdr.set(
@@ -682,7 +778,7 @@ class SkyImagesRaw(SkyImages):
                 )
                 dhdr.set(
                     self.setup.keywords.saturate,
-                    value=saturate,
+                    value=self.setup.saturation_levels[idx_hdu],
                     comment="Saturation level (ADU)",
                 )
                 dhdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
@@ -716,6 +812,8 @@ class SkyImagesRaw(SkyImages):
                     airmass = get_airmass_from_header(
                         header=dhdr, time=dhdr[self.setup.keywords.date_ut]
                     )
+                    log.info(f"Setting airmass to {airmass}")
+
                     dhdr.set(
                         self.setup.keywords.airmass,
                         value=airmass,
@@ -723,6 +821,7 @@ class SkyImagesRaw(SkyImages):
                     )
 
             # Write to disk
+            log.info(f"Writing to disk:\n{outpath}")
             cube.write_mef(
                 path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32"
             )
@@ -754,126 +853,230 @@ class SkyImagesProcessed(SkyImages):
     def __init__(self, setup, file_paths=None):
         super(SkyImagesProcessed, self).__init__(setup=setup, file_paths=file_paths)
 
-    def build_master_source_mask(self):
+    def __build_additional_masks(self) -> dict:
+        # Create empty mask list for any additional masks
+        additional_masks = dict(ra=[], dec=[], size=[])
 
-        # Processing info
-        print_header(header="MASTER-SOURCE-MASK", right=None, silent=self.setup.silent)
-        tstart = time.time()
-
-        # Fetch the Masterfiles
-        master_sky = self.get_master_sky(mode="static")
+        # Load positions and magnitudes of bright sources from master photometry
         master_phot = self.get_master_photometry()
-
-        # Read sky scales
-        assert isinstance(master_sky, FitsImages)
-        sky_scale = master_sky._read_sequence_from_data_headers(
-            "HIERARCH PYPE SKY SCL", start_index=0
-        )
-        sky_mjd = master_sky._read_sequence_from_data_headers(
-            "HIERARCH PYPE SKY MJD", start_index=0
-        )
-
-        # Loop over files
-        for idx_file in range(self.n_files):
-
-            # Create master name
-            outpath = "{0}MASTER-SOURCE-MASK.MJD_{1:0.5f}.fits" "".format(
-                self.setup.folders["master_object"], self.mjd[idx_file]
+        if self.setup.mask_2mass_sources:
+            mag_master = master_phot.mag(passband=self.passband[0])[0][0]
+            bright = (mag_master > 1) & (mag_master < 9)
+            mag_bright = mag_master[bright]
+            additional_masks["ra"].extend(list(master_phot.ra[0][0][bright]))
+            additional_masks["dec"].extend(list(master_phot.dec[0][0][bright]))
+            additional_masks["size"].extend(
+                [int(x) for x in SourceMasks.interp_2mass_size()(mag_bright)]
             )
 
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                continue
+        # Add manual source masks
+        if self.setup.additional_source_masks is not None:
+            additional_masks["ra"].extend(self.setup.additional_source_masks.ra_deg)
+            additional_masks["dec"].extend(self.setup.additional_source_masks.dec_deg)
+            additional_masks["size"].extend(
+                self.setup.additional_source_masks.size_pix()
+            )
 
+        return additional_masks
+
+    def build_master_source_mask(self):
+        # Processing info
+        print_header(
+            header="MASTER-SOURCEMASK",
+            right=None,
+            silent=self.setup.silent,
+        )
+        tstart = time.time()
+
+        self.check_compatibility(
+            n_files_min=self.setup.source_masks_n_min, n_hdu_max=1, n_filter_max=1
+        )
+
+        # Fetch master BPM
+        master_bpm = self.get_master_bpm()
+
+        # Build additional source masks
+        additional_masks = self.__build_additional_masks()
+
+        # Construct final output names
+        outpaths = [
+            self.setup.folders["master_object"]
+            + f"MASTER-SOURCE-MASK.{self.mjd[i]:0.4f}.FIL_{self.passband[i]}.fits"
+            for i in range(self.n_files)
+        ]
+
+        # Check if all files exist and return if they do
+        if all([check_file_exists(file_path=oo, silent=False) for oo in outpaths]):
+            return
+
+        # Start looping over detectors
+        paths_temp_mask = []
+        for d in self.iter_data_hdu[0]:
+            # Make temp filename
+            paths_temp_mask.append(
+                f"{self.setup.folders['temp']}"
+                f"MASK_DETECTOR_{d:02d}."
+                f"MJD_{self.mjd_mean:0.4f}."
+                f"FIL_{self.passband[0]}.fits"
+            )
+
+            # TODO: Fix counter
             # Print processing info
             message_calibration(
-                n_current=idx_file + 1,
-                n_total=self.n_files,
-                name=outpath,
+                n_current=d,
+                n_total=len(self.iter_data_hdu[0]),
+                name=paths_temp_mask[-1],
                 d_current=None,
                 d_total=None,
                 silent=self.setup.silent,
             )
 
-            # Create empty mask list
-            mra, mdec, msize = [], [], []
+            # Check if the file is already there and skip if it is
+            if check_file_exists(file_path=paths_temp_mask[-1], silent=True):
+                continue
 
-            # Load positions and magnitudes of bright sources
-            mag_master = master_phot.mag(passband=self.passband[idx_file])[0][0]
-            bright = (mag_master > 1) & (mag_master < 9)
-            mag_bright = mag_master[bright]
-            if self.setup.mask_2mass_sources:
-                mra.extend(list(master_phot.ra()[0][0][bright]))
-                mdec.extend(list(master_phot.dec()[0][0][bright]))
-                msize.extend(
-                    [int(x) for x in SourceMasks.interp_2mass_size()(mag_bright)]
+            # Get data
+            cube_raw = self.hdu2cube(hdu_index=d, dtype=np.float32)
+            bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
+
+            # Instantiate empty additional and source masks
+            mask_additional = ImageCube(
+                cube=np.full_like(cube_raw.cube, fill_value=False, dtype=bool),
+                setup=self.setup,
+            )
+            mask_sources = ImageCube(
+                cube=np.full_like(cube_raw.cube, fill_value=False, dtype=bool),
+                setup=self.setup,
+            )
+
+            # Loop over files and keep only source that appear on at least one image
+            for idx_file in range(self.n_files):
+                ww = self.wcs[idx_file][d - 1]
+                mxx, myy = ww.wcs_world2pix(
+                    additional_masks["ra"], additional_masks["dec"], 0
                 )
-
-            # Merge with manual source masks
-            if self.setup.additional_source_masks is not None:
-                mra.extend(self.setup.additional_source_masks.ra_deg)
-                mdec.extend(self.setup.additional_source_masks.dec_deg)
-                msize.extend(
-                    self.setup.additional_source_masks.size_pix(
-                        pixel_scale=self.setup.pixel_scale
-                    )
-                )
-
-            # Read file into cube
-            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-
-            # Read master sky
-            sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
-
-            # Scale sky
-            sscl = [x[idx_file] for x in sky_scale[idx_file]]
-            smjd = [x[idx_file] for x in sky_mjd[idx_file]]
-            # MJD must match
-            if (len(list(set(smjd))) != 1) | (
-                (smjd[0] - self.mjd[idx_file]) * 86400 > 1
-            ):
-                raise ValueError("Sky scaling not matching")
-            sky.scale_planes(sscl)
-            sky -= sky.background_planes()[0][:, np.newaxis, np.newaxis]
-
-            # Subtract static sky
-            cube -= sky
-
-            # Create empty list to hold all cubes for additional masks
-            array_additional = np.full_like(cube.cube, fill_value=0, dtype=np.uint16)
-
-            # Loop over HDUs
-            for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
-                # Grab WCS
-                ww = self.wcs[idx_file][idx_hdu]
-
-                # Check which mask is in image
-                mxx, myy = ww.wcs_world2pix(mra, mdec, 0)
-
-                # remove thise that are too far away from edges
-                naxis1 = self.headers_data[idx_file][idx_hdu]["NAXIS1"]
-                naxis2 = self.headers_data[idx_file][idx_hdu]["NAXIS2"]
+                # remove those that are too far away from edges
+                naxis1 = self.headers_data[idx_file][d - 1]["NAXIS1"]
+                naxis2 = self.headers_data[idx_file][d - 1]["NAXIS2"]
                 keep = (
-                    (mxx > -300)
-                    & (myy > -300)
-                    & (mxx < naxis1 + 300)
-                    & (myy < naxis2 + 300)
+                    (mxx > -200)
+                    & (myy > -200)
+                    & (mxx < naxis1 + 200)
+                    & (myy < naxis2 + 200)
+                )
+                for sx, sy, ss in zip(
+                    mxx[keep], myy[keep], np.array(additional_masks["size"])[keep]
+                ):
+                    aa, bb = disk((sy, sx), ss, shape=(naxis2, naxis1))
+                    mask_additional.cube[idx_file][aa, bb] = True
+
+            for i in range(self.setup.source_masks_n_iter):
+                # Copy original array
+                cube_masked = cube_raw.copy()
+                cube_raw_temp = cube_raw.copy()
+
+                # Apply masks
+                cube_masked.apply_masks(
+                    bpm=bpm,
+                    sources=mask_sources,
                 )
 
-                if np.sum(keep) == 0:
-                    continue
+                # Apply additional masks
+                cube_masked.apply_masks(sources=mask_additional)
 
-                for sx, sy, ss in zip(mxx[keep], myy[keep], np.array(msize)[keep]):
-                    aa, bb = disk((sy, sx), ss, shape=(naxis2, naxis1))
-                    array_additional[idx_hdu][aa, bb] = 1
+                # Determine background level
+                sky_scale, sky_std = cube_masked.background_planes()
 
-            # Automatically detect sources in cube
-            cube_sources = cube.build_source_masks()
+                # Scale to same background level
+                cube_masked.scale_planes(1 / sky_scale)
 
-            # Merge additional masks with automatically detected masks
-            cube_sources.cube = (cube_sources.cube + array_additional).astype(np.uint16)
-            cube_sources.cube[cube_sources.cube > 1] = 1
+                # Collapse cube to median
+                sky_median = cube_masked.flatten(metric=np.nanmedian, axis=0)
+
+                # Depending on setup, use as flat or subtract background
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+                    if self.setup.flat_type == "twilight":
+                        # Subtract background
+                        cube_raw_temp -= sky_scale[:, np.newaxis, np.newaxis] * (
+                            sky_median - 1
+                        )
+                    elif self.setup.flat_type == "sky":
+                        # Flat-field cube
+                        cube_raw_temp /= sky_median
+
+                # Add extreme outliers to additional masks
+                # TODO: Fix this for twilight mode
+                mask_additional.cube += (
+                    cube_raw_temp.cube
+                    < sky_scale[:, np.newaxis, np.newaxis]
+                    - 10 * sky_std[:, np.newaxis, np.newaxis]
+                )
+
+                # destripe on last iteration
+                if (
+                    i == self.setup.source_masks_n_iter - 1
+                ) & self.setup.source_masks_destripe:
+                    cube_raw_temp.destripe(masks=mask_additional)
+
+                """ Destriping here is very problematic. Firstly, I can't average,
+                because I have only frames of a single detector and secondly, any
+                extended emission that covers a large part of the image will affect
+                the destriping.
+                """
+                # # Destripe with mask from temporary cube
+                # cube_raw_temp.destripe(
+                #     masks=np.isnan(cube_masked.cube),
+                #     smooth=True,
+                #     combine_bad_planes=False,
+                # )
+
+                # Run source detection
+                if self.setup.source_mask_method.lower() == "noisechisel":
+                    mask_sources = cube_raw_temp.build_source_masks_noisechisel()
+                elif self.setup.source_mask_method.lower() == "built-in":
+                    mask_sources = cube_raw_temp.build_source_masks()
+                else:
+                    raise ValueError(
+                        f"Source masking method "
+                        f"'{self.setup.source_mask_method}' not supported"
+                    )
+
+                # Apply closing operation if set
+                if self.setup.source_mask_closing:
+                    for pidx, plane in enumerate(mask_sources):
+                        mask_sources.cube[pidx] = binary_closing(
+                            plane,
+                            structure=square(self.setup.source_masks_closing_size),
+                            iterations=self.setup.source_masks_closing_iter,
+                        )
+
+                # Add additional masks to source masks
+                mask_sources += mask_additional
+
+            # Free memory
+            del cube_masked
+            del cube_raw_temp
+            gc.collect()
+
+            # Write to temporary master mask
+            mask_sources.write_mef(
+                path=paths_temp_mask[-1],
+                dtype=np.uint8,
+                overwrite=True,
+            )
+
+        # Load all of them into a FitsImages instance
+        masks_temp = FitsImages(setup=self.setup, file_paths=paths_temp_mask)
+
+        # Loop over output files
+        for idx_file, outpath in enumerate(outpaths):
+            # # Check if file exists
+            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                continue
+
+            # Load all masks for this file
+            masks = masks_temp.hdu2cube(hdu_index=idx_file + 1, dtype=np.uint8)
 
             # Create header cards
             cards = make_cards(
@@ -881,17 +1084,11 @@ class SkyImagesProcessed(SkyImages):
                     self.setup.keywords.date_mjd,
                     self.setup.keywords.date_ut,
                     self.setup.keywords.object,
-                    "HIERARCH PYPE MASK THRESH",
-                    "HIERARCH PYPE MASK MINAREA",
-                    "HIERARCH PYPE MASK MAXAREA",
                 ],
                 values=[
                     self.mjd[idx_file],
                     self.time_obs[idx_file],
                     "MASTER-SOURCE-MASK",
-                    self.setup.mask_sources_thresh,
-                    self.setup.mask_sources_min_area,
-                    self.setup.mask_sources_max_area,
                 ],
             )
 
@@ -899,9 +1096,15 @@ class SkyImagesProcessed(SkyImages):
             prime_header = fits.Header(cards=cards)
 
             # Write to disk
-            cube_sources.write_mef(
-                path=outpath, prime_header=prime_header, dtype=np.uint8
+            masks.write_mef(
+                path=outpath,
+                prime_header=prime_header,
+                dtype=np.uint8,
+                overwrite=True,
             )
+
+        # Remove all temp files
+        [remove_file(f) for f in paths_temp_mask]
 
         # Print time
         print_message(
@@ -911,7 +1114,6 @@ class SkyImagesProcessed(SkyImages):
         )
 
     def build_master_photometry(self):
-
         # Processing info
         print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
         tstart = time.time()
@@ -921,7 +1123,6 @@ class SkyImagesProcessed(SkyImages):
 
         # Check if the file is already there and skip if it is
         if not check_file_exists(file_path=outpath, silent=self.setup.silent):
-
             # Print processing info
             message_calibration(
                 n_current=1,
@@ -961,7 +1162,6 @@ class SkyImagesProcessed(SkyImages):
         )
 
     def build_master_astrometry(self):
-
         # Processing info
         print_header(header="MASTER-ASTROMETRY", right=None, silent=self.setup.silent)
         tstart = time.time()
@@ -971,7 +1171,6 @@ class SkyImagesProcessed(SkyImages):
 
         # Check if the file is already there and skip if it is
         if not check_file_exists(file_path=outpath, silent=self.setup.silent):
-
             # Print processing info
             message_calibration(
                 n_current=1,
@@ -994,20 +1193,45 @@ class SkyImagesProcessed(SkyImages):
 
                 # Keep only sources with valid ra/dec/pm entries
                 keep = (
-                    np.isfinite(table["RA_ICRS"])
-                    & np.isfinite(table["DE_ICRS"])
-                    & np.isfinite(table["pmRA"])
-                    & np.isfinite(table["pmDE"])
-                    & np.isfinite(table["FG"])
-                    & np.isfinite(table["e_FG"])
-                    & (table["RUWE"] < 1.5)
+                    np.isfinite(table["ra"])
+                    & np.isfinite(table["dec"])
+                    & np.isfinite(table["pmra"])
+                    & np.isfinite(table["pmdec"])
+                    & np.isfinite(table["mag"])
+                    & np.isfinite(table["mag_error"])
+                    & (table["ruwe"] < 1.5)
                 )
 
                 # Apply cut
                 table = table[keep]
 
-                # Save catalog
-                table.write(outpath, format="fits", overwrite=True)
+                # Grab output epoch
+                epoch_out = self.epoch_mean if self.setup.warp_gaia else 2016.0
+
+                # Write to disk
+                make_gaia_refcat(
+                    table_in=table,
+                    path_ldac_out=outpath,
+                    epoch_in=2016.0,
+                    epoch_out=epoch_out,
+                    key_ra="ra",
+                    key_ra_error="ra_error",
+                    key_dec="dec",
+                    key_dec_error="dec_error",
+                    key_pmra="pmra",
+                    key_pmra_error="pmra_error",
+                    key_pmdec="pmdec",
+                    key_pmdec_error="pmdec_error",
+                    key_ruwe="ruwe",
+                    key_gmag="mag",
+                    key_gflux="flux",
+                    key_gflux_error="flux_error",
+                )
+
+            # Add epoch to header
+            add_key_primary_hdu(
+                path=outpath, key="EPOCH", value=epoch_out, comment="Catalog epoch"
+            )
 
             # Add object info to primary header
             add_key_primary_hdu(
@@ -1021,7 +1245,7 @@ class SkyImagesProcessed(SkyImages):
             end="\n",
         )
 
-    def build_master_sky_dynamic(self):
+    def build_master_sky(self):
         """
         Builds a sky frame from the given input data. After calibration and masking,
         the frames are normalized with their sky levels and then combined.
@@ -1029,7 +1253,7 @@ class SkyImagesProcessed(SkyImages):
         """
 
         # Processing info
-        print_header(header="MASTER-SKY-DYNAMIC", right=None, silent=self.setup.silent)
+        print_header(header="MASTER-SKY", right=None, silent=self.setup.silent)
         tstart = time.time()
 
         # Split based on filter and interval
@@ -1049,15 +1273,16 @@ class SkyImagesProcessed(SkyImages):
 
         # Now loop through separated files
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
-
             # Check sequence (at least n files, same nHDU, same NDIT, and same filter)
             files.check_compatibility(
                 n_files_min=self.setup.sky_n_min, n_hdu_max=1, n_filter_max=1
             )
 
             # Create master name
-            outpath = "{0}MASTER-SKY-DYNAMIC.MJD_{1:0.4f}.FIL_{2}.fits" "".format(
-                files.setup.folders["master_object"], files.mjd_mean, files.passband[0]
+            outpath = (
+                f"{files.setup.folders['master_object']}MASTER-SKY."
+                f"MJD_{files.mjd_mean:0.4f}."
+                f"FIL_{files.passband[0]}.fits"
             )
 
             # Check if the file is already there and skip if it is
@@ -1065,16 +1290,16 @@ class SkyImagesProcessed(SkyImages):
                 continue
 
             # Fetch the Masterfiles
+            master_bpm = files.get_master_bpm()
             master_mask = files.get_master_source_mask()
 
             # Instantiate output
-            sky_all, noise_all = [], []
             master_cube = ImageCube(setup=self.setup, cube=None)
 
             # Start looping over detectors
             data_headers = []
+            bkg_all, bkg_std_all = [], []
             for d in files.iter_data_hdu[0]:
-
                 # Print processing info
                 message_calibration(
                     n_current=fidx,
@@ -1088,67 +1313,61 @@ class SkyImagesProcessed(SkyImages):
                 # Get data
                 cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
 
-                # Get master calibration
+                # Get masks
                 sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
+                bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
 
                 # Apply masks cube
-                cube.apply_masks(sources=sources)
+                cube.apply_masks(sources=sources + bpm)
 
                 # Compute sky level in each plane
-                sky, sky_std = cube.background_planes()
-                sky_all.append(sky)
-                noise_all.append(sky_std)
+                bkg, bkg_std = cube.background_planes()
+                bkg_all.append(bkg)
+                bkg_std_all.append(bkg_std)
 
                 # Normalize to same flux level
-                sky_scale = sky / np.mean(sky)
-                cube.normalize(norm=sky_scale)
+                cube.normalize(norm=bkg)
 
-                # Sigma clip
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(
-                        "ignore", message="Input data contains invalid values"
-                    )
-                    cube.cube = astropy_sigma_clip(
-                        data=cube.cube, sigma=3, maxiters=3, axis=0
-                    )
+                # Apply sky masks
+                cube.apply_masks(
+                    mask_min=self.setup.sky_mask_min,
+                    mask_max=self.setup.sky_mask_max,
+                    mask_below=self.setup.sky_rel_lo,
+                    mask_above=self.setup.sky_rel_hi,
+                    sigma_level=self.setup.sky_sigma_level,
+                    sigma_iter=self.setup.sky_sigma_iter,
+                )
 
                 # Create weights if needed
-                if self.setup.flat_metric == "weighted":
+                if self.setup.sky_combine_metric == "weighted":
                     metric = "weighted"
                     weights = np.empty_like(cube.cube)
-                    weights[:] = (1 / sky_std)[:, np.newaxis, np.newaxis]
+                    weights[:] = (1 / bkg_std)[:, np.newaxis, np.newaxis]
                     weights[~np.isfinite(cube.cube)] = 0.0
                 else:
                     metric = string2func(self.setup.flat_metric)
                     weights = None
 
                 # Collapse cube
-                collapsed = cube.flatten(
-                    metric=metric, axis=0, weights=weights, dtype=None
-                )
+                collapsed = cube.flatten(metric=metric, axis=0, weights=weights)
 
                 # Create header with sky measurements
                 hdr = fits.Header()
-                for cidx in range(len(sky)):
+                for cidx, bb in enumerate(bkg):
                     hdr.set(
                         f"HIERARCH PYPE SKY MEAN {cidx}",
-                        value=np.round(sky[cidx], 2),
+                        value=np.round(bb, 2),
                         comment="Measured sky (ADU)",
                     )
                     hdr.set(
                         f"HIERARCH PYPE SKY NOISE {cidx}",
-                        value=np.round(sky_std[cidx], 2),
+                        value=np.round(bkg_std[cidx], 2),
                         comment="Measured sky noise (ADU)",
                     )
                     hdr.set(
                         f"HIERARCH PYPE SKY MJD {cidx}",
                         value=np.round(files.mjd[cidx], 6),
                         comment="MJD of measured sky",
-                    )
-                    hdr.set(
-                        f"HIERARCH PYPE SKY SCL {cidx}",
-                        value=np.round(sky_scale[cidx], 6),
-                        comment="Sky scale",
                     )
 
                 # Append to list
@@ -1157,15 +1376,16 @@ class SkyImagesProcessed(SkyImages):
                 # Collapse extensions with specified metric and append to output
                 master_cube.extend(data=collapsed.astype(np.float32))
 
-            # Get the standard deviation vs the mean in the
-            # (flat-fielded and linearized) data for each detector.
-            det_err = [
-                np.std([x[idx] for x in sky_all]) / np.mean([x[idx] for x in sky_all])
-                for idx in range(len(files))
-            ]
+            # Compute gain harmonization
+            flat_scale = np.array(bkg_all) / np.mean(bkg_all)
+            flat_scale_std = np.std(flat_scale, axis=1)
+            flat_scale = np.mean(flat_scale, axis=1)
+
+            # Apply gain harmonization
+            master_cube.scale_planes(flat_scale)
 
             # Mean flat field error
-            flat_err = np.round(100.0 * np.mean(det_err), decimals=2)
+            flat_err = np.round(100.0 * np.mean(flat_scale_std), decimals=2)
 
             # Create primary header
             hdr_prime = fits.Header()
@@ -1173,9 +1393,7 @@ class SkyImagesProcessed(SkyImages):
             hdr_prime.set(
                 keyword=self.setup.keywords.date_ut, value=files.time_obs_mean.fits
             )
-            hdr_prime.set(
-                keyword=self.setup.keywords.object, value="MASTER-SKY-DYNAMIC"
-            )
+            hdr_prime.set(keyword=self.setup.keywords.object, value="MASTER-SKY")
             hdr_prime.set(self.setup.keywords.dit, value=files.dit[0])
             hdr_prime.set(self.setup.keywords.ndit, value=files.ndit[0])
             hdr_prime.set(self.setup.keywords.filter_name, value=files.passband[0])
@@ -1191,6 +1409,7 @@ class SkyImagesProcessed(SkyImages):
             if self.setup.qc_plots:
                 msky = MasterSky(setup=self.setup, file_paths=outpath)
                 msky.qc_plot_sky(paths=None, axis_size=5)
+                msky.qc_plot_sky_stability(paths=None, axis_size=5)
 
         # Print time
         print_message(
@@ -1209,25 +1428,15 @@ class SkyImagesProcessed(SkyImages):
         tstart = time.time()
 
         # Fetch the Masterfiles
-        master_sky = self.get_master_sky(mode="dynamic")
+        master_sky = self.get_master_sky()
         master_source_mask = self.get_master_source_mask()
-
-        # Read sky scales
-        assert isinstance(master_sky, FitsImages)
-        sky_scale = master_sky._read_sequence_from_data_headers(
-            "HIERARCH PYPE SKY SCL", start_index=0
-        )
-        sky_mjd = master_sky._read_sequence_from_data_headers(
-            "HIERARCH PYPE SKY MJD", start_index=0
-        )
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
-
             # Create output path
-            outpath = "{0}{1}".format(
-                self.setup.folders["processed_final"],
-                self.basenames[idx_file].replace(".proc.basic.", ".proc.final."),
+            outpath = (
+                f"{self.setup.folders['processed_final']}"
+                f"{self.basenames[idx_file].replace('.proc.basic.', '.proc.final.')}"
             )
 
             # Check if the file is already there and skip if it is
@@ -1247,30 +1456,25 @@ class SkyImagesProcessed(SkyImages):
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
-            # Get master calibration
-            sky = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+            # Read master sky flat
+            sky_norm = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
 
-            # Scale sky
-            sscl = [x[idx_file] for x in sky_scale[idx_file]]
-            smjd = [x[idx_file] for x in sky_mjd[idx_file]]
-            # MJD must match
-            if (len(list(set(smjd))) != 1) | (
-                (smjd[0] - self.mjd[idx_file]) * 86400 > 1
-            ):
-                raise ValueError("Sky scaling not matching")
-            sky.scale_planes(sscl)
-            sky -= sky.background_planes()[0][:, np.newaxis, np.newaxis]
-
-            # Subtract dynamic sky
-            cube -= sky
-
-            # Bad pixel interpolation
-            if self.setup.interpolate_nan_bool:
-                cube.interpolate_nan()
+            # Flat-field data or subtract background
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=RuntimeWarning)
+                if self.setup.flat_type == "twilight":
+                    temp = cube.copy()
+                    temp.apply_masks(
+                        sources=master_source_mask.file2cube(file_index=idx_file)
+                    )
+                    sky_level, _ = temp.background_planes()
+                    cube -= sky_norm * sky_level[:, np.newaxis, np.newaxis]
+                else:
+                    cube /= sky_norm
 
             # Destriping
             if self.setup.destripe:
-                sources = master_source_mask.file2cube(file_index=idx_file)
+                sources = master_source_mask.file2cube(file_index=idx_file, dtype=bool)
                 if self.setup.qc_plots:
                     path_qc_destripe = (
                         f"{self.setup.folders['qc_sky']}"
@@ -1278,20 +1482,39 @@ class SkyImagesProcessed(SkyImages):
                     )
                 else:
                     path_qc_destripe = None
-                cube.destripe(masks=sources, smooth=False, path_plot=path_qc_destripe)
+                cube.destripe(
+                    masks=sources,
+                    smooth=True,
+                    combine_bad_planes=True,
+                    path_plot=path_qc_destripe,
+                )
+
+            # Bad pixel interpolation
+            if self.setup.interpolate_nan:
+                cube.interpolate_nan()
 
             # Background subtraction
             if self.setup.subtract_background:
-
                 # Load source mask
                 sources = master_source_mask.file2cube(file_index=idx_file)
 
                 # Apply mask
-                temp_cube = copy.deepcopy(cube)
+                temp_cube = cube.copy()
                 temp_cube.apply_masks(sources=sources)
 
                 # Compute background and sigma
-                bg, bgsig = temp_cube.background()
+                bg, bgsig = temp_cube.background(
+                    mesh_size=self.setup.background_mesh_size,
+                    mesh_filtersize=self.setup.background_mesh_filtersize,
+                )
+
+                # Save to temp file
+                # path_temp = f"{self.setup.folders['temp']}temp_background.fits"
+                # bg.write_mef(path=path_temp, overwrite=True, dtype=np.float32)
+
+                # Free ram
+                del temp_cube
+                gc.collect()
 
                 # Save sky level
                 sky, skysig = bg.median(axis=(1, 2)), bgsig.median(axis=(1, 2))
@@ -1303,17 +1526,12 @@ class SkyImagesProcessed(SkyImages):
             else:
                 sky, skysig = cube.background_planes()
 
-            # Destriping again with smoothed values if set
-            # if self.setup.destripe:
-            #     sources = master_source_mask.file2cube(file_index=idx_file)
-            #     cube.destripe(masks=sources, smooth=True)
-
             # Dummy check if too many pixels where masked
             for plane in cube:
                 if np.sum(np.isfinite(plane)) / plane.size < 0.2:
                     ntot, nmasked = plane.size, np.sum(~np.isfinite(plane))
                     raise ValueError(
-                        f"Too many pixels masked ({nmasked/ntot * 100}%) "
+                        f"Too many pixels masked ({nmasked / ntot * 100}%) "
                         f"for file {self.basenames[idx_file]} "
                         f"with mask '{master_source_mask.basenames[idx_file]}'"
                     )
@@ -1321,7 +1539,6 @@ class SkyImagesProcessed(SkyImages):
             # Add stuff to headers
             hdrs_data = []
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
                 # Make new header for current HDU
                 hdr = self.headers_data[idx_file][idx_hdu].copy()
 
@@ -1367,7 +1584,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         )
 
     def build_master_sky_static(self):
-
         # Processing info
         print_header(header="MASTER-SKY-STATIC", silent=self.setup.silent)
         tstart = time.time()
@@ -1376,8 +1592,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         self.check_compatibility(n_ndit_max=1, n_filter_max=1)
 
         # Create name
-        outpath = "{0}MASTER-SKY-STATIC.MJD_{1:0.4f}.fits".format(
-            self.setup.folders["master_object"], self.mjd_mean
+        outpath = (
+            f"{self.setup.folders['master_object']}"
+            f"MASTER-SKY-STATIC.MJD_{self.mjd_mean:0.4f}.fits"
         )
 
         # Check if the file is already there
@@ -1393,7 +1610,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Looping over detectors
         data_headers = []
         for idx_hdu in self.iter_data_hdu[0]:
-
             # Print processing info
             if not self.setup.silent:
                 message_calibration(
@@ -1486,15 +1702,15 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Generate weight outpaths
         outpaths = [
-            "{0}MASTER-WEIGHT-IMAGE.MJD_{1:0.5f}.fits".format(
-                self.setup.folders["master_object"], mjd
+            (
+                f"{self.setup.folders['master_object']}"
+                f"MASTER-WEIGHT-IMAGE.MJD_{mjd:0.5f}.fits"
             )
             for mjd in self.mjd
         ]
 
         # MaxiMasking
-        if self.setup.maximask:
-
+        if self.setup.build_individual_weights_maximask:
             # Build commands for MaxiMask
             bin_mm = which("maximask")
             if bin_mm is None:
@@ -1519,11 +1735,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Run MaxiMask in parallel
             if len(cmds) > 0:
-                print_message(
-                    "Running MaxiMask on {0} files with 2 threads".format(
-                        len(cmds), self.setup.n_jobs
-                    )
-                )
+                print_message(f"Running MaxiMask on {len(cmds)} files with 2 threads")
             run_commands_shell_parallel(cmds=cmds, n_jobs=2, silent=True)
 
             # Put masks into FitsImages object
@@ -1537,7 +1749,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Loop over files
         for idx_file in range(self.n_files):
-
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(
@@ -1587,7 +1798,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Make primary header
             prime_header = fits.Header()
             prime_header[self.setup.keywords.object] = "MASTER-WEIGHT-IMAGE"
-            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = self.setup.maximask
+            prime_header["HIERARCH PYPE SETUP MAXIMASK"] = (
+                self.setup.build_individual_weights_maximask
+            )
             prime_header[self.setup.keywords.date_mjd] = self.headers_primary[idx_file][
                 self.setup.keywords.date_mjd
             ]
@@ -1602,17 +1815,18 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             end="\n",
         )
 
-    def build_coadd_header(self):
-
+    def build_coadd_header(self, path_header: str = None):
         # Processing info
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
         tstart = time.time()
 
+        # Set default output path
+        if path_header is None:
+            path_header = self.setup.path_coadd_header
+
         # Check if header exists
         if (
-            check_file_exists(
-                file_path=self.setup.path_coadd_header, silent=self.setup.silent
-            )
+            check_file_exists(file_path=path_header, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
             return
@@ -1621,7 +1835,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         message_calibration(
             n_current=1,
             n_total=1,
-            name=self.setup.path_coadd_header,
+            name=path_header,
             d_current=None,
             d_total=None,
             silent=self.setup.silent,
@@ -1629,7 +1843,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Construct header from projection if set
         if self.setup.projection is not None:
-
             # Force the header in the setup, if set
             if self.setup.projection.force_header:
                 header_coadd = self.setup.projection.header
@@ -1642,7 +1855,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Otherwise construct from input
         else:
-
             # Get optimal rotation of frame
             rotation_test = np.arange(0, 360, 0.05)
             area = []
@@ -1652,7 +1864,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                     proj_code="ZEA",
                     rotation=np.deg2rad(rot),
                     enlarge=0.5,
-                    cdelt=self.setup.pixel_scale_degrees,
+                    cdelt=(1 / 3) / 3600,
                 )
                 area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
 
@@ -1664,7 +1876,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 enlarge=1.0,
                 rotation=np.deg2rad(np.round(rotation, 2)),
                 round_crval=True,
-                cdelt=self.setup.pixel_scale_degrees,
+                cdelt=(1 / 3) / 3600,
             )
 
         # Dummy check
@@ -1675,7 +1887,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             )
 
         # Write coadd header to disk
-        header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
+        header_coadd.totextfile(path_header, overwrite=True)
 
         # Print time
         print_message(
@@ -1701,10 +1913,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             weightout_name=self.setup.path_coadd_weight,
             nthreads=self.setup.n_jobs,
             resample_suffix=sws.resample_suffix,
+            resampling_type=self.setup.resampling_kernel.upper(),
             gain_keyword=self.setup.keywords.gain,
             satlev_keyword=self.setup.keywords.saturate,
-            back_size=self.setup.swarp_back_size,
-            back_filtersize=self.setup.swarp_back_filtersize,
             fscale_keyword="FSCLSTCK",
             skip=["weight_image", "weight_thresh", "resample_dir"],
         )
@@ -1727,7 +1938,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Run for each individual image and make MEF
         for idx_file in range(self.n_files):
-
             # Construct output path
             outpath = "{0}{1}{2}".format(
                 self.setup.folders["resampled"],
@@ -1807,7 +2017,6 @@ class SkyImagesResampled(SkyImagesProcessed):
         super(SkyImagesResampled, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_stacks(self):
-
         # Processing info
         print_header(
             header="CREATING STACKS", silent=self.setup.silent, left=None, right=None
@@ -1826,7 +2035,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             raise ValueError("Sequence contains {0} offsets. Expected 6.")
 
         for idx_split in range(len(split)):
-
             # Grab files
             files = split[idx_split]
 
@@ -1882,7 +2090,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             for idx_data_hdu, idx_iter_hdu in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
-
                 # Construct output path
                 paths_temp_stacks.append(
                     "{0}_{1:02d}.fits".format(path_stack, idx_data_hdu)
@@ -1921,7 +2128,6 @@ class SkyImagesResampled(SkyImagesProcessed):
 
                 # Modify FITS header of combined image
                 with fits.open(paths_temp_stacks[-1], mode="update") as hdul:
-
                     # Set keywords
                     hdul[0].header.set(
                         "NOFFSETS", value=cpkw_dict["NOFFSETS"][idx_first][idx_iter_hdu]
@@ -2144,6 +2350,9 @@ class SkyImagesResampled(SkyImagesProcessed):
 
     def build_tile(self):
 
+        # Fetch log
+        log = PipelineLog()
+
         # Processing info
         print_header(
             header="CREATING TILE",
@@ -2152,9 +2361,11 @@ class SkyImagesResampled(SkyImagesProcessed):
             right=None,
         )
         tstart = time.time()
+        log.info(f"Creating tile with {len(self)} images:\n{self.basenames2log()}")
 
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
+        log.info(f"Loaded Swarp preset used: {sws.preset_coadd}")
 
         ss = yml2config(
             path_yml=sws.preset_coadd,
@@ -2168,9 +2379,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
         # Construct commands for swarping
-        cmd = "{0} {1} -c {2} {3}".format(
-            sws.bin, " ".join(self.paths_full), sws.default_config, ss
-        )
+        cmd = f"{sws.bin} {' '.join(self.paths_full)} -c '{sws.default_config}' {ss}"
+
+        # Add swarp command to log
+        log.info(f"Swarp command: {cmd}")
 
         # Run Swarp
         if (
@@ -2179,9 +2391,12 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             and not self.setup.overwrite
         ):
-
             # Run Swarp
-            run_command_shell(cmd=cmd, silent=True)
+            stdout, stderr = run_command_shell(cmd=cmd, silent=True)
+
+            # Add stdout and stderr to log
+            log.info(f"Scamp stdout:\n{stdout}")
+            log.info(f"Scamp stderr:\n{stderr}")
 
             # Compute estimate of astrometric RMS
             cpkw = ["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"]
@@ -2201,11 +2416,14 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
                 * 3_600_000
             )
+            log.info(f"Internal astr. dispersion RMS: {astirms:.2f} mas")
+            log.info(f"External astr. dispersion RMS: {astrrms:.2f} mas")
 
             # Copy/add primary header entries
             with fits.open(
                 self.setup.path_coadd, mode="update"
             ) as hdul_tile, fits.open(self.paths_full[0], mode="readonly") as hdu_paw0:
+
                 hdul_tile[0].header.set(
                     keyword=self.setup.keywords.object,
                     value=hdu_paw0[0].header[self.setup.keywords.object],
@@ -2233,6 +2451,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     backmod, backsig, backskew = mmm(coadd[:: coadd.size // 50_000_000])
                 else:
                     backmod, backsig, backskew = mmm(coadd)
+                log.info(f"Background mode: {backmod:.3f}")
+                log.info(f"Background sigma: {backsig:.3f}")
+                log.info(f"Background skew: {backskew:.3f}")
 
                 # Put background info into header
                 hdul_tile[0].header.set(
@@ -2245,22 +2466,28 @@ class SkyImagesResampled(SkyImagesProcessed):
                     "BACKSKEW", value=np.round(backskew, 3), comment="Background skew"
                 )
 
+                # Add setup to header
+                self.setup.add_setup_to_header(header=hdul_tile[0].header)
+
                 # Add archive names of input
+                log.info("Adding ARCFILE names to header:")
                 arcnames = self.read_from_prime_headers(keywords=["ARCFILE"])[0]
                 for idx in range(len(arcnames)):
                     hdul_tile[0].header.set(
                         "HIERARCH PYPE ARCNAME {0:04d}".format(idx), arcnames[idx]
                     )
+                    log.info(f"ARCFILE {idx:04d}: {arcnames[idx]}")
 
         # Print time
+        ttime = time.time() - tstart
+        log.info(f"Elapsed time for tile creation: {ttime:.2f}s")
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {ttime:.2f}s",
             kind="okblue",
             end="\n",
         )
 
     def build_statistics(self):
-
         # Processing info
         print_header(
             header="IMAGE STATISTICS", silent=self.setup.silent, left=None, right=None
@@ -2348,7 +2575,6 @@ class SkyImagesResampled(SkyImagesProcessed):
 
             # Loop over extensions
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
                 # Read header
                 header_original = self.headers_data[idx_file][idx_hdu]
 
@@ -2443,7 +2669,6 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
     def coadd_statistics_stacks(self, mode):
-
         # Processing info
         print_header(
             header="STACKS STATISTICS {0}".format(mode.upper()),
@@ -2458,7 +2683,6 @@ class SkyImagesResampled(SkyImagesProcessed):
 
         # Loop over OFFSETs
         for idx_split in range(len(split)):
-
             # Grab current files
             files = split[idx_split]
 
@@ -2499,7 +2723,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             for idx_data_hdu, idx_iter_hdu in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
-
                 # Construct output path
                 paths_temp_stacks.append(
                     "{0}_{1:02d}.fits".format(path_stack, idx_data_hdu)
@@ -2567,7 +2790,6 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
     def coadd_statistics_tile(self, mode):
-
         # Processing info
         print_header(
             header="TILE STATISTICS {0}".format(mode.upper()),
@@ -2617,7 +2839,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
         # Run Swarp
-        print_message(message="Coadding {0}".format(os.path.basename(outpath)))
+        print_message(message=f"Coadding {os.path.basename(outpath)}")
         run_command_shell(cmd=cmd, silent=True)
 
         # Remove temp image lists
@@ -2730,7 +2952,7 @@ class MasterSky(MasterImages):
     # =========================================================================== #
     # QC
     # =========================================================================== #
-    def paths_qc_plots(self, paths):
+    def paths_qc_plots(self, paths, mode):
         """
         Generates paths for QC plots
 
@@ -2738,6 +2960,8 @@ class MasterSky(MasterImages):
         ----------
         paths : iterable
             Input paths to override internal paths
+        mode : str
+            QC mode. Can be either "sky" or "sky_stability".
 
         Returns
         -------
@@ -2746,10 +2970,17 @@ class MasterSky(MasterImages):
         """
 
         if paths is None:
-            return [
-                "{0}{1}.pdf".format(self.setup.folders["qc_sky"], fp)
-                for fp in self.basenames
-            ]
+            if mode == "sky":
+                return [
+                    f"{self.setup.folders['qc_sky']}{fp}.pdf" for fp in self.basenames
+                ]
+            elif mode == "sky_stability":
+                return [
+                    f"{self.setup.folders['qc_sky']}{fp}_stability.pdf"
+                    for fp in self.basenames
+                ]
+            else:
+                raise ValueError(f"Unknown QC sky plot mode: {mode}")
         else:
             return paths
 
@@ -2768,13 +2999,12 @@ class MasterSky(MasterImages):
 
         # Import matplotlib
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Plot paths
-        paths = self.paths_qc_plots(paths=paths)
+        paths = self.paths_qc_plots(paths=paths, mode="sky")
 
         for sky, noise, mjd, path in zip(self.sky, self.noise, self.sky_mjd, paths):
-
             # Get plot grid
             fig, axes = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -2795,7 +3025,6 @@ class MasterSky(MasterImages):
 
             # Plot
             for idx in range(len(sky)):
-
                 # Grab axes
                 ax = axes[idx]
 
@@ -2857,6 +3086,61 @@ class MasterSky(MasterImages):
                 xticks, yticks = ax.xaxis.get_major_ticks(), ax.yaxis.get_major_ticks()
                 xticks[0].set_visible(False)
                 yticks[0].set_visible(False)
+
+            # Save plot
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="tight_layout : falling back to Agg renderer"
+                )
+                fig.savefig(path, bbox_inches="tight")
+            plt.close("all")
+
+    def qc_plot_sky_stability(self, paths=None, axis_size=5):
+        # Import matplotlib
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Plot paths
+        paths = self.paths_qc_plots(paths=paths, mode="sky_stability")
+
+        for sky, mjd, path in zip(self.sky, self.sky_mjd, paths):
+            # Subtract median from eavh sky level
+            sky = [s - np.median(s) for s in sky]
+
+            # Get some helper variables
+            mjd_floor = np.floor(np.min(mjd))
+            xmin, xmax = 0.999 * np.min(24 * (mjd - mjd_floor)), 1.001 * np.max(
+                24 * (mjd - mjd_floor)
+            )
+            ymin, ymax = np.min(sky), np.max(sky)
+
+            # Create figure
+            fig, ax = plt.subplots(
+                nrows=1, ncols=1, **{"figsize": [axis_size, axis_size * 0.6]}
+            )
+
+            for ss, mm in zip(sky, mjd):
+                ax.plot(24 * (mm - mjd_floor), ss, alpha=0.75)
+
+            # Labels
+            ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
+            ax.set_ylabel("Sky level - median (ADU)")
+
+            # Set ranges
+            ax.set_xlim(
+                xmin=floor_value(data=xmin, value=0.02),
+                xmax=ceil_value(data=xmax, value=0.02),
+            )
+            ax.set_ylim(
+                ymin=floor_value(data=ymin, value=10),
+                ymax=ceil_value(data=ymax, value=10),
+            )
+
+            # Set ticks
+            ax.xaxis.set_major_locator(MaxNLocator(5))
+            ax.xaxis.set_minor_locator(AutoMinorLocator())
+            ax.yaxis.set_major_locator(MaxNLocator(5))
+            ax.yaxis.set_minor_locator(AutoMinorLocator())
 
             # Save plot
             with warnings.catch_warnings():

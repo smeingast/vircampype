@@ -3,10 +3,18 @@
 
 import numpy as np
 
-__all__ = ["mmm"]
+__all__ = ["mmm", "skymode"]
 
 
-def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, minsky=20, nan=True):
+def mmm(
+    sky_vector,
+    highbad=False,
+    debug=False,
+    readnoise=False,
+    mxiter=50,
+    minsky=20,
+    nan=True,
+):
     """Estimate the sky background in a stellar contaminated field.
 
     MMM assumes that contaminated sky pixel values overwhelmingly display
@@ -107,17 +115,21 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
         skew = np.nan
         skymod = np.nan
         if debug:
-            print('ERROR -Input vector must contain at least ' + str(minsky) + ' elements')
+            print(
+                "ERROR -Input vector must contain at least " + str(minsky) + " elements"
+            )
         return skymod, sigma, skew
 
     nlast = nsky - 1  # Subscript of last pixel in SKY array
     if debug:
-        print('Processing ' + str(nsky) + ' element array')
+        print("Processing " + str(nsky) + " element array")
     # sz_sky = np.shape(sky_vector)
 
     sky = np.sort(sky_vector)  # Sort SKY in ascending values
 
-    skymid = 0.5 * sky[int((nsky - 1) / 2)] + 0.5 * sky[int(nsky / 2)]  # Median value of all sky values
+    skymid = (
+        0.5 * sky[int((nsky - 1) / 2)] + 0.5 * sky[int(nsky / 2)]
+    )  # Median value of all sky values
 
     cut1 = np.min([skymid - sky[0], sky[nsky - 1] - skymid])
     if highbad:
@@ -134,12 +146,14 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
         skew = np.nan
         skymod = np.nan
         if debug:
-            print('ERROR - No sky values fall within ' + str(cut1) + ' and ' + str(cut2))
+            print(
+                "ERROR - No sky values fall within " + str(cut1) + " and " + str(cut2)
+            )
         return skymod, sigma, skew
 
     delta = sky[good] - skymid  # Subtract median to improve arithmetic accuracy
-    mysum = np.sum(delta.astype('float64'))
-    sumsq = np.sum(delta.astype('float64') ** 2)
+    mysum = np.sum(delta.astype("float64"))
+    sumsq = np.sum(delta.astype("float64") ** 2)
 
     maximm = np.max(good)
     minimm = np.min(good)  # Highest value accepted at upper end of vector
@@ -147,16 +161,19 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
 
     # Compute mean and sigma (from the first pass).
 
-    skymed = 0.5 * sky[int((minimm + maximm + 1) / 2)] + 0.5 * sky[int((minimm + maximm) / 2 + 1)]  # median
+    skymed = (
+        0.5 * sky[int((minimm + maximm + 1) / 2)]
+        + 0.5 * sky[int((minimm + maximm) / 2 + 1)]
+    )  # median
     skymn = mysum / (maximm - minimm)  # mean
-    sigma = np.sqrt(sumsq / (maximm - minimm) - skymn ** 2)  # sigma
+    sigma = np.sqrt(sumsq / (maximm - minimm) - skymn**2)  # sigma
     skymn = skymn + skymid  # Add median which was subtracted off earlier
 
     #    If mean is less than the mode, then the contamination is slight, and the
     #    mean value is what we really want.
     #    skymod =  (skymed < skymn) ? 3.*skymed - 2.*skymn : skymn
     if skymed < skymn:
-        skymod = 3. * skymed - 2. * skymn
+        skymod = 3.0 * skymed - 2.0 * skymn
     else:
         skymod = skymn
 
@@ -173,22 +190,30 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
             sigma = np.nan
             skew = np.nan
             if debug:
-                print('ERROR - Too many (' + str(mxiter) + ') iterations,' + ' unable to compute sky')
+                print(
+                    "ERROR - Too many ("
+                    + str(mxiter)
+                    + ") iterations,"
+                    + " unable to compute sky"
+                )
             #            import pdb; pdb.set_trace()
             return skymod, sigma, skew
 
         if maximm - minimm < minsky:  # Error?
-
             sigma = -1.0
             skew = 0.0
             if debug:
-                print('ERROR - Too few (' + str(maximm - minimm) + ') valid sky elements, unable to compute sky')
+                print(
+                    "ERROR - Too few ("
+                    + str(maximm - minimm)
+                    + ") valid sky elements, unable to compute sky"
+                )
             return skymod, sigma, skew
 
         # Compute Chauvenet rejection criterion.
 
         r = np.log10(float(maximm - minimm))
-        r = np.max([2., (-0.1042 * r + 1.1695) * r + 0.8895])
+        r = np.max([2.0, (-0.1042 * r + 1.1695) * r + 0.8895])
 
         # Compute rejection limits (symmetric about the current mode).
 
@@ -229,11 +254,11 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
                         done = 1
 
             if tst_min:
-                delta = sky[newmin + 1:minimm + 1] - skymid
+                delta = sky[newmin + 1 : minimm + 1] - skymid
             else:
-                delta = sky[minimm + 1:newmin + 1] - skymid
+                delta = sky[minimm + 1 : newmin + 1] - skymid
             mysum = mysum - istep * np.sum(delta)
-            sumsq = sumsq - istep * np.sum(delta ** 2)
+            sumsq = sumsq - istep * np.sum(delta**2)
             redo = True
             minimm = newmin
 
@@ -264,11 +289,11 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
                         done = 1
 
             if tst_max:
-                delta = sky[maximm + 1:newmax + 1] - skymid
+                delta = sky[maximm + 1 : newmax + 1] - skymid
             else:
-                delta = sky[newmax + 1:maximm + 1] - skymid
+                delta = sky[newmax + 1 : maximm + 1] - skymid
             mysum = mysum + istep * np.sum(delta)
-            sumsq = sumsq + istep * np.sum(delta ** 2)
+            sumsq = sumsq + istep * np.sum(delta**2)
             redo = True
             maximm = newmax
 
@@ -280,11 +305,11 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
             sigma = np.nan
             skew = np.nan
             if debug:
-                print('ERROR - Outlier rejection left too few sky elements')
+                print("ERROR - Outlier rejection left too few sky elements")
             return skymod, sigma, skew
 
         skymn = mysum / nsky
-        var = sumsq / nsky - skymn ** 2
+        var = sumsq / nsky - skymn**2
         if var < 0:
             var = 0
         sigma = float(np.sqrt(var))
@@ -296,8 +321,8 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
         #  the median, whether the total number is even or odd within the acceptance
         #  interval
 
-        center = (minimm + 1 + maximm) / 2.
-        side = np.round(0.2 * (maximm - minimm)) / 2. + 0.25
+        center = (minimm + 1 + maximm) / 2.0
+        side = np.round(0.2 * (maximm - minimm)) / 2.0 + 0.25
         j = np.round(center - side)
         k = np.round(center + side)
 
@@ -309,18 +334,24 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
             ll = round(center - 0.25)
             mm = round(center + 0.25)
             rr = 0.25 * readnoise
-            while ((j > 0) and (k < nsky - 1) and
-                   (((sky[int(ll)] - sky[int(j)]) < rr) or ((sky[int(k)] - sky[int(mm)]) < rr))):
+            while (
+                (j > 0)
+                and (k < nsky - 1)
+                and (
+                    ((sky[int(ll)] - sky[int(j)]) < rr)
+                    or ((sky[int(k)] - sky[int(mm)]) < rr)
+                )
+            ):
                 j -= 1
                 k += 1
 
-        skymed = np.sum(sky[int(j):int(k + 1)]) / (k - j + 1)
+        skymed = np.sum(sky[int(j) : int(k + 1)]) / (k - j + 1)
 
         #  If the mean is less than the median, then the problem of contamination
         #  is slight, and the mean is what we really want.
 
         if skymed < skymn:
-            dmod = 3. * skymed - 2. * skymn - skymod
+            dmod = 3.0 * skymed - 2.0 * skymn - skymod
         else:
             dmod = skymn - skymod
 
@@ -333,11 +364,21 @@ def mmm(sky_vector, highbad=False, debug=False, readnoise=False, mxiter=50, mins
     #   if redo then goto, START_LOOP
 
     #
-    skew = float((skymn - skymod) / max([1., sigma]))
+    skew = float((skymn - skymod) / max([1.0, sigma]))
     nsky = maximm - minimm
 
     if debug:
-        print('% MMM: Number of unrejected sky elements: ', str(nsky), '    Number of iterations: ', str(niter))
-        print('% MMM: Mode, Sigma, Skew of sky vector:', skymod, sigma, skew)
+        print(
+            "% MMM: Number of unrejected sky elements: ",
+            str(nsky),
+            "    Number of iterations: ",
+            str(niter),
+        )
+        print("% MMM: Mode, Sigma, Skew of sky vector:", skymod, sigma, skew)
 
     return skymod, sigma, skew
+
+
+def skymode(sky_vector, **kwargs):
+    """Dummy function to return only the sky mode value."""
+    return mmm(sky_vector=sky_vector, **kwargs)[0]

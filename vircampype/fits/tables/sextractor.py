@@ -1,47 +1,42 @@
 import os
-import time
 import pickle
+import time
 import warnings
-import numpy as np
-
-from astropy.io import fits
 from itertools import repeat
-from astropy.time import Time
-from joblib import Parallel, delayed
-from vircampype.tools.plottools import *
-from vircampype.tools.messaging import *
-from vircampype.tools.fitstools import *
-from vircampype.tools.mathtools import *
-from astropy.units import Quantity, Unit
+
+import numpy as np
 from astropy.coordinates import SkyCoord
-from vircampype.tools.tabletools import *
-from vircampype.tools.astromatic import *
-from vircampype.tools.photometry import *
-from vircampype.tools.imagetools import *
-from vircampype.tools.systemtools import *
-from vircampype.data.cube import ImageCube
-from sklearn.neighbors import KernelDensity
-from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
+from astropy.io import fits
+from astropy.stats import sigma_clip, sigma_clipped_stats
+from astropy.table import Table
+from astropy.table import hstack as thstack
+from astropy.table import vstack as tvstack
+from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
-from sklearn.neighbors import NearestNeighbors
-from vircampype.tools.tabletools import add_zp_2mass
+from joblib import Parallel, delayed
+from sklearn.neighbors import KernelDensity, NearestNeighbors
+
+from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
+from vircampype.pipeline.log import PipelineLog
+from vircampype.tools.astromatic import *
+from vircampype.tools.fitstools import *
+from vircampype.tools.imagetools import *
+from vircampype.tools.mathtools import *
+from vircampype.tools.messaging import *
 from vircampype.tools.messaging import message_qc_astrometry
-from astropy.table import Table, vstack as tvstack, hstack as thstack
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.photometry import *
+from vircampype.tools.plottools import *
+from vircampype.tools.systemtools import *
+from vircampype.tools.tabletools import *
 
 
 class SextractorCatalogs(SourceCatalogs):
-    def __init__(self, setup, file_paths=None):
-        super(SextractorCatalogs, self).__init__(file_paths=file_paths, setup=setup)
-
-    @property
-    def _key_ra(self):
-        return "ALPHAWIN_SKY"
-
-    @property
-    def _key_dec(self):
-        return "DELTAWIN_SKY"
+    def __init__(self, setup, file_paths=None, **kwargs):
+        super(SextractorCatalogs, self).__init__(
+            file_paths=file_paths, setup=setup, **kwargs
+        )
 
     @property
     def iter_data_hdu(self):
@@ -105,8 +100,27 @@ class SextractorCatalogs(SourceCatalogs):
         return " ".join(self.paths_full)
 
     def scamp(self):
+
+        # Fetch log
+        log = PipelineLog()
+
+        # Processing info
+        print_header(header="SCAMP", silent=self.setup.silent)
+        tstart = time.time()
+        log.info(f"Running scamp on {self.n_files} files:\n{self.basenames2log()}")
+
+        # Print source count in eachdata extension to log
+        for idx, fn in enumerate(self.basenames):
+            log.info(f"File: {fn}")
+            tables = self.file2table(file_index=idx)
+            for hdu, tt in zip(self.iter_data_hdu[idx], tables):
+                log.info(
+                    f"Extension {hdu}: {len(tt)}/{len(tt[tt["FLAGS"] == 0])} "
+                    f"total/FLAGS=0 sources"
+                )
+
         # Construct XML path
-        path_xml = "{0}scamp.xml".format(self.setup.folders["qc_astrometry"])
+        path_xml = f"{self.setup.folders['qc_astrometry']}scamp.xml"
 
         # Check for external headers
         ehdrs = [os.path.isfile(p) for p in self._scamp_header_paths(joined=False)]
@@ -116,14 +130,18 @@ class SextractorCatalogs(SourceCatalogs):
             print("Scamp headers already exist")
             return
 
+        # Load astrometric reference
+        astrefact_name = self.get_master_astrometry().paths_full[0]
+
+        # Add to log
+        log.info(f"Astrometric reference: {astrefact_name}")
+
         # Load Scamp setup
         scs = ScampSetup(setup=self.setup)
 
         # Load preset
         options = yml2config(
-            path_yml=get_resource_path(
-                package=scs.package_presets, resource="scamp.yml"
-            ),
+            path_yml=scs.path_config_preset,
             nthreads=self.setup.n_jobs,
             checkplot_type=scs.qc_types(joined=True),
             checkplot_name=scs.qc_names(joined=True),
@@ -131,7 +149,14 @@ class SextractorCatalogs(SourceCatalogs):
                 "HEADER_NAME",
                 "AHEADER_NAME",
                 "ASTREF_CATALOG",
-                "ASTREF_BAND",
+                "ASTREFCAT_NAME",
+                "ASTREFCENT_KEYS",
+                "ASTREFERR_KEYS",
+                "ASTREFPROP_KEYS",
+                "ASTREFPROPERR_KEYS",
+                "ASTREFMAG_KEY",
+                "ASTREFMAGERR_KEY",
+                "ASTREFOBSDATE_KEY",
                 "FLAGS_MASK",
                 "WEIGHTFLAGS_MASK",
                 "ASTR_FLAGSMASK",
@@ -139,201 +164,37 @@ class SextractorCatalogs(SourceCatalogs):
             ],
         )
 
-        # Get passband
-        if "gaia" in self.setup.astr_reference_catalog.lower():
-            catalog_name = "GAIA-EDR3"
-            band_name = "G"
-        elif "2mass" in self.setup.astr_reference_catalog.lower():
-            catalog_name = "2MASS"
-            bands = list(set(self.passband))
-            if len(bands) != 1:
-                raise ValueError("Sequence contains multiple filters")
-            else:
-                band_name = bands[0][0]  # This should only keep J,H, and K for 2MASS
-                band_name = "Ks" if "k" in band_name.lower() else band_name
-        else:
-            raise ValueError(
-                "Astrometric reference catalog '{0}' not supported"
-                "".format(self.setup.astr_reference_catalog)
-            )
-
         # Construct command for scamp
         cmd = (
-            "{0} {1} -c {2} -HEADER_NAME {3} -ASTREF_CATALOG {4} "
-            "-ASTREF_BAND {5} -XML_NAME {6} {7}"
-            "".format(
-                scs.bin,
-                self._scamp_catalog_paths,
-                scs.default_config,
-                self._scamp_header_paths(joined=True),
-                catalog_name,
-                band_name,
-                path_xml,
-                options,
-            )
+            f"{scs.bin} {self._scamp_catalog_paths} "
+            f"-c {scs.path_config_default} "
+            f"-HEADER_NAME {self._scamp_header_paths(joined=True)} "
+            f"-ASTREF_CATALOG FILE "
+            f"-ASTREFCAT_NAME {astrefact_name} "
+            f"-ASTREFCENT_KEYS ra,dec "
+            f"-ASTREFERR_KEYS ra_error,dec_error "
+            f"-ASTREFPROP_KEYS pmra,pmdec "
+            f"-ASTREFPROPERR_KEYS pmra_error,pmdec_error "
+            f"-ASTREFMAG_KEY mag "
+            f"-ASTREFMAGERR_KEY mag_error "
+            f"-ASTREFOBSDATE_KEY obsdate "
+            f"-XML_NAME {path_xml} {options}"
         )
 
+        # Add scamp command to log
+        log.info(f"Scamp command: {cmd}")
+
         # Run Scamp
-        run_command_shell(cmd, silent=False)
+        stdout, stderr = run_command_shell(cmd, silent=False)
+
+        # Add stdout and stderr to log
+        log.info(f"Scamp stdout:\n{stdout}")
+        log.info(f"Scamp stderr:\n{stderr}")
 
         # Some basic QC on XML
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
-
-        # # Normalize FLXSCALE across all headers
-        # flxscale = []
-        # for path_ahead in self._scamp_header_paths():
-        #     hdrs = read_aheaders(path=path_ahead)
-        #     flxscale.extend([h["FLXSCALE"] for h in hdrs])
-        #
-        #     # Make a backup
-        #     path_backup = path_ahead + ".backup"
-        #     if not os.path.isfile(path_backup):
-        #         copyfile(path_ahead, path_backup)
-        #
-        # # Compute norm
-        # flxscale_norm = np.mean(flxscale)
-        #
-        # # Loop again and rewrite this time
-        # for path_ahead in self._scamp_header_paths():
-        #     hdrs = read_aheaders(path=path_ahead)
-        #     for h in hdrs:
-        #         h["FSCLORIG"] = (h["FLXSCALE"], "Original scamp flux scale")
-        #         h["FSCLSTCK"] = (h["FLXSCALE"] /
-        #                          flxscale_norm,
-        #                          "SCAMP relative flux scale for stacks")
-        #         del h["FLXSCALE"]
-        #
-        #     # Rewrite file with new scale
-        #     write_aheaders(headers=hdrs, path=path_ahead)
-
-    # =========================================================================== #
-    # PSFEx
-    # =========================================================================== #
-    def psfex(self, preset):
-        # Processing info
-        print_header(
-            header="PSFEx",
-            left="Running PSFEx on {0} files" "".format(len(self)),
-            right=None,
-            silent=self.setup.silent,
-        )
-        tstart = time.time()
-
-        # Load Sextractor setup
-        psfs = PSFExSetup(setup=self.setup)
-
-        # Read setup based on preset
-        if preset.lower() in ["pawprint", "tile"]:
-            ss = read_yml(path_yml=psfs.path_yml(preset=preset))
-        else:
-            raise ValueError("Preset '{0}' not supported".format(preset))
-
-        # Construct output psf paths
-        psf_paths = [
-            "{0}{1}".format(self.setup.folders["master_object"], fn).replace(
-                ".tab", ".psf"
-            )
-            for fn in self.basenames
-        ]
-
-        # Check for existing PSF models
-        done = [os.path.exists(p) for p in psf_paths]
-
-        # Print statement on already existing files
-        for p in psf_paths:
-            check_file_exists(file_path=p, silent=self.setup.silent)
-
-        # Return if nothing to be done
-        if sum(done) == len(self):
-            print_message(
-                message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-                kind="okblue",
-                end="\n",
-            )
-            return
-
-        # Read source tables and stack all HDUs in a file
-        options = []
-        for i in range(self.n_files):
-            # Read tables for current file
-            tables = self.file2table(file_index=i)
-
-            # Clean tables
-            fwhm_range = [float(x) for x in ss["SAMPLE_FWHMRANGE"].split(",")]
-            tables = [
-                clean_source_table(
-                    table=t,
-                    min_snr=ss["SAMPLE_MINSN"],
-                    max_ellipticity=ss["SAMPLE_MAXELLIP"],
-                    nndis_limit=5,
-                    min_fwhm=fwhm_range[0],
-                    max_fwhm=fwhm_range[1],
-                )
-                for t in tables
-            ]
-
-            # Loop over each HDU
-            fwhm_hdu = [clipped_median(t["FWHM_IMAGE"]) for t in tables]
-
-            # Determine sample FWHM range
-            sample_fwhmrange = [
-                0.8 * np.percentile(fwhm_hdu, 5),
-                1.5 * np.percentile(fwhm_hdu, 95),
-            ]
-
-            # Construct XML path
-            xml_name = "{0}XML_{1}.xml".format(
-                self.setup.folders["qc_psf"], self.basenames[i]
-            )
-
-            # Construct PSFEx options for current file
-            options.append(
-                yml2config(
-                    nthreads=1,
-                    checkplot_type=psfs.checkplot_types(joined=True),
-                    checkplot_name=psfs.checkplot_names(joined=True),
-                    checkimage_type=psfs.checkimage_types(joined=True),
-                    checkimage_name=psfs.checkimage_names(joined=True),
-                    sample_fwhmrange=",".join(
-                        ["{0:0.2f}".format(x) for x in sample_fwhmrange]
-                    ),
-                    sample_variability=0.5,
-                    xml_name=xml_name,
-                    psf_dir=self.setup.folders["master_object"],
-                    skip=["homokernel_dir"],
-                    path_yml=psfs.path_yml(preset=preset),
-                )
-            )
-
-        # Construct commands
-        cmds = [
-            "{0} {1} -c {2} {3}".format(psfs.bin, tab, psfs.default_config, o)
-            for tab, o in zip(self.paths_full, options)
-        ]
-
-        # Clean commands
-        cmds = [c for c, d in zip(cmds, done) if not d]
-
-        # Set number of parallel jobs
-        n_jobs_psfex = 1
-        n_jobs_shell = self.setup.n_jobs
-
-        # If there are less files than parallel jobs, optimize psfex jobs
-        if (len(cmds) > 0) & (len(cmds) < self.setup.n_jobs):
-            n_jobs_shell = len(cmds)
-            while n_jobs_psfex * n_jobs_shell < self.setup.n_jobs:
-                n_jobs_psfex += 1
-
-            # Adapt commands
-            cmds = [
-                c.replace("NTHREADS 1", "NTHREADS {0}".format(n_jobs_psfex))
-                for c in cmds
-            ]
-
-        # Run PSFEX
-        run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_shell)
 
         # Print time
         print_message(
@@ -417,7 +278,10 @@ class SextractorCatalogs(SourceCatalogs):
 class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
     def __init__(self, setup, file_paths=None):
         super(AstrometricCalibratedSextractorCatalogs, self).__init__(
-            file_paths=file_paths, setup=setup
+            file_paths=file_paths,
+            setup=setup,
+            key_ra="ALPHAWIN_SKY",
+            key_dec="DELTAWIN_SKY",
         )
 
     def build_master_illumination_correction(self):
@@ -470,7 +334,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
             magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
-            skycoord_master = master_phot.skycoord()[0][0][mkeep]
+            skycoord_master = master_phot.skycoord[0][0][mkeep]
 
             data_headers, flx_scale, n_sources = [], [], []
             for idx_hdu, idx_hdr in zip(
@@ -497,7 +361,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     table=tab,
                     image_header=header,
                     flux_max=header["SEXSATLV"] * 0.8,
-                    border_pix=10,
+                    min_distance_to_edge=10,
                     nndis_limit=5,
                     min_fwhm=0.8,
                     max_fwhm=6.0,
@@ -505,19 +369,17 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
 
                 # Compute zero point depending on IC mode
-                if self.setup.ic_mode == "variable":
+                if self.setup.illumination_correction_mode == "variable":
                     method = "all"
-                elif self.setup.ic_mode == "constant":
+                elif self.setup.illumination_correction_mode == "constant":
                     method = "weighted"
                 else:
                     raise ValueError(
                         f"IC mode must be either 'variable' or 'constant', "
-                        f"not {self.setup.ic_mode}"
+                        f"not {self.setup.illumination_correction_mode}"
                     )
                 zp_all = get_zeropoint(
-                    skycoord1=SkyCoord(
-                        tab[self._key_ra], tab[self._key_dec], unit="deg"
-                    ),
+                    skycoord1=SkyCoord(tab[self.key_ra], tab[self.key_dec], unit="deg"),
                     mag1=tab["MAG_AUTO"],
                     magerr1=tab["MAGERR_AUTO"],
                     skycoord2=skycoord_master,
@@ -528,7 +390,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
 
                 # Compute illumination correction
-                if self.setup.ic_mode == "variable":
+                if self.setup.illumination_correction_mode == "variable":
                     # Remove all table entries without ZP entry
                     tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
 
@@ -667,25 +529,35 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         )
 
     def calibrate_photometry(self):
+
+        # Fetch log
+        log = PipelineLog()
+
         # Processing info
         print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
+        log.info(f"Calibrating photometry on {self.n_files} file(s)")
         tstart = time.time()
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()[0]
         mkeep = master_phot.get_purge_index(passband=self.passband[0][0])
         table_master = master_phot.file2table(file_index=0)[0][mkeep]
+        log.info(f"Master photometry: {master_phot.paths_full[0]}")
+        log.info(f"Master photometry: {len(table_master)} sources")
 
-        # Start loop over files
+        # Loop over files
         for idx_file in range(self.n_files):
+
             # Create output path
             path_out = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
+            log.info(f"File {idx_file + 1}/{self.n_files}; output path: {path_out}")
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info(f"File already exists, skipping")
                 continue
 
             # Print processing info
@@ -698,119 +570,269 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 silent=self.setup.silent,
             )
 
-            # Load table
+            # Load table and passband
             tables_file = self.file2table(file_index=idx_file)
-
-            # Load passband
             passband = self.passband[idx_file]
+            passband_2mass = master_phot.translate_passband(passband)
+            log.info(f"Number of HDUs: {len(tables_file)}")
+            log.info(f"Passband: {passband}")
+            log.info(f"2MASS passband: {passband_2mass}")
 
-            # Define magnitude columns to calibrate
-            columns_mag = [
-                "MAG_APER",
-                "MAG_APER_MATCHED",
-                "MAG_AUTO",
-            ]
-            columns_magerr = [
-                "MAGERR_APER",
-                "MAGERR_APER",
-                "MAGERR_AUTO",
-            ]
-
-            # Read original HDUList
+            # Read table HDUList
             table_hdulist = fits.open(self.paths_full[idx_file], mode="readonly")
 
             # Loop over tables
-            for tidx, tidx_hdu in zip(
-                range(len(tables_file)), self.iter_data_hdu[idx_file]
-            ):
-                tt = tables_file[tidx]
+            for tidx, tidx_hdu in enumerate(self.iter_data_hdu[idx_file]):
 
-                # Read aperture magnitudes
-                mag_aper = tt["MAG_APER"].quantity
+                # Get current table
+                log.info(f"Processing table {tidx + 1}/{len(tables_file)}")
+                table = tables_file[tidx][::1]  # TODO: Remove
+                log.info(f"Number of sources: {len(table)}")
 
-                # Replace masked columns with regular columns
-                fill_masked_columns(table=tt, fill_value=np.nan)
+                # Replace bad values with NaN
+                log.info("Replacing bad values with NaN")
+                sextractor_nanify_bad_values(table=table)
+
+                # Replace masked columns with regular columns and fill with NaN
+                log.info("Filling masked columns with NaN")
+                fill_masked_columns(table=table, fill_value=np.nan)
 
                 # Add aperture correction to table
-                tt.add_column((mag_aper[:, -1] - mag_aper.T).T, name="MAG_APER_COR")
+                log.info("Adding aperture correction to table")
+                table.add_column(
+                    (table["MAG_APER"][:, -1] - table["MAG_APER"].T).T,
+                    name="MAG_APER_COR",
+                )
 
-                for par in ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR"]:
-                    add_smoothed_value(
-                        table=tt,
-                        parameter=par,
-                        n_neighbors=100,
-                        max_dis=720,
-                    )
-
-                # Match apertures and add to table
-                mag_aper_matched = mag_aper + tt["MAG_APER_COR_INTERP"]
-                tt.add_column(mag_aper_matched, name="MAG_APER_MATCHED")
-
-                # Compute ZP and add calibrated photometry to catalog
-                add_zp_2mass(
-                    table=tt,
-                    table_2mass=table_master,
-                    key_ra=self._key_ra,
-                    key_dec=self._key_dec,
-                    mag_lim_ref=master_phot.mag_lim(passband),
+                # Get first-order ZP
+                log.info("Computing first-order zero point for table cleaning")
+                sc_table = SkyCoord(table[self.key_ra], table[self.key_dec], unit="deg")
+                sc_master = SkyCoord(
+                    table_master[master_phot.key_ra],
+                    table_master[master_phot.key_dec],
+                    unit="deg",
+                )
+                zp_auto, _ = get_zeropoint(
+                    skycoord1=sc_table,
+                    mag1=table["MAG_AUTO"],
+                    magerr1=table["MAGERR_AUTO"],
+                    skycoord2=sc_master,
+                    mag2=table_master[passband_2mass],
+                    magerr2=table_master[f"e_{passband_2mass}"],
                     method="weighted",
-                    passband_2mass=master_phot.translate_passband(passband),
-                    columns_mag=columns_mag,
-                    columns_magerr=columns_magerr,
                 )
 
-                # Add correction factor for the main calibrated mag measurement
-                sc1 = SkyCoord(tt[self._key_ra], tt[self._key_dec], unit="degree")
-                sc2 = SkyCoord(
-                    table_master["RAJ2000"], table_master["DEJ2000"], unit="degree"
+                # Determine flux limits from allowed magnitude range
+                flux_auto_max, flux_auto_min = 10 ** (
+                    -(master_phot.mag_lim(passband) - zp_auto) / 2.5
                 )
-                pb = master_phot.translate_passband(self.passband[idx_file][0])
-                zp_auto = get_zeropoint(
-                    skycoord1=sc1,
-                    mag1=tt["MAG_AUTO_CAL"].quantity,
-                    skycoord2=sc2,
-                    method="all",
-                    mag2=table_master[pb],
-                    mag_limits_ref=master_phot.mag_lim(passband),
+                log.info(
+                    f"FLUX_AUTO limits for clean catalog: "
+                    f"{flux_auto_min} - {flux_auto_max}"
                 )
-                zp_aper = get_zeropoint(
-                    skycoord1=sc1,
-                    mag1=tt["MAG_APER_MATCHED_CAL"].quantity,
-                    skycoord2=sc2,
-                    method="all",
-                    mag2=table_master[pb],
-                    mag_limits_ref=master_phot.mag_lim(passband=passband),
+
+                # Create clean source table
+                log.info("Creating clean source table")
+                table_clean, clean_idx = clean_source_table(
+                    table=table,
+                    min_distance_to_edge=25,
+                    min_fwhm=0.8,
+                    max_fwhm=6.0,
+                    max_ellipticity=0.25,
+                    nndis_limit=5,
+                    flux_auto_max=flux_auto_max,
+                    flux_auto_min=flux_auto_min,
+                    return_filter=True,
+                    finite_columns=[
+                        "FWHM_WORLD",
+                        "ELLIPTICITY",
+                        "MAG_AUTO",
+                        "MAGERR_AUTO",
+                    ],
+                    n_jobs=self.setup.n_jobs,
                 )
-                tt.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
-                tt.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
+                log.info(f"Created clean source table with {len(table_clean)} sources")
 
-                for par in ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"]:
-                    add_smoothed_value(
-                        table=tt,
-                        parameter=par,
-                        n_neighbors=100,
-                        max_dis=1800,
-                    )
+                # Add cleaned index to table
+                table.add_column(clean_idx, name="IDX_CLEAN")
 
-                # Replace HDU in original HDUList with modified table HDU
-                table_hdulist[tidx_hdu] = table2bintablehdu(tt)
+                # Compute nearest neighbors matrix
+                log.info("Computing nearest neighbors matrix")
+                max_dis = 1800.0
+                nn_dis, nn_idx = get_nearest_neighbors(
+                    x=table["XWIN_IMAGE"],
+                    y=table["YWIN_IMAGE"],
+                    x0=table_clean["XWIN_IMAGE"],
+                    y0=table_clean["YWIN_IMAGE"],
+                    max_dis=max_dis,
+                    n_neighbors=100,
+                    n_jobs=self.setup.n_jobs,
+                    leaf_size=50,
+                )
 
-                # Also add ZP info to header
-                for attr in ["zp", "zperr"]:
-                    for key, val in getattr(tt, attr).items():
-                        if attr == "zp":
-                            comment = "Zero point (mag)"
-                        else:
-                            comment = "Standard error of ZP (mag)"
-                        add_float_to_header(
-                            header=table_hdulist[tidx_hdu].header,
-                            key=key,
-                            value=val,
-                            comment=comment,
-                            decimals=4,
+                # Determine the number of parallel chunks from the number of sources
+                n_max = 200_000
+                n_per_job = n_max // self.setup.n_jobs
+                n_splits = int(np.ceil(len(table) / n_per_job))
+
+                # Split table
+                log.info(f"Splitting table into {n_splits} chunks")
+                table_chunks = split_table(table=table, n_splits=n_splits)
+                len_table_chunks = [len(chunk) for chunk in table_chunks]
+
+                # Compute weights with a 2 arcmin gaussian kernel
+                log.info("Computing weights for nearest neighbors")
+                nn_weights = (
+                    np.exp(-0.5 * (nn_dis / 360) ** 2)
+                    / table["MAGERR_AUTO"][:, np.newaxis] ** 2
+                )
+                nn_weights[np.isnan(nn_weights)] = 0
+
+                # Split matrices at same indices as table
+                nn_dis_chunks = np.split(nn_dis, np.cumsum(len_table_chunks)[:-1])
+                nn_weights_chunks = np.split(
+                    nn_weights, np.cumsum(len_table_chunks)[:-1]
+                )
+
+                # Interpolate values in loop
+                for par in ["MAG_APER_COR", "ELLIPTICITY", "FWHM_WORLD"]:
+                    log.info(f"Interpolating {par} values")
+
+                    # Grab data for nearest neighbors
+                    nn_data = table_clean[par][nn_idx]
+                    nn_data_chunks = np.split(nn_data, np.cumsum(len_table_chunks)[:-1])
+
+                    vals, vals_std, n_sources, max_dists = [], [], [], []
+                    for data, weights, dis in zip(
+                        nn_data_chunks, nn_weights_chunks, nn_dis_chunks
+                    ):
+
+                        # Replicate weights to third dimension if required
+                        if data.ndim == 3:
+                            weights = np.repeat(
+                                weights[:, :, np.newaxis], data.shape[2], axis=2
+                            )
+
+                        # sigma clip
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore")
+                            data = sigma_clip(
+                                data, axis=1, sigma=2.0, maxiters=3, masked=False
+                            )
+                        bad_data_mask = np.isnan(data)
+
+                        # Set weights to 0 and data to NaN for both masks
+                        data[bad_data_mask] = 0
+                        weights[bad_data_mask] = 0
+
+                        # Compute number of non-zero weights
+                        n_sources.append(np.sum(weights > 0, axis=1))
+
+                        # Compute maximum distance
+                        max_dists.append(np.nanmax(dis, axis=1))
+
+                        # Compute weighted average and standard deviation
+                        vals.append(np.average(data, axis=1, weights=weights))
+                        vals_std.append(
+                            np.sqrt(
+                                np.average(
+                                    (data - vals[-1][:, np.newaxis]) ** 2,
+                                    axis=1,
+                                    weights=weights,
+                                )
+                            )
                         )
 
+                    # Flatten lists and add to table
+                    table[f"{par}_INTERP"] = np.concatenate(vals).astype(np.float32)
+                    table[f"{par}_INTERP_STD"] = np.concatenate(vals_std).astype(
+                        np.float32
+                    )
+                    table[f"{par}_INTERP_N"] = np.concatenate(n_sources).astype(
+                        np.int16
+                    )
+                    table[f"{par}_INTERP_MAXDIS"] = np.concatenate(max_dists).astype(
+                        np.float32
+                    )
+                    log.info(f"Interpolated {par} values")
+
+                # Match apertures and add to table
+                log.info("Matching apertures")
+                mag_aper_matched = table["MAG_APER"] + table["MAG_APER_COR_INTERP"]
+                table.add_column(mag_aper_matched, name="MAG_APER_MATCHED")
+
+                # Add ZP attribute to the table
+                setattr(table, "zp", dict())
+                setattr(table, "zperr", dict())
+
+                # Create skycoord instances
+                log.info("Creating SkyCoord instances")
+                sc_table = SkyCoord(table[self.key_ra], table[self.key_dec], unit="deg")
+                sc_master = SkyCoord(
+                    table_master[master_phot.key_ra],
+                    table_master[master_phot.key_dec],
+                    unit="deg",
+                )
+
+                # Compute zero points for all magnitude columns
+                for cmag, cmagerr in zip(
+                    ["MAG_APER", "MAG_APER_MATCHED", "MAG_AUTO"],
+                    ["MAGERR_APER", "MAGERR_APER", "MAGERR_AUTO"],
+                ):
+                    log.info(f"Computing zeropoint for {cmag} column")
+                    zeropoint, zeropoint_err = get_zeropoint(
+                        skycoord1=sc_table,
+                        skycoord2=sc_master,
+                        mag1=table[cmag].data,
+                        mag2=table_master[passband_2mass].data,
+                        magerr1=table[cmagerr].data,
+                        magerr2=table_master[f"e_{passband_2mass}"].data,
+                        mag_limits_ref=master_phot.mag_lim(passband),
+                        method="weighted",
+                    )
+                    log.info(f"Computed zeropoint for {cmag} column")
+                    log.info(f"zeropoint: {zeropoint}")
+                    log.info(f"zeropoint_error: {zeropoint_err}")
+
+                    # Add calibrated magnitudes to table
+                    table[f"{cmag}_CAL"] = np.float32(table[cmag] + zeropoint)
+
+                    # Write ZPs and errors into attribute
+                    log.info(f"Adding calibrated magnitudes for {cmag} column")
+                    hpz = "HIERARCH PYPE ZP"
+                    if hasattr(zeropoint, "__len__"):
+                        for idx, (zp, zperr) in enumerate(
+                            zip(zeropoint, zeropoint_err)
+                        ):
+                            table.zp[f"{hpz} {cmag} {idx}"] = zp  # noqa
+                            table.zperr[f"{hpz} ERR {cmag} {idx}"] = zperr  # noqa
+                    else:
+                        table.zp[f"{hpz} {cmag}"] = zeropoint  # noqa
+                        table.zperr[f"{hpz} ERR {cmag}"] = zeropoint_err  # noqa
+
+                    # Replace HDU in original HDUList with modified table HDU
+                    table_hdulist[tidx_hdu] = table2bintablehdu(table)
+
+                    # Mapping for attribute to comment
+                    attr_to_comment = {
+                        "zp": "Zero point (mag)",
+                        "zperr": "Standard error of ZP (mag)",
+                    }
+
+                    # Add ZP info to header
+                    log.info("Adding ZP info to header")
+                    for attr, comment in attr_to_comment.items():
+                        for key, val in getattr(table, attr).items():
+                            add_float_to_header(
+                                header=table_hdulist[tidx_hdu].header,
+                                key=key,
+                                value=val,
+                                comment=comment,
+                                decimals=4,
+                            )
+
             # Write to new output file
+            log.info(f"Writing calibrated photometry to {path_out}")
             table_hdulist.writeto(path_out, overwrite=self.setup.overwrite)
 
             # Close original file
@@ -836,7 +858,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         fpa_layout = self.setup.fpa_layout
 
         # Obtain master coordinates
-        sc_master_raw = self.get_master_astrometry().skycoord()[0][0]
+        sc_master_raw = self.get_master_astrometry().skycoord[0][0]
 
         # Apply space motion to match data obstime
         with warnings.catch_warnings():
@@ -860,7 +882,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 continue
 
             # Grab coordinates
-            sc_file = self.skycoord()[idx_file]
+            sc_file = self.skycoord[idx_file]
 
             # Coadd mode
             if len(self) == 1:
@@ -1024,7 +1046,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         fpa_layout = self.setup.fpa_layout
 
         # Obtain master coordinates
-        sc_master = self.get_master_astrometry().skycoord()[0][0]
+        sc_master = self.get_master_astrometry().skycoord[0][0]
 
         # Loop over files
         for idx_file in range(len(self)):
@@ -1041,7 +1063,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
             yy_file = self.get_column_file(idx_file=idx_file, column_name=key_y)
             snr_file = self.get_column_file(idx_file=idx_file, column_name="SNR_WIN")
-            sc_file = self.skycoord()[idx_file]
+            sc_file = self.skycoord[idx_file]
 
             # Apply space motion to match data obstime
             with warnings.catch_warnings():
@@ -1097,8 +1119,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Determine number of bins (with given radius at least 10 sources)
                 stacked = np.stack([x_hdu, y_hdu]).T
+                n_neighbors = 50 if len(stacked) > 50 else len(stacked)
                 dis, _ = (
-                    NearestNeighbors(n_neighbors=51, algorithm="auto")
+                    NearestNeighbors(n_neighbors=n_neighbors, algorithm="auto")
                     .fit(stacked)
                     .kneighbors(stacked)
                 )
@@ -1232,8 +1255,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Remove all sources without a match from the master table
         stacked = np.stack(
             [
-                np.deg2rad(table_master[self._key_ra]),
-                np.deg2rad(table_master[self._key_dec]),
+                np.deg2rad(table_master[self.key_ra]),
+                np.deg2rad(table_master[self.key_dec]),
             ]
         ).T
         dis, idx = (
@@ -1250,8 +1273,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         table_master = remove_duplicates_wcs(
             table=table_master,
             sep=1,
-            key_lon=self._key_ra,
-            key_lat=self._key_dec,
+            key_lon=self.key_ra,
+            key_lat=self.key_dec,
             temp_dir=self.setup.folders["temp"],
             bin_name=self.setup.bin_stilts,
         )
@@ -1288,12 +1311,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         stacked_master = np.stack(
             [
-                np.deg2rad(table_master[self._key_ra]),
-                np.deg2rad(table_master[self._key_dec]),
+                np.deg2rad(table_master[self.key_ra]),
+                np.deg2rad(table_master[self.key_dec]),
             ]
         ).T
         stacked_table = [
-            np.stack([np.deg2rad(tt[self._key_ra]), np.deg2rad(tt[self._key_dec])]).T
+            np.stack([np.deg2rad(tt[self.key_ra]), np.deg2rad(tt[self.key_dec])]).T
             for tt in tables_all
         ]
         with Parallel(
@@ -1355,7 +1378,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             phot_median, phot_err, photerr_median = self._photerr_internal_all()
 
             # Get the 5% brightest sources
-            good = phot_median >= self.setup.reference_mag_lim[0]
+            good = phot_median >= self.setup.reference_mag_lo
             idx_bright = phot_median[good] < np.percentile(phot_median[good], 5)
 
             # Determine interal photometric error
@@ -1486,7 +1509,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Convert to X/Y
                 xx, yy = wcs_stats.wcs_world2pix(
-                    table_hdu[self._key_ra], table_hdu[self._key_dec], 0
+                    table_hdu[self.key_ra], table_hdu[self.key_dec], 0
                 )
                 xx_image, yy_image = xx.astype(int), yy.astype(int)
 
@@ -1523,6 +1546,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     astrms2[yy_image, xx_image],
                     weight[yy_image, xx_image],
                 )
+                # Convert to degrees
+                astrms_sources1 /= 3600
+                astrms_sources2 /= 3600
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
@@ -1757,9 +1783,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def plot_qc_phot_ref1d(self, paths=None, axis_size=5):
         # Import
-        from astropy.units import Unit
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from astropy.units import Unit
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Processing info
         print_header(header="QC PHOTOMETRY REFERENCE 1D", silent=self.setup.silent)
@@ -1788,7 +1814,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-            master_skycoord = master_phot.skycoord()[0][0][mkeep]
+            master_skycoord = master_phot.skycoord[0][0][mkeep]
 
             # Read tables
             tab_file = self.file2table(file_index=idx_file)
@@ -1818,7 +1844,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Construct skycoordinates
                 sc_hdu = SkyCoord(
-                    ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg"
+                    ra=tab_hdu[self.key_ra], dec=tab_hdu[self.key_dec], unit="deg"
                 )
 
                 # Xmatch science with reference
@@ -1848,8 +1874,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mag_master_match,
                     mag_delta,
                     c="black",
-                    vmin=0,
-                    vmax=1.0,
                     s=2,
                     lw=0,
                     alpha=0.4,
@@ -1861,8 +1885,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mag_master_match[keep],
                     mag_delta[keep],
                     c="crimson",
-                    vmin=0,
-                    vmax=1.0,
                     s=4,
                     lw=0,
                     alpha=1.0,
@@ -1940,9 +1962,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def plot_qc_phot_ref2d(self, axis_size=5):
         # Import
-        from astropy.units import Unit
         import matplotlib.pyplot as plt
-        from matplotlib.cm import get_cmap
+        from astropy.units import Unit
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Processing info
@@ -1985,7 +2006,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Fetch magnitude and coordinates for master catalog
             mag_master = master_phot.mag(passband=passband)[0][0][mkeep]
-            skycoord_master = master_phot.skycoord()[0][0][mkeep]
+            skycoord_master = master_phot.skycoord[0][0][mkeep]
 
             # Keep only soruces within mag limit
             mag_lim = master_phot.mag_lim(self.passband[idx_file])
@@ -2011,7 +2032,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Construct skycoordinates
                 sc_hdu = SkyCoord(
-                    ra=tab_hdu[self._key_ra], dec=tab_hdu[self._key_dec], unit="deg"
+                    ra=tab_hdu[self.key_ra], dec=tab_hdu[self.key_dec], unit="deg"
                 )
 
                 # Xmatch science with reference
@@ -2049,7 +2070,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 )
 
                 # Draw
-                kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": get_cmap("RdBu", 20)}
+                kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": plt.get_cmap("RdBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
                 im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
                 # ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7,
@@ -2132,7 +2153,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             end="\n",
         )
 
-    def build_public_catalog(self, photerr_internal: Quantity):
+    def build_public_catalog(self, photerr_internal: float):
+
+        # Fetch log
+        log = PipelineLog()
+
         # Processing info
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
         tstart = time.time()
@@ -2142,9 +2167,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         from vircampype.fits.tables.sources import MasterPhotometry2Mass
 
         master_phot = self.get_master_photometry()  # type: MasterPhotometry2Mass
-        mag_limit = self.setup.reference_mag_lim[0]
-        if not hasattr(mag_limit, "unit"):
-            mag_limit *= Unit("mag")
 
         # Find classification tables
         paths_cls = [
@@ -2184,10 +2206,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Loop over self and merge
         for idx_file in range(self.n_files):
+
+            # Log current filename
+            log.info(f"Processing file: {self.paths_full[idx_file]}")
+
             # Create output path
             path_out = self.paths_full[idx_file].replace(".ctab", ".ptab")
             if path_out == self.paths_full[idx_file]:
                 raise ValueError("Can't set name of public catalog")
+            log.info(f"Creating public catalog: {path_out}")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=path_out, silent=self.setup.silent):
@@ -2206,102 +2233,195 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Grab passbands
             passband = self.passband[idx_file]
             passband_2mass = master_phot.translate_passband(passband)
+            log.info(f"Passband input: {passband}; passband 2MASS: {passband_2mass}")
 
             # Load current table in HDUList
             hdulist_in = fits.open(self.paths_full[idx_file])
+            log.info(f"Found {len(hdulist_in)} HDUs in current file")
 
             # Load source tables in current file
             tables_file = self.file2table(file_index=idx_file)
+            log.info(f"Loaded {len(tables_file)} input tables")
 
             # Load stats tables
             tables_stats = statstables.file2table(file_index=idx_file)
+            log.info(f"Loaded {len(tables_stats)} stats tables")
+
+            # Load classification tables if set
+            tables_class_file = None
+            if self.setup.source_classification:
+                tables_class_file = tables_class.file2table(file_index=idx_file)
+                log.info(f"Loaded {len(tables_class_file)} classification tables")
 
             # Read master table
             table_2mass = master_phot.file2table(file_index=idx_file)[0]
+            log.info(f"Loaded 2MASS table with {len(table_2mass)} sources")
             table_2mass["QFLG_PB"] = master_phot.qflags(passband=passband_2mass)[0][0]
 
             # Fill masked columns with NaNs
             table_2mass = fill_masked_columns(table_2mass, fill_value=np.nan)
 
             # Clean master table
+            allowed_qflags, allowed_cflags = "ABCD", "0cd"
+            log.info(
+                f"Cleaning master table with qflags: {allowed_qflags}, "
+                f"cflags: {allowed_cflags}"
+            )
             keep_master = master_phot.get_purge_index(
-                passband=passband_2mass, allowed_qflags="ABCD", allowed_cflags="0cd"
+                passband=passband_2mass,
+                allowed_qflags=allowed_qflags,
+                allowed_cflags=allowed_cflags,
             )
             table_2mass_clean = table_2mass.copy()[keep_master]
+            log.info(f"Cleaned master table; sources left: {len(table_2mass_clean)}")
 
             # Work in each extension
             for tidx, widx in zip(
                 range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
             ):
+
+                # Determine lengths
+                len_table_full = len(tables_file[tidx])
+                len_table_stats = len(tables_stats[tidx])
+
+                # Log current extension
+                log.info(f"Working on extension {tidx + 1}")
+                log.info(f"Source table length: {len_table_full}")
+                log.info(f"Stats table length: {len_table_stats}")
+
                 # Stats and source table need to have same length
-                if len(tables_file[tidx]) != len(tables_stats[tidx]):
-                    raise ValueError(
-                        f"Source ({len(tables_file[tidx])}) and stats "
-                        f"({len(tables_stats[tidx])}) table do not have same length."
+                if len_table_full != len_table_stats:
+                    msg = (
+                        f"Source ({len_table_full}) and stats ({len_table_stats}) "
+                        f"table do not have same length."
                     )
+                    log.error(msg)
+                    raise ValueError(msg)
 
                 # Stack source and stats tables
                 tables_file[tidx] = thstack(
                     [tables_file[tidx], tables_stats[tidx]], join_type="exact"
                 )
+                log.info(f"Stacked source and stats tables")
 
-                # Interpolate source classification
+                # Length of source and classification table must be equal within 0.1%
                 if self.setup.source_classification:
-                    tables_class_file = tables_class.file2table(file_index=idx_file)
+                    len_table_cls = len(tables_class_file[tidx])
+
+                    # Check length of the source and classification table
+                    log.info("Checking classification table length")
+                    log.info(f"Length of source table: {len_table_full}")
+                    log.info(f"Length of classification table: {len_table_cls}")
+                    if np.abs(len_table_full / len_table_cls - 1) > 0.005:
+                        msg = (
+                            f"Source ({len_table_full}) and classification "
+                            f"({len_table_cls}) tables do not have similar length."
+                        )
+                        log.error(msg)
+                        raise ValueError(msg)
+
+                    # If the check passes, make a match
+                    log.info("Matching classification and source table")
+                    x_full = tables_file[tidx]["XWIN_IMAGE"]
+                    y_full = tables_file[tidx]["YWIN_IMAGE"]
+                    x_cs = tables_class_file[tidx]["XWIN_IMAGE"]
+                    y_cs = tables_class_file[tidx]["YWIN_IMAGE"]
+                    xy_cs = np.column_stack((x_cs, y_cs))
+                    xy_full = np.column_stack((x_full, y_full))
+                    nbrs = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(xy_cs)
+                    distances, indices = nbrs.kneighbors(xy_full)
+                    distances, indices = distances.ravel(), indices.ravel()
+
+                    # Apply a distance threshold to filter matches
+                    distance_threshold = 0.1  # Adjust this threshold based on your data
+                    log.info(f"Applying distance threshold of {distance_threshold}")
+                    good_matches = distances < distance_threshold
+                    good_indices = indices[good_matches]
+                    len_table_final = len(good_indices)
+                    log.info(f"Good matches: {len_table_final}")
+
+                    # New table length must be similar to the original table length
+                    log.info("Checking final table length")
+                    log.info(f"Length of source table: {len_table_full}")
+                    log.info(f"Length of matched table: {len_table_final}")
+                    if np.abs(len_table_full / len_table_final - 1) > 0.005:
+                        msg = (
+                            f"Matching of source and classification table failed. "
+                            f"New table length ({len_table_final}) is not similar "
+                            f"the original table length ({len_table_full})."
+                        )
+                        log.error(msg)
+                        raise ValueError(msg)
+
+                    # Filter the full and cs tables based on the good matches
+                    log.info("Applying match indices")
+                    tables_file[tidx] = tables_file[tidx][good_matches]
+                    tables_class_file[tidx] = tables_class_file[tidx][good_indices]
+
+                    # Interpolate source classification
+                    log.info(f"Interpolating source classification")
                     interpolate_classification(
                         tables_file[tidx], tables_class_file[tidx]
                     )
 
                 # Read weight
+                log.info("Reading weight")
                 weight_data, weight_hdr = fits.getdata(
                     paths_weights[0], widx, header=True
                 )
 
                 # Merge with 2MASS
+                # TODO: Add logging here and check speed improvements
+                log.info("Merging with 2MASS")
                 tables_file[tidx] = merge_with_2mass(
                     table=tables_file[tidx],
                     table_2mass=table_2mass,
                     table_2mass_clean=table_2mass_clean,
-                    mag_limit=mag_limit,
+                    mag_limit=master_phot.mag_lim_lo(passband=passband_2mass),
                     weight_image=weight_data,
                     weight_header=weight_hdr,
                     key_ra="ALPHAWIN_SKY",
                     key_dec="DELTAWIN_SKY",
+                    key_ra_2mass="RAJ2000",
+                    key_dec_2mass="DEJ2000",
                     key_mag_2mass=passband_2mass,
+                    survey_name=self.setup.survey_name,
                 )
 
                 # Convert to public format
+                log.info("Converting to public format")
                 tables_file[tidx] = convert2public(
                     tables_file[tidx],
                     photerr_internal=photerr_internal,
                     apertures=self.setup.apertures,
-                    mag_saturation=mag_limit,
+                    mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
+                    survey_name=self.setup.survey_name,
                 )
 
             # Create primary header
+            log.info("Creating primary header")
             phdr = fits.Header()
             add_float_to_header(
                 header=phdr,
                 key="PHOTIERR",
-                value=photerr_internal.to_value(Unit("mag")),
+                value=photerr_internal,
                 comment="Internal photometric error (mag)",
                 decimals=4,
             )
             phdr["FILTER"] = hdulist_in[0].header[self.setup.keywords.filter_name]
 
             # Create output file
+            log.info("Creating TableHDU")
             hdulist_out = fits.HDUList(hdus=[fits.PrimaryHDU(header=phdr)])
             [hdulist_out.append(table2bintablehdu(tc)) for tc in tables_file]
 
             # Write to new output file
+            log.info("Writing to disk")
             hdulist_out.writeto(path_out, overwrite=self.setup.overwrite)
 
             # Close original file
             hdulist_out.close()
 
         # Print time
-        print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-            kind="okblue",
-            end="\n",
-        )
+        pmsg = f"\n-> Elapsed time: {time.time() - tstart:.2f}s"
+        print_message(message=pmsg, kind="okblue", end="\n", logger=log)

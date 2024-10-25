@@ -1,5 +1,10 @@
 import os
 import time
+from typing import Optional, Sequence
+
+from astropy.stats import sigma_clipped_stats
+
+from vircampype.pipeline.log import PipelineLog
 
 __all__ = [
     "print_message",
@@ -40,9 +45,15 @@ def print_colors_shell():
     print(BColors.UNDERLINE + "UNDERLINE" + BColors.ENDC)
 
 
-def print_header(header, silent=True, left="File", right="Extension"):
+def print_header(
+    header: str,
+    silent: bool = True,
+    left: Optional[str] = "File",
+    right: Optional[str] = "Extension",
+    logger: Optional[PipelineLog] = None,
+):
     """
-    Prints a helper message.
+    Prints a helper message with optional logging.
 
     Parameters
     ----------
@@ -51,10 +62,11 @@ def print_header(header, silent=True, left="File", right="Extension"):
     silent : bool, optional
         Whether a message should be printed. If set, nothing happens.
     left : str, optional
-        Left side of print message. Default is 'File'
+        Left side of print message. Default is 'File'.
     right : str, optional
         Right side of print message. Default is 'Extension'.
-
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the messages.
     """
 
     if left is None:
@@ -65,103 +77,173 @@ def print_header(header, silent=True, left="File", right="Extension"):
 
     if not silent:
         print()
-        print(BColors.HEADER + header + BColors.ENDC)
-        print("{:‾<80}".format(""))
-        if not (left == "") & (right == ""):
-            print("{0:<55s}{1:>25s}".format(left, right))
+        print(f"{BColors.HEADER}{header}{BColors.ENDC}")
+        print(f"{'‾' * 80}")
+        if left or right:
+            print(f"{left:<55s}{right:>25s}")
+
+    # Log the message
+    log_message = f"Header: {header}\nLeft: {left}\nRight: {right}"
+    if logger:
+        logger.info(log_message)
 
 
-def print_message(message, kind=None, end=""):
+def print_message(
+    message: str,
+    kind: Optional[str] = None,
+    end: Optional[str] = "",
+    logger: Optional[PipelineLog] = None,
+):
     """
-    Generic message printer.
+    Generic message printer with optional logging.
 
     Parameters
     ----------
     message : str
-        Message to print.
-    kind : str
-        Type of message.
-    end : str, None, optional
+        The message to print.
+    kind : str, optional
+        Type of message (e.g., 'warning', 'fail', 'okblue', 'okgreen').
+    end : str, optional
+        End character for the print function.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the messages.
 
+    Raises
+    ------
+    ValueError
+        If the message type specified in `kind` is not implemented.
     """
 
+    log_methods = {
+        None: lambda msg: logger.info(msg) if logger else None,
+        "warning": lambda msg: logger.warning(msg) if logger else None,
+        "fail": lambda msg: logger.error(msg) if logger else None,
+        "okblue": lambda msg: logger.info(msg) if logger else None,
+        "okgreen": lambda msg: logger.info(msg) if logger else None,
+    }
+
     if kind is None:
-        print("\r{0:<80s}".format(message), end=end)
+        formatted_message = f"\r{message:<80s}"
     elif kind.lower() == "warning":
-        print(BColors.WARNING + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.WARNING}\r{message:<80s}{BColors.ENDC}"
     elif kind.lower() == "fail":
-        print(BColors.FAIL + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.FAIL}\r{message:<80s}{BColors.ENDC}"
     elif kind.lower() == "okblue":
-        print(BColors.OKBLUE + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.OKBLUE}\r{message:<80s}{BColors.ENDC}"
     elif kind.lower() == "okgreen":
-        print(BColors.OKGREEN + "\r{0:<80s}".format(message) + BColors.ENDC, end=end)
+        formatted_message = f"{BColors.OKGREEN}\r{message:<80s}{BColors.ENDC}"
     else:
         raise ValueError("Implement more types.")
 
+    # Print the formatted message
+    print(formatted_message, end=end)
 
-def print_start(obj=""):
-    print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
-    print(BColors.OKGREEN + "{0:^74}".format("{0}".format(obj)) + BColors.ENDC)
-    print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
+    # Log the message
+    log_method = log_methods.get(kind.lower() if kind else None, None)
+    if log_method:
+        log_method(message)
+
+
+def print_start(obj: str = "") -> float:
+    """
+    Prints a start message with specified object name and returns the current time.
+
+    Parameters
+    ----------
+    obj : str, optional
+        The object name to be included in the start message.
+        Default is an empty string.
+
+    Returns
+    -------
+    float
+        The current time in seconds since the Epoch.
+    """
+    print(f"{BColors.OKGREEN}{'_'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{obj:^74}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾'*80}{BColors.ENDC}")
     return time.time()
 
 
-def print_end(tstart):
-    print(BColors.OKGREEN + "{:_<80}".format("") + BColors.ENDC)
-    print(
-        BColors.OKGREEN
-        + "{0:^74}".format("All done in {0:0.1f}s".format(time.time() - tstart))
-        + BColors.ENDC
-    )
-    print(BColors.OKGREEN + "{:‾<80}".format("") + BColors.ENDC)
+def print_end(tstart: float, logger: Optional[PipelineLog] = None) -> None:
+    """
+    Prints an end message indicating completion time and logs the message
+    if a logger is provided.
+
+    Parameters
+    ----------
+    tstart : float
+        The start time in seconds since the Epoch.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the end message.
+        If not provided, logging is skipped.
+    """
+    end_message = f"All done in {time.time() - tstart:0.1f}s"
+
+    print(f"{BColors.OKGREEN}{'_'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{end_message:^74}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾'*80}{BColors.ENDC}")
+
+    # Log the end message
+    if logger:
+        logger.info(end_message)
 
 
 def message_calibration(
-    n_current, n_total, name, d_current=None, d_total=None, silent=False, end=""
-):
+    n_current: int,
+    n_total: int,
+    name: str,
+    d_current: Optional[int] = None,
+    d_total: Optional[int] = None,
+    silent: bool = False,
+    end: str = "",
+    logger: Optional[PipelineLog] = None,
+) -> None:
     """
     Prints the calibration message for image processing.
 
     Parameters
     ----------
-    n_current :  int
+    n_current : int
         Current file index in the loop.
     n_total : int
         Total number of files to process.
     name : str
         Output filename.
-    d_current : int, optional
+    d_current : Optional[int], optional
         Current detector index in the loop.
-    d_total : int, optional
+    d_total : Optional[int], optional
         Total number of detectors to process.
     silent : bool, optional
-        If set, nothing will be printed
+        If set, nothing will be printed.
     end : str, optional
-        End of line. Default is "".
-
+        End of line. Default is an empty string.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the message. If not provided, logging is skipped.
     """
 
     if not silent:
-
+        n_current_str = f"{n_current}/{n_total}"
+        d_current_str = f"{d_current}/{d_total}"
+        name_str = os.path.basename(name)
         if (d_current is not None) and (d_total is not None):
-            print(
-                "\r{0:<8.8s} {1:^62.62s} {2:>8.8s}".format(
-                    str(n_current) + "/" + str(n_total),
-                    os.path.basename(name),
-                    str(d_current) + "/" + str(d_total),
-                ),
-                end=end,
+            message = (
+                f"\r{n_current_str:<8.8s} "
+                f"{name_str:^62.62s} "
+                f"{d_current_str:>8.8s}"
             )
         else:
-            print(
-                "\r{0:<10.10s} {1:>69.69s}".format(
-                    str(n_current) + "/" + str(n_total), os.path.basename(name)
-                ),
-                end=end,
-            )
+            message = f"\r{n_current_str:<10.10s} {name_str:>69.69s}"
+
+        # Print and log message
+        print(message, end=end)
+        if logger:
+            logger.info(message)
 
 
-def check_file_exists(file_path, silent=True):
+def check_file_exists(
+    file_path: str, silent: bool = True, logger: Optional[PipelineLog] = None
+) -> bool:
     """
     Helper method to check if a file already exists.
 
@@ -171,43 +253,46 @@ def check_file_exists(file_path, silent=True):
         Path to file.
     silent : bool, optional
         Whether a warning message should be printed if the file exists.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the warning message.
 
     Returns
     -------
     bool
         True if file exists, otherwise False.
-
     """
 
-    # Check if file exists or overwrite is set
     if os.path.isfile(file_path):
-
-        # Issue warning of not silent
         if not silent:
+            filename = os.path.basename(file_path)
             print_message(
-                message="{0} already exists.".format(os.path.basename(file_path)),
+                message=f"{filename} already exists.",
                 kind="warning",
                 end=None,
+                logger=logger,
             )
-
         return True
-    else:
-        return False
+    return False
 
 
-def message_qc_astrometry(separation):
+def message_qc_astrometry(
+    separation: Sequence[float], logger: Optional[PipelineLog] = None
+) -> None:
     """
-    Print astrometry QC message
+    Prints and logs an astrometry QC message.
 
     Parameters
     ----------
-    separation
+    separation : Sequence[float]
         Separation quantity.
+    logger : Optional[PipelineLog], optional
+        Logger instance to use for logging the QC message.
+        If not provided, logging is skipped.
 
+    Returns
+    -------
+    None
     """
-
-    # Import
-    from astropy.stats import sigma_clipped_stats
 
     # Compute stats
     sep_mean, _, sep_std = sigma_clipped_stats(
@@ -217,16 +302,17 @@ def message_qc_astrometry(separation):
     # Choose color
     if sep_mean < 50:
         color = BColors.OKGREEN
-    elif (sep_mean >= 50) & (sep_mean < 100):
+    elif 50 <= sep_mean < 100:
         color = BColors.WARNING
     else:
         color = BColors.FAIL
 
-    print(
-        color
-        + "\nExternal astrometric error (mas; mean/std): {0:6.1f}/{1:6.1f}".format(
-            sep_mean, sep_std
-        )
-        + BColors.ENDC,
-        end="\n",
+    common_message = (
+        f"External astrometric error (mas; mean/std): {sep_mean:6.1f}/{sep_std:6.1f}"
     )
+    colored_message = f"{color}\n{common_message}{BColors.ENDC}"
+
+    # Print and log message
+    print(colored_message, end="\n")
+    if logger:
+        logger.info(common_message)

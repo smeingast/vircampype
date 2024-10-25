@@ -85,9 +85,10 @@ def get_zeropoint(
     mag_ref = mag_ref[idx_ref]
     mag_cal = mag_cal[idx_sci]
 
-    # Return bad value if ZP could not be determined
+    # Raise error if no sources are found
     if len(mag_ref) == 0:
-        return 99.0, 99.0
+        raise ValueError("No matched sources found in "
+                         "reference catalog for ZP determination!")
 
     # Compute ZP for each source
     mag_diff = (mag_ref - mag_cal.T).T
@@ -120,6 +121,10 @@ def get_zeropoint(
             err_tot = np.sqrt(mag_err_ref ** 2 + mag_err_cal.T ** 2)
             weights = (1 / err_tot ** 2).T.copy()
             weights[mask] = 0.0
+
+            # Make sure data and weights do not contain NaNs
+            mask = np.isnan(mag_diff) | np.isnan(mag_err_cal)
+            mag_diff[mask], weights[mask] = 0.0, 0.0
 
             # Compute weighted average
             zp = np.average(mag_diff, weights=weights, axis=0)

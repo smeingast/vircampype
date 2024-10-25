@@ -2,6 +2,7 @@ import numpy as np
 
 from astropy import wcs
 from astropy.io import fits
+from astropy.time import Time
 from vircampype.tools.mathtools import *
 from astropy.wcs.utils import fit_wcs_from_points, wcs_to_celestial_frame
 from astropy.coordinates import ICRS, Galactic, AltAz, EarthLocation, SkyCoord
@@ -57,7 +58,6 @@ def header_reset_wcs(header):
 
         # Otherwise fit WCS from footprint
         else:
-
             ccval1, ccval2 = owcs.calc_footprint().T
             cc_skycoord = SkyCoord(
                 ccval1, ccval2, unit="deg", frame=wcs_to_celestial_frame(owcs)
@@ -78,10 +78,30 @@ def header_reset_wcs(header):
 
         # Update header
         for key, val in zip(
-                ["CRPIX1", "CRPIX2", "CRVAL1", "CRVAL2", "CTYPE1",
-                 "CTYPE2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"],
-                [crpix1, crpix2, float(crval1), float(crval2), ctype1,
-                 ctype2, cd11, cd12, cd21, cd22],
+            [
+                "CRPIX1",
+                "CRPIX2",
+                "CRVAL1",
+                "CRVAL2",
+                "CTYPE1",
+                "CTYPE2",
+                "CD1_1",
+                "CD1_2",
+                "CD2_1",
+                "CD2_2",
+            ],
+            [
+                crpix1,
+                crpix2,
+                float(crval1),
+                float(crval2),
+                ctype1,
+                ctype2,
+                cd11,
+                cd12,
+                cd21,
+                cd22,
+            ],
         ):
             mheader[key] = val
 
@@ -99,8 +119,20 @@ def header_reset_wcs(header):
     return mheader
 
 
-def header2wcs(header):
-    """Returns WCS instance from FITS header"""
+def header2wcs(header: fits.Header) -> wcs.WCS:
+    """
+    Creates a World Coordinate System (WCS) instance from a FITS header.
+
+    Parameters
+    ----------
+    header : Header
+        The FITS header from which to create the WCS.
+
+    Returns
+    -------
+    wcs.WCS
+        The WCS instance created from the header.
+    """
     return wcs.WCS(header=header)
 
 
@@ -308,14 +340,54 @@ def resize_header(header, factor):
     return header_out
 
 
-def pixelscale_from_header(header):
-    """Calculates pixel scale from CD matrix."""
+def pixelscale_from_header(header: fits.Header) -> float:
+    """
+    Calculates pixel scale from a FITS header's CD (coordinate description) matrix,
+    assuming the units of the x and y coordinates are in degrees.
+
+    Parameters
+    ----------
+    header : Header
+        The FITS header from which the pixel scale is to be calculated.
+
+    Returns
+    -------
+    float
+        The calculated pixel scale.
+
+    Raises
+    ------
+    AssertionError
+        If the CUNIT1 or CUNIT2 of the CD matrix are not in degrees.
+    """
     assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
-    return np.sqrt(header["CD1_1"] ** 2 + header["CD2_1"] ** 2)
+    determinant = header["CD1_1"]*header["CD2_2"] - header["CD1_2"]*header["CD2_1"]
+    return np.sqrt(abs(determinant))
 
 
-def rotationangle_from_header(header, degrees=True):
-    """Calcualtes rotation angle from CD matrix."""
+def rotationangle_from_header(header: fits.Header, degrees: bool = True) -> float:
+    """
+    Calculates rotation angle from a FITS header's CD (coordinate description) matrix,
+    assuming the units of the x and y coordinates are in degrees.
+
+    Parameters
+    ----------
+    header : Header
+        The FITS header from which the rotation angle is to be calculated.
+    degrees : bool, optional
+        Whether to return the rotation angle in degrees (default is True).
+        If False, rotation angle is returned in radians.
+
+    Returns
+    -------
+    float
+        The calculated rotation angle.
+
+    Raises
+    ------
+    AssertionError
+        If the CUNIT1 or CUNIT2 of the CD matrix are not in degrees.
+    """
     assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
     angle = np.arctan2(header["CD2_1"], header["CD1_1"])
 
@@ -325,10 +397,31 @@ def rotationangle_from_header(header, degrees=True):
         return angle
 
 
-def get_airmass_from_header(header, time, location="Paranal"):
+def get_airmass_from_header(
+    header: fits.Header, time: Time, location: str = "Paranal"
+) -> float:
+    """
+    Retrieves the airmass from a FITS header using time and location information.
+
+    Parameters
+    ----------
+    header : Header
+        The FITS header from which spatial information will be extracted.
+    time : Time
+        The time at which the airmass is measured.
+    location : str, optional
+        The location at which the airmass is measured (default is "Paranal").
+
+    Returns
+    -------
+    float
+        The airmass value.
+    """
+
     # Get center position
     sc = wcs.WCS(header).all_pix2world(header["NAXIS1"] / 2, header["NAXIS2"] / 2, 1)
     sc = SkyCoord(*sc, frame="icrs", unit="deg")
+
     # Return airmass
     return sc.transform_to(
         AltAz(obstime=time, location=EarthLocation.of_site(location))

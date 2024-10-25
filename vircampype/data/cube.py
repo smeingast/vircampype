@@ -1,5 +1,7 @@
 # =========================================================================== #
 # Import
+import os
+import tempfile
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +13,7 @@ from joblib import Parallel, delayed
 from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
 from vircampype.tools.imagetools import *
+from vircampype.tools.systemtools import *
 from vircampype.pipeline.setup import Setup
 from astropy.convolution import Gaussian2DKernel
 
@@ -425,6 +428,27 @@ class ImageCube(object):
                 "Division for {0:s} not implemented".format(str(type(other)))
             )
 
+    def __copy__(self):
+        """
+        Implements copy for ImageData. Here the cube is copied and a new ImageCube
+        instance is returned.
+
+        Returns
+        -------
+        ImageCube
+            New ImageData instance with copied data
+
+        """
+
+        return ImageCube(setup=self.setup, cube=self.cube.copy())
+
+    def copy(self):
+        """
+        Implements copy for ImageData. Here the cube is copied and a new ImageCube
+        """
+
+        return self.__copy__()
+
     # =========================================================================== #
     # I/O
     # =========================================================================== #
@@ -622,6 +646,7 @@ class ImageCube(object):
         mask_above=None,
         sigma_level=None,
         sigma_iter=1,
+        sigma_center_metric=np.nanmedian,
     ):
         """
         Applies the above given masking methods to instance cube.
@@ -645,6 +670,8 @@ class ImageCube(object):
             sigma-level in clipping.
         sigma_iter : int, optional
             Iterations of sigma clipping.
+        sigma_center_metric : callable, optional
+            Metric to calculate the center of the data; default is np.nanmedian.
 
         """
 
@@ -676,7 +703,7 @@ class ImageCube(object):
             self._sigma_clip(
                 sigma_level=sigma_level,
                 sigma_iter=sigma_iter,
-                center_metric=np.nanmedian,
+                center_metric=sigma_center_metric,
             )
 
     def apply_masks_plane(self, sigma_level, sigma_iter):
@@ -790,7 +817,6 @@ class ImageCube(object):
         # In case a weighted average should be calculated (only possible with a masked
         # array)
         if (weights is not None) and (metric == "weighted"):
-
             # Weights must match input data
             if self.shape != weights.shape:
                 raise ValueError("Weights don't match input")
@@ -837,13 +863,11 @@ class ImageCube(object):
 
         # If we have an array...
         elif isinstance(norm, (np.ndarray, list)):
-
             if isinstance(norm, list):
                 norm = np.asarray(norm)
 
             # ...with one dimension
             if norm.ndim == 1:
-
                 # Dimensions must match!
                 if len(self) != len(norm):
                     raise ValueError("Normalization shape incorrect")
@@ -853,7 +877,6 @@ class ImageCube(object):
 
             # ...with more dimensions...
             else:
-
                 # ...the norm-shape must match the cube shape
                 if self.shape != norm.shape:
                     raise ValueError("Normalization cube shape incorrect")
@@ -931,7 +954,14 @@ class ImageCube(object):
         # Concatenate results and overwrite cube
         self.cube = np.stack(mp, axis=0)
 
-    def destripe(self, masks=None, smooth=False, path_plot=None):
+    def destripe(
+        self,
+        masks=None,
+        smooth=False,
+        path_plot=None,
+        combine_bad_planes=False,
+        force_combine_planes=False,
+    ):
         """
         Destripes VIRCAM images
 
@@ -944,12 +974,16 @@ class ImageCube(object):
             applied.
         path_plot : str, optional
             If set, path of QC plot.
+        combine_bad_planes : bool, optional
+            Whether bad planes should be combined.
+        force_combine_planes : bool, optional
+            Whether bad planes should be combined even if they are not flagged as bad.
 
         """
 
         # Set masks to iterable if not set
         if masks is None:
-            masks = repeat(None)
+            masks = np.full_like(self.cube, False, dtype=bool)
 
         # Destripe in parallel
         with Parallel(
@@ -960,28 +994,46 @@ class ImageCube(object):
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
             )
 
-        """ Combining each detector row does not work because in many instances, 
-        the amplitude of the striping pattern is very different between the 
-        detectors in a row."""
-        # # Combine stripes for each detector row
-        # destripe_01_04 = np.nanmean(np.stack(mp[0:4]), axis=0)
-        # destripe_05_08 = np.nanmean(np.stack(mp[4:8]), axis=0)
-        # destripe_09_12 = np.nanmean(np.stack(mp[8:12]), axis=0)
-        # destripe_13_16 = np.nanmean(np.stack(mp[12:16]), axis=0)
-        #
-        # # Apply destriping
-        # self.cube[0:4] = self.cube[0:4] - np.expand_dims(destripe_01_04, axis=1)
-        # self.cube[4:8] = self.cube[4:8] - np.expand_dims(destripe_05_08, axis=1)
-        # self.cube[8:12] = self.cube[8:12] - np.expand_dims(destripe_09_12, axis=1)
-        # self.cube[12:16] = self.cube[12:16] - np.expand_dims(destripe_13_16, axis=1)
+        # Count bad pixels in each plane
+        nbad = np.sum(masks, axis=2)
 
-        # Destripe each plane separateley
-        for idx, _ in enumerate(self):
-            self.cube[idx] -= np.expand_dims(mp[idx], axis=1)
+        # Identify rows with more than 50% masked pixels
+        bad_rows = nbad > (nbad.shape[1] * 0.5)
+
+        # Count number of bad rows in each plane
+        nbad_rows = np.sum(bad_rows, axis=1)
+
+        # Identify bad planes as those that have more than 1/3 bad rows
+        bad_planes = nbad_rows > (self.shape[2] * 1 / 3)
+
+        cube_destripe_avg = self.copy()
+        if combine_bad_planes:
+            # Combine stripes for each detector row
+            destripe_01_04 = np.nanmedian(np.stack(mp[0:4]), axis=0)
+            destripe_05_08 = np.nanmedian(np.stack(mp[4:8]), axis=0)
+            destripe_09_12 = np.nanmedian(np.stack(mp[8:12]), axis=0)
+            destripe_13_16 = np.nanmedian(np.stack(mp[12:16]), axis=0)
+
+            # Apply average destriping to separate cube
+            cube_destripe_avg.cube[0:4] -= np.expand_dims(destripe_01_04, axis=1)
+            cube_destripe_avg.cube[4:8] -= np.expand_dims(destripe_05_08, axis=1)
+            cube_destripe_avg.cube[8:12] -= np.expand_dims(destripe_09_12, axis=1)
+            cube_destripe_avg.cube[12:16] -= np.expand_dims(destripe_13_16, axis=1)
+
+        # Loop over planes
+        # TODO: Replace all bad rows with average destriping instead of full planes?
+        for idx, bad in enumerate(bad_planes):
+            if force_combine_planes:
+                self.cube[idx] = cube_destripe_avg[idx]
+            # If bad plane, take average destriping
+            elif bad & combine_bad_planes:
+                self.cube[idx] = cube_destripe_avg[idx]
+            # If good plane, take single destriping
+            else:
+                self.cube[idx] -= np.expand_dims(mp[idx], axis=1)
 
         # Plot destripe pattern if requested
         if path_plot is not None:
-
             fig, ax = plt.subplots(1, 1, figsize=(25, 5))
             kw_plot = dict(lw=0.4, alpha=0.8)
             pcolors = ["crimson", "green", "blue", "black"]
@@ -989,7 +1041,7 @@ class ImageCube(object):
                 for tidx in range(4):
                     ax.plot(mp[pidx + tidx] + 3 * pidx, c=pc, **kw_plot)
                 ax.plot(
-                    np.nanmean(np.stack(mp[pidx: pidx + 4]), axis=0) + 3 * pidx,
+                    np.nanmedian(np.stack(mp[pidx : pidx + 4]), axis=0) + 3 * pidx,
                     c=pc,
                     lw=1.0,
                 )
@@ -1022,7 +1074,6 @@ class ImageCube(object):
 
         # Loop through planes and interpolate
         for plane in self:
-
             # Chop in smaller sub-regions for better performance
             chopped, loc = chop_image(
                 array=plane,
@@ -1108,7 +1159,74 @@ class ImageCube(object):
                 )
             )
 
-        return ImageCube(cube=np.array(mp), setup=self.setup)
+        return ImageCube(cube=np.array(mp).astype(bool), setup=self.setup)
+
+    def build_source_masks_noisechisel(self):
+        """
+        Runs noisechisel on the cube and returns the masks.
+
+        Returns
+        -------
+        ImageCube
+            Noisechisel masks.
+
+        """
+
+        # Write cube to temp file on disk
+        path_temp_data = (
+            f"{self.setup.folders['temp']}{os.path.basename(tempfile.mktemp())}.fits"
+        )
+
+        self.write_mef(
+            path=path_temp_data,
+            overwrite=True,
+            dtype=np.float32,
+        )
+
+        # Create temp paths for noisechisel
+        paths_temp_noisechisel = [
+            path_temp_data.replace(".fits", f"_{i:02d}.fits")
+            for i in range(1, len(self) + 1)
+        ]
+
+        # Build NoiseChisel commands (add sleep so that the I/O is spread out)
+        cmds = [
+            (
+                f"sleep {(i - 1) % self.setup.n_jobs * 0.2}; "
+                f"{which(self.setup.bin_noisechisel)} {path_temp_data} "
+                f"--hdu {i} "
+                f"-o {pto} "
+                f"-N 1 "
+                f"-q --rawoutput --cleangrowndet "
+                f"--qthresh {self.setup.noisechisel_qthresh} "
+                f"--erode {self.setup.noisechisel_erode} "
+                f"--detgrowquant {self.setup.noisechisel_detgrowquant} "
+                f"--tilesize={self.setup.noisechisel_tilesize} "
+                f"--meanmedqdiff {self.setup.noisechisel_meanmedqdiff}"
+            )
+            for i, pto in zip(range(1, len(self) + 1), paths_temp_noisechisel)
+        ]
+
+        # Run noisechisel in parallel
+        run_commands_shell_parallel(cmds=cmds, silent=False, n_jobs=self.setup.n_jobs)
+
+        # Read results
+        masks_noisechisel = np.array(
+            [
+                fits.getdata(filename=path, ext=1).astype(np.float32)
+                for path in paths_temp_noisechisel
+            ]
+        )
+
+        # Replace NaNs with 1
+        masks_noisechisel[np.isnan(masks_noisechisel)] = 1
+
+        # Delete temp files
+        os.remove(path_temp_data)
+        [os.remove(path) for path in paths_temp_noisechisel]
+
+        # Return
+        return ImageCube(cube=masks_noisechisel.astype(bool), setup=self.setup)
 
     # =========================================================================== #
     # Properties
@@ -1257,7 +1375,7 @@ class ImageCube(object):
                         repeat(False),
                         repeat(False),
                         repeat(False),
-                        repeat(50),
+                        repeat(500),
                         repeat(20),
                         repeat(True),
                     )
@@ -1268,16 +1386,16 @@ class ImageCube(object):
         # Return
         return np.asarray(back), np.asarray(back_sig)
 
-    def background(self, mesh_size=None, mesh_filtersize=None):
+    def background(self, mesh_size, mesh_filtersize):
         """
         Creates background and noise cubes.
 
         Parameters
         ----------
-        mesh_size : int, optional
-            Requested mesh size in pixels. Defaults to value in setup.
-        mesh_filtersize : int, optional
-            2D median filter size for meshes. Defaults to value in setup.
+        mesh_size : int
+            Requested mesh size in pixels.
+        mesh_filtersize : int
+            2D median filter size for meshes.
 
         Returns
         -------
@@ -1285,12 +1403,6 @@ class ImageCube(object):
             Tuple of ImageCubes (background, noise)
 
         """
-        # Set defaults if not specified otherwise
-        if mesh_size is None:
-            mesh_size = self.setup.background_mesh_size
-        if mesh_filtersize is None:
-            mesh_filtersize = self.setup.background_mesh_filtersize
-
         # Submit parallel jobs for background estimation in each cube plane
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")

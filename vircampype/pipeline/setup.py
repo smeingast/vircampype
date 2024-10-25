@@ -1,235 +1,430 @@
 import os
 
+from astropy.io import fits
 from joblib import cpu_count
-from astropy.units import Unit
-from vircampype.pipeline.errors import *
+from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
-from vircampype.visions.projections import *
+from vircampype.miscellaneous.projection import *
+from typing import Union, List, Optional, Literal
 from vircampype.miscellaneous.sourcemasks import *
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.miscellaneous.projection import Projection
+from typing import Dict, Any
 
 
-class Setup(dict):
-    """Pipeline setup."""
+@dataclass
+class Setup:
+    # Pipeline setup
+    name: str = None
+    path_data: str = None
+    path_pype: str = None
+    n_jobs: int = 8
+    silent: bool = False
+    overwrite: bool = False
+    qc_plots: bool = True
+    log_level: str = "info"
 
-    def __init__(self, *arg, **kw):
+    # What to process
+    calibrate_pawprints: bool = False
+    build_stacks: bool = False
+    build_tile: bool = True
+    build_tile_only: bool = False
+    build_phase3: bool = False
+    build_public_catalog: bool = False
+    source_classification: bool = False
+    archive: bool = False
 
-        # Initialize dict
-        super(Setup, self).__init__(*arg, **kw)
+    # Phase 3
+    compress_phase3: bool = True
+    fpack_quantization_factor: int = 16
 
-        # Check that no bad setup parameter is passed
-        attributes = [
-            k for k, v in self.__class__.__dict__.items() if not k.startswith("_")
-        ]
-        for k, _ in kw.items():
-            if k not in attributes:
-                raise PipelineError(f"Incorrect setup parameter used: '{k}'")
+    # Optional processing steps
+    destripe: bool = True
+    interpolate_nan: bool = True
+    interpolate_max_bad_neighbors: int = 3
 
-        # Set default attribute values
-        self.__name = None
-        self.__path_data = None
-        self.__path_pype = None
-        self.__n_jobs = 8
-        self.__silent = False
-        self.__overwrite = False
-        self.__qc_plots = True
+    # Projection
+    projection: Optional[Union[str, Projection]] = None
 
-        # What to process
-        self.__build_stacks = False
-        self.__build_tile = True
-        self.__build_tile_only = False
-        self.__calibrate_pawprints = False
-        self.__build_phase3 = False
-        self.__build_public_catalog = False
-        self.__archive = False
-        self.__source_classification = False
+    # Saturation levels
+    set_saturation_levels: str = "default"
 
-        # Data setup
-        self.__maximask = False
-        self.__projection = None
+    # Astrometry
+    warp_gaia: bool = True
+    external_headers: bool = False
+    scamp_mode: Literal["fix_focalplane", "loose"] = "fix_focalplane"
 
-        # Source masks
-        self.__mask_2mass_sources = True
-        self.__additional_source_masks = None
-        self.__mask_bright_sources = True
+    # Photometry
+    phot_reference_catalog: Literal["2MASS"] = "2MASS"
+    reference_mag_lo: Union[int, float] = None
+    reference_mag_hi: Union[int, float] = None
+    target_zp: float = 25.0
+    illumination_correction_mode: Literal["variable", "constant"] = "variable"
+    photometric_error_floor: float = 0.005
 
-        # Processing
-        self.__sky_n_min = 5
+    # Master calibration lookup
+    master_max_lag_bpm: Union[int, float] = 14
+    master_max_lag_dark: Union[int, float] = 14
+    master_max_lag_twilight_flat: Union[int, float] = 14
+    master_max_lag_sky: Union[int, float] = 60
+    master_max_lag_gain: Union[int, float] = 14
+    master_max_lag_weight: Union[int, float] = 14
+    master_max_lag_linearity: Union[int, float] = 14
 
-        # Astromatic
-        self.__bin_sex = "sex"
-        self.__bin_scamp = "scamp"
-        self.__bin_swarp = "swarp"
-        self.__bin_psfex = "psfex"
-        self.__swarp_back_size = 384
-        self.__swarp_back_filtersize = 3
-        self.__sex_back_size = 64
-        self.__sex_back_filtersize = 3
+    # Bad pixel masks
+    bpm_max_lag: Union[int, float] = 1
+    bpm_rel_threshold: Union[int, float] = 0.04
+    bpm_frac: Union[int, float] = 0.2
 
-        # Astrometry
-        self.__external_headers = False
-        self.__astr_reference_catalog = "GAIA"
+    # Darks
+    dark_max_lag: Union[int, float] = 1
+    dark_mask_min: bool = True
+    dark_mask_max: bool = True
+    dark_metric: Literal["mean", "median", "clipped_mean", "clipped_median"] = "mean"
 
-        # Photometry
-        self.__ic_mode = "variable"
-        self.__reference_mag_lim = None
-        self.__photerr_internal = None
-        self.__target_zp = 25.0
+    # Gain
+    gain_max_lag: Union[int, float] = 1
 
-        # Other
-        self.__bin_stilts = "stilts"
+    # Lineartiy
+    linearity_max_lag: Union[int, float] = 1
 
-        # Try to override property from setup
-        for key, val in self.items():
-            try:
-                setattr(self, key, val)
-            except AttributeError:
-                raise PipelineError(
-                    f"Can't set attribute '{key}'. Implement property setter!"
-                )
+    # Flats
+    flat_type: Literal["sky", "twilight"] = "twilight"
+    flat_max_lag: Union[int, float] = 1
+    flat_mask_min: bool = True
+    flat_mask_max: bool = True
+    flat_rel_lo: Union[int, float] = 0.3
+    flat_rel_hi: Union[int, float] = 1.7
+    flat_sigma_level: Union[int, float] = 3
+    flat_sigma_iter: int = 1
+    __flmet = Literal["weighted", "mean", "median", "clipped_mean", "clipped_median"]
+    flat_metric: __flmet = "weighted"
 
-        # Check basic setup
+    # Weights
+    weight_mask_abs_min: Union[int, float] = 0.3
+    weight_mask_abs_max: Union[int, float] = 1.7
+    weight_mask_rel_min: Union[int, float] = 0.5
+    weight_mask_rel_max: Union[int, float] = 1.5
+    build_individual_weights_maximask: bool = False
+
+    # Source masks
+    mask_2mass_sources: bool = True
+    additional_source_masks: Optional[Union[str, SourceMasks]] = None
+    source_mask_method: Literal["noisechisel", "built-in"] = "noisechisel"
+    source_masks_n_min: int = 5
+    source_masks_n_iter: int = 2
+    source_mask_closing: bool = True
+    source_masks_closing_size: int = 5
+    source_masks_closing_iter: int = 2
+    source_masks_destripe: bool = True
+    # Noisechisel setup for source masks
+    noisechisel_qthresh: float = 0.9
+    noisechisel_erode: int = 2
+    noisechisel_detgrowquant: float = 1.0
+    noisechisel_tilesize: str = "32,32"
+    noisechisel_meanmedqdiff: float = 0.02
+    # Built-in setup for source masks
+    mask_sources_thresh: Union[int, float] = 3
+    mask_sources_min_area: Union[int, float] = 3
+    mask_sources_max_area: Union[int, float] = 250000
+    mask_bright_sources: bool = True
+
+    # Sky
+    sky_n_min: int = 5
+    sky_mix_science: bool = True
+    sky_window: Union[int, float] = 180
+    sky_mask_min: bool = True
+    sky_mask_max: bool = True
+    sky_rel_lo: Union[int, float] = 0.3
+    sky_rel_hi: Union[int, float] = 1.7
+    sky_sigma_level: Union[int, float] = 3
+    sky_sigma_iter: int = 1
+    __skymet = Literal["weighted", "mean", "median", "clipped_mean", "clipped_median"]
+    sky_combine_metric: __skymet = "weighted"
+
+    # Background model
+    subtract_background: bool = True
+    background_mesh_size: int = 64
+    background_mesh_filtersize: int = 3
+
+    # Statistics images
+    image_statistics_resize_factor: Union[int, float] = 0.25
+
+    # Sextractor
+    sex_back_size: int = 64
+    sex_back_filtersize: int = 3
+    sex_detection_image_path: Optional[str] = None
+
+    # Swarp
+    __resampling_kernel = Literal[
+        "nearest", "bilinear", "lanczos2", "lanczos3", "lanczos4"
+    ]
+    resampling_kernel: __resampling_kernel = "lanczos3"
+
+    # Binary names
+    bin_sex: str = "sex"
+    bin_scamp: str = "scamp"
+    bin_swarp: str = "swarp"
+    bin_psfex: str = "psfex"
+    bin_noisechisel: str = "astnoisechisel"
+    bin_stilts: str = "stilts"
+
+    # Miscellanous
+    survey_name: str = "VISIONS"
+
+    # Folders
+    folders: dict = None
+
+    def __post_init__(self):
+        # Simple setup check
         if self.name is None:
-            raise PipelineError("Pipeline setup needs a name")
+            raise PipelineValueError("Pipeline setup needs a name")
         if (self.path_data is None) | (os.path.exists(self.path_data) is False):
-            raise PipelineError("Please provide valid path to data")
+            raise PipelineValueError("Please provide valid path to data")
         if self.path_pype is None:
-            raise PipelineError("Please provide valid path for pipeline output")
+            raise PipelineValueError("Please provide valid path for pipeline output")
         if self.n_jobs > cpu_count():
             raise ValueError("More parallel jobs than available CPUs requested.")
 
-        # =========================================================================== #
-        # Add folder structure to self
-        self.__add_folder_tree()
+        # Set keywords
+        self.keywords = HeaderKeywords()
 
-        # Make folder structure
+        # Folders
+        if self.folders is None:
+            self.folders = {}
+        self.__add_folder_tree()
         self.__create_folder_tree()
 
+        # Specific file paths
+        self.path_coadd = f"{self.folders['tile']}{self.name}.fits"
+        self.path_coadd_weight = self.path_coadd.replace(".fits", ".weight.fits")
+        self.path_coadd_header = self.path_coadd.replace(".fits", ".ahead")
+
+        # Other
+        self.__set_projection()
+        self.__set_additional_source_masks()
+        self.__check_flat_type()
+
+    # Fixed properties that users can't change
     @property
-    def folders(self):
-        return self["folders"]
+    def joblib_backend(self) -> str:
+        return "threads"
 
     @property
-    def path_coadd(self):
-        return f"{self.folders['tile']}{self.name}.fits"
+    def fix_vircam_headers(self) -> bool:
+        return True
 
     @property
-    def path_coadd_weight(self):
-        return self.path_coadd.replace(".fits", ".weight.fits")
+    def set_airmass(self) -> bool:
+        return True
 
     @property
-    def path_coadd_header(self):
-        return self.path_coadd.replace(".fits", ".ahead")
+    def fpa_layout(self) -> List[int]:
+        return [4, 4]
 
-    def __add_folder_tree(self):
-        """Adds pipeline folder tree to setup."""
-
-        # Start adding folder structure to setup
-        self["folders"] = dict()
-        self["folders"]["pype"] = self.path_pype
-        self["folders"]["raw"] = self.path_data
-        self["folders"]["object"] = f"{self.path_pype}{self.name}/"
-        self["folders"]["headers"] = f"{self['folders']['object']}{'headers'}/"
-
-        # Master paths
-        self["folders"]["master_common"] = f"{self.path_pype}{'master'}/"
-        self["folders"]["master_object"] = f"{self['folders']['object']}{'master'}/"
-
-        # Processing folders
-        self["folders"]["temp"] = f"{self['folders']['object']}{'temp'}/"
-        self["folders"][
-            "processed_basic"
-        ] = f"{self['folders']['object']}{'processed_basic'}/"
-        self["folders"][
-            "processed_final"
-        ] = f"{self['folders']['object']}{'processed_final'}/"
-        self["folders"]["resampled"] = f"{self['folders']['object']}{'resampled'}/"
-        self["folders"]["illumcorr"] = f"{self['folders']['object']}{'illumcorr'}/"
-
-        # QC
-        self["folders"]["qc"] = f"{self['folders']['object']}{'qc'}/"
-
-        # Common QC
-        self["folders"]["qc_bpm"] = f"{self['folders']['qc']}{'bpm'}/"
-        self["folders"]["qc_dark"] = f"{self['folders']['qc']}{'dark'}/"
-        self["folders"]["qc_gain"] = f"{self['folders']['qc']}{'gain'}/"
-        self["folders"]["qc_linearity"] = f"{self['folders']['qc']}{'linearity'}/"
-        self["folders"]["qc_flat"] = f"{self['folders']['qc']}{'flat'}/"
-
-        # Sequence specific QC
-        self["folders"]["qc_sky"] = f"{self['folders']['qc']}{'sky'}/"
-        self["folders"]["qc_astrometry"] = f"{self['folders']['qc']}{'astrometry'}/"
-        self["folders"]["qc_photometry"] = f"{self['folders']['qc']}{'photometry'}/"
-        self["folders"]["qc_illumcorr"] = f"{self['folders']['qc']}{'illumcorr'}/"
-
-        # Statistics path
-        self["folders"]["statistics"] = f"{self['folders']['object']}{'statistics'}/"
-
-        # Stacks path
-        self["folders"]["stacks"] = f"{self['folders']['object']}{'stacks'}/"
-
-        # Tile path
-        self["folders"]["tile"] = f"{self['folders']['object']}{'tile'}/"
-
-        # Phase 3
-        self["folders"]["phase3"] = f"{self.path_pype}{'phase3/'}{self.name}/"
-
-    def __create_folder_tree(self):
-        """Creates the folder tree for the pipeline"""
-
-        # Common paths
-        folders_common = [
-            self["folders"]["pype"],
-            self["folders"]["headers"],
-            self["folders"]["master_common"],
-            self["folders"]["temp"],
+    # Mutable defaults that can be changed
+    @property
+    def __default_saturation_levels(self) -> List[float]:
+        """Saturation levels for each detector."""
+        return [
+            33000.0,
+            32000.0,
+            33000.0,
+            32000.0,
+            24000.0,
+            24000.0,
+            35000.0,
+            33000.0,
+            35000.0,
+            35000.0,
+            37000.0,
+            34000.0,
+            33000.0,
+            35000.0,
+            34000.0,
+            34000.0,
         ]
 
-        if self.build_phase3:
-            folders_common += [self["folders"]["phase3"]]
-
-        # calibration-specific paths
-        folders_cal = [
-            self["folders"]["qc_bpm"],
-            self["folders"]["qc_dark"],
-            self["folders"]["qc_gain"],
-            self["folders"]["qc_linearity"],
-            self["folders"]["qc_flat"],
+    @property
+    def __sv_saturation_levels(self) -> List[float]:
+        """Saturation levels for each detector."""
+        return [
+            30000.0,
+            32000.0,
+            33000.0,
+            32000.0,
+            24000.0,
+            30000.0,
+            32000.0,
+            33000.0,
+            35000.0,
+            32000.0,
+            35000.0,
+            32000.0,
+            33000.0,
+            34000.0,
+            33000.0,
+            35000.0,
         ]
 
-        # Object-specific paths
-        folders_object = [
-            self["folders"]["master_object"],
-            self["folders"]["qc"],
-            self["folders"]["qc_sky"],
-            self["folders"]["processed_basic"],
-            self["folders"]["processed_final"],
-            self["folders"]["qc_astrometry"],
-            self["folders"]["resampled"],
-            self["folders"]["statistics"],
-            self["folders"]["tile"],
-            self["folders"]["qc_photometry"],
-            self["folders"]["qc_illumcorr"],
-            self["folders"]["illumcorr"],
-        ]
-
-        # Create folder for stacks if set
-        if self.build_stacks:
-            folders_object += [self["folders"]["stacks"]]
-
-        # Generate common paths
-        for path in folders_common:
-            make_folder(path)
-
-        # Create common calibration path only if we run a calibration unit
-        if "calibration" in self.name.lower():
-            for path in folders_cal:
-                make_folder(path=path)
-
-        # Other wise make object paths
+    @property
+    def saturation_levels(self) -> List[Union[int, float]]:
+        """Returns the saturation level for a given detector."""
+        if self.set_saturation_levels == "default":
+            return self.__default_saturation_levels
+        elif self.set_saturation_levels == "sv":
+            return self.__sv_saturation_levels
         else:
-            for path in folders_object:
-                make_folder(path=path)
+            raise PipelineValueError(
+                "Saturation levels not set correctly. "
+                "Only 'default' or 'sv' allowed."
+            )
+
+    @property
+    def image_statistics_combine_type(self) -> dict:
+        return {
+            "nimg": "SUM",
+            "exptime": "SUM",
+            "mjd.int": "WEIGHTED",
+            "mjd.frac": "WEIGHTED",
+            "astrms1": "WEIGHTED",
+            "astrms2": "WEIGHTED",
+        }
+
+    @property
+    def apertures(self) -> List[float]:
+        return [
+            3.0,
+            4.0,
+            5.0,
+            6.0,
+            7.0,
+            8.0,
+            9.0,
+            10.0,
+            12.0,
+            14.0,
+            16.0,
+            18.0,
+            21.0,
+            24.0,
+            27.0,
+            30.0,
+        ]
+
+    def __check_flat_type(self):
+        if self.flat_type.lower() not in ["sky", "twilight"]:
+            raise PipelineValueError("Flat type must be either 'sky' or 'twilight'")
+
+    def __set_projection(self):
+        # If the atrtibute is already a Projection instance, do nothing
+        if isinstance(self.projection, Projection):
+            return
+
+        # If it's None, also do nothing
+        if self.projection is None:
+            return
+
+        # If specified as a string, translate to a Projection instance
+        elif isinstance(self.projection, str):
+            # Chamaeleon
+            if self.projection.lower() == "chamaeleon_wide":
+                self.projection = ChamaeleonWideProjection()
+            elif self.projection.lower() == "chamaeleon_deep":
+                self.projection = ChamaeleonDeepProjection()
+            elif self.projection.lower() == "chamaeleon_control":
+                self.projection = ChamaeleonControlProjection()
+
+            # Corona Australis
+            elif self.projection.lower() == "corona_australis_wide":
+                self.projection = CoronaAustralisWideProjection()
+            elif self.projection.lower() == "corona_australis_wide_lq":
+                self.projection = CoronaAustralisWideLQProjection()
+            elif self.projection.lower() == "corona_australis_deep":
+                self.projection = CoronaAustralisDeepProjection()
+            elif self.projection.lower() == "corona_australis_control":
+                self.projection = CoronaAustralisControlProjection()
+
+            # Lupus
+            elif self.projection.lower() == "lupus_wide":
+                self.projection = LupusWideProjection()
+            elif self.projection.lower() == "lupus_deep_n":
+                self.projection = LupusDeepNProjection()
+            elif self.projection.lower() == "lupus_deep_s":
+                self.projection = LupusDeepSProjection()
+            elif self.projection.lower() == "lupus_control_n":
+                self.projection = LupusControlNProjection()
+            elif self.projection.lower() == "lupus_control_s":
+                self.projection = LupusControlSProjection()
+
+            # Ophiuchus
+            elif self.projection.lower() == "ophiuchus_wide":
+                self.projection = OphiuchusWideProjection()
+            elif self.projection.lower() == "ophiuchus_deep":
+                self.projection = OphiuchusDeepProjection()
+            elif self.projection.lower() == "ophiuchus_control":
+                self.projection = OphiuchusControlProjection()
+
+            # Orion
+            elif self.projection.lower() == "orion_control":
+                self.projection = OrionControlProjection()
+
+            # Pipe
+            elif self.projection.lower() == "pipe_deep":
+                self.projection = PipeDeepProjection()
+
+            # Sharks
+            elif self.projection.lower() == "sharksg15115":
+                self.projection = SharksG15115()
+
+            # If no match found, raise error
+            else:
+                print(self.projection)
+                raise PipelineValueError(f"Projection '{self.projection}' not supported")
+        else:
+            raise PipelineValueError(
+                "Projection must be provided as string or Projection instance"
+            )
+
+    def __set_additional_source_masks(self):
+        # If given as a dict manually, do nothing
+        if isinstance(self.additional_source_masks, dict):
+            return
+
+        # If given as a source mask instance also do nothing
+        if isinstance(self.additional_source_masks, SourceMasks):
+            return
+
+        # If None, do nothing
+        if self.additional_source_masks is None:
+            return
+
+        # If specified as string, try to load supported predefined masks
+        if isinstance(self.additional_source_masks, str):
+            if self.additional_source_masks.lower() == "chamaeleon_deep":
+                self.additional_source_masks = ChamaeleonDeepSourceMasks()
+            elif self.additional_source_masks.lower() == "corona_australis_deep":
+                self.additional_source_masks = CoronaAustralisDeepSourceMasks()
+            elif self.additional_source_masks.lower() == "corona_australis_wide":
+                self.additional_source_masks = CoronaAustralisWideSourceMasks()
+            elif self.additional_source_masks.lower() == "corona_australis_control":
+                self.additional_source_masks = CoronaAustralisControlSourceMasks()
+            elif self.additional_source_masks.lower() == "lupus_deep":
+                self.additional_source_masks = LupusDeepSourceMasks()
+            elif self.additional_source_masks.lower() == "ophiuchus_deep":
+                self.additional_source_masks = OphiuchusDeepSourceMasks()
+            elif self.additional_source_masks.lower() == "pipe_deep":
+                self.additional_source_masks = PipeDeepSourceMasks()
+            elif self.additional_source_masks.lower() == "orion_wide":
+                self.additional_source_masks = OrionWideSourceMasks()
+            else:
+                raise ValueError(
+                    f"Source masks '{self.additional_source_masks}' are not supported"
+                )
+
+        # Otherwise raise error
+        else:
+            raise ValueError("Provide valid source masks")
 
     @classmethod
     def load_pipeline_setup(cls, setup, **kwargs):
@@ -251,7 +446,7 @@ class Setup(dict):
 
         # If given as string, load YML
         if isinstance(setup, str):
-            return cls(read_yml(path_yml=setup), **kwargs)
+            return cls(**read_yml(path_yml=setup), **kwargs)
 
         # If given as Setup instance, just return it again
         if isinstance(setup, cls):
@@ -264,720 +459,158 @@ class Setup(dict):
         else:
             raise ValueError("Please provide a pipeline setup")
 
-    # =========================================================================== #
-    # What to process
-    @property
-    def build_stacks(self):
-        return self.__build_stacks
+    def __add_folder_tree(self):
+        """Adds pipeline folder tree to setup."""
+        self.folders["pype"] = self.path_pype
+        self.folders["raw"] = self.path_data
+        self.folders["object"] = f"{self.path_pype}{self.name}/"
+        self.folders["headers"] = f"{self.folders['object']}{'headers'}/"
+        self.folders["master_common"] = f"{self.path_pype}{'master'}/"
+        self.folders["master_object"] = f"{self.folders['object']}{'master'}/"
+        self.folders["temp"] = f"{self.folders['object']}{'temp'}/"
+        self.folders["processed_basic"] = (
+            f"{self.folders['object']}{'processed_basic'}/"
+        )
+        self.folders["processed_final"] = (
+            f"{self.folders['object']}{'processed_final'}/"
+        )
+        self.folders["resampled"] = f"{self.folders['object']}{'resampled'}/"
+        self.folders["illumcorr"] = f"{self.folders['object']}{'illumcorr'}/"
+        self.folders["qc"] = f"{self.folders['object']}{'qc'}/"
+        self.folders["qc_bpm"] = f"{self.folders['qc']}{'bpm'}/"
+        self.folders["qc_dark"] = f"{self.folders['qc']}{'dark'}/"
+        self.folders["qc_gain"] = f"{self.folders['qc']}{'gain'}/"
+        self.folders["qc_linearity"] = f"{self.folders['qc']}{'linearity'}/"
+        self.folders["qc_flat"] = f"{self.folders['qc']}{'flat'}/"
+        self.folders["qc_sky"] = f"{self.folders['qc']}{'sky'}/"
+        self.folders["qc_astrometry"] = f"{self.folders['qc']}{'astrometry'}/"
+        self.folders["qc_photometry"] = f"{self.folders['qc']}{'photometry'}/"
+        self.folders["qc_illumcorr"] = f"{self.folders['qc']}{'illumcorr'}/"
+        self.folders["statistics"] = f"{self.folders['object']}{'statistics'}/"
+        self.folders["stacks"] = f"{self.folders['object']}{'stacks'}/"
+        self.folders["tile"] = f"{self.folders['object']}{'tile'}/"
+        self.folders["phase3"] = f"{self.path_pype}{'phase3/'}{self.name}/"
 
-    @build_stacks.setter
-    def build_stacks(self, build_stacks):
-        self.__build_stacks = build_stacks
+    def __create_folder_tree(self):
+        """Creates the folder tree for the pipeline"""
 
-    @property
-    def build_tile(self):
-        return self.__build_tile
-
-    @build_tile.setter
-    def build_tile(self, build_tile):
-        self.__build_tile = build_tile
-
-    @property
-    def build_tile_only(self):
-        return self.__build_tile_only
-
-    @build_tile_only.setter
-    def build_tile_only(self, build_tile_only):
-        self.__build_tile_only = build_tile_only
-
-    @property
-    def calibrate_pawprints(self):
-        return self.__calibrate_pawprints
-
-    @calibrate_pawprints.setter
-    def calibrate_pawprints(self, calibrate_pawprints):
-        self.__calibrate_pawprints = calibrate_pawprints
-
-    @property
-    def build_phase3(self):
-        return self.__build_phase3
-
-    @build_phase3.setter
-    def build_phase3(self, build_phase3):
-        self.__build_phase3 = build_phase3
-
-    @property
-    def build_public_catalog(self):
-        return self.__build_public_catalog
-
-    @build_public_catalog.setter
-    def build_public_catalog(self, build_public_catalog):
-        self.__build_public_catalog = build_public_catalog
-
-    @property
-    def source_classification(self):
-        return self.__source_classification
-
-    @source_classification.setter
-    def source_classification(self, source_classification):
-        self.__source_classification = source_classification
-
-    @property
-    def archive(self):
-        return self.__archive
-
-    @archive.setter
-    def archive(self, archive):
-        self.__archive = archive
-
-    # =========================================================================== #
-    # Generic pipeline setup
-    @property
-    def name(self):
-        return self.__name
-
-    @name.setter
-    def name(self, name):
-        self.__name = name
-
-    @property
-    def path_data(self):
-        return self.__path_data
-
-    @path_data.setter
-    def path_data(self, path_data):
-        self.__path_data = path_data
-
-    @property
-    def path_pype(self):
-        return self.__path_pype
-
-    @path_pype.setter
-    def path_pype(self, path_pype):
-        self.__path_pype = path_pype
-
-    @property
-    def n_jobs(self):
-        """Number of parallel jobs (when available)."""
-        return self.__n_jobs
-
-    @n_jobs.setter
-    def n_jobs(self, n_jobs):
-        self.__n_jobs = n_jobs
-
-    @property
-    def silent(self):
-        """Whether the pipeline should operatre in silent mode."""
-        return self.__silent
-
-    @silent.setter
-    def silent(self, silent):
-        self.__silent = silent
-
-    @property
-    def overwrite(self):
-        """Whether the pipeline overwrites existing files."""
-        return self.__overwrite
-
-    @overwrite.setter
-    def overwrite(self, overwrite):
-        self.__overwrite = overwrite
-
-    @property
-    def qc_plots(self):
-        """Whether QC plots should be generated."""
-        return self.__qc_plots
-
-    @qc_plots.setter
-    def qc_plots(self, qc_plots):
-        self.__qc_plots = qc_plots
-
-    # =========================================================================== #
-    # Data setup
-    @property
-    def saturation_levels(self):
-        """Saturation levels for each detector."""
-        return [
-            33000,
-            32000,
-            33000,
-            32000,
-            24000,
-            24000,
-            35000,
-            33000,
-            35000,
-            35000,
-            37000,
-            34000,
-            33000,
-            35000,
-            34000,
-            34000,
+        # Common paths
+        folders_common = [
+            self.folders["pype"],
+            self.folders["headers"],
+            self.folders["master_common"],
+            self.folders["temp"],
         ]
 
-    @property
-    def fpa_layout(self):
-        """Focal plane array layout."""
-        return [4, 4]
+        if self.build_phase3:
+            folders_common += [self.folders["phase3"]]
 
-    @property
-    def fix_vircam_headers(self):
-        """Whether the (sometimes silly) VIRCAM  headers should be fixed."""
-        return True
-
-    @property
-    def set_airmass(self):
-        return True
-
-    # =========================================================================== #
-    # Keywords
-    @property
-    def keywords(self):
-        return HeaderKeywords()
-
-    # =========================================================================== #
-    # BPM
-    @property
-    def bpm_max_lag(self):
-        return 1
-
-    @property
-    def bpm_rel_threshold(self):
-        return 0.04
-
-    @property
-    def bpm_frac(self):
-        return 0.2
-
-    # =========================================================================== #
-    # Dark
-    @property
-    def dark_max_lag(self):
-        return 1
-
-    @property
-    def dark_mask_min(self):
-        return True
-
-    @property
-    def dark_mask_max(self):
-        return True
-
-    @property
-    def dark_metric(self):
-        return "mean"
-
-    # =========================================================================== #
-    # Gain
-    @property
-    def gain_max_lag(self):
-        return 1
-
-    # =========================================================================== #
-    # Linearity
-    @property
-    def linearity_max_lag(self):
-        return 1
-
-    # =========================================================================== #
-    # Flat
-    @property
-    def flat_max_lag(self):
-        return 1
-
-    @property
-    def flat_mask_min(self):
-        return True
-
-    @property
-    def flat_mask_max(self):
-        return True
-
-    @property
-    def flat_rel_lo(self):
-        return 0.3
-
-    @property
-    def flat_rel_hi(self):
-        return 1.7
-
-    @property
-    def flat_sigma_level(self):
-        return 3
-
-    @property
-    def flat_sigma_iter(self):
-        return 1
-
-    @property
-    def flat_metric(self):
-        return "weighted"
-
-    # =========================================================================== #
-    # Weight
-    @property
-    def weight_mask_abs_max(self):
-        return 1.7
-
-    @property
-    def weight_mask_abs_min(self):
-        return 0.3
-
-    @property
-    def weight_mask_rel_max(self):
-        return 1.5
-
-    @property
-    def weight_mask_rel_min(self):
-        return 0.5
-
-    # =========================================================================== #
-    # Master
-    @property
-    def master_max_lag_bpm(self):
-        """Maximum time difference to MasterBPM in days."""
-        return 14
-
-    @property
-    def master_max_lag_dark(self):
-        """Maximum time difference to MasterDark in days."""
-        return 14
-
-    @property
-    def master_max_lag_flat(self):
-        """Maximum time difference to MasterFlat in days."""
-        return 14
-
-    @property
-    def master_max_lag_sky(self):
-        """Maximum time difference to MasterSky in minutes."""
-        return 60
-
-    @property
-    def master_max_lag_gain(self):
-        """Maximum time difference to MasterGain in days."""
-        return 14
-
-    @property
-    def master_max_lag_weight(self):
-        """Maximum time difference to MasterWeight in days."""
-        return 14
-
-    @property
-    def master_max_lag_linearity(self):
-        """Maximum time difference to MasterLinearity in days."""
-        return 14
-
-    # =========================================================================== #
-    # Photometry
-    @property
-    def ic_mode(self):
-        return self.__ic_mode
-
-    @ic_mode.setter
-    def ic_mode(self, ic_mode):
-        self.__ic_mode = ic_mode
-
-    @property
-    def apertures(self):
-        """
-        Aperture diameters used in photometric calibration.
-        All apertures will be matched to the last in the list.
-        """
-        # return [4.0, 6.0, 12.0, 18.0, 24.0, 30.0]
-        return [
-            3.0,
-            4.0,
-            5.0,
-            6.0,
-            7.0,
-            8.0,
-            9.0,
-            10.0,
-            12.0,
-            14.0,
-            16.0,
-            18.0,
-            21.0,
-            24.0,
-            27.0,
-            30.0,
+        # calibration-specific paths
+        folders_cal = [
+            self.folders["qc_bpm"],
+            self.folders["qc_dark"],
+            self.folders["qc_gain"],
+            self.folders["qc_linearity"],
+            self.folders["qc_flat"],
         ]
 
-    @property
-    def phot_reference_catalog(self):
-        """Reference catalog to be used."""
-        return "2mass"
+        # Object-specific paths
+        folders_object = [
+            self.folders["master_object"],
+            self.folders["qc"],
+            self.folders["qc_sky"],
+            self.folders["processed_basic"],
+            self.folders["processed_final"],
+            self.folders["qc_astrometry"],
+            self.folders["resampled"],
+            self.folders["statistics"],
+            self.folders["tile"],
+            self.folders["qc_photometry"],
+            self.folders["qc_illumcorr"],
+            self.folders["illumcorr"],
+        ]
+
+        # Create folder for stacks if set
+        if self.build_stacks:
+            folders_object += [self.folders["stacks"]]
+
+        # Generate common paths
+        for path in folders_common:
+            make_folder(path)
+
+        # Create common calibration path only if we run a calibration unit
+        if "calibration" in self.name.lower():
+            for path in folders_cal:
+                make_folder(path=path)
+
+        # Other wise make object paths
+        else:
+            for path in folders_object:
+                make_folder(path=path)
 
     @property
-    def reference_mag_lim(self):
-        return self.__reference_mag_lim
+    def dict(self) -> Dict[str, Any]:
+        # Get complete dict
+        dd = asdict(self)
 
-    @reference_mag_lim.setter
-    def reference_mag_lim(self, reference_mag_lim):
-        self.__reference_mag_lim = reference_mag_lim
+        # Replace projection and source masks with their names
+        if isinstance(dd["projection"], Projection):
+            dd["projection"] = dd["projection"].name
+        if isinstance(dd["additional_source_masks"], SourceMasks):
+            dd["additional_source_masks"] = dd["additional_source_masks"].name
 
-    @property
-    def photerr_internal(self):
-        return self.__photerr_internal
+        # Remove path attributes and folder setup
+        del dd["path_data"]
+        del dd["path_pype"]
+        del dd["folders"]
 
-    @photerr_internal.setter
-    def photerr_internal(self, photerr_internal):
-        self.__photerr_internal = photerr_internal
+        # Return
+        return dd
 
-    @property
-    def target_zp(self):
-        return self.__target_zp
+    def add_setup_to_header(self, header: fits.Header) -> None:
+        """
+        Adds setup information to a FITS header.
 
-    @target_zp.setter
-    def target_zp(self, target_zp):
-        self.__target_zp = target_zp
+        Parameters
+        ----------
+        header : fits.Header
+            The FITS header to which the setup information will be added.
+        """
+        for key, val in self.dict.items():
+            if isinstance(val, tuple):
+                val = str(val)
+            elif isinstance(val, Projection):
+                val = val.name
+            elif isinstance(val, SourceMasks):
+                val = val.name
 
-    # =========================================================================== #
-    # Cosmetics
-    @property
-    def destripe(self):
-        """Whether destriping should be done."""
-        return True
-
-    @property
-    def interpolate_nan_bool(self):
-        """Whether to interpolate NaN values."""
-        return True
-
-    @property
-    def interpolate_max_bad_neighbors(self):
-        """How many bad neighbors a NaN can have so that it still gets interpolated."""
-        return 3
-
-    @property
-    def subtract_background(self):
-        return True
-
-    # =========================================================================== #
-    # Source masks
-    @property
-    def mask_sources_thresh(self):
-        """Significance threshold above background for pixels to be masked."""
-        return 3
-
-    @property
-    def mask_sources_min_area(self):
-        """Minimum area of sources that are masked."""
-        return 3
-
-    @property
-    def mask_sources_max_area(self):
-        """Maximum area of sources that are masked (500x500 pix)."""
-        return 250000
-
-    @property
-    def mask_bright_sources(self):
-        return self.__mask_bright_sources
-
-    @mask_bright_sources.setter
-    def mask_bright_sources(self, mask_bright_sources):
-        self.__mask_bright_sources = mask_bright_sources
-
-    @property
-    def mask_2mass_sources(self):
-        """Whether to build additional 2MAS source mask."""
-        return self.__mask_2mass_sources
-
-    @mask_2mass_sources.setter
-    def mask_2mass_sources(self, mask_2mass_sources):
-        self.__mask_2mass_sources = mask_2mass_sources
-
-    @property
-    def additional_source_masks(self):
-        """Dictionary with additional source masks."""
-        return self.__additional_source_masks
-
-    @additional_source_masks.setter
-    def additional_source_masks(self, additional_source_masks):
-
-        # If given as a dict manually
-        if isinstance(additional_source_masks, dict):
-            self.__additional_source_masks = additional_source_masks
-
-        # If given as a source mask instance
-        elif isinstance(additional_source_masks, SourceMasks):
-            self.__additional_source_masks = additional_source_masks
-
-        # If specified as string, try to load supported predefined masks
-        elif isinstance(additional_source_masks, str):
-            if additional_source_masks.lower() == "chamaeleon_deep":
-                self.__additional_source_masks = ChamaeleonDeepSourceMasks()
-            elif additional_source_masks.lower() == "corona_australis_deep":
-                self.__additional_source_masks = CoronaAustralisDeepSourceMasks()
-            elif additional_source_masks.lower() == "corona_australis_wide":
-                self.__additional_source_masks = CoronaAustralisWideSourceMasks()
-            elif additional_source_masks.lower() == "corona_australis_control":
-                self.__additional_source_masks = CoronaAustralisControlSourceMasks()
-            elif additional_source_masks.lower() == "lupus_deep":
-                self.__additional_source_masks = LupusDeepSourceMasks()
-            elif additional_source_masks.lower() == "ophiuchus_deep":
-                self.__additional_source_masks = OphiuchusDeepSourceMasks()
-            elif additional_source_masks.lower() == "pipe_deep":
-                self.__additional_source_masks = PipeDeepSourceMasks()
+            # Iteratively clip the value if it is too long
+            key_upper = key.upper()
+            if isinstance(val, str):
+                while len(val) > 0:
+                    try:
+                        header.set(
+                            keyword=f"HIERARCH PYPE SETUP {key_upper}",
+                            value=val,
+                            comment="",
+                        )
+                        # Loop over cards and verify
+                        for card in header.cards:
+                            card.verify("silentfix")
+                        break
+                    except ValueError as e:
+                        if "too long" in str(e):
+                            val = val[1:]
+                        else:
+                            raise
+                else:
+                    raise ValueError(
+                        f"Value for key '{key_upper}' is too long and cannot be shortened further."
+                    )
             else:
-                raise ValueError(
-                    f"Source masks for '{additional_source_masks}' are not supported"
+                header.set(
+                    keyword=f"HIERARCH PYPE SETUP {key_upper}", value=val, comment=""
                 )
-
-        elif additional_source_masks is None:
-            self.__additional_source_masks = None
-
-        # Otherwise raise error
-        else:
-            raise ValueError("Provide valid source masks")
-
-    # =========================================================================== #
-    # Master Sky
-    @property
-    def sky_mix_science(self):
-        return True
-
-    @property
-    def sky_window(self):
-        """Window in minutes around which sky images are created."""
-        return 180
-
-    @property
-    def sky_n_min(self):
-        """Minimum number of images to merge to an offset image."""
-        return self.__sky_n_min
-
-    @sky_n_min.setter
-    def sky_n_min(self, sky_n_min):
-        self.__sky_n_min = sky_n_min
-
-    @property
-    def sky_metric(self):
-        return "weighted"
-
-    # =========================================================================== #
-    # Background mesh
-    @property
-    def background_mesh_size(self):
-        return 64
-
-    @property
-    def background_mesh_filtersize(self):
-        return 3
-
-    # =========================================================================== #
-    # Astrometry
-    @property
-    def external_headers(self):
-        return self.__external_headers
-
-    @external_headers.setter
-    def external_headers(self, external_headers):
-        self.__external_headers = external_headers
-
-    @property
-    def astr_reference_catalog(self):
-        return self.__astr_reference_catalog
-
-    @astr_reference_catalog.setter
-    def astr_reference_catalog(self, astr_reference_catalog):
-        self.__astr_reference_catalog = astr_reference_catalog
-
-    # =========================================================================== #
-    # Astromatic
-    @property
-    def bin_sex(self):
-        return self.__bin_sex
-
-    @bin_sex.setter
-    def bin_sex(self, bin_sex):
-        self.__bin_sex = bin_sex
-
-    @property
-    def bin_scamp(self):
-        return self.__bin_scamp
-
-    @bin_scamp.setter
-    def bin_scamp(self, bin_scamp):
-        self.__bin_scamp = bin_scamp
-
-    @property
-    def bin_swarp(self):
-        return self.__bin_swarp
-
-    @bin_swarp.setter
-    def bin_swarp(self, bin_swarp):
-        self.__bin_swarp = bin_swarp
-
-    @property
-    def bin_psfex(self):
-        return self.__bin_psfex
-
-    @bin_psfex.setter
-    def bin_psfex(self, bin_psfex):
-        self.__bin_psfex = bin_psfex
-
-    @property
-    def swarp_back_size(self):
-        return self.__swarp_back_size
-
-    @swarp_back_size.setter
-    def swarp_back_size(self, swarp_back_size):
-        self.__swarp_back_size = swarp_back_size
-
-    @property
-    def swarp_back_filtersize(self):
-        return self.__swarp_back_filtersize
-
-    @swarp_back_filtersize.setter
-    def swarp_back_filtersize(self, swarp_back_filtersize):
-        self.__swarp_back_filtersize = swarp_back_filtersize
-
-    @property
-    def sex_back_size(self):
-        return self.__sex_back_size
-
-    @sex_back_size.setter
-    def sex_back_size(self, sex_back_size):
-        self.__sex_back_size = sex_back_size
-
-    @property
-    def sex_back_filtersize(self):
-        return self.__sex_back_filtersize
-
-    @sex_back_filtersize.setter
-    def sex_back_filtersize(self, sex_back_filtersize):
-        self.__sex_back_filtersize = sex_back_filtersize
-
-    # =========================================================================== #
-    # Image statistics
-    @property
-    def image_statistics_resize_factor(self):
-        return 0.25
-
-    # Image combination methods for statistics
-    image_statistics_combine_type = {
-        "nimg": "SUM",
-        "exptime": "SUM",
-        "mjd.int": "WEIGHTED",
-        "mjd.frac": "WEIGHTED",
-        "astrms1": "WEIGHTED",
-        "astrms2": "WEIGHTED",
-    }
-
-    # =========================================================================== #
-    # Other
-    @property
-    def pixel_scale(self):
-        return 1 / 3 * Unit("arcsec")
-
-    @property
-    def pixel_scale_arcsec(self):
-        return self.pixel_scale.to_value(Unit("arcsec"))
-
-    @property
-    def pixel_scale_degrees(self):
-        return self.pixel_scale.to_value(Unit("deg"))
-
-    @property
-    def maximask(self):
-        return self.__maximask
-
-    @maximask.setter
-    def maximask(self, maximask):
-        self.__maximask = maximask
-
-    @property
-    def projection(self):
-        return self.__projection
-
-    @projection.setter
-    def projection(self, projection):
-        if isinstance(projection, Projection):
-            self.__projection = projection
-        elif projection is None:
-            self.__projection = None
-        elif isinstance(projection, str):
-
-            # Chamaeleon
-            if projection.lower() == "chamaeleon_wide":
-                self.__projection = ChamaeleonWideProjection()
-            elif projection.lower() == "chamaeleon_deep":
-                self.__projection = ChamaeleonDeepProjection()
-            elif projection.lower() == "chamaeleon_control":
-                self.__projection = ChamaeleonControlProjection()
-
-            # Corona Australis
-            elif projection.lower() == "corona_australis_wide":
-                self.__projection = CoronaAustralisWideProjection()
-            elif projection.lower() == "corona_australis_deep":
-                self.__projection = CoronaAustralisDeepProjection()
-            elif projection.lower() == "corona_australis_control":
-                self.__projection = CoronaAustralisControlProjection()
-
-            # Lupus
-            elif projection.lower() == "lupus_wide":
-                self.__projection = LupusWideProjection()
-            elif projection.lower() == "lupus_deep_n":
-                self.__projection = LupusDeepNProjection()
-            elif projection.lower() == "lupus_deep_s":
-                self.__projection = LupusDeepSProjection()
-            elif projection.lower() == "lupus_control_n":
-                self.__projection = LupusControlNProjection()
-            elif projection.lower() == "lupus_control_s":
-                self.__projection = LupusControlSProjection()
-
-            # Ophiuchus
-            elif projection.lower() == "ophiuchus_wide":
-                self.__projection = OphiuchusWideProjection()
-            elif projection.lower() == "ophiuchus_deep":
-                self.__projection = OphiuchusDeepProjection()
-            elif projection.lower() == "ophiuchus_control":
-                self.__projection = OphiuchusControlProjection()
-
-            # Orion
-            elif projection.lower() == "orion_control":
-                self.__projection = OrionControlProjection()
-
-            # Pipe
-            elif projection.lower() == "pipe_deep":
-                self.__projection = PipeDeepProjection()
-
-            # Sharks
-            elif projection.lower() == "sharksg15115":
-                self.__projection = SharksG15115()
-
-            # If no match found, raise error
-            else:
-                print(projection)
-                raise PipelineError(f"Projection '{projection}' not supported")
-        else:
-            raise PipelineError(
-                "Projection must be provided as string or Projection instance"
-            )
-
-    @property
-    def compress_phase3(self):
-        return False
-
-    @property
-    def fpack_quantization_factor(self):
-        """https://iopscience.iop.org/article/10.1086/656249/pdf"""
-        return 16
-
-    @property
-    def bin_stilts(self):
-        return self.__bin_stilts
-
-    @bin_stilts.setter
-    def bin_stilts(self, bin_stilts):
-        self.__bin_stilts = bin_stilts
-
-    @property
-    def joblib_backend(self):
-        return "threads"
 
 
 class HeaderKeywords:
@@ -996,7 +629,6 @@ class HeaderKeywords:
         saturate="SATURATE",
         airmass="AIRMASS",
     ):
-
         self.object = obj
         self.filter_name = filter_name
         self.type = dpr_type

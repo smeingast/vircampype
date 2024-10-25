@@ -25,7 +25,7 @@ class FlatTwilight(FlatImages):
     def __init__(self, setup, file_paths=None):
         super(FlatTwilight, self).__init__(setup=setup, file_paths=file_paths)
 
-    def build_master_flat(self):
+    def build_master_twilight_flat(self):
         """
         Builds a masterflat from the given flat fields. Also calculates a global gain
         harmonization which is applied to all detectors. Different filters (as reported
@@ -45,7 +45,6 @@ class FlatTwilight(FlatImages):
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):
-
             # Check flat sequence (at least three files, same nHDU, same NDIT,
             # and same filter)
             files.check_compatibility(
@@ -53,9 +52,9 @@ class FlatTwilight(FlatImages):
             )
 
             # Create Master name
-            outpath = "{0}MASTER-FLAT.MJD_{1:0.4f}.FIL_{2}.fits" "".format(
-                files.setup.folders["master_common"], files.mjd_mean, files.passband[0]
-            )
+            outpath = (f"{files.setup.folders['master_common']}"
+                       f"MASTER-TWILIGHT-FLAT.MJD_"
+                       f"{files.mjd_mean:0.4f}.FIL_{files.passband[0]}.fits")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -76,7 +75,6 @@ class FlatTwilight(FlatImages):
             # Start looping over detectors
             data_headers = []
             for d in files.iter_data_hdu[0]:
-
                 # Print processing info
                 message_calibration(
                     n_current=fidx,
@@ -195,7 +193,7 @@ class FlatTwilight(FlatImages):
                 decimals=6,
             )
             prime_header[self.setup.keywords.date_ut] = files.time_obs_mean.fits
-            prime_header[self.setup.keywords.object] = "MASTER-FLAT"
+            prime_header[self.setup.keywords.object] = "MASTER-TWILIGHT-FLAT"
             add_int_to_header(
                 header=prime_header, key="HIERARCH PYPE N_FILES", value=len(files)
             )
@@ -244,17 +242,16 @@ class FlatTwilight(FlatImages):
         tstart = time.time()
 
         # Get unique Master flats
-        master_flats = self.get_unique_master_flats()
+        master_flats = self.get_unique_master_twilight_flats()
 
         # Generate outpaths
         outpaths = [
-            x.replace("MASTER-FLAT", "MASTER-WEIGHT-GLOBAL")
+            x.replace("MASTER-TWILIGHT-FLAT", "MASTER-WEIGHT-GLOBAL")
             for x in master_flats.paths_full
         ]
 
         # Loop over files and apply calibration
         for idx in range(len(master_flats)):
-
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpaths[idx], silent=self.setup.silent)
@@ -298,7 +295,7 @@ class FlatTwilight(FlatImages):
 
             # Interpolate NaNs if set (cosmetic function can't be used since this would
             # also apply e.g. de-striping)
-            if self.setup.interpolate_nan_bool:
+            if self.setup.interpolate_nan:
                 cube.interpolate_nan()
 
             # Replace remaining NaNs with 0 weight
@@ -331,7 +328,6 @@ class FlatLampLin(FlatImages):
     # Master Linearity
     # =========================================================================== #
     def build_master_linearity(self, darks):
-
         # Processing info
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
         tstart = time.time()
@@ -341,7 +337,6 @@ class FlatLampLin(FlatImages):
         split_dark = darks.split_lag(max_lag=self.setup.linearity_max_lag)
 
         for sflats, sdarks, fidx in zip(split_flat, split_dark, range(len(split_flat))):
-
             # Check exposure sequence
             if (sflats.dit != sdarks.dit) | (sflats.ndit != sdarks.ndit):
                 raise ValueError("Linearity flat/dark sequence is broken")
@@ -367,7 +362,6 @@ class FlatLampLin(FlatImages):
 
             # Start detector loop
             for idx_hdu in sflats.iter_data_hdu[0]:
-
                 # Print processing info
                 message_calibration(
                     n_current=fidx + 1,
@@ -556,7 +550,6 @@ class FlatLampCheck(FlatImages):
 
         # Now loop through separated files and build Masterbpm
         for files, idx_print in zip(split, range(1, len(split) + 1)):
-
             # Check sequence compatibility
             files.check_compatibility(
                 n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3
@@ -583,7 +576,6 @@ class FlatLampCheck(FlatImages):
             # Start looping over detectors
             data_headers = []
             for d in files.iter_data_hdu[0]:
-
                 # Print processing info
                 if not self.setup.silent:
                     message_calibration(
@@ -712,7 +704,6 @@ class FlatLampGain(FlatImages):
 
         # Now loop through separated files and build the Gain Table
         for idx in range(len(split_flats)):
-
             # Grab files
             flats, darks = split_flats[idx], split_darks[idx]
 
@@ -942,7 +933,6 @@ class MasterFlat(MasterImages):
         paths = self.paths_qc_plots(paths=paths)
 
         for flux, mjd, gs, path in zip(self.flux, self.flux_mjd, self.gainscale, paths):
-
             # Get plot grid
             fig, axes = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -959,7 +949,6 @@ class MasterFlat(MasterImages):
 
             # Loop and plot
             for idx in range(len(flux)):
-
                 # Grab axes
                 ax = axes[idx]
 
@@ -1030,6 +1019,16 @@ class MasterFlat(MasterImages):
             plt.close("all")
 
 
+class MasterTwilightFlat(MasterFlat):
+    def __init__(self, setup, file_paths=None):
+        super(MasterTwilightFlat, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class MasterSkyFlat(MasterFlat):
+    def __init__(self, setup, file_paths=None):
+        super(MasterSkyFlat, self).__init__(setup=setup, file_paths=file_paths)
+
+
 class MasterWeight(MasterImages):
     def __init__(self, setup, file_paths=None):
         super(MasterWeight, self).__init__(setup=setup, file_paths=file_paths)
@@ -1053,7 +1052,6 @@ class MasterIlluminationCorrection(MasterImages):
 
         # Import
         import matplotlib.pyplot as plt
-        from matplotlib.cm import get_cmap
         from matplotlib.ticker import MaxNLocator, AutoMinorLocator
 
         # Generate path for plots
@@ -1064,7 +1062,6 @@ class MasterIlluminationCorrection(MasterImages):
             ]
 
         for idx_file in range(self.n_files):
-
             # Create figure
             fig, ax_file = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -1076,10 +1073,9 @@ class MasterIlluminationCorrection(MasterImages):
             cube = self.file2cube(file_index=idx_file)
 
             # Determine vmin/vmax
-            vmin, vmax = np.percentile(cube, 0.1), np.percentile(cube, 99.9)
+            vmin, vmax = np.percentile(cube.cube, 0.1), np.percentile(cube.cube, 99.9)
 
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
-
                 # Fetch current axes
                 ax = ax_file[idx_hdu]
 
@@ -1088,7 +1084,7 @@ class MasterIlluminationCorrection(MasterImages):
                     cube[idx_hdu],
                     vmin=vmin,
                     vmax=vmax,
-                    cmap=get_cmap("RdYlBu_r", 30),
+                    cmap=plt.get_cmap("RdYlBu_r", 30),
                     origin="lower",
                 )
 

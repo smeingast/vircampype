@@ -10,15 +10,15 @@ DETECT_MINAREA:   3              # min. # of pixels above threshold
 DETECT_MAXAREA:   10000              # max. # of pixels above threshold (0=unlimited)
 THRESH_TYPE:      RELATIVE       # threshold type: RELATIVE (in sigmas)
                                 # or ABSOLUTE (in ADUs)
-DETECT_THRESH:    5            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
-ANALYSIS_THRESH:  5            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
+DETECT_THRESH:    50            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
+ANALYSIS_THRESH:  50            # <sigmas> or <threshold>,<ZP> in mag.arcsec-2
 
 FILTER:           Y              # apply filter for detection (Y or N)?
 FILTER_NAME:      default.conv   # name of the file containing the filter
 FILTER_THRESH:                   # Threshold[s] for retina filtering
 
 DEBLEND_NTHRESH:  32             # Number of deblending sub-thresholds
-DEBLEND_MINCONT:  0.005          # Minimum contrast parameter for deblending
+DEBLEND_MINCONT:  0.0001          # Minimum contrast parameter for deblending
 
 CLEAN:            Y              # Clean spurious detections? (Y or N)?
 CLEAN_PARAM:      1.0            # Cleaning efficiency
@@ -92,9 +92,9 @@ CHECKIMAGE_NAME:  check.fits     # Filename for the check-image
 
 #--------------------- Memory (change with caution!) -------------------------
 
-MEMORY_OBJSTACK:  30000           # number of objects in stack
-MEMORY_PIXSTACK:  3000000         # number of pixels in stack
-MEMORY_BUFSIZE:   2048           # number of lines in buffer
+MEMORY_OBJSTACK:  3000           # number of objects in stack
+MEMORY_PIXSTACK:  300000         # number of pixels in stack
+MEMORY_BUFSIZE:   1024           # number of lines in buffer
 
 #------------------------------- ASSOCiation ---------------------------------
 
