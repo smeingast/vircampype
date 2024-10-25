@@ -363,8 +363,8 @@ def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):
     ----------
     array : np.ndarray
         Array to destripe.
-    method : callable
-        Method to apply along given axes. Default is np.nanmedian.
+    method : str
+        Method to apply along given axes. Default is "median".
     axis : int, tuple[int]
         Axes along which to destripe.
     norm : bool, optional
