@@ -15,6 +15,7 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from joblib import Parallel, delayed
 from sklearn.neighbors import KernelDensity, NearestNeighbors
+
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
 from vircampype.pipeline.log import PipelineLog
