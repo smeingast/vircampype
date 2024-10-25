@@ -1,5 +1,6 @@
+from typing import Any, Callable, List, Tuple, Union
+
 import numpy as np
-from typing import List, Callable, Any, Tuple, Union
 
 __all__ = [
     "string2list",
@@ -68,7 +69,7 @@ def string2func(s: str) -> Callable:
     """
 
     # Import
-    from vircampype.tools.mathtools import clipped_median, clipped_mean
+    from vircampype.tools.mathtools import clipped_mean, clipped_median
 
     if s.lower() == "median":
         return np.nanmedian
@@ -241,7 +242,7 @@ def convert_position_error(
     errmin : np.ndarray, list, tuple
         Minor axis errors.
     errpa : np.ndarray, list, tuple
-        Position angle of error ellipse (East of North); 
+        Position angle of error ellipse (East of North);
         in degrees if degrees=True, otherwise in radians.
     degrees : bool, optional
         Indicates whether the position angle is in degrees (default is True).
