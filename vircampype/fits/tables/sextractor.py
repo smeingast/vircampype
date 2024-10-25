@@ -528,25 +528,35 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         )
 
     def calibrate_photometry(self):
+
+        # Fetch log
+        log = PipelineLog()
+
         # Processing info
         print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
+        log.info(f"Calibrating photometry on {self.n_files} file(s)")
         tstart = time.time()
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()[0]
         mkeep = master_phot.get_purge_index(passband=self.passband[0][0])
         table_master = master_phot.file2table(file_index=0)[0][mkeep]
+        log.info(f"Master photometry: {master_phot.paths_full[0]}")
+        log.info(f"Master photometry: {len(table_master)} sources")
 
-        # Start loop over files
+        # Loop over files
         for idx_file in range(self.n_files):
+
             # Create output path
             path_out = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
+            log.info(f"File {idx_file + 1}/{self.n_files}; output path: {path_out}")
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info(f"File already exists, skipping")
                 continue
 
             # Print processing info
@@ -559,119 +569,269 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 silent=self.setup.silent,
             )
 
-            # Load table
+            # Load table and passband
             tables_file = self.file2table(file_index=idx_file)
-
-            # Load passband
             passband = self.passband[idx_file]
+            passband_2mass = master_phot.translate_passband(passband)
+            log.info(f"Number of HDUs: {len(tables_file)}")
+            log.info(f"Passband: {passband}")
+            log.info(f"2MASS passband: {passband_2mass}")
 
-            # Define magnitude columns to calibrate
-            columns_mag = [
-                "MAG_APER",
-                "MAG_APER_MATCHED",
-                "MAG_AUTO",
-            ]
-            columns_magerr = [
-                "MAGERR_APER",
-                "MAGERR_APER",
-                "MAGERR_AUTO",
-            ]
-
-            # Read original HDUList
+            # Read table HDUList
             table_hdulist = fits.open(self.paths_full[idx_file], mode="readonly")
 
             # Loop over tables
-            for tidx, tidx_hdu in zip(
-                range(len(tables_file)), self.iter_data_hdu[idx_file]
-            ):
-                tt = tables_file[tidx]
+            for tidx, tidx_hdu in enumerate(self.iter_data_hdu[idx_file]):
 
-                # Read aperture magnitudes
-                mag_aper = tt["MAG_APER"].quantity
+                # Get current table
+                log.info(f"Processing table {tidx + 1}/{len(tables_file)}")
+                table = tables_file[tidx][::1]  # TODO: Remove
+                log.info(f"Number of sources: {len(table)}")
 
-                # Replace masked columns with regular columns
-                fill_masked_columns(table=tt, fill_value=np.nan)
+                # Replace bad values with NaN
+                log.info("Replacing bad values with NaN")
+                sextractor_nanify_bad_values(table=table)
+
+                # Replace masked columns with regular columns and fill with NaN
+                log.info("Filling masked columns with NaN")
+                fill_masked_columns(table=table, fill_value=np.nan)
 
                 # Add aperture correction to table
-                tt.add_column((mag_aper[:, -1] - mag_aper.T).T, name="MAG_APER_COR")
+                log.info("Adding aperture correction to table")
+                table.add_column(
+                    (table["MAG_APER"][:, -1] - table["MAG_APER"].T).T,
+                    name="MAG_APER_COR",
+                )
 
-                for par in ["FWHM_WORLD", "ELLIPTICITY", "MAG_APER_COR"]:
-                    add_smoothed_value(
-                        table=tt,
-                        parameter=par,
-                        n_neighbors=100,
-                        max_dis=720,
-                    )
-
-                # Match apertures and add to table
-                mag_aper_matched = mag_aper + tt["MAG_APER_COR_INTERP"]
-                tt.add_column(mag_aper_matched, name="MAG_APER_MATCHED")
-
-                # Compute ZP and add calibrated photometry to catalog
-                add_zp_2mass(
-                    table=tt,
-                    table_2mass=table_master,
-                    key_ra=self.key_ra,
-                    key_dec=self.key_dec,
-                    mag_lim_ref=master_phot.mag_lim(passband),
+                # Get first-order ZP
+                log.info("Computing first-order zero point for table cleaning")
+                sc_table = SkyCoord(table[self.key_ra], table[self.key_dec], unit="deg")
+                sc_master = SkyCoord(
+                    table_master[master_phot.key_ra],
+                    table_master[master_phot.key_dec],
+                    unit="deg",
+                )
+                zp_auto, _ = get_zeropoint(
+                    skycoord1=sc_table,
+                    mag1=table["MAG_AUTO"],
+                    magerr1=table["MAGERR_AUTO"],
+                    skycoord2=sc_master,
+                    mag2=table_master[passband_2mass],
+                    magerr2=table_master[f"e_{passband_2mass}"],
                     method="weighted",
-                    passband_2mass=master_phot.translate_passband(passband),
-                    columns_mag=columns_mag,
-                    columns_magerr=columns_magerr,
                 )
 
-                # Add correction factor for the main calibrated mag measurement
-                sc1 = SkyCoord(tt[self.key_ra], tt[self.key_dec], unit="degree")
-                sc2 = SkyCoord(
-                    table_master["RAJ2000"], table_master["DEJ2000"], unit="degree"
+                # Determine flux limits from allowed magnitude range
+                flux_auto_max, flux_auto_min = 10 ** (
+                    -(master_phot.mag_lim(passband) - zp_auto) / 2.5
                 )
-                pb = master_phot.translate_passband(self.passband[idx_file][0])
-                zp_auto = get_zeropoint(
-                    skycoord1=sc1,
-                    mag1=tt["MAG_AUTO_CAL"].quantity,
-                    skycoord2=sc2,
-                    method="all",
-                    mag2=table_master[pb],
-                    mag_limits_ref=master_phot.mag_lim(passband),
+                log.info(
+                    f"FLUX_AUTO limits for clean catalog: "
+                    f"{flux_auto_min} - {flux_auto_max}"
                 )
-                zp_aper = get_zeropoint(
-                    skycoord1=sc1,
-                    mag1=tt["MAG_APER_MATCHED_CAL"].quantity,
-                    skycoord2=sc2,
-                    method="all",
-                    mag2=table_master[pb],
-                    mag_limits_ref=master_phot.mag_lim(passband=passband),
+
+                # Create clean source table
+                log.info("Creating clean source table")
+                table_clean, clean_idx = clean_source_table(
+                    table=table,
+                    min_distance_to_edge=25,
+                    min_fwhm=0.8,
+                    max_fwhm=6.0,
+                    max_ellipticity=0.25,
+                    nndis_limit=5,
+                    flux_auto_max=flux_auto_max,
+                    flux_auto_min=flux_auto_min,
+                    return_filter=True,
+                    finite_columns=[
+                        "FWHM_WORLD",
+                        "ELLIPTICITY",
+                        "MAG_AUTO",
+                        "MAGERR_AUTO",
+                    ],
+                    n_jobs=self.setup.n_jobs,
                 )
-                tt.add_column(zp_auto, name="MAG_AUTO_CAL_ZPC")
-                tt.add_column(zp_aper, name="MAG_APER_MATCHED_CAL_ZPC")
+                log.info(f"Created clean source table with {len(table_clean)} sources")
 
-                for par in ["MAG_AUTO_CAL_ZPC", "MAG_APER_MATCHED_CAL_ZPC"]:
-                    add_smoothed_value(
-                        table=tt,
-                        parameter=par,
-                        n_neighbors=100,
-                        max_dis=1800,
-                    )
+                # Add cleaned index to table
+                table.add_column(clean_idx, name="IDX_CLEAN")
 
-                # Replace HDU in original HDUList with modified table HDU
-                table_hdulist[tidx_hdu] = table2bintablehdu(tt)
+                # Compute nearest neighbors matrix
+                log.info("Computing nearest neighbors matrix")
+                max_dis = 1800.0
+                nn_dis, nn_idx = get_nearest_neighbors(
+                    x=table["XWIN_IMAGE"],
+                    y=table["YWIN_IMAGE"],
+                    x0=table_clean["XWIN_IMAGE"],
+                    y0=table_clean["YWIN_IMAGE"],
+                    max_dis=max_dis,
+                    n_neighbors=100,
+                    n_jobs=self.setup.n_jobs,
+                    leaf_size=50,
+                )
 
-                # Also add ZP info to header
-                for attr in ["zp", "zperr"]:
-                    for key, val in getattr(tt, attr).items():
-                        if attr == "zp":
-                            comment = "Zero point (mag)"
-                        else:
-                            comment = "Standard error of ZP (mag)"
-                        add_float_to_header(
-                            header=table_hdulist[tidx_hdu].header,
-                            key=key,
-                            value=val,
-                            comment=comment,
-                            decimals=4,
+                # Determine the number of parallel chunks from the number of sources
+                n_max = 200_000
+                n_per_job = n_max // self.setup.n_jobs
+                n_splits = int(np.ceil(len(table) / n_per_job))
+
+                # Split table
+                log.info(f"Splitting table into {n_splits} chunks")
+                table_chunks = split_table(table=table, n_splits=n_splits)
+                len_table_chunks = [len(chunk) for chunk in table_chunks]
+
+                # Compute weights with a 2 arcmin gaussian kernel
+                log.info("Computing weights for nearest neighbors")
+                nn_weights = (
+                    np.exp(-0.5 * (nn_dis / 360) ** 2)
+                    / table["MAGERR_AUTO"][:, np.newaxis] ** 2
+                )
+                nn_weights[np.isnan(nn_weights)] = 0
+
+                # Split matrices at same indices as table
+                nn_dis_chunks = np.split(nn_dis, np.cumsum(len_table_chunks)[:-1])
+                nn_weights_chunks = np.split(
+                    nn_weights, np.cumsum(len_table_chunks)[:-1]
+                )
+
+                # Interpolate values in loop
+                for par in ["MAG_APER_COR", "ELLIPTICITY", "FWHM_WORLD"]:
+                    log.info(f"Interpolating {par} values")
+
+                    # Grab data for nearest neighbors
+                    nn_data = table_clean[par][nn_idx]
+                    nn_data_chunks = np.split(nn_data, np.cumsum(len_table_chunks)[:-1])
+
+                    vals, vals_std, n_sources, max_dists = [], [], [], []
+                    for data, weights, dis in zip(
+                        nn_data_chunks, nn_weights_chunks, nn_dis_chunks
+                    ):
+
+                        # Replicate weights to third dimension if required
+                        if data.ndim == 3:
+                            weights = np.repeat(
+                                weights[:, :, np.newaxis], data.shape[2], axis=2
+                            )
+
+                        # sigma clip
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore")
+                            data = sigma_clip(
+                                data, axis=1, sigma=2.0, maxiters=3, masked=False
+                            )
+                        bad_data_mask = np.isnan(data)
+
+                        # Set weights to 0 and data to NaN for both masks
+                        data[bad_data_mask] = 0
+                        weights[bad_data_mask] = 0
+
+                        # Compute number of non-zero weights
+                        n_sources.append(np.sum(weights > 0, axis=1))
+
+                        # Compute maximum distance
+                        max_dists.append(np.nanmax(dis, axis=1))
+
+                        # Compute weighted average and standard deviation
+                        vals.append(np.average(data, axis=1, weights=weights))
+                        vals_std.append(
+                            np.sqrt(
+                                np.average(
+                                    (data - vals[-1][:, np.newaxis]) ** 2,
+                                    axis=1,
+                                    weights=weights,
+                                )
+                            )
                         )
 
+                    # Flatten lists and add to table
+                    table[f"{par}_INTERP"] = np.concatenate(vals).astype(np.float32)
+                    table[f"{par}_INTERP_STD"] = np.concatenate(vals_std).astype(
+                        np.float32
+                    )
+                    table[f"{par}_INTERP_N"] = np.concatenate(n_sources).astype(
+                        np.int16
+                    )
+                    table[f"{par}_INTERP_MAXDIS"] = np.concatenate(max_dists).astype(
+                        np.float32
+                    )
+                    log.info(f"Interpolated {par} values")
+
+                # Match apertures and add to table
+                log.info("Matching apertures")
+                mag_aper_matched = table["MAG_APER"] + table["MAG_APER_COR_INTERP"]
+                table.add_column(mag_aper_matched, name="MAG_APER_MATCHED")
+
+                # Add ZP attribute to the table
+                setattr(table, "zp", dict())
+                setattr(table, "zperr", dict())
+
+                # Create skycoord instances
+                log.info("Creating SkyCoord instances")
+                sc_table = SkyCoord(table[self.key_ra], table[self.key_dec], unit="deg")
+                sc_master = SkyCoord(
+                    table_master[master_phot.key_ra],
+                    table_master[master_phot.key_dec],
+                    unit="deg",
+                )
+
+                # Compute zero points for all magnitude columns
+                for cmag, cmagerr in zip(
+                    ["MAG_APER", "MAG_APER_MATCHED", "MAG_AUTO"],
+                    ["MAGERR_APER", "MAGERR_APER", "MAGERR_AUTO"],
+                ):
+                    log.info(f"Computing zeropoint for {cmag} column")
+                    zeropoint, zeropoint_err = get_zeropoint(
+                        skycoord1=sc_table,
+                        skycoord2=sc_master,
+                        mag1=table[cmag].data,
+                        mag2=table_master[passband_2mass].data,
+                        magerr1=table[cmagerr].data,
+                        magerr2=table_master[f"e_{passband_2mass}"].data,
+                        mag_limits_ref=master_phot.mag_lim(passband),
+                        method="weighted",
+                    )
+                    log.info(f"Computed zeropoint for {cmag} column")
+                    log.info(f"zeropoint: {zeropoint}")
+                    log.info(f"zeropoint_error: {zeropoint_err}")
+
+                    # Add calibrated magnitudes to table
+                    table[f"{cmag}_CAL"] = np.float32(table[cmag] + zeropoint)
+
+                    # Write ZPs and errors into attribute
+                    log.info(f"Adding calibrated magnitudes for {cmag} column")
+                    hpz = "HIERARCH PYPE ZP"
+                    if hasattr(zeropoint, "__len__"):
+                        for idx, (zp, zperr) in enumerate(
+                            zip(zeropoint, zeropoint_err)
+                        ):
+                            table.zp[f"{hpz} {cmag} {idx}"] = zp  # noqa
+                            table.zperr[f"{hpz} ERR {cmag} {idx}"] = zperr  # noqa
+                    else:
+                        table.zp[f"{hpz} {cmag}"] = zeropoint  # noqa
+                        table.zperr[f"{hpz} ERR {cmag}"] = zeropoint_err  # noqa
+
+                    # Replace HDU in original HDUList with modified table HDU
+                    table_hdulist[tidx_hdu] = table2bintablehdu(table)
+
+                    # Mapping for attribute to comment
+                    attr_to_comment = {
+                        "zp": "Zero point (mag)",
+                        "zperr": "Standard error of ZP (mag)",
+                    }
+
+                    # Add ZP info to header
+                    log.info("Adding ZP info to header")
+                    for attr, comment in attr_to_comment.items():
+                        for key, val in getattr(table, attr).items():
+                            add_float_to_header(
+                                header=table_hdulist[tidx_hdu].header,
+                                key=key,
+                                value=val,
+                                comment=comment,
+                                decimals=4,
+                            )
+
             # Write to new output file
+            log.info(f"Writing calibrated photometry to {path_out}")
             table_hdulist.writeto(path_out, overwrite=self.setup.overwrite)
 
             # Close original file
@@ -1385,6 +1545,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     astrms2[yy_image, xx_image],
                     weight[yy_image, xx_image],
                 )
+                # Convert to degrees
+                astrms_sources1 /= 3600
+                astrms_sources2 /= 3600
 
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
