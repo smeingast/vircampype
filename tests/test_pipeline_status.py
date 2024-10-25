@@ -37,10 +37,10 @@ class TestPipelineStatus(unittest.TestCase):
 
         # Read status from temporary file
         new_status = PipelineStatus()
-        new_status.read(f.name)
+        new_status.load(f.name)
 
         # Check if new status is equal to the original status
-        self.assertEqual(status.status_dict, new_status.status_dict)
+        self.assertEqual(status.dict, new_status.dict)
 
         # Delete temporary file
         os.remove(f.name)
