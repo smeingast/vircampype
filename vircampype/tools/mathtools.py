@@ -676,8 +676,23 @@ def fraction2float(fraction):
     return float(Fraction(fraction))
 
 
-def round_decimals_up(number: float, decimals: int = 2):
-    """Returns a value rounded up to a specific number of decimal places."""
+def round_decimals_up(
+    number: Union[float, np.ndarray], decimals: int = 2
+) -> Union[float, np.ndarray]:
+    """
+    Rounds a number or each element of an array up to a specific number of decimal places.
+
+    Parameters:
+    - number (float or np.ndarray): The number or array of numbers to round up.
+    - decimals (int): The number of decimal places to round up to. Must be a non-negative integer.
+
+    Returns:
+    - float or np.ndarray: The rounded up number or array of numbers.
+
+    Raises:
+    - TypeError: If 'decimals' is not an integer.
+    - ValueError: If 'decimals' is negative.
+    """
     if not isinstance(decimals, int):
         raise TypeError("decimal places must be an integer")
     elif decimals < 0:
