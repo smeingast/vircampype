@@ -39,7 +39,7 @@ def apply_sigma_clip(
     sigma_level: Union[int, float] = 3,
     sigma_iter: int = 1,
     center_metric: Callable = np.nanmedian,
-    axis: int = 0
+    axis: int = 0,
 ) -> np.ndarray:
     """
     Performs sigma clipping of data.
@@ -137,10 +137,10 @@ def cuberoot_idl(
     # Normalize to a + bx + cx^2 + x^3=0
     a, b, c = c0 / c3, c1 / c3, c2 / c3
 
-    q = (c ** 2 - 3 * b) / 9
-    r = (2 * c ** 3 - 9 * c * b + 27 * a) / 54
+    q = (c**2 - 3 * b) / 9
+    r = (2 * c**3 - 9 * c * b + 27 * a) / 54
 
-    index1 = r ** 2 < q ** 3
+    index1 = r**2 < q**3
     index2 = ~index1
     count1, count2 = np.sum(index1), np.sum(index2)
 
@@ -150,7 +150,7 @@ def cuberoot_idl(
         qf = q[index1]
         cf = c[index1]
 
-        theta = np.arccos(rf / qf ** 1.5)
+        theta = np.arccos(rf / qf**1.5)
         solution1[index1] = -2 * np.sqrt(qf) * np.cos(theta / 3) - cf / 3
         solution2[index1] = -2 * np.sqrt(qf) * np.cos((theta + 2 * np.pi) / 3) - cf / 3
         solution3[index1] = -2 * np.sqrt(qf) * np.cos((theta - 2 * np.pi) / 3) - cf / 3
@@ -163,7 +163,7 @@ def cuberoot_idl(
         cf = c[index2]
 
         # Get the one real root
-        h = -rf / np.abs(rf) * (np.abs(rf) + np.sqrt(rf ** 2 - qf ** 3)) ** (1 / 3)
+        h = -rf / np.abs(rf) * (np.abs(rf) + np.sqrt(rf**2 - qf**3)) ** (1 / 3)
         k = h.copy()
 
         zindex = np.isclose(h, 0, atol=1.0e-5)
@@ -217,12 +217,10 @@ def cuberoot(a, b, c, d, return_real=False):
 
         # Calculate stuff to get the roots
         delta0, delta1 = (
-            c ** 2.0 - 3.0 * d * b,
-            2.0 * c ** 3.0 - 9.0 * d * c * b + 27.0 * d ** 2.0 * a,
+            c**2.0 - 3.0 * d * b,
+            2.0 * c**3.0 - 9.0 * d * c * b + 27.0 * d**2.0 * a,
         )
-        z = ((delta1 + np.sqrt(delta1 ** 2.0 - 4.0 * delta0 ** 3.0)) / 2.0) ** (
-            1.0 / 3.0
-        )
+        z = ((delta1 + np.sqrt(delta1**2.0 - 4.0 * delta0**3.0)) / 2.0) ** (1.0 / 3.0)
 
         u1, u2, u3 = 1.0, (-1.0 + 1j * np.sqrt(3)) / 2.0, (-1.0 - 1j * np.sqrt(3)) / 2.0
 
@@ -267,7 +265,7 @@ def squareroot(a, b, c, return_real=False):
     c, b = complex(c), complex(b)
 
     # Calculate stuff to get the roots
-    delta = np.sqrt(b ** 2.0 - 4 * c * a)
+    delta = np.sqrt(b**2.0 - 4 * c * a)
     x1, x2 = (-b + delta) / (2 * c), (-b - delta) / (2 * c)
 
     # Just return real part
@@ -285,7 +283,7 @@ def linearity_fitfunc(x, b1, b2, b3):
     kk = mindit / x
     return np.sum(
         [
-            coeff[j - 1] * x ** j * ((1 + kk) ** j - kk ** j)
+            coeff[j - 1] * x**j * ((1 + kk) ** j - kk**j)
             for j in range(1, len(coeff) + 1)
         ],
         axis=0,
@@ -482,13 +480,13 @@ def meshgrid(array, size=128):
     advantage that the edges are always included!"""
     # Return
     if array.ndim == 1:
-        return np.uint32((np.mgrid[0: array.shape[0] - 1: complex(n[0])]))
+        return np.uint32((np.mgrid[0 : array.shape[0] - 1 : complex(n[0])]))
     if array.ndim == 2:
         return np.uint32(
             (
                 np.mgrid[
-                    0: array.shape[0] - 1: complex(n[0]),
-                    0: array.shape[1] - 1: complex(n[1]),
+                    0 : array.shape[0] - 1 : complex(n[0]),
+                    0 : array.shape[1] - 1 : complex(n[1]),
                 ]
             )
         )
@@ -496,9 +494,9 @@ def meshgrid(array, size=128):
         return np.uint32(
             (
                 np.mgrid[
-                    0: array.shape[0] - 1: complex(n[0]),
-                    0: array.shape[1] - 1: complex(n[1]),
-                    0: array.shape[2] - 1: complex(n[2]),
+                    0 : array.shape[0] - 1 : complex(n[0]),
+                    0 : array.shape[1] - 1 : complex(n[1]),
+                    0 : array.shape[2] - 1 : complex(n[2]),
                 ]
             )
         )
@@ -647,7 +645,7 @@ def centroid_sphere(skycoord):
     mean_z = np.mean(skycoord[good].cartesian.z)
 
     # Push mean to triangle surface
-    cenlen = np.sqrt(mean_x ** 2 + mean_y ** 2 + mean_z ** 2)
+    cenlen = np.sqrt(mean_x**2 + mean_y**2 + mean_z**2)
     xsur, ysur, zsur = mean_x / cenlen, mean_y / cenlen, mean_z / cenlen
 
     # Convert back to spherical coordinates and return
@@ -687,7 +685,7 @@ def round_decimals_up(number: float, decimals: int = 2):
     elif decimals == 0:
         return np.ceil(number)
 
-    factor = 10 ** decimals
+    factor = 10**decimals
     return np.ceil(number * factor) / factor
 
 
@@ -700,7 +698,7 @@ def round_decimals_down(number: float, decimals: int = 2):
     elif decimals == 0:
         return np.floor(number)
 
-    factor = 10 ** decimals
+    factor = 10**decimals
     return np.floor(number * factor) / factor
 
 
@@ -723,15 +721,15 @@ def cart2pol(x, y):
 
 
 def get_nearest_neighbors(
-        x: np.ndarray,
-        y: np.ndarray,
-        x0: np.ndarray,
-        y0: np.ndarray,
-        n_neighbors: int = 100,
-        max_dis: float = 540.0,
-        n_fixed: int = 20,
-        n_jobs: Optional[int] = None,
-        **kwargs
+    x: np.ndarray,
+    y: np.ndarray,
+    x0: np.ndarray,
+    y0: np.ndarray,
+    n_neighbors: int = 100,
+    max_dis: float = 540.0,
+    n_fixed: int = 20,
+    n_jobs: Optional[int] = None,
+    **kwargs
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Find the nearest neighbors for a set of coordinates.
@@ -856,9 +854,15 @@ def interpolate_value(
     # If nearest neighbors are not provided, compute them
     if nn_dis is None or nn_idx is None:
         print("BAD")
-        nn_dis, nn_idx = get_nearest_neighbors(x=x, y=y, x0=x0, y0=y0,
-                                              n_neighbors=n_neighbors, max_dis=max_dis,
-                                              n_fixed=n_fixed)
+        nn_dis, nn_idx = get_nearest_neighbors(
+            x=x,
+            y=y,
+            x0=x0,
+            y0=y0,
+            n_neighbors=n_neighbors,
+            max_dis=max_dis,
+            n_fixed=n_fixed,
+        )
 
     # Grab nearest neighbor data and
     nn_data = val0[nn_idx]
@@ -883,8 +887,9 @@ def interpolate_value(
 
     # Compute weighted average and std
     vals = np.average(nn_data, axis=1, weights=weights)
-    vals_std = np.sqrt(np.average((nn_data - vals[:, np.newaxis]) ** 2,
-                                  axis=1, weights=weights))
+    vals_std = np.sqrt(
+        np.average((nn_data - vals[:, np.newaxis]) ** 2, axis=1, weights=weights)
+    )
 
     # Return interpolated value, standard deviation, number of sources, and max distance
     return vals, vals_std, n_sources_per_source, max_dis_per_source
