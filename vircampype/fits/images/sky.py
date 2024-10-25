@@ -1815,16 +1815,18 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             end="\n",
         )
 
-    def build_coadd_header(self):
+    def build_coadd_header(self, path_header: str = None):
         # Processing info
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
         tstart = time.time()
 
+        # Set default output path
+        if path_header is None:
+            path_header = self.setup.path_coadd_header
+
         # Check if header exists
         if (
-            check_file_exists(
-                file_path=self.setup.path_coadd_header, silent=self.setup.silent
-            )
+            check_file_exists(file_path=path_header, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
             return
@@ -1833,7 +1835,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         message_calibration(
             n_current=1,
             n_total=1,
-            name=self.setup.path_coadd_header,
+            name=path_header,
             d_current=None,
             d_total=None,
             silent=self.setup.silent,
@@ -1885,7 +1887,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             )
 
         # Write coadd header to disk
-        header_coadd.totextfile(self.setup.path_coadd_header, overwrite=True)
+        header_coadd.totextfile(path_header, overwrite=True)
 
         # Print time
         print_message(
