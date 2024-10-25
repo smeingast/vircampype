@@ -393,6 +393,7 @@ def convert2public(
     photerr_internal: float,
     apertures: List,
     mag_saturation: float,
+    survey_name: str,
 ):
 
     # Fill masked columns with NaN
@@ -460,7 +461,7 @@ def convert2public(
     )
 
     # Get indices for 2MASS and VISIONS entries
-    idx_visions = np.where(data_survey == "VISIONS")[0]
+    idx_survey = np.where(data_survey == survey_name)[0]
     idx_2mass = np.where(data_survey == "2MASS")[0]
 
     # Read and clean aperture magnitudes, add internal photometric error
