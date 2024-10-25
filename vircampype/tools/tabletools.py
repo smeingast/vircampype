@@ -229,11 +229,11 @@ def table2bintablehdu(table):
     return fits.BinTableHDU.from_columns(columns=cols_hdu)
 
 
-def interpolate_classification(source_table, classification_table, verbose=True):
+def interpolate_classification(source_table, classification_table, verbose=False):
     """Helper tool to interpolate classification from library"""
 
     if verbose:
-        print("Interpolating classification...")
+        print("\nInterpolating classification...")
 
     # Grab coordinates
     xx_source, yy_source = source_table["XWIN_IMAGE"], source_table["YWIN_IMAGE"]
@@ -279,9 +279,9 @@ def interpolate_classification(source_table, classification_table, verbose=True)
         # Print progress every 100 iterations
         if verbose and (i % 100 == 0 or i == total_iterations - 1):
             print(
-                    f"\r{i + 1}/{total_iterations} ({(i + 1) / total_iterations * 100:.2f}%)",
-                    end="",
-                )
+                f"\r{i + 1}/{total_iterations} ({(i + 1) / total_iterations * 100:.2f}%)",
+                end="",
+            )
     class_star_interp = np.array(class_star_interp, dtype=np.float32)
 
     # Mask bad values
