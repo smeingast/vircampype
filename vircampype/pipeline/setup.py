@@ -4,11 +4,12 @@ from astropy.io import fits
 from joblib import cpu_count
 from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
-from vircampype.visions.projections import *
+from vircampype.miscellaneous.projection import *
 from typing import Union, List, Optional, Literal
 from vircampype.miscellaneous.sourcemasks import *
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.miscellaneous.projection import Projection
+from typing import Dict, Any
 
 
 @dataclass
@@ -548,7 +549,7 @@ class Setup:
                 make_folder(path=path)
 
     @property
-    def dict(self):
+    def dict(self) -> Dict[str, Any]:
         # Get complete dict
         dd = asdict(self)
 
