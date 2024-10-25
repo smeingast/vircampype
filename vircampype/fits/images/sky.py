@@ -386,7 +386,6 @@ class SkyImages(FitsImages):
                     seeing_fwhm=ss,
                     return_cmds=True,
                     silent=True,
-                    check_double_image=True,
                 )[idx_file]
                 for ss in fwhm_range
             ]
