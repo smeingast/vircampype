@@ -1,6 +1,6 @@
 import os
-import time
 import pickle
+import time
 import warnings
 from itertools import repeat
 
@@ -106,7 +106,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Processing info
         print_header(header="SCAMP", silent=self.setup.silent)
         tstart = time.time()
-        log.info(f"Running scamp on {self.n_files} files:\n{self.basenames2log}")
+        log.info(f"Running scamp on {self.n_files} files:\n{self.basenames2log()}")
 
         # Print source count in eachdata extension to log
         for idx, fn in enumerate(self.basenames):
