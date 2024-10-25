@@ -1531,7 +1531,7 @@ class SkyImagesProcessed(SkyImages):
                 if np.sum(np.isfinite(plane)) / plane.size < 0.2:
                     ntot, nmasked = plane.size, np.sum(~np.isfinite(plane))
                     raise ValueError(
-                        f"Too many pixels masked ({nmasked/ntot * 100}%) "
+                        f"Too many pixels masked ({nmasked / ntot * 100}%) "
                         f"for file {self.basenames[idx_file]} "
                         f"with mask '{master_source_mask.basenames[idx_file]}'"
                     )
@@ -2996,7 +2996,7 @@ class MasterSky(MasterImages):
 
         # Import matplotlib
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Plot paths
         paths = self.paths_qc_plots(paths=paths, mode="sky")
@@ -3095,7 +3095,7 @@ class MasterSky(MasterImages):
     def qc_plot_sky_stability(self, paths=None, axis_size=5):
         # Import matplotlib
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Plot paths
         paths = self.paths_qc_plots(paths=paths, mode="sky_stability")
