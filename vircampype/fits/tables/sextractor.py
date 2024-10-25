@@ -1782,9 +1782,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def plot_qc_phot_ref1d(self, paths=None, axis_size=5):
         # Import
-        from astropy.units import Unit
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from astropy.units import Unit
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Processing info
         print_header(header="QC PHOTOMETRY REFERENCE 1D", silent=self.setup.silent)
@@ -1961,8 +1961,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def plot_qc_phot_ref2d(self, axis_size=5):
         # Import
-        from astropy.units import Unit
         import matplotlib.pyplot as plt
+        from astropy.units import Unit
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Processing info
