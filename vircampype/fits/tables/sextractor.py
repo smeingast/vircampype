@@ -360,7 +360,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     table=tab,
                     image_header=header,
                     flux_max=header["SEXSATLV"] * 0.8,
-                    border_pix=10,
+                    min_distance_to_edge=10,
                     nndis_limit=5,
                     min_fwhm=0.8,
                     max_fwhm=6.0,
