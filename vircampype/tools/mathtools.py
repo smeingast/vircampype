@@ -783,7 +783,9 @@ def get_nearest_neighbors(
     stacked = np.column_stack([x, y])
 
     # Grab nearest neighbors
-    nn_model = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=n_jobs, **kwargs).fit(stacked0)
+    nn_model = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=n_jobs, **kwargs).fit(
+        stacked0
+    )
     nn_dis, nn_idx = nn_model.kneighbors(stacked)
 
     # Ensure at least n_fixed neighbors are considered
