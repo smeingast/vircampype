@@ -1,36 +1,37 @@
-import gc
-import os
 import copy
-import time
+import gc
 import glob
 import logging
+import os
+import time
 import warnings
-import numpy as np
 
-from astropy.io import fits
-from skimage.draw import disk
-from astropy.table import Table
-from skimage.morphology import square
-from vircampype.external.mmm import mmm
-from vircampype.tools.wcstools import *
-from vircampype.tools.plottools import *
-from vircampype.tools.fitstools import *
-from vircampype.tools.messaging import *
-from vircampype.tools.mathtools import *
+import numpy as np
 from astropy.coordinates import SkyCoord
-from vircampype.tools.tabletools import *
-from vircampype.tools.systemtools import *
-from vircampype.tools.viziertools import *
-from vircampype.data.cube import ImageCube
-from vircampype.tools.miscellaneous import *
-from vircampype.pipeline.log import PipelineLog
-from vircampype.tools.astromatic import SwarpSetup
+from astropy.io import fits
+from astropy.table import Table
 from scipy.ndimage.morphology import binary_closing
-from vircampype.tools.imagetools import upscale_image
-from vircampype.tools.astromatic import SextractorSetup
-from vircampype.miscellaneous.sourcemasks import SourceMasks
-from vircampype.tools.photometry import get_default_extinction
+from skimage.draw import disk
+from skimage.morphology import square
+
+from vircampype.data.cube import ImageCube
+from vircampype.external.mmm import mmm
 from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.miscellaneous.sourcemasks import SourceMasks
+from vircampype.pipeline.errors import *
+from vircampype.pipeline.log import PipelineLog
+from vircampype.tools.astromatic import SextractorSetup, SwarpSetup
+from vircampype.tools.fitstools import *
+from vircampype.tools.imagetools import upscale_image
+from vircampype.tools.mathtools import *
+from vircampype.tools.messaging import *
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.photometry import get_default_extinction
+from vircampype.tools.plottools import *
+from vircampype.tools.systemtools import *
+from vircampype.tools.tabletools import *
+from vircampype.tools.viziertools import *
+from vircampype.tools.wcstools import *
 
 logger = logging.getLogger(__name__)
 
