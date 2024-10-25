@@ -145,7 +145,6 @@ class SkyImages(FitsImages):
         preset="scamp",
         silent=None,
         return_cmds=False,
-        check_double_image=True,
         **kwargs,
     ):
         """
@@ -159,14 +158,11 @@ class SkyImages(FitsImages):
             Can overrides setup on messaging.
         return_cmds : bool, optional
             Return list of sextractor shell commands instead of running them.
-        check_double_image : bool, optional
-            Check for double image and modify command accordingly if found.
 
         """
 
         # Fetch log
         log = PipelineLog()
-        log.info(f"Running sextractor with preset '{preset}' on {self.n_files} files")
 
         # Load Sextractor setup
         sxs = SextractorSetup(setup=self.setup)
@@ -177,10 +173,10 @@ class SkyImages(FitsImages):
         # Processing info
         print_header(
             header="SOURCE DETECTION",
-            left="Running Sextractor with preset '{0}' on {1} files"
-            "".format(preset, len(self)),
+            left=f"Running Sextractor with preset '{preset}' on {len(self)} files",
             right=None,
             silent=silent,
+            logger=log,
         )
         tstart = time.time()
 
@@ -244,23 +240,29 @@ class SkyImages(FitsImages):
         ]
 
         # Check if there is a detection image available for each command
-        if check_double_image:
+        # TODO: Check if this works
+        if self.setup.sex_detection_image_path is not None:
+            # Check if detection image exists
+            if not os.path.isfile(self.setup.sex_detection_image_path):
+                emsg = f"Detection image not found at {self.setup.sex_detection_image_path}"
+                log.error(emsg)
+                raise FileNotFoundError(emsg)
+
+            # Add detection image to sextractor command
             for idx, _ in enumerate(cmds):
-                root, ext = os.path.splitext(self.paths_full[idx])
-                path_di = f"{root}.di{ext}"
-                if os.path.isfile(path_di):
-                    cmds[idx] = cmds[idx].replace(
-                        self.paths_full[idx], f"{path_di},{self.paths_full[idx]}"
-                    )
-                    log.info(
-                        f"Double image mode\n"
-                        f"Detection image '{path_di}'\n"
-                        f"Measurement image '{self.paths_full[idx]}'"
-                    )
+                cmds[idx] = cmds[idx].replace(
+                    self.paths_full[idx],
+                    f"{self.setup.sex_detection_image_path},{self.paths_full[idx]}",
+                )
+                log.info(
+                    f"Double image mode\n"
+                    f"Detection image '{self.setup.sex_detection_image_path}'\n"
+                    f"Measurement image '{self.paths_full[idx]}'"
+                )
 
         # Add kwargs to commands
         for key, val in kwargs.items():
-            for cmd_idx in range(len(cmds)):
+            for cmd_idx, _ in enumerate(cmds):
                 try:
                     cmds[cmd_idx] += f"-{key.upper()} {val[cmd_idx]}"
                 except IndexError:
@@ -293,14 +295,13 @@ class SkyImages(FitsImages):
 
         # Print time
         if not silent:
-            tt_message = f"\n-> Elapsed time: {time.time() - tstart}s"
-            log.info(tt_message)
-            print_message(message=tt_message, kind="okblue", end="\n")
+            tt_message = f"\n-> Elapsed time: {time.time() - tstart:.2f}s"
+            print_message(message=tt_message, kind="okblue", end="\n", logger=log)
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import (
-            SextractorCatalogs,
             AstrometricCalibratedSextractorCatalogs,
+            SextractorCatalogs,
         )
 
         if preset.lower() in ["scamp", "class_star", "fwhm", "psfex"]:
@@ -308,7 +309,9 @@ class SkyImages(FitsImages):
         elif (preset == "ic") | (preset == "full"):
             cls = AstrometricCalibratedSextractorCatalogs
         else:
-            raise ValueError(f"Preset '{preset}' not supported")
+            raise PipelineValueError(
+                logger=log, message=f"Preset '{preset}' not supported"
+            )
 
         # Return Table instance
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
