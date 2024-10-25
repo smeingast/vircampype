@@ -1,15 +1,15 @@
 import warnings
-import numpy as np
-
-from astropy.units import Unit
 from fractions import Fraction
-from astropy.stats import sigma_clip
-from astropy.coordinates import SkyCoord
-from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
-from sklearn.neighbors import NearestNeighbors
-from typing import Union, Callable, Tuple, Optional
+from typing import Callable, List, Optional, Tuple, Union
 
+import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.stats import sigma_clip, sigma_clipped_stats
+from astropy.units import Unit
+from scipy.spatial import cKDTree
+from sklearn.neighbors import NearestNeighbors
+
+from vircampype.tools.miscellaneous import *
 
 __all__ = [
     "apply_sigma_clip",
@@ -30,6 +30,7 @@ __all__ = [
     "cart2pol",
     "get_nearest_neighbors",
     "interpolate_value",
+    "find_neighbors_within_distance",
 ]
 
 
@@ -887,3 +888,69 @@ def interpolate_value(
 
     # Return interpolated value, standard deviation, number of sources, and max distance
     return vals, vals_std, n_sources_per_source, max_dis_per_source
+
+
+def find_neighbors_within_distance(
+    coords1: SkyCoord,
+    coords2: SkyCoord,
+    distance_limit_arcmin: float,
+    compute_distances: bool = False,
+) -> Tuple[List[List[int]], Optional[List[List[float]]]]:
+    """
+    Find all neighbors within a given distance limit using KD-Tree.
+
+    Parameters
+    ----------
+    coords1 : SkyCoord
+        The set of SkyCoord instances to find neighbors for.
+    coords2 : SkyCoord
+        The set of SkyCoord instances to search within.
+    distance_limit_arcmin : float
+        The distance limit within which to search for neighbors, in arcminutes.
+    compute_distances : bool, optional
+        Whether to compute and return the distances to the neighbors. Default is False.
+
+    Returns
+    -------
+    neighbors : List[List[int]]
+        A list where each entry contains the indices of neighbors within the distance limit for each entry in coords1.
+    distances_arcmin : Optional[List[List[float]]]
+        A list where each entry contains the distances to the neighbors within the distance limit for each entry in coords1,
+        in arcminutes. Returns None if compute_distances is False.
+    """
+    # Convert RA/Dec to Cartesian coordinates for KD-Tree
+    xyz1 = np.vstack(
+        [
+            coords1.cartesian.x.value,
+            coords1.cartesian.y.value,
+            coords1.cartesian.z.value,
+        ]
+    ).T
+    xyz2 = np.vstack(
+        [
+            coords2.cartesian.x.value,
+            coords2.cartesian.y.value,
+            coords2.cartesian.z.value,
+        ]
+    ).T
+
+    # Build KD-Trees
+    tree1 = cKDTree(xyz1)
+    tree2 = cKDTree(xyz2)
+
+    # Query all points within the distance limit
+    # Convert the distance limit to radians (since Cartesian coordinates are unitless)
+    distance_limit_rad = np.radians(distance_limit_arcmin / 60.0)
+    neighbors = tree1.query_ball_tree(tree2, distance_limit_rad)
+
+    distances_arcmin = None
+    if compute_distances:
+        # Calculate the actual distances in arcminutes
+        distances_arcmin = []
+        for i, neighbor_indices in enumerate(neighbors):
+            source_coord = coords1[i]
+            neighbor_coords = coords2[neighbor_indices]
+            separations = source_coord.separation(neighbor_coords)
+            distances_arcmin.append(separations.to_value("arcmin").tolist())
+
+    return neighbors, distances_arcmin
