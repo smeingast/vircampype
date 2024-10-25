@@ -709,6 +709,7 @@ def convert2public(
     return output_table
 
 
+# TODO: This new version requires a lot of ram...
 def merge_with_2mass(
     table: Table,
     weight_image: np.ndarray,
@@ -719,8 +720,9 @@ def merge_with_2mass(
     key_ra: str,
     key_dec: str,
     key_mag_2mass: str,
-    key_ra_2mass: str = "RAJ2000",
-    key_dec_2mass: str = "DEJ2000",
+    key_ra_2mass: str,
+    key_dec_2mass: str,
+    survey_name: str,
 ):
     # Read data columns
     skycoord = SkyCoord(table[key_ra], table[key_dec], unit="deg", frame="icrs")
@@ -777,16 +779,44 @@ def merge_with_2mass(
     y_values = np.array([50, 20, 10, 6, 5, 4, 2, 1, 0])
     cleaning_radius = np.interp(mag_2mass_bright, x_values, y_values) * Unit("arcsec")
 
+    # Precompute neighbors
+    nindices_bright, ndistances_bright = find_neighbors_within_distance(
+        coords1=skycoord_2mass_bright,
+        coords2=skycoord,
+        distance_limit_arcmin=np.max(cleaning_radius.to_value(Unit("arcmin"))),
+        compute_distances=True,
+    )
+    nindices_clean, ndistances_clean = find_neighbors_within_distance(
+        coords1=skycoord_2mass_bright,
+        coords2=skycoord_2mass_clean,
+        distance_limit_arcmin=np.max(cleaning_radius.to_value(Unit("arcmin"))),
+        compute_distances=True,
+    )
+
     # Find all sources around the bright targets in the photometric reference catalog
     idx_self_near_bright, idx_2mass_near_bright = [], []
-    for sc2mb, cr in zip(skycoord_2mass_bright, cleaning_radius):
-        # Find all sources in self that are in the vicinity of the current bright source
-        idx_temp_bright = np.where(sc2mb.separation(skycoord) <= cr)[0]
+    for cr, nib, ndb, nic, ndc in zip(
+        cleaning_radius,
+        nindices_bright,
+        ndistances_bright,
+        nindices_clean,
+        ndistances_clean,
+    ):
+
+        # Convert current indices and distances to arrays
+        nib = np.array(nib, dtype=int)
+        ndb = np.array(ndb, dtype=float)
+        nic = np.array(nic, dtype=int)
+        ndc = np.array(ndc, dtype=float)
+
+        # Find all sources in source catalog that are near the current bright source
+        idx_temp_bright = nib[ndb < cr.to_value("arcmin")]
+
         if np.sum(idx_temp_bright) > 0:
             idx_self_near_bright.extend(idx_temp_bright)
 
         # Find all clean sources in the clean table that are within the cleaning radius
-        idx_temp_clean = np.where(sc2mb.separation(skycoord_2mass_clean) <= cr)[0]
+        idx_temp_clean = nic[ndc < cr.to_value("arcmin")]
 
         # Keep only those within footprint
         keep = wcs_weight.footprint_contains(skycoord_2mass_clean[idx_temp_clean])
@@ -826,7 +856,11 @@ def merge_with_2mass(
     # Add new cols to original catalog
     kw_nan_f32 = dict(fill_value=np.nan, dtype=np.float32)
     kw_nan_f64 = dict(fill_value=np.nan, dtype=np.float64)
-    table.add_column(np.full(len(table), fill_value="VISIONS"), name="SURVEY")
+    max_string_length = 10
+    table.add_column(
+        np.full(len(table), fill_value=survey_name, dtype=f"U{max_string_length}"),
+        name="SURVEY",
+    )
     table.add_column(np.full(len(table), fill_value=""), name="QFLG_2MASS")
     table.add_column(np.full(len(table), **kw_nan_f32), name="MAG_2MASS")
     table.add_column(np.full(len(table), **kw_nan_f32), name="MAGERR_2MASS")
