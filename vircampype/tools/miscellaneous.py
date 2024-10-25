@@ -195,7 +195,7 @@ def skycoord2visionsid(skycoord):
 
     # Construct id
     id1 = np.around(skycoord.ra.degree, decimals=6)
-    id2 = np.around(skycoord.dec.degree, decimals=6)/np.sign(
+    id2 = np.around(skycoord.dec.degree, decimals=6) / np.sign(
         np.around(skycoord.dec.degree, decimals=6)
     )
 
@@ -223,11 +223,13 @@ def write_list(path_file: str, lst: List):
         outfile.write("\n")
 
 
-def convert_position_error(errmaj: Union[np.ndarray, list, tuple],
-                           errmin: Union[np.ndarray, list, tuple],
-                           errpa: Union[np.ndarray, list, tuple],
-                           degrees: bool = True) -> (
-        Tuple)[np.ndarray, np.ndarray, np.ndarray]:
+# TODO: Make sure this works correctly with PAs East of North
+def convert_position_error(
+    errmaj: Union[np.ndarray, list, tuple],
+    errmin: Union[np.ndarray, list, tuple],
+    errpa: Union[np.ndarray, list, tuple],
+    degrees: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate the Right Ascension (RA) and Declination (Dec) errors and
     their correlation coefficient from major and minor errors and position angle.
@@ -239,7 +241,8 @@ def convert_position_error(errmaj: Union[np.ndarray, list, tuple],
     errmin : np.ndarray, list, tuple
         Minor axis errors.
     errpa : np.ndarray, list, tuple
-        Position angle errors; in degrees if degrees=True, otherwise in radians.
+        Position angle of error ellipse (East of North); 
+        in degrees if degrees=True, otherwise in radians.
     degrees : bool, optional
         Indicates whether the position angle is in degrees (default is True).
 
@@ -274,15 +277,15 @@ def convert_position_error(errmaj: Union[np.ndarray, list, tuple],
     cc = np.zeros((len(errmaj), 2, 2))
 
     # Define each element of the covariance matrices
-    cc[:, 0, 0] = cos_theta ** 2*errmaj ** 2 + sin_theta ** 2*errmin ** 2  # var_RA
-    cc[:, 0, 1] = (cos_theta*sin_theta)*(errmaj ** 2 - errmin ** 2)  # cov_RA_Dec
-    cc[:, 1, 0] = cc[:, 0, 1]  # cov_Dec_RA (symmetric to cov_RA_Dec)
-    cc[:, 1, 1] = sin_theta ** 2*errmaj ** 2 + cos_theta ** 2*errmin ** 2  # var_Dec
+    cc[:, 0, 0] = cos_theta**2 * errmin**2 + sin_theta**2 * errmaj**2
+    cc[:, 0, 1] = (cos_theta * sin_theta) * (errmaj**2 - errmin**2)
+    cc[:, 1, 0] = cc[:, 0, 1]
+    cc[:, 1, 1] = sin_theta**2 * errmin**2 + cos_theta**2 * errmaj**2
 
     # Compute the RA and Dec errors and correlation coefficients
     ra_error = np.sqrt(cc[:, 0, 0])
     dec_error = np.sqrt(cc[:, 1, 1])
-    ra_dec_corr = cc[:, 0, 1]/np.sqrt(cc[:, 0, 0]*cc[:, 1, 1])
+    ra_dec_corr = cc[:, 0, 1] / np.sqrt(cc[:, 0, 0] * cc[:, 1, 1])
 
     # Return
     return ra_error, dec_error, ra_dec_corr
