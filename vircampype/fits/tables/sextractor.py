@@ -2,34 +2,33 @@ import os
 import time
 import pickle
 import warnings
-import numpy as np
-
-from astropy.io import fits
 from itertools import repeat
-from astropy.time import Time
-from joblib import Parallel, delayed
-from vircampype.tools.plottools import *
-from vircampype.tools.messaging import *
-from vircampype.tools.fitstools import *
-from vircampype.tools.mathtools import *
-from astropy.units import Quantity, Unit
+
+import numpy as np
 from astropy.coordinates import SkyCoord
-from vircampype.tools.tabletools import *
-from vircampype.tools.astromatic import *
-from vircampype.tools.photometry import *
-from vircampype.tools.imagetools import *
-from vircampype.tools.systemtools import *
-from vircampype.data.cube import ImageCube
-from sklearn.neighbors import KernelDensity
-from vircampype.tools.miscellaneous import *
-from astropy.stats import sigma_clipped_stats
+from astropy.io import fits
+from astropy.stats import sigma_clip, sigma_clipped_stats
+from astropy.table import Table
+from astropy.table import hstack as thstack
+from astropy.table import vstack as tvstack
+from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
-from sklearn.neighbors import NearestNeighbors
-from vircampype.pipeline.log import PipelineLog
-from vircampype.tools.tabletools import add_zp_2mass
+from joblib import Parallel, delayed
+from sklearn.neighbors import KernelDensity, NearestNeighbors
+from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
+from vircampype.pipeline.log import PipelineLog
+from vircampype.tools.astromatic import *
+from vircampype.tools.fitstools import *
+from vircampype.tools.imagetools import *
+from vircampype.tools.mathtools import *
+from vircampype.tools.messaging import *
 from vircampype.tools.messaging import message_qc_astrometry
-from astropy.table import Table, vstack as tvstack, hstack as thstack
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.photometry import *
+from vircampype.tools.plottools import *
+from vircampype.tools.systemtools import *
+from vircampype.tools.tabletools import *
 
 
 class SextractorCatalogs(SourceCatalogs):
