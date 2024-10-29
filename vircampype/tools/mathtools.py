@@ -31,6 +31,7 @@ __all__ = [
     "get_nearest_neighbors",
     "interpolate_value",
     "find_neighbors_within_distance",
+    "convert_position_error",
 ]
 
 
