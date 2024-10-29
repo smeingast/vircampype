@@ -11,3 +11,4 @@ joblib==1.4.2
 regions==0.10
 setuptools==75.1.0
 pytest==8.3.3
+tqdm==4.66.6
