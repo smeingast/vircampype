@@ -12,7 +12,11 @@ from astropy.time import Time
 from astropy.units import Unit
 from astropy.wcs import WCS, FITSFixedWarning
 from sklearn.neighbors import NearestNeighbors
-from vircampype.tools.mathtools import find_neighbors_within_distance
+
+from vircampype.tools.mathtools import (
+    convert_position_error,
+    find_neighbors_within_distance,
+)
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import remove_file, run_command_shell, which
 
