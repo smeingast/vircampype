@@ -83,7 +83,7 @@ class SourceMasks:
 
     @classmethod
     def path_package_masks(cls):
-        return "vircampype.visions.masks"
+        return "vircampype.resources.sourcemasks"
 
 
 class ChamaeleonDeepSourceMasks(SourceMasks):
