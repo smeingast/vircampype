@@ -258,8 +258,9 @@ def run_commands_shell_parallel(
             p.wait()
 
 
-def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False)\
-        -> tuple[str, str]:
+def run_command_shell(
+    cmd: str, shell: str = "zsh", silent: bool = False
+) -> tuple[str, str]:
     """
     Runs a single shell command in the specified shell.
 
@@ -291,8 +292,16 @@ def run_command_shell(cmd: str, shell: str = "zsh", silent: bool = False)\
     )
 
     # Decode the command output
-    stdout = result.stdout.decode().strip()
-    stderr = result.stderr.decode().strip()
+    try:
+        stdout = result.stdout.decode(
+            "utf-8"
+        ).strip()
+        stderr = result.stderr.decode(
+            "utf-8", errors="replace"
+        ).strip()
+    except UnicodeDecodeError:  # if utf-8 fails, try latin-1
+        stdout = result.stdout.decode("latin-1", errors="replace").strip()
+        stderr = result.stderr.decode("latin-1", errors="replace").strip()
 
     # If not in silent mode, print the output to terminal
     if not silent:
@@ -505,5 +514,5 @@ def remove_ansi_codes(s: str) -> str:
     """
     # ANSI escape codes start with the sequence ESC[,
     # followed by a semicolon-separated series of numbers, and end with an 'm'
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', s)
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", s)
