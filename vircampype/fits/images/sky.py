@@ -1831,6 +1831,17 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         ):
             return
 
+        # Fix VIRCAM headers if set
+        if self.setup.fix_vircam_headers:
+            for hidx in range(len(self)):
+                if not self.setup.silent:
+                    if hidx % 5 == 0 or hidx == len(self) - 1:
+                        print(f"Fixing header {hidx+1} out of {len(self)}")
+                fix_vircam_headers(
+                    prime_header=self.headers_primary[hidx],
+                    data_headers=self.headers_data[hidx],
+                )
+
         # Print message
         message_calibration(
             n_current=1,
