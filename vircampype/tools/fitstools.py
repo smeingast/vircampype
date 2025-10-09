@@ -1,19 +1,21 @@
 import os.path
 import re
 import warnings
-import numpy as np
+from typing import Optional, Union
 
-from astropy.io import fits
-from astropy.time import Time
-from astropy.table import Table
-from typing import Union, Optional
-from vircampype.pipeline.misc import *
+from typing import List
+import numpy as np
 from astropy.coordinates import SkyCoord
-from vircampype.tools.miscellaneous import *
-from vircampype.pipeline.log import PipelineLog
+from astropy.io import fits
 from astropy.io.fits.verify import VerifyWarning
+from astropy.table import Table
+from astropy.time import Time
+
+from vircampype.pipeline.log import PipelineLog
+from vircampype.pipeline.misc import *
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.systemtools import run_commands_shell_parallel, which
 from vircampype.tools.wcstools import header_reset_wcs
-from vircampype.tools.systemtools import which, run_commands_shell_parallel
 
 __all__ = [
     "check_card_value",
@@ -108,17 +110,17 @@ def make_card(keyword, value, comment=None, upper=True):
     return fits.Card(keyword=kw, value=val, comment=comment)
 
 
-def make_cards(keywords, values, comments=None):
+def make_cards(keywords, values: List, comments: List[str] = None):
     """
     Creates a list of FITS header cards from given keywords, values, and comments
 
     Parameters
     ----------
-    keywords : list[str]
+    keywords : List[str]
         List of keywords.
-    values : list
+    values : List
         List of values.
-    comments : list[str], optional
+    comments : List[str], optional
         List of comments.
     Returns
     -------
@@ -179,6 +181,7 @@ def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
         # Loop over files and update header
         for k in keywords:
             hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
+            hdulist_1.flush()
 
 
 def add_key_primary_hdu(path, key, value, comment=None):
@@ -619,7 +622,7 @@ def make_gaia_refcat(
     key_ruwe: str = "ruwe",
     key_gmag: str = "mag",
     key_gflux: str = "flux",
-    key_gflux_error: str = "flux_error"
+    key_gflux_error: str = "flux_error",
 ) -> Table:
     """
     Generates an astrometric reference catalog based on downloaded Gaia data.
@@ -714,9 +717,7 @@ def make_gaia_refcat(
     # Add magnitudes
     table_out["mag"] = table_in[key_gmag].value
     table_out["mag_error"] = (
-        1.0857
-        * table_in[key_gflux_error].value
-        / table_in[key_gflux].value
+        1.0857 * table_in[key_gflux_error].value / table_in[key_gflux].value
     )
 
     # Add date
@@ -803,10 +804,21 @@ if __name__ == "__main__":
     t_in = Table.read(t_in_path)
     e_in = 2016.0
     e_out = 2016.0
-    make_gaia_refcat(table_in=t_in, path_ldac_out=t_out, epoch_in=e_in, epoch_out=e_out,
-                     key_ra="ra", key_ra_error="ra_error", key_dec="dec",
-                     key_dec_error="dec_error", key_pmra="pmra",
-                     key_pmra_error="pmra_error", key_pmdec="pmdec",
-                     key_pmdec_error="pmdec_error", key_ruwe="ruwe",
-                     key_gmag="phot_g_mean_mag", key_gflux="phot_g_mean_flux",
-                     key_gflux_error="phot_g_mean_flux_error")
+    make_gaia_refcat(
+        table_in=t_in,
+        path_ldac_out=t_out,
+        epoch_in=e_in,
+        epoch_out=e_out,
+        key_ra="ra",
+        key_ra_error="ra_error",
+        key_dec="dec",
+        key_dec_error="dec_error",
+        key_pmra="pmra",
+        key_pmra_error="pmra_error",
+        key_pmdec="pmdec",
+        key_pmdec_error="pmdec_error",
+        key_ruwe="ruwe",
+        key_gmag="phot_g_mean_mag",
+        key_gflux="phot_g_mean_flux",
+        key_gflux_error="phot_g_mean_flux_error",
+    )
