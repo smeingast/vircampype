@@ -75,7 +75,7 @@ class Pipeline:
     def raw(self):
         return FitsImages.from_folder(
             path=self.setup.folders["raw"],
-            pattern="*.fits",
+            pattern=self.setup.pattern_data,
             setup=self.setup,
             exclude=None,
         )
