@@ -1867,20 +1867,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Otherwise construct from input
         else:
             # Get optimal rotation of frame
-            rotation_test = np.arange(0, 360, 0.05)
-            area = []
-            for rot in rotation_test:
-                hdr = skycoord2header(
-                    skycoord=self.footprints_flat,
-                    proj_code="ZEA",
-                    rotation=np.deg2rad(rot),
-                    enlarge=0.5,
-                    cdelt=(1 / 3) / 3600,
-                )
-                area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
-
-            # Return final header with optimized rotation
-            rotation = rotation_test[np.argmin(area)]
+            rotation = np.round(find_optimal_rotation(self.footprints_flat), 2)
             header_coadd = skycoord2header(
                 skycoord=self.footprints_flat,
                 proj_code="ZEA",
