@@ -1,15 +1,16 @@
 import os
-
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Union
+
 from astropy.io import fits
 from joblib import cpu_count
-from dataclasses import dataclass, asdict
-from vircampype.tools.systemtools import *
-from typing import Union, List, Optional, Literal
+from regions import Regions
+
+from vircampype.miscellaneous.projection import Projection
 from vircampype.miscellaneous.sourcemasks import *
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.miscellaneous.projection import Projection
-from typing import Dict, Any
+from vircampype.tools.systemtools import *
 
 
 @dataclass
@@ -369,27 +370,23 @@ class Setup:
             return
 
         # If specified as string, try to load supported predefined masks
-        if isinstance(self.additional_source_masks, str):
-            if self.additional_source_masks.lower() == "chamaeleon_deep":
-                self.additional_source_masks = ChamaeleonDeepSourceMasks()
-            elif self.additional_source_masks.lower() == "corona_australis_deep":
-                self.additional_source_masks = CoronaAustralisDeepSourceMasks()
-            elif self.additional_source_masks.lower() == "corona_australis_wide":
-                self.additional_source_masks = CoronaAustralisWideSourceMasks()
-            elif self.additional_source_masks.lower() == "corona_australis_control":
-                self.additional_source_masks = CoronaAustralisControlSourceMasks()
-            elif self.additional_source_masks.lower() == "lupus_deep":
-                self.additional_source_masks = LupusDeepSourceMasks()
-            elif self.additional_source_masks.lower() == "ophiuchus_deep":
-                self.additional_source_masks = OphiuchusDeepSourceMasks()
-            elif self.additional_source_masks.lower() == "pipe_deep":
-                self.additional_source_masks = PipeDeepSourceMasks()
-            elif self.additional_source_masks.lower() == "orion_wide":
-                self.additional_source_masks = OrionWideSourceMasks()
+        if isinstance(self.additional_source_masks, Union[str, Path]):
+
+            # Convert to Path object
+            if isinstance(self.additional_source_masks, str):
+                path_masks = Path(self.additional_source_masks)
             else:
-                raise ValueError(
-                    f"Source masks '{self.additional_source_masks}' are not supported"
+                path_masks = self.additional_source_masks
+
+            # Check if file exists
+            if not path_masks.exists():
+                raise PipelineValueError(
+                    f"Source mask file '{path_masks}' not found"
                 )
+
+            # Read and set masks
+            regions = Regions.read(path_masks, format="ds9")
+            self.additional_source_masks = SourceMasks(regions=regions)
 
         # Otherwise raise error
         else:
