@@ -1,10 +1,10 @@
 import os
 
+from pathlib import Path
 from astropy.io import fits
 from joblib import cpu_count
 from dataclasses import dataclass, asdict
 from vircampype.tools.systemtools import *
-from vircampype.miscellaneous.projection import *
 from typing import Union, List, Optional, Literal
 from vircampype.miscellaneous.sourcemasks import *
 from vircampype.pipeline.errors import PipelineValueError
@@ -317,70 +317,39 @@ class Setup:
             raise PipelineValueError("Flat type must be either 'sky' or 'twilight'")
 
     def __set_projection(self):
-        # If the atrtibute is already a Projection instance, do nothing
+        # If the attribute is already a Projection instance, do nothing
         if isinstance(self.projection, Projection):
             return
-
         # If it's None, also do nothing
         if self.projection is None:
             return
+        # If specified as a string, assume it is a header text file path
+        elif isinstance(self.projection, Union[str, Path]):
 
-        # If specified as a string, translate to a Projection instance
-        elif isinstance(self.projection, str):
-            # Chamaeleon
-            if self.projection.lower() == "chamaeleon_wide":
-                self.projection = ChamaeleonWideProjection()
-            elif self.projection.lower() == "chamaeleon_deep":
-                self.projection = ChamaeleonDeepProjection()
-            elif self.projection.lower() == "chamaeleon_control":
-                self.projection = ChamaeleonControlProjection()
-
-            # Corona Australis
-            elif self.projection.lower() == "corona_australis_wide":
-                self.projection = CoronaAustralisWideProjection()
-            elif self.projection.lower() == "corona_australis_wide_lq":
-                self.projection = CoronaAustralisWideLQProjection()
-            elif self.projection.lower() == "corona_australis_deep":
-                self.projection = CoronaAustralisDeepProjection()
-            elif self.projection.lower() == "corona_australis_control":
-                self.projection = CoronaAustralisControlProjection()
-
-            # Lupus
-            elif self.projection.lower() == "lupus_wide":
-                self.projection = LupusWideProjection()
-            elif self.projection.lower() == "lupus_deep_n":
-                self.projection = LupusDeepNProjection()
-            elif self.projection.lower() == "lupus_deep_s":
-                self.projection = LupusDeepSProjection()
-            elif self.projection.lower() == "lupus_control_n":
-                self.projection = LupusControlNProjection()
-            elif self.projection.lower() == "lupus_control_s":
-                self.projection = LupusControlSProjection()
-
-            # Ophiuchus
-            elif self.projection.lower() == "ophiuchus_wide":
-                self.projection = OphiuchusWideProjection()
-            elif self.projection.lower() == "ophiuchus_deep":
-                self.projection = OphiuchusDeepProjection()
-            elif self.projection.lower() == "ophiuchus_control":
-                self.projection = OphiuchusControlProjection()
-
-            # Orion
-            elif self.projection.lower() == "orion_control":
-                self.projection = OrionControlProjection()
-
-            # Pipe
-            elif self.projection.lower() == "pipe_deep":
-                self.projection = PipeDeepProjection()
-
-            # Sharks
-            elif self.projection.lower() == "sharksg15115":
-                self.projection = SharksG15115()
-
-            # If no match found, raise error
+            # Convert to Path object
+            if isinstance(self.projection, str):
+                path_projection = Path(self.projection)
             else:
-                print(self.projection)
-                raise PipelineValueError(f"Projection '{self.projection}' not supported")
+                path_projection = self.projection
+
+            # Check if file exists
+            if not path_projection.exists():
+                raise PipelineValueError(
+                    f"Projection header file '{self.projection}' not found"
+                )
+
+            # Load header from text file
+            hdr = fits.Header.fromtextfile(path_projection)
+
+            # Try to get name from header, otherwise set to empty string
+            try:
+                name = hdr["NAME"]
+            except KeyError:
+                name = ""
+
+            # Set projection
+            self.projection = Projection(header=hdr, name=name)
+
         else:
             raise PipelineValueError(
                 "Projection must be provided as string or Projection instance"
