@@ -37,10 +37,10 @@ class Projection:
         self.force_header = force_header
 
     def __str__(self):
-        return self.name
+        return self.header.tostring(sep='\n')
 
     def __repr__(self):
-        return self.name
+        return self.header.__repr__()
 
     @property
     def headerpackage(self):
