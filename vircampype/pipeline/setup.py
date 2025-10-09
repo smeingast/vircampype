@@ -18,6 +18,7 @@ class Setup:
     # Pipeline setup
     name: str = None
     path_data: str = None
+    pattern_data: str = "*.fits"
     path_pype: str = None
     n_jobs: int = 8
     silent: bool = False
