@@ -15,6 +15,7 @@ __all__ = [
     "pixelscale_from_header",
     "rotationangle_from_header",
     "get_airmass_from_header",
+    "find_optimal_rotation",
 ]
 
 
@@ -426,3 +427,68 @@ def get_airmass_from_header(
     return sc.transform_to(
         AltAz(obstime=time, location=EarthLocation.of_site(location))
     ).secz.value
+
+
+def find_optimal_rotation(skycoord: SkyCoord) -> float:
+    """
+    Find the optimal rotation angle that minimizes the area of the header projection.
+
+    This function iteratively searches for the rotation angle (in degrees) that yields
+    the smallest area in the projected header. The search is performed in three stages,
+    progressively narrowing the step size and the search range around the minimum found
+    in the previous stage. The tested angles always remain within the [0, 360) interval.
+
+    Parameters
+    ----------
+    skycoord : SkyCoord
+        The sky coordinates (e.g., corners of a field) to be projected.
+
+    Returns
+    -------
+    float
+        The optimal rotation angle in degrees (within [0, 360)),
+        with a precision of 0.01 degree.
+
+    """
+    # Define the step sizes for each iteration
+    step_sizes = [1.0, 0.1, 0.01]  # degrees
+    search_range = (0, 360)  # initial full range in degrees
+
+    min_rot = None
+
+    for step in step_sizes:
+        if min_rot is None:
+            # First iteration: full range
+            rot_start, rot_end = search_range
+        else:
+            # Narrow range around previous minimum, always wrap to [0, 360)
+            rot_start = (min_rot - 2 * step) % 360
+            rot_end = (min_rot + 2 * step) % 360
+
+        # Handle wrap-around in the search range
+        if rot_start < rot_end:
+            rotation_test = np.arange(rot_start, rot_end, step)
+        else:
+            # If the range wraps around 360 -> 0, concatenate two ranges
+            rotation_test = np.concatenate(
+                (np.arange(rot_start, 360, step), np.arange(0, rot_end, step))
+            )
+
+        # Make sure all angles are within [0, 360)
+        rotation_test = rotation_test % 360
+
+        area = []
+        for rot in rotation_test:
+            hdr = skycoord2header(
+                skycoord=skycoord,
+                proj_code="ZEA",
+                rotation=np.deg2rad(rot),
+                enlarge=0.5,
+                cdelt=(1 / 3) / 3600,
+            )
+            area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
+        min_idx = np.argmin(area)
+        min_rot = float(rotation_test[min_idx])
+
+    # min_rot now holds the optimal rotation to the nearest 0.01 degree, in [0, 360)
+    return min_rot
