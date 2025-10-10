@@ -3,19 +3,21 @@
 import os
 import tempfile
 import warnings
-import numpy as np
-import matplotlib.pyplot as plt
-
-from typing import List
-from astropy.io import fits
 from itertools import repeat
-from joblib import Parallel, delayed
-from vircampype.external.mmm import mmm
-from vircampype.tools.mathtools import *
-from vircampype.tools.imagetools import *
-from vircampype.tools.systemtools import *
-from vircampype.pipeline.setup import Setup
+from typing import List, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
 from astropy.convolution import Gaussian2DKernel
+from astropy.io import fits
+from joblib import Parallel, delayed
+from numpy.typing import ArrayLike
+
+from vircampype.external.mmm import mmm
+from vircampype.pipeline.setup import Setup
+from vircampype.tools.imagetools import *
+from vircampype.tools.mathtools import *
+from vircampype.tools.systemtools import *
 
 
 class ImageCube(object):
@@ -726,10 +728,43 @@ class ImageCube(object):
                 center_metric=np.nanmedian,
             )
 
+    def discard_nan_planes(self, threshold: float = 0.9) -> ArrayLike:
+        """
+        Removes planes (first axis) where the fraction of NaN pixels is >= threshold.
+        Modifies self.cube in place.
+
+        Parameters
+        ----------
+        threshold : float
+            Fraction of NaN pixels above which a plane is discarded (between 0 and 1).
+
+        Returns
+        -------
+        np.ndarray
+            Boolean array indicating which planes were kept (True) and which were
+            discarded (False).
+
+        """
+        # Calculate the fraction of NaNs in each plane
+        nan_fraction = np.isnan(self.cube).sum(axis=(1, 2)) / (
+            self.cube.shape[1] * self.cube.shape[2]
+        )
+        # Keep only planes with NaN fraction less than threshold
+        keep = nan_fraction < threshold
+        self.cube = self.cube[keep]
+
+        # Raise error if all planes are discarded
+        if self.cube.size == 0:
+            raise ValueError(
+                f"All planes were discarded (NaN fraction >= {threshold})."
+            )
+
+        return keep
+
     # =========================================================================== #
     # Data manipulation
     # =========================================================================== #
-    def scale_planes(self, scales: (np.ndarray, List)):
+    def scale_planes(self, scales: Union[ArrayLike, List]):
         """
         Scales each plane by the given value.
 
