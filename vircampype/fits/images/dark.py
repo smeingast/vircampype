@@ -94,6 +94,10 @@ class DarkImages(FitsImages):
                     mask_max=self.setup.dark_mask_max,
                 )
 
+                # Discard a plane if only NaNs
+                good_planes = cube.discard_nan_planes(threshold=0.9)
+                bpm = bpm[good_planes]
+
                 # Destripe
                 if self.setup.destripe:
                     cube.destripe(masks=bpm, combine_bad_planes=False, smooth=True)
