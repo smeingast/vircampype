@@ -506,11 +506,7 @@ class SkyImages(FitsImages):
         # Loop over self
         for idx_file in range(self.n_files):
             # Create output path
-            outpath = "{0}{1}.ic{2}".format(
-                self.setup.folders["illumcorr"],
-                self.names[idx_file],
-                self.extensions[idx_file],
-            )
+            outpath = f"{self.setup.folders['illumcorr']}{self.names[idx_file]}.ic.fits"
 
             # Check for ahead file
             path_ahead = self.paths_full[idx_file].replace(".fits", ".ahead")
