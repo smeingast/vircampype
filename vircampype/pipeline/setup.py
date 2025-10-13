@@ -334,6 +334,9 @@ class Setup:
             else:
                 path_projection = self.projection
 
+            # Get filename
+            name_projection = path_projection.name
+
             # Check if file exists
             if not path_projection.exists():
                 raise PipelineValueError(
@@ -347,7 +350,7 @@ class Setup:
             try:
                 name = hdr["NAME"]
             except KeyError:
-                name = ""
+                name = name_projection
 
             # Set projection
             self.projection = Projection(header=hdr, name=name)
