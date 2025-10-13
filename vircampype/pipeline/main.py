@@ -1066,7 +1066,7 @@ class Pipeline:
         fz_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fz"))
 
         # Construct compression commands
-        cmds = ["funpack -F {0}".format(f) for f in fz_files]
+        cmds = [f"funpack -F {f}" for f in fz_files]
 
         # Run in parallel (maximum of 2 at a time)
         n_jobs = 1 if self.setup.n_jobs == 1 else 2
