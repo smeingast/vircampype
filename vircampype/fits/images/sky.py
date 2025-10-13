@@ -317,7 +317,6 @@ class SkyImages(FitsImages):
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
 
     def build_class_star_library(self):
-
         # Fetch log
         log = PipelineLog()
         log.info(f"Building class star library for {self.n_files} files")
@@ -438,7 +437,6 @@ class SkyImages(FitsImages):
 
             # Loop over files
             for idx_fwhm in range(catalogs.n_files):
-
                 # Log current FWHM value
                 log.info(f"Processing FWHM {fwhm_range[idx_fwhm]:4.2f}")
 
@@ -448,7 +446,6 @@ class SkyImages(FitsImages):
 
                 # Add classifier and coordinates for all HDUs
                 for tidx in range(len(tables_fwhm)):
-
                     # Log current catalog and number of sources
                     log.info(f"Processing HDU {tidx + 1}/{len(tables_fwhm)}")
                     log.info(f"Number of sources: {len(tables_fwhm[tidx])}")
@@ -646,8 +643,7 @@ class SkyImagesRaw(SkyImages):
             # Create output path
             outpath = (
                 f"{self.setup.folders['processed_basic']}"
-                f"{self.names[idx_file]}.proc.basic"
-                f"{self.extensions[idx_file]}"
+                f"{self.names[idx_file]}.proc.basic.fits"
             )
 
             # Log processing info
@@ -1836,7 +1832,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             for hidx in range(len(self)):
                 if not self.setup.silent:
                     if hidx % 5 == 0 or hidx == len(self) - 1:
-                        print(f"Fixing header {hidx+1} out of {len(self)}")
+                        print(f"Fixing header {hidx + 1} out of {len(self)}")
                 fix_vircam_headers(
                     prime_header=self.headers_primary[hidx],
                     data_headers=self.headers_data[hidx],
@@ -1880,8 +1876,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Dummy check
         if (header_coadd["NAXIS1"] > 250000.0) or (header_coadd["NAXIS2"] > 250000.0):
             raise ValueError(
-                "Double check if the image size is correct ({0},{1})"
-                "".format(header_coadd["NAXIS1"], header_coadd["NAXIS2"])
+                "Double check if the image size is correct ({0},{1})".format(
+                    header_coadd["NAXIS1"], header_coadd["NAXIS2"]
+                )
             )
 
         # Write coadd header to disk
@@ -1920,8 +1917,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Construct commands for source extraction
         cmds = [
-            "{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}"
-            "".format(
+            "{0} -c {1} {2} -WEIGHT_IMAGE {3} -RESAMPLE_DIR {4} {5}".format(
                 sws.bin,
                 sws.default_config,
                 path_image,
@@ -2347,7 +2343,6 @@ class SkyImagesResampled(SkyImagesProcessed):
     #     kind="okblue", end="\n")
 
     def build_tile(self):
-
         # Fetch log
         log = PipelineLog()
 
@@ -2418,10 +2413,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             log.info(f"External astr. dispersion RMS: {astrrms:.2f} mas")
 
             # Copy/add primary header entries
-            with fits.open(
-                self.setup.path_coadd, mode="update"
-            ) as hdul_tile, fits.open(self.paths_full[0], mode="readonly") as hdu_paw0:
-
+            with (
+                fits.open(self.setup.path_coadd, mode="update") as hdul_tile,
+                fits.open(self.paths_full[0], mode="readonly") as hdu_paw0,
+            ):
                 hdul_tile[0].header.set(
                     keyword=self.setup.keywords.object,
                     value=hdu_paw0[0].header[self.setup.keywords.object],
@@ -2698,7 +2693,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 raise ValueError("Images and weights not synced")
 
             # Construct output paths for current stack
-            path_stack = "{0}{1}_{2:02d}.stack.{3}.fits" "".format(
+            path_stack = "{0}{1}_{2:02d}.stack.{3}.fits".format(
                 self.setup.folders["stacks"], self.setup.name, oidx, mode
             )
 
@@ -3011,8 +3006,9 @@ class MasterSky(MasterImages):
 
             # Helpers
             mjd_floor = np.floor(np.min(mjd))
-            xmin, xmax = 0.999 * np.min(24 * (mjd - mjd_floor)), 1.001 * np.max(
-                24 * (mjd - mjd_floor)
+            xmin, xmax = (
+                0.999 * np.min(24 * (mjd - mjd_floor)),
+                1.001 * np.max(24 * (mjd - mjd_floor)),
             )
             maxnoise = np.max([i for s in noise for i in s])
             allsky = np.array([i for s in sky for i in s])
@@ -3107,8 +3103,9 @@ class MasterSky(MasterImages):
 
             # Get some helper variables
             mjd_floor = np.floor(np.min(mjd))
-            xmin, xmax = 0.999 * np.min(24 * (mjd - mjd_floor)), 1.001 * np.max(
-                24 * (mjd - mjd_floor)
+            xmin, xmax = (
+                0.999 * np.min(24 * (mjd - mjd_floor)),
+                1.001 * np.max(24 * (mjd - mjd_floor)),
             )
             ymin, ymax = np.min(sky), np.max(sky)
 
