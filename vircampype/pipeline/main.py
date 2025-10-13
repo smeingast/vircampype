@@ -159,10 +159,11 @@ class Pipeline:
     @property
     def _paths_processed_basic_science(self):
         return [
-            "{0}{1}.proc.basic{2}".format(
-                self.setup.folders["processed_basic"],
-                self.raw_science.names[i],
-                self.raw_science.extensions[i],
+            (
+                f"{self.setup.folders['processed_basic']}"
+                f"{self.raw_science.names[i]}"
+                f".proc.basic.fits"
+                f"{self.raw_science.extensions[i]}"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -185,10 +186,11 @@ class Pipeline:
     @property
     def _paths_processed_basic_offset(self):
         return [
-            "{0}{1}.proc.basic{2}".format(
-                self.setup.folders["processed_basic"],
-                self.raw_offset.names[i],
-                self.raw_offset.extensions[i],
+            (
+                f"{self.setup.folders['processed_basic']}"
+                f"{self.raw_offset.names[i]}"
+                f".proc.basic"
+                f"{self.raw_offset.extensions[i]}"
             )
             for i in range(self.raw_offset.n_files)
         ]
@@ -222,10 +224,11 @@ class Pipeline:
     @property
     def _paths_processed_science_final(self):
         return [
-            "{0}{1}.proc.final{2}".format(
-                self.setup.folders["processed_final"],
-                self.raw_science.names[i],
-                self.raw_science.extensions[i],
+            (
+                f"{self.setup.folders['processed_final']}"
+                f"{self.raw_science.names[i]}"
+                f".proc.final"
+                f"{self.raw_science.extensions[i]}"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -248,10 +251,9 @@ class Pipeline:
     @property
     def _paths_illumination_corrected(self):
         return [
-            "{0}{1}.proc.final.ic{2}".format(
-                self.setup.folders["illumcorr"],
-                self.raw_science.names[i],
-                self.raw_science.extensions[i],
+            (
+                f"{self.setup.folders['illumcorr']}"
+                f"{self.raw_science.names[i]}.proc.final.ic{self.raw_science.extensions[i]}"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -270,11 +272,9 @@ class Pipeline:
     @property
     def _paths_resampled(self):
         return [
-            "{0}{1}.proc.final.ic.resamp{2}"
-            "".format(
-                self.setup.folders["resampled"],
-                self.raw_science.names[i],
-                self.raw_science.extensions[i],
+            (
+                f"{self.setup.folders['resampled']}"
+                f"{self.raw_science.names[i]}.proc.final.ic.resamp{self.raw_science.extensions[i]}"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -294,7 +294,7 @@ class Pipeline:
 
     @property
     def _paths_stacks(self):
-        return sorted(glob.glob("{0}*.stack.fits".format(self.setup.folders["stacks"])))
+        return sorted(glob.glob(f"{self.setup.folders['stacks']}*.stack.fits"))
 
     @property
     def stacks(self):
@@ -503,11 +503,12 @@ class Pipeline:
 
     def _paths_resampled_statistics(self, mode):
         return [
-            "{0}{1}.{2}{3}".format(
-                self.setup.folders["statistics"],
-                self.resampled.names[i],
-                mode,
-                self.resampled.extensions[i],
+            (
+                f"{self.setup.folders['statistics']}"
+                f"{self.resampled.names[i]}"
+                f"."
+                f"{mode}"
+                f"{self.resampled.extensions[i]}"
             )
             for i in range(self.resampled.n_files)
         ]
@@ -935,7 +936,7 @@ class Pipeline:
     # Phase 3
     @property
     def _paths_phase3(self):
-        return sorted(glob.glob("{0}*.fits".format(self.setup.folders["phase3"])))
+        return sorted(glob.glob(f"{self.setup.folders['phase3']}*.fits"))
 
     @property
     def _paths_phase3_images(self):
@@ -1037,9 +1038,7 @@ class Pipeline:
 
                 # Construct compression commands
                 cmds = [
-                    "fpack -D -Y -q {0} {1}".format(
-                        self.setup.fpack_quantization_factor, f
-                    )
+                    f"fpack -D -Y -q {self.setup.fpack_quantization_factor} {f}"
                     for f in fits_files
                 ]
 
