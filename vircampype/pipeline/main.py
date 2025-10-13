@@ -163,7 +163,6 @@ class Pipeline:
                 f"{self.setup.folders['processed_basic']}"
                 f"{self.raw_science.names[i]}"
                 f".proc.basic.fits"
-                f"{self.raw_science.extensions[i]}"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -189,8 +188,7 @@ class Pipeline:
             (
                 f"{self.setup.folders['processed_basic']}"
                 f"{self.raw_offset.names[i]}"
-                f".proc.basic"
-                f"{self.raw_offset.extensions[i]}"
+                f".proc.basic.fits"
             )
             for i in range(self.raw_offset.n_files)
         ]
@@ -227,8 +225,7 @@ class Pipeline:
             (
                 f"{self.setup.folders['processed_final']}"
                 f"{self.raw_science.names[i]}"
-                f".proc.final"
-                f"{self.raw_science.extensions[i]}"
+                f".proc.final.fits"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -253,7 +250,8 @@ class Pipeline:
         return [
             (
                 f"{self.setup.folders['illumcorr']}"
-                f"{self.raw_science.names[i]}.proc.final.ic{self.raw_science.extensions[i]}"
+                f"{self.raw_science.names[i]}"
+                f".proc.final.ic.fits"
             )
             for i in range(self.raw_science.n_files)
         ]
@@ -274,7 +272,8 @@ class Pipeline:
         return [
             (
                 f"{self.setup.folders['resampled']}"
-                f"{self.raw_science.names[i]}.proc.final.ic.resamp{self.raw_science.extensions[i]}"
+                f"{self.raw_science.names[i]}"
+                f".proc.final.ic.resamp.fits"
             )
             for i in range(self.raw_science.n_files)
         ]
