@@ -3,11 +3,17 @@
 Either install vircampype or add root to PYTHONPATH via e.g.
 export PYTHONPATH="/Users/stefan/Dropbox/Projects/vircampype/":$PYTHONPATH}
 """
+
+import os
 import sys
 import argparse
 from vircampype.tools.datatools import *
 from vircampype.pipeline.main import Pipeline
 from vircampype.tools.systemtools import clean_directory
+
+
+def get_worker_path():
+    return os.path.abspath(__file__)
 
 
 def main():
@@ -19,7 +25,7 @@ def main():
     parser.add_argument(
         "--sort",
         help="Sort files into calibration and individual object folders"
-             " by passing their paths (e.g. /path/to/files/*fits)",
+        " by passing their paths (e.g. /path/to/files/*fits)",
         nargs="+",
         default=None,
     )
