@@ -136,7 +136,7 @@ class SkyImages(FitsImages):
             preset = ""
 
         return [
-            x.replace(".fits", ".{0}.fits.tab".format(preset)).replace("..", ".")
+            x.replace(".fits", f".{preset}.fits.tab").replace("..", ".")
             for x in self.paths_full
         ]
 
