@@ -40,7 +40,9 @@ class FitsFiles:
         # Paths and properties
         self.paths_full = [os.path.abspath(x) for x in file_paths]
         self.basenames = [os.path.basename(x) for x in self.paths_full]
-        self.names = [os.path.splitext(x)[0] for x in self.basenames]
+        self.names = [
+            x.removesuffix(".fits.fz").removesuffix(".fits") for x in self.basenames
+        ]
         self.extensions = [os.path.splitext(x)[1] for x in self.basenames]
         self.directories = [os.path.dirname(x) + "/" for x in self.paths_full]
 
@@ -144,14 +146,12 @@ class FitsFiles:
 
     @property
     def headers(self):
-
         # Check if already determined
         if self._headers is not None:
             return self._headers
 
         headers = []
         for idx in range(self.n_files):
-
             # Try to read the database
             try:
                 with open(self.paths_headers[idx], "rb") as f:
@@ -160,12 +160,9 @@ class FitsFiles:
 
             # If not found we move on to read the headers from the fits file
             except FileNotFoundError:
-
                 with fits.open(self.paths_full[idx]) as hdulist:
-
                     fileheaders = []
                     for hdu in hdulist:
-
                         # Load header
                         hdr = hdu.header
 
@@ -485,7 +482,6 @@ class FitsFiles:
         # Now just split at the indices
         split_list = []
         for idx in range(len(split_indices)):
-
             try:
                 # Get current upper and lower
                 lower = split_indices[idx]
@@ -630,7 +626,6 @@ class FitsFiles:
         # Loop through each file
         matched = []
         for mjd in self.mjd:
-
             # Calculate differences (the float here suppresses a weird warning)
             mjd_diff = [abs(float(mjd) - x) for x in match_to.mjd]
 
