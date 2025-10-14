@@ -278,8 +278,7 @@ class Setup:
             return self.__sv_saturation_levels
         else:
             raise PipelineValueError(
-                "Saturation levels not set correctly. "
-                "Only 'default' or 'sv' allowed."
+                "Saturation levels not set correctly. Only 'default' or 'sv' allowed."
             )
 
     @property
@@ -327,7 +326,6 @@ class Setup:
             return
         # If specified as a string, assume it is a header text file path
         elif isinstance(self.projection, Union[str, Path]):
-
             # Convert to Path object
             if isinstance(self.projection, str):
                 path_projection = Path(self.projection)
@@ -375,7 +373,6 @@ class Setup:
 
         # If specified as string, try to load supported predefined masks
         if isinstance(self.additional_source_masks, Union[str, Path]):
-
             # Convert to Path object
             if isinstance(self.additional_source_masks, str):
                 path_masks = Path(self.additional_source_masks)
@@ -384,9 +381,7 @@ class Setup:
 
             # Check if file exists
             if not path_masks.exists():
-                raise PipelineValueError(
-                    f"Source mask file '{path_masks}' not found"
-                )
+                raise PipelineValueError(f"Source mask file '{path_masks}' not found")
 
             # Read and set masks
             regions = Regions.read(path_masks, format="ds9")
