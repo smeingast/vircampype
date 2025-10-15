@@ -13,6 +13,7 @@ from astropy.table import Table
 from scipy.ndimage.morphology import binary_closing
 from skimage.draw import disk
 from skimage.morphology import square
+from skimage.morphology import footprint_rectangle
 
 from vircampype.data.cube import ImageCube
 from vircampype.external.mmm import mmm
@@ -1039,7 +1040,12 @@ class SkyImagesProcessed(SkyImages):
                     for pidx, plane in enumerate(mask_sources):
                         mask_sources.cube[pidx] = binary_closing(
                             plane,
-                            structure=square(self.setup.source_masks_closing_size),
+                            structure=footprint_rectangle(
+                                (
+                                    self.setup.source_masks_closing_size,
+                                    self.setup.source_masks_closing_size,
+                                )
+                            ),
                             iterations=self.setup.source_masks_closing_iter,
                         )
 
@@ -1827,8 +1833,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         if self.setup.fix_vircam_headers:
             for hidx in range(len(self)):
                 # if not self.setup.silent:
-                    # if hidx % 5 == 0 or hidx == len(self) - 1:
-                    #     print(f"Fixing header {hidx + 1} out of {len(self)}")
+                # if hidx % 5 == 0 or hidx == len(self) - 1:
+                #     print(f"Fixing header {hidx + 1} out of {len(self)}")
                 fix_vircam_headers(
                     prime_header=self.headers_primary[hidx],
                     data_headers=self.headers_data[hidx],
