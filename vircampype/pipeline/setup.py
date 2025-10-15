@@ -383,9 +383,12 @@ class Setup:
             if not path_masks.exists():
                 raise PipelineValueError(f"Source mask file '{path_masks}' not found")
 
+            # Get filename
+            name_masks = path_masks.name
+
             # Read and set masks
             regions = Regions.read(path_masks, format="ds9")
-            self.additional_source_masks = SourceMasks(regions=regions)
+            self.additional_source_masks = SourceMasks(regions=regions, name=name_masks)
 
         # Otherwise raise error
         else:
