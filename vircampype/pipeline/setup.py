@@ -99,8 +99,9 @@ class Setup:
     flat_rel_hi: Union[int, float] = 1.7
     flat_sigma_level: Union[int, float] = 3
     flat_sigma_iter: int = 1
-    __flmet = Literal["weighted", "mean", "median", "clipped_mean", "clipped_median"]
-    flat_metric: __flmet = "weighted"
+    flat_metric: Literal[
+        "weighted", "mean", "median", "clipped_mean", "clipped_median"
+    ] = "weighted"
 
     # Weights
     weight_mask_abs_min: Union[int, float] = 0.3
@@ -141,9 +142,9 @@ class Setup:
     sky_rel_hi: Union[int, float] = 1.7
     sky_sigma_level: Union[int, float] = 3
     sky_sigma_iter: int = 1
-    __skymet = Literal["weighted", "mean", "median", "clipped_mean", "clipped_median"]
-    sky_combine_metric: __skymet = "weighted"
-
+    sky_combine_metric: Literal[
+        "weighted", "mean", "median", "clipped_mean", "clipped_median"
+    ] = "weighted"
     # Background model
     subtract_background: bool = True
     background_mesh_size: int = 64
@@ -158,10 +159,9 @@ class Setup:
     sex_detection_image_path: Optional[str] = None
 
     # Swarp
-    __resampling_kernel = Literal[
+    resampling_kernel: Literal[
         "nearest", "bilinear", "lanczos2", "lanczos3", "lanczos4"
-    ]
-    resampling_kernel: __resampling_kernel = "lanczos3"
+    ] = "lanczos3"
 
     # Binary names
     bin_sex: str = "sex"
@@ -175,7 +175,7 @@ class Setup:
     survey_name: str = "VISIONS"
 
     # Folders
-    folders: dict = None
+    folders: Dict = None
 
     def __post_init__(self):
         # Simple setup check
@@ -282,7 +282,7 @@ class Setup:
             )
 
     @property
-    def image_statistics_combine_type(self) -> dict:
+    def image_statistics_combine_type(self) -> Dict:
         return {
             "nimg": "SUM",
             "exptime": "SUM",
