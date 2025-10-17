@@ -145,7 +145,7 @@ def skycoord2header(
     enlarge=0,
     silent=True,
     round_crval=False,
-    **kwargs
+    **kwargs,
 ):
     """
     Create an astropy Header instance from a given dataset (longitude/latitude).
@@ -362,7 +362,7 @@ def pixelscale_from_header(header: fits.Header) -> float:
         If the CUNIT1 or CUNIT2 of the CD matrix are not in degrees.
     """
     assert header["CUNIT1"] == "deg" and header["CUNIT2"] == "deg"
-    determinant = header["CD1_1"]*header["CD2_2"] - header["CD1_2"]*header["CD2_1"]
+    determinant = header["CD1_1"] * header["CD2_2"] - header["CD1_2"] * header["CD2_1"]
     return np.sqrt(abs(determinant))
 
 
