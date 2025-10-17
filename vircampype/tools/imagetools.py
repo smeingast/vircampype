@@ -1,33 +1,33 @@
-import warnings
 import itertools
-import numpy as np
+import warnings
+from typing import List, Union
 
-from typing import List
+import numpy as np
 from astropy import wcs
-from skimage.draw import disk
-from skimage.filters import sobel
-from scipy.ndimage import median_filter
-from vircampype.external.mmm import mmm
-from vircampype.tools.mathtools import *
-from astropy.coordinates import SkyCoord
-from skimage import measure as skmeasure
-from scipy.stats import binned_statistic_2d
-from astropy.stats import sigma_clipped_stats
-from skimage import morphology as skmorphology
-from sklearn.neighbors import NearestNeighbors
-from astropy.wcs.utils import wcs_to_celestial_frame
-from astropy.modeling.functional_models import Gaussian1D
-from astropy.stats import sigma_clip as astropy_sigma_clip
-from scipy.ndimage import binary_closing, generate_binary_structure
-from scipy.interpolate import UnivariateSpline, SmoothBivariateSpline
 from astropy.convolution import (
-    convolve,
-    interpolate_replace_nans,
-    Gaussian2DKernel,
-    Kernel2D,
     Box2DKernel,
     Gaussian1DKernel,
+    Gaussian2DKernel,
+    Kernel2D,
+    convolve,
+    interpolate_replace_nans,
 )
+from astropy.coordinates import SkyCoord
+from astropy.modeling.functional_models import Gaussian1D
+from astropy.stats import sigma_clip as astropy_sigma_clip
+from astropy.stats import sigma_clipped_stats
+from astropy.wcs.utils import wcs_to_celestial_frame
+from scipy.interpolate import SmoothBivariateSpline, UnivariateSpline
+from scipy.ndimage import binary_closing, generate_binary_structure, median_filter
+from scipy.stats import binned_statistic_2d
+from skimage import measure as skmeasure
+from skimage import morphology as skmorphology
+from skimage.draw import disk
+from skimage.filters import sobel
+from sklearn.neighbors import NearestNeighbors
+
+from vircampype.external.mmm import mmm
+from vircampype.tools.mathtools import *
 
 __all__ = [
     "interpolate_image",
@@ -695,7 +695,7 @@ def destripe_helper(array, mask=None, smooth=False):
 
 def source_mask(
     image: np.ndarray,
-    kappa: (int, float),
+    kappa: Union[int, float],
     min_area: int = 3,
     max_area: int = 100000,
     mask_bright_sources: bool = True,
