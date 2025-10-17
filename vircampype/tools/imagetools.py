@@ -283,15 +283,13 @@ def background_image(image, mesh_size, mesh_filtersize=3):
     # Image must be 2D
     if len(image.shape) != 2:
         raise ValueError(
-            "Please supply array with 2 dimensions. "
-            "The given data has {0} dimensions".format(len(image.shape))
+            f"Please supply array with 2 dimensions. The given data has {len(image.shape)} dimensions"
         )
 
     # Back size and image dimensions must be compatible
     if (image.shape[0] % mesh_size != 0) | (image.shape[1] % mesh_size != 0):
         raise ValueError(
-            "Image dimensions {0} must be multiple of backsize mesh size ({1})"
-            "".format(image.shape, mesh_size)
+            f"Image dimensions {image.shape} must be multiple of backsize mesh size ({mesh_size})"
         )
 
     # Tile image
@@ -306,8 +304,9 @@ def background_image(image, mesh_size, mesh_filtersize=3):
 
     # Scale back to 2D array
     n_tiles_x, n_tiles_y = image.shape[1] // mesh_size, image.shape[0] // mesh_size
-    bg, bg_std = np.array(bg).reshape(n_tiles_y, n_tiles_x), np.array(bg_std).reshape(
-        n_tiles_y, n_tiles_x
+    bg, bg_std = (
+        np.array(bg).reshape(n_tiles_y, n_tiles_x),
+        np.array(bg_std).reshape(n_tiles_y, n_tiles_x),
     )
 
     # Interpolate NaN values in grid
@@ -317,8 +316,9 @@ def background_image(image, mesh_size, mesh_filtersize=3):
     )
 
     # Apply median filter
-    bg, bg_std = median_filter(input=bg, size=mesh_filtersize), median_filter(
-        input=bg_std, size=mesh_filtersize
+    bg, bg_std = (
+        median_filter(input=bg, size=mesh_filtersize),
+        median_filter(input=bg_std, size=mesh_filtersize),
     )
 
     # Convolve
@@ -327,7 +327,8 @@ def background_image(image, mesh_size, mesh_filtersize=3):
 
     # Return upscaled data
     return upscale_image(bg, new_size=image.shape), upscale_image(  # noqa
-        bg_std, new_size=image.shape  # noqa
+        bg_std,
+        new_size=image.shape,  # noqa
     )
 
 
@@ -365,8 +366,9 @@ def upscale_image(image, new_size, method="pil", order=3):
         )
     elif "spline" in method.lower():
         # Detemrine edge coordinates of input wrt output size
-        xedge, yedge = np.linspace(0, new_size[0], image.shape[0] + 1), np.linspace(
-            0, new_size[1], image.shape[1] + 1
+        xedge, yedge = (
+            np.linspace(0, new_size[0], image.shape[0] + 1),
+            np.linspace(0, new_size[1], image.shape[1] + 1),
         )
 
         # Determine pixel center coordinates
@@ -387,7 +389,7 @@ def upscale_image(image, new_size, method="pil", order=3):
                 *np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1]))
             )
     else:
-        raise ValueError("Method '{0}' not supported".format(method))
+        raise ValueError(f"Method '{method}' not supported")
 
 
 def grid_value_2d(
@@ -600,8 +602,9 @@ def grid_value_2d_nn(
 
         # Sigma-clip weights
         # vv, ww = vc[idx].copy(), wc[idx].copy()
-        vv, ww = vc[idx].copy(), wc[idx] * Gaussian1D(amplitude=1, mean=0, stddev=540)(
-            nn_dis
+        vv, ww = (
+            vc[idx].copy(),
+            wc[idx] * Gaussian1D(amplitude=1, mean=0, stddev=540)(nn_dis),
         )
         ww[astropy_sigma_clip(vv, sigma=2.5, maxiters=5, axis=1).mask] = 0.0
 
@@ -617,7 +620,7 @@ def grid_value_2d_nn(
         _, gv, _ = sigma_clipped_stats(vc[idx], axis=1)
 
     else:
-        raise ValueError("Metric '{0}' not supported".format(metric))
+        raise ValueError(f"Metric '{metric}' not supported")
 
     # Reshape to image
     gv = gv.reshape(n_bins_y, n_bins_x)
@@ -856,14 +859,14 @@ def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> Sky
 
 
 def coordinate_array(image: np.ndarray) -> (np.ndarray, np.ndarray):
-    """ Creates arrays of same shape as input, but holds x and y pixel coordinates. """
+    """Creates arrays of same shape as input, but holds x and y pixel coordinates."""
     return np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
 
 
 def tile_image(image, s1: int, s2: int) -> List:
-    """ Splits an image into tiles of given size s1 and s2. """
+    """Splits an image into tiles of given size s1 and s2."""
     return [
-        image[x: x + s1, y: y + s2]
+        image[x : x + s1, y : y + s2]
         for x in range(0, image.shape[0], s1)
         for y in range(0, image.shape[1], s2)
     ]
