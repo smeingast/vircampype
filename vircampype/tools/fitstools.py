@@ -104,7 +104,7 @@ def make_card(keyword, value, comment=None, upper=True):
     lcom = len(comment) if comment is not None else 0
     ltot = len(kw) + len(str(val)) + lcom
     if ltot > 80:
-        raise ValueError("Card too long ({0})".format(ltot))
+        raise ValueError(f"Card too long ({ltot})")
 
     # Return card
     return fits.Card(keyword=kw, value=val, comment=comment)
@@ -471,9 +471,7 @@ def replace_data(file_a: str, file_b: str):
     # Number of HDUs must be equal
     if len(hdul_a) != len(hdul_b):
         raise ValueError(
-            "Number of HDUs not equal. n(A)={0}; n(B)={1}".format(
-                len(hdul_a), len(hdul_b)
-            )
+            f"Number of HDUs not equal. n(A)={len(hdul_a)}; n(B)={len(hdul_b)}"
         )
 
     # Loop over HDUs:
@@ -599,7 +597,7 @@ def compress_images(images, q=4, exe="fpack", n_jobs=1):
     done = [os.path.isfile(x) for x in paths_out]
 
     # Build commands
-    cmds = ["{0} -q {1} {2}".format(fpack, q, x) for x in images]
+    cmds = [f"{fpack} -q {q} {x}" for x in images]
 
     # Clean commands
     cmds = [c for c, d in zip(cmds, done) if not d]
@@ -761,7 +759,7 @@ def fits2ldac(path_in, path_out, extension=1):
     cols = fits.ColDefs([col1])
     ext2 = fits.BinTableHDU.from_columns(cols)
     ext2.header["EXTNAME"] = "LDAC_IMHEAD"
-    ext2.header["TDIM1"] = "(80, {0})".format(len(ext2_str) / 80)
+    ext2.header["TDIM1"] = f"(80, {len(ext2_str) / 80})"
     ext3 = fits.BinTableHDU(data)
     ext3.header["EXTNAME"] = "LDAC_OBJECTS"
     prihdr = fits.Header()
