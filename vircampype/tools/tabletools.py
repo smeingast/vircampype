@@ -302,7 +302,7 @@ def interpolate_classification(source_table, classification_table, verbose=False
 
 def remove_duplicates_wcs(
     table: Table,
-    sep: (int, float) = 1,
+    sep: Union[int, float] = 1,
     key_lon: str = "RA",
     key_lat: str = "DEC",
     temp_dir: str = "/tmp/",
