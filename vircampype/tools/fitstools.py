@@ -175,9 +175,10 @@ def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
     """
 
     # Get HDUlists for both files
-    with fits.open(path_1, mode="update") as hdulist_1, fits.open(
-        path_2, mode="readonly"
-    ) as hdulist_2:
+    with (
+        fits.open(path_1, mode="update") as hdulist_1,
+        fits.open(path_2, mode="readonly") as hdulist_2,
+    ):
         # Loop over files and update header
         for k in keywords:
             hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
@@ -300,9 +301,10 @@ def merge_headers(path_1, path_2, primary_only=False):
     skip_list = ["SIMPLE", "NAXIS", "NAXIS1", "NAXIS2"]
 
     # Get HDUlists for both files
-    with fits.open(path_1, mode="update") as hdulist_1, fits.open(
-        path_2, mode="readonly"
-    ) as hdulist_2:
+    with (
+        fits.open(path_1, mode="update") as hdulist_1,
+        fits.open(path_2, mode="readonly") as hdulist_2,
+    ):
         # Iterate over HDUs
         for hdu1, hdu2 in zip(hdulist_1, hdulist_2):
             # Check for Primary HDU
