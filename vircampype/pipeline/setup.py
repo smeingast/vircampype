@@ -54,7 +54,7 @@ class Setup:
     # Astrometry
     warp_gaia: bool = True
     external_headers: bool = False
-    scamp_mode: Literal["fix_focalplane", "loose"] = "fix_focalplane"
+    scamp_mode: Literal["fix_focalplane", "loose"] = "loose"
 
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"
