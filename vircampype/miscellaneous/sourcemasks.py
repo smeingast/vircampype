@@ -1,7 +1,11 @@
 import numpy as np
-from regions import Regions
-from astropy.units import Unit, Quantity
+from astropy.coordinates import SkyCoord
+from astropy.table import Table
+from astropy.units import Quantity, Unit
+from regions import CircleSkyRegion, Regions
 from scipy.interpolate import interp1d
+
+from vircampype.tools.systemtools import get_resource_path
 
 __all__ = ["SourceMasks"]
 
@@ -69,3 +73,36 @@ class SourceMasks:
             [450, 450, 450, 425, 400, 350, 300, 200, 100, 50],
             fill_value="extrapolate",
         )
+
+    @classmethod
+    def bright_galaxies(cls, max_radius_arcmin: float = 3) -> "SourceMasks":
+        path_catalog = get_resource_path(
+            package="resources", resource="deVaucouleurs91.fits"
+        )
+        tab = Table.read(path_catalog)
+
+        # Remove NaN coordinates and Radii entries
+        mask_valid = (
+            np.isfinite(tab["RAJ2000"])
+            & np.isfinite(tab["DEJ2000"])
+            & np.isfinite(tab["R"])
+        )
+        tab = tab[mask_valid]
+
+        skycoord = SkyCoord(
+            ra=tab["RAJ2000"], dec=tab["DEJ2000"], frame="icrs", unit="deg"
+        )
+        radii = tab["R"].quantity.to_value(Unit("arcmin"))
+
+        # Set any radius above max to max
+        radii = np.minimum(radii, max_radius_arcmin)
+
+        # Define regions
+        regs = Regions(
+            [
+                CircleSkyRegion(center=sc, radius=r * Unit("arcmin"))
+                for sc, r in zip(skycoord, radii)
+            ]
+        )
+
+        return cls(regs, name="Bright Galaxies (de Vaucouleurs 1991)")
