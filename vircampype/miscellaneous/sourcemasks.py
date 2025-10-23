@@ -49,8 +49,12 @@ class SourceMasks:
         return self.dec.to_value(Unit("deg"))
 
     @property
+    def size(self):
+        return Quantity([r.radius for r in self.regions])
+
+    @property
     def size_deg(self):
-        return Quantity([r.radius.to(Unit("deg")) for r in self.regions])
+        return self.size.to_value(Unit("deg"))
 
     def size_pix(self, pixel_scale: Quantity = 1 / 3 * Unit("arcsec")) -> np.ndarray:
         """
@@ -66,7 +70,7 @@ class SourceMasks:
             Array with mask sizes in pixels.
 
         """
-        return Quantity([sd / pixel_scale for sd in self.size_deg]).decompose().value
+        return Quantity([sd / pixel_scale for sd in self.size]).decompose().value
 
     @staticmethod
     def interp_2mass_size():
