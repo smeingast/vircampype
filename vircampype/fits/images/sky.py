@@ -854,7 +854,7 @@ class SkyImagesProcessed(SkyImages):
         master_phot = self.get_master_photometry()
         if self.setup.mask_2mass_sources:
             mag_master = master_phot.mag(passband=self.passband[0])[0][0]
-            bright = (mag_master > 1) & (mag_master < 9)
+            bright = (mag_master > 1) & (mag_master < 10)
             mag_bright = mag_master[bright]
             additional_masks["ra"].extend(list(master_phot.ra[0][0][bright]))
             additional_masks["dec"].extend(list(master_phot.dec[0][0][bright]))
