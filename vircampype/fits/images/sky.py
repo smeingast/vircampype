@@ -862,6 +862,13 @@ class SkyImagesProcessed(SkyImages):
                 [int(x) for x in SourceMasks.interp_2mass_size()(mag_bright)]
             )
 
+        if self.setup.mask_bright_galaxies:
+            # Load bright galaxy catalog
+            bright_galaxies = SourceMasks.bright_galaxies()
+            additional_masks["ra"].extend(bright_galaxies.ra_deg)
+            additional_masks["dec"].extend(bright_galaxies.dec_deg)
+            additional_masks["size"].extend(bright_galaxies.size_deg)
+
         # Add manual source masks
         if self.setup.additional_source_masks is not None:
             additional_masks["ra"].extend(self.setup.additional_source_masks.ra_deg)
