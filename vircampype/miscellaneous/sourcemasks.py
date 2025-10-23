@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
@@ -77,8 +79,17 @@ class SourceMasks:
     @classmethod
     def bright_galaxies(cls, max_radius_arcmin: float = 3) -> "SourceMasks":
         path_catalog = get_resource_path(
-            package="resources", resource="deVaucouleurs91.fits"
+            package="vircampype.resources", resource="deVaucouleurs91.fits"
         )
+
+        # Check if catalog exists
+        if not os.path.isfile(path_catalog):
+            raise FileNotFoundError(
+                f"Catalog file not found at {path_catalog}. "
+                "Please ensure the resource files are correctly installed."
+            )
+
+        # Read catalog
         tab = Table.read(path_catalog)
 
         # Remove NaN coordinates and Radii entries
