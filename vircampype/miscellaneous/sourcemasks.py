@@ -62,7 +62,7 @@ class SourceMasks:
         """
         return Quantity([sd / pixel_scale for sd in self.size_deg]).decompose().value
 
-    @classmethod
+    @staticmethod
     def interp_2mass_size(cls):
         return interp1d(
             [1, 2, 3, 4, 5, 6, 7, 8, 9],
