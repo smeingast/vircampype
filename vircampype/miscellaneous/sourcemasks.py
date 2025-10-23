@@ -65,7 +65,7 @@ class SourceMasks:
     @staticmethod
     def interp_2mass_size(cls):
         return interp1d(
-            [1, 2, 3, 4, 5, 6, 7, 8, 9],
-            [400, 400, 400, 375, 350, 300, 250, 150, 50],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            [450, 450, 450, 425, 400, 350, 300, 200, 100, 50],
             fill_value="extrapolate",
         )
