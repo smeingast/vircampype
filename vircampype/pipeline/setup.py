@@ -112,6 +112,8 @@ class Setup:
 
     # Source masks
     mask_2mass_sources: bool = True
+    mask_2mass_sources_bright: Union[int, float] = 1.0
+    mask_2mass_sources_faint: Union[int, float] = 10.0
     mask_bright_galaxies: bool = True
     additional_source_masks: Optional[Union[str, SourceMasks]] = None
     source_mask_method: Literal["noisechisel", "built-in"] = "noisechisel"
