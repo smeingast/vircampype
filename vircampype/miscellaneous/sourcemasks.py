@@ -35,6 +35,9 @@ class SourceMasks:
     def __iter__(self):
         return iter(self.regions)
 
+    def __getitem__(self, key):
+        return self.regions[key]
+
     @property
     def ra(self):
         return Quantity([r.center.icrs.ra for r in self.regions])
