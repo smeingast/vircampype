@@ -39,7 +39,12 @@ class SourceMasks:
         return iter(self.regions)
 
     def __getitem__(self, key):
-        return self.regions[key]
+        # If key is a list, tuple, or np.ndarray, select multiple regions
+        if isinstance(key, (list, tuple, np.ndarray)):
+            regions = [self.regions[k] for k in key]
+        else:
+            regions = self.regions[key]
+        return self.__class__(regions, name=self.name)
 
     @property
     def ra(self):
