@@ -32,6 +32,9 @@ class SourceMasks:
     def __str__(self):
         return self.name
 
+    def __len__(self):
+        return len(self.regions)
+
     def __iter__(self):
         return iter(self.regions)
 
