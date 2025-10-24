@@ -12,7 +12,6 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.ndimage.morphology import binary_closing
 from skimage.draw import disk
-from skimage.morphology import square
 from skimage.morphology import footprint_rectangle
 
 from vircampype.data.cube import ImageCube
@@ -89,6 +88,25 @@ class SkyImages(FitsImages):
 
         self._footprints_flat = SkyCoord(flat_list(self.footprints))
         return self._footprints_flat
+
+    def footprints_contain(self, skycoord: SkyCoord):
+        """
+        Test if the given skycoord is contained in the footprint of each WCS.
+
+        Parameters
+        ----------
+        skycoord : SkyCoord
+            The sky coordinate(s) to test.
+
+        Returns
+        -------
+        List[List[bool]]
+            Nested list of booleans, True if skycoord is inside the WCS footprint.
+        """
+        return [
+            [wcs.footprint_contains(skycoord) for wcs in wcs_list]
+            for wcs_list in self.wcs
+        ]
 
     @property
     def centroid_all(self):
@@ -847,15 +865,25 @@ class SkyImagesProcessed(SkyImages):
         super(SkyImagesProcessed, self).__init__(setup=setup, file_paths=file_paths)
 
     def __build_additional_masks(self) -> dict:
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Building additional source masks for {self.n_files} files")
+
         # Create empty mask list for any additional masks
         additional_masks = dict(ra=[], dec=[], size=[])
 
         # Load positions and magnitudes of bright sources from master photometry
         master_phot = self.get_master_photometry()
         if self.setup.mask_2mass_sources:
+            log.info(f"Adding 2MASS source masks")
+            log.info(f"Lower magnitude limit: {self.setup.mask_2mass_sources_bright}")
+            log.info(f"Upper magnitude limit: {self.setup.mask_2mass_sources_faint}")
             mag_master = master_phot.mag(passband=self.passband[0])[0][0]
-            bright = (mag_master > 1) & (mag_master < 10)
+            bright = (mag_master > self.setup.mask_2mass_sources_bright) & (
+                mag_master < self.setup.mask_2mass_sources_faint
+            )
             mag_bright = mag_master[bright]
+            log.info(f"Adding {len(mag_bright)} bright sources to masks")
             additional_masks["ra"].extend(list(master_phot.ra[0][0][bright]))
             additional_masks["dec"].extend(list(master_phot.dec[0][0][bright]))
             additional_masks["size"].extend(
@@ -864,19 +892,39 @@ class SkyImagesProcessed(SkyImages):
 
         if self.setup.mask_bright_galaxies:
             # Load bright galaxy catalog
+            log.info(f"Adding bright galaxies to source masks")
             bright_galaxies = SourceMasks.bright_galaxies()
-            additional_masks["ra"].extend(bright_galaxies.ra_deg)
-            additional_masks["dec"].extend(bright_galaxies.dec_deg)
-            additional_masks["size"].extend(bright_galaxies.size_deg)
+            log.info(f"Found {len(bright_galaxies)} bright galaxies in catalog")
+            sc_galaxies = SkyCoord([bg.center for bg in bright_galaxies])
+
+            # Check which ones in footprint
+            log.info("Checking which galaxies are in image footprints")
+            in_footprints = self.footprints_contain(skycoord=sc_galaxies)
+            in_footprints = np.array(in_footprints)
+            contained_any = np.any(in_footprints, axis=(0, 1))
+            indices = np.where(contained_any)[0]
+            log.info(f"Found {len(indices)} galaxies in image footprints")
+
+            # Save if any remain
+            if len(indices) == 0:
+                bright_galaxies = bright_galaxies[indices]
+                additional_masks["ra"].extend(bright_galaxies.ra_deg)
+                additional_masks["dec"].extend(bright_galaxies.dec_deg)
+                additional_masks["size"].extend(bright_galaxies.size_deg)
 
         # Add manual source masks
         if self.setup.additional_source_masks is not None:
+            log.info(f"Adding manual source masks")
+            log.info(
+                f"Number of additional masks: {len(self.setup.additional_source_masks)}"
+            )
             additional_masks["ra"].extend(self.setup.additional_source_masks.ra_deg)
             additional_masks["dec"].extend(self.setup.additional_source_masks.dec_deg)
             additional_masks["size"].extend(
                 self.setup.additional_source_masks.size_pix()
             )
 
+        log.info(f"Total number of additional masks: {len(additional_masks['ra'])}")
         return additional_masks
 
     def build_master_source_mask(self):
