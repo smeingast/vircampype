@@ -905,6 +905,13 @@ class SkyImagesProcessed(SkyImages):
             indices = np.where(contained_any)[0]
             log.info(f"Found {len(indices)} galaxies in image footprints")
 
+            """ 
+            I do not check if other masks intersect the image footprints, 
+            since at present, masks are applied to any part of the image they cover, 
+            even if the source lies near the edge. For galaxies, this intersection 
+            check is intentionally omitted here as it later takes too long.
+            """
+
             # Save if any remain
             if len(indices) == 0:
                 bright_galaxies = bright_galaxies[indices]
