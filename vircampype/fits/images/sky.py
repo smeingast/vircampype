@@ -913,7 +913,7 @@ class SkyImagesProcessed(SkyImages):
             """
 
             # Save if any remain
-            if len(indices) == 0:
+            if len(indices) > 0:
                 bright_galaxies = bright_galaxies[indices]
                 additional_masks["ra"].extend(bright_galaxies.ra_deg)
                 additional_masks["dec"].extend(bright_galaxies.dec_deg)
