@@ -128,7 +128,7 @@ class Setup:
     noisechisel_erode: int = 2
     noisechisel_detgrowquant: float = 1.0
     noisechisel_tilesize: str = "32,32"
-    noisechisel_meanmedqdiff: float = 0.03
+    noisechisel_meanmedqdiff: float = 0.05
     # Built-in setup for source masks
     mask_sources_thresh: Union[int, float] = 3
     mask_sources_min_area: Union[int, float] = 3
