@@ -176,6 +176,7 @@ class Setup:
 
     # Miscellanous
     survey_name: str = "VISIONS"
+    fix_vircam_headers: bool = True
 
     # Folders
     folders: Dict = None
@@ -214,10 +215,6 @@ class Setup:
     @property
     def joblib_backend(self) -> str:
         return "threads"
-
-    @property
-    def fix_vircam_headers(self) -> bool:
-        return True
 
     @property
     def set_airmass(self) -> bool:
