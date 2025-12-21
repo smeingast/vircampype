@@ -36,6 +36,7 @@ __all__ = [
     "compress_images",
     "make_gaia_refcat",
     "combine_mjd_images",
+    "fits2ldac",
 ]
 
 
