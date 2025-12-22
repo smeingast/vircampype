@@ -29,7 +29,7 @@ __all__ = [
     "make_executable",
     "cmd_prepend_libraries",
     "remove_ansi_codes",
-    "wait_for_no_scamp"
+    "wait_for_no_process"
 ]
 
 
@@ -516,23 +516,44 @@ def remove_ansi_codes(s: str) -> str:
     return ansi_escape.sub("", s)
 
 
-def _any_scamp_running() -> bool:
-    # Uses pgrep (works on Linux/macOS). Matches executable name exactly.
+def _any_process_running(executable: str) -> bool:
+    """
+    Check whether a process with the given executable name is currently running.
+
+    Parameters
+    ----------
+    executable : str
+        Executable name to match exactly (as in `pgrep -x`, e.g. `"scamp"`).
+
+    Returns
+    -------
+    bool
+        `True` if at least one matching process exists, otherwise `False`.
+    """
     cp = subprocess.run(
-        ["pgrep", "-x", "scamp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ["pgrep", "-x", executable],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
     )
     return cp.returncode == 0
 
 
-def wait_for_no_scamp(poll_s: float = 2.0, timeout_s: float | None = None):
+def wait_for_no_process(
+    executable: str,
+    poll_s: float = 2.0,
+    timeout_s: float | None = None,
+):
     """
-    Wait until no `scamp` process is running.
+    Wait until no process with the given executable name is running.
 
     Parameters
     ----------
-    poll_s : float
-        Seconds between checks.
-    timeout_s : float | None
+    executable : str
+        Executable name to match exactly (as in `pgrep -x`, e.g. `"scamp"`).
+    poll_s : float, optional
+        Seconds between checks. Default is 2.0.
+    timeout_s : float | None, optional
         Max seconds to wait; `None` waits indefinitely.
 
     Raises
@@ -541,7 +562,9 @@ def wait_for_no_scamp(poll_s: float = 2.0, timeout_s: float | None = None):
         If the timeout is exceeded.
     """
     t0 = time.time()
-    while _any_scamp_running():
+    while _any_process_running(executable):
         if timeout_s is not None and (time.time() - t0) > timeout_s:
-            raise TimeoutError("Timed out waiting for other scamp processes to finish.")
+            raise TimeoutError(
+                f"Timed out waiting for other {executable} processes to finish."
+            )
         time.sleep(poll_s)

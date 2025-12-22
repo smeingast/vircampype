@@ -185,7 +185,7 @@ class SextractorCatalogs(SourceCatalogs):
         log.info(f"Scamp command: {cmd}")
 
         # Wait for any other scamp instances to finish
-        wait_for_no_scamp(poll_s=2.0, timeout_s=1800)
+        wait_for_no_process(executable="scamp", poll_s=2.0, timeout_s=1800)
 
         # Run Scamp
         stdout, stderr = run_command_shell(cmd, silent=False)
