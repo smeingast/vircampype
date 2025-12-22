@@ -438,9 +438,10 @@ def _canonicalize_rotation(
     cdelt=(1 / 3) / 3600,
 ) -> float:
     """
-    Adjust rotation so that:
-    1) NAXIS2 > NAXIS1 (long axis is Y)
-    2) CD2_2 > 0
+    Canonicalize rotation so that:
+    1) NAXIS2 > NAXIS1 (long axis is Y)           [HARD]
+    2) CD2_2 > 0      (North up)                  [HARD]
+    3) CD1_1 < 0      (East left)                 [SOFT preference]
 
     Returns a rotation angle in [0, 360).
     """
@@ -454,31 +455,47 @@ def _canonicalize_rotation(
             cdelt=cdelt,
         )
 
-    r = rot_deg % 360.0
+    r = float(rot_deg) % 360.0
     hdr = make_hdr(r)
 
-    # (1) Ensure long axis is Y: if X is longer or equal, rotate by +90°.
-    #     (+90° swaps axes for a pure rotation; the header size should swap accordingly.)
-    if hdr["NAXIS1"] >= hdr["NAXIS2"]:
-        r = (r + 90.0) % 360.0
-        hdr = make_hdr(r)
+    def ensure_long_axis_y(_r, _hdr):
+        if _hdr["NAXIS1"] >= _hdr["NAXIS2"]:
+            _r = (_r + 90.0) % 360.0
+            _hdr = make_hdr(_r)
+        return _r, _hdr
 
-    # (2) Ensure CD2_2 positive: if negative, rotate by 180°.
-    #     For standard FITS WCS with a CD matrix from rotation+scale,
-    #     adding 180° flips signs of both diagonal terms, making CD2_2 positive.
-    if hdr.get("CD2_2", 1.0) < 0:
-        r = (r + 180.0) % 360.0
-        hdr = make_hdr(r)
+    def ensure_north_up(_r, _hdr):
+        if _hdr.get("CD2_2", 1.0) < 0:
+            _r = (_r + 180.0) % 360.0
+            _hdr = make_hdr(_r)
+        return _r, _hdr
 
-    # Re-check condition (1) in case (2) changed things (usually it won't for sizes,
-    # but it costs little to be safe)
-    if hdr["NAXIS1"] >= hdr["NAXIS2"]:
-        r = (r + 90.0) % 360.0
-        hdr = make_hdr(r)
+    # HARD (1)
+    r, hdr = ensure_long_axis_y(r, hdr)
 
-    # Final assert-style checks
+    # HARD (2)
+    r, hdr = ensure_north_up(r, hdr)
+
+    # SOFT (3): only apply +180 if it keeps CD2_2 > 0
+    if hdr.get("CD1_1", -1.0) > 0:
+        r_try = (r + 180.0) % 360.0
+        hdr_try = make_hdr(r_try)
+
+        # Re-apply HARD (1) and (2) to the candidate, then check if it still
+        # achieves CD1_1 < 0.
+        r_try, hdr_try = ensure_long_axis_y(r_try, hdr_try)
+        r_try, hdr_try = ensure_north_up(r_try, hdr_try)
+
+        if hdr_try.get("CD1_1", 0.0) < 0:
+            r, hdr = r_try, hdr_try
+
+    # Re-ensure HARD (1) and (2) at the end (cheap + protects against rounding effects)
+    r, hdr = ensure_long_axis_y(r, hdr)
+    r, hdr = ensure_north_up(r, hdr)
+
+    # Final hard checks
     assert hdr["NAXIS2"] > hdr["NAXIS1"]
-    assert hdr["CD2_2"] > 0
+    assert hdr.get("CD2_2", 0.0) > 0
 
     return float(r)
 
