@@ -429,6 +429,60 @@ def get_airmass_from_header(
     ).secz.value
 
 
+
+def _canonicalize_rotation(
+    skycoord,
+    rot_deg: float,
+    *,
+    proj_code="ZEA",
+    enlarge=0.5,
+    cdelt=(1/3)/3600,
+) -> float:
+    """
+    Adjust rotation so that:
+    1) NAXIS2 > NAXIS1 (long axis is Y)
+    2) CD2_2 > 0
+
+    Returns a rotation angle in [0, 360).
+    """
+    def make_hdr(rdeg: float):
+        return skycoord2header(
+            skycoord=skycoord,
+            proj_code=proj_code,
+            rotation=np.deg2rad(rdeg),
+            enlarge=enlarge,
+            cdelt=cdelt,
+        )
+
+    r = rot_deg % 360.0
+    hdr = make_hdr(r)
+
+    # (1) Ensure long axis is Y: if X is longer or equal, rotate by +90°.
+    #     (+90° swaps axes for a pure rotation; the header size should swap accordingly.)
+    if hdr["NAXIS1"] >= hdr["NAXIS2"]:
+        r = (r + 90.0) % 360.0
+        hdr = make_hdr(r)
+
+    # (2) Ensure CD2_2 positive: if negative, rotate by 180°.
+    #     For standard FITS WCS with a CD matrix from rotation+scale,
+    #     adding 180° flips signs of both diagonal terms, making CD2_2 positive.
+    if hdr.get("CD2_2", 1.0) < 0:
+        r = (r + 180.0) % 360.0
+        hdr = make_hdr(r)
+
+    # Re-check condition (1) in case (2) changed things (usually it won't for sizes,
+    # but it costs little to be safe)
+    if hdr["NAXIS1"] >= hdr["NAXIS2"]:
+        r = (r + 90.0) % 360.0
+        hdr = make_hdr(r)
+
+    # Final assert-style checks
+    assert hdr["NAXIS2"] > hdr["NAXIS1"]
+    assert hdr["CD2_2"] > 0
+
+    return float(r)
+
+
 def find_optimal_rotation(skycoord: SkyCoord) -> float:
     """
     Find the optimal rotation angle that minimizes the area of the header projection.
@@ -489,6 +543,9 @@ def find_optimal_rotation(skycoord: SkyCoord) -> float:
             area.append(hdr["NAXIS1"] * hdr["NAXIS2"])
         min_idx = np.argmin(area)
         min_rot = float(rotation_test[min_idx])
+
+    # Enforce your canonical conventions
+    min_rot = _canonicalize_rotation(skycoord, min_rot)
 
     # min_rot now holds the optimal rotation to the nearest 0.01 degree, in [0, 360)
     return min_rot
