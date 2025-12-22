@@ -1,15 +1,16 @@
-import re
-import os
-import sys
-import stat
-import yaml
 import glob
-import shutil
-import subprocess
 import importlib
-
-from typing import List
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import time
 from itertools import zip_longest
+from typing import List
+
+import yaml
 
 __all__ = [
     "make_folder",
@@ -28,6 +29,7 @@ __all__ = [
     "make_executable",
     "cmd_prepend_libraries",
     "remove_ansi_codes",
+    "wait_for_no_scamp"
 ]
 
 
@@ -293,12 +295,8 @@ def run_command_shell(
 
     # Decode the command output
     try:
-        stdout = result.stdout.decode(
-            "utf-8"
-        ).strip()
-        stderr = result.stderr.decode(
-            "utf-8", errors="replace"
-        ).strip()
+        stdout = result.stdout.decode("utf-8").strip()
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
     except UnicodeDecodeError:  # if utf-8 fails, try latin-1
         stdout = result.stdout.decode("latin-1", errors="replace").strip()
         stderr = result.stderr.decode("latin-1", errors="replace").strip()
@@ -516,3 +514,34 @@ def remove_ansi_codes(s: str) -> str:
     # followed by a semicolon-separated series of numbers, and end with an 'm'
     ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     return ansi_escape.sub("", s)
+
+
+def _any_scamp_running() -> bool:
+    # Uses pgrep (works on Linux/macOS). Matches executable name exactly.
+    cp = subprocess.run(
+        ["pgrep", "-x", "scamp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    return cp.returncode == 0
+
+
+def wait_for_no_scamp(poll_s: float = 2.0, timeout_s: float | None = None):
+    """
+    Wait until no `scamp` process is running.
+
+    Parameters
+    ----------
+    poll_s : float
+        Seconds between checks.
+    timeout_s : float | None
+        Max seconds to wait; `None` waits indefinitely.
+
+    Raises
+    ------
+    TimeoutError
+        If the timeout is exceeded.
+    """
+    t0 = time.time()
+    while _any_scamp_running():
+        if timeout_s is not None and (time.time() - t0) > timeout_s:
+            raise TimeoutError("Timed out waiting for other scamp processes to finish.")
+        time.sleep(poll_s)
