@@ -429,14 +429,13 @@ def get_airmass_from_header(
     ).secz.value
 
 
-
 def _canonicalize_rotation(
     skycoord,
     rot_deg: float,
     *,
     proj_code="ZEA",
     enlarge=0.5,
-    cdelt=(1/3)/3600,
+    cdelt=(1 / 3) / 3600,
 ) -> float:
     """
     Adjust rotation so that:
@@ -445,6 +444,7 @@ def _canonicalize_rotation(
 
     Returns a rotation angle in [0, 360).
     """
+
     def make_hdr(rdeg: float):
         return skycoord2header(
             skycoord=skycoord,
