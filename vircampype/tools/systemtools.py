@@ -29,7 +29,7 @@ __all__ = [
     "make_executable",
     "cmd_prepend_libraries",
     "remove_ansi_codes",
-    "wait_for_no_process"
+    "wait_for_no_process",
 ]
 
 
