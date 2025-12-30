@@ -68,9 +68,13 @@ def clean_source_table(
     max_flux_radius=3.0,
     finite_columns: Optional[List[str]] = None,
     n_jobs: Optional[int] = None,
+    verbose=False,
 ):
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
+
+    if verbose:
+        print(f"\nCleaning source table with {np.sum(good)} entries...")
 
     # Apply nearest neighbor limit if set
     if nndis_limit is not None:
@@ -82,29 +86,41 @@ def clean_source_table(
             .kneighbors(stacked)[0][:, -1]
         )
         good &= nndis > nndis_limit
+        if verbose:
+            print(f" - After NN distance cut: {np.sum(good)} entries remain.")
 
     try:
         good &= (table["FLAGS"] == 0) | (table["FLAGS"] == 2)
+        if verbose:
+            print(f" - After FLAGS cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["SNR_WIN"] >= min_snr
+        if verbose:
+            print(f" - After SNR_WIN cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["ELLIPTICITY"] <= max_ellipticity
+        if verbose:
+            print(f" - After ELLIPTICITY cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["ISOAREA_IMAGE"] > 5
+        if verbose:
+            print(f" - After ISOAREA_IMAGE cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["ISOAREA_IMAGE"] < 2000
+        if verbose:
+            print(f" - After ISOAREA_IMAGE upper cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
@@ -120,21 +136,29 @@ def clean_source_table(
 
     try:
         good &= table["FWHM_IMAGE"] >= min_fwhm
+        if verbose:
+            print(f" - After min FWHM_IMAGE cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["FWHM_IMAGE"] <= max_fwhm
+        if verbose:
+            print(f" - After max FWHM_IMAGE cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["FLUX_RADIUS"] > min_flux_radius
+        if verbose:
+            print(f" - After min FLUX_RADIUS cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
     try:
         good &= table["FLUX_RADIUS"] < max_flux_radius
+        if verbose:
+            print(f" - After max FLUX_RADIUS cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
@@ -142,6 +166,8 @@ def clean_source_table(
         good &= table["BACKGROUND"] <= np.nanmedian(
             table["BACKGROUND"]
         ) + 3 * np.nanstd(table["BACKGROUND"])
+        if verbose:
+            print(f" - After BACKGROUND cut: {np.sum(good)} entries remain.")
     except KeyError:
         pass
 
@@ -150,30 +176,40 @@ def clean_source_table(
         try:
             good &= table["XWIN_IMAGE"] > min_distance_to_edge
             good &= table["XWIN_IMAGE"] < image_header["NAXIS1"] - min_distance_to_edge
+            if verbose:
+                print(f" - After XWIN_IMAGE edge cut: {np.sum(good)} entries remain.")
         except KeyError:
             pass
 
         try:
             good &= table["YWIN_IMAGE"] > min_distance_to_edge
             good &= table["YWIN_IMAGE"] < image_header["NAXIS2"] - min_distance_to_edge
+            if verbose:
+                print(f" - After YWIN_IMAGE edge cut: {np.sum(good)} entries remain.")
         except KeyError:
             pass
 
     if flux_auto_min is not None:
         try:
             good &= table["FLUX_AUTO"] >= flux_auto_min
+            if verbose:
+                print(f" - After FLUX_AUTO min cut: {np.sum(good)} entries remain.")
         except KeyError:
             pass
 
     if flux_auto_max is not None:
         try:
             good &= table["FLUX_AUTO"] <= flux_auto_max
+            if verbose:
+                print(f" - After FLUX_AUTO max cut: {np.sum(good)} entries remain.")
         except KeyError:
             pass
 
     if flux_max is not None:
         try:
             good &= table["FLUX_MAX"] <= flux_max
+            if verbose:
+                print(f" - After FLUX_MAX cut: {np.sum(good)} entries remain.")
         except KeyError:
             pass
 
@@ -185,6 +221,10 @@ def clean_source_table(
             good &= (table["FLUX_MAX"] >= percentiles[0]) & (
                 table["FLUX_MAX"] <= percentiles[1]
             )
+            if verbose:
+                print(
+                    f" - After FLUX_MAX percentiles cut: {np.sum(good)} entries remain."
+                )
         except KeyError:
             pass
 
@@ -192,6 +232,10 @@ def clean_source_table(
     if finite_columns is not None:
         for col in finite_columns:
             good &= np.isfinite(table[col])
+            if verbose:
+                print(
+                    f" - After finite check on {col}: {np.sum(good)} entries remain."
+                )
 
     # Return cleaned table
     if return_filter:
