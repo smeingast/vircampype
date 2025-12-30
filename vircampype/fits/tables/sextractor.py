@@ -370,6 +370,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     min_fwhm=0.8,
                     max_fwhm=6.0,
                     max_ellipticity=0.25,
+                    verbose=False
                 )
 
                 # Compute zero point depending on IC mode
