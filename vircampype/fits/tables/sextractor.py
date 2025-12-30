@@ -100,7 +100,6 @@ class SextractorCatalogs(SourceCatalogs):
         return " ".join(self.paths_full)
 
     def scamp(self):
-
         # Fetch log
         log = PipelineLog()
 
@@ -115,7 +114,7 @@ class SextractorCatalogs(SourceCatalogs):
             tables = self.file2table(file_index=idx)
             for hdu, tt in zip(self.iter_data_hdu[idx], tables):
                 log.info(
-                    f"Extension {hdu}: {len(tt)}/{len(tt[tt["FLAGS"] == 0])} "
+                    f"Extension {hdu}: {len(tt)}/{len(tt[tt['FLAGS'] == 0])} "
                     f"total/FLAGS=0 sources"
                 )
 
@@ -321,9 +320,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             # Create master dark name
             outpath = self.setup.folders[
                 "master_object"
-            ] + "MASTER-ILLUMINATION-CORRECTION_" "{0:11.5f}.fits".format(
-                files.mjd_mean
-            )
+            ] + "MASTER-ILLUMINATION-CORRECTION_{0:11.5f}.fits".format(files.mjd_mean)
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -370,7 +367,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     min_fwhm=0.8,
                     max_fwhm=6.0,
                     max_ellipticity=0.25,
-                    verbose=False
+                    verbose=False,
                 )
 
                 # Compute zero point depending on IC mode
@@ -534,7 +531,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         )
 
     def calibrate_photometry(self):
-
         # Fetch log
         log = PipelineLog()
 
@@ -552,7 +548,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Loop over files
         for idx_file in range(self.n_files):
-
             # Create output path
             path_out = self.paths_full[idx_file].replace(".fits.tab", ".fits.ctab")
             log.info(f"File {idx_file + 1}/{self.n_files}; output path: {path_out}")
@@ -588,7 +583,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
             # Loop over tables
             for tidx, tidx_hdu in enumerate(self.iter_data_hdu[idx_file]):
-
                 # Get current table
                 log.info(f"Processing table {tidx + 1}/{len(tables_file)}")
                 table = tables_file[tidx][::1]  # TODO: Remove
@@ -711,7 +705,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     for data, weights, dis in zip(
                         nn_data_chunks, nn_weights_chunks, nn_dis_chunks
                     ):
-
                         # Replicate weights to third dimension if required
                         if data.ndim == 3:
                             weights = np.repeat(
@@ -1131,8 +1124,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     .kneighbors(stacked)
                 )
                 maxdis = np.percentile(dis[:, -1], 95)
-                n_bins_x, n_bins_y = int(header["NAXIS1"] / maxdis), int(
-                    header["NAXIS2"] / maxdis
+                n_bins_x, n_bins_y = (
+                    int(header["NAXIS1"] / maxdis),
+                    int(header["NAXIS2"] / maxdis),
                 )
 
                 # Minimum number of 3 bins
@@ -1709,8 +1703,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 va="top",
             )
             ax.annotate(
-                "Internal photometric dispersion {0:0.4f} mag"
-                "".format(np.nanmedian(photerr_internal_dict["phot_err"][idx_phot])),
+                "Internal photometric dispersion {0:0.4f} mag".format(
+                    np.nanmedian(photerr_internal_dict["phot_err"][idx_phot])
+                ),
                 xy=(0.01, 1.01),
                 xycoords="axes fraction",
                 ha="left",
@@ -2159,7 +2154,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         )
 
     def build_public_catalog(self, photerr_internal: float):
-
         # Fetch log
         log = PipelineLog()
 
@@ -2211,7 +2205,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Loop over self and merge
         for idx_file in range(self.n_files):
-
             # Log current filename
             log.info(f"Processing file: {self.paths_full[idx_file]}")
 
@@ -2284,7 +2277,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             for tidx, widx in zip(
                 range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
             ):
-
                 # Determine lengths
                 len_table_full = len(tables_file[tidx])
                 len_table_stats = len(tables_stats[tidx])
