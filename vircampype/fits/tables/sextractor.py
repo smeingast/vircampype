@@ -358,6 +358,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 header = files.image_headers[0][idx_hdr]
 
                 # Clean table
+                __verbose = False
+                if __verbose:
+                    print(files.paths_full)
                 tab = clean_source_table(
                     table=tab,
                     image_header=header,
@@ -367,7 +370,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     min_fwhm=0.8,
                     max_fwhm=6.0,
                     max_ellipticity=0.25,
-                    verbose=False,
+                    verbose=__verbose,
                 )
 
                 # Compute zero point depending on IC mode
