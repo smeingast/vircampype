@@ -2004,7 +2004,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             )
             outpath_weight = outpath.replace(".fits", ".weight.fits")
 
-            # Check if file already exits
+            # Check if file already exists
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
@@ -2435,8 +2435,14 @@ class SkyImagesResampled(SkyImagesProcessed):
             skip=["weight_thresh", "weight_image"],
         )
 
+        # Write all full paths into a text file in the temp folder
+        path_list = f"{self.setup.folders['temp']}swarp_input_files.txt"
+        with open(path_list, "w") as f:
+            for item in self.paths_full:
+                f.write(f"{item}\n")
+
         # Construct commands for swarping
-        cmd = f"{sws.bin} {' '.join(self.paths_full)} -c '{sws.default_config}' {ss}"
+        cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
 
         # Add swarp command to log
         log.info(f"Swarp command: {cmd}")
@@ -2454,6 +2460,12 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Add stdout and stderr to log
             log.info(f"Scamp stdout:\n{stdout}")
             log.info(f"Scamp stderr:\n{stderr}")
+
+            # Remove temporary file list
+            try:
+                os.remove(path_list)
+            except FileNotFoundError:
+                pass
 
             # Compute estimate of astrometric RMS
             cpkw = ["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"]
