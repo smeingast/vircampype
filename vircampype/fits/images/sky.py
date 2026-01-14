@@ -2457,6 +2457,9 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Run Swarp
             stdout, stderr = run_command_shell(cmd=cmd, silent=True)
 
+            # Wait 5 seconds to ensure file is written
+            time.sleep(5)
+
             # Add stdout and stderr to log
             log.info(f"Scamp stdout:\n{stdout}")
             log.info(f"Scamp stderr:\n{stderr}")
