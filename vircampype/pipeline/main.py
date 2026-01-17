@@ -28,7 +28,7 @@ class Pipeline:
         self.log = PipelineLog(setup=self.setup)
 
         self.log.info("Initializing Pipeline")
-        self.log.info(f"Pipeline setup: {json.dumps(self.setup.dict, indent=4)}")
+        self.log.info(f"Pipeline setup: {json.dumps(self.setup.to_dict, indent=4)}")
 
         # Instantiate status
         self.log.info("Instantiating pipeline status")
