@@ -179,13 +179,13 @@ class Setup:
     fix_vircam_headers: bool = True
 
     # Folders
-    folders: Dict = None
+    folders: Optional[Dict[str, str]] = None
 
     def __post_init__(self):
         # Simple setup check
         if self.name is None:
             raise PipelineValueError("Pipeline setup needs a name")
-        if (self.path_data is None) | (os.path.exists(self.path_data) is False):
+        if self.path_data is None or not os.path.exists(self.path_data):
             raise PipelineValueError("Please provide valid path to data")
         if self.path_pype is None:
             raise PipelineValueError("Please provide valid path for pipeline output")
@@ -325,7 +325,7 @@ class Setup:
         if self.projection is None:
             return
         # If specified as a string, assume it is a header text file path
-        elif isinstance(self.projection, Union[str, Path]):
+        elif isinstance(self.projection, (str, Path)):
             # Convert to Path object
             if isinstance(self.projection, str):
                 path_projection = Path(self.projection)
@@ -372,7 +372,7 @@ class Setup:
             return
 
         # If specified as string, try to load supported predefined masks
-        if isinstance(self.additional_source_masks, Union[str, Path]):
+        if isinstance(self.additional_source_masks, (str, Path)):
             # Convert to Path object
             if isinstance(self.additional_source_masks, str):
                 path_masks = Path(self.additional_source_masks)
@@ -517,7 +517,7 @@ class Setup:
                 make_folder(path=path)
 
     @property
-    def dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         # Get complete dict
         dd = asdict(self)
 
@@ -544,7 +544,7 @@ class Setup:
         header : fits.Header
             The FITS header to which the setup information will be added.
         """
-        for key, val in self.dict.items():
+        for key, val in self.to_dict.items():
             if isinstance(val, tuple):
                 val = str(val)
             elif isinstance(val, Projection):
