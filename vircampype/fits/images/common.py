@@ -161,11 +161,11 @@ class FitsImages(FitsFiles):
         # Check number of available files
         if n_files_min is not None:
             if len(self) < n_files_min:
-                raise ValueError("Less than {0:0g} files available".format(n_files_min))
+                raise ValueError(f"Less than {n_files_min:0g} files available")
 
         if n_files_max is not None:
             if len(self) > n_files_max:
-                raise ValueError("More than {0:0g} files available".format(n_files_max))
+                raise ValueError(f"More than {n_files_max:0g} files available")
 
         # Check number of HDUs
         if n_hdu_min is not None:
@@ -180,48 +180,38 @@ class FitsImages(FitsFiles):
         if n_dit_min is not None:
             if len(set(self.dit)) < n_dit_min:
                 raise ValueError(
-                    "Found {0:0g} different DITs; min = {1:0g}".format(
-                        len(set(self.dit)), n_dit_min
-                    )
+                    f"Found {len(set(self.dit)):0g} different DITs; min = {n_dit_min:0g}"
                 )
 
         if n_dit_max is not None:
             if len(set(self.dit)) > n_dit_max:
                 raise ValueError(
-                    "Found {0:0g} different DITs; max = {1:0g}".format(
-                        len(set(self.dit)), n_dit_max
-                    )
+                    f"Found {len(set(self.dit)):0g} different DITs; max = {n_dit_max:0g}"
                 )
 
         # Check NDITs
         if n_ndit_min is not None:
             if len(set(self.ndit)) < n_ndit_min:
                 raise ValueError(
-                    "Found {0:0g} different NDITs; min = {1:0g}".format(
-                        len(set(self.dit)), n_ndit_min
-                    )
+                    f"Found {len(set(self.dit)):0g} different NDITs; min = {n_ndit_min:0g}"
                 )
 
         if n_ndit_max is not None:
             if len(set(self.ndit)) > n_ndit_max:
                 raise ValueError(
-                    "Found {0:0g} different NDITs; max = {1:0g}".format(
-                        len(set(self.dit)), n_ndit_max
-                    )
+                    f"Found {len(set(self.dit)):0g} different NDITs; max = {n_ndit_max:0g}"
                 )
 
         # Check filters
         if n_filter_min is not None:
             if len(set(self.passband)) < n_filter_min:
                 raise ValueError(
-                    "Found {0:0g} different filters; "
-                    "min = {1:0g}".format(len(set(self.passband)), n_filter_min)
+                    f"Found {len(set(self.passband)):0g} different filters; min = {n_filter_min:0g}"
                 )
         if n_filter_max is not None:
             if len(set(self.passband)) > n_filter_max:
                 raise ValueError(
-                    "Found {0:0g} different filters; "
-                    "max = {1:0g}".format(len(set(self.passband)), n_filter_min)
+                    f"Found {len(set(self.passband)):0g} different filters; max = {n_filter_min:0g}"
                 )
 
     _dtypes = None
@@ -252,7 +242,7 @@ class FitsImages(FitsFiles):
             elif bp in (-32, 32):
                 app = np.float32
             else:
-                raise NotImplementedError("Data type '{0}' not implemented!".format(bp))
+                raise NotImplementedError(f"Data type '{bp}' not implemented!")
 
             dtypes.append(app)
 
