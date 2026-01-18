@@ -195,14 +195,33 @@ def vega2ab(mag, passband):
     return mag + cor
 
 
-def get_default_extinction(passband: str):
-    if "j" in passband.lower():
-        key = "j"
-    elif "h" in passband.lower():
-        key = "h"
-    elif "k" in passband.lower():
-        key = "ks"
-    else:
-        raise ValueError("Passband '{0}' not supported".format(passband))
-    dextinct = dict(j=0.11, h=0.06, ks=0.07)
-    return dextinct[key]
+def get_default_extinction(passband: str) -> float:
+    """
+    return default extinction coefficient for a near-ir passband.
+
+    parameters
+    ----------
+    passband
+        passband name (e.g. "j", "h", "k", "ks").
+
+    returns
+    -------
+    float
+        extinction coefficient.
+
+    raises
+    ------
+    valueerror
+        if passband is not supported.
+    """
+    pb = passband.strip().lower()
+    dextinct: dict[str, float] = {"j": 0.11, "h": 0.06, "ks": 0.07}
+
+    if "j" in pb:
+        return dextinct["j"]
+    if "h" in pb:
+        return dextinct["h"]
+    if "k" in pb:
+        return dextinct["ks"]
+
+    raise ValueError(f"passband {passband!r} not supported")
