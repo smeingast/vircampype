@@ -194,9 +194,7 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube + other)
         else:
-            raise TypeError(
-                "Addition for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Addition for {str(type(other)):s} not implemented")
 
     def __iadd__(self, other):
         """
@@ -229,9 +227,7 @@ class ImageCube(object):
             self.cube += other
             return self
         else:
-            raise TypeError(
-                "Addition for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Addition for {str(type(other)):s} not implemented")
 
     def __sub__(self, other):
         """
@@ -260,9 +256,7 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube - other)
         else:
-            raise TypeError(
-                "Subtraction for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Subtraction for {str(type(other)):s} not implemented")
 
     def __isub__(self, other):
         """
@@ -295,9 +289,7 @@ class ImageCube(object):
             self.cube -= other
             return self
         else:
-            raise TypeError(
-                "Subtraction for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Subtraction for {str(type(other)):s} not implemented")
 
     def __mul__(self, other):
         """
@@ -326,9 +318,7 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube * other)
         else:
-            raise TypeError(
-                "Multiplication for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Multiplication for {str(type(other)):s} not implemented")
 
     def __imul__(self, other):
         """
@@ -361,9 +351,7 @@ class ImageCube(object):
             self.cube *= other
             return self
         else:
-            raise TypeError(
-                "Multiplication for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Multiplication for {str(type(other)):s} not implemented")
 
     def __truediv__(self, other):
         """
@@ -392,9 +380,7 @@ class ImageCube(object):
         elif isinstance(other, (np.ndarray, float, np.float32, int)):
             return ImageCube(setup=self.setup, cube=self.cube / other)
         else:
-            raise TypeError(
-                "Division for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Division for {str(type(other)):s} not implemented")
 
     def __itruediv__(self, other):
         """
@@ -426,9 +412,7 @@ class ImageCube(object):
             self.cube /= other
             return self
         else:
-            raise TypeError(
-                "Division for {0:s} not implemented".format(str(type(other)))
-            )
+            raise TypeError(f"Division for {str(type(other)):s} not implemented")
 
     def __copy__(self):
         """
@@ -981,9 +965,7 @@ class ImageCube(object):
 
         else:
             raise ValueError(
-                "'n_threads' not correctly set (n_threads = {0})".format(
-                    self.setup.n_jobs
-                )
+                f"'n_threads' not correctly set (n_threads = {self.setup.n_jobs})"
             )
 
         # Concatenate results and overwrite cube
@@ -1144,9 +1126,7 @@ class ImageCube(object):
 
             else:
                 raise ValueError(
-                    "'n_threads' not correctly set (n_threads = {0})".format(
-                        self.setup.n_jobs
-                    )
+                    f"'n_threads' not correctly set (n_threads = {self.setup.n_jobs})"
                 )
 
             # Merge back into plane and put into cube
