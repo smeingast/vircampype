@@ -92,6 +92,7 @@ class SourceMasks:
             [3, 4, 5, 6, 7, 8, 9, 10],
             [450, 425, 400, 350, 300, 200, 100, 50],
             kind="cubic",
+            bounds_error=False,
             fill_value=(450, 50),
         )
 
