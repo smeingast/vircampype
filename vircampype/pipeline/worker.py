@@ -1,65 +1,101 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Either install vircampype or add root to PYTHONPATH via e.g.
-export PYTHONPATH="/Users/stefan/Dropbox/Projects/vircampype/":$PYTHONPATH}
+VIRCAM pipeline entrypoint.
+
+Usage examples:
+    python vircam_worker.py --setup /path/to/setup.yml
+    python vircam_worker.py --reset --setup /path/to/setup.yml
+    python vircam_worker.py --sort /path/to/files/*fits
+
+Tip (dev install):
+    Either install `vircampype` or add the project root to PYTHONPATH, e.g.
+        export PYTHONPATH="/path/to/vircampype:${PYTHONPATH}"
 """
 
+import argparse
 import os
 import sys
-import argparse
-from vircampype.tools.datatools import *
+from typing import Sequence
+
 from vircampype.pipeline.main import Pipeline
+from vircampype.tools.datatools import (
+    sort_vircam_calibration,
+    sort_vircam_science,
+    split_in_science_and_calibration,
+)
 from vircampype.tools.systemtools import clean_directory
 
 
-def get_worker_path():
+def get_worker_path() -> str:
+    """Return absolute path to this script (useful for logging or workers)."""
     return os.path.abspath(__file__)
 
 
-def main():
-    # Setup parser
+def _set_console_title(title: str) -> None:
+    """Set terminal title (best-effort)."""
+    try:
+        sys.stdout.write(f"\x1b]2;{title}\x07")
+        sys.stdout.flush()
+    except Exception:  # noqa
+        # Non-critical; ignore if unsupported.
+        pass
+
+
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
     parser.add_argument(
         "-s", "--setup", help="Input setup file", type=str, default=None
     )
     parser.add_argument(
         "--sort",
-        help="Sort files into calibration and individual object folders"
-        " by passing their paths (e.g. /path/to/files/*fits)",
+        help=(
+            "Sort files into calibration and individual object folders by passing "
+            "their paths (e.g. /path/to/files/*fits)"
+        ),
         nargs="+",
         default=None,
     )
-    parser.add_argument("--reset", help="Reset pipeline progress", action="store_true")
+    parser.add_argument(
+        "--reset",
+        help="Reset pipeline progress (clears temp and headers folders from setup).",
+        action="store_true",
+    )
+    return parser.parse_args(argv)
 
-    # Parse arguments
-    args = parser.parse_args()
 
-    if isinstance(args.sort, list):
-        paths_science, paths_calib = split_in_science_and_calibration(
-            paths_files=args.sort
-        )
-        sort_vircam_calibration(paths_calib=paths_calib)
-        sort_vircam_science(paths_science=paths_science)
-        return
+def _run_sort(paths: Sequence[str]) -> None:
+    paths_science, paths_calib = split_in_science_and_calibration(
+        paths_files=list(paths)
+    )
+    sort_vircam_calibration(paths_calib=paths_calib)
+    sort_vircam_science(paths_science=paths_science)
 
-    # Initialize pipeline
-    pipeline = Pipeline(setup=args.setup)
 
-    # Set console title
-    sys.stdout.write("\x1b]2;{0}\x07".format(pipeline.setup.name))
+def _run_pipeline(setup: str | None, reset: bool) -> None:
+    pipeline = Pipeline(setup=setup)
+    _set_console_title(pipeline.setup.name)
 
-    # Reset temp and header folders if flag is set
-    if args.reset:
+    if reset:
         clean_directory(pipeline.setup.folders["temp"])
         clean_directory(pipeline.setup.folders["headers"])
         return
 
-    # Run pipeline
     if "calibration" in pipeline.setup.name.lower():
         pipeline.process_calibration()
     else:
         pipeline.process_science()
 
 
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parse_args(argv)
+
+    if args.sort:
+        _run_sort(args.sort)
+        return 0
+
+    _run_pipeline(setup=args.setup, reset=args.reset)
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
