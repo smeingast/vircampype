@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -87,13 +88,24 @@ class SourceMasks:
         return Quantity([sd / pixel_scale for sd in self.size]).decompose().value
 
     @staticmethod
-    def interp_2mass_size():
+    def interp_2mass_size() -> Callable[[np.ndarray], np.ndarray]:
+        """
+        return interpolation function for 2mass size vs magnitude.
+
+        returns
+        -------
+        callable
+            function mapping magnitude array to size array, linearly interpolated and
+            clamped outside the supported range.
+        """
+        _mag = [0, 10]
+        _sizes = [500, 50]
         return interp1d(
-            [3, 4, 5, 6, 7, 8, 9, 10],
-            [450, 425, 400, 350, 300, 200, 100, 50],
-            kind="cubic",
+            _mag,
+            _sizes,
+            kind="linear",
             bounds_error=False,
-            fill_value=(450, 50),
+            fill_value=(np.max(_sizes), np.min(_sizes)),
         )
 
     @classmethod
