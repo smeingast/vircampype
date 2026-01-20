@@ -1171,6 +1171,7 @@ class ImageCube(object):
                     repeat(self.setup.mask_sources_min_area),
                     repeat(self.setup.mask_sources_max_area),
                     repeat(self.setup.mask_bright_sources),
+                    repeat(self.setup.mask_sources_dilate),
                 )
             )
 

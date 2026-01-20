@@ -699,6 +699,7 @@ def source_mask(
     min_area: int = 3,
     max_area: int = 100000,
     mask_bright_sources: bool = True,
+    dilate: bool = True,
 ):
     """
     Create source mask from input images based on thresholding
@@ -715,6 +716,8 @@ def source_mask(
         Maximum area of sources in pixels.
     mask_bright_sources : bool, optional
         Whether additional circualr patches should be drawn on bright sources.
+    dilate : bool, optional
+        Whether to dilate the mask.
 
     Returns
     -------
@@ -798,7 +801,8 @@ def source_mask(
     labels = labels.astype(bool)
 
     # Dilate the mask
-    labels = skmorphology.binary_dilation(skmorphology.binary_closing(labels))
+    if dilate:
+        labels = skmorphology.binary_dilation(skmorphology.binary_closing(labels))
 
     # Apply mask
     image_labels[labels] = 1

@@ -134,6 +134,7 @@ class Setup:
     mask_sources_min_area: Union[int, float] = 3
     mask_sources_max_area: Union[int, float] = 250000
     mask_bright_sources: bool = True
+    mask_sources_dilate: int = True
 
     # Sky
     sky_n_min: int = 5
