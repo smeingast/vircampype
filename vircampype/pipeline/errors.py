@@ -14,8 +14,8 @@ class PipelineError(Exception):
     ----------
     message : str
         The error message to log and display.
-    logger : Optional[PipelineLog]
-        The logger instance to use for logging the error.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
 
     """
 
