@@ -1533,27 +1533,6 @@ class SkyImagesProcessed(SkyImages):
                 else:
                     cube /= sky_norm
 
-            # Destriping
-            if self.setup.destripe:
-                sources = master_source_mask.file2cube(file_index=idx_file, dtype=bool)
-                if self.setup.qc_plots:
-                    path_qc_destripe = (
-                        f"{self.setup.folders['qc_sky']}"
-                        f"{self.basenames[idx_file]}_striping.pdf"
-                    )
-                else:
-                    path_qc_destripe = None
-                cube.destripe(
-                    masks=sources,
-                    smooth=True,
-                    combine_bad_planes=True,
-                    path_plot=path_qc_destripe,
-                )
-
-            # Bad pixel interpolation
-            if self.setup.interpolate_nan:
-                cube.interpolate_nan()
-
             # Background subtraction
             if self.setup.subtract_background:
                 # Load source mask
@@ -1586,6 +1565,27 @@ class SkyImagesProcessed(SkyImages):
             # Otherwise just calculate the sky level
             else:
                 sky, skysig = cube.background_planes()
+
+            # Destriping
+            if self.setup.destripe:
+                sources = master_source_mask.file2cube(file_index=idx_file, dtype=bool)
+                if self.setup.qc_plots:
+                    path_qc_destripe = (
+                        f"{self.setup.folders['qc_sky']}"
+                        f"{self.basenames[idx_file]}_striping.pdf"
+                    )
+                else:
+                    path_qc_destripe = None
+                cube.destripe(
+                    masks=sources,
+                    smooth=True,
+                    combine_bad_planes=True,
+                    path_plot=path_qc_destripe,
+                )
+
+            # Bad pixel interpolation
+            if self.setup.interpolate_nan:
+                cube.interpolate_nan()
 
             # Dummy check if too many pixels where masked
             for plane in cube:
