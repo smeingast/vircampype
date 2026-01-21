@@ -48,10 +48,10 @@ def print_colors_shell():
 def print_header(
     header: str,
     silent: bool = True,
-    left: Optional[str] = "File",
-    right: Optional[str] = "Extension",
-    logger: Optional[PipelineLog] = None,
-):
+    left: str = "File",
+    right: str = "Extension",
+    logger: PipelineLog | None = None,
+) -> None:
     """
     Prints a helper message with optional logging.
 
@@ -65,8 +65,8 @@ def print_header(
         Left side of print message. Default is 'File'.
     right : str, optional
         Right side of print message. Default is 'Extension'.
-    logger : Optional[PipelineLog], optional
-        Logger instance to use for logging the messages.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
     """
 
     if left is None:
@@ -92,7 +92,7 @@ def print_message(
     message: str,
     kind: Optional[str] = None,
     end: Optional[str] = "",
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ):
     """
     Generic message printer with optional logging.
@@ -105,8 +105,8 @@ def print_message(
         Type of message (e.g., 'warning', 'fail', 'okblue', 'okgreen').
     end : str, optional
         End character for the print function.
-    logger : Optional[PipelineLog], optional
-        Logger instance to use for logging the messages.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
 
     Raises
     ------
@@ -159,13 +159,16 @@ def print_start(obj: str = "") -> float:
     float
         The current time in seconds since the Epoch.
     """
-    print(f"{BColors.OKGREEN}{'_'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{obj:^74}{BColors.ENDC}")
-    print(f"{BColors.OKGREEN}{'‾'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
     return time.time()
 
 
-def print_end(tstart: float, logger: Optional[PipelineLog] = None) -> None:
+def print_end(
+    tstart: float,
+    logger: PipelineLog | None = None,
+) -> None:
     """
     Prints an end message indicating completion time and logs the message
     if a logger is provided.
@@ -174,15 +177,14 @@ def print_end(tstart: float, logger: Optional[PipelineLog] = None) -> None:
     ----------
     tstart : float
         The start time in seconds since the Epoch.
-    logger : Optional[PipelineLog], optional
-        Logger instance to use for logging the end message.
-        If not provided, logging is skipped.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
     """
     end_message = f"All done in {time.time() - tstart:0.1f}s"
 
-    print(f"{BColors.OKGREEN}{'_'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{end_message:^74}{BColors.ENDC}")
-    print(f"{BColors.OKGREEN}{'‾'*80}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
 
     # Log the end message
     if logger:
@@ -197,7 +199,7 @@ def message_calibration(
     d_total: Optional[int] = None,
     silent: bool = False,
     end: str = "",
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ) -> None:
     """
     Prints the calibration message for image processing.
@@ -218,8 +220,8 @@ def message_calibration(
         If set, nothing will be printed.
     end : str, optional
         End of line. Default is an empty string.
-    logger : Optional[PipelineLog], optional
-        Logger instance to use for logging the message. If not provided, logging is skipped.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
     """
 
     if not silent:
@@ -228,9 +230,7 @@ def message_calibration(
         name_str = os.path.basename(name)
         if (d_current is not None) and (d_total is not None):
             message = (
-                f"\r{n_current_str:<8.8s} "
-                f"{name_str:^62.62s} "
-                f"{d_current_str:>8.8s}"
+                f"\r{n_current_str:<8.8s} {name_str:^62.62s} {d_current_str:>8.8s}"
             )
         else:
             message = f"\r{n_current_str:<10.10s} {name_str:>69.69s}"
@@ -242,7 +242,9 @@ def message_calibration(
 
 
 def check_file_exists(
-    file_path: str, silent: bool = True, logger: Optional[PipelineLog] = None
+    file_path: str,
+    silent: bool = True,
+    logger: PipelineLog | None = None,
 ) -> bool:
     """
     Helper method to check if a file already exists.
@@ -253,8 +255,8 @@ def check_file_exists(
         Path to file.
     silent : bool, optional
         Whether a warning message should be printed if the file exists.
-    logger : Optional[PipelineLog], optional
-        Logger instance to use for logging the warning message.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
 
     Returns
     -------
@@ -276,7 +278,8 @@ def check_file_exists(
 
 
 def message_qc_astrometry(
-    separation: Sequence[float], logger: Optional[PipelineLog] = None
+    separation: Sequence[float],
+    logger: PipelineLog | None = None,
 ) -> None:
     """
     Prints and logs an astrometry QC message.
@@ -285,9 +288,8 @@ def message_qc_astrometry(
     ----------
     separation : Sequence[float]
         Separation quantity.
-    logger : Optional[PipelineLog], optional
-        Logger instance to use for logging the QC message.
-        If not provided, logging is skipped.
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, no logging is done.
 
     Returns
     -------
