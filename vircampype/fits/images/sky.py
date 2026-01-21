@@ -503,11 +503,12 @@ class SkyImages(FitsImages):
         )
 
     def build_master_psf(self, preset):
+        raise NotImplementedError
         # Run Sextractor with PSFEX preset
-        sources_psfex = self.sextractor(preset="psfex")
+        # sources_psfex = self.sextractor(preset="psfex")
 
         # Run PSFEX
-        sources_psfex.psfex(preset=preset)
+        # sources_psfex.psfex(preset=preset)
 
     def apply_illumination_correction(self):
         """Applies illumination correction to images."""
