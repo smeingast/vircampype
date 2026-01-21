@@ -161,6 +161,7 @@ class Setup:
     sex_back_size: int = 64
     sex_back_filtersize: int = 3
     sex_detection_image_path: Optional[str] = None
+    sex_local_tempfile: bool = True                                                     # If set, write SExtractor catalogs to local tmp dir first, only then copy to final destination
 
     # Swarp
     resampling_kernel: Literal[
