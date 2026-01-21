@@ -6,7 +6,9 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
+import uuid
 from itertools import zip_longest
 from typing import List
 
@@ -30,6 +32,7 @@ __all__ = [
     "cmd_prepend_libraries",
     "remove_ansi_codes",
     "wait_for_no_process",
+    "make_path_system_tempfile",
 ]
 
 
@@ -568,3 +571,20 @@ def wait_for_no_process(
                 f"Timed out waiting for other {executable} processes to finish."
             )
         time.sleep(poll_s)
+
+
+def make_path_system_tempfile(suffix: str = ".tmp") -> str:
+    """
+    Return a unique temp file path in the system temp directory.
+
+    Parameters
+    ----------
+    suffix : str, optional
+        File suffix (including leading dot), by default ".tmp".
+
+    Returns
+    -------
+    str
+        Temp file path (file is not created).
+    """
+    return os.path.join(tempfile.gettempdir(), f"{uuid.uuid4().hex}{suffix}")
