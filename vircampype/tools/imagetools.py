@@ -16,6 +16,7 @@ from astropy.coordinates import SkyCoord
 from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from astropy.stats import sigma_clipped_stats
+from astropy.utils.exceptions import AstropyUserWarning
 from astropy.wcs.utils import wcs_to_celestial_frame
 from scipy.interpolate import SmoothBivariateSpline, UnivariateSpline
 from scipy.ndimage import binary_closing, generate_binary_structure, median_filter
@@ -668,6 +669,15 @@ def destripe_helper(array, mask=None, smooth=False):
 
         # Compute sky values in each row
         med_destripe = np.array([mmm(v, minsky=10)[0] for v in array_copy])
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*Input data contains invalid values.*",
+                category=AstropyUserWarning,
+                module=r"astropy\.stats\.sigma_clipping",
+            )
+            med_destripe = astropy_sigma_clip(med_destripe).filled(np.nan)
 
         # Interpolate NaNs until there are none.
         ii = 0
