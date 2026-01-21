@@ -3,6 +3,7 @@ import gc
 import glob
 import logging
 import os
+import shutil
 import time
 import warnings
 
@@ -243,6 +244,11 @@ class SkyImages(FitsImages):
         else:
             raise ValueError(f"Preset '{preset}' not supported")
 
+        # Create temporary system file paths
+        paths_tables_sex = [
+                make_path_system_tempfile(suffix=".sex.cat") for _ in path_tables_clean
+            ]
+
         # Construct commands for source extraction
         cmds = [
             (
@@ -253,7 +259,7 @@ class SkyImages(FitsImages):
             )
             for image, catalog, weight in zip(
                 self.paths_full,
-                path_tables_clean,
+                paths_tables_sex,
                 self.get_master_weight_global().paths_full,
             )
         ]
@@ -303,7 +309,7 @@ class SkyImages(FitsImages):
         run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
 
         # Add some keywords to primary header
-        for cat, img in zip(path_tables_clean, self.paths_full):
+        for cat, img in zip(paths_tables_sex, self.paths_full):
             copy_keywords(
                 path_1=cat,
                 path_2=img,
@@ -311,6 +317,10 @@ class SkyImages(FitsImages):
                 hdu_2=0,
                 keywords=[self.setup.keywords.object, self.setup.keywords.filter_name],
             )
+
+        # Move temporary files to final location
+        for temp_path, final_path in zip(paths_tables_sex, path_tables_clean):
+            shutil.move(temp_path, final_path)
 
         # Print time
         if not silent:
