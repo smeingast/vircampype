@@ -1,7 +1,4 @@
-# =========================================================================== #
-# Import
 import os
-import tempfile
 import warnings
 from itertools import repeat
 from typing import List, Union
@@ -45,9 +42,6 @@ class ImageCube(object):
         else:
             self.cube = cube
 
-    # =========================================================================== #
-    # Magic methods
-    # =========================================================================== #
     def __str__(self):
         """
         Defines behavior for when str() is called on an instance of ImageCube
@@ -1189,9 +1183,7 @@ class ImageCube(object):
         """
 
         # Write cube to temp file on disk
-        path_temp_data = (
-            f"{self.setup.folders['temp']}{os.path.basename(tempfile.mktemp())}.fits"
-        )
+        path_temp_data = make_path_system_tempfile(suffix=".fits")
 
         self.write_mef(
             path=path_temp_data,
