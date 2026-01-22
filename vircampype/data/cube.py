@@ -1197,10 +1197,9 @@ class ImageCube(object):
             for i in range(1, len(self) + 1)
         ]
 
-        # Build NoiseChisel commands (add sleep so that the I/O is spread out)
+        # Build NoiseChisel commands
         cmds = [
             (
-                f"sleep {(i - 1) % self.setup.n_jobs * 0.2}; "
                 f"{which(self.setup.bin_noisechisel)} {path_temp_data} "
                 f"--hdu {i} "
                 f"-o {pto} "
