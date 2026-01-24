@@ -10,6 +10,7 @@ import tempfile
 import time
 import uuid
 from itertools import zip_longest
+from pathlib import Path
 from typing import List
 
 import yaml
@@ -22,6 +23,7 @@ __all__ = [
     "run_commands_shell_parallel",
     "run_command_shell",
     "get_resource_path",
+    "rsync_file",
     "copy_file",
     "remove_file",
     "remove_directory",
@@ -338,6 +340,22 @@ def get_resource_path(package: str, resource: str) -> str:
 
     # Return path to resource
     return os.path.join(os.path.dirname(sys.modules[package].__file__), resource)
+
+
+def rsync_file(src: str, dst: str) -> None:
+    src_p = Path(src)
+    dst_p = Path(dst)
+    dst_p.parent.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "rsync",
+        "-a",
+        "--checksum",
+        "--",
+        str(src_p),
+        str(dst_p),
+    ]
+    subprocess.run(cmd, check=True)
 
 
 def copy_file(a: str, b: str) -> None:
