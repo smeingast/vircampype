@@ -343,6 +343,31 @@ def get_resource_path(package: str, resource: str) -> str:
 
 
 def rsync_file(src: str, dst: str) -> None:
+    """
+    Copy ``src`` to ``dst`` via ``rsync``, skipping the transfer if contents match.
+
+    Uses ``rsync -a --checksum`` to preserve metadata and compare files by checksum
+    (slower than size/mtime checks, but more accurate). Creates the destination
+    parent directory if needed.
+
+    Parameters
+    ----------
+    src : str
+        Source file path.
+    dst : str
+        Destination file path.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If ``rsync`` exits with a non-zero status.
+    FileNotFoundError
+        If ``rsync`` is not found on ``PATH``.
+    """
     src_p = Path(src)
     dst_p = Path(dst)
     dst_p.parent.mkdir(parents=True, exist_ok=True)
