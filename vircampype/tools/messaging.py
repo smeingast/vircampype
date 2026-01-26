@@ -2,6 +2,7 @@ import os
 import time
 from typing import Optional, Sequence
 
+import numpy as np
 from astropy.stats import sigma_clipped_stats
 
 from vircampype.pipeline.log import PipelineLog
@@ -301,6 +302,9 @@ def message_qc_astrometry(
         separation, sigma_upper=3, sigma_lower=4, maxiters=2
     )
 
+    # Compute percentiles (5, 50, 95)
+    sep_p5, sep_p50, sep_p95 = np.percentile(separation, [5, 50, 95])
+
     # Choose color
     if sep_mean < 50:
         color = BColors.OKGREEN
@@ -310,7 +314,8 @@ def message_qc_astrometry(
         color = BColors.FAIL
 
     common_message = (
-        f"External astrometric error (mas; mean/std): {sep_mean:6.1f}/{sep_std:6.1f}"
+        f"External astrometric error (mas; mean/std): {sep_mean:6.1f}/{sep_std:6.1f}\n"
+        f"Percentiles (5/50/95; mas): {sep_p5:6.1f}/{sep_p50:6.1f}/{sep_p95:6.1f}"
     )
     colored_message = f"{color}\n{common_message}{BColors.ENDC}"
 
