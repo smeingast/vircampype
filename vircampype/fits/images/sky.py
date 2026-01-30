@@ -4,7 +4,9 @@ import glob
 import logging
 import os
 import shutil
+import tempfile
 import time
+import uuid
 import warnings
 
 import numpy as np
@@ -2435,15 +2437,32 @@ class SkyImagesResampled(SkyImagesProcessed):
         sws = SwarpSetup(setup=self.setup)
         log.info(f"Loaded Swarp preset used: {sws.preset_coadd}")
 
+        # Make system temp dir for swap
+        swap_dir = tempfile.mkdtemp(prefix="swarp_swap_")
+        log.info(f"Create temporary swap directory: {swap_dir}")
+
+        # Generate temporary coadd and coadd weight names on local disk
+        tmpdir = tempfile.gettempdir()
+        path_coadd_tmp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
+        log.info(f"Saving temporary coadd image to {path_coadd_tmp}")
+        path_weight_tmp = str(f"{tmpdir}/swarp_weight_{uuid.uuid4().hex}.fits")
+        log.info(f"Saving temporary coadd weight to {path_weight_tmp}")
+        path_coadd_tmp_hdr = path_coadd_tmp.replace(".fits", ".ahead")
+
+        # Copy coadd header to temp location
+        shutil.copyfile(self.setup.path_coadd_header, path_coadd_tmp_hdr)
+        log.info(f"Copied coadd header to temporary location {path_coadd_tmp_hdr}")
+
         ss = yml2config(
             path_yml=sws.preset_coadd,
-            imageout_name=self.setup.path_coadd,
-            weightout_name=self.setup.path_coadd_weight,
+            imageout_name=path_coadd_tmp,
+            weightout_name=path_weight_tmp,
             fscale_keyword="FSCLTILE",
             gain_keyword=self.setup.keywords.gain,
             satlev_keyword=self.setup.keywords.saturate,
             nthreads=self.setup.n_jobs,
             skip=["weight_thresh", "weight_image"],
+            vmem_dir=swap_dir,
         )
 
         # Write all full paths into a text file in the temp folder
@@ -2504,7 +2523,7 @@ class SkyImagesResampled(SkyImagesProcessed):
 
             # Copy/add primary header entries
             with (
-                fits.open(self.setup.path_coadd, mode="update") as hdul_tile,
+                fits.open(path_coadd_tmp, mode="update") as hdul_tile,
                 fits.open(self.paths_full[0], mode="readonly") as hdu_paw0,
             ):
                 hdul_tile[0].header.set(
@@ -2560,6 +2579,23 @@ class SkyImagesResampled(SkyImagesProcessed):
                         "HIERARCH PYPE ARCNAME {0:04d}".format(idx), arcnames[idx]
                     )
                     log.info(f"ARCFILE {idx:04d}: {arcnames[idx]}")
+
+                # Flush to disk
+                hdul_tile.flush()
+
+            # Move temporary files to final location
+            shutil.move(path_coadd_tmp, self.setup.path_coadd)
+            shutil.move(path_weight_tmp, self.setup.path_coadd_weight)
+            log.info(
+                f"Moved temporary coadd to final location: {self.setup.path_coadd}"
+            )
+            log.info(
+                f"Moved temporary coadd weight to final location: "
+                f"{self.setup.path_coadd_weight}"
+            )
+
+            # Remove swap dir
+            shutil.rmtree(swap_dir, ignore_errors=True)
 
         # Print time
         ttime = time.time() - tstart
@@ -2801,17 +2837,18 @@ class SkyImagesResampled(SkyImagesProcessed):
                 silent=self.setup.silent,
             )
 
+            # Generate temporary coadd and coadd weight names on local disk
+            tmpdir = tempfile.gettempdir()
+
             # Loop over extensions
             paths_temp_stacks, paths_temp_weights = [], []
             for idx_data_hdu, idx_iter_hdu in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
                 # Construct output path
-                paths_temp_stacks.append(
-                    "{0}_{1:02d}.fits".format(path_stack, idx_data_hdu)
-                )
+                paths_temp_stacks.append(str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits"))
                 paths_temp_weights.append(
-                    "{0}.weight.fits".format(os.path.splitext(paths_temp_stacks[-1])[0])
+                    f"{os.path.splitext(paths_temp_stacks[-1])[0]}.weight.fits"
                 )
 
                 # Modify file paths with current extension
@@ -2878,11 +2915,17 @@ class SkyImagesResampled(SkyImagesProcessed):
         tstart = time.time()
 
         # Construct output path
-        outpath = self.setup.path_coadd.replace(".fits", ".{0}.fits".format(mode))
+        outpath_final = self.setup.path_coadd.replace(".fits", f".{mode}.fits")
+        outpath_final_weight = outpath_final.replace(".fits", ".weight.fits")
 
         # Check if file already exists
-        if check_file_exists(file_path=outpath, silent=self.setup.silent):
+        if check_file_exists(file_path=outpath_final, silent=self.setup.silent):
             return
+
+        # Generate temporary coadd and coadd weight names on local disk
+        tmpdir = tempfile.gettempdir()
+        outpath_temp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
+        outpath_temp_weight = outpath_temp.replace(".fits", ".weight.fits")
 
         # Get weight paths
         paths_weight = [p.replace(mode, "weight") for p in self.paths_full]
@@ -2903,36 +2946,38 @@ class SkyImagesResampled(SkyImagesProcessed):
 
         ss = yml2config(
             path_yml=sws.preset_coadd,
-            imageout_name=outpath,
-            weight_image="@{0}".format(path_temp_weights),
-            weightout_name=outpath.replace(".fits", ".weight.fits"),
+            weight_image=f"@{path_temp_weights}",
+            imageout_name=outpath_temp,
+            weightout_name=outpath_temp_weight,
             combine_type=self.setup.image_statistics_combine_type[mode],
             nthreads=self.setup.n_jobs,
             skip=["weight_thresh", "weight_suffix"],
         )
 
         # Construct commands for source extraction
-        cmd = "{0} @{1} -c {2} {3}".format(
-            sws.bin, path_temp_images, sws.default_config, ss
-        )
+        cmd = f"{sws.bin} @{path_temp_images} -c {sws.default_config} {ss}"
 
         # Run Swarp
-        print_message(message=f"Coadding {os.path.basename(outpath)}")
+        print_message(message=f"Coadding {os.path.basename(outpath_final)}")
         run_command_shell(cmd=cmd, silent=True)
 
-        # Remove temp image lists
+        # Move temp to final
+        shutil.move(outpath_temp, outpath_final)
+        shutil.move(outpath_temp_weight, outpath_final_weight)
+
+        # Remove temp files
         remove_file(path_temp_images)
         remove_file(path_temp_weights)
 
         # Convert data types
         if "nimg" in mode.lower():
-            convert_bitpix_image(path=outpath, new_type=np.uint16)
+            convert_bitpix_image(path=outpath_final, new_type=np.uint16)
         elif "exptime" in mode.lower():
-            convert_bitpix_image(path=outpath, new_type=np.float32)
+            convert_bitpix_image(path=outpath_final, new_type=np.float32)
         elif "mjd" in mode.lower():
-            convert_bitpix_image(path=outpath, new_type=np.float32)
+            convert_bitpix_image(path=outpath_final, new_type=np.float32)
         elif "astrms" in mode.lower():
-            convert_bitpix_image(path=outpath, new_type=np.float32)
+            convert_bitpix_image(path=outpath_final, new_type=np.float32)
         else:
             raise ValueError
 
