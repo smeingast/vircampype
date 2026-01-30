@@ -246,8 +246,8 @@ class SkyImages(FitsImages):
 
         # Create temporary system file paths
         paths_tables_sex = [
-                make_path_system_tempfile(suffix=".sex.cat") for _ in path_tables_clean
-            ]
+            make_path_system_tempfile(suffix=".sex.cat") for _ in path_tables_clean
+        ]
 
         # Construct commands for source extraction
         cmds = [
@@ -2815,10 +2815,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
 
                 # Modify file paths with current extension
-                paths_image_mod = [
-                    "{0}[{1}]".format(x, idx_data_hdu) for x in files.paths_full
-                ]
-                paths_weight_mod = ["{0}[{1}]".format(x, idx_data_hdu) for x in weights]
+                paths_image_mod = [f"{x}[{idx_data_hdu}]" for x in files.paths_full]
+                paths_weight_mod = [f"{x}[{idx_data_hdu}]" for x in weights]
 
                 # Build swarp options
                 ss = yml2config(
@@ -2832,15 +2830,12 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
 
                 # Construct final command
-                cmd = "{0} {1} -c {2} {3}".format(
-                    sws.bin,
-                    " ".format(idx_data_hdu).join(paths_image_mod),
-                    sws.default_config,
-                    ss,
+                cmd = (
+                    f"{sws.bin} {' '.format(idx_data_hdu).join(paths_image_mod)} "
+                    f"-c {sws.default_config} {ss}"
                 )
 
-                # Run Swarp in bash (only bash understand the [ext] options,
-                # zsh does not)
+                # Run Swarp in bash (zsh does not understand the [ext] options)
                 run_command_shell(cmd=cmd, shell="bash", silent=True)
 
             # Create MEF image
@@ -2875,7 +2870,7 @@ class SkyImagesResampled(SkyImagesProcessed):
     def coadd_statistics_tile(self, mode):
         # Processing info
         print_header(
-            header="TILE STATISTICS {0}".format(mode.upper()),
+            header=f"TILE STATISTICS {mode.upper()}",
             silent=self.setup.silent,
             left=None,
             right=None,
