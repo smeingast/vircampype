@@ -420,31 +420,22 @@ class SkyImages(FitsImages):
                 for ss in fwhm_range
             ]
 
-            # Replace output catalog path and save the paths
-            catalog_paths, catalog_path_exists = [], []
+            # Get catalog paths
+            catalog_paths = []
             for idx in range(len(cmds)):
-                cmds[idx] = cmds[idx].replace(
-                    ".class_star.fits.tab",
-                    f".class_star{fwhm_range[idx]:4.2f}.fits.tab",
+                cpath = cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0]
+                cpath_new = cpath.replace(
+                    ".sex.cat", f"_FWHM{fwhm_range[idx]:0.2f}.sex.cat"
                 )
-                catalog_paths.append(cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0])
+                cmds[idx] = cmds[idx].replace(cpath, cpath_new)
+                catalog_paths.append(cpath_new)
                 log.info(f"Catalog path {idx + 1}/{len(cmds)}: {catalog_paths[-1]}")
-
-                # Check if catalog already exists
-                catalog_path_exists.append(os.path.isfile(catalog_paths[-1]))
 
             # Log all catalog paths and existing catalogs
             [
                 log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}")
                 for idx, c in enumerate(catalog_paths)
             ]
-            [
-                log.info(f"Catalog exists {idx + 1}/{len(cmds)}: {cpe}")
-                for idx, cpe in enumerate(catalog_path_exists)
-            ]
-
-            # Remove shell commands for existing catalogs
-            cmds = [c for c, cpe in zip(cmds, catalog_path_exists) if not cpe]
 
             # Log sextractor commands
             [
@@ -470,6 +461,7 @@ class SkyImages(FitsImages):
             for idx_fwhm in range(catalogs.n_files):
                 # Log current FWHM value
                 log.info(f"Processing FWHM {fwhm_range[idx_fwhm]:4.2f}")
+                log.info(f"Filename: {catalogs.paths_full[idx_fwhm]}")
 
                 # Read tables for current seeing
                 tables_fwhm = catalogs.file2table(file_index=idx_fwhm)
