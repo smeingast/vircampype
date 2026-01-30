@@ -1,6 +1,10 @@
+from typing import Union
+
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
+
 from vircampype.tools.wcstools import *
 
 __all__ = ["Projection"]
@@ -46,41 +50,67 @@ class Projection:
     def pixelscale(self):
         return pixelscale_from_header(header=self.header)
 
-    def subheader_from_skycoord(self, skycoord, enlarge=0):
+    def subheader_from_skycoord(
+        self,
+        skycoord: SkyCoord,
+        enlarge: Union[int, float] = 0,
+    ) -> fits.Header:
         """
-        Experimental routine that recomputes an image header,
-        given the projection and a bunch of sky coordinates.
+        Recompute a FITS image header to minimally enclose given sky coordinates.
+
+        The routine keeps the original WCS solution (projection, scale, rotation,
+        reference sky position) and adjusts only the image shape (``NAXIS1/2``) and
+        reference pixel (``CRPIX1/2``) such that the provided coordinates fall
+        within the new image, optionally with an added margin.
 
         Parameters
         ----------
-        skycoord : SkyCoord
-        enlarge : int, float, optional
-            Enlargement factor in arcminutes.
+        skycoord : astropy.coordinates.SkyCoord
+            Sky coordinates that should be contained in the resulting header.
+            The coordinates are converted to pixel coordinates using the instance
+            WCS (``self.wcs``).
+        enlarge : int or float, optional
+            Additional margin to add around the bounding box, in arcminutes.
+            The margin is applied symmetrically on all sides. Default is 0.
 
         Returns
         -------
         fits.Header
-            astropy FITS header.
+            A copy of the original header with updated ``NAXIS1``, ``NAXIS2``,
+            ``CRPIX1``, and ``CRPIX2``.
+
+        Notes
+        -----
+        * This assumes ``self.pixelscale`` is in degrees per pixel.
+        * Pixel conversion uses FITS 1-based convention (``origin=1``).
+        * If the WCS transformation yields NaNs for some points, they are ignored
+          in the bounding box computation.
 
         """
+        header_new: fits.Header = self.header.copy()
 
-        # Make copy of input header
-        header_new = self.header.copy()
+        # world -> pixel (use degrees; origin=1 for FITS convention)
+        lon_deg: np.ndarray = skycoord.spherical.lon.deg
+        lat_deg: np.ndarray = skycoord.spherical.lat.deg
+        x, y = self.wcs.all_world2pix(lon_deg, lat_deg, 1)
 
-        # Determine XY coordinates of all input sky coordinates
-        x, y = self.wcs.all_world2pix(skycoord.spherical.lon, skycoord.spherical.lat, 1)
+        # margin in pixels (enlarge in arcmin; pixelscale assumed deg/pix)
+        margin_pix: int = int(np.ceil((enlarge / 60.0) / self.pixelscale))
+        half_margin: float = margin_pix / 2.0
 
-        # Compute extra margin in pixels
-        margin = int(enlarge / 60 / self.pixelscale)
+        xmin: float = float(np.floor(np.nanmin(x)))
+        xmax: float = float(np.ceil(np.nanmax(x)))
+        ymin: float = float(np.floor(np.nanmin(y)))
+        ymax: float = float(np.ceil(np.nanmax(y)))
 
-        # Compute NAXIS
-        naxis1 = (np.ceil((x.max()) - np.floor(x.min())) + margin).astype(int)
-        naxis2 = (np.ceil((y.max()) - np.floor(y.min())) + margin).astype(int)
-        header_new["NAXIS1"], header_new["NAXIS2"] = naxis1, naxis2
+        naxis1: int = int((xmax - xmin + 1.0) + margin_pix)
+        naxis2: int = int((ymax - ymin + 1.0) + margin_pix)
 
-        # Apply shift to reference pixel
-        header_new["CRPIX1"] = header_new["CRPIX1"] - np.floor(x.min()) + margin / 2
-        header_new["CRPIX2"] = header_new["CRPIX2"] - np.floor(y.min()) + margin / 2
+        header_new["NAXIS1"] = naxis1
+        header_new["NAXIS2"] = naxis2
 
-        # Return header
+        # shift reference pixel into the new pixel coordinate system
+        header_new["CRPIX1"] = header_new["CRPIX1"] - xmin + half_margin
+        header_new["CRPIX2"] = header_new["CRPIX2"] - ymin + half_margin
+
         return header_new
