@@ -34,8 +34,6 @@ class FitsFiles:
             file_paths = []
         elif isinstance(file_paths, str):
             file_paths = [file_paths]
-        else:
-            file_paths = sorted(file_paths)
 
         # Paths and properties
         self.paths_full = [os.path.abspath(x) for x in file_paths]
