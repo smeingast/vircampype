@@ -2574,6 +2574,9 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Remove swap dir
             shutil.rmtree(swap_dir, ignore_errors=True)
 
+            # Remove temporary coadd header
+            remove_file(path_coadd_tmp_hdr)
+
         # Print time
         ttime = time.time() - tstart
         log.info(f"Elapsed time for tile creation: {ttime:.2f}s")
