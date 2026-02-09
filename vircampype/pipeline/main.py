@@ -42,7 +42,6 @@ class Pipeline:
             self.log.info(f"Previous pipeline status found at {self.path_status}")
         except FileNotFoundError:
             self.log.info(f"No previous pipeline status found at {self.path_status}")
-            pass
 
         # Reset status if requested
         if reset_status:
@@ -348,7 +347,7 @@ class Pipeline:
 
     @property
     def sources_processed_illumcorr(self):
-        # Insantiate
+        # Instantiate
         from vircampype.fits.tables.sextractor import (
             AstrometricCalibratedSextractorCatalogs,
         )
@@ -695,7 +694,7 @@ class Pipeline:
                 nfproc = sum(
                     [os.path.isfile(p) for p in self._paths_processed_science_final]
                 )
-                if (nehdr != nfproc) | (nehdr == 0):
+                if (nehdr != nfproc) or (nehdr == 0):
                     raise PipelineValueError(
                         f"Not enough external headers present ({nehdr}/{nfproc})"
                     )
@@ -826,7 +825,7 @@ class Pipeline:
             self.update_status(classification_stacks=True)
         else:
             print_message(
-                message="STACKS CLASSIFICATION library for already built",
+                message="STACKS CLASSIFICATION library already built",
                 kind="warning",
                 end=None,
             )
@@ -837,7 +836,7 @@ class Pipeline:
             self.update_status(classification_tile=True)
         else:
             print_message(
-                message="TILE CLASSIFICATION library for already built",
+                message="TILE CLASSIFICATION library already built",
                 kind="warning",
                 end=None,
             )
