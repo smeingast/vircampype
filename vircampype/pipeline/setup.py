@@ -87,7 +87,7 @@ class Setup:
     # Gain
     gain_max_lag: Union[int, float] = 1
 
-    # Lineartiy
+    # Linearity
     linearity_max_lag: Union[int, float] = 1
 
     # Flats
@@ -175,7 +175,7 @@ class Setup:
     bin_noisechisel: str = "astnoisechisel"
     bin_stilts: str = "stilts"
 
-    # Miscellanous
+    # Miscellaneous
     survey_name: str = "VISIONS"
     fix_vircam_headers: bool = True
 
@@ -512,7 +512,7 @@ class Setup:
             for path in folders_cal:
                 make_folder(path=path)
 
-        # Other wise make object paths
+        # Otherwise make object paths
         else:
             for path in folders_object:
                 make_folder(path=path)
