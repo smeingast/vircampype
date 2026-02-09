@@ -60,6 +60,7 @@ class PipelineStatus:
     qc_photometry_stacks : bool
         Status of Quality Control Photometry Stacks, defaults to False.
     qc_astrometry_stacks : bool
+        Status of Quality Control Astrometry Stacks, defaults to False.
 
     Methods
     -------
