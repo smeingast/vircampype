@@ -211,13 +211,13 @@ def add_key_primary_hdu(path, key, value, comment=None):
 
 
 def make_mef_image(
-    paths_input,
-    path_output,
-    primeheader=None,
-    add_constant=None,
-    write_extname=True,
-    overwrite=False,
-):
+    paths_input: List[str],
+    path_output: str,
+    primeheader: Optional[fits.Header] = None,
+    add_constant: Optional[Union[int, float, str, List]] = None,
+    write_extname: bool = True,
+    overwrite: bool = False,
+) -> None:
     """
     Creates an MEF image file from multiple input image file.
 
