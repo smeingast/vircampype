@@ -645,4 +645,4 @@ def make_system_tempdir() -> str:
     """
     path = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
     os.makedirs(path)
-    return path
+    return path + os.sep
