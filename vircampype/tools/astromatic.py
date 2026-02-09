@@ -92,7 +92,7 @@ def read_aheaders(path: str):
         # Clean cards
         cards = [c for c in cards if not c.is_blank]
 
-        # Create hedaer from cards
+        # Create header from cards
         headers.append(fits.Header(cards))
 
     # Return list of headers
@@ -302,7 +302,7 @@ class SwarpSetup(AstromaticSetup):
     @property
     def resample_suffix(self):
         """
-        Returns resample suffix.Y
+        Returns resample suffix.
 
         Returns
         -------
