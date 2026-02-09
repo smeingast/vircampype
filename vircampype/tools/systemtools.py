@@ -35,6 +35,7 @@ __all__ = [
     "remove_ansi_codes",
     "wait_for_no_process",
     "make_path_system_tempfile",
+    "make_system_tempdir",
 ]
 
 
@@ -631,3 +632,17 @@ def make_path_system_tempfile(suffix: str = ".tmp") -> str:
         Temp file path (file is not created).
     """
     return os.path.join(tempfile.gettempdir(), f"{uuid.uuid4().hex}{suffix}")
+
+
+def make_system_tempdir() -> str:
+    """
+    Create a unique temporary directory in the system temp directory.
+
+    Returns
+    -------
+    str
+        Path to the created temporary directory.
+    """
+    path = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
+    os.makedirs(path)
+    return path
