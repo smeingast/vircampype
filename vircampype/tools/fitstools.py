@@ -244,7 +244,7 @@ def make_mef_image(
         raise ValueError("No images to combine")
 
     # Make add_constant loopable if passed as None or string or constant
-    if not hasattr(add_constant, "len"):
+    if not hasattr(add_constant, "__len__"):
         add_constant = [add_constant] * len(paths_input)
 
     # Create empty HDUlist
@@ -258,7 +258,7 @@ def make_mef_image(
     hdulist.append(fits.PrimaryHDU(header=primeheader))
 
     # Construct image HDUs from input
-    for pidx, ac in zip(range(len(paths_input)), add_constant):
+    for pidx, ac in enumerate(add_constant):
         with fits.open(paths_input[pidx]) as file:
             # Determine constant to add
             if isinstance(ac, (int, float)):
