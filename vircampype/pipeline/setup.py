@@ -134,7 +134,7 @@ class Setup:
     mask_sources_min_area: Union[int, float] = 3
     mask_sources_max_area: Union[int, float] = 250000
     mask_bright_sources: bool = True
-    mask_sources_dilate: int = True
+    mask_sources_dilate: bool = True
 
     # Sky
     sky_n_min: int = 5
@@ -433,32 +433,28 @@ class Setup:
         self.folders["pype"] = self.path_pype
         self.folders["raw"] = self.path_data
         self.folders["object"] = f"{self.path_pype}{self.name}/"
-        self.folders["headers"] = f"{self.folders['object']}{'headers'}/"
-        self.folders["master_common"] = f"{self.path_pype}{'master'}/"
-        self.folders["master_object"] = f"{self.folders['object']}{'master'}/"
-        self.folders["temp"] = f"{self.folders['object']}{'temp'}/"
-        self.folders["processed_basic"] = (
-            f"{self.folders['object']}{'processed_basic'}/"
-        )
-        self.folders["processed_final"] = (
-            f"{self.folders['object']}{'processed_final'}/"
-        )
-        self.folders["resampled"] = f"{self.folders['object']}{'resampled'}/"
-        self.folders["illumcorr"] = f"{self.folders['object']}{'illumcorr'}/"
-        self.folders["qc"] = f"{self.folders['object']}{'qc'}/"
-        self.folders["qc_bpm"] = f"{self.folders['qc']}{'bpm'}/"
-        self.folders["qc_dark"] = f"{self.folders['qc']}{'dark'}/"
-        self.folders["qc_gain"] = f"{self.folders['qc']}{'gain'}/"
-        self.folders["qc_linearity"] = f"{self.folders['qc']}{'linearity'}/"
-        self.folders["qc_flat"] = f"{self.folders['qc']}{'flat'}/"
-        self.folders["qc_sky"] = f"{self.folders['qc']}{'sky'}/"
-        self.folders["qc_astrometry"] = f"{self.folders['qc']}{'astrometry'}/"
-        self.folders["qc_photometry"] = f"{self.folders['qc']}{'photometry'}/"
-        self.folders["qc_illumcorr"] = f"{self.folders['qc']}{'illumcorr'}/"
-        self.folders["statistics"] = f"{self.folders['object']}{'statistics'}/"
-        self.folders["stacks"] = f"{self.folders['object']}{'stacks'}/"
-        self.folders["tile"] = f"{self.folders['object']}{'tile'}/"
-        self.folders["phase3"] = f"{self.path_pype}{'phase3/'}{self.name}/"
+        self.folders["headers"] = f"{self.folders['object']}headers/"
+        self.folders["master_common"] = f"{self.path_pype}master/"
+        self.folders["master_object"] = f"{self.folders['object']}master/"
+        self.folders["temp"] = f"{self.folders['object']}temp/"
+        self.folders["processed_basic"] = f"{self.folders['object']}processed_basic/"
+        self.folders["processed_final"] = f"{self.folders['object']}processed_final/"
+        self.folders["resampled"] = f"{self.folders['object']}resampled/"
+        self.folders["illumcorr"] = f"{self.folders['object']}illumcorr/"
+        self.folders["qc"] = f"{self.folders['object']}qc/"
+        self.folders["qc_bpm"] = f"{self.folders['qc']}bpm/"
+        self.folders["qc_dark"] = f"{self.folders['qc']}dark/"
+        self.folders["qc_gain"] = f"{self.folders['qc']}gain/"
+        self.folders["qc_linearity"] = f"{self.folders['qc']}linearity/"
+        self.folders["qc_flat"] = f"{self.folders['qc']}flat/"
+        self.folders["qc_sky"] = f"{self.folders['qc']}sky/"
+        self.folders["qc_astrometry"] = f"{self.folders['qc']}astrometry/"
+        self.folders["qc_photometry"] = f"{self.folders['qc']}photometry/"
+        self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
+        self.folders["statistics"] = f"{self.folders['object']}statistics/"
+        self.folders["stacks"] = f"{self.folders['object']}stacks/"
+        self.folders["tile"] = f"{self.folders['object']}tile/"
+        self.folders["phase3"] = f"{self.path_pype}phase3/{self.name}/"
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""
