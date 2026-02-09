@@ -1,9 +1,7 @@
 import os.path
 import re
 import warnings
-from typing import Optional, Union
-
-from typing import List
+from typing import List, Optional, Union
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
@@ -14,7 +12,11 @@ from astropy.time import Time
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.misc import *
 from vircampype.tools.miscellaneous import *
-from vircampype.tools.systemtools import run_commands_shell_parallel, which
+from vircampype.tools.systemtools import (
+    make_path_system_tempfile,
+    run_commands_shell_parallel,
+    which,
+)
 from vircampype.tools.wcstools import header_reset_wcs
 
 __all__ = [
@@ -60,10 +62,10 @@ def check_card_value(value):
     val = func2string(value) if hasattr(value, "__call__") else value
 
     # Convert to string if necessary
-    if (
-        not (isinstance(val, str))
-        | (isinstance(val, (np.floating, float)))
-        | (isinstance(val, (np.integer, int)))
+    if not (
+        isinstance(val, str)
+        or isinstance(val, (np.floating, float))
+        or isinstance(val, (np.integer, int))
     ):
         val = str(val)
 
@@ -84,7 +86,7 @@ def make_card(keyword, value, comment=None, upper=True):
     comment : optional, str
         Optionally, a comment to write.
     upper : optional, bool
-        Whether to conert the keyword to upper case.
+        Whether to convert the keyword to upper case.
 
     Returns
     -------
@@ -131,7 +133,7 @@ def make_cards(keywords, values: List, comments: List[str] = None):
     """
 
     # Length of input must match
-    if not isinstance(keywords, list) | isinstance(values, list):
+    if not isinstance(keywords, list) or not isinstance(values, list):
         raise TypeError("keywords and values must be lists")
 
     # Length must be the same for keywords and values
@@ -349,7 +351,7 @@ def add_float_to_header(
     comment : str, optional
         Comment of header entry.
     remove_before : bool, optional
-        If set, removes all occurences of 'key' from header. Default is true
+        If set, removes all occurrences of 'key' from header. Default is true
 
     """
     # If the key is already there, remove it
@@ -466,32 +468,29 @@ def replace_data(file_a: str, file_b: str):
     """
 
     # Open both files
-    hdul_a = fits.open(file_a)
-    hdul_b = fits.open(file_b, mode="update")
+    with (
+        fits.open(file_a) as hdul_a,
+        fits.open(file_b, mode="update") as hdul_b,
+    ):
+        # Number of HDUs must be equal
+        if len(hdul_a) != len(hdul_b):
+            raise ValueError(
+                f"Number of HDUs not equal. n(A)={len(hdul_a)}; n(B)={len(hdul_b)}"
+            )
 
-    # Number of HDUs must be equal
-    if len(hdul_a) != len(hdul_b):
-        raise ValueError(
-            f"Number of HDUs not equal. n(A)={len(hdul_a)}; n(B)={len(hdul_b)}"
-        )
+        # Loop over HDUs:
+        for idx_hdu in range(len(hdul_a)):
+            hdu_a, hdu_b = hdul_a[idx_hdu], hdul_b[idx_hdu]
 
-    # Loop over HDUs:
-    for idx_hdu in range(len(hdul_a)):
-        hdu_a, hdu_b = hdul_a[idx_hdu], hdul_b[idx_hdu]
+            # Extension type must match
+            if hdu_a.__class__ != hdu_b.__class__:
+                raise ValueError("Extension types do not match")
 
-        # Extension type must match
-        if hdu_a.__class__ != hdu_b.__class__:
-            raise ValueError("Extension types to not match")
+            # Copy data
+            hdu_b.data = hdu_a.data
 
-        # Copy data
-        hdu_b.data = hdu_a.data
-
-    # Flush data to file B
-    hdul_b.flush()
-
-    # Close files
-    hdul_a.close()
-    hdul_b.close()
+        # Flush data to file B
+        hdul_b.flush()
 
 
 def mjd2dateobs(mjd):
@@ -553,7 +552,6 @@ def fix_vircam_headers(prime_header, data_headers):
             data_headers[idx_hdr]["CRVAL2"] = crval2
         except KeyError:
             log.warning("Could not reset CRVAL1/CRVAL2 in headers")
-            pass
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
@@ -730,7 +728,7 @@ def make_gaia_refcat(
         table_out[nn] = table_out[nn][sortindex]
 
     # Write temporary fits_table
-    path_temp = "/tmp/astr_ref_temp.cat.fits"
+    path_temp = make_path_system_tempfile(suffix=".cat.fits")
     table_out.write(path_temp, overwrite=True)
 
     # Convert to LDAC
@@ -784,7 +782,7 @@ def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False)
         # Loop over HDUs and combine
         for hdu_a, hdu_b in zip(hdul_a, hdul_b):
             da, db = hdu_a.data, hdu_b.data
-            if (da is None) & (db is None):
+            if (da is None) and (db is None):
                 hdul_o.append(hdu_a)
             elif da.ndim == 2:
                 hdul_o.append(
