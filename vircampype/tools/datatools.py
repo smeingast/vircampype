@@ -2,7 +2,7 @@ import os
 import shutil
 
 from astropy.io import fits
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from vircampype.tools.systemtools import make_folder
 
 __all__ = [
@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-def split_in_science_and_calibration(paths_files: List) -> (List, List):
+def split_in_science_and_calibration(paths_files: List) -> Tuple[List, List]:
     # Check that at least one file is there
     if len(paths_files) == 0:
         raise ValueError("No files found!")
@@ -45,7 +45,7 @@ def split_in_science_and_calibration(paths_files: List) -> (List, List):
 def sort_vircam_calibration(paths_calib: List) -> Optional[List]:
     # Check that at least one file is there
     if len(paths_calib) == 0:
-        return
+        return None
 
     # Get absolute filepaths
     paths_calib = [os.path.abspath(p) for p in paths_calib]
@@ -58,13 +58,13 @@ def sort_vircam_calibration(paths_calib: List) -> Optional[List]:
     for p in paths_calib:
         shutil.move(p, path_folder)
 
-    return [f"{path_folder}{p}" for p in paths_calib]
+    return [f"{path_folder}{os.path.basename(p)}" for p in paths_calib]
 
 
 def sort_vircam_science(paths_science: List) -> Optional[List]:
-    # Check that files are actually provide
+    # Check that files are actually provided
     if len(paths_science) == 0:
-        return
+        return None
 
     # Get absolute filepaths
     paths_science = [os.path.abspath(p) for p in paths_science]
@@ -96,7 +96,7 @@ def sort_vircam_science(paths_science: List) -> Optional[List]:
     return paths_move
 
 
-def sort_by_passband(paths):
+def sort_by_passband(paths: List[str]) -> None:
     # Get base directories of files
     directories = [f"{os.path.dirname(p)}/" for p in paths]
 
