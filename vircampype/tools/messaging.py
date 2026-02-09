@@ -51,7 +51,7 @@ def print_header(
     silent: bool = True,
     left: str = "File",
     right: str = "Extension",
-    logger: PipelineLog | None = None,
+    logger: Optional[PipelineLog] = None,
 ) -> None:
     """
     Prints a helper message with optional logging.
@@ -93,7 +93,7 @@ def print_message(
     message: str,
     kind: Optional[str] = None,
     end: Optional[str] = "",
-    logger: PipelineLog | None = None,
+    logger: Optional[PipelineLog] = None,
 ):
     """
     Generic message printer with optional logging.
@@ -168,7 +168,7 @@ def print_start(obj: str = "") -> float:
 
 def print_end(
     tstart: float,
-    logger: PipelineLog | None = None,
+    logger: Optional[PipelineLog] = None,
 ) -> None:
     """
     Prints an end message indicating completion time and logs the message
@@ -200,7 +200,7 @@ def message_calibration(
     d_total: Optional[int] = None,
     silent: bool = False,
     end: str = "",
-    logger: PipelineLog | None = None,
+    logger: Optional[PipelineLog] = None,
 ) -> None:
     """
     Prints the calibration message for image processing.
@@ -227,9 +227,9 @@ def message_calibration(
 
     if not silent:
         n_current_str = f"{n_current}/{n_total}"
-        d_current_str = f"{d_current}/{d_total}"
         name_str = os.path.basename(name)
         if (d_current is not None) and (d_total is not None):
+            d_current_str = f"{d_current}/{d_total}"
             message = (
                 f"\r{n_current_str:<8.8s} {name_str:^62.62s} {d_current_str:>8.8s}"
             )
@@ -245,7 +245,7 @@ def message_calibration(
 def check_file_exists(
     file_path: str,
     silent: bool = True,
-    logger: PipelineLog | None = None,
+    logger: Optional[PipelineLog] = None,
 ) -> bool:
     """
     Helper method to check if a file already exists.
@@ -280,7 +280,7 @@ def check_file_exists(
 
 def message_qc_astrometry(
     separation: Sequence[float],
-    logger: PipelineLog | None = None,
+    logger: Optional[PipelineLog] = None,
 ) -> None:
     """
     Prints and logs an astrometry QC message.
