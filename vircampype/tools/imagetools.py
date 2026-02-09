@@ -1,6 +1,6 @@
 import itertools
 import warnings
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 from astropy import wcs
@@ -127,7 +127,8 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     array[nans] = conv[nans]
 
     # Fill skipped NaNs back in
-    array[nans_skipped] = np.nan
+    if nans_skipped is not None:
+        array[nans_skipped] = np.nan
 
     # Return
     return array
@@ -288,7 +289,7 @@ def background_image(image, mesh_size, mesh_filtersize=3):
         )
 
     # Back size and image dimensions must be compatible
-    if (image.shape[0] % mesh_size != 0) | (image.shape[1] % mesh_size != 0):
+    if (image.shape[0] % mesh_size != 0) or (image.shape[1] % mesh_size != 0):
         raise ValueError(
             f"Image dimensions {image.shape} must be multiple of backsize mesh size ({mesh_size})"
         )
@@ -627,8 +628,8 @@ def grid_value_2d_nn(
     gv = gv.reshape(n_bins_y, n_bins_x)
 
     # Apply some filters and return
+    i = 0
     while True:
-        i = 0
         if np.sum(~np.isfinite(gv)) == 0:
             break
         gv = interpolate_replace_nans(gv, kernel=Box2DKernel(3))
@@ -872,7 +873,7 @@ def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> Sky
     )
 
 
-def coordinate_array(image: np.ndarray) -> (np.ndarray, np.ndarray):
+def coordinate_array(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Creates arrays of same shape as input, but holds x and y pixel coordinates."""
     return np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
 
