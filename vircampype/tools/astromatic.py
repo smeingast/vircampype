@@ -115,7 +115,7 @@ def write_aheaders(headers: Iterable, path: str):
     # Convert to strings
     headers_str = [h.tostring(endcard=True, padding=False, sep="\n") for h in headers]
 
-    # Join all extentions together
+    # Join all extensions together
     ss = "\n".join(headers_str)
 
     # Write to disk
