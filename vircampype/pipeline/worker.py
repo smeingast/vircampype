@@ -15,7 +15,7 @@ Tip (dev install):
 import argparse
 import os
 import sys
-from typing import Sequence
+from typing import Optional, Sequence
 
 from vircampype.pipeline.main import Pipeline
 from vircampype.tools.datatools import (
@@ -41,7 +41,7 @@ def _set_console_title(title: str) -> None:
         pass
 
 
-def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
     parser.add_argument(
         "-s", "--setup", help="Input setup file", type=str, default=None
@@ -71,7 +71,7 @@ def _run_sort(paths: Sequence[str]) -> None:
     sort_vircam_science(paths_science=paths_science)
 
 
-def _run_pipeline(setup: str | None, reset: bool) -> None:
+def _run_pipeline(setup: Optional[str], reset: bool) -> None:
     pipeline = Pipeline(setup=setup)
     _set_console_title(pipeline.setup.name)
 
@@ -86,7 +86,7 @@ def _run_pipeline(setup: str | None, reset: bool) -> None:
         pipeline.process_science()
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
 
     if args.sort:
