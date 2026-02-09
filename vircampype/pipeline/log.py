@@ -1,7 +1,8 @@
-import logging
 import datetime
-
+import logging
+from pathlib import Path
 from typing import Optional
+
 from vircampype.pipeline.misc import Borg
 from vircampype.pipeline.setup import Setup
 
@@ -22,11 +23,11 @@ class PipelineLog(Borg):
 
         """
         super().__init__()
-        if (setup is not None) & (not self.initialized):
+        if (setup is not None) and (not self.initialized):
             now = datetime.datetime.now()
             date_string = now.strftime("%Y%m%d_%H%M%S")
             path_logfile = f"{setup.folders['temp']}pipeline_{date_string}.log"
-            open(path_logfile, "w").close()  # Clear previous file
+            Path(path_logfile).touch()  # Clear previous file
             logging.basicConfig(
                 filename=path_logfile,
                 level=getattr(logging, setup.log_level.upper()),
@@ -41,7 +42,7 @@ class PipelineLog(Borg):
         Getter for logger instance.
 
         Returns
-        ----------
+        -------
         logging.Logger
             An instance of logger.
         """
