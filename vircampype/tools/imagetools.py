@@ -50,7 +50,7 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     """
     Interpolates NaNs in an image. NaNs are replaced by convolving the original image
     with a kernel from which the pixel values are copied. This technique is much faster
-    than other aporaches involving spline fitting (e.g. griddata or scipy inteprolation
+    than other approaches involving spline fitting (e.g. griddata or scipy interpolation
      methods.)
 
     Parameters
@@ -96,7 +96,7 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
         if np.sum(nans_fil) == 0:
             return array
 
-        # Get the NaNs which where skipped
+        # Get the NaNs which were skipped
         nans_skipped = (nans_fil == 0) & (nans == 1)
 
         # Set those to the median
@@ -159,7 +159,7 @@ def chop_image(array, npieces, axis=0, overlap=None):
     if axis not in [0, 1]:
         raise ValueError("Axis={0:0d} not supported".format(axis))
 
-    # If there is no overlap, we can just u se the numpy function
+    # If there is no overlap, we can just use the numpy function
     if overlap is None:
         return np.array_split(ary=array, indices_or_sections=npieces, axis=axis)
 
@@ -214,9 +214,9 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
     arrays : iterable
         List of arrays to merge.
     locations : iterable
-        List of locations where the cut occured (returned by chop_image)
+        List of locations where the cut occurred (returned by chop_image)
     axis : int, optional
-        Axis along which the cop occured. Default is 0.
+        Axis along which the chop occurred. Default is 0.
     overlap : int, optional
         Overlap used in chopping.
 
@@ -335,7 +335,7 @@ def background_image(image, mesh_size, mesh_filtersize=3):
 
 def upscale_image(image, new_size, method="pil", order=3):
     """
-    Resizes a 2D array to tiven new size.
+    Resizes a 2D array to given new size.
 
     An example of how to upscale with PIL:
     apc_plot = np.array(Image.fromarray(apc_grid).resize(size=(hdr["NAXIS1"],
@@ -366,7 +366,7 @@ def upscale_image(image, new_size, method="pil", order=3):
             Image.fromarray(image).resize(size=new_size, resample=Image.BICUBIC)  # noqa
         )
     elif "spline" in method.lower():
-        # Detemrine edge coordinates of input wrt output size
+        # Determine edge coordinates of input wrt output size
         xedge, yedge = (
             np.linspace(0, new_size[0], image.shape[0] + 1),
             np.linspace(0, new_size[1], image.shape[1] + 1),
@@ -385,7 +385,7 @@ def upscale_image(image, new_size, method="pil", order=3):
                 xcenter.ravel(), ycenter.ravel(), image.ravel(), kx=order, ky=order
             ).ev
 
-            # Return interplated spline
+            # Return interpolated spline
             return spline_fit(
                 *np.meshgrid(np.arange(new_size[0]), np.arange(new_size[1]))
             )
@@ -439,7 +439,7 @@ def grid_value_2d(
     weights : ndarray, optional
         Optionally provide weights for weighted average.
     upscale : bool, optional
-        If True, rescale outout to (x_max - x_min, y_max  - y_min). Default it True.
+        If True, rescale output to (x_max - x_min, y_max - y_min). Default is True.
     interpolate_nan : bool, optional
         In case there are NaN values in the grid, interpolate them before returning.
 
@@ -616,7 +616,7 @@ def grid_value_2d_nn(
     elif metric == "mean":
         gv, _, _ = sigma_clipped_stats(vc[idx], axis=1)
 
-    # CLipped median
+    # Clipped median
     elif metric == "median":
         _, gv, _ = sigma_clipped_stats(vc[idx], axis=1)
 
@@ -725,7 +725,7 @@ def source_mask(
     max_area : int, optional
         Maximum area of sources in pixels.
     mask_bright_sources : bool, optional
-        Whether additional circualr patches should be drawn on bright sources.
+        Whether additional circular patches should be drawn on bright sources.
     dilate : bool, optional
         Whether to dilate the mask.
 
