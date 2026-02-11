@@ -173,7 +173,8 @@ def cuberoot_idl(
         if zcount > 0:
             k[zindex] = 0.0
         if ccount > 0:
-            k[cindex] = qf / h
+            with np.errstate(divide="ignore", invalid="ignore"):
+                k[cindex] = qf[cindex] / h[cindex]
 
         solution1[index2] = (h + k) - cf / 3
         solution2[index2] = np.nan
@@ -581,7 +582,9 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
         elif (idx > 0) & (idx < max_iter):
 
             # If we have no change within 2% of previous iteration we return
-            if np.mean(np.abs(sky_save / sky - 1)) < 0.02:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                converged = np.mean(np.abs(sky_save / sky - 1)) < 0.02
+            if converged:
 
                 # If (compared to the initial value) the mean has changed by less
                 # than 20%, the field is not crowded
@@ -886,7 +889,6 @@ def interpolate_value(
 
     # If nearest neighbors are not provided, compute them
     if nn_dis is None or nn_idx is None:
-        print("BAD")
         nn_dis, nn_idx = get_nearest_neighbors(
             x=x,
             y=y,
@@ -917,6 +919,17 @@ def interpolate_value(
     weights[wmask] = 0.0
     bad_idx = ~np.isfinite(nn_data)
     nn_data[bad_idx], weights[bad_idx] = 0, 0
+
+    # Compute number of sources and max distance per source
+    if weights.ndim == 3:
+        neighbor_used = np.any(weights > 0, axis=2)
+    else:
+        neighbor_used = weights > 0
+    n_sources_per_source = np.sum(neighbor_used, axis=1)
+    nn_dis_masked = nn_dis.copy()
+    nn_dis_masked[~neighbor_used] = -np.inf
+    max_dis_per_source = np.max(nn_dis_masked, axis=1)
+    max_dis_per_source[max_dis_per_source == -np.inf] = np.nan
 
     # Compute weighted average and std
     vals = np.average(nn_data, axis=1, weights=weights)
