@@ -42,9 +42,9 @@ class SourceMasks:
     def __getitem__(self, key):
         # If key is a list, tuple, or np.ndarray, select multiple regions
         if isinstance(key, (list, tuple, np.ndarray)):
-            regions = [self.regions[k] for k in key]
+            regions = Regions([self.regions[k] for k in key])
         else:
-            regions = self.regions[key]
+            regions = Regions([self.regions[key]])
         return self.__class__(regions, name=self.name)
 
     @property
@@ -90,12 +90,12 @@ class SourceMasks:
     @staticmethod
     def interp_2mass_size() -> Callable[[np.ndarray], np.ndarray]:
         """
-        return interpolation function for 2mass size vs magnitude.
+        Return interpolation function for 2MASS size vs magnitude.
 
-        returns
+        Returns
         -------
-        callable
-            function mapping magnitude array to size array, linearly interpolated and
+        Callable
+            Function mapping magnitude array to size array, linearly interpolated and
             clamped outside the supported range.
         """
         _mag = [0, 10]
