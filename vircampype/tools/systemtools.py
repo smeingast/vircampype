@@ -617,12 +617,14 @@ def wait_for_no_process(
         time.sleep(poll_s)
 
 
-def make_path_system_tempfile(suffix: str = ".tmp") -> str:
+def make_path_system_tempfile(prefix: str = "", suffix: str = ".tmp") -> str:
     """
     Return a unique temp file path in the system temp directory.
 
     Parameters
     ----------
+    prefix : str, optional
+        Prefix string prepended to the filename, by default "".
     suffix : str, optional
         File suffix (including leading dot), by default ".tmp".
 
@@ -631,7 +633,7 @@ def make_path_system_tempfile(suffix: str = ".tmp") -> str:
     str
         Temp file path (file is not created).
     """
-    return os.path.join(tempfile.gettempdir(), f"{uuid.uuid4().hex}{suffix}")
+    return os.path.join(tempfile.gettempdir(), f"{prefix}{uuid.uuid4().hex}{suffix}")
 
 
 def make_system_tempdir() -> str:
