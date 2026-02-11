@@ -248,7 +248,10 @@ class SkyImages(FitsImages):
 
         # Create temporary system file paths
         paths_tables_sex = [
-            make_path_system_tempfile(suffix=".sex.cat") for _ in path_tables_clean
+            make_path_system_tempfile(
+                prefix=f"{os.path.basename(pt)}_", suffix=".sex.cat"
+            )
+            for pt in path_tables_clean
         ]
 
         # Construct commands for source extraction
