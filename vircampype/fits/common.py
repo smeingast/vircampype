@@ -65,9 +65,7 @@ class FitsFiles:
         if os.path.isfile(item):
             self.paths_full[key] = item
         else:
-            raise FileNotFoundError(
-                "The specified file '{0}' does not exist.".format(item)
-            )
+            raise FileNotFoundError(f"The specified file '{item}' does not exist.")
 
     def __getitem__(self, key):
         return self.__class__(setup=self.setup, file_paths=self.paths_full[key])
@@ -135,10 +133,7 @@ class FitsFiles:
     # =========================================================================== #
     @property
     def paths_headers(self):
-        return [
-            "{0}{1}.header".format(self.setup.folders["headers"], x)
-            for x in self.basenames
-        ]
+        return [f"{self.setup.folders['headers']}{x}.header" for x in self.basenames]
 
     _headers = None
 
@@ -307,9 +302,7 @@ class FitsFiles:
         while True:
             try:
                 temp.append(
-                    self.read_from_data_headers(
-                        keywords=["{0} {1}".format(keyword, idx)]
-                    )[0]
+                    self.read_from_data_headers(keywords=[f"{keyword} {idx}"])[0]
                 )
                 idx += 1
             except KeyError:
@@ -631,9 +624,8 @@ class FitsFiles:
             if max_lag is not None:
                 if np.min(mjd_diff) > max_lag:
                     raise ValueError(
-                        "No match within allowed time frame ({0} < {1})".format(
-                            max_lag, np.round(np.min(mjd_diff), decimals=4)
-                        )
+                        f"No match within allowed time frame "
+                        f"({max_lag} < {np.round(np.min(mjd_diff), decimals=4)})"
                     )
 
             # Get minimum index and append files
