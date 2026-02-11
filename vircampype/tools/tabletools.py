@@ -855,7 +855,7 @@ def merge_with_2mass(
         # Find all sources in source catalog that are near the current bright source
         idx_temp_bright = nib[ndb < cr.to_value("arcmin")]
 
-        if np.sum(idx_temp_bright) > 0:
+        if len(idx_temp_bright) > 0:
             idx_self_near_bright.extend(idx_temp_bright)
 
         # Find all clean sources in the clean table that are within the cleaning radius
@@ -883,10 +883,11 @@ def merge_with_2mass(
                 norm += 1
             except IndexError:
                 pass
-        weight_temp /= norm
+        if norm > 0:
+            weight_temp /= norm
 
         idx_temp_clean = idx_temp_clean[weight_temp > 0.0001]
-        if np.sum(idx_temp_clean) > 0:
+        if len(idx_temp_clean) > 0:
             idx_2mass_near_bright.extend(idx_temp_clean)
 
     # Only keep unique sources
@@ -1012,8 +1013,11 @@ def sextractor_nanify_bad_values(table: Table) -> None:
 
     # Process each condition
     for column, condition in conditions.items():
-        bad_values = condition(table[column])
-        table[column][bad_values] = np.nan
+        try:
+            bad_values = condition(table[column])
+            table[column][bad_values] = np.nan
+        except KeyError:
+            pass
 
 
 def split_table(table: Table, n_splits: int) -> Generator[Table, None, None]:
