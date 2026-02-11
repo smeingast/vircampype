@@ -405,7 +405,9 @@ class SkyImages(FitsImages):
             log.info(f"FWHM range: {fwhm_lo} - {fwhm_hi}")
 
             # Determine FWHM range
-            fwhm_range = np.arange(fwhm_lo - 0.05, fwhm_hi + 0.11, 0.05)
+            fwhm_range = np.around(
+                np.arange(fwhm_lo - 0.05, fwhm_hi + 0.11, 0.05), decimals=2
+            )
 
             # Safety check for fwhm range
             if len(fwhm_range) > 30:
@@ -427,24 +429,16 @@ class SkyImages(FitsImages):
             catalog_paths = []
             for idx in range(len(cmds)):
                 cpath = cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0]
-                cpath_new = cpath.replace(
-                    ".sex.cat", f"_FWHM{fwhm_range[idx]:0.2f}.sex.cat"
-                )
+                cname = os.path.basename(cpath)
+                cpath_new = cpath.replace(cname, f"FWHM{fwhm_range[idx]:0.2f}.sex.cat")
                 cmds[idx] = cmds[idx].replace(cpath, cpath_new)
                 catalog_paths.append(cpath_new)
-                log.info(f"Catalog path {idx + 1}/{len(cmds)}: {catalog_paths[-1]}")
 
-            # Log all catalog paths and existing catalogs
-            [
+            # Log catalog paths and sextractor commands
+            for idx, c in enumerate(catalog_paths):
                 log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}")
-                for idx, c in enumerate(catalog_paths)
-            ]
-
-            # Log sextractor commands
-            [
+            for idx, c in enumerate(cmds):
                 log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}")
-                for idx, c in enumerate(cmds)
-            ]
 
             # Run Sextractor
             n_jobs_sex = (
@@ -494,13 +488,20 @@ class SkyImages(FitsImages):
                     value=fwhm_range[fidx],
                 )
             hdul = fits.HDUList(hdus=[fits.PrimaryHDU(header=header_prime)])
-            [hdul.append(fits.BinTableHDU(t)) for t in tables_out]
+            for t in tables_out:
+                hdul.append(fits.BinTableHDU(t))
             hdul.writeto(outpath, overwrite=True)
             log.info(f"Saved to '{outpath}'")
 
-            # Remove sextractor catalog
-            [os.remove(f) for f in catalogs.paths_full]
+            # Remove sextractor catalogs
+            for f in catalogs.paths_full:
+                remove_file(filepath=f)
             log.info("Removed sextractor catalogs")
+
+        # Clean up FWHM catalogs
+        for f in fwhm_catalogs.paths_full:
+            remove_file(filepath=f)
+        log.info("Removed FWHM catalogs")
 
         # Print time
         print_message(
