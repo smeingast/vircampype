@@ -521,6 +521,10 @@ class SkyImages(FitsImages):
     def apply_illumination_correction(self):
         """Applies illumination correction to images."""
 
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Applying illumination correction to {self.n_files} files")
+
         # Processing info
         print_header(
             header="APPLYING ILLUMINATION CORRECTION", silent=self.setup.silent
@@ -530,16 +534,20 @@ class SkyImages(FitsImages):
         # Fetch illumination correction for each image
         illumcor = self.get_master_illumination_correction()
         sourcemasks = self.get_master_source_mask()
+        log.info(f"Loaded {len(illumcor)} illumination corrections")
+        log.info(f"Loaded {len(sourcemasks)} source masks")
 
         # Loop over self
         for idx_file in range(self.n_files):
             # Create output path
             outpath = f"{self.setup.folders['illumcorr']}{self.names[idx_file]}.ic.fits"
+            log.info(f"File {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Check for ahead file
             path_ahead = self.paths_full[idx_file].replace(".fits", ".ahead")
             path_ahead_sf = outpath.replace(".fits", ".ahead")
             if not os.path.isfile(path_ahead):
+                log.error(f"External header not found: {path_ahead}")
                 raise ValueError("External header not found")
 
             # Check if the file is already there and skip if it is
@@ -557,6 +565,7 @@ class SkyImages(FitsImages):
             )
 
             # Read data
+            log.info(f"Reading data for {self.basenames[idx_file]}")
             cube_self = self.file2cube(file_index=idx_file)
             cube_flat = illumcor.file2cube(file_index=idx_file)
             cube_mask = sourcemasks.file2cube(file_index=idx_file)
@@ -569,6 +578,7 @@ class SkyImages(FitsImages):
 
                 # Modification factor is mean for the current illumination correction
                 mod = np.median(cube_flat[idx_hdr])
+                log.info(f"HDU {idx_hdr + 1}: IC median factor = {mod:.4f}")
 
                 # Add modification factor
                 hdr.set(
@@ -626,9 +636,11 @@ class SkyImages(FitsImages):
                 prime_header=self.headers_primary[idx_file],
                 data_headers=data_headers,
             )
+            log.info(f"Saved to '{outpath}'")
 
             # Copy aheader for swarping
             copy_file(path_ahead, path_ahead_sf)
+            log.info(f"Copied ahead file to '{path_ahead_sf}'")
 
         # Print time
         print_message(
