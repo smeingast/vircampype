@@ -1,4 +1,4 @@
-import numpy as np
+import os
 
 from astropy.io import fits
 from collections.abc import Iterable
@@ -36,12 +36,10 @@ def sextractor2imagehdr(path):
         headers = []
         for i in range(1, len(hdulist), 2):
             fhc = hdulist[i].data["Field Header Card"][0]
-            fhc = np.array(
-                [
-                    item.decode("UTF-8") if isinstance(item, bytes) else item
-                    for item in fhc
-                ]
-            )
+            fhc = [
+                item.decode("UTF-8") if isinstance(item, bytes) else item
+                for item in fhc
+            ]
             header_string = "\n".join(fhc)
             header = fits.Header.fromstring(header_string, sep="\n")
             headers.append(header)
@@ -79,15 +77,16 @@ def read_aheaders(path: str):
 
     # Loop over HDUs
     for hdu in hdus:
-        # Skip if only whitespace
-        if hdu.isspace():
+        # Skip if empty or only whitespace
+        if not hdu.strip():
             continue
 
         # Create cards
         cards = [fits.Card.fromstring(x) for x in hdu.split("\n")]
 
         # Verify cards
-        [c.verify(option="silentfix+ignore") for c in cards]
+        for c in cards:
+            c.verify(option="silentfix+ignore")
 
         # Clean cards
         cards = [c for c in cards if not c.is_blank]
@@ -124,12 +123,14 @@ def write_aheaders(headers: Iterable, path: str):
 
 
 class AstromaticSetup:
+    _package_name = ""
+
     def __init__(self, setup):
         from vircampype.pipeline.main import Setup
 
         self.setup = Setup.load_pipeline_setup(setup)
-        if self.bin is None:
-            raise ValueError("Cannot find executable '{0}'".format(self.bin_name))
+        if not os.path.isfile(self.bin):
+            raise ValueError(f"Cannot find executable '{self.bin_name}'")
 
     @property
     def bin(self):
@@ -139,40 +140,13 @@ class AstromaticSetup:
     def bin_name(self):
         return ""
 
-
-class SextractorSetup(AstromaticSetup):
-    def __init__(self, setup):
-        super(SextractorSetup, self).__init__(setup=setup)
-
-    @property
-    def bin_name(self):
-        return self.setup.bin_sex
-
     @property
     def package(self):
-        """
-        Internal package preset path for sextractor.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "vircampype.resources.astromatic.sextractor"
+        return f"vircampype.resources.astromatic.{self._package_name}"
 
     @property
     def package_presets(self):
-        """
-        Internal package preset path for sextractor.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "{0}.presets".format(self.package)
+        return f"{self.package}.presets"
 
     @property
     def default_config(self):
@@ -186,6 +160,17 @@ class SextractorSetup(AstromaticSetup):
 
         """
         return get_resource_path(package=self.package, resource="default.config")
+
+
+class SextractorSetup(AstromaticSetup):
+    _package_name = "sextractor"
+
+    def __init__(self, setup):
+        super().__init__(setup=setup)
+
+    @property
+    def bin_name(self):
+        return self.setup.bin_sex
 
     @property
     def default_filter(self):
@@ -229,7 +214,7 @@ class SextractorSetup(AstromaticSetup):
         """
 
         return get_resource_path(
-            package=self.package_presets, resource="{0}.yml".format(preset)
+            package=self.package_presets, resource=f"{preset}.yml"
         )
 
     def path_param(self, preset):
@@ -248,56 +233,19 @@ class SextractorSetup(AstromaticSetup):
         """
 
         return get_resource_path(
-            package=self.package_presets, resource="{0}.param".format(preset)
+            package=self.package_presets, resource=f"{preset}.param"
         )
 
 
 class SwarpSetup(AstromaticSetup):
+    _package_name = "swarp"
+
     def __init__(self, setup):
-        super(SwarpSetup, self).__init__(setup=setup)
+        super().__init__(setup=setup)
 
     @property
     def bin_name(self):
         return self.setup.bin_swarp
-
-    @property
-    def package(self):
-        """
-        Internal package path for swarp.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "vircampype.resources.astromatic.swarp"
-
-    @property
-    def package_presets(self):
-        """
-        Internal package preset path for swarp.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "{0}.presets".format(self.package)
-
-    @property
-    def default_config(self):
-        """
-        Searches for default config file in resources.
-
-        Returns
-        -------
-        str
-            Path to default config.
-
-        """
-        return get_resource_path(package=self.package, resource="default.config")
 
     @property
     def resample_suffix(self):
@@ -339,93 +287,56 @@ class SwarpSetup(AstromaticSetup):
 
 
 class ScampSetup(AstromaticSetup):
+    _package_name = "scamp"
+
     def __init__(self, setup):
-        super(ScampSetup, self).__init__(setup=setup)
+        super().__init__(setup=setup)
 
     @property
     def bin_name(self):
         return self.setup.bin_scamp
 
     @property
-    def package(self):
+    def preset_config(self) -> str:
         """
-        Internal package preset path for scamp.
+        Returns path to the scamp preset config based on scamp_mode.
 
         Returns
         -------
         str
-            Package path.
-        """
-
-        return "vircampype.resources.astromatic.scamp"
-
-    @property
-    def package_presets(self):
-        """
-        Internal package preset path for scamp.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return f"{self.package}.presets"
-
-    @property
-    def path_config_default(self) -> str:
-        """
-        Searches for default config file in resources.
-
-        Returns
-        -------
-        str
-            Path to default config
-
-        """
-        return get_resource_path(package=self.package, resource="default.config")
-
-    @property
-    def path_config_preset(self) -> str:
-        """
-        Searches for default config file in resources.
-
-        Returns
-        -------
-        str
-            Path to default config
+            Path to preset config.
 
         """
         if self.setup.scamp_mode == "loose":
-            return self.__path_config_loose
+            return self._path_config_loose
         elif self.setup.scamp_mode == "fix_focalplane":
-            return self.__path_config_fix_focalplane
+            return self._path_config_fix_focalplane
         else:
             raise ValueError(f"Scamp mode '{self.setup.scamp_mode}' not supported")
 
     @property
-    def __path_config_loose(self) -> str:
+    def _path_config_loose(self) -> str:
         """
         Searches for loose config file in resources.
 
         Returns
         -------
         str
-            Path to default config
+            Path to loose config.
 
         """
         return get_resource_path(package=self.package_presets,
                                  resource="scamp_loose.yml")
 
     @property
-    def __path_config_fix_focalplane(self) -> str:
+    def _path_config_fix_focalplane(self) -> str:
         """
         Searches for fix focalplane config file in resources.
 
         Returns
         -------
         str
-            Path to default config
+            Path to fix focalplane config.
 
         """
         return get_resource_path(package=self.package_presets,
@@ -485,7 +396,7 @@ class ScampSetup(AstromaticSetup):
 
         """
         names = [
-            "{0}scamp_{1}".format(self.setup.folders["qc_astrometry"], qt.lower())
+            f"{self.setup.folders['qc_astrometry']}scamp_{qt.lower()}"
             for qt in self.qc_types(joined=False)
         ]
         if joined:
@@ -495,51 +406,14 @@ class ScampSetup(AstromaticSetup):
 
 
 class PSFExSetup(AstromaticSetup):
+    _package_name = "psfex"
+
     def __init__(self, setup):
-        super(PSFExSetup, self).__init__(setup=setup)
+        super().__init__(setup=setup)
 
     @property
     def bin_name(self):
         return self.setup.bin_psfex
-
-    @property
-    def package(self):
-        """
-        Internal package preset path for psfex.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "vircampype.resources.astromatic.psfex"
-
-    @property
-    def package_presets(self):
-        """
-        Internal package preset path for psfex.
-
-        Returns
-        -------
-        str
-            Package path.
-        """
-
-        return "{0}.presets".format(self.package)
-
-    @property
-    def default_config(self):
-        """
-        Searches for default config file in resources.
-
-        Returns
-        -------
-        str
-            Path to default config
-
-        """
-        return get_resource_path(package=self.package, resource="default.config")
 
     def path_yml(self, preset):
         """
@@ -557,7 +431,7 @@ class PSFExSetup(AstromaticSetup):
         """
 
         return get_resource_path(
-            package=self.package_presets, resource="{0}.yml".format(preset)
+            package=self.package_presets, resource=f"{preset}.yml"
         )
 
     @staticmethod
@@ -606,7 +480,7 @@ class PSFExSetup(AstromaticSetup):
 
         """
         names = [
-            "{0}{1}".format(self.setup.folders["qc_psf"], ct.lower())
+            f"{self.setup.folders['qc_psf']}{ct.lower()}"
             for ct in self.checkplot_types(joined=False)
         ]
         if joined:
@@ -652,7 +526,7 @@ class PSFExSetup(AstromaticSetup):
 
         """
         names = [
-            "{0}{1}".format(self.setup.folders["qc_psf"], qt.lower())
+            f"{self.setup.folders['qc_psf']}{qt.lower()}"
             for qt in self.checkimage_types(joined=False)
         ]
         if joined:
