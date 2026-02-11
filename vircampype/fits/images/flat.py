@@ -52,9 +52,11 @@ class FlatTwilight(FlatImages):
             )
 
             # Create Master name
-            outpath = (f"{files.setup.folders['master_common']}"
-                       f"MASTER-TWILIGHT-FLAT.MJD_"
-                       f"{files.mjd_mean:0.4f}.FIL_{files.passband[0]}.fits")
+            outpath = (
+                f"{files.setup.folders['master_common']}"
+                f"MASTER-TWILIGHT-FLAT.MJD_"
+                f"{files.mjd_mean:0.4f}.FIL_{files.passband[0]}.fits"
+            )
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -141,8 +143,8 @@ class FlatTwilight(FlatImages):
                     cards_flux.append(
                         make_cards(
                             keywords=[
-                                "HIERARCH PYPE FLAT FLUX {0}".format(cidx),
-                                "HIERARCH PYPE FLAT MJD {0}".format(cidx),
+                                f"HIERARCH PYPE FLAT FLUX {cidx}",
+                                f"HIERARCH PYPE FLAT MJD {cidx}",
                             ],
                             values=[
                                 np.round(flux[-1][cidx], 3),
@@ -346,8 +348,9 @@ class FlatLampLin(FlatImages):
             sflats.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
 
             # Create Master name
-            outpath = "{0}MASTER-LINEARITY.MJD_{1:0.4f}.fits.tab" "".format(
-                sflats.setup.folders["master_common"], sflats.mjd_mean
+            outpath = (
+                f"{sflats.setup.folders['master_common']}"
+                f"MASTER-LINEARITY.MJD_{sflats.mjd_mean:0.4f}.fits.tab"
             )
 
             # Check if the file is already there and skip if it is
@@ -438,16 +441,16 @@ class FlatLampLin(FlatImages):
                 for cidx in range(len(coeff_norm)):
                     cards_poly.append(
                         fits.Card(
-                            keyword="HIERARCH PYPE COEFF POLY {0}".format(cidx),
+                            keyword=f"HIERARCH PYPE COEFF POLY {cidx}",
                             value=coeff[cidx],
-                            comment="Polynomial coefficient {0}".format(cidx),
+                            comment=f"Polynomial coefficient {cidx}",
                         )
                     )
                     cards_coeff.append(
                         fits.Card(
-                            keyword="HIERARCH PYPE COEFF LINEAR {0}".format(cidx),
+                            keyword=f"HIERARCH PYPE COEFF LINEAR {cidx}",
                             value=coeff_norm[cidx],
-                            comment="Linearity coefficient {0}".format(cidx),
+                            comment=f"Linearity coefficient {cidx}",
                         )
                     )
 
@@ -556,8 +559,9 @@ class FlatLampCheck(FlatImages):
             )
 
             # Create Master name
-            outpath = "{0}MASTER-BPM.NDIT_{1}.MJD_{2:0.4f}.fits" "".format(
-                files.setup.folders["master_common"], files.ndit[0], files.mjd_mean
+            outpath = (
+                f"{files.setup.folders['master_common']}"
+                f"MASTER-BPM.NDIT_{files.ndit[0]}.MJD_{files.mjd_mean:0.4f}.fits"
             )
 
             # Check if the file is already there and skip if it is
@@ -719,8 +723,9 @@ class FlatLampGain(FlatImages):
                 raise ValueError("Gain sequence not compatible!")
 
             # Create master name
-            outpath = "{0}MASTER-GAIN.MJD_{1:0.4f}.fits.tab" "".format(
-                flats.setup.folders["master_common"], flats.mjd_mean
+            outpath = (
+                f"{flats.setup.folders['master_common']}"
+                f"MASTER-GAIN.MJD_{flats.mjd_mean:0.4f}.fits.tab"
             )
 
             # Check if the file is already there and skip if it is
@@ -904,10 +909,7 @@ class MasterFlat(MasterImages):
         """
 
         if paths is None:
-            return [
-                "{0}{1}.pdf".format(self.setup.folders["qc_flat"], fp)
-                for fp in self.basenames
-            ]
+            return [f"{self.setup.folders['qc_flat']}{fp}.pdf" for fp in self.basenames]
         else:
             return paths
 
@@ -941,8 +943,9 @@ class MasterFlat(MasterImages):
 
             # Helpers
             mjd_floor = np.floor(np.min(mjd))
-            xmin, xmax = 0.9999 * np.min(24 * (mjd - mjd_floor)), 1.0001 * np.max(
-                24 * (mjd - mjd_floor)
+            xmin, xmax = (
+                0.9999 * np.min(24 * (mjd - mjd_floor)),
+                1.0001 * np.max(24 * (mjd - mjd_floor)),
             )
             allflux = flat_list(flux)
             ymin, ymax = 0.98 * np.min(allflux), 1.02 * np.max(allflux)
@@ -965,14 +968,14 @@ class MasterFlat(MasterImages):
 
                 # Annotate detector ID and gain scale
                 ax.annotate(
-                    "Scale={0:.3f}".format(gs[idx]),
+                    f"Scale={gs[idx]:.3f}",
                     xy=(0.96, 0.96),
                     xycoords="axes fraction",
                     ha="right",
                     va="top",
                 )
                 ax.annotate(
-                    "Det.ID: {0:0d}".format(idx + 1),
+                    f"Det.ID: {idx + 1:0d}",
                     xy=(0.04, 0.04),
                     xycoords="axes fraction",
                     ha="left",
@@ -981,7 +984,7 @@ class MasterFlat(MasterImages):
 
                 # Modify axes
                 if idx < self.setup.fpa_layout[1]:
-                    ax.set_xlabel("MJD (h) + {0:0n}d".format(mjd_floor))
+                    ax.set_xlabel(f"MJD (h) + {mjd_floor:0n}d")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
                 if idx % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
@@ -1057,8 +1060,7 @@ class MasterIlluminationCorrection(MasterImages):
         # Generate path for plots
         if paths is None:
             paths = [
-                "{0}{1}.pdf".format(self.setup.folders["qc_illumcorr"], fp)
-                for fp in self.basenames
+                f"{self.setup.folders['qc_illumcorr']}{fp}.pdf" for fp in self.basenames
             ]
 
         for idx_file in range(self.n_files):
@@ -1104,7 +1106,7 @@ class MasterIlluminationCorrection(MasterImages):
 
                 # Annotate detector ID
                 ax.annotate(
-                    "Det.ID: {0:0d}".format(idx_hdu + 1),
+                    f"Det.ID: {idx_hdu + 1:0d}",
                     xy=(0.02, 1.005),
                     xycoords="axes fraction",
                     ha="left",
@@ -1113,7 +1115,7 @@ class MasterIlluminationCorrection(MasterImages):
 
                 # Annotate number of sources used
                 ax.annotate(
-                    "N = {0:0d}".format(self.nsources[idx_file][idx_hdu]),
+                    f"N = {self.nsources[idx_file][idx_hdu]:0d}",
                     xy=(0.98, 1.005),
                     xycoords="axes fraction",
                     ha="right",
