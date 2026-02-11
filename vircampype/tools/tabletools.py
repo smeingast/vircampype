@@ -287,11 +287,12 @@ def interpolate_classification(source_table, classification_table, verbose=False
         classification_table["YWIN_IMAGE"],
     )
 
-    # Determine FWHM range from available columns
-    fwhm_range = []
-    for key in classification_table.columns.keys():
-        if key.startswith("CLASS_STAR"):
-            fwhm_range.append(float(key.split("_")[-1]))
+    # Determine FWHM range from available columns (must be sorted for np.interp)
+    fwhm_range = sorted(
+        float(key.split("_")[-1])
+        for key in classification_table.columns.keys()
+        if key.startswith("CLASS_STAR")
+    )
 
     # Sextractor may not deliver the same sources between classification and full mode,
     # so we do a NN search
