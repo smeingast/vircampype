@@ -233,9 +233,7 @@ def clean_source_table(
         for col in finite_columns:
             good &= np.isfinite(table[col])
             if verbose:
-                print(
-                    f" - After finite check on {col}: {np.sum(good)} entries remain."
-                )
+                print(f" - After finite check on {col}: {np.sum(good)} entries remain.")
 
     # Return cleaned table
     if return_filter:
@@ -316,9 +314,7 @@ def interpolate_classification(source_table, classification_table, verbose=False
 
     # Loop over each source
     class_star_interp = []
-    total_iterations = len(
-        source_table["FWHM_WORLD_INTERP"]
-    )  # Total number of iterations
+    total_iterations = len(source_table["FWHM_WORLD_INTERP"])
     for i, (sc, ac) in enumerate(
         zip(source_table["FWHM_WORLD_INTERP"] * 3600, array_class.T)
     ):
@@ -849,7 +845,6 @@ def merge_with_2mass(
         nindices_clean,
         ndistances_clean,
     ):
-
         # Convert current indices and distances to arrays
         nib = np.array(nib, dtype=int)
         ndb = np.array(ndb, dtype=float)
