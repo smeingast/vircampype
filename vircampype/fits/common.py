@@ -35,8 +35,11 @@ class FitsFiles:
         elif isinstance(file_paths, str):
             file_paths = [file_paths]
 
+        # Resolve absolute paths and sort
+        file_paths = sorted(os.path.abspath(x) for x in file_paths)
+
         # Paths and properties
-        self.paths_full = [os.path.abspath(x) for x in file_paths]
+        self.paths_full = file_paths
         self.basenames = [os.path.basename(x) for x in self.paths_full]
         self.names = [
             x.removesuffix(".fits.fz").removesuffix(".fits") for x in self.basenames
