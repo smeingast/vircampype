@@ -337,7 +337,7 @@ def linearize_data(data, coeff, texptime, reset_read_overhead):
     elif order == 3:
         roots = cuberoot_idl(*coeff_copy)
     else:
-        raise ValueError("Order '{0}' not supported".format(order))
+        raise ValueError(f"Order '{order}' not supported")
 
     # Select closest value from the real roots
     data_lin = (
@@ -502,7 +502,7 @@ def meshgrid(array, size=128):
             )
         )
     else:
-        raise ValueError("{0:d}-dimensional data not supported".format(array.ndim))
+        raise ValueError(f"{array.ndim:d}-dimensional data not supported")
 
 
 def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
