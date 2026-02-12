@@ -83,10 +83,8 @@ def _run_pipeline(setup: Optional[str], reset_progress: bool, clean: bool) -> No
 
     if clean:
         folders = pipeline.setup.folders
-        for key, path in folders.items():
-            if key in ("pype", "raw"):
-                continue
-            remove_directory(path)
+        remove_directory(folders["object"])
+        remove_directory(folders["phase3"])
         return
 
     if reset_progress:
