@@ -438,8 +438,15 @@ def remove_directory(path_folder: str) -> None:
     -------
     None
     """
+    def _on_error(func, path, exc_info):
+        """Skip macOS metadata files locked by the OS on network shares."""
+        if isinstance(exc_info[1], OSError) and exc_info[1].errno in (16, 66):
+            pass
+        else:
+            raise exc_info[1]
+
     try:
-        shutil.rmtree(path_folder)
+        shutil.rmtree(path_folder, onerror=_on_error)
     except FileNotFoundError:
         pass
 
