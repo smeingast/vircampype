@@ -4,7 +4,8 @@ VIRCAM pipeline entrypoint.
 
 Usage examples:
     python vircam_worker.py --setup /path/to/setup.yml
-    python vircam_worker.py --reset --setup /path/to/setup.yml
+    python vircam_worker.py --reset-progress --setup /path/to/setup.yml
+    python vircam_worker.py --clean --setup /path/to/setup.yml
     python vircam_worker.py --sort /path/to/files/*fits
 
 Tip (dev install):
@@ -23,7 +24,7 @@ from vircampype.tools.datatools import (
     sort_vircam_science,
     split_in_science_and_calibration,
 )
-from vircampype.tools.systemtools import clean_directory
+from vircampype.tools.systemtools import clean_directory, remove_directory
 
 
 def get_worker_path() -> str:
@@ -56,8 +57,13 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
-        "--reset",
-        help="Reset pipeline progress (clears temp and headers folders from setup).",
+        "--reset-progress",
+        help="Reset pipeline progress (clears temp and headers folders).",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--clean",
+        help="Remove all folders within the setup folder structure.",
         action="store_true",
     )
     return parser.parse_args(argv)
@@ -71,11 +77,19 @@ def _run_sort(paths: Sequence[str]) -> None:
     sort_vircam_science(paths_science=paths_science)
 
 
-def _run_pipeline(setup: Optional[str], reset: bool) -> None:
+def _run_pipeline(setup: Optional[str], reset_progress: bool, clean: bool) -> None:
     pipeline = Pipeline(setup=setup)
     _set_console_title(pipeline.setup.name)
 
-    if reset:
+    if clean:
+        folders = pipeline.setup.folders
+        for key, path in folders.items():
+            if key in ("pype", "raw"):
+                continue
+            remove_directory(path)
+        return
+
+    if reset_progress:
         clean_directory(pipeline.setup.folders["temp"])
         clean_directory(pipeline.setup.folders["headers"])
         return
@@ -93,7 +107,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _run_sort(args.sort)
         return 0
 
-    _run_pipeline(setup=args.setup, reset=args.reset)
+    _run_pipeline(
+        setup=args.setup, reset_progress=args.reset_progress, clean=args.clean
+    )
     return 0
 
 
