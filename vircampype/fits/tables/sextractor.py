@@ -2182,7 +2182,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 raise ValueError("Classifiation tables not found")
 
         # Instantiate classification tables
-        tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
+        tables_class = None
+        if self.setup.source_classification:
+            tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
 
         # Find weight images
         paths_weights = [
@@ -2367,7 +2369,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Read weight
                 log.info("Reading weight")
                 weight_data, weight_hdr = fits.getdata(
-                    paths_weights[0], widx, header=True
+                    paths_weights[idx_file], widx, header=True
                 )
 
                 # Merge with 2MASS

@@ -473,7 +473,7 @@ def convert2public(
     try:
         data_cls = input_table["CLASS_STAR_INTERP"]
     except KeyError:
-        data_cls = np.full_like(data_exptime.value, fill_value=1.0)
+        data_cls = np.full_like(data_exptime, fill_value=1.0)
     data_mag_2mass = input_table["MAG_2MASS"]
     data_magerr_2mass = input_table["MAGERR_2MASS"]
     data_errmaj_2mass = input_table["ERRMAJ_2MASS"]
