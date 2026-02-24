@@ -140,7 +140,7 @@ class DarkImages(FitsImages):
                     key="HIERARCH PYPE DC STD",
                     value=dc_std,
                     decimals=3,
-                    comment="Dark current standard deviation in ADU",
+                    comment="Dark current standard deviation in ADU/s",
                 )
                 data_headers.append(header)
 
