@@ -388,11 +388,8 @@ def remove_duplicates_wcs(
 
         # Run stilts
         cmd = (
-            '{5} tmatch1 matcher=sky values="{0} {1}" params={2} '
-            "action=keep1 in={3} out={4}"
-            "".format(
-                key_lon, key_lat, sep, temp_name, temp_name_clean, which(bin_name)
-            )
+            f'{which(bin_name)} tmatch1 matcher=sky values="{key_lon} {key_lat}"'
+            f" params={sep} action=keep1 in={temp_name} out={temp_name_clean}"
         )
         run_command_shell(cmd=cmd, silent=silent)
 

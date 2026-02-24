@@ -1,5 +1,5 @@
-from vircampype.tools.plottools import *
 from vircampype.fits.images.common import MasterImages
+from vircampype.tools.plottools import *
 
 
 class MasterBadPixelMask(MasterImages):
@@ -31,10 +31,7 @@ class MasterBadPixelMask(MasterImages):
 
         # Generate path for plots
         if paths is None:
-            paths = [
-                "{0}{1}.pdf".format(self.setup.folders["qc_bpm"], fp)
-                for fp in self.basenames
-            ]
+            paths = [f"{self.setup.folders['qc_bpm']}{fp}.pdf" for fp in self.basenames]
 
         # Loop over files and create plots
         for bpm, path in zip(self.bpmfracs, paths):

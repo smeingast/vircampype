@@ -1,16 +1,16 @@
 import time
 import warnings
-import numpy as np
 
+import numpy as np
 from astropy.io import fits
-from vircampype.tools.plottools import *
-from vircampype.tools.messaging import *
-from vircampype.tools.fitstools import *
-from vircampype.data.cube import ImageCube
-from vircampype.tools.miscellaneous import *
 from astropy.stats import sigma_clipped_stats
-from vircampype.fits.images.common import FitsImages
-from vircampype.fits.images.common import MasterImages
+
+from vircampype.data.cube import ImageCube
+from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.tools.fitstools import *
+from vircampype.tools.messaging import *
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.plottools import *
 
 
 class DarkImages(FitsImages):
@@ -34,18 +34,18 @@ class DarkImages(FitsImages):
         split = prune_list(split, n_min=3)
 
         # Now loop through separated files and build the Masterdarks
-        for files, fidx in zip(
-            split, range(1, len(split) + 1)
-        ):  # type: DarkImages, int
+        for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
             # Check sequence suitability for Dark (same number of HDUs and NDIT)
             files.check_compatibility(n_hdu_max=1, n_ndit_max=1, n_dit_max=1)
 
             # Create Mastedark name
-            outpath = (f"{files.setup.folders['master_common']}"
-                       f"MASTER-DARK.DIT_{files.dit[0]}"
-                       f".NDIT_{files.ndit[0]}"
-                       f".MJD_{files.mjd_mean:0.4f}"
-                       f".fits")
+            outpath = (
+                f"{files.setup.folders['master_common']}"
+                f"MASTER-DARK.DIT_{files.dit[0]}"
+                f".NDIT_{files.ndit[0]}"
+                f".MJD_{files.mjd_mean:0.4f}"
+                f".fits"
+            )
 
             # Check if the file is already there and skip if it is
             if (
@@ -213,8 +213,7 @@ class MasterDark(MasterImages):
         # Generate path for plots
         if paths is None:
             paths = [
-                "{0}{1}.pdf".format(self.setup.folders["qc_dark"], fp)
-                for fp in self.basenames
+                f"{self.setup.folders['qc_dark']}{fp}.pdf" for fp in self.basenames
             ]
 
         # Loop over files and create plots

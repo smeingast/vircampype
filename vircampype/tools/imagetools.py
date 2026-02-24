@@ -158,7 +158,7 @@ def chop_image(array, npieces, axis=0, overlap=None):
 
     # Axis must be 0 or 1
     if axis not in [0, 1]:
-        raise ValueError("Axis={0:0d} not supported".format(axis))
+        raise ValueError(f"Axis={axis:0d} not supported")
 
     # If there is no overlap, we can just use the numpy function
     if overlap is None:
@@ -230,7 +230,7 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
     # Axis must be 0 or 1
     if axis not in [0, 1]:
-        raise ValueError("Axis={0:0d} not supported".format(axis))
+        raise ValueError(f"Axis={axis:0d} not supported")
 
     # Get other axis
     otheraxis = 1 if axis == 0 else 0

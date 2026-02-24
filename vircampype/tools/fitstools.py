@@ -2,6 +2,7 @@ import os.path
 import re
 import warnings
 from typing import List, Optional, Union
+
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
@@ -275,7 +276,7 @@ def make_mef_image(
 
             # Write EXTNAME
             if write_extname:
-                hdr.set("EXTNAME", value="HDU{0:>02d}".format(pidx + 1), after="BITPIX")
+                hdr.set("EXTNAME", value=f"HDU{pidx + 1:>02d}", after="BITPIX")
 
             # Append HDU
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
@@ -362,17 +363,17 @@ def add_float_to_header(
             pass
 
     if decimals == 1:
-        c = fits.Card.fromstring("{0:8}= {1:0.1f}".format(key, value))
+        c = fits.Card.fromstring(f"{key:8}= {value:0.1f}")
     elif decimals == 2:
-        c = fits.Card.fromstring("{0:8}= {1:0.2f}".format(key, value))
+        c = fits.Card.fromstring(f"{key:8}= {value:0.2f}")
     elif decimals == 3:
-        c = fits.Card.fromstring("{0:8}= {1:0.3f}".format(key, value))
+        c = fits.Card.fromstring(f"{key:8}= {value:0.3f}")
     elif decimals == 4:
-        c = fits.Card.fromstring("{0:8}= {1:0.4f}".format(key, value))
+        c = fits.Card.fromstring(f"{key:8}= {value:0.4f}")
     elif decimals == 5:
-        c = fits.Card.fromstring("{0:8}= {1:0.5f}".format(key, value))
+        c = fits.Card.fromstring(f"{key:8}= {value:0.5f}")
     elif decimals == 6:
-        c = fits.Card.fromstring("{0:8}= {1:0.6f}".format(key, value))
+        c = fits.Card.fromstring(f"{key:8}= {value:0.6f}")
     else:
         raise ValueError("Add more options for decimals")
     c.comment = comment
@@ -385,7 +386,7 @@ def add_int_to_header(header, key, value, comment=None, remove_before=True):
             header.remove(key, remove_all=True)
         except KeyError:
             pass
-    c = fits.Card.fromstring("{0:8}= {1:0d}".format(key, value))
+    c = fits.Card.fromstring(f"{key:8}= {value:0d}")
     c.comment = comment
     header.append(c)
 

@@ -1,9 +1,9 @@
 import warnings
-import numpy as np
 
-from scipy.stats import sem
-from astropy.units import Unit
+import numpy as np
 from astropy.stats import sigma_clip, sigma_clipped_stats
+from astropy.units import Unit
+from scipy.stats import sem
 
 __all__ = ["get_zeropoint", "vega2ab", "get_default_extinction"]
 
@@ -87,8 +87,9 @@ def get_zeropoint(
 
     # Raise error if no sources are found
     if len(mag_ref) == 0:
-        raise ValueError("No matched sources found in "
-                         "reference catalog for ZP determination!")
+        raise ValueError(
+            "No matched sources found in reference catalog for ZP determination!"
+        )
 
     # Compute ZP for each source
     mag_diff = (mag_ref - mag_cal.T).T
@@ -103,7 +104,6 @@ def get_zeropoint(
 
         # Median ZP
         if method.lower() == "median":
-
             # Get sigma-clipped stats
             _, zp, zp_err = sigma_clipped_stats(
                 data=mag_diff, sigma=3, maxiters=3, axis=0
@@ -111,15 +111,14 @@ def get_zeropoint(
 
         # Weighted ZP
         elif method.lower() == "weighted":
-
             # Apply match to errors
             mag_err_ref = mag_err_ref[idx_ref]
             mag_err_cal = mag_err_cal[idx_sci]
 
             # Sigma clip mag_diff array and set weights of outliers to 0
             mask = sigma_clip(mag_diff, sigma=2.5, maxiters=5, axis=0).mask
-            err_tot = np.sqrt(mag_err_ref ** 2 + mag_err_cal.T ** 2)
-            weights = (1 / err_tot ** 2).T.copy()
+            err_tot = np.sqrt(mag_err_ref**2 + mag_err_cal.T**2)
+            weights = (1 / err_tot**2).T.copy()
             weights[mask] = 0.0
 
             # Make sure data and weights do not contain NaNs
@@ -190,7 +189,7 @@ def vega2ab(mag, passband):
     elif passband.lower() == "ks":
         cor = 1.85
     else:
-        raise ValueError("Filter {0} not supported".format(passband))
+        raise ValueError(f"Filter {passband} not supported")
 
     return mag + cor
 

@@ -318,9 +318,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # Now loop through separated files
         for files, idx_print in zip(split, range(1, len(split) + 1)):
             # Create master dark name
-            outpath = self.setup.folders[
-                "master_object"
-            ] + "MASTER-ILLUMINATION-CORRECTION_{0:11.5f}.fits".format(files.mjd_mean)
+            outpath = (
+                self.setup.folders["master_object"]
+                + f"MASTER-ILLUMINATION-CORRECTION_{files.mjd_mean:11.5f}.fits"
+            )
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -871,12 +872,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # Loop over files
         for idx_file in range(len(self)):
             # Generate outpath
-            outpath_sep = "{0}{1}_astr_referr_sep.pdf".format(
-                self.setup.folders["qc_astrometry"], self.names[idx_file]
-            )
-            outpath_ang = "{0}{1}_astr_referr_ang.pdf".format(
-                self.setup.folders["qc_astrometry"], self.names[idx_file]
-            )
+            outpath_sep = f"{self.setup.folders['qc_astrometry']}{self.names[idx_file]}_astr_referr_sep.pdf"
+            outpath_ang = f"{self.setup.folders['qc_astrometry']}{self.names[idx_file]}_astr_referr_ang.pdf"
 
             # Check if file already exists
             if check_file_exists(file_path=outpath_ang, silent=self.setup.silent):
@@ -982,7 +979,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 ):
                     # Annotate detector ID
                     ax.annotate(
-                        "Det.ID: {0:0d}".format(idx_hdu + 1),
+                        f"Det.ID: {idx_hdu + 1:0d}",
                         xy=(0.02, 1.01),
                         xycoords="axes fraction",
                         ha="left",
@@ -1052,9 +1049,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         # Loop over files
         for idx_file in range(len(self)):
             # Generate outpath
-            outpath = "{0}{1}_astr_referror2d.pdf".format(
-                self.setup.folders["qc_astrometry"], self.names[idx_file]
-            )
+            outpath = f"{self.setup.folders['qc_astrometry']}{self.names[idx_file]}_astr_referror2d.pdf"
 
             # Check if file exists
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -1174,7 +1169,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Annotate detector ID
                 ax_all[idx_hdu].annotate(
-                    "Det.ID: {0:0d}".format(idx_hdu + 1),
+                    f"Det.ID: {idx_hdu + 1:0d}",
                     xy=(0.02, 1.01),
                     xycoords="axes fraction",
                     ha="left",
@@ -1359,7 +1354,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def photerr_internal(self):
         # Create pickle path
-        pickle_path = "{0}photerr_interal.p".format(self.setup.folders["temp"])
+        pickle_path = f"{self.setup.folders['temp']}photerr_interal.p"
 
         # Try to load from file
         try:
@@ -1399,9 +1394,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Print error
             print_message(
-                message="err = {0:0.4f} mag".format(
-                    photerr_internal_dict["photerr_internal"]
-                )
+                message=f"err = {photerr_internal_dict['photerr_internal']:0.4f} mag"
             )
             print_message(
                 message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
@@ -1527,11 +1520,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # let's say we can't have more than 5% of sources outside the edges
                 if sum(bad) / len(bad) > 0.05:
                     raise ValueError(
-                        "Too many sources are close to the image edge ({0}/{1}). "
-                        "Please check for issues. (file: {2}, TableHDU: {3})"
-                        "".format(
-                            sum(bad), len(bad), self.paths_full[idx_file], idx_hdu_self
-                        )
+                        f"Too many sources are close to the image edge ({sum(bad)}/{len(bad)}). "
+                        f"Please check for issues. (file: {self.paths_full[idx_file]}, TableHDU: {idx_hdu_self})"
                     )
 
                 # Reset bad coordinates to 0/0
@@ -1608,7 +1598,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
     def paths_qc_plots(self, paths, prefix=""):
         if paths is None:
             return [
-                "{0}{1}.{2}.pdf".format(self.setup.folders["qc_photometry"], fp, prefix)
+                f"{self.setup.folders['qc_photometry']}{fp}.{prefix}.pdf"
                 for fp in self.basenames
             ]
         else:
@@ -1628,8 +1618,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         # Create output path
-        outpath = "{0}{1}.phot.interror.pdf".format(
-            self.setup.folders["qc_photometry"], self.setup.name
+        outpath = (
+            f"{self.setup.folders['qc_photometry']}{self.setup.name}.phot.interror.pdf"
         )
 
         # Check if the file is already there and skip if it is
@@ -1692,23 +1682,21 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             ax.set_xlabel("Internal photometric dispersion (mag)")
             ax.set_ylabel("Number of sources")
             ax.annotate(
-                "[{0:0.1f},{1:0.1f}) mag".format(mag_lo, mag_hi),
+                f"[{mag_lo:0.1f},{mag_hi:0.1f}) mag",
                 xy=(0.02, 0.99),
                 xycoords="axes fraction",
                 va="top",
                 ha="left",
             )
             ax.annotate(
-                "N = {0}/{1}".format(np.sum(idx_phot), len(idx_phot)),
+                f"N = {np.sum(idx_phot)}/{len(idx_phot)}",
                 xy=(0.98, 0.98),
                 xycoords="axes fraction",
                 ha="right",
                 va="top",
             )
             ax.annotate(
-                "Internal photometric dispersion {0:0.4f} mag".format(
-                    np.nanmedian(photerr_internal_dict["phot_err"][idx_phot])
-                ),
+                f"Internal photometric dispersion {np.nanmedian(photerr_internal_dict['phot_err'][idx_phot]):0.4f} mag",
                 xy=(0.01, 1.01),
                 xycoords="axes fraction",
                 ha="left",
@@ -1716,7 +1704,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 c="#1f77b4",
             )
             ax.annotate(
-                "Median photometric error {0:0.4f} mag".format(median_photerr_median),
+                f"Median photometric error {median_photerr_median:0.4f} mag",
                 xy=(0.01, 1.07),
                 xycoords="axes fraction",
                 ha="left",
@@ -1912,7 +1900,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Annotate detector ID
                 ax.annotate(
-                    "Det.ID: {0:0d}".format(idx_hdu + 1),
+                    f"Det.ID: {idx_hdu + 1:0d}",
                     xy=(0.98, 0.04),
                     xycoords="axes fraction",
                     ha="right",
@@ -1928,17 +1916,14 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Modify axes
                 if (idx_hdu < self.setup.fpa_layout[1]) | (len(ax_file) == 1):
                     ax.set_xlabel(
-                        "{0} {1} (mag)".format(
-                            self.setup.phot_reference_catalog.upper(),
-                            self.passband[idx_file],
-                        )
+                        f"{self.setup.phot_reference_catalog.upper()} {self.passband[idx_file]} (mag)"
                     )
                 else:
                     ax.axes.xaxis.set_ticklabels([])
                 if (
                     idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1
                 ) | (len(ax_file) == 1):
-                    ax.set_ylabel(r"$\Delta${0} (mag)".format(self.passband[idx_file]))
+                    ax.set_ylabel(rf"$\Delta${self.passband[idx_file]} (mag)")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
 
@@ -2098,7 +2083,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Annotate detector ID
                 ax.annotate(
-                    "Det.ID: {0:0d}".format(idx_hdu + 1),
+                    f"Det.ID: {idx_hdu + 1:0d}",
                     xy=(0.02, 1.01),
                     xycoords="axes fraction",
                     ha="left",

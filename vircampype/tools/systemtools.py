@@ -438,6 +438,7 @@ def remove_directory(path_folder: str) -> None:
     -------
     None
     """
+
     def _on_error(func, path, exc_info):
         """Skip macOS metadata files locked by the OS on network shares."""
         if isinstance(exc_info[1], OSError) and exc_info[1].errno in (16, 66):
@@ -502,13 +503,13 @@ def notify(
     -------
     None
     """
-    me = "-message {!r}".format(message)
-    ti = "-title {!r}".format(title) if title is not None else ""
-    su = "-subtitle {!r}".format(subtitle) if subtitle is not None else ""
-    so = "-sound {!r}".format(sound) if sound is not None else ""
-    op = "-open {!r}".format(open_url) if open_url is not None else ""
+    me = f"-message {message!r}"
+    ti = f"-title {title!r}" if title is not None else ""
+    su = f"-subtitle {subtitle!r}" if subtitle is not None else ""
+    so = f"-sound {sound!r}" if sound is not None else ""
+    op = f"-open {open_url!r}" if open_url is not None else ""
     ig = "-ignoreDnD" if ignore_dnd else ""
-    os.system("terminal-notifier {}".format(" ".join([me, ti, su, so, op, ig])))
+    os.system(f"terminal-notifier {' '.join([me, ti, su, so, op, ig])}")
 
 
 def make_symlinks(paths_files: List[str], paths_links: List[str]) -> None:

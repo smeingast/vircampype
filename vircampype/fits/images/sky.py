@@ -2191,9 +2191,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 # Modify file paths with current extension
                 paths_full_mod = [f"{x}[{idx_data_hdu}]" for x in files.paths_full]
                 cmd = (
-                    f"{sws.bin} "
-                    f"{' '.format(idx_data_hdu).join(paths_full_mod)} "
-                    f"-c {sws.default_config} {ss}"
+                    f"{sws.bin} {' '.join(paths_full_mod)} -c {sws.default_config} {ss}"
                 )
 
                 # Run Swarp in bash (only bash understand the [ext] options,
@@ -2873,7 +2871,7 @@ class SkyImagesResampled(SkyImagesProcessed):
 
                 # Construct final command
                 cmd = (
-                    f"{sws.bin} {' '.format(idx_data_hdu).join(paths_image_mod)} "
+                    f"{sws.bin} {' '.join(paths_image_mod)} "
                     f"-c {sws.default_config} {ss}"
                 )
 

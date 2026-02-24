@@ -200,10 +200,7 @@ def skycoord2visionsid(skycoord):
     )
 
     # Return string
-    return [
-        "{0:0>10.6f}{1}{2:0>9.6f}".format(ra, s, dec)
-        for ra, s, dec in zip(id1, sign, id2)
-    ]
+    return [f"{ra:0>10.6f}{s}{dec:0>9.6f}" for ra, s, dec in zip(id1, sign, id2)]
 
 
 def write_list(path_file: str, lst: List):

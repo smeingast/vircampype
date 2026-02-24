@@ -1,11 +1,11 @@
 import numpy as np
-
 from astropy import wcs
+from astropy.coordinates import ICRS, AltAz, EarthLocation, Galactic, SkyCoord
 from astropy.io import fits
 from astropy.time import Time
-from vircampype.tools.mathtools import *
 from astropy.wcs.utils import fit_wcs_from_points, wcs_to_celestial_frame
-from astropy.coordinates import ICRS, Galactic, AltAz, EarthLocation, SkyCoord
+
+from vircampype.tools.mathtools import *
 
 __all__ = [
     "header_reset_wcs",
@@ -206,13 +206,13 @@ def skycoord2header(
 
     # Projection code
     if isinstance(skycoord.frame, ICRS):
-        ctype1 = "RA{:->6}".format(proj_code)
-        ctype2 = "DEC{:->5}".format(proj_code)
+        ctype1 = f"RA{proj_code:->6}"
+        ctype2 = f"DEC{proj_code:->5}"
     elif isinstance(skycoord.frame, Galactic):
-        ctype1 = "GLON{:->4}".format(proj_code)
-        ctype2 = "GLAT{:->4}".format(proj_code)
+        ctype1 = f"GLON{proj_code:->4}"
+        ctype2 = f"GLAT{proj_code:->4}"
     else:
-        raise ValueError("Frame {0:s} not supported".format(skycoord.frame))
+        raise ValueError(f"Frame {skycoord.frame:s} not supported")
 
     # Set CDELT in each axis (negative for longitude/x)
     cdelt1, cdelt2 = -cdelt, cdelt

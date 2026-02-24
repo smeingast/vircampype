@@ -1,8 +1,9 @@
-import numpy as np
+from typing import List, Tuple
 
-from astropy.time import Time
-from typing import Tuple, List
+import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
+
 from vircampype.fits.tables.common import FitsTables
 
 
@@ -128,7 +129,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         elif "k" in passband.lower():
             return 2
         else:
-            raise ValueError("Filter '{0}' not defined".format(passband))
+            raise ValueError(f"Filter '{passband}' not defined")
 
     __qflag = None
 
@@ -191,7 +192,7 @@ class MasterPhotometry2Mass(MasterPhotometry):
         elif "k" in passband.lower():
             return "Kmag"
         else:
-            raise ValueError("Passband '{0}' not defined".format(passband))
+            raise ValueError(f"Passband '{passband}' not defined")
 
     def mag_lim(self, passband: str) -> Tuple[float, float]:
         """

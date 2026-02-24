@@ -1,12 +1,13 @@
 # =========================================================================== #
 # Import
 import warnings
+from typing import List
+
 import numpy as np
 
-from typing import List
-from vircampype.tools.plottools import *
-from vircampype.tools.mathtools import *
 from vircampype.fits.tables.common import MasterTables
+from vircampype.tools.mathtools import *
+from vircampype.tools.plottools import *
 
 
 class MasterLinearity(MasterTables):
@@ -161,7 +162,7 @@ class MasterLinearity(MasterTables):
         # Need -1 here since the coefficients do not take an empty primary header
         # into account
         if hdu_index - 1 < 0:
-            raise ValueError("HDU with index {0} does not exits".format(hdu_index - 1))
+            raise ValueError(f"HDU with index {hdu_index - 1} does not exits")
 
         return [f[hdu_index - 1] for f in self.coeff]
 
@@ -197,7 +198,7 @@ class MasterLinearity(MasterTables):
         # Generate path for plots
         if paths is None:
             paths = [
-                "{0}{1}_detector.pdf".format(self.setup.folders["qc_linearity"], fp)
+                f"{self.setup.folders['qc_linearity']}{fp}_detector.pdf"
                 for fp in self.basenames
             ]
 
@@ -212,7 +213,6 @@ class MasterLinearity(MasterTables):
             )
 
     def qc_plot_linearity_fit(self, paths=None, axis_size=4):
-
         """
         Create the QC plot for the linearity measurements. Should only be used together
         with the above method.
@@ -228,12 +228,12 @@ class MasterLinearity(MasterTables):
 
         # Import matplotlib
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Generate path for plots
         if paths is None:
             paths = [
-                "{0}{1}_fit.pdf".format(self.setup.folders["qc_linearity"], fp)
+                f"{self.setup.folders['qc_linearity']}{fp}_fit.pdf"
                 for fp in self.basenames
             ]
 
@@ -247,7 +247,6 @@ class MasterLinearity(MasterTables):
             self.coeff,
             self.coeff_poly,
         ):
-
             # Get plot grid
             fig, axes = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -255,15 +254,15 @@ class MasterLinearity(MasterTables):
             axes = axes.ravel()
 
             # Helpers
-            alltexp, allflux = [i for s in texp for i in s], [
-                i for s in flux for i in s
-            ]
+            alltexp, allflux = (
+                [i for s in texp for i in s],
+                [i for s in flux for i in s],
+            )
             xmax = 1.05 * np.max(alltexp)
             ymax = 1.10 * np.max(self.setup.saturation_levels)
 
             # Plot
             for idx in range(len(texp)):
-
                 # Get those above the saturation
                 bad = np.array(flux[idx]) > self.setup.saturation_levels[idx]
 
@@ -323,16 +322,14 @@ class MasterLinearity(MasterTables):
 
                 # Annotate non-linearity and detector ID
                 ax.annotate(
-                    "NL$_{{10000}}$ (TEXP=2s)$=${}%".format(
-                        np.round(nl10000[idx], decimals=2)
-                    ),
+                    f"NL$_{{10000}}$ (TEXP=2s)$={np.round(nl10000[idx], decimals=2)}%",
                     xy=(0.03, 0.96),
                     xycoords="axes fraction",
                     ha="left",
                     va="top",
                 )
                 ax.annotate(
-                    "Det.ID: {0:0d}".format(idx + 1),
+                    f"Det.ID: {idx + 1:0d}",
                     xy=(0.96, 0.03),
                     xycoords="axes fraction",
                     ha="right",
@@ -376,18 +373,17 @@ class MasterLinearity(MasterTables):
 
         # Import matplotlib
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Generate path for plots
         if paths is None:
             paths = [
-                "{0}{1}_delta.pdf".format(self.setup.folders["qc_linearity"], fp)
+                f"{self.setup.folders['qc_linearity']}{fp}_delta.pdf"
                 for fp in self.basenames
             ]
 
         # Loop over files and create plots
         for idx_file in range(self.n_files):
-
             # Get plot grid
             fig, axes = get_plotgrid(
                 layout=self.setup.fpa_layout, xsize=axis_size, ysize=axis_size
@@ -399,7 +395,6 @@ class MasterLinearity(MasterTables):
             path = paths[idx_file]
 
             for idx_hdu in range(len(coeff_file)):
-
                 # Grab stuff for current HDU
                 ax = axes[idx_hdu]
                 coeff_hdu = coeff_file[idx_hdu]
@@ -426,7 +421,7 @@ class MasterLinearity(MasterTables):
                         data_lin[idx_texp] - data,
                         lw=2,
                         alpha=0.8,
-                        label="TEXP={0}".format(texps[idx_texp]),
+                        label=f"TEXP={texps[idx_texp]}",
                     )
 
                 # Draw saturation level
@@ -444,7 +439,7 @@ class MasterLinearity(MasterTables):
 
                 # Annotate Detector ID
                 ax.annotate(
-                    "Det.ID: {0:0d}".format(idx_hdu + 1),
+                    f"Det.ID: {idx_hdu + 1:0d}",
                     xy=(0.96, 0.03),
                     xycoords="axes fraction",
                     ha="right",

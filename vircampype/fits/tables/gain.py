@@ -1,5 +1,5 @@
-from vircampype.tools.plottools import *
 from vircampype.fits.tables.common import MasterTables
+from vircampype.tools.plottools import *
 
 
 class MasterGain(MasterTables):
@@ -56,7 +56,7 @@ class MasterGain(MasterTables):
 
         if paths is None:
             return [
-                "{0}{1}.{2}.pdf".format(self.setup.folders["qc_gain"], fp, prefix)
+                f"{self.setup.folders['qc_gain']}{fp}.{prefix}.pdf"
                 for fp in self.basenames
             ]
         else:
