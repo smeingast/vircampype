@@ -1,19 +1,20 @@
 import time
 import warnings
-import numpy as np
 
+import numpy as np
 from astropy.io import fits
-from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
-from vircampype.tools.plottools import *
-from vircampype.tools.messaging import *
-from vircampype.tools.mathtools import *
-from vircampype.tools.fitstools import *
+from scipy.optimize import curve_fit
+
 from vircampype.data.cube import ImageCube
-from vircampype.tools.miscellaneous import *
-from vircampype.fits.tables.gain import MasterGain
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.fits.tables.gain import MasterGain
+from vircampype.tools.fitstools import *
+from vircampype.tools.mathtools import *
+from vircampype.tools.messaging import *
+from vircampype.tools.miscellaneous import *
+from vircampype.tools.plottools import *
 
 
 class FlatImages(FitsImages):
@@ -59,7 +60,10 @@ class FlatTwilight(FlatImages):
             )
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=outpath, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Fetch the Masterfiles
@@ -359,7 +363,10 @@ class FlatLampLin(FlatImages):
             )
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=outpath, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Find BPMs
@@ -437,9 +444,12 @@ class FlatLampLin(FlatImages):
                     )
                 flux_lin = np.asarray(flux_lin)
 
-                # Interpolate non linearity at 10000 ADU
-                interp = interp1d(flux, flux_lin)
-                nl10000 = (interp(10000) / 10000 - 1) * 100
+                # Interpolate non linearity at 10000 ADU (guard against
+                # sequences whose flux range does not include 10000 ADU)
+                if flux.min() <= 10000 <= flux.max():
+                    nl10000 = float((interp1d(flux, flux_lin)(10000) / 10000 - 1) * 100)
+                else:
+                    nl10000 = np.nan
 
                 # Make fits cards for coefficients
                 cards_coeff, cards_poly = [], []
@@ -477,18 +487,6 @@ class FlatLampLin(FlatImages):
                     decimals=3,
                     comment="Non-linearity at 10000 ADU (%)",
                 )
-
-                # Linearize data
-                flux_clean_lin = []
-                for f, t in zip(flux_clean, texptime_clean):
-                    flux_clean_lin.append(
-                        linearize_data(
-                            data=f,
-                            coeff=coeff_norm,
-                            texptime=t,
-                            reset_read_overhead=1.0011,
-                        )
-                    )
 
                 # Add data to HDU
                 cdit = fits.Column(name="texp", format="D", array=texptime)
@@ -937,7 +935,7 @@ class MasterFlat(MasterImages):
 
         # Import matplotlib
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Generate path for plots
         paths = self.paths_qc_plots(paths=paths)
@@ -1063,7 +1061,7 @@ class MasterIlluminationCorrection(MasterImages):
 
         # Import
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 
         # Generate path for plots
         if paths is None:
