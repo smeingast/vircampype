@@ -80,11 +80,16 @@ class DarkImages(FitsImages):
                 # Read linearity coefficients
                 lcff = master_linearity.hdu2coeff(hdu_index=d)
 
-                # Scale cube with NDIT
+                # Scale cube with NDIT (each DIT starts from a fresh reset in DCR mode,
+                # so non-linearity is at the per-DIT level; normalise first so the
+                # signal level matches the NDIT=1 linearity calibration frames)
                 cube.scale_planes(scales=1 / files.ndit_norm)
 
-                # Linearize data
-                cube.linearize(coeff=lcff, texptime=files.texptime)
+                # Linearize data (use DIT, not DIT×NDIT: after NDIT normalisation the
+                # signal represents one DIT integration, matching the NDIT=1
+                # calibration frames; the reset-overhead factor kk = 1.0011/DIT
+                # is only correct at the per-DIT level)
+                cube.linearize(coeff=lcff, texptime=files.dit_norm)
 
                 # Masking methods
                 bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)

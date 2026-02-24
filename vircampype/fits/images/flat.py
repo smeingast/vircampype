@@ -96,11 +96,16 @@ class FlatTwilight(FlatImages):
                 lcff = master_linearity.hdu2coeff(hdu_index=d)
                 sat = self.setup.saturation_levels[d - 1]
 
-                # Scale data to NDIT=1
+                # Scale data to NDIT=1 (each DIT starts from a fresh reset in DCR
+                # mode, so non-linearity is at the per-DIT level; normalise first so
+                # the signal level matches the NDIT=1 linearity calibration frames)
                 cube.normalize(files.ndit)
 
-                # Linearize
-                cube.linearize(coeff=lcff, texptime=files.texptime)
+                # Linearize (use DIT, not DIT×NDIT: after NDIT normalisation the
+                # signal represents one DIT integration, matching the NDIT=1
+                # calibration frames; the reset-overhead factor kk = 1.0011/DIT
+                # is only correct at the per-DIT level)
+                cube.linearize(coeff=lcff, texptime=files.dit_norm)
 
                 # Subtract master dark
                 cube -= dark

@@ -669,7 +669,7 @@ class SkyImagesRaw(SkyImages):
         log.info("Fetching master files")
         master_gain = self.get_master_gain()
         log.info(f"Master gain:\n{master_gain.basenames2log}")
-        master_dark = self.get_master_dark(ignore_dit=True)
+        master_dark = self.get_master_dark(ignore_dit=False)
         log.info(f"Master dark:\n{master_dark.basenames2log}")
         master_linearity = self.get_master_linearity()
         log.info(f"Master linearity:\n{master_linearity.basenames2log}")
@@ -717,13 +717,18 @@ class SkyImagesRaw(SkyImages):
             dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
             lcff = master_linearity.file2coeff(file_index=idx_file)
 
-            # Norm to NDIT=1
+            # Norm to NDIT=1 (each DIT starts from a fresh reset in DCR mode, so
+            # non-linearity is at the per-DIT level; normalise first so the signal
+            # level matches the NDIT=1 linearity calibration frames)
             log.info(f"Normalizing to NDIT=1; using NDIT={self.ndit[idx_file]}")
             cube.normalize(norm=self.ndit[idx_file])
 
-            # Linearize
+            # Linearize (use DIT, not DIT×NDIT: after NDIT normalisation the signal
+            # represents one DIT integration, matching the NDIT=1 calibration frames;
+            # the reset-overhead factor kk = 1.0011/DIT is only correct at the
+            # per-DIT level)
             log.info(f"Linearizing data; using linearity coefficients:\n{lcff}")
-            cube.linearize(coeff=lcff, texptime=self.texptime[idx_file])
+            cube.linearize(coeff=lcff, texptime=self.dit[idx_file])
 
             # Subtract with dark
             cube -= dark
