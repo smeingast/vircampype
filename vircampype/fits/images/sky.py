@@ -550,7 +550,10 @@ class SkyImages(FitsImages):
                 raise ValueError("External header not found")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=outpath, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Print processing info
