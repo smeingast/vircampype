@@ -2023,7 +2023,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Make system temp directory for resampling
         path_resampled_dir = make_system_tempdir()
 
-        # Construct commands for source extraction
+        # Construct commands for resampling
         cmds = [
             (
                 f"{sws.bin} -c {sws.default_config} {path_image} "
@@ -2097,6 +2097,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Copy header entries from original file
             merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
+
+        # Remove temporary resampling directory
+        shutil.rmtree(path_resampled_dir, ignore_errors=True)
 
         # Print time
         print_message(
