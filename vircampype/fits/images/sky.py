@@ -202,13 +202,15 @@ class SkyImages(FitsImages):
         )
         tstart = time.time()
 
-        # Check for existing files
+        # Check for existing files and collect indices of tables to create
         path_tables_clean = []
-        if not self.setup.overwrite:
-            for pt in self.paths_source_tables(preset=preset):
-                check_file_exists(file_path=pt, silent=silent)
-                if not os.path.isfile(pt):
-                    path_tables_clean.append(pt)
+        indices_to_process = []
+        for idx, pt in enumerate(self.paths_source_tables(preset=preset)):
+            if self.setup.overwrite or not os.path.isfile(pt):
+                if not self.setup.overwrite:
+                    check_file_exists(file_path=pt, silent=silent)
+                path_tables_clean.append(pt)
+                indices_to_process.append(idx)
 
         # Set some common variables
         kwargs_yml = dict(
@@ -255,18 +257,15 @@ class SkyImages(FitsImages):
         ]
 
         # Construct commands for source extraction
+        master_weight_paths = self.get_master_weight_global().paths_full
         cmds = [
             (
-                f"{sxs.bin} -c {sxs.default_config} {image} "
+                f"{sxs.bin} -c {sxs.default_config} {self.paths_full[i]} "
                 f"-STARNNW_NAME {sxs.default_nnw} "
                 f"-CATALOG_NAME {catalog} "
-                f"-WEIGHT_IMAGE {weight} {ss}"
+                f"-WEIGHT_IMAGE {master_weight_paths[i]} {ss}"
             )
-            for image, catalog, weight in zip(
-                self.paths_full,
-                paths_tables_sex,
-                self.get_master_weight_global().paths_full,
-            )
+            for i, catalog in zip(indices_to_process, paths_tables_sex)
         ]
 
         # Check if there is a detection image available for each command
@@ -279,15 +278,15 @@ class SkyImages(FitsImages):
                 raise FileNotFoundError(emsg)
 
             # Add detection image to sextractor command
-            for idx, _ in enumerate(cmds):
-                cmds[idx] = cmds[idx].replace(
-                    self.paths_full[idx],
-                    f"{self.setup.sex_detection_image_path},{self.paths_full[idx]}",
+            for cmd_idx, i in enumerate(indices_to_process):
+                cmds[cmd_idx] = cmds[cmd_idx].replace(
+                    self.paths_full[i],
+                    f"{self.setup.sex_detection_image_path},{self.paths_full[i]}",
                 )
                 log.info(
                     f"Double image mode\n"
                     f"Detection image '{self.setup.sex_detection_image_path}'\n"
-                    f"Measurement image '{self.paths_full[idx]}'"
+                    f"Measurement image '{self.paths_full[i]}'"
                 )
 
         # Add kwargs to commands
@@ -314,10 +313,10 @@ class SkyImages(FitsImages):
         run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
 
         # Add some keywords to primary header
-        for cat, img in zip(paths_tables_sex, self.paths_full):
+        for cat, i in zip(paths_tables_sex, indices_to_process):
             copy_keywords(
                 path_1=cat,
-                path_2=img,
+                path_2=self.paths_full[i],
                 hdu_1=0,
                 hdu_2=0,
                 keywords=[self.setup.keywords.object, self.setup.keywords.filter_name],
