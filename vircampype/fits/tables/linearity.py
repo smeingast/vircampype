@@ -337,11 +337,11 @@ class MasterLinearity(MasterTables):
                 )
 
                 # Modify axes
-                if idx < self.setup.fpa_layout[1]:
+                if idx >= self.setup.fpa_layout[0] * (self.setup.fpa_layout[1] - 1):
                     ax.set_xlabel("TEXP (s)")
                 else:
                     ax.axes.xaxis.set_ticklabels([])
-                if idx % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1:
+                if idx % self.setup.fpa_layout[0] == 0:
                     ax.set_ylabel("ADU")
                 else:
                     ax.axes.yaxis.set_ticklabels([])
