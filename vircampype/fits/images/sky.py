@@ -2155,7 +2155,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             path_weight = path_stack.replace(".fits", ".weight.fits")
 
             # Check if file already exists
-            if check_file_exists(file_path=path_stack, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_stack, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Print processing info
@@ -2498,10 +2501,8 @@ class SkyImagesResampled(SkyImagesProcessed):
         log.info(f"Swarp command: {cmd}")
 
         # Run Swarp
-        if (
-            not check_file_exists(
-                file_path=self.setup.path_coadd, silent=self.setup.silent
-            )
+        if not (
+            check_file_exists(file_path=self.setup.path_coadd, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
             # Run Swarp
@@ -2848,7 +2849,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
 
             # Check if file already exists
-            if check_file_exists(file_path=path_stack, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_stack, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Print processing info
@@ -2943,7 +2947,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         outpath_final_weight = outpath_final.replace(".fits", ".weight.fits")
 
         # Check if file already exists
-        if check_file_exists(file_path=outpath_final, silent=self.setup.silent):
+        if (
+            check_file_exists(file_path=outpath_final, silent=self.setup.silent)
+            and not self.setup.overwrite
+        ):
             return
 
         # Generate temporary coadd and coadd weight names on local disk
