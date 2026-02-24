@@ -1431,7 +1431,7 @@ class SkyImagesProcessed(SkyImages):
                     weights[:] = (1 / bkg_std)[:, np.newaxis, np.newaxis]
                     weights[~np.isfinite(cube.cube)] = 0.0
                 else:
-                    metric = string2func(self.setup.flat_metric)
+                    metric = string2func(self.setup.sky_combine_metric)
                     weights = None
 
                 # Collapse cube
@@ -1467,8 +1467,15 @@ class SkyImagesProcessed(SkyImages):
             flat_scale_std = np.std(flat_scale, axis=1)
             flat_scale = np.mean(flat_scale, axis=1)
 
-            # Apply gain harmonization
-            master_cube.scale_planes(flat_scale)
+            # Apply gain harmonization only for the sky flat path: the master sky is
+            # used as a flat field (cube /= sky_norm), so flat_scale[d] must be baked
+            # in to normalise inter-detector gains. For the twilight path the science
+            # frames are already gain-harmonized by the twilight flat, so sky_norm must
+            # have mean=1 per detector; applying flat_scale here would cause sky_level
+            # (measured from the already gain-harmonized frame) to be multiplied by
+            # flat_scale a second time, over-subtracting sky by a factor flat_scale[d].
+            if self.setup.flat_type == "sky":
+                master_cube.scale_planes(flat_scale)
 
             # Mean flat field error
             flat_err = np.round(100.0 * np.mean(flat_scale_std), decimals=2)
