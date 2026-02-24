@@ -673,6 +673,10 @@ class SkyImagesRaw(SkyImages):
         log.info(f"Master dark:\n{master_dark.basenames2log}")
         master_linearity = self.get_master_linearity()
         log.info(f"Master linearity:\n{master_linearity.basenames2log}")
+        master_flat = None
+        if self.setup.flat_type == "twilight":
+            master_flat = self.get_master_twilight_flat()
+            log.info(f"Master flat:\n{master_flat.basenames2log}")
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
@@ -686,7 +690,10 @@ class SkyImagesRaw(SkyImages):
             log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=outpath, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 log.info("File already exists, skipping")
                 continue
 
@@ -736,7 +743,6 @@ class SkyImagesRaw(SkyImages):
             # Divide by flat if set
             if self.setup.flat_type == "twilight":
                 log.info("Dividing by twilight flat")
-                master_flat = self.get_master_twilight_flat()
                 mflat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
                 cube /= mflat
 
@@ -778,14 +784,12 @@ class SkyImagesRaw(SkyImages):
                 log.info(f"Modify data headers; extension {idx_hdu + 1}")
                 # Grab gain and readnoise
                 log.info(
-                    f"Scaling gain {master_gain.gain[idx_file][idx_hdu - 1]} "
+                    f"Scaling gain {master_gain.gain[idx_file][idx_hdu]} "
                     f"with NDIT={self.ndit[idx_file]}"
                 )
-                gain = (
-                    master_gain.gain[idx_file][idx_hdu - 1] * self.ndit_norm[idx_file]
-                )
+                gain = master_gain.gain[idx_file][idx_hdu] * self.ndit_norm[idx_file]
                 log.info(f"New gain: {gain}")
-                rdnoise = master_gain.rdnoise[idx_file][idx_hdu - 1]
+                rdnoise = master_gain.rdnoise[idx_file][idx_hdu]
                 log.info(f"Read noise: {rdnoise}")
 
                 # Grab other parameters
