@@ -718,7 +718,7 @@ class FlatLampGain(FlatImages):
 
             # Check sequence suitability for Dark (same number of HDUs and NDIT)
             flats.check_compatibility(n_hdu_max=1, n_ndit_max=1, n_filter_max=1)
-            if len(flats) != len(flats):
+            if len(flats) != len(darks):
                 raise ValueError("Gain sequence not compatible!")
 
             # Also DITs must match
@@ -782,8 +782,11 @@ class FlatLampGain(FlatImages):
             md0, md1 = d0.background_planes()[0], d1.background_planes()[0]
             gain = ((mf0 + mf1) - (md0 + md1)) / (fvar - dvar)
 
-            # Calculate readout noise
-            rdnoise = gain * np.sqrt(dvar / 2)
+            # Calculate readout noise (divide dvar by 2*NDIT, not 2: in DCR mode
+            # each of NDIT reads is independent, so Var(D0-D1) = 2*NDIT*σ²/G²
+            # and σ_read = G * sqrt(dvar / (2*NDIT)); omitting NDIT gives an
+            # over-estimate of read noise by a factor sqrt(NDIT))
+            rdnoise = gain * np.sqrt(dvar / (2 * darks.ndit[0]))
 
             # Make header cards
             prime_cards = make_cards(
