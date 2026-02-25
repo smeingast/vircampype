@@ -1426,7 +1426,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_out = f"{self.paths_full[idx_file]}.stats"
 
             # Check if file already exists
-            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Print processing info
@@ -1460,12 +1463,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             )
 
             # Check if files are available
-            if (
-                not os.path.isfile(path_mjd)
-                & os.path.isfile(path_exptime)
-                & os.path.isfile(path_nimg)
-                & os.path.isfile(path_astrms1)
-                & os.path.isfile(path_astrms2)
+            if not (
+                os.path.isfile(path_mjd)
+                and os.path.isfile(path_exptime)
+                and os.path.isfile(path_nimg)
+                and os.path.isfile(path_astrms1)
+                and os.path.isfile(path_astrms2)
             ):
                 raise ValueError("Matches for image statistics not found")
 
@@ -1546,14 +1549,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     astrms2[yy_image, xx_image],
                     weight[yy_image, xx_image],
                 )
-                # Convert to degrees
-                astrms_sources1 /= 3600
-                astrms_sources2 /= 3600
-
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
                 mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
-                astrms_sources1[bad], astrms_sources1[bad] = np.nan, np.nan
+                astrms_sources1[bad], astrms_sources2[bad] = np.nan, np.nan
                 nimg_sources[bad] = 0
 
                 # Make new columns
