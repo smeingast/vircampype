@@ -742,6 +742,188 @@ class SkyImages(FitsImages):
         log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
+def _process_one_basic_file(
+    idx_file,
+    files,
+    master_gain,
+    master_dark,
+    master_linearity,
+    master_flat,
+    dark_cache,
+    flat_cache,
+):
+    """Process a single raw science file through basic calibration and write to disk."""
+    setup = files.setup
+    log = PipelineLog()
+
+    # Create output path
+    outpath = (
+        f"{setup.folders['processed_basic']}{files.names[idx_file]}.proc.basic.fits"
+    )
+
+    log.info(f"Processing file {idx_file + 1}/{files.n_files}:\n{outpath}")
+
+    # Skip if already done
+    if (
+        check_file_exists(file_path=outpath, silent=setup.silent)
+        and not setup.overwrite
+    ):
+        log.info("File already exists, skipping")
+        return
+
+    # Print processing info
+    message_calibration(
+        n_current=idx_file + 1,
+        n_total=files.n_files,
+        name=outpath,
+        d_current=None,
+        d_total=None,
+        silent=setup.silent,
+    )
+
+    # Log more info
+    log.info(f"Number of extensions: {len(files.iter_data_hdu[idx_file])}")
+    log.info(f"Filter name: {files.passband[idx_file]}")
+    log.info(f"Target designation: {setup.name}")
+    log.info(f"Dark file name: {master_dark.basenames[idx_file]}")
+    log.info(f"Linearity file name: {master_linearity.basenames[idx_file]}")
+    log.info(f"Gain: {master_gain.gain[idx_file]}")
+    log.info(f"Read noise: {master_gain.rdnoise[idx_file]}")
+    log.info(f"Saturation levels: {setup.saturation_levels}")
+
+    # Read science file into cube
+    cube = files.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
+
+    # Fetch calibration data from pre-populated caches (read-only, thread-safe)
+    dark = dark_cache[master_dark.paths_full[idx_file]]
+    log.info(f"Using cached dark: {master_dark.basenames[idx_file]}")
+
+    # Linearity coefficients are already loaded in memory — no I/O
+    lcff = master_linearity.file2coeff(file_index=idx_file)
+
+    # Norm to NDIT=1 (each DIT starts from a fresh reset in DCR mode, so
+    # non-linearity is at the per-DIT level; normalise first so the signal
+    # level matches the NDIT=1 linearity calibration frames)
+    log.info(f"Normalizing to NDIT=1; using NDIT={files.ndit[idx_file]}")
+    cube.normalize(norm=files.ndit[idx_file])
+
+    # Linearize (use DIT, not DIT×NDIT: after NDIT normalisation the signal
+    # represents one DIT integration, matching the NDIT=1 calibration frames;
+    # the reset-overhead factor kk = 1.0011/DIT is only correct at the
+    # per-DIT level)
+    log.info(f"Linearizing data; using linearity coefficients:\n{lcff}")
+    cube.linearize(coeff=lcff, texptime=files.dit[idx_file])
+
+    # Subtract dark
+    cube -= dark
+
+    # Divide by flat if set
+    if setup.flat_type == "twilight":
+        log.info("Dividing by twilight flat")
+        cube /= flat_cache[master_flat.paths_full[idx_file]]
+
+    # Add file info to main header
+    phdr = files.headers_primary[idx_file].copy()
+    phdr.set(setup.keywords.object, value=setup.name, comment="Target designation")
+    phdr.set(
+        "DARKFILE", value=master_dark.basenames[idx_file], comment="Dark file name"
+    )
+    phdr.set(
+        "LINFILE",
+        value=master_linearity.basenames[idx_file],
+        comment="Linearity file name",
+    )
+    phdr.set("FILTER", value=files.passband[idx_file], comment="Filter name")
+
+    # Add setup to header
+    setup.add_setup_to_header(header=phdr)
+
+    # Copy data headers
+    hdrs_data = [
+        files.headers_data[idx_file][idx_hdu].copy()
+        for idx_hdu in range(len(files.iter_data_hdu[idx_file]))
+    ]
+
+    # Fix headers
+    if setup.fix_vircam_headers:
+        log.info("Fixing headers")
+        fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
+
+    # Add stuff to data headers
+    for idx_hdu, dhdr in enumerate(hdrs_data):
+        log.info(f"Modify data headers; extension {idx_hdu + 1}")
+        log.info(
+            f"Scaling gain {master_gain.gain[idx_file][idx_hdu]} "
+            f"with NDIT={files.ndit[idx_file]}"
+        )
+        gain = master_gain.gain[idx_file][idx_hdu] * files.ndit_norm[idx_file]
+        log.info(f"New gain: {gain}")
+        rdnoise = master_gain.rdnoise[idx_file][idx_hdu]
+        log.info(f"Read noise: {rdnoise}")
+
+        # Grab other parameters
+        offseti, noffsets, chipid = (
+            phdr["OFFSET_I"],
+            phdr["NOFFSETS"],
+            dhdr["HIERARCH ESO DET CHIP NO"],
+        )
+        photstab = offseti + noffsets * (chipid - 1)
+        log.info(f"Photometric stability ID: {photstab}")
+        dextinct = get_default_extinction(passband=files.passband[idx_file])
+        log.info(
+            f"Setting default extinction to {dextinct} "
+            f"for band {files.passband[idx_file]}"
+        )
+
+        # Add stuff to header
+        dhdr.set(setup.keywords.gain, value=np.round(gain, 3), comment="Gain (e-/ADU)")
+        dhdr.set(
+            setup.keywords.rdnoise,
+            value=np.round(rdnoise, 3),
+            comment="Read noise (e-)",
+        )
+        dhdr.set(
+            setup.keywords.saturate,
+            value=setup.saturation_levels[idx_hdu],
+            comment="Saturation level (ADU)",
+        )
+        dhdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
+        dhdr.set("OFFSET_I", value=offseti, comment="Current offset iteration")
+        dhdr.set(
+            "NJITTER", value=phdr["NJITTER"], comment="Total number of jitter positions"
+        )
+        dhdr.set("JITTER_I", value=phdr["JITTER_I"], comment="Current jitter iteration")
+        dhdr.set("PHOTSTAB", value=photstab, comment="Photometric stability ID")
+        dhdr.set(
+            "SCMPPHOT", value=offseti, comment="Photometric stability ID for Scamp"
+        )
+        dhdr.set(
+            setup.keywords.filter_name,
+            value=files.passband[idx_file],
+            comment="Filter name",
+        )
+        dhdr.set("FILTER", value=files.passband[idx_file], comment="Filter name")
+        dhdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
+
+        # Add Airmass
+        if setup.set_airmass:
+            airmass = get_airmass_from_header(
+                header=dhdr, time=dhdr[setup.keywords.date_ut]
+            )
+            log.info(f"Setting airmass to {airmass}")
+            dhdr.set(
+                setup.keywords.airmass,
+                value=airmass,
+                comment="Airmass at time of observation",
+            )
+
+    # Write to disk
+    log.info(f"Writing to disk:\n{outpath}")
+    cube.write_mef(
+        path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32"
+    )
+
+
 class SkyImagesRaw(SkyImages):
     def __init__(self, setup, file_paths=None):
         super(SkyImagesRaw, self).__init__(setup=setup, file_paths=file_paths)
@@ -770,217 +952,42 @@ class SkyImagesRaw(SkyImages):
             master_flat = self.get_master_twilight_flat()
             log.info(f"Master flat:\n{master_flat.basenames2log}")
 
-        # Caches to avoid re-reading the same calibration file for multiple science frames
-        _dark_cache: dict = {}
-        _flat_cache: dict = {}
-
-        # Loop over files and apply calibration
+        # Pre-populate calibration caches before the parallel section so that
+        # all worker threads access them read-only (no locking required).
+        log.info("Pre-loading calibration files into cache")
+        dark_cache: dict = {}
+        flat_cache: dict = {}
         for idx_file in range(self.n_files):
-            # Create output path
-            outpath = (
-                f"{self.setup.folders['processed_basic']}"
-                f"{self.names[idx_file]}.proc.basic.fits"
-            )
-
-            # Log processing info
-            log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
-
-            # Check if the file is already there and skip if it is
-            if (
-                check_file_exists(file_path=outpath, silent=self.setup.silent)
-                and not self.setup.overwrite
-            ):
-                log.info("File already exists, skipping")
-                continue
-
-            # Print processing info
-            message_calibration(
-                n_current=idx_file + 1,
-                n_total=self.n_files,
-                name=outpath,
-                d_current=None,
-                d_total=None,
-                silent=self.setup.silent,
-            )
-
-            # Log more info
-            log.info(f"Number of extensions: {len(self.iter_data_hdu[idx_file])}")
-            log.info(f"Filter name: {self.passband[idx_file]}")
-            log.info(f"Target designation: {self.setup.name}")
-            log.info(f"Dark file name: {master_dark.basenames[idx_file]}")
-            log.info(f"Linearity file name: {master_linearity.basenames[idx_file]}")
-            log.info(f"Gain: {master_gain.gain[idx_file]}")
-            log.info(f"Read noise: {master_gain.rdnoise[idx_file]}")
-            log.info(f"Saturation levels: {self.setup.saturation_levels}")
-
-            # Read file into cube
-            cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
-
-            # Get dark from cache (avoids re-reading the same file for multiple science frames)
             dark_path = master_dark.paths_full[idx_file]
-            if dark_path not in _dark_cache:
+            if dark_path not in dark_cache:
                 log.info(f"Loading dark into cache: {master_dark.basenames[idx_file]}")
-                _dark_cache[dark_path] = master_dark.file2cube(
+                dark_cache[dark_path] = master_dark.file2cube(
                     file_index=idx_file, dtype=np.float32
                 )
-            else:
-                log.info(f"Using cached dark: {master_dark.basenames[idx_file]}")
-            dark = _dark_cache[dark_path]
-
-            # Linearity coefficients are already loaded in memory — no caching needed
-            lcff = master_linearity.file2coeff(file_index=idx_file)
-
-            # Norm to NDIT=1 (each DIT starts from a fresh reset in DCR mode, so
-            # non-linearity is at the per-DIT level; normalise first so the signal
-            # level matches the NDIT=1 linearity calibration frames)
-            log.info(f"Normalizing to NDIT=1; using NDIT={self.ndit[idx_file]}")
-            cube.normalize(norm=self.ndit[idx_file])
-
-            # Linearize (use DIT, not DIT×NDIT: after NDIT normalisation the signal
-            # represents one DIT integration, matching the NDIT=1 calibration frames;
-            # the reset-overhead factor kk = 1.0011/DIT is only correct at the
-            # per-DIT level)
-            log.info(f"Linearizing data; using linearity coefficients:\n{lcff}")
-            cube.linearize(coeff=lcff, texptime=self.dit[idx_file])
-
-            # Subtract with dark
-            cube -= dark
-
-            # Divide by flat if set
             if self.setup.flat_type == "twilight":
-                log.info("Dividing by twilight flat")
                 flat_path = master_flat.paths_full[idx_file]
-                if flat_path not in _flat_cache:
+                if flat_path not in flat_cache:
                     log.info(
                         f"Loading flat into cache: {master_flat.basenames[idx_file]}"
                     )
-                    _flat_cache[flat_path] = master_flat.file2cube(
+                    flat_cache[flat_path] = master_flat.file2cube(
                         file_index=idx_file, dtype=np.float32
                     )
-                else:
-                    log.info(f"Using cached flat: {master_flat.basenames[idx_file]}")
-                cube /= _flat_cache[flat_path]
 
-            # Add file info to main header
-            phdr = self.headers_primary[idx_file].copy()
-            phdr.set(
-                self.setup.keywords.object,
-                value=self.setup.name,
-                comment="Target designation",
+        # Process files in parallel (threads backend: FITS I/O releases the GIL)
+        Parallel(n_jobs=self.setup.n_jobs_basic, prefer="threads")(
+            delayed(_process_one_basic_file)(
+                idx_file,
+                self,
+                master_gain,
+                master_dark,
+                master_linearity,
+                master_flat,
+                dark_cache,
+                flat_cache,
             )
-            phdr.set(
-                "DARKFILE",
-                value=master_dark.basenames[idx_file],
-                comment="Dark file name",
-            )
-            phdr.set(
-                "LINFILE",
-                value=master_linearity.basenames[idx_file],
-                comment="Linearity file name",
-            )
-            phdr.set("FILTER", value=self.passband[idx_file], comment="Filter name")
-
-            # Add setup to header
-            self.setup.add_setup_to_header(header=phdr)
-
-            # Copy data headers
-            hdrs_data = [
-                self.headers_data[idx_file][idx_hdu].copy()
-                for idx_hdu in range(len(self.iter_data_hdu[idx_file]))
-            ]
-
-            # Fix headers
-            if self.setup.fix_vircam_headers:
-                log.info("Fixing headers")
-                fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
-
-            # Add stuff to data headers
-            for idx_hdu, dhdr in enumerate(hdrs_data):
-                log.info(f"Modify data headers; extension {idx_hdu + 1}")
-                # Grab gain and readnoise
-                log.info(
-                    f"Scaling gain {master_gain.gain[idx_file][idx_hdu]} "
-                    f"with NDIT={self.ndit[idx_file]}"
-                )
-                gain = master_gain.gain[idx_file][idx_hdu] * self.ndit_norm[idx_file]
-                log.info(f"New gain: {gain}")
-                rdnoise = master_gain.rdnoise[idx_file][idx_hdu]
-                log.info(f"Read noise: {rdnoise}")
-
-                # Grab other parameters
-                offseti, noffsets, chipid = (
-                    phdr["OFFSET_I"],
-                    phdr["NOFFSETS"],
-                    dhdr["HIERARCH ESO DET CHIP NO"],
-                )
-                photstab = offseti + noffsets * (chipid - 1)
-                log.info(f"Photometric stability ID: {photstab}")
-                dextinct = get_default_extinction(passband=self.passband[idx_file])
-                log.info(
-                    f"Setting default extinction to {dextinct} "
-                    f"for band {self.passband[idx_file]}"
-                )
-
-                # Add stuff to header
-                dhdr.set(
-                    self.setup.keywords.gain,
-                    value=np.round(gain, 3),
-                    comment="Gain (e-/ADU)",
-                )
-                dhdr.set(
-                    self.setup.keywords.rdnoise,
-                    value=np.round(rdnoise, 3),
-                    comment="Read noise (e-)",
-                )
-                dhdr.set(
-                    self.setup.keywords.saturate,
-                    value=self.setup.saturation_levels[idx_hdu],
-                    comment="Saturation level (ADU)",
-                )
-                dhdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
-                dhdr.set("OFFSET_I", value=offseti, comment="Current offset iteration")
-                dhdr.set(
-                    "NJITTER",
-                    value=phdr["NJITTER"],
-                    comment="Total number of jitter positions",
-                )
-                dhdr.set(
-                    "JITTER_I",
-                    value=phdr["JITTER_I"],
-                    comment="Current jitter iteration",
-                )
-                dhdr.set("PHOTSTAB", value=photstab, comment="Photometric stability ID")
-                dhdr.set(
-                    "SCMPPHOT",
-                    value=offseti,
-                    comment="Photometric stability ID for Scamp",
-                )
-                dhdr.set(
-                    self.setup.keywords.filter_name,
-                    value=self.passband[idx_file],
-                    comment="Filter name",
-                )
-                dhdr.set("FILTER", value=self.passband[idx_file], comment="Filter name")
-                dhdr.set("DEXTINCT", value=dextinct, comment="Default extinction (mag)")
-
-                # Add Airmass
-                if self.setup.set_airmass:
-                    airmass = get_airmass_from_header(
-                        header=dhdr, time=dhdr[self.setup.keywords.date_ut]
-                    )
-                    log.info(f"Setting airmass to {airmass}")
-
-                    dhdr.set(
-                        self.setup.keywords.airmass,
-                        value=airmass,
-                        comment="Airmass at time of observation",
-                    )
-
-            # Write to disk
-            log.info(f"Writing to disk:\n{outpath}")
-            cube.write_mef(
-                path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32"
-            )
+            for idx_file in range(self.n_files)
+        )
 
         # Print time
         elapsed = time.time() - tstart
