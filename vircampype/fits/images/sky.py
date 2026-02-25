@@ -1583,11 +1583,17 @@ class SkyImagesProcessed(SkyImages):
         print_header(
             header="FINAL RAW PROCESSING", right=None, silent=self.setup.silent
         )
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Processing {self.n_files} final raw files:\n{self.basenames2log}")
         tstart = time.time()
 
         # Fetch the Masterfiles
         master_sky = self.get_master_sky()
+        log.info(f"Master sky:\n{master_sky.basenames2log}")
         master_source_mask = self.get_master_source_mask()
+        log.info(f"Master source mask:\n{master_source_mask.basenames2log}")
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
@@ -1597,11 +1603,15 @@ class SkyImagesProcessed(SkyImages):
                 f"{self.basenames[idx_file].replace('.proc.basic.', '.proc.final.')}"
             )
 
+            # Log processing info
+            log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
+
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -1613,6 +1623,11 @@ class SkyImagesProcessed(SkyImages):
                 d_total=None,
                 silent=self.setup.silent,
             )
+
+            # Log which master files are being used
+            log.info(f"Sky file: {master_sky.basenames[idx_file]}")
+            log.info(f"Mask file: {master_source_mask.basenames[idx_file]}")
+            log.info(f"Sky subtraction mode: {self.setup.flat_type}")
 
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
@@ -1635,6 +1650,7 @@ class SkyImagesProcessed(SkyImages):
 
             # Destriping
             if self.setup.destripe:
+                log.info("Destriping enabled")
                 sources = master_source_mask.file2cube(file_index=idx_file, dtype=bool)
                 if self.setup.qc_plots:
                     path_qc_destripe = (
@@ -1652,6 +1668,7 @@ class SkyImagesProcessed(SkyImages):
 
             # Background subtraction
             if self.setup.subtract_background:
+                log.info("Subtracting 2D background")
                 # Load source mask
                 sources = master_source_mask.file2cube(file_index=idx_file)
 
@@ -1685,6 +1702,7 @@ class SkyImagesProcessed(SkyImages):
 
             # Bad pixel interpolation
             if self.setup.interpolate_nan:
+                log.info("Interpolating NaN pixels")
                 cube.interpolate_nan()
 
             # Dummy check if too many pixels where masked
@@ -1729,6 +1747,7 @@ class SkyImagesProcessed(SkyImages):
                 data_headers=hdrs_data,
                 dtype="float32",
             )
+            log.info(f"Written: {outpath}")
 
         # Print time
         print_message(
