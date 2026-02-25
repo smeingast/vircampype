@@ -480,18 +480,19 @@ def convert2public(
     data_qflg_2mass = input_table["QFLG_2MASS"]
 
     # Convert 2MASS ERRMAJ/ERRMIN/ERRPA to ra/dec error and correlation coeff
+    # errMaj/errMin from 2MASS (VizieR II/246) are in arcsec; convert to mas
     data_ra_error_2mass, data_dec_error_2mass, data_ra_dec_corr_2mass = (
         convert_position_error(
-            errmaj=data_errmaj_2mass,
-            errmin=data_errmin_2mass,
+            errmaj=data_errmaj_2mass * 1000,
+            errmin=data_errmin_2mass * 1000,
             errpa=data_errpa_2mass,
             degrees=True,
         )
     )
 
-    # Compute total error
-    data_erra_tot = np.sqrt(data_erra**2 + astrms1**2)
-    data_errb_tot = np.sqrt(data_errb**2 + astrms2**2)
+    # Compute total error in mas: ERRAWIN_WORLD is in degrees, ASTRMS1/2 in mas
+    data_erra_tot = np.sqrt((data_erra * 3_600_000) ** 2 + astrms1**2)
+    data_errb_tot = np.sqrt((data_errb * 3_600_000) ** 2 + astrms2**2)
 
     # Now for a few sources the minor axis is larger than the major axis
     # For these we need to flip a and b and adjust the angle
@@ -625,8 +626,8 @@ def convert2public(
     mag_best[idx_2mass] = data_mag_2mass[idx_2mass]
     magerr_best[idx_2mass] = data_magerr_2mass[idx_2mass]
     data_cls[idx_2mass] = 1.0
-    data_erra_tot[idx_2mass] = data_errmaj_2mass[idx_2mass]
-    data_errb_tot[idx_2mass] = data_errmin_2mass[idx_2mass]
+    data_erra_tot[idx_2mass] = data_errmaj_2mass[idx_2mass] * 1000  # arcsec → mas
+    data_errb_tot[idx_2mass] = data_errmin_2mass[idx_2mass] * 1000  # arcsec → mas
     data_errpa[idx_2mass] = data_errpa_2mass[idx_2mass]
     data_ra_error[idx_2mass] = data_ra_error_2mass[idx_2mass]
     data_dec_error[idx_2mass] = data_dec_error_2mass[idx_2mass]
