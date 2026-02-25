@@ -3,8 +3,20 @@
 .fleet
 offline
 vircampype/visions/other
-vircampype.egg-info
 .DS_Store
-*pyc
 *code-workspace
 CLAUDE.md
+
+# Python build artefacts
+*.egg-info/
+dist/
+build/
+*.pyc
+__pycache__/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Claude Code
+.claude/
