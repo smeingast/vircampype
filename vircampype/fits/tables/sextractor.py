@@ -2397,6 +2397,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
                 # Convert to public format
                 log.info("Converting to public format")
+                log.info(f"Length before conversion: {len(tables_file[tidx])}")
                 tables_file[tidx] = convert2public(
                     tables_file[tidx],
                     photerr_internal=photerr_internal,
@@ -2404,6 +2405,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
                     survey_name=self.setup.survey_name,
                 )
+                log.info(f"Length after conversion: {len(tables_file[tidx])}")
 
             # Create primary header
             log.info("Creating primary header")
