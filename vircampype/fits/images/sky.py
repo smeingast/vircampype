@@ -13,6 +13,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
+from joblib import Parallel, delayed
 from scipy.ndimage.morphology import binary_closing
 from skimage.draw import disk
 from skimage.morphology import footprint_rectangle
@@ -37,6 +38,90 @@ from vircampype.tools.viziertools import *
 from vircampype.tools.wcstools import *
 
 logger = logging.getLogger(__name__)
+
+
+def _build_sky_detector(d, files, master_mask, master_bpm, setup):
+    """Process one detector for build_master_sky.
+
+    Parameters
+    ----------
+    d : int
+        HDU index of the detector to process.
+    files : SkyImages
+        Sky image collection for this group.
+    master_mask : MasterImages
+        Master source mask.
+    master_bpm : MasterImages
+        Master bad-pixel mask.
+    setup : Setup
+        Pipeline setup instance.
+
+    Returns
+    -------
+    tuple
+        (collapsed_float32, hdr, bkg, bkg_std)
+
+    """
+
+    # Get data
+    cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
+
+    # Get masks
+    sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
+    bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
+
+    # Apply masks
+    cube.apply_masks(sources=sources + bpm)
+
+    # Compute sky level in each plane
+    bkg, bkg_std = cube.background_planes()
+
+    # Normalize to same flux level
+    cube.normalize(norm=bkg)
+
+    # Apply sky masks
+    cube.apply_masks(
+        mask_min=setup.sky_mask_min,
+        mask_max=setup.sky_mask_max,
+        mask_below=setup.sky_rel_lo,
+        mask_above=setup.sky_rel_hi,
+        sigma_level=setup.sky_sigma_level,
+        sigma_iter=setup.sky_sigma_iter,
+    )
+
+    # Create weights if needed
+    if setup.sky_combine_metric == "weighted":
+        metric = "weighted"
+        weights = np.empty_like(cube.cube)
+        weights[:] = (1 / bkg_std)[:, np.newaxis, np.newaxis]
+        weights[~np.isfinite(cube.cube)] = 0.0
+    else:
+        metric = string2func(setup.sky_combine_metric)
+        weights = None
+
+    # Collapse cube
+    collapsed = cube.flatten(metric=metric, axis=0, weights=weights)
+
+    # Create header with sky measurements
+    hdr = fits.Header()
+    for cidx, bb in enumerate(bkg):
+        hdr.set(
+            f"HIERARCH PYPE SKY MEAN {cidx}",
+            value=np.round(bb, 2),
+            comment="Measured sky (ADU)",
+        )
+        hdr.set(
+            f"HIERARCH PYPE SKY NOISE {cidx}",
+            value=np.round(bkg_std[cidx], 2),
+            comment="Measured sky noise (ADU)",
+        )
+        hdr.set(
+            f"HIERARCH PYPE SKY MJD {cidx}",
+            value=np.round(files.mjd[cidx], 6),
+            comment="MJD of measured sky",
+        )
+
+    return collapsed.astype(np.float32), hdr, bkg, bkg_std
 
 
 class SkyImages(FitsImages):
@@ -1440,85 +1525,24 @@ class SkyImagesProcessed(SkyImages):
             # Instantiate output
             master_cube = ImageCube(setup=self.setup, cube=None)
 
-            # Start looping over detectors
+            # Process all detectors in parallel
             data_headers = []
             bkg_all, bkg_std_all = [], []
-            for d in files.iter_data_hdu[0]:
-                # Print processing info
-                message_calibration(
-                    n_current=fidx,
-                    n_total=len(split),
-                    name=outpath,
-                    d_current=d,
-                    d_total=max(files.iter_data_hdu[0]),
-                    silent=self.setup.silent,
+            results = Parallel(
+                n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+            )(
+                delayed(_build_sky_detector)(
+                    d, files, master_mask, master_bpm, self.setup
                 )
+                for d in files.iter_data_hdu[0]
+            )
 
-                # Get data
-                cube = files.hdu2cube(hdu_index=d, dtype=np.float32)
-
-                # Get masks
-                sources = master_mask.hdu2cube(hdu_index=d, dtype=np.uint8)
-                bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
-
-                # Apply masks cube
-                cube.apply_masks(sources=sources + bpm)
-
-                # Compute sky level in each plane
-                bkg, bkg_std = cube.background_planes()
+            # Reassemble results in detector order
+            for collapsed, hdr, bkg, bkg_std in results:
                 bkg_all.append(bkg)
                 bkg_std_all.append(bkg_std)
-
-                # Normalize to same flux level
-                cube.normalize(norm=bkg)
-
-                # Apply sky masks
-                cube.apply_masks(
-                    mask_min=self.setup.sky_mask_min,
-                    mask_max=self.setup.sky_mask_max,
-                    mask_below=self.setup.sky_rel_lo,
-                    mask_above=self.setup.sky_rel_hi,
-                    sigma_level=self.setup.sky_sigma_level,
-                    sigma_iter=self.setup.sky_sigma_iter,
-                )
-
-                # Create weights if needed
-                if self.setup.sky_combine_metric == "weighted":
-                    metric = "weighted"
-                    weights = np.empty_like(cube.cube)
-                    weights[:] = (1 / bkg_std)[:, np.newaxis, np.newaxis]
-                    weights[~np.isfinite(cube.cube)] = 0.0
-                else:
-                    metric = string2func(self.setup.sky_combine_metric)
-                    weights = None
-
-                # Collapse cube
-                collapsed = cube.flatten(metric=metric, axis=0, weights=weights)
-
-                # Create header with sky measurements
-                hdr = fits.Header()
-                for cidx, bb in enumerate(bkg):
-                    hdr.set(
-                        f"HIERARCH PYPE SKY MEAN {cidx}",
-                        value=np.round(bb, 2),
-                        comment="Measured sky (ADU)",
-                    )
-                    hdr.set(
-                        f"HIERARCH PYPE SKY NOISE {cidx}",
-                        value=np.round(bkg_std[cidx], 2),
-                        comment="Measured sky noise (ADU)",
-                    )
-                    hdr.set(
-                        f"HIERARCH PYPE SKY MJD {cidx}",
-                        value=np.round(files.mjd[cidx], 6),
-                        comment="MJD of measured sky",
-                    )
-
-                # Append to list
                 data_headers.append(hdr)
-
-                # Collapse extensions with specified metric and append to output
-                master_cube.extend(data=collapsed.astype(np.float32))
+                master_cube.extend(data=collapsed)
 
             # Compute gain harmonization
             flat_scale = np.array(bkg_all) / np.mean(bkg_all)
