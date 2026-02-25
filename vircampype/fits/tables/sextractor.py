@@ -877,7 +877,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             outpath_ang = f"{self.setup.folders['qc_astrometry']}{self.names[idx_file]}_astr_referr_ang.pdf"
 
             # Check if file already exists
-            if check_file_exists(file_path=outpath_ang, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=outpath_sep, silent=self.setup.silent)
+                and check_file_exists(file_path=outpath_ang, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Grab coordinates
@@ -1053,7 +1057,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             outpath = f"{self.setup.folders['qc_astrometry']}{self.names[idx_file]}_astr_referror2d.pdf"
 
             # Check if file exists
-            if check_file_exists(file_path=outpath, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=outpath, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Grab coordinates
@@ -1740,7 +1747,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_out = self.paths_qc_plots(paths=paths, prefix="zp")[idx_file]
 
             # Check if file already exists
-            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
             else:
                 message_calibration(
@@ -1788,7 +1798,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_out = self.paths_qc_plots(paths=paths, prefix="phot.1D")[idx_file]
 
             # Check if file already exists
-            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
             else:
                 message_calibration(
@@ -1964,7 +1977,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_out = self.paths_qc_plots(paths=None, prefix="phot.2D")[idx_file]
 
             # Check if file already exists
-            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
             else:
                 message_calibration(
