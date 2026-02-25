@@ -246,11 +246,13 @@ class FlatTwilight(FlatImages):
                 mflat.qc_plot_flat(paths=None, axis_size=5)
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     # =========================================================================== #
     # Master Weight
@@ -352,11 +354,13 @@ class FlatTwilight(FlatImages):
             log.info(f"Written: {outpaths[idx]}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class FlatLampLin(FlatImages):
@@ -572,11 +576,13 @@ class FlatLampLin(FlatImages):
                 ml.qc_plot_linearity_delta(paths=None, axis_size=5)
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class FlatLampCheck(FlatImages):
@@ -724,11 +730,13 @@ class FlatLampCheck(FlatImages):
                 mbpm.qc_plot_bpm(paths=None, axis_size=5)
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class FlatLampGain(FlatImages):
@@ -898,11 +906,13 @@ class FlatLampGain(FlatImages):
                 mgain.qc_plot_rdnoise(paths=None, axis_size=5)
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class MasterFlat(MasterImages):

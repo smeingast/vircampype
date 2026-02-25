@@ -200,11 +200,13 @@ class SextractorCatalogs(SourceCatalogs):
             raise ValueError("Astrometric solution may be crap, please check")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     # =========================================================================== #
     # Other properties
@@ -542,11 +544,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 msf.qc_plot2d(paths=None, axis_size=5)
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def calibrate_photometry(self):
         # Fetch log
@@ -853,11 +857,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             table_hdulist.close()
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def plot_qc_astrometry_1d(self, axis_size=5):
         # Import
@@ -1047,11 +1053,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             log.info(f"Written: {outpath_sep}, {outpath_ang}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def plot_qc_astrometry_2d(
         self, axis_size=5, key_x="XWIN_IMAGE", key_y="YWIN_IMAGE"
@@ -1252,11 +1260,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             log.info(f"Written: {outpath}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCatalogs):
@@ -1404,6 +1414,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 left=None,
                 right=None,
             )
+            log = PipelineLog()
             tstart = time.time()
 
             # Determine photometric statistics
@@ -1431,11 +1442,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             print_message(
                 message=f"err = {photerr_internal_dict['photerr_internal']:0.4f} mag"
             )
+            elapsed = time.time() - tstart
             print_message(
-                message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+                message=f"\n-> Elapsed time: {elapsed:.2f}s",
                 kind="okblue",
                 end="\n",
             )
+            log.info(f"Elapsed time: {elapsed:.2f}s")
 
         # Get median error of those
         return photerr_internal_dict
@@ -1631,11 +1644,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Written: {path_out}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def paths_qc_plots(self, paths, prefix=""):
         if paths is None:
@@ -1657,6 +1672,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             left=None,
             right=None,
         )
+        log = PipelineLog()
         tstart = time.time()
 
         # Create output path
@@ -1763,11 +1779,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         plt.close("all")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def plot_qc_phot_zp(self, paths=None, axis_size=5):
         """Generates ZP QC plot."""
@@ -1818,11 +1836,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Written: {path_out}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def plot_qc_phot_ref1d(self, paths=None, axis_size=5):
         # Import
@@ -2004,11 +2024,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Written: {path_out}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def plot_qc_phot_ref2d(self, axis_size=5):
         # Import
@@ -2209,11 +2231,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Written: {path_out}")
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_public_catalog(self, photerr_internal: float):
         # Fetch log
@@ -2491,5 +2515,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             hdulist_out.close()
 
         # Print time
-        pmsg = f"\n-> Elapsed time: {time.time() - tstart:.2f}s"
-        print_message(message=pmsg, kind="okblue", end="\n", logger=log)
+        elapsed = time.time() - tstart
+        print_message(
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+        log.info(f"Elapsed time: {elapsed:.2f}s")

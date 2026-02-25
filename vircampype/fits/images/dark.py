@@ -193,11 +193,13 @@ class DarkImages(FitsImages):
                 mdark.qc_plot_dark(paths=None, axis_size=5)
 
         # Print time
+        elapsed = time.time() - tstart
         print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
         )
+        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class MasterDark(MasterImages):

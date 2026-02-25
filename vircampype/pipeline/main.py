@@ -1,23 +1,23 @@
-import sys
 import glob
-import time
 import json
 import os.path
+import sys
+import time
 
-from vircampype.tools.systemtools import *
-from vircampype.pipeline.setup import Setup
-from vircampype.pipeline.log import PipelineLog
 from vircampype.fits.images.common import FitsImages
-from vircampype.pipeline.status import PipelineStatus
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.tools.fitstools import compress_images, combine_mjd_images
+from vircampype.pipeline.log import PipelineLog
+from vircampype.pipeline.setup import Setup
+from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
+from vircampype.tools.fitstools import combine_mjd_images, compress_images
 from vircampype.tools.messaging import (
-    print_message,
-    print_header,
-    print_start,
     print_end,
+    print_header,
+    print_message,
+    print_start,
 )
+from vircampype.tools.systemtools import *
 
 
 class Pipeline:
@@ -1023,6 +1023,7 @@ class Pipeline:
             print_header(
                 header="ARCHIVING", silent=self.setup.silent, left=None, right=None
             )
+            log = PipelineLog()
             tstart = time.time()
 
             # Shallow clean
@@ -1045,11 +1046,13 @@ class Pipeline:
                 run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
 
             # Print time
+            elapsed = time.time() - tstart
             print_message(
-                message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+                message=f"\n-> Elapsed time: {elapsed:.2f}s",
                 kind="okblue",
                 end="\n",
             )
+            log.info(f"Elapsed time: {elapsed:.2f}s")
 
             # Update status
             self.update_status(archive=True)

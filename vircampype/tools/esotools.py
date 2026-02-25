@@ -188,11 +188,13 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
         log.info(f"Written: {path_stk_p3}")
 
     # Print time
+    elapsed = time.time() - tstart
     print_message(
-        message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+        message=f"\n-> Elapsed time: {elapsed:.2f}s",
         kind="okblue",
         end="\n",
     )
+    log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 def _make_prime_header_stack(
@@ -653,11 +655,13 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     log.info(f"Written: {path_tile_p3}")
 
     # Print time
+    elapsed = time.time() - tstart
     print_message(
-        message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+        message=f"\n-> Elapsed time: {elapsed:.2f}s",
         kind="okblue",
         end="\n",
     )
+    log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 def _make_tile_headers(
