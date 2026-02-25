@@ -215,7 +215,7 @@ class Setup:
     # Fixed properties that users can't change
     @property
     def joblib_backend(self) -> str:
-        return "threads"
+        return "loky"
 
     @property
     def set_airmass(self) -> bool:

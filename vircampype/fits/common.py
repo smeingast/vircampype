@@ -1,11 +1,12 @@
-import os
 import glob
 import json
+import os
 import pickle
-import numpy as np
 
+import numpy as np
 from astropy.io import fits
 from astropy.time import Time
+
 from vircampype.pipeline.setup import Setup
 from vircampype.tools.systemtools import remove_file
 
@@ -229,22 +230,28 @@ class FitsFiles:
             for k in keywords
         ]
 
+    _headers_data = None
+
     @property
     def headers_data(self):
         """
-        Returns a list of primary headers for all files.
+        Returns a list of data headers for all files.
 
         Returns
         -------
         iterable
-            List of primary headers.
+            List of lists of data extension headers, one inner list per file.
 
         """
 
-        return [
+        if self._headers_data is not None:
+            return self._headers_data
+
+        self._headers_data = [
             [hdrs[i] for i in idx]
             for hdrs, idx in zip(self.headers, self.iter_data_hdu)
         ]
+        return self._headers_data
 
     def read_from_data_headers(self, keywords, file_index=None):
         """
