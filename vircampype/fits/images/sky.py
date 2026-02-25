@@ -770,6 +770,10 @@ class SkyImagesRaw(SkyImages):
             master_flat = self.get_master_twilight_flat()
             log.info(f"Master flat:\n{master_flat.basenames2log}")
 
+        # Caches to avoid re-reading the same calibration file for multiple science frames
+        _dark_cache: dict = {}
+        _flat_cache: dict = {}
+
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
             # Create output path
@@ -812,8 +816,18 @@ class SkyImagesRaw(SkyImages):
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
-            # Get master calibration
-            dark = master_dark.file2cube(file_index=idx_file, dtype=np.float32)
+            # Get dark from cache (avoids re-reading the same file for multiple science frames)
+            dark_path = master_dark.paths_full[idx_file]
+            if dark_path not in _dark_cache:
+                log.info(f"Loading dark into cache: {master_dark.basenames[idx_file]}")
+                _dark_cache[dark_path] = master_dark.file2cube(
+                    file_index=idx_file, dtype=np.float32
+                )
+            else:
+                log.info(f"Using cached dark: {master_dark.basenames[idx_file]}")
+            dark = _dark_cache[dark_path]
+
+            # Linearity coefficients are already loaded in memory — no caching needed
             lcff = master_linearity.file2coeff(file_index=idx_file)
 
             # Norm to NDIT=1 (each DIT starts from a fresh reset in DCR mode, so
@@ -835,8 +849,17 @@ class SkyImagesRaw(SkyImages):
             # Divide by flat if set
             if self.setup.flat_type == "twilight":
                 log.info("Dividing by twilight flat")
-                mflat = master_flat.file2cube(file_index=idx_file, dtype=np.float32)
-                cube /= mflat
+                flat_path = master_flat.paths_full[idx_file]
+                if flat_path not in _flat_cache:
+                    log.info(
+                        f"Loading flat into cache: {master_flat.basenames[idx_file]}"
+                    )
+                    _flat_cache[flat_path] = master_flat.file2cube(
+                        file_index=idx_file, dtype=np.float32
+                    )
+                else:
+                    log.info(f"Using cached flat: {master_flat.basenames[idx_file]}")
+                cube /= _flat_cache[flat_path]
 
             # Add file info to main header
             phdr = self.headers_primary[idx_file].copy()
