@@ -640,9 +640,9 @@ def convert2public(
     # Final cleaning of VISIONS sources to kick out useless rows
     idx_keep_survey = np.where(
         (data_erra_tot[idx_survey] > 0.0)
-        & (data_erra_tot[idx_survey] < 1000 / 3600)
+        & (data_erra_tot[idx_survey] < 1000)
         & (data_errb_tot[idx_survey] > 0.0)
-        & (data_errb_tot[idx_survey] < 1000.0 / 3600)
+        & (data_errb_tot[idx_survey] < 1000)
         & (data_errpa[idx_survey] > 0.0)
         & (mag_best[idx_survey] > 0.0)
         & (mag_best[idx_survey] < 50.0)
