@@ -497,11 +497,6 @@ class SkyImages(FitsImages):
                 remove_file(filepath=f)
             log.info("Removed sextractor catalogs")
 
-        # Clean up FWHM catalogs
-        for f in fwhm_catalogs.paths_full:
-            remove_file(filepath=f)
-        log.info("Removed FWHM catalogs")
-
         # Print time
         print_message(
             message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
