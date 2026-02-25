@@ -1,23 +1,22 @@
 import os
 import time
 import warnings
-import numpy as np
-
-from astropy import wcs
-from astropy.io import fits
-from astropy.time import Time
 from typing import List, Union
-from astropy.table import Table
-from vircampype import __version__
+
+import numpy as np
+from astropy import wcs
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astropy.table import Table
+from astropy.time import Time
+
+from vircampype import __version__
+from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
+from vircampype.tools.fitstools import add_float_to_header, mjd2dateobs
+from vircampype.tools.mathtools import centroid_sphere, clipped_median
 from vircampype.tools.messaging import *
 from vircampype.tools.photometry import *
-from vircampype.tools.fitstools import mjd2dateobs
-from vircampype.tools.mathtools import clipped_median
-from vircampype.tools.mathtools import centroid_sphere
-from vircampype.tools.fitstools import add_float_to_header
 from vircampype.tools.tabletools import fits_column_kwargs
-from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 
 __all__ = ["build_phase3_stacks", "build_phase3_tile"]
 
@@ -63,7 +62,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
     for idx_file in range(len(stacks_images)):
         # Construct phase 3 paths and names
         path_stk_p3 = (
-            f"{setup.folders['phase3']}{setup.name}" f"_st_{idx_file + 1:>02d}.fits"
+            f"{setup.folders['phase3']}{setup.name}_st_{idx_file + 1:>02d}.fits"
         )
         path_ctg_p3 = path_stk_p3.replace(".fits", ".sources.fits")
         path_wei_p3 = path_stk_p3.replace(".fits", ".weight.fits")
@@ -75,7 +74,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
             check_file_exists(pp3, silent=setup.silent)
             for pp3 in [path_stk_p3, path_ctg_p3, path_wei_p3]
         ]
-        if np.sum(p3_files) == 3:
+        if np.sum(p3_files) == 3 and not setup.overwrite:
             continue
 
         # Status message
@@ -387,9 +386,9 @@ def _make_extension_header_stack(
     zps, zperrs, idx = [], [], 0
     while True:
         try:
-            zps.append(hdu_ctg.header[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx + 1}"])
+            zps.append(hdu_ctg.header[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx}"])
             zperrs.append(
-                hdu_ctg.header[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {idx + 1}"]
+                hdu_ctg.header[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {idx}"]
             )
         except KeyError:
             break
@@ -523,7 +522,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     tstart = time.time()
 
     # There can be only one file in the current instance
-    if len(tile_image) != len(tile_catalog) != 1:
+    if len(tile_image) != 1 or len(tile_catalog) != 1:
         raise ValueError("Only one tile allowed")
 
     # Generate outpath
@@ -539,7 +538,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
         check_file_exists(pp3, silent=setup.silent)
         for pp3 in [path_tile_p3, path_weight_p3, path_catalog_p3]
     ]
-    if np.sum(check) == 3:
+    if np.sum(check) == 3 and not setup.overwrite:
         return
 
     # Status message
@@ -576,8 +575,8 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     )
 
     # Write to disk
-    hdul_tile_out.writeto(path_tile_p3, overwrite=False, checksum=True)
-    hdul_catalog_out.writeto(path_catalog_p3, overwrite=False, checksum=True)
+    hdul_tile_out.writeto(path_tile_p3, overwrite=True, checksum=True)
+    hdul_catalog_out.writeto(path_catalog_p3, overwrite=True, checksum=True)
 
     # There also has to be a weight map
     with fits.open(tile_image.paths_full[0].replace(".fits", ".weight.fits")) as weight:
@@ -637,7 +636,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
         hdu = fits.PrimaryHDU(data=weight[0].data, header=hdr_weight)
 
         # Save
-        hdu.writeto(path_weight_p3, overwrite=False, checksum=True)
+        hdu.writeto(path_weight_p3, overwrite=True, checksum=True)
 
     # Print time
     print_message(
@@ -686,10 +685,8 @@ def _make_tile_headers(
     zps, zperrs, idx = [], [], 0
     while True:
         try:
-            zps.append(e2hdr_ctg_in[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx + 1}"])
-            zperrs.append(
-                e2hdr_ctg_in[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {idx + 1}"]
-            )
+            zps.append(e2hdr_ctg_in[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx}"])
+            zperrs.append(e2hdr_ctg_in[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {idx}"])
         except KeyError:
             break
         idx += 1
