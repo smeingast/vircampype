@@ -10,6 +10,7 @@ from vircampype.data.cube import ImageCube
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.common import FitsImages, MasterImages
 from vircampype.fits.tables.gain import MasterGain
+from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import *
 from vircampype.tools.mathtools import *
 from vircampype.tools.messaging import *

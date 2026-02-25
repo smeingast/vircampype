@@ -7,6 +7,7 @@ from astropy.stats import sigma_clipped_stats
 
 from vircampype.data.cube import ImageCube
 from vircampype.fits.images.common import FitsImages, MasterImages
+from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.miscellaneous import *
