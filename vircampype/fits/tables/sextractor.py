@@ -2201,7 +2201,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Check if stats tables exist
         if self.n_files != np.sum([os.path.exists(p) for p in paths_stats]):
-            raise ValueError("Weight images not found")
+            raise ValueError("Statistics tables not found")
 
         # Instantiate weights
         weightimages = FitsImages(file_paths=paths_weights, setup=self.setup)
@@ -2221,7 +2221,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Creating public catalog: {path_out}")
 
             # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=path_out, silent=self.setup.silent):
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
                 continue
 
             # Print processing info
@@ -2240,8 +2243,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Passband input: {passband}; passband 2MASS: {passband_2mass}")
 
             # Load current table in HDUList
-            hdulist_in = fits.open(self.paths_full[idx_file])
-            log.info(f"Found {len(hdulist_in)} HDUs in current file")
+            with fits.open(self.paths_full[idx_file]) as hdulist_in:
+                filter_name = hdulist_in[0].header[self.setup.keywords.filter_name]
+            log.info(f"Opened current file")
 
             # Load source tables in current file
             tables_file = self.file2table(file_index=idx_file)
@@ -2411,12 +2415,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 comment="Internal photometric error (mag)",
                 decimals=4,
             )
-            phdr["FILTER"] = hdulist_in[0].header[self.setup.keywords.filter_name]
+            phdr["FILTER"] = filter_name
 
             # Create output file
             log.info("Creating TableHDU")
             hdulist_out = fits.HDUList(hdus=[fits.PrimaryHDU(header=phdr)])
-            [hdulist_out.append(table2bintablehdu(tc)) for tc in tables_file]
+            for tc in tables_file:
+                hdulist_out.append(table2bintablehdu(tc))
 
             # Write to new output file
             log.info("Writing to disk")
