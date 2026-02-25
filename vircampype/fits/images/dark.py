@@ -22,6 +22,12 @@ class DarkImages(FitsImages):
 
         # Processing info
         print_header(header="MASTER-DARK", silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master darks from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split files first on NDIT, then on lag
@@ -32,6 +38,7 @@ class DarkImages(FitsImages):
 
         # Remove sequences with too few images
         split = prune_list(split, n_min=3)
+        log.info(f"Number of dark groups: {len(split)}")
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: DarkImages, int
@@ -46,12 +53,14 @@ class DarkImages(FitsImages):
                 f".MJD_{files.mjd_mean:0.4f}"
                 f".fits"
             )
+            log.info(f"Processing dark group {fidx}/{len(split)}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Instantiate output
@@ -59,7 +68,9 @@ class DarkImages(FitsImages):
 
             # Get master linearity
             master_linearity = files.get_master_linearity()
+            log.info(f"Master linearity:\n{master_linearity.basenames2log}")
             master_bpm = files.get_master_bpm()
+            log.info(f"Master BPM:\n{master_bpm.basenames2log}")
 
             # Start looping over detectors
             data_headers = []
@@ -119,6 +130,7 @@ class DarkImages(FitsImages):
 
                 # Norm to 1s also via DIT
                 dc, dc_std = dc / files.dit[0], dc_std / files.dit[0]
+                log.info(f"Detector {d}: dark current = {dc:.4f} ± {dc_std:.4f} ADU/s")
 
                 # Write DC into data header
                 header = fits.Header()
@@ -172,6 +184,7 @@ class DarkImages(FitsImages):
             master_cube.write_mef(
                 path=outpath, prime_header=prime_header, data_headers=data_headers
             )
+            log.info(f"Written: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:

@@ -38,11 +38,18 @@ class FlatTwilight(FlatImages):
 
         # Processing info
         print_header(header="MASTER-FLAT", right=None, silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master twilight flats from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split based on lag and filter
         split = self.split_keywords(keywords=[self.setup.keywords.filter_name])
         split = flat_list([s.split_lag(max_lag=self.setup.flat_max_lag) for s in split])
+        log.info(f"Number of flat groups: {len(split)}")
 
         # Now loop through separated files and build the Masterdarks
         for files, fidx in zip(split, range(1, len(split) + 1)):
@@ -58,18 +65,26 @@ class FlatTwilight(FlatImages):
                 f"MASTER-TWILIGHT-FLAT.MJD_"
                 f"{files.mjd_mean:0.4f}.FIL_{files.passband[0]}.fits"
             )
+            log.info(
+                f"Processing flat group {fidx}/{len(split)} "
+                f"(filter: {files.passband[0]}): {outpath}"
+            )
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Fetch the Masterfiles
             master_bpms = files.get_master_bpm()
+            log.info(f"Master BPM:\n{master_bpms.basenames2log}")
             master_darks = files.get_master_dark()
+            log.info(f"Master dark:\n{master_darks.basenames2log}")
             master_linearity = files.get_master_linearity()
+            log.info(f"Master linearity:\n{master_linearity.basenames2log}")
 
             for master in [master_bpms, master_darks, master_linearity]:
                 if len(master) != len(files):
@@ -222,6 +237,7 @@ class FlatTwilight(FlatImages):
             master_flat.write_mef(
                 path=outpath, prime_header=prime_header, data_headers=data_headers
             )
+            log.info(f"Written: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:
@@ -250,10 +266,17 @@ class FlatTwilight(FlatImages):
         print_header(
             header="MASTER-WEIGHT-GLOBAL", right=None, silent=self.setup.silent
         )
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master weight maps from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Get unique Master flats
         master_flats = self.get_unique_master_twilight_flats()
+        log.info(f"Master flats:\n{master_flats.basenames2log}")
 
         # Generate outpaths
         outpaths = [
@@ -263,11 +286,14 @@ class FlatTwilight(FlatImages):
 
         # Loop over files and apply calibration
         for idx in range(len(master_flats)):
+            log.info(f"Processing {idx + 1}/{len(master_flats)}: {outpaths[idx]}")
+
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpaths[idx], silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -322,6 +348,7 @@ class FlatTwilight(FlatImages):
                 prime_header=prime_header,
                 data_headers=master_flats.headers_data[idx],
             )
+            log.info(f"Written: {outpaths[idx]}")
 
         # Print time
         print_message(
@@ -341,11 +368,18 @@ class FlatLampLin(FlatImages):
     def build_master_linearity(self, darks):
         # Processing info
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master linearity from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split based on lag and filter
         split_flat = self.split_lag(max_lag=self.setup.linearity_max_lag)
         split_dark = darks.split_lag(max_lag=self.setup.linearity_max_lag)
+        log.info(f"Number of linearity groups: {len(split_flat)}")
 
         for sflats, sdarks, fidx in zip(split_flat, split_dark, range(len(split_flat))):
             # Check exposure sequence
@@ -361,16 +395,21 @@ class FlatLampLin(FlatImages):
                 f"{sflats.setup.folders['master_common']}"
                 f"MASTER-LINEARITY.MJD_{sflats.mjd_mean:0.4f}.fits.tab"
             )
+            log.info(
+                f"Processing linearity group {fidx + 1}/{len(split_flat)}: {outpath}"
+            )
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Find BPMs
             master_bpm = sflats.get_master_bpm()
+            log.info(f"Master BPM:\n{master_bpm.basenames2log}")
 
             # Initialize empty list for table HDUs
             table_hdus = []
@@ -450,6 +489,7 @@ class FlatLampLin(FlatImages):
                     nl10000 = float((interp1d(flux, flux_lin)(10000) / 10000 - 1) * 100)
                 else:
                     nl10000 = np.nan
+                log.info(f"Detector {idx_hdu}: NL at 10000 ADU = {nl10000:.3f}%")
 
                 # Make fits cards for coefficients
                 cards_coeff, cards_poly = [], []
@@ -519,6 +559,7 @@ class FlatLampLin(FlatImages):
             # Save table
             thdulist = fits.HDUList([fits.PrimaryHDU(header=prime_header)] + table_hdus)
             thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
+            log.info(f"Written: {outpath}")
 
             # Make QC plots if set
             if self.setup.qc_plots:
@@ -549,10 +590,17 @@ class FlatLampCheck(FlatImages):
 
         # Processing info
         print_header(header="MASTER-BPM", silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master BPMs from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split files based on maximum time lag is set
         split = self.split_lag(max_lag=self.setup.bpm_max_lag)
+        log.info(f"Number of BPM groups: {len(split)}")
 
         # Now loop through separated files and build Masterbpm
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -566,16 +614,19 @@ class FlatLampCheck(FlatImages):
                 f"{files.setup.folders['master_common']}"
                 f"MASTER-BPM.NDIT_{files.ndit[0]}.MJD_{files.mjd_mean:0.4f}.fits"
             )
+            log.info(f"Processing BPM group {idx_print}/{len(split)}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Find corresponding dark file
             master_dark = files.match_mjd(match_to=darks, max_lag=1)
+            log.info(f"Matched dark: {master_dark.basenames2log}")
 
             # Instantiate output
             master_bpm = ImageCube(setup=self.setup)
@@ -664,6 +715,7 @@ class FlatLampCheck(FlatImages):
             master_bpm.write_mef(
                 path=outpath, prime_header=prime_header, data_headers=data_headers
             )
+            log.info(f"Written: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:
@@ -700,11 +752,18 @@ class FlatLampGain(FlatImages):
 
         # Processing info
         print_header(header="MASTER-GAIN", right=None, silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master gain table from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split based on lag
         split_flats = self.split_lag(max_lag=self.setup.gain_max_lag, sort_mjd=True)
         split_darks = darks.split_lag(max_lag=self.setup.gain_max_lag, sort_mjd=True)
+        log.info(f"Number of gain groups: {len(split_flats)}")
 
         if len(split_flats) != len(split_darks):
             raise ValueError("Provided darks do not match to input flats!")
@@ -730,12 +789,14 @@ class FlatLampGain(FlatImages):
                 f"{flats.setup.folders['master_common']}"
                 f"MASTER-GAIN.MJD_{flats.mjd_mean:0.4f}.fits.tab"
             )
+            log.info(f"Processing gain group {idx + 1}/{len(split_flats)}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -750,6 +811,7 @@ class FlatLampGain(FlatImages):
 
             # Get BPM
             mbpms = flats.get_master_bpm()
+            log.info(f"Master BPM:\n{mbpms.basenames2log}")
 
             # Read data
             f0 = flats.file2cube(file_index=0, dtype=np.float32)
@@ -785,6 +847,14 @@ class FlatLampGain(FlatImages):
             # and σ_read = G * sqrt(dvar / (2*NDIT)); omitting NDIT gives an
             # over-estimate of read noise by a factor sqrt(NDIT))
             rdnoise = gain * np.sqrt(dvar / (2 * darks.ndit[0]))
+            log.info(
+                f"Gain (e-/ADU): mean={np.nanmean(gain):.3f}, "
+                f"min={np.nanmin(gain):.3f}, max={np.nanmax(gain):.3f}"
+            )
+            log.info(
+                f"Read noise (e-): mean={np.nanmean(rdnoise):.3f}, "
+                f"min={np.nanmin(rdnoise):.3f}, max={np.nanmax(rdnoise):.3f}"
+            )
 
             # Make header cards
             prime_cards = make_cards(
@@ -818,6 +888,7 @@ class FlatLampGain(FlatImages):
 
             # Write
             thdulist.writeto(fileobj=outpath, overwrite=self.setup.overwrite)
+            log.info(f"Written: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:
