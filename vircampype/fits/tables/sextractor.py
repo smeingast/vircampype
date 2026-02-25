@@ -299,6 +299,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             right=None,
             silent=self.setup.silent,
         )
+        log = PipelineLog()
+        log.info(
+            f"Building illumination correction from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # At the moment, this only works when there is only one passband
@@ -311,6 +315,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         split = flat_list(
             [s.split_window(window=0.5, remove_duplicates=True) for s in split]
         )
+        log.info(f"Number of illumination correction groups: {len(split)}")
 
         # Get master photometry catalog
         master_phot = self.get_master_photometry()
@@ -328,7 +333,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(
+                f"Processing illumination correction {idx_print}/{len(split)}: {outpath}"
+            )
 
             # Grab current passband
             passband = files.passband[0]
@@ -524,6 +534,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             illumcorr.write_mef(
                 path=outpath, prime_header=prime_header, data_headers=data_headers
             )
+            log.info(f"Written: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:
@@ -855,6 +866,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Processing info
         print_header(header="QC ASTROMETRY 1D", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Generating QC astrometry 1D plots for {len(self)} files")
         tstart = time.time()
 
         # Get FPA layout
@@ -882,7 +895,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 and check_file_exists(file_path=outpath_ang, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(
+                f"Plotting astrometry 1D for file {idx_file + 1}/{len(self)}: {self.names[idx_file]}"
+            )
 
             # Grab coordinates
             sc_file = self.skycoord[idx_file]
@@ -1026,6 +1044,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 fig1.savefig(outpath_sep, bbox_inches="tight")
                 fig2.savefig(outpath_ang, bbox_inches="tight")
             plt.close("all")
+            log.info(f"Written: {outpath_sep}, {outpath_ang}")
 
         # Print time
         print_message(
@@ -1043,6 +1062,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Processing info
         print_header(header="QC ASTROMETRY 2D", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Generating QC astrometry 2D plots for {len(self)} files")
         tstart = time.time()
 
         # Get FPA layout
@@ -1061,7 +1082,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(
+                f"Plotting astrometry 2D for file {idx_file + 1}/{len(self)}: {self.names[idx_file]}"
+            )
 
             # Grab coordinates
             xx_file = self.get_column_file(idx_file=idx_file, column_name=key_x)
@@ -1223,6 +1249,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
                 fig.savefig(outpath, bbox_inches="tight")
             plt.close("all")
+            log.info(f"Written: {outpath}")
 
         # Print time
         print_message(
@@ -1419,6 +1446,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="STATISTICS TABLES", silent=self.setup.silent, right=None)
+        log = PipelineLog()
+        log.info(f"Building statistics tables for {self.n_files} files")
         tstart = time.time()
 
         for idx_file in range(self.n_files):
@@ -1430,7 +1459,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(
+                f"Processing statistics table {idx_file + 1}/{self.n_files}: {path_out}"
+            )
 
             # Print processing info
             message_calibration(
@@ -1594,6 +1628,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Write to new output file
             hdul_out.writeto(path_out, overwrite=self.setup.overwrite)
             hdul_out.close()
+            log.info(f"Written: {path_out}")
 
         # Print time
         print_message(
@@ -1739,6 +1774,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PHOTOMETRY ZP", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Generating QC photometry ZP plots for {self.n_files} files")
         tstart = time.time()
 
         for idx_file in range(self.n_files):
@@ -1750,8 +1787,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
             else:
+                log.info(
+                    f"Plotting ZP for file {idx_file + 1}/{self.n_files}: {self.names[idx_file]}"
+                )
                 message_calibration(
                     n_current=idx_file + 1,
                     n_total=self.n_files,
@@ -1774,6 +1815,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 axis_size=axis_size,
                 yrange=(np.median(zp_auto) - 0.1, np.median(zp_auto) + 0.1),
             )
+            log.info(f"Written: {path_out}")
 
         # Print time
         print_message(
@@ -1790,6 +1832,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PHOTOMETRY REFERENCE 1D", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Generating QC photometry reference 1D plots for {len(self)} files")
         tstart = time.time()
 
         for idx_file in range(len(self)):
@@ -1801,8 +1845,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
             else:
+                log.info(
+                    f"Plotting phot ref 1D for file {idx_file + 1}/{len(self)}: {self.names[idx_file]}"
+                )
                 message_calibration(
                     n_current=idx_file + 1,
                     n_total=self.n_files,
@@ -1953,6 +2001,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 )
                 fig.savefig(path_out, bbox_inches="tight")
             plt.close("all")
+            log.info(f"Written: {path_out}")
 
         # Print time
         print_message(
@@ -1969,6 +2018,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PHOTOMETRY REFERENCE 2D", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(
+            f"Generating QC photometry reference 2D plots for {self.n_files} files"
+        )
         tstart = time.time()
 
         for idx_file in range(self.n_files):
@@ -1980,8 +2033,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
             else:
+                log.info(
+                    f"Plotting phot ref 2D for file {idx_file + 1}/{self.n_files}: {self.names[idx_file]}"
+                )
                 message_calibration(
                     n_current=idx_file + 1,
                     n_total=self.n_files,
@@ -2149,6 +2206,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 )
                 fig.savefig(path_out, bbox_inches="tight")
             plt.close("all")
+            log.info(f"Written: {path_out}")
 
         # Print time
         print_message(

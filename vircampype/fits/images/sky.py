@@ -1873,6 +1873,10 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Processing info
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(
+            f"Building master weight images from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Generate weight outpaths
@@ -1931,6 +1935,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 )
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -1941,6 +1946,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 d_current=None,
                 d_total=None,
                 silent=self.setup.silent,
+            )
+            log.info(
+                f"Processing weight image {idx_file + 1}/{self.n_files}: {outpaths[idx_file]}"
             )
 
             # Load data
@@ -1982,6 +1990,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Write to disk
             master_weight.write_mef(path=outpaths[idx_file], prime_header=prime_header)
+            log.info(f"Written: {outpaths[idx_file]}")
 
         # Print time
         print_message(
@@ -1993,17 +2002,21 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
     def build_coadd_header(self, path_header: str = None):
         # Processing info
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Building coadd header from {len(self)} files")
         tstart = time.time()
 
         # Set default output path
         if path_header is None:
             path_header = self.setup.path_coadd_header
+        log.info(f"Output path: {path_header}")
 
         # Check if header exists
         if (
             check_file_exists(file_path=path_header, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
+            log.info("File already exists, skipping")
             return
 
         # Fix VIRCAM headers if set (necessary for building field headers from raw data)
@@ -2061,6 +2074,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Write coadd header to disk
         header_coadd.totextfile(path_header, overwrite=True)
+        log.info(f"Written: {path_header}")
 
         # Print time
         print_message(
@@ -2074,6 +2088,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Processing info
         print_header(header="RESAMPLING", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Resampling {self.n_files} files:\n{self.basenames2log}")
         tstart = time.time()
 
         # Load Swarp setup
@@ -2123,7 +2139,10 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(f"Resampling file {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Print processing info
             message_calibration(
@@ -2170,6 +2189,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Copy header entries from original file
             merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
+            log.info(f"Written: {outpath}")
 
         # Remove temporary resampling directory
         shutil.rmtree(path_resampled_dir, ignore_errors=True)
@@ -2198,6 +2218,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         print_header(
             header="CREATING STACKS", silent=self.setup.silent, left=None, right=None
         )
+        log = PipelineLog()
+        log.info(
+            f"Building stacks from {self.n_files} resampled files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split based on Offset
@@ -2210,6 +2234,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Check sequence
         if len(split) != 6:
             raise ValueError("Sequence contains {0} offsets. Expected 6.")
+        log.info(f"Number of offset positions: {len(split)}")
 
         for idx_split in range(len(split)):
             # Grab files
@@ -2235,7 +2260,10 @@ class SkyImagesResampled(SkyImagesProcessed):
                 check_file_exists(file_path=path_stack, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(f"Processing stack {idx_split + 1}/{len(split)}: {path_stack}")
 
             # Print processing info
             message_calibration(
@@ -2414,6 +2442,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                 value=np.round(astrrms, 2),
                 comment="External astr. dispersion RMS (mas)",
             )
+            log.info(
+                f"Stack {idx_split + 1}/{len(split)}: ASTIRMS={astirms:.1f} mas, ASTRRMS={astrrms:.1f} mas"
+            )
 
             # Construct MEF from individual detectors
             make_mef_image(
@@ -2428,6 +2459,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 path_output=path_weight,
                 primeheader=prhdr_stk,
             )
+            log.info(f"Written: {path_stack}")
 
             # Remove intermediate files
             [os.remove(x) for x in paths_temp_stacks]
@@ -2711,6 +2743,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         print_header(
             header="IMAGE STATISTICS", silent=self.setup.silent, left=None, right=None
         )
+        log = PipelineLog()
+        log.info(
+            f"Building image statistics for {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Find weights
@@ -2763,7 +2799,12 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
                 and not self.setup.overwrite
             ):
+                log.info("File already exists, skipping")
                 continue
+
+            log.info(
+                f"Processing statistics {idx_file + 1}/{self.n_files}: {self.basenames[idx_file]}"
+            )
 
             # Print processing info
             message_calibration(
@@ -2885,6 +2926,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdul_astrms1.writeto(paths_astrms1[idx_file], overwrite=True)
             hdul_astrms2.writeto(paths_astrms2[idx_file], overwrite=True)
             hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
+            log.info(f"Written statistics for: {self.basenames[idx_file]}")
 
         # Print time
         print_message(
@@ -3022,17 +3064,22 @@ class SkyImagesResampled(SkyImagesProcessed):
             left=None,
             right=None,
         )
+        log = PipelineLog()
         tstart = time.time()
 
         # Construct output path
         outpath_final = self.setup.path_coadd.replace(".fits", f".{mode}.fits")
         outpath_final_weight = outpath_final.replace(".fits", ".weight.fits")
+        log.info(
+            f"Building tile statistics ({mode}): {os.path.basename(outpath_final)}"
+        )
 
         # Check if file already exists
         if (
             check_file_exists(file_path=outpath_final, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
+            log.info("File already exists, skipping")
             return
 
         # Generate temporary coadd and coadd weight names on local disk
@@ -3077,6 +3124,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Move temp to final
         shutil.move(outpath_temp, outpath_final)
         shutil.move(outpath_temp_weight, outpath_final_weight)
+        log.info(f"Written: {outpath_final}")
 
         # Remove temp files
         remove_file(path_temp_images)

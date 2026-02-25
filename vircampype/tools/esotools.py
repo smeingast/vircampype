@@ -12,6 +12,7 @@ from astropy.time import Time
 
 from vircampype import __version__
 from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
+from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import add_float_to_header, mjd2dateobs
 from vircampype.tools.mathtools import centroid_sphere, clipped_median
 from vircampype.tools.messaging import *
@@ -41,6 +42,10 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
 
     # Processing info
     print_header(header="PHASE 3 STACKS", silent=setup.silent, right=None)
+    log = PipelineLog()
+    log.info(
+        f"Building phase 3 stacks for {len(stacks_images)} stack(s):\n{stacks_images.basenames2log}"
+    )
     tstart = time.time()
 
     # There must be equally as many catalogs as stacks
@@ -75,7 +80,10 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
             for pp3 in [path_stk_p3, path_ctg_p3, path_wei_p3]
         ]
         if np.sum(p3_files) == 3 and not setup.overwrite:
+            log.info("File already exists, skipping")
             continue
+
+        log.info(f"Processing stack {idx_file + 1}/{len(stacks_images)}: {path_stk_p3}")
 
         # Status message
         message_calibration(
@@ -177,6 +185,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
             weight.writeto(
                 path_wei_p3, overwrite=True, checksum=True, output_verify="silentfix"
             )
+        log.info(f"Written: {path_stk_p3}")
 
     # Print time
     print_message(
@@ -519,6 +528,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
 
     # Processing info
     print_header(header="PHASE 3 TILE", silent=setup.silent, right=None)
+    log = PipelineLog()
     tstart = time.time()
 
     # There can be only one file in the current instance
@@ -533,12 +543,15 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     # Passband
     passband = pawprint_images.passband[0]
 
+    log.info(f"Building phase 3 tile: {os.path.basename(path_tile_p3)}")
+
     # Check if the files are already there and return if they are
     check = [
         check_file_exists(pp3, silent=setup.silent)
         for pp3 in [path_tile_p3, path_weight_p3, path_catalog_p3]
     ]
     if np.sum(check) == 3 and not setup.overwrite:
+        log.info("File already exists, skipping")
         return
 
     # Status message
@@ -637,6 +650,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
 
         # Save
         hdu.writeto(path_weight_p3, overwrite=True, checksum=True)
+    log.info(f"Written: {path_tile_p3}")
 
     # Print time
     print_message(
