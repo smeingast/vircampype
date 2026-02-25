@@ -293,9 +293,9 @@ class SkyImages(FitsImages):
         for key, val in kwargs.items():
             for cmd_idx, _ in enumerate(cmds):
                 try:
-                    cmds[cmd_idx] += f"-{key.upper()} {val[cmd_idx]}"
+                    cmds[cmd_idx] += f" -{key.upper()} {val[cmd_idx]}"
                 except IndexError:
-                    cmds[cmd_idx] += f"-{key.upper()} {val}"
+                    cmds[cmd_idx] += f" -{key.upper()} {val}"
 
         # Return commands if set
         if return_cmds:
@@ -339,7 +339,7 @@ class SkyImages(FitsImages):
 
         if preset.lower() in ["scamp", "class_star", "fwhm", "psfex"]:
             cls = SextractorCatalogs
-        elif (preset == "ic") | (preset == "full"):
+        elif preset == "ic" or preset == "full":
             cls = AstrometricCalibratedSextractorCatalogs
         else:
             raise PipelineValueError(
@@ -2459,55 +2459,55 @@ class SkyImagesResampled(SkyImagesProcessed):
         tstart = time.time()
         log.info(f"Creating tile with {len(self)} images:\n{self.basenames2log()}")
 
-        # Load Swarp setup
-        sws = SwarpSetup(setup=self.setup)
-        log.info(f"Loaded Swarp preset used: {sws.preset_coadd}")
-
-        # Make system temp dir for swap
-        swap_dir = tempfile.mkdtemp(prefix="swarp_swap_")
-        log.info(f"Create temporary swap directory: {swap_dir}")
-
-        # Generate temporary coadd and coadd weight names on local disk
-        tmpdir = tempfile.gettempdir()
-        path_coadd_tmp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
-        log.info(f"Saving temporary coadd image to {path_coadd_tmp}")
-        path_weight_tmp = str(f"{tmpdir}/swarp_weight_{uuid.uuid4().hex}.fits")
-        log.info(f"Saving temporary coadd weight to {path_weight_tmp}")
-        path_coadd_tmp_hdr = path_coadd_tmp.replace(".fits", ".ahead")
-
-        # Copy coadd header to temp location
-        shutil.copyfile(self.setup.path_coadd_header, path_coadd_tmp_hdr)
-        log.info(f"Copied coadd header to temporary location {path_coadd_tmp_hdr}")
-
-        ss = yml2config(
-            path_yml=sws.preset_coadd,
-            imageout_name=path_coadd_tmp,
-            weightout_name=path_weight_tmp,
-            fscale_keyword="FSCLTILE",
-            gain_keyword=self.setup.keywords.gain,
-            satlev_keyword=self.setup.keywords.saturate,
-            nthreads=self.setup.n_jobs,
-            skip=["weight_thresh", "weight_image"],
-            vmem_dir=swap_dir,
-        )
-
-        # Write all full paths into a text file in the temp folder
-        path_list = f"{self.setup.folders['temp']}swarp_input_files.txt"
-        with open(path_list, "w") as f:
-            for item in self.paths_full:
-                f.write(f"{item}\n")
-
-        # Construct commands for swarping
-        cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
-
-        # Add swarp command to log
-        log.info(f"Swarp command: {cmd}")
-
         # Run Swarp
         if not (
             check_file_exists(file_path=self.setup.path_coadd, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
+            # Load Swarp setup
+            sws = SwarpSetup(setup=self.setup)
+            log.info(f"Loaded Swarp preset used: {sws.preset_coadd}")
+
+            # Make system temp dir for swap
+            swap_dir = tempfile.mkdtemp(prefix="swarp_swap_")
+            log.info(f"Create temporary swap directory: {swap_dir}")
+
+            # Generate temporary coadd and coadd weight names on local disk
+            tmpdir = tempfile.gettempdir()
+            path_coadd_tmp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
+            log.info(f"Saving temporary coadd image to {path_coadd_tmp}")
+            path_weight_tmp = str(f"{tmpdir}/swarp_weight_{uuid.uuid4().hex}.fits")
+            log.info(f"Saving temporary coadd weight to {path_weight_tmp}")
+            path_coadd_tmp_hdr = path_coadd_tmp.replace(".fits", ".ahead")
+
+            # Copy coadd header to temp location
+            shutil.copyfile(self.setup.path_coadd_header, path_coadd_tmp_hdr)
+            log.info(f"Copied coadd header to temporary location {path_coadd_tmp_hdr}")
+
+            ss = yml2config(
+                path_yml=sws.preset_coadd,
+                imageout_name=path_coadd_tmp,
+                weightout_name=path_weight_tmp,
+                fscale_keyword="FSCLTILE",
+                gain_keyword=self.setup.keywords.gain,
+                satlev_keyword=self.setup.keywords.saturate,
+                nthreads=self.setup.n_jobs,
+                skip=["weight_thresh", "weight_image"],
+                vmem_dir=swap_dir,
+            )
+
+            # Write all full paths into a text file in the temp folder
+            path_list = f"{self.setup.folders['temp']}swarp_input_files.txt"
+            with open(path_list, "w") as f:
+                for item in self.paths_full:
+                    f.write(f"{item}\n")
+
+            # Construct commands for swarping
+            cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
+
+            # Add swarp command to log
+            log.info(f"Swarp command: {cmd}")
+
             # Run Swarp
             stdout, stderr = run_command_shell(cmd=cmd, silent=True)
 
@@ -2515,8 +2515,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             time.sleep(5)
 
             # Add stdout and stderr to log
-            log.info(f"Scamp stdout:\n{stdout}")
-            log.info(f"Scamp stderr:\n{stderr}")
+            log.info(f"Swarp stdout:\n{stdout}")
+            log.info(f"Swarp stderr:\n{stderr}")
 
             # Remove temporary file list
             try:
@@ -2530,15 +2530,15 @@ class SkyImagesResampled(SkyImagesProcessed):
             astrms_dict = dict(zip(cpkw, astrms_data))
             astirms = (
                 np.sqrt(
-                    np.mean(astrms_dict["ASTIRMS1"]) ** 2
-                    + np.mean(astrms_dict["ASTIRMS2"]) ** 2
+                    np.mean(np.array(astrms_dict["ASTIRMS1"]) ** 2)
+                    + np.mean(np.array(astrms_dict["ASTIRMS2"]) ** 2)
                 )
                 * 3_600_000
             )
             astrrms = (
                 np.sqrt(
-                    np.mean(astrms_dict["ASTRRMS1"]) ** 2
-                    + np.mean(astrms_dict["ASTRRMS2"]) ** 2
+                    np.mean(np.array(astrms_dict["ASTRRMS1"]) ** 2)
+                    + np.mean(np.array(astrms_dict["ASTRRMS2"]) ** 2)
                 )
                 * 3_600_000
             )
@@ -2719,6 +2719,12 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdul_astrms2 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
+            # Read astrometry keywords for all extensions of this file once
+            astirms1, astirms2, astrrms1, astrrms2 = self.read_from_data_headers(
+                keywords=["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"],
+                file_index=idx_file,
+            )
+
             # Loop over extensions
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
                 # Read header
@@ -2745,12 +2751,12 @@ class SkyImagesResampled(SkyImagesProcessed):
                 mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
                 arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
                 arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
-                astirms1, astirms2, astrrms1, astrrms2 = self.read_from_data_headers(
-                    keywords=["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"],
-                    file_index=idx_file,
+                astrms1 = 3_600_000 * np.sqrt(
+                    astirms1[0][idx_hdu] ** 2 + astrrms1[0][idx_hdu] ** 2
                 )
-                astrms1 = 3_600_000 * np.sqrt(astirms1[0][0] ** 2 + astrrms1[0][0] ** 2)
-                astrms2 = 3_600_000 * np.sqrt(astirms2[0][0] ** 2 + astrrms2[0][0] ** 2)
+                astrms2 = 3_600_000 * np.sqrt(
+                    astirms2[0][idx_hdu] ** 2 + astrrms2[0][idx_hdu] ** 2
+                )
                 arr_astrms1 = np.full(shape, fill_value=astrms1, dtype=np.float32)
                 arr_astrms2 = np.full(shape, fill_value=astrms2, dtype=np.float32)
 

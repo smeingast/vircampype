@@ -592,7 +592,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             for tidx, tidx_hdu in enumerate(self.iter_data_hdu[idx_file]):
                 # Get current table
                 log.info(f"Processing table {tidx + 1}/{len(tables_file)}")
-                table = tables_file[tidx][::1]  # TODO: Remove
+                table = tables_file[tidx]
                 log.info(f"Number of sources: {len(table)}")
 
                 # Replace bad values with NaN
@@ -815,26 +815,24 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         table.zp[f"{hpz} {cmag}"] = zeropoint  # noqa
                         table.zperr[f"{hpz} ERR {cmag}"] = zeropoint_err  # noqa
 
-                    # Replace HDU in original HDUList with modified table HDU
-                    table_hdulist[tidx_hdu] = table2bintablehdu(table)
+                # Replace HDU once after all ZPs are computed
+                table_hdulist[tidx_hdu] = table2bintablehdu(table)
 
-                    # Mapping for attribute to comment
-                    attr_to_comment = {
-                        "zp": "Zero point (mag)",
-                        "zperr": "Standard error of ZP (mag)",
-                    }
-
-                    # Add ZP info to header
-                    log.info("Adding ZP info to header")
-                    for attr, comment in attr_to_comment.items():
-                        for key, val in getattr(table, attr).items():
-                            add_float_to_header(
-                                header=table_hdulist[tidx_hdu].header,
-                                key=key,
-                                value=val,
-                                comment=comment,
-                                decimals=4,
-                            )
+                # Add all accumulated ZP info to header
+                log.info("Adding ZP info to header")
+                attr_to_comment = {
+                    "zp": "Zero point (mag)",
+                    "zperr": "Standard error of ZP (mag)",
+                }
+                for attr, comment in attr_to_comment.items():
+                    for key, val in getattr(table, attr).items():
+                        add_float_to_header(
+                            header=table_hdulist[tidx_hdu].header,
+                            key=key,
+                            value=val,
+                            comment=comment,
+                            decimals=4,
+                        )
 
             # Write to new output file
             log.info(f"Writing calibrated photometry to {path_out}")
