@@ -973,6 +973,12 @@ class SkyImagesProcessed(SkyImages):
             right=None,
             silent=self.setup.silent,
         )
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building source masks for {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         self.check_compatibility(
@@ -981,9 +987,11 @@ class SkyImagesProcessed(SkyImages):
 
         # Fetch master BPM
         master_bpm = self.get_master_bpm()
+        log.info(f"Master BPM:\n{master_bpm.basenames2log}")
 
         # Build additional source masks
         additional_masks = self.__build_additional_masks()
+        log.info(f"Additional mask sources: {len(additional_masks['ra'])}")
 
         # Construct final output names
         outpaths = [
@@ -994,6 +1002,7 @@ class SkyImagesProcessed(SkyImages):
 
         # Check if all files exist and return if they do
         if all([check_file_exists(file_path=oo, silent=False) for oo in outpaths]):
+            log.info("All output files already exist, skipping")
             return
 
         # Start looping over detectors
@@ -1017,9 +1026,11 @@ class SkyImagesProcessed(SkyImages):
                 d_total=None,
                 silent=self.setup.silent,
             )
+            log.info(f"Processing detector {d}/{max(self.iter_data_hdu[0])}")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=paths_temp_mask[-1], silent=True):
+                log.info(f"Temporary mask already exists, skipping detector {d}")
                 continue
 
             # Get data
@@ -1157,14 +1168,17 @@ class SkyImagesProcessed(SkyImages):
                 dtype=np.uint8,
                 overwrite=True,
             )
+            log.info(f"Wrote temporary mask: {paths_temp_mask[-1]}")
 
         # Load all of them into a FitsImages instance
         masks_temp = FitsImages(setup=self.setup, file_paths=paths_temp_mask)
 
         # Loop over output files
         for idx_file, outpath in enumerate(outpaths):
+            log.info(f"Assembling output {idx_file + 1}/{len(outpaths)}: {outpath}")
             # # Check if file exists
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                log.info("Output file already exists, skipping")
                 continue
 
             # Load all masks for this file
@@ -1194,6 +1208,7 @@ class SkyImagesProcessed(SkyImages):
                 dtype=np.uint8,
                 overwrite=True,
             )
+            log.info(f"Written: {outpath}")
 
         # Remove all temp files
         [remove_file(f) for f in paths_temp_mask]
@@ -1208,10 +1223,15 @@ class SkyImagesProcessed(SkyImages):
     def build_master_photometry(self):
         # Processing info
         print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Building master photometry catalog for {self.n_files} files")
         tstart = time.time()
 
         # Construct outpath
         outpath = self.setup.folders["master_object"] + "MASTER-PHOTOMETRY.fits.tab"
+        log.info(f"Output path: {outpath}")
 
         # Check if the file is already there and skip if it is
         if not check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -1229,10 +1249,13 @@ class SkyImagesProcessed(SkyImages):
             radius = 1.1 * np.max(
                 self.footprints_flat.separation(self.centroid_all).degree
             )
+            log.info(f"Download query radius: {radius:.3f} deg")
 
             # Download catalog
             if self.setup.phot_reference_catalog.lower() == "2mass":
+                log.info("Downloading 2MASS catalog")
                 table = download_2mass(skycoord=self.centroid_all, radius=radius)
+                log.info(f"Downloaded {len(table)} sources")
             else:
                 raise ValueError(
                     f"Catalog '{self.setup.phot_reference_catalog}' not supported"
@@ -1240,11 +1263,15 @@ class SkyImagesProcessed(SkyImages):
 
             # Save catalog
             table.write(outpath, format="fits", overwrite=True)
+            log.info(f"Catalog saved to {outpath}")
 
             # Add object info to primary header
             add_key_primary_hdu(
                 path=outpath, key=self.setup.keywords.object, value="MASTER-PHOTOMETRY"
             )
+
+        else:
+            log.info("File already exists, skipping")
 
         # Print time
         print_message(
@@ -1256,10 +1283,15 @@ class SkyImagesProcessed(SkyImages):
     def build_master_astrometry(self):
         # Processing info
         print_header(header="MASTER-ASTROMETRY", right=None, silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(f"Building master astrometry catalog for {self.n_files} files")
         tstart = time.time()
 
         # Construct outpath
         outpath = self.setup.folders["master_object"] + "MASTER-ASTROMETRY.fits.tab"
+        log.info(f"Output path: {outpath}")
 
         # Check if the file is already there and skip if it is
         if not check_file_exists(file_path=outpath, silent=self.setup.silent):
@@ -1277,11 +1309,14 @@ class SkyImagesProcessed(SkyImages):
             radius = 1.1 * np.max(
                 self.footprints_flat.separation(self.centroid_all).degree
             )
+            log.info(f"Download query radius: {radius:.3f} deg")
 
             # Download catalog
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
+                log.info("Downloading Gaia catalog")
                 table = download_gaia(skycoord=self.centroid_all, radius=radius)
+                log.info(f"Downloaded {len(table)} Gaia sources")
 
                 # Keep only sources with valid ra/dec/pm entries
                 keep = (
@@ -1294,11 +1329,17 @@ class SkyImagesProcessed(SkyImages):
                     & (table["ruwe"] < 1.5)
                 )
 
+                log.info(
+                    f"Keeping {int(np.sum(keep))}/{len(table)} Gaia sources "
+                    f"after quality cuts (finite pm, ruwe<1.5)"
+                )
+
                 # Apply cut
                 table = table[keep]
 
                 # Grab output epoch
                 epoch_out = self.epoch_mean if self.setup.warp_gaia else 2016.0
+                log.info(f"Output epoch: {epoch_out:.1f}")
 
                 # Write to disk
                 make_gaia_refcat(
@@ -1319,6 +1360,7 @@ class SkyImagesProcessed(SkyImages):
                     key_gflux="flux",
                     key_gflux_error="flux_error",
                 )
+                log.info(f"Gaia reference catalog saved to {outpath}")
 
             # Add epoch to header
             add_key_primary_hdu(
@@ -1329,6 +1371,9 @@ class SkyImagesProcessed(SkyImages):
             add_key_primary_hdu(
                 path=outpath, key=self.setup.keywords.object, value="MASTER-ASTROMETRY"
             )
+
+        else:
+            log.info("File already exists, skipping")
 
         # Print time
         print_message(
@@ -1346,6 +1391,12 @@ class SkyImagesProcessed(SkyImages):
 
         # Processing info
         print_header(header="MASTER-SKY", right=None, silent=self.setup.silent)
+
+        # Fetch log
+        log = PipelineLog()
+        log.info(
+            f"Building master sky from {self.n_files} files:\n{self.basenames2log}"
+        )
         tstart = time.time()
 
         # Split based on filter and interval
@@ -1363,6 +1414,8 @@ class SkyImagesProcessed(SkyImages):
         if len(split) == 0:
             raise ValueError("No suitable sequence found for sky images.")
 
+        log.info(f"Number of sky groups: {len(split)}")
+
         # Now loop through separated files
         for files, fidx in zip(split, range(1, len(split) + 1)):  # type: SkyImages, int
             # Check sequence (at least n files, same nHDU, same NDIT, and same filter)
@@ -1376,14 +1429,18 @@ class SkyImagesProcessed(SkyImages):
                 f"MJD_{files.mjd_mean:0.4f}."
                 f"FIL_{files.passband[0]}.fits"
             )
+            log.info(f"Processing sky group {fidx}/{len(split)}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
+                log.info("File already exists, skipping")
                 continue
 
             # Fetch the Masterfiles
             master_bpm = files.get_master_bpm()
+            log.info(f"Master BPM:\n{master_bpm.basenames2log}")
             master_mask = files.get_master_source_mask()
+            log.info(f"Master source mask:\n{master_mask.basenames2log}")
 
             # Instantiate output
             master_cube = ImageCube(setup=self.setup, cube=None)
@@ -1485,6 +1542,7 @@ class SkyImagesProcessed(SkyImages):
 
             # Mean flat field error
             flat_err = np.round(100.0 * np.mean(flat_scale_std), decimals=2)
+            log.info(f"Mean flat-field variation: {flat_err}%")
 
             # Create primary header
             hdr_prime = fits.Header()
@@ -1503,6 +1561,7 @@ class SkyImagesProcessed(SkyImages):
             master_cube.write_mef(
                 path=outpath, prime_header=hdr_prime, data_headers=data_headers
             )
+            log.info(f"Master sky written to: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:
