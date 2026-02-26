@@ -1704,14 +1704,16 @@ class SkyImagesProcessed(SkyImages):
             # Read master sky flat
             sky_norm = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
 
+            # Read source mask once (reused for sky subtraction, destriping,
+            # and background subtraction)
+            source_mask = master_source_mask.file2cube(file_index=idx_file)
+
             # Flat-field data or subtract background
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=RuntimeWarning)
                 if self.setup.flat_type == "twilight":
                     temp = cube.copy()
-                    temp.apply_masks(
-                        sources=master_source_mask.file2cube(file_index=idx_file)
-                    )
+                    temp.apply_masks(sources=source_mask)
                     sky_level, _ = temp.background_planes()
                     cube -= sky_norm * sky_level[:, np.newaxis, np.newaxis]
                 else:
@@ -1720,7 +1722,9 @@ class SkyImagesProcessed(SkyImages):
             # Destriping
             if self.setup.destripe:
                 log.info("Destriping enabled")
-                sources = master_source_mask.file2cube(file_index=idx_file, dtype=bool)
+                sources_bool = ImageCube(
+                    setup=self.setup, cube=source_mask.cube.astype(bool)
+                )
                 if self.setup.qc_plots:
                     path_qc_destripe = (
                         f"{self.setup.folders['qc_sky']}"
@@ -1729,7 +1733,7 @@ class SkyImagesProcessed(SkyImages):
                 else:
                     path_qc_destripe = None
                 cube.destripe(
-                    masks=sources,
+                    masks=sources_bool,
                     smooth=True,
                     combine_bad_planes=True,
                     path_plot=path_qc_destripe,
@@ -1738,12 +1742,10 @@ class SkyImagesProcessed(SkyImages):
             # Background subtraction
             if self.setup.subtract_background:
                 log.info("Subtracting 2D background")
-                # Load source mask
-                sources = master_source_mask.file2cube(file_index=idx_file)
 
                 # Apply mask
                 temp_cube = cube.copy()
-                temp_cube.apply_masks(sources=sources)
+                temp_cube.apply_masks(sources=source_mask)
 
                 # Compute background and sigma
                 bg, bgsig = temp_cube.background(
