@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Optional, Sequence
+from typing import Sequence
 
 import numpy as np
 from astropy.stats import sigma_clipped_stats
@@ -51,7 +51,7 @@ def print_header(
     silent: bool = True,
     left: str = "File",
     right: str = "Extension",
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ) -> None:
     """
     Prints a helper message with optional logging.
@@ -91,9 +91,9 @@ def print_header(
 
 def print_message(
     message: str,
-    kind: Optional[str] = None,
-    end: Optional[str] = "",
-    logger: Optional[PipelineLog] = None,
+    kind: str | None = None,
+    end: str | None = "",
+    logger: PipelineLog | None = None,
 ):
     """
     Generic message printer with optional logging.
@@ -168,7 +168,7 @@ def print_start(obj: str = "") -> float:
 
 def print_end(
     tstart: float,
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ) -> None:
     """
     Prints an end message indicating completion time and logs the message
@@ -196,11 +196,11 @@ def message_calibration(
     n_current: int,
     n_total: int,
     name: str,
-    d_current: Optional[int] = None,
-    d_total: Optional[int] = None,
+    d_current: int | None = None,
+    d_total: int | None = None,
     silent: bool = False,
     end: str = "",
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ) -> None:
     """
     Prints the calibration message for image processing.
@@ -213,9 +213,9 @@ def message_calibration(
         Total number of files to process.
     name : str
         Output filename.
-    d_current : Optional[int], optional
+    d_current : int | None, optional
         Current detector index in the loop.
-    d_total : Optional[int], optional
+    d_total : int | None, optional
         Total number of detectors to process.
     silent : bool, optional
         If set, nothing will be printed.
@@ -245,7 +245,7 @@ def message_calibration(
 def check_file_exists(
     file_path: str,
     silent: bool = True,
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ) -> bool:
     """
     Helper method to check if a file already exists.
@@ -280,7 +280,7 @@ def check_file_exists(
 
 def message_qc_astrometry(
     separation: Sequence[float],
-    logger: Optional[PipelineLog] = None,
+    logger: PipelineLog | None = None,
 ) -> None:
     """
     Prints and logs an astrometry QC message.
