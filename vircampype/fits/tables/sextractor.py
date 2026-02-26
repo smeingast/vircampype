@@ -703,6 +703,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Compute adaptive gaussian kernel width from k-th neighbor distance
                 kernel_std_pix = np.median(nn_dis[:, self.setup.phot_interp_kernel_k])
+                kernel_std_pix = np.clip(kernel_std_pix, 30 * 3, 5 * 60 * 3)
                 log.info(
                     f"Adaptive kernel std: {kernel_std_pix:.1f} px "
                     f"({kernel_std_pix / 3 / 60:.2f} arcmin, "
