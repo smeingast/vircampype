@@ -1,7 +1,7 @@
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal
 
 from astropy.io import fits
 from joblib import cpu_count
@@ -47,7 +47,7 @@ class Setup:
     interpolate_max_bad_neighbors: int = 3
 
     # Projection
-    projection: Optional[Union[str, Projection]] = None
+    projection: str | Projection | None = None
 
     # Saturation levels
     set_saturation_levels: str = "default"
@@ -59,65 +59,65 @@ class Setup:
 
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"
-    reference_mag_lo: Union[int, float] = None
-    reference_mag_hi: Union[int, float] = None
+    reference_mag_lo: int | float = None
+    reference_mag_hi: int | float = None
     target_zp: float = 25.0
     illumination_correction_mode: Literal["variable", "constant"] = "variable"
     phot_interp_kernel_k: int = 10
     photometric_error_floor: float = 0.005
 
     # Master calibration lookup
-    master_max_lag_bpm: Union[int, float] = 14
-    master_max_lag_dark: Union[int, float] = 14
-    master_max_lag_twilight_flat: Union[int, float] = 14
-    master_max_lag_sky: Union[int, float] = 60
-    master_max_lag_gain: Union[int, float] = 14
-    master_max_lag_weight: Union[int, float] = 14
-    master_max_lag_linearity: Union[int, float] = 14
+    master_max_lag_bpm: int | float = 14
+    master_max_lag_dark: int | float = 14
+    master_max_lag_twilight_flat: int | float = 14
+    master_max_lag_sky: int | float = 60
+    master_max_lag_gain: int | float = 14
+    master_max_lag_weight: int | float = 14
+    master_max_lag_linearity: int | float = 14
 
     # Bad pixel masks
-    bpm_max_lag: Union[int, float] = 1
-    bpm_rel_threshold: Union[int, float] = 0.04
-    bpm_frac: Union[int, float] = 0.2
+    bpm_max_lag: int | float = 1
+    bpm_rel_threshold: int | float = 0.04
+    bpm_frac: int | float = 0.2
 
     # Darks
-    dark_max_lag: Union[int, float] = 1
+    dark_max_lag: int | float = 1
     dark_mask_min: bool = True
     dark_mask_max: bool = True
     dark_metric: Literal["mean", "median", "clipped_mean", "clipped_median"] = "mean"
 
     # Gain
-    gain_max_lag: Union[int, float] = 1
+    gain_max_lag: int | float = 1
 
     # Linearity
-    linearity_max_lag: Union[int, float] = 1
+    linearity_max_lag: int | float = 1
 
     # Flats
     flat_type: Literal["sky", "twilight"] = "twilight"
-    flat_max_lag: Union[int, float] = 1
+    flat_max_lag: int | float = 1
     flat_mask_min: bool = True
     flat_mask_max: bool = True
-    flat_rel_lo: Union[int, float] = 0.3
-    flat_rel_hi: Union[int, float] = 1.7
-    flat_sigma_level: Union[int, float] = 3
+    flat_rel_lo: int | float = 0.3
+    flat_rel_hi: int | float = 1.7
+    flat_sigma_level: int | float = 3
     flat_sigma_iter: int = 1
     flat_metric: Literal[
         "weighted", "mean", "median", "clipped_mean", "clipped_median"
     ] = "weighted"
 
     # Weights
-    weight_mask_abs_min: Union[int, float] = 0.3
-    weight_mask_abs_max: Union[int, float] = 1.7
-    weight_mask_rel_min: Union[int, float] = 0.5
-    weight_mask_rel_max: Union[int, float] = 1.5
+    weight_mask_abs_min: int | float = 0.3
+    weight_mask_abs_max: int | float = 1.7
+    weight_mask_rel_min: int | float = 0.5
+    weight_mask_rel_max: int | float = 1.5
     build_individual_weights_maximask: bool = False
 
     # Source masks
     mask_2mass_sources: bool = True
-    mask_2mass_sources_bright: Union[int, float] = 1.0
-    mask_2mass_sources_faint: Union[int, float] = 10.0
+    mask_2mass_sources_bright: int | float = 1.0
+    mask_2mass_sources_faint: int | float = 10.0
     mask_bright_galaxies: bool = True
-    additional_source_masks: Optional[Union[str, SourceMasks]] = None
+    additional_source_masks: str | SourceMasks | None = None
     source_mask_method: Literal["noisechisel", "built-in"] = "noisechisel"
     source_masks_n_min: int = 5
     source_masks_n_iter: int = 1
@@ -132,21 +132,21 @@ class Setup:
     noisechisel_tilesize: str = "32,32"
     noisechisel_meanmedqdiff: float = 0.05
     # Built-in setup for source masks
-    mask_sources_thresh: Union[int, float] = 3
-    mask_sources_min_area: Union[int, float] = 3
-    mask_sources_max_area: Union[int, float] = 250000
+    mask_sources_thresh: int | float = 3
+    mask_sources_min_area: int | float = 3
+    mask_sources_max_area: int | float = 250000
     mask_bright_sources: bool = True
     mask_sources_dilate: bool = True
 
     # Sky
     sky_n_min: int = 5
     sky_mix_science: bool = True
-    sky_window: Union[int, float] = 180
+    sky_window: int | float = 180
     sky_mask_min: bool = True
     sky_mask_max: bool = True
-    sky_rel_lo: Union[int, float] = 0.3
-    sky_rel_hi: Union[int, float] = 1.7
-    sky_sigma_level: Union[int, float] = 3
+    sky_rel_lo: int | float = 0.3
+    sky_rel_hi: int | float = 1.7
+    sky_sigma_level: int | float = 3
     sky_sigma_iter: int = 1
     sky_combine_metric: Literal[
         "weighted", "mean", "median", "clipped_mean", "clipped_median"
@@ -157,12 +157,12 @@ class Setup:
     background_mesh_filtersize: int = 3
 
     # Statistics images
-    image_statistics_resize_factor: Union[int, float] = 0.25
+    image_statistics_resize_factor: int | float = 0.25
 
     # Sextractor
     sex_back_size: int = 64
     sex_back_filtersize: int = 3
-    sex_detection_image_path: Optional[str] = None
+    sex_detection_image_path: str | None = None
 
     # Swarp
     resampling_kernel: Literal[
@@ -182,7 +182,7 @@ class Setup:
     fix_vircam_headers: bool = True
 
     # Folders
-    folders: Optional[Dict[str, str]] = None
+    folders: dict[str, str] | None = None
 
     def __post_init__(self):
         # Simple setup check
@@ -226,12 +226,12 @@ class Setup:
         return True
 
     @property
-    def fpa_layout(self) -> List[int]:
+    def fpa_layout(self) -> list[int]:
         return [4, 4]
 
     # Mutable defaults that can be changed
     @property
-    def __default_saturation_levels(self) -> List[float]:
+    def __default_saturation_levels(self) -> list[float]:
         """Saturation levels for each detector."""
         return [
             33000.0,
@@ -253,7 +253,7 @@ class Setup:
         ]
 
     @property
-    def __sv_saturation_levels(self) -> List[float]:
+    def __sv_saturation_levels(self) -> list[float]:
         """Saturation levels for each detector."""
         return [
             30000.0,
@@ -275,7 +275,7 @@ class Setup:
         ]
 
     @property
-    def saturation_levels(self) -> List[Union[int, float]]:
+    def saturation_levels(self) -> list[int | float]:
         """Returns the saturation level for a given detector."""
         if self.set_saturation_levels == "default":
             return self.__default_saturation_levels
@@ -287,7 +287,7 @@ class Setup:
             )
 
     @property
-    def image_statistics_combine_type(self) -> Dict:
+    def image_statistics_combine_type(self) -> dict:
         return {
             "nimg": "SUM",
             "exptime": "SUM",
@@ -298,7 +298,7 @@ class Setup:
         }
 
     @property
-    def apertures(self) -> List[float]:
+    def apertures(self) -> list[float]:
         return [
             3.0,
             4.0,
@@ -518,7 +518,7 @@ class Setup:
                 make_folder(path=path)
 
     @property
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         # Get complete dict
         dd = asdict(self)
 
