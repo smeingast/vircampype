@@ -701,10 +701,16 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 table_chunks = split_table(table=table, n_splits=n_splits)
                 len_table_chunks = [len(chunk) for chunk in table_chunks]
 
-                # Compute weights with a 2 arcmin gaussian kernel
+                # Compute adaptive gaussian kernel width from k-th neighbor distance
+                kernel_std_pix = np.median(nn_dis[:, self.setup.phot_interp_kernel_k])
+                log.info(
+                    f"Adaptive kernel std: {kernel_std_pix:.1f} px "
+                    f"({kernel_std_pix / 3 / 60:.2f} arcmin, "
+                    f"k={self.setup.phot_interp_kernel_k})"
+                )
                 log.info("Computing weights for nearest neighbors")
                 nn_weights = (
-                    np.exp(-0.5 * (nn_dis / 360) ** 2)
+                    np.exp(-0.5 * (nn_dis / kernel_std_pix) ** 2)
                     / table["MAGERR_AUTO"][:, np.newaxis] ** 2
                 )
                 nn_weights[np.isnan(nn_weights)] = 0

@@ -63,6 +63,7 @@ class Setup:
     reference_mag_hi: Union[int, float] = None
     target_zp: float = 25.0
     illumination_correction_mode: Literal["variable", "constant"] = "variable"
+    phot_interp_kernel_k: int = 10
     photometric_error_floor: float = 0.005
 
     # Master calibration lookup
