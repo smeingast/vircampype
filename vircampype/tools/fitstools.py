@@ -1,7 +1,6 @@
 import os.path
 import re
 import warnings
-from typing import List, Optional, Union
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -129,17 +128,17 @@ def make_card(keyword, value, comment=None, upper=True):
     return fits.Card(keyword=kw, value=val, comment=comment)
 
 
-def make_cards(keywords, values: List, comments: List[str] = None):
+def make_cards(keywords, values: list, comments: list[str] | None = None):
     """
     Creates a list of FITS header cards from given keywords, values, and comments
 
     Parameters
     ----------
-    keywords : List[str]
+    keywords : list[str]
         List of keywords.
-    values : List
+    values : list
         List of values.
-    comments : List[str], optional
+    comments : list[str], optional
         List of comments.
     Returns
     -------
@@ -229,10 +228,10 @@ def add_key_primary_hdu(path, key, value, comment=None):
 
 
 def make_mef_image(
-    paths_input: List[str],
+    paths_input: list[str],
     path_output: str,
-    primeheader: Optional[fits.Header] = None,
-    add_constant: Optional[Union[int, float, str, List]] = None,
+    primeheader: fits.Header | None = None,
+    add_constant: int | float | str | list | None = None,
     write_extname: bool = True,
     overwrite: bool = False,
 ) -> None:
@@ -677,8 +676,8 @@ def compress_images(images, q=4, exe="fpack", n_jobs=1):
 def make_gaia_refcat(
     table_in: Table,
     path_ldac_out: str,
-    epoch_in: Union[int, float] = 2016.0,
-    epoch_out: Optional[Union[int, float]] = None,
+    epoch_in: int | float = 2016.0,
+    epoch_out: int | float | None = None,
     key_ra: str = "ra",
     key_ra_error: str = "ra_error",
     key_dec: str = "dec",
@@ -750,15 +749,17 @@ def make_gaia_refcat(
     )
     table_in = table_in[keep]
 
-    # Transform positions
+    # Build sky coordinates (always needed for output table)
+    sc = SkyCoord(
+        ra=table_in[key_ra],
+        dec=table_in[key_dec],
+        pm_ra_cosdec=table_in[key_pmra],
+        pm_dec=table_in[key_pmdec],
+        obstime=Time(epoch_in, format="decimalyear"),
+    )
+
+    # Apply space motion if an output epoch is requested
     if epoch_out is not None:
-        sc = SkyCoord(
-            ra=table_in[key_ra],
-            dec=table_in[key_dec],
-            pm_ra_cosdec=table_in[key_pmra],
-            pm_dec=table_in[key_pmdec],
-            obstime=Time(epoch_in, format="decimalyear"),
-        )
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             sc = sc.apply_space_motion(
