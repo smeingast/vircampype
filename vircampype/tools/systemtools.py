@@ -9,7 +9,6 @@ import sys
 import tempfile
 import time
 import uuid
-from itertools import zip_longest
 from pathlib import Path
 from typing import List
 
@@ -224,7 +223,10 @@ def run_commands_shell_parallel(
     cmds, n_jobs: int = 1, shell: str = "zsh", silent: bool = True
 ):
     """
-    Runs a list of shell commands in parallel.
+    Runs a list of shell commands in parallel using a thread pool.
+
+    Maintains exactly ``n_jobs`` concurrent subprocesses. As soon as one
+    finishes, the next command starts immediately (no batch synchronisation).
 
     Parameters
     ----------
@@ -238,32 +240,22 @@ def run_commands_shell_parallel(
         Whether or not to print information about the process. Default is True.
 
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     # Append dynamic libraries
     cmds = [cmd_prepend_libraries(cmd) for cmd in cmds]
+    shell_path = which(shell)
 
-    if silent:
-        groups = [
-            (
-                subprocess.Popen(
-                    cmd,
-                    shell=True,
-                    executable=which(shell),
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                for cmd in cmds
-            )
-        ] * n_jobs
-    else:
-        groups = [
-            (subprocess.Popen(cmd, shell=True, executable=which(shell)) for cmd in cmds)
-        ] * n_jobs
+    def _run_one(cmd: str) -> None:
+        kw: dict = dict(shell=True, executable=shell_path)
+        if silent:
+            kw.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(cmd, **kw)
 
-    # Run processes
-    for processes in zip_longest(*groups):  # run len(processes) == limit at a time
-        for p in filter(None, processes):
-            p.wait()
+    with ThreadPoolExecutor(max_workers=n_jobs) as pool:
+        futures = [pool.submit(_run_one, cmd) for cmd in cmds]
+        for f in as_completed(futures):
+            f.result()
 
 
 def run_command_shell(
