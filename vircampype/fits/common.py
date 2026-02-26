@@ -1,7 +1,9 @@
 import glob
+import hashlib
 import json
 import os
 import shelve
+import tempfile
 
 import numpy as np
 from astropy.io import fits
@@ -142,8 +144,10 @@ class FitsFiles:
 
     @property
     def _path_header_db(self) -> str:
-        """Path to the consolidated header shelve database (without extension)."""
-        return f"{self.setup.folders['temp']}headers"
+        """Path to the consolidated header shelve database (without extension). """
+        # Derive a stable, unique name from the pipeline temp folder path
+        path_hash = hashlib.md5(self.setup.folders["temp"].encode()).hexdigest()[:12]
+        return os.path.join(tempfile.gettempdir(), f"vircampype_headers_{path_hash}")
 
     _headers = None
 
