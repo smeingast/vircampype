@@ -1171,36 +1171,31 @@ class ImageCube(object):
 
         return ImageCube(cube=np.array(mp).astype(bool), setup=self.setup)
 
-    def build_source_masks_noisechisel(self):
-        """
-        Runs noisechisel on the cube and returns the masks.
+    def prepare_noisechisel(self) -> tuple[list[str], str, list[str]]:
+        """Write cube to temp MEF and build noisechisel commands.
 
         Returns
         -------
-        ImageCube
-            Noisechisel masks.
+        tuple[list[str], str, list[str]]
+            (cmds, path_input, paths_output) — command strings, path to the
+            temporary input MEF, and paths to the expected output files.
+            Does NOT run the commands.
 
         """
-
         # Write cube to temp file on disk
-        path_temp_data = make_path_system_tempfile(suffix=".fits")
+        path_input = make_path_system_tempfile(suffix=".fits")
+        self.write_mef(path=path_input, overwrite=True, dtype=np.float32)
 
-        self.write_mef(
-            path=path_temp_data,
-            overwrite=True,
-            dtype=np.float32,
-        )
-
-        # Create temp paths for noisechisel
-        paths_temp_noisechisel = [
-            path_temp_data.replace(".fits", f"_{i:02d}.fits")
+        # Create temp paths for noisechisel output
+        paths_output = [
+            path_input.replace(".fits", f"_{i:02d}.fits")
             for i in range(1, len(self) + 1)
         ]
 
         # Build NoiseChisel commands
         cmds = [
             (
-                f"{which(self.setup.bin_noisechisel)} {path_temp_data} "
+                f"{which(self.setup.bin_noisechisel)} {path_input} "
                 f"--hdu {i} "
                 f"-o {pto} "
                 f"-N 1 "
@@ -1211,29 +1206,64 @@ class ImageCube(object):
                 f"--tilesize={self.setup.noisechisel_tilesize} "
                 f"--meanmedqdiff {self.setup.noisechisel_meanmedqdiff}"
             )
-            for i, pto in zip(range(1, len(self) + 1), paths_temp_noisechisel)
+            for i, pto in zip(range(1, len(self) + 1), paths_output)
         ]
 
-        # Run noisechisel in parallel
-        run_commands_shell_parallel(cmds=cmds, silent=False, n_jobs=self.setup.n_jobs)
+        return cmds, path_input, paths_output
 
-        # Read results
-        masks_noisechisel = np.array(
+    @staticmethod
+    def collect_noisechisel_results(
+        paths_output: list[str], path_input: str, setup: "Setup"
+    ) -> "ImageCube":
+        """Read noisechisel output files and return boolean mask cube.
+
+        Parameters
+        ----------
+        paths_output : list[str]
+            Paths to noisechisel output FITS files.
+        path_input : str
+            Path to the temporary input MEF (will be deleted).
+        setup : Setup
+            Pipeline setup instance.
+
+        Returns
+        -------
+        ImageCube
+            Boolean source masks.
+
+        """
+        masks = np.array(
             [
                 fits.getdata(filename=path, ext=1).astype(np.float32)
-                for path in paths_temp_noisechisel
+                for path in paths_output
             ]
         )
 
         # Replace NaNs with 1
-        masks_noisechisel[np.isnan(masks_noisechisel)] = 1
+        masks[np.isnan(masks)] = 1
 
         # Delete temp files
-        os.remove(path_temp_data)
-        [os.remove(path) for path in paths_temp_noisechisel]
+        os.remove(path_input)
+        for path in paths_output:
+            os.remove(path)
 
-        # Return
-        return ImageCube(cube=masks_noisechisel.astype(bool), setup=self.setup)
+        return ImageCube(cube=masks.astype(bool), setup=setup)
+
+    def build_source_masks_noisechisel(self) -> "ImageCube":
+        """Run noisechisel on the cube and return boolean source masks.
+
+        Convenience wrapper around prepare_noisechisel +
+        run_commands_shell_parallel + collect_noisechisel_results.
+
+        Returns
+        -------
+        ImageCube
+            Noisechisel masks.
+
+        """
+        cmds, path_input, paths_output = self.prepare_noisechisel()
+        run_commands_shell_parallel(cmds=cmds, silent=False, n_jobs=self.setup.n_jobs)
+        return self.collect_noisechisel_results(paths_output, path_input, self.setup)
 
     # =========================================================================== #
     # Properties
