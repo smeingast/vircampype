@@ -185,17 +185,23 @@ The pipeline creates the following folder structure under `path_pype`:
 
 ```
 path_pype/
-├── master_common/      # Master calibration files (shared across runs)
-├── master_object/      # Master sky, source masks, illumination corrections
-├── headers/            # SCAMP astrometric headers
-├── processed/          # Calibrated pawprint images
-├── resampled/          # Resampled pawprint images
-├── stacks/             # Per-offset stack images and catalogs
-├── tile/               # Final co-added tile image and catalog
-├── statistics/         # Statistics images (exptime, nimg, astrms, mjd)
-├── phase3/             # ESO Phase 3-compliant products
-├── qc/                 # Quality control plots
-└── temp/               # Temporary files and pipeline status
+├── master/                     # Master calibration files (shared across runs)
+├── phase3/<name>/              # ESO Phase 3-compliant products
+└── <name>/                     # Per-target output folder
+    ├── master/                 # Master sky, source masks, illumination corrections
+    ├── processed_basic/        # Basic-calibrated pawprint images
+    ├── processed_final/        # Final-calibrated pawprint images
+    ├── resampled/              # Resampled pawprint images
+    ├── illumcorr/              # Illumination correction maps
+    ├── stacks/                 # Per-offset stack images and catalogs
+    ├── tile/                   # Final co-added tile image and catalog
+    ├── statistics/             # Statistics images (exptime, nimg, astrms, mjd)
+    ├── qc/                     # Quality control plots
+    │   ├── astrometry/
+    │   ├── photometry/
+    │   ├── sky/
+    │   └── illumcorr/
+    └── temp/                   # Temporary files and pipeline status
 ```
 
 ---
