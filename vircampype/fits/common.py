@@ -1,14 +1,13 @@
 import glob
 import json
 import os
-import pickle
+import shelve
 
 import numpy as np
 from astropy.io import fits
 from astropy.time import Time
 
 from vircampype.pipeline.setup import Setup
-from vircampype.tools.systemtools import remove_file
 
 
 class FitsFiles:
@@ -139,6 +138,11 @@ class FitsFiles:
     def paths_headers(self):
         return [f"{self.setup.folders['headers']}{x}.header" for x in self.basenames]
 
+    @property
+    def _path_header_db(self) -> str:
+        """Path to the consolidated header shelve database (without extension)."""
+        return f"{self.setup.folders['headers']}headers"
+
     _headers = None
 
     @property
@@ -148,34 +152,27 @@ class FitsFiles:
             return self._headers
 
         headers = []
-        for idx in range(self.n_files):
-            # Try to read the database
-            try:
-                with open(self.paths_headers[idx], "rb") as f:
-                    headers.append(pickle.load(f))
+        with shelve.open(self._path_header_db) as db:
+            for idx in range(self.n_files):
+                key = self.basenames[idx]
+
+                # Return cached entry if present
+                if key in db:
+                    headers.append(db[key])
                     continue
 
-            # If not found we move on to read the headers from the fits file
-            except FileNotFoundError:
+                # Otherwise read from FITS file and cache
                 with fits.open(self.paths_full[idx]) as hdulist:
                     fileheaders = []
                     for hdu in hdulist:
-                        # Load header
                         hdr = hdu.header
-
-                        # Remove that silly keyword
                         try:
                             hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
                         except KeyError:
                             pass
-
-                        # Save cleaned header
                         fileheaders.append(hdr)
 
-                # When done for all headers dump them into the database
-                with open(self.paths_headers[idx], "wb") as d:
-                    pickle.dump(fileheaders, d)
-
+                db[key] = fileheaders
                 headers.append(fileheaders)
 
         # Return all headers
@@ -322,12 +319,14 @@ class FitsFiles:
         return [t.T.tolist() for t in temp]
 
     def delete_headers(self, idx_file=None):
-        """Removes all extracted header files from the header directory."""
+        """Removes header entries from the consolidated header database."""
 
-        if idx_file is None:
-            [remove_file(filepath=p) for p in self.paths_headers]
-        else:
-            remove_file(filepath=self.paths_headers[idx_file])
+        with shelve.open(self._path_header_db) as db:
+            if idx_file is None:
+                for key in self.basenames:
+                    db.pop(key, None)
+            else:
+                db.pop(self.basenames[idx_file], None)
 
     # =========================================================================== #
     # Some properties
