@@ -11,7 +11,6 @@ from astropy.table import Table
 from astropy.time import Time
 
 from vircampype import __version__
-from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import add_float_to_header, mjd2dateobs
 from vircampype.tools.mathtools import centroid_sphere, clipped_median

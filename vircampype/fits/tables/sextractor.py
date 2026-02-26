@@ -2256,9 +2256,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Load master photometry catalog
         from vircampype.fits.images.common import FitsImages
-        from vircampype.fits.tables.sources import MasterPhotometry2Mass
 
-        master_phot = self.get_master_photometry()  # type: MasterPhotometry2Mass
+        master_phot = self.get_master_photometry()
 
         # Find classification tables
         paths_cls = [
