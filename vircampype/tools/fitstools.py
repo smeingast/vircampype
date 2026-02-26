@@ -559,7 +559,9 @@ def mjd2dateobs(mjd):
     return Time(mjd, format="mjd").fits
 
 
-def fix_vircam_headers(prime_header, data_headers):
+def fix_vircam_headers(
+    prime_header: fits.Header, data_headers: list[fits.Header]
+) -> None:
     """
     Reset WCS information and remove useless keywords from VIRCAM headers.
 
