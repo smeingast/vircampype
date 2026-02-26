@@ -1406,7 +1406,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def photerr_internal(self):
         # Create pickle path
-        pickle_path = f"{self.setup.folders['temp']}photerr_interal.p"
+        pickle_path = f"{self.setup.folders['temp']}photerr_internal.p"
 
         # Try to load from file
         try:
