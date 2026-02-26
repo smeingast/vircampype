@@ -75,7 +75,7 @@ def check_card_value(value: object) -> str | int | float:
     str or int or float
         Value safe to write into a FITS header card.
     """
-    val = func2string(value) if hasattr(value, "__call__") else value
+    val = func2string(value) if callable(value) else value
 
     if not (
         isinstance(val, str)
