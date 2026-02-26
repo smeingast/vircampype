@@ -1076,57 +1076,47 @@ class ImageCube(object):
         # Overlap is half the kernel size
         overlap = int(np.ceil(np.max(kernel.shape) / 2))
 
-        # Also the overlap must be even
-        # if overlap % 2 != 0:
-        #     overlap = np.int(np.ceil(overlap / 2.) * 2)
-
         # Always chop along the longer axis
         chop_ax = 0 if self.shape[1] > self.shape[2] else 1
 
-        # Loop through planes and interpolate
+        # Chop all planes upfront
+        npieces = self.setup.n_jobs * 2
+        all_chopped = []  # flat list of chunks
+        all_locations = []  # one location array per plane
         for plane in self:
-            # Chop in smaller sub-regions for better performance
             chopped, loc = chop_image(
                 array=plane,
-                npieces=self.setup.n_jobs * 2,
+                npieces=npieces,
                 axis=chop_ax,
                 overlap=overlap,
             )
+            all_chopped.extend(chopped)
+            all_locations.append(loc)
 
-            # Do interpolation
-            if self.setup.n_jobs == 1:
-                mp = []
-                for ch in chopped:
-                    mp.append(
-                        interpolate_image(
-                            data=ch,
-                            kernel=kernel,
-                            max_bad_neighbors=self.setup.interpolate_max_bad_neighbors,
-                        )
-                    )
-
-            elif self.setup.n_jobs > 1:
-                with Parallel(
-                    n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
-                ) as parallel:
-                    mp = parallel(
-                        delayed(interpolate_image)(d, k, m)
-                        for d, k, m in zip(
-                            chopped,
-                            repeat(kernel),
-                            repeat(self.setup.interpolate_max_bad_neighbors),
-                        )
-                    )
-
-            else:
-                raise ValueError(
-                    f"'n_threads' not correctly set (n_threads = {self.setup.n_jobs})"
+        # Interpolate all chunks in a single parallel call
+        max_bad = self.setup.interpolate_max_bad_neighbors
+        if self.setup.n_jobs == 1:
+            all_results = [interpolate_image(ch, kernel, max_bad) for ch in all_chopped]
+        else:
+            with Parallel(
+                n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
+            ) as parallel:
+                all_results = parallel(
+                    delayed(interpolate_image)(ch, kernel, max_bad)
+                    for ch in all_chopped
                 )
 
-            # Merge back into plane and put into cube
+        # Merge results back into each plane
+        offset = 0
+        for idx, plane in enumerate(self):
+            n = npieces
             plane[:] = merge_chopped(
-                arrays=mp, locations=loc, axis=chop_ax, overlap=overlap
+                arrays=all_results[offset : offset + n],
+                locations=all_locations[idx],
+                axis=chop_ax,
+                overlap=overlap,
             )
+            offset += n
 
     def replace_nan(self, value):
         """
