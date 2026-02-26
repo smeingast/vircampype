@@ -200,6 +200,35 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
 def _make_prime_header_stack(
     hdulist_stack: fits.HDUList, image_or_catalog: str, setup, **kwargs
 ):
+    """
+    Build the primary FITS header for a Phase-3 stack image or catalog.
+
+    Populates mandatory ESO Phase-3 keywords (``ORIGIN``, ``TELESCOP``,
+    ``FILTER``, ``EXPTIME``, provenance, astrometric RMS, etc.) from the
+    pipeline stack HDUList and the pipeline setup.
+
+    Parameters
+    ----------
+    hdulist_stack : fits.HDUList
+        Pipeline stack HDUList (primary HDU must carry standard keywords).
+    image_or_catalog : str
+        Either ``"image"`` or ``"catalog"``; selects the appropriate
+        ``PRODCATG`` value and additional image-only keywords.
+    setup : Setup
+        Pipeline setup instance providing keyword names and folder paths.
+    **kwargs
+        Extra keyword/value pairs appended verbatim to the header.
+
+    Returns
+    -------
+    fits.Header
+        Phase-3 compliant primary FITS header.
+
+    Raises
+    ------
+    ValueError
+        If *image_or_catalog* is not ``"image"`` or ``"catalog"``.
+    """
     # Make new empty header
     hdr = fits.Header()
 
@@ -351,6 +380,32 @@ def _make_prime_header_stack(
 def _make_extension_header_stack(
     hdu_stk, hdu_ctg, image_or_catalog, passband, mag_saturation
 ):
+    """
+    Build an extension FITS header for a Phase-3 stack image or catalog HDU.
+
+    Copies WCS keywords from the stack extension header, adds photometric
+    zero-point and limiting magnitude information, and sets shape (PSF FWHM,
+    ellipticity) statistics.
+
+    Parameters
+    ----------
+    hdu_stk : fits.ImageHDU
+        Pipeline stack image HDU for the current extension.
+    hdu_ctg : fits.BinTableHDU
+        Pipeline catalog HDU for the current extension.
+    image_or_catalog : str
+        Either ``"image"`` or ``"catalog"``; controls which WCS/gain keywords
+        are written.
+    passband : str
+        Passband name used for the Vega→AB magnitude conversion.
+    mag_saturation : float
+        Saturation limit in Vega magnitudes.
+
+    Returns
+    -------
+    fits.Header
+        Phase-3 compliant extension FITS header.
+    """
     # Start with empty header
     hdr_stk = hdu_stk.header
     hdr_out = fits.Header()
@@ -672,6 +727,37 @@ def _make_tile_headers(
     mag_saturation: float,
     **kwargs,
 ):
+    """
+    Build the primary and extension headers for a Phase-3 tile data product.
+
+    Constructs three headers — primary tile image header, primary catalog
+    header, and catalog extension header — from the pipeline tile HDUList,
+    catalog HDUList, and individual pawprint HDULists.
+
+    Parameters
+    ----------
+    hdul_tile : fits.HDUList
+        Pipeline tile image HDUList.
+    hdul_catalog : fits.HDUList
+        Pipeline tile catalog HDUList.
+    hdul_pawprints : List[fits.HDUList]
+        List of pipeline pawprint HDULists used to build the tile.
+    passband : str
+        Passband name (e.g. ``"J"``, ``"H"``, ``"Ks"``).
+    mag_saturation : float
+        Saturation limit in Vega magnitudes.
+    **kwargs
+        Extra keyword/value pairs appended to the output headers.
+
+    Returns
+    -------
+    phdr_tile_out : fits.Header
+        Primary header for the tile image.
+    phdr_ctg_out : fits.Header
+        Primary header for the tile source catalog.
+    ehdr_ctg_out : fits.Header
+        Extension header for the tile source catalog.
+    """
     # Grab stuff
     phdr_tile_in = hdul_tile[0].header
     e2hdr_ctg_in = hdul_catalog[2].header

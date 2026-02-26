@@ -70,6 +70,62 @@ def clean_source_table(
     n_jobs: Optional[int] = None,
     verbose=False,
 ):
+    """
+    Filter a SExtractor source table by a set of quality criteria.
+
+    Applies a sequence of optional cuts based on signal-to-noise, flags,
+    shape parameters, proximity to image edges, and flux limits.  Each
+    criterion is applied only when the relevant column is present in the
+    table (``KeyError`` is silently caught).
+
+    Parameters
+    ----------
+    table : Table
+        Input source catalog (typically a SExtractor output table).
+    image_header : fits.Header, optional
+        FITS header of the source image; used for edge-distance cuts on
+        ``XWIN_IMAGE`` / ``YWIN_IMAGE``.
+    return_filter : bool, optional
+        If ``True``, return a tuple ``(filtered_table, boolean_mask)``.
+        Default is ``False``.
+    min_snr : float, optional
+        Minimum ``SNR_WIN``. Default is 10.
+    nndis_limit : float, optional
+        Minimum distance to nearest neighbour in pixels. Default is ``None``
+        (no cut applied).
+    flux_auto_min : float, optional
+        Minimum ``FLUX_AUTO``.
+    flux_auto_max : float, optional
+        Maximum ``FLUX_AUTO``.
+    flux_max : float, optional
+        Maximum ``FLUX_MAX``.
+    flux_max_percentiles : tuple, optional
+        ``(lower, upper)`` percentile bounds for ``FLUX_MAX``.
+    max_ellipticity : float, optional
+        Maximum ``ELLIPTICITY``. Default is 0.25.
+    min_fwhm : float, optional
+        Minimum ``FWHM_IMAGE`` in pixels. Default is 0.5.
+    max_fwhm : float, optional
+        Maximum ``FWHM_IMAGE`` in pixels. Default is 8.0.
+    min_distance_to_edge : int, optional
+        Minimum pixel distance from the image edge. Default is 20.
+    min_flux_radius : float, optional
+        Minimum ``FLUX_RADIUS``. Default is 0.8.
+    max_flux_radius : float, optional
+        Maximum ``FLUX_RADIUS``. Default is 3.0.
+    finite_columns : List[str], optional
+        Column names for which only finite values are kept.
+    n_jobs : int, optional
+        Number of parallel jobs for the nearest-neighbour search.
+    verbose : bool, optional
+        If ``True``, print the number of sources remaining after each cut.
+
+    Returns
+    -------
+    Table or tuple
+        Cleaned table, or ``(cleaned_table, mask)`` if *return_filter* is
+        ``True``.
+    """
     # We start with all good sources
     good = np.full(len(table), fill_value=True, dtype=bool)
 
@@ -242,7 +298,24 @@ def clean_source_table(
         return table[good]
 
 
-def table2bintablehdu(table):
+def table2bintablehdu(table: Table) -> fits.BinTableHDU:
+    """
+    Convert an Astropy Table to a FITS ``BinTableHDU``.
+
+    Iterates over all columns, maps numpy dtypes to FITS format codes, and
+    constructs a ``fits.BinTableHDU`` preserving column units.
+
+    Parameters
+    ----------
+    table : Table
+        Input Astropy Table. All columns must have dtypes representable by
+        the ``numpy2fits`` mapping defined in ``miscellaneous.py``.
+
+    Returns
+    -------
+    fits.BinTableHDU
+        Binary table HDU ready to be appended to a ``fits.HDUList``.
+    """
     # Construct FITS columns from all table columns
     cols_hdu = []
     for key in table.keys():
@@ -275,7 +348,32 @@ def table2bintablehdu(table):
 
 
 def interpolate_classification(source_table, classification_table, verbose=False):
-    """Helper tool to interpolate classification from library"""
+    """
+    Interpolate SExtractor star/galaxy classification to the image seeing.
+
+    SExtractor is run twice: once to build a classification library at a
+    grid of assumed FWHM values, and once in full mode.  This function
+    cross-matches both catalogs via nearest neighbour and interpolates the
+    library classification to the actual measured FWHM of each source,
+    adding a new ``CLASS_STAR_INTERP`` column to *source_table*.
+
+    Parameters
+    ----------
+    source_table : Table
+        Full-mode SExtractor output table. Must contain ``XWIN_IMAGE``,
+        ``YWIN_IMAGE``, and ``FWHM_WORLD_INTERP`` columns.
+    classification_table : Table
+        Classification-mode SExtractor output table. Must contain
+        ``XWIN_IMAGE``, ``YWIN_IMAGE``, and ``CLASS_STAR_<fwhm>`` columns.
+    verbose : bool, optional
+        If ``True``, print progress information. Default is ``False``.
+
+    Returns
+    -------
+    Table
+        *source_table* with an additional ``CLASS_STAR_INTERP`` column
+        (float32).
+    """
 
     if verbose:
         print("\nInterpolating classification...")
@@ -436,7 +534,32 @@ def convert2public(
     mag_saturation: float,
     survey_name: str,
 ):
+    """
+    Convert the internal pipeline source catalog to a public-release format.
 
+    Merges VISIONS science sources with 2MASS bright-star replacements,
+    computes total position errors, quality flags (``CFLG``, ``QFLG``), and
+    assembles the final ``QTable`` with standardised column names and units.
+
+    Parameters
+    ----------
+    input_table : Table
+        Merged source table as produced by :func:`merge_with_2mass`.
+    photerr_internal : float
+        Internal photometric error floor (mag) added in quadrature to the
+        aperture magnitude errors.
+    apertures : List
+        List of aperture radii (pixels) used during SExtractor photometry.
+    mag_saturation : float
+        Bright-star saturation limit (mag, Vega).
+    survey_name : str
+        Name of the main survey (e.g. ``"VISIONS"``).
+
+    Returns
+    -------
+    QTable
+        Public-format source catalog with standardised columns and units.
+    """
     # Fill masked columns with NaN
     input_table = fill_masked_columns(table=input_table, fill_value=np.nan)
 
@@ -766,6 +889,48 @@ def merge_with_2mass(
     key_dec_2mass: str,
     survey_name: str,
 ):
+    """
+    Merge a pipeline source table with 2MASS bright-star replacements.
+
+    Removes pipeline detections near bright or saturated 2MASS stars and
+    inserts the corresponding 2MASS catalogue entries, so that the output
+    table has reliable photometry across the full dynamic range.
+
+    Parameters
+    ----------
+    table : Table
+        Pipeline source catalog. Modified in place (rows near bright stars
+        are removed).
+    weight_image : np.ndarray
+        Weight map array used to verify that 2MASS sources fall in observed
+        regions.
+    weight_header : fits.Header
+        FITS header of the weight image (provides the WCS).
+    table_2mass : Table
+        Full 2MASS reference table for the field.
+    table_2mass_clean : Table
+        Cleaned 2MASS table from which replacement sources are drawn.
+    mag_limit : float
+        2MASS magnitude threshold below which sources are considered bright
+        and trigger cleaning.
+    key_ra : str
+        Column name for right ascension in *table*.
+    key_dec : str
+        Column name for declination in *table*.
+    key_mag_2mass : str
+        Magnitude column name in the 2MASS tables.
+    key_ra_2mass : str
+        RA column name in the 2MASS tables.
+    key_dec_2mass : str
+        Dec column name in the 2MASS tables.
+    survey_name : str
+        Survey identifier string written into the ``SURVEY`` column.
+
+    Returns
+    -------
+    Table
+        Combined table with pipeline and 2MASS sources.
+    """
     # Read data columns
     skycoord = SkyCoord(table[key_ra], table[key_dec], unit="deg", frame="icrs")
 
@@ -840,9 +1005,9 @@ def merge_with_2mass(
     for cr, nib, ndb, nic, ndc in zip(
         cleaning_radius,
         nindices_bright,
-        ndistances_bright,
+        ndistances_bright,  # type: ignore[arg-type]  # non-None: compute_distances=True
         nindices_clean,
-        ndistances_clean,
+        ndistances_clean,  # type: ignore[arg-type]  # non-None: compute_distances=True
     ):
         # Convert current indices and distances to arrays
         nib = np.array(nib, dtype=int)

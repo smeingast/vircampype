@@ -16,7 +16,25 @@ __all__ = [
 ]
 
 
-def convert_dtype(dtype):
+def convert_dtype(dtype: str) -> str:
+    """
+    Map common dtype name strings to their NumPy shorthand equivalents.
+
+    Converts descriptive dtype strings (e.g. ``"float32"``) to the compact
+    single-character codes used internally (e.g. ``"f4"``). Unrecognised
+    strings are returned unchanged.
+
+    Parameters
+    ----------
+    dtype : str
+        Dtype name string, e.g. ``"bool"``, ``"int16"``, ``"float64"``.
+
+    Returns
+    -------
+    str
+        Compact NumPy dtype code, or *dtype* unchanged if not found in the
+        conversion table.
+    """
     try:
         cdict = dict(
             bool="i1", int16="i2", int32="i4", int64="i8", float32="f4", float64="f8"
@@ -214,6 +232,9 @@ def write_list(path_file: str, lst: List):
     lst : List
         input list.
 
+    Returns
+    -------
+    None
     """
     with open(path_file, "w") as outfile:
         outfile.write("\n".join(lst))

@@ -198,19 +198,19 @@ def get_default_extinction(passband: str) -> float:
     """
     return default extinction coefficient for a near-ir passband.
 
-    parameters
+    Parameters
     ----------
     passband
         passband name (e.g. "j", "h", "k", "ks").
 
-    returns
+    Returns
     -------
     float
         extinction coefficient.
 
-    raises
+    Raises
     ------
-    valueerror
+    ValueError
         if passband is not supported.
     """
     pb = passband.strip().lower()

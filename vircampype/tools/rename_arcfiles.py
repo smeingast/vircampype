@@ -1,6 +1,7 @@
 import re
 import sys
 from pathlib import Path
+from typing import Generator
 
 from astropy.io import fits
 
@@ -14,7 +15,24 @@ if not DRY_RUN:
     )
 
 
-def find_fits_fz_files(root_dir):
+def find_fits_fz_files(root_dir: str) -> Generator[Path, None, None]:
+    """
+    Recursively yield ``.FZ`` files with exactly 11-character names.
+
+    Walks the directory tree rooted at *root_dir* in alphabetical order and
+    yields ``Path`` objects for files whose names end in ``.FZ`` and are
+    exactly 11 characters long.
+
+    Parameters
+    ----------
+    root_dir : str
+        Root directory to search.
+
+    Yields
+    ------
+    Path
+        Path to each matching ``.FZ`` file.
+    """
     # Walk the directory tree alphabetically
     for dirpath, dirnames, filenames in sorted_walk(root_dir):
         for fname in sorted(filenames):
@@ -22,7 +40,24 @@ def find_fits_fz_files(root_dir):
                 yield Path(dirpath) / fname
 
 
-def sorted_walk(root_dir):
+def sorted_walk(root_dir: str) -> Generator[tuple, None, None]:
+    """
+    Walk a directory tree alphabetically, yielding ``(dirpath, dirnames, filenames)``.
+
+    Equivalent to ``os.walk`` but with directory and file names sorted
+    alphabetically at every level.
+
+    Parameters
+    ----------
+    root_dir : str
+        Root directory from which to start walking.
+
+    Yields
+    ------
+    tuple
+        A 3-tuple ``(dirpath, dirnames, filenames)`` where *dirpath* is a
+        string, and *dirnames* / *filenames* are sorted lists of names.
+    """
     # Generator that walks the directory tree alphabetically
     root = Path(root_dir)
     dirs = [root]
@@ -35,7 +70,29 @@ def sorted_walk(root_dir):
         dirs = [current_dir / d for d in dirnames] + dirs
 
 
-def parse_arcfile(arcfile_value):
+def parse_arcfile(arcfile_value: str) -> str:
+    """
+    Convert an ESO ARCFILE keyword value to a filesystem-friendly filename.
+
+    Parses a string of the form ``VCAM.YYYY-MM-DDTHH:MM:SS.mmm.fits`` and
+    returns a sanitised filename ``VCAM_YYYY-MM-DD_HH-MM-SS-mmm.fits``.
+
+    Parameters
+    ----------
+    arcfile_value : str
+        Value of the ``ARCFILE`` FITS keyword, e.g.
+        ``"VCAM.2009-10-24T08:18:33.891.fits"``.
+
+    Returns
+    -------
+    str
+        Reformatted filename without colons or dots in the timestamp part.
+
+    Raises
+    ------
+    ValueError
+        If *arcfile_value* does not match the expected ARCFILE pattern.
+    """
     # Example: VCAM.2009-10-24T08:18:33.891.fits
     m = re.match(
         r"^(?P<prefix>VCAM)\.(?P<date>\d{4}-\d{2}-\d{2})T"
@@ -50,7 +107,32 @@ def parse_arcfile(arcfile_value):
     return f"{prefix}_{date}_{time}.fits"
 
 
-def main(root_dir):
+def main(root_dir: str) -> None:
+    """
+    Rename all ``.FZ`` VIRCAM archive files under *root_dir*.
+
+    Iterates over every 11-character ``.FZ`` file found recursively under
+    *root_dir*, reads the ``ARCFILE`` keyword from its primary FITS header,
+    and renames the file to the sanitised form produced by
+    :func:`parse_arcfile` (with a ``.fz`` suffix appended).
+
+    When ``DRY_RUN`` is ``True`` the function only prints planned renames
+    without touching the file system.
+
+    Parameters
+    ----------
+    root_dir : str
+        Root directory to search for files.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If a target filename already exists at the destination path.
+    """
     for path in find_fits_fz_files(root_dir):
         # Read the FITS header to get the ARCFILE value
         arcfile = fits.getheader(path)["ARCFILE"]

@@ -1,12 +1,13 @@
+from astropy.coordinates import SkyCoord
+from astropy.table import Table
 from astropy.units import Unit
 from astroquery.vizier import Vizier
-from astropy.coordinates import SkyCoord
 
 # Define objects in this module
 __all__ = ["download_2mass", "download_gaia"]
 
 
-def download_2mass(skycoord, radius):
+def download_2mass(skycoord: SkyCoord, radius: float) -> Table:
     """
     Downloads 2MASS data.
 
@@ -17,6 +18,11 @@ def download_2mass(skycoord, radius):
     radius : int, float
         Radius in degrees.
 
+    Returns
+    -------
+    Table
+        Astropy Table with 2MASS photometry. Columns include positions,
+        magnitudes, errors, and Julian Date (``JD``).
     """
 
     # Setup for Vizier
@@ -42,7 +48,7 @@ def download_2mass(skycoord, radius):
     return result
 
 
-def download_gaia(skycoord, radius):
+def download_gaia(skycoord: SkyCoord, radius: float) -> Table:
     """
     Downloads Gaia data.
 
@@ -53,6 +59,11 @@ def download_gaia(skycoord, radius):
     radius : int, float
         Radius in degrees.
 
+    Returns
+    -------
+    Table
+        Astropy Table with Gaia EDR3 data. Columns are renamed to lowercase
+        (``ra``, ``dec``, ``pmra``, ``pmdec``, ``flux``, etc.).
     """
 
     # Setup for Vizier

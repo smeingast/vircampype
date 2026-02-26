@@ -70,7 +70,6 @@ def apply_sigma_clip(
         warnings.filterwarnings("ignore", category=RuntimeWarning)
 
         for _ in range(sigma_iter):
-
             # Calculate standard deviation
             std = np.nanstd(data, axis=axis)
 
@@ -84,24 +83,75 @@ def apply_sigma_clip(
     return data
 
 
-def clipped_mean(data, **kwargs):
-    """Helper function to return the clipped mean of an array via astropy."""
+def clipped_mean(data: np.ndarray, **kwargs) -> float:
+    """
+    Return the sigma-clipped mean of an array.
+
+    Thin wrapper around ``astropy.stats.sigma_clipped_stats``.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input data array.
+    **kwargs
+        Additional keyword arguments forwarded to ``sigma_clipped_stats``.
+
+    Returns
+    -------
+    float
+        Sigma-clipped mean.
+    """
     return sigma_clipped_stats(data, **kwargs)[0]  # noqa
 
 
-def clipped_median(data, **kwargs):
-    """Helper function to return the clipped median of an array via astropy."""
+def clipped_median(data: np.ndarray, **kwargs) -> float:
+    """
+    Return the sigma-clipped median of an array.
+
+    Thin wrapper around ``astropy.stats.sigma_clipped_stats``.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input data array.
+    **kwargs
+        Additional keyword arguments forwarded to ``sigma_clipped_stats``.
+
+    Returns
+    -------
+    float
+        Sigma-clipped median.
+    """
     return sigma_clipped_stats(data, **kwargs)[1]  # noqa
 
 
-def clipped_stdev(data, **kwargs):
-    """Helper function to return the clipped median of an array via astropy."""
+def clipped_stdev(data: np.ndarray, **kwargs) -> float:
+    """
+    Return the sigma-clipped standard deviation of an array.
+
+    Thin wrapper around ``astropy.stats.sigma_clipped_stats``.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input data array.
+    **kwargs
+        Additional keyword arguments forwarded to ``sigma_clipped_stats``.
+
+    Returns
+    -------
+    float
+        Sigma-clipped standard deviation.
+    """
     return sigma_clipped_stats(data, **kwargs)[2]  # noqa
 
 
 def cuberoot_idl(
-    c0: (int, float), c1: (int, float), c2: (int, float), c3: (int, float)
-):
+    c0: Union[int, float],
+    c1: Union[int, float],
+    c2: Union[int, float],
+    c3: Union[int, float],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Copied from the IDL implementation.
     Function to return the roots of a cubic polynomial c0 + c1*x + c2*x^2 + c3*x^3 = 0
@@ -158,7 +208,6 @@ def cuberoot_idl(
 
     # All other cases
     if count2 > 0:
-
         rf = r[index2]
         qf = q[index2]
         cf = c[index2]
@@ -184,7 +233,13 @@ def cuberoot_idl(
     return solution1, solution2, solution3
 
 
-def cuberoot(a, b, c, d, return_real=False):
+def cuberoot(
+    a: Union[np.ndarray, float, int],
+    b: Union[float, int],
+    c: Union[float, int],
+    d: Union[float, int],
+    return_real: bool = False,
+) -> list:
     """
     Function to return the roots of a cubic polynomial a + bx + cx^2 + dx^3 = 0
     Uses the general formula listed in Wikipedia.
@@ -241,7 +296,12 @@ def cuberoot(a, b, c, d, return_real=False):
             ]
 
 
-def squareroot(a, b, c, return_real=False):
+def squareroot(
+    a: Union[np.ndarray, float, int],
+    b: Union[float, int],
+    c: Union[float, int],
+    return_real: bool = False,
+) -> list:
     """
     Function to return the roots of a quadratic polynomial a + bx + cx^2 = 0
 
@@ -279,8 +339,34 @@ def squareroot(a, b, c, return_real=False):
         return [x1, x2]
 
 
-def linearity_fitfunc(x, b1, b2, b3):
-    """Fitting function used for non-linearity correction."""
+def linearity_fitfunc(
+    x: np.ndarray,
+    b1: float,
+    b2: float,
+    b3: float,
+) -> np.ndarray:
+    """
+    Fitting function used for non-linearity correction.
+
+    Evaluates a polynomial model that accounts for the reset-read overhead
+    in VIRCAM detector integrations.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input pixel values (ADU).
+    b1 : float
+        First-order polynomial coefficient.
+    b2 : float
+        Second-order polynomial coefficient.
+    b3 : float
+        Third-order polynomial coefficient.
+
+    Returns
+    -------
+    np.ndarray
+        Model pixel values after applying the linearity correction.
+    """
     coeff, mindit = [b1, b2, b3], 1.0011
     kk = mindit / x
     return np.sum(
@@ -548,14 +634,12 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
 
     masked, idx, sky_save, sky_ini = array.copy(), 0, None, None
     while True:
-
         # 3-sigma clip each plane around the median
         med = np.nanmedian(masked, axis=axis)
         std = np.nanstd(masked, axis=axis)
 
         # Expand dimensions if required
         if axis is not None:
-
             # If its an integer, we just expand once
             if isinstance(axis, int):
                 med = np.expand_dims(med, axis=axis)
@@ -580,12 +664,10 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
 
         # Only upon the second iteration we evaluate
         elif (idx > 0) & (idx < max_iter):
-
             # If we have no change within 2% of previous iteration we return
             with np.errstate(divide="ignore", invalid="ignore"):
                 converged = np.mean(np.abs(sky_save / sky - 1)) < 0.02
             if converged:
-
                 # If (compared to the initial value) the mean has changed by less
                 # than 20%, the field is not crowded
                 if np.mean(np.abs(sky / sky_ini - 1)) < 0.2 or force_clipping is True:
@@ -605,7 +687,6 @@ def estimate_background(array, max_iter=20, force_clipping=True, axis=None):
 
         # If we have no convergence after 10 iterations, we return an estimate
         elif idx >= max_iter:
-
             if force_clipping is True:
                 return sky, skysig
             else:
@@ -763,7 +844,7 @@ def get_nearest_neighbors(
     max_dis: float = 540.0,
     n_fixed: int = 20,
     n_jobs: Optional[int] = None,
-    **kwargs
+    **kwargs,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Find the nearest neighbors for a set of coordinates.

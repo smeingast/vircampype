@@ -282,6 +282,36 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
 
 
 def background_image(image, mesh_size, mesh_filtersize=3):
+    """
+    Estimate a 2-D background map and its standard deviation.
+
+    Tiles the image into a grid of *mesh_size* × *mesh_size* pixels, estimates
+    the sky background in each tile with the MMM algorithm, applies a median
+    filter and Gaussian convolution for smoothing, and finally upscales the
+    result back to the original image dimensions.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2-D input image. Dimensions must be exact multiples of *mesh_size*.
+    mesh_size : int
+        Side length of each background mesh tile in pixels.
+    mesh_filtersize : int, optional
+        Size of the median filter applied to the mesh grid. Default is 3.
+
+    Returns
+    -------
+    background : np.ndarray
+        2-D background image, same shape as *image*.
+    background_std : np.ndarray
+        2-D background standard-deviation image, same shape as *image*.
+
+    Raises
+    ------
+    ValueError
+        If *image* is not 2-D or if its dimensions are not multiples of
+        *mesh_size*.
+    """
     # Image must be 2D
     if len(image.shape) != 2:
         raise ValueError(
@@ -656,6 +686,10 @@ def destripe_helper(array, mask=None, smooth=False):
     mask : np.ndarray, optional
     smooth : bool, optional
 
+    Returns
+    -------
+    np.ndarray
+        1-D array of estimated row stripe values (zero-meaned).
     """
 
     # Copy array

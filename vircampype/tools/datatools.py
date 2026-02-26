@@ -1,8 +1,9 @@
 import os
 import shutil
+from typing import List, Optional, Tuple
 
 from astropy.io import fits
-from typing import List, Optional, Tuple
+
 from vircampype.tools.systemtools import make_folder
 
 __all__ = [
@@ -13,7 +14,33 @@ __all__ = [
 ]
 
 
-def split_in_science_and_calibration(paths_files: List) -> Tuple[List, List]:
+def split_in_science_and_calibration(
+    paths_files: List[str],
+) -> Tuple[List[str], List[str]]:
+    """
+    Split a list of VIRCAM FITS files into science and calibration subsets.
+
+    Reads the ``HIERARCH ESO DPR CATG`` keyword from each file header and
+    classifies files as either ``SCIENCE`` or ``CALIB``.
+
+    Parameters
+    ----------
+    paths_files : List[str]
+        List of paths to raw VIRCAM FITS files.
+
+    Returns
+    -------
+    paths_science : List[str]
+        Paths of files classified as ``SCIENCE``.
+    paths_calib : List[str]
+        Paths of files classified as ``CALIB``.
+
+    Raises
+    ------
+    ValueError
+        If no files are supplied or if the combined count of science and
+        calibration files does not equal the total number of input files.
+    """
     # Check that at least one file is there
     if len(paths_files) == 0:
         raise ValueError("No files found!")
@@ -42,7 +69,23 @@ def split_in_science_and_calibration(paths_files: List) -> Tuple[List, List]:
     return paths_science, paths_calib
 
 
-def sort_vircam_calibration(paths_calib: List) -> Optional[List]:
+def sort_vircam_calibration(paths_calib: List[str]) -> Optional[List[str]]:
+    """
+    Move VIRCAM calibration files into a ``Calibration/`` subdirectory.
+
+    Creates the subdirectory under the current working directory and moves
+    each file into it.
+
+    Parameters
+    ----------
+    paths_calib : List[str]
+        Paths to calibration FITS files.
+
+    Returns
+    -------
+    List[str] or None
+        New file paths after moving, or ``None`` if *paths_calib* is empty.
+    """
     # Check that at least one file is there
     if len(paths_calib) == 0:
         return None
@@ -61,7 +104,23 @@ def sort_vircam_calibration(paths_calib: List) -> Optional[List]:
     return [f"{path_folder}{os.path.basename(p)}" for p in paths_calib]
 
 
-def sort_vircam_science(paths_science: List) -> Optional[List]:
+def sort_vircam_science(paths_science: List[str]) -> Optional[List[str]]:
+    """
+    Sort VIRCAM science files into per-object subdirectories.
+
+    Reads ``HIERARCH ESO OBS NAME`` from each file header and moves the file
+    into a subdirectory named after that value.
+
+    Parameters
+    ----------
+    paths_science : List[str]
+        Paths to science FITS files.
+
+    Returns
+    -------
+    List[str] or None
+        New file paths after moving, or ``None`` if *paths_science* is empty.
+    """
     # Check that files are actually provided
     if len(paths_science) == 0:
         return None
@@ -97,6 +156,22 @@ def sort_vircam_science(paths_science: List) -> Optional[List]:
 
 
 def sort_by_passband(paths: List[str]) -> None:
+    """
+    Sort FITS files into per-passband subdirectories.
+
+    Reads ``HIERARCH ESO INS FILT1 NAME`` from each file header and moves
+    the file into a subdirectory named after the passband, created inside the
+    file's current directory.
+
+    Parameters
+    ----------
+    paths : List[str]
+        Paths to FITS files to sort.
+
+    Returns
+    -------
+    None
+    """
     # Get base directories of files
     directories = [f"{os.path.dirname(p)}/" for p in paths]
 

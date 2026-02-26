@@ -381,6 +381,23 @@ def add_float_to_header(
 
 
 def add_int_to_header(header, key, value, comment=None, remove_before=True):
+    """
+    Add an integer value to a FITS header with fixed integer format.
+
+    Parameters
+    ----------
+    header : fits.Header
+        FITS header to modify.
+    key : str
+        Header keyword.
+    value : int
+        Integer value to write.
+    comment : str, optional
+        Comment string for the header card.
+    remove_before : bool, optional
+        If ``True`` (default), remove all existing occurrences of *key*
+        before adding the new card.
+    """
     if remove_before:
         try:
             header.remove(key, remove_all=True)
@@ -392,6 +409,23 @@ def add_int_to_header(header, key, value, comment=None, remove_before=True):
 
 
 def add_str_to_header(header, key, value, comment=None, remove_before=True):
+    """
+    Add a string value to a FITS header.
+
+    Parameters
+    ----------
+    header : fits.Header
+        FITS header to modify.
+    key : str
+        Header keyword.
+    value : str
+        String value to write.
+    comment : str, optional
+        Comment string for the header card.
+    remove_before : bool, optional
+        If ``True`` (default), remove all existing occurrences of *key*
+        before adding the new card.
+    """
     if remove_before:
         try:
             header.remove(key, remove_all=True)
@@ -512,7 +546,26 @@ def mjd2dateobs(mjd):
 
 
 def fix_vircam_headers(prime_header, data_headers):
-    """Resets the WCS info and purges useless keywords from vircam headers."""
+    """
+    Reset WCS information and remove useless keywords from VIRCAM headers.
+
+    Reads the field RA/DEC from the primary header, overwrites ``CRVAL1``/
+    ``CRVAL2`` in each extension, fits a simple TAN WCS from the footprint,
+    and strips a predefined set of dispensable keywords from both primary
+    and extension headers.
+
+    Parameters
+    ----------
+    prime_header : fits.Header
+        Primary FITS header of the VIRCAM raw file.
+    data_headers : list of fits.Header
+        List of extension headers (one per detector).
+
+    Returns
+    -------
+    None
+        Modifies *prime_header* and *data_headers* in place.
+    """
     log = PipelineLog()
 
     try:
@@ -742,10 +795,26 @@ def make_gaia_refcat(
     return table_out
 
 
-def fits2ldac(path_in, path_out, extension=1):
+def fits2ldac(path_in: str, path_out: str, extension: int = 1) -> None:
     """
-    Convert fits table on disk to LDAC-compatible format (for scamp).
-    Copied from https://codingdict.com/sources/py/astropy.io.fits/18055.html
+    Convert a plain FITS table on disk to LDAC format (required by SCAMP).
+
+    Reads the table from *path_in* and writes a new FITS file at *path_out*
+    containing an ``LDAC_IMHEAD`` binary table (storing the original header)
+    and an ``LDAC_OBJECTS`` binary table (storing the original data).
+
+    Parameters
+    ----------
+    path_in : str
+        Path to the input FITS file containing the source table.
+    path_out : str
+        Path for the output LDAC FITS file.
+    extension : int, optional
+        Extension number to read from *path_in*. Default is 1.
+
+    Returns
+    -------
+    None
     """
 
     # Read data
@@ -771,7 +840,36 @@ def fits2ldac(path_in, path_out, extension=1):
     hdulist.close()
 
 
-def combine_mjd_images(path_file_a, path_file_b, path_file_out, overwrite=False):
+def combine_mjd_images(
+    path_file_a: str, path_file_b: str, path_file_out: str, overwrite: bool = False
+) -> None:
+    """
+    Add pixel data from two MJD FITS images, preserving headers from file A.
+
+    Both files must have identical structure (same number of HDUs and matching
+    extension types). The pixel arrays of corresponding extensions are summed
+    as ``float64`` and written to *path_file_out*.
+
+    Parameters
+    ----------
+    path_file_a : str
+        Path to the first FITS file (headers are preserved).
+    path_file_b : str
+        Path to the second FITS file (only data is used).
+    path_file_out : str
+        Output path for the combined FITS file.
+    overwrite : bool, optional
+        Whether to overwrite an existing output file. Default is ``False``.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If the two files do not have the same number of HDUs.
+    """
     with fits.open(path_file_a) as hdul_a, fits.open(path_file_b) as hdul_b:
         # Files must have same number of HDUs
         if len(hdul_a) != len(hdul_b):
