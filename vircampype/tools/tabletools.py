@@ -1,5 +1,5 @@
 import warnings
-from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Callable, Generator
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -59,15 +59,15 @@ def clean_source_table(
     flux_auto_min=None,
     flux_auto_max=None,
     flux_max=None,
-    flux_max_percentiles: Optional[Tuple] = None,
+    flux_max_percentiles: tuple | None = None,
     max_ellipticity=0.25,
     min_fwhm=0.5,
     max_fwhm=8.0,
     min_distance_to_edge=20,
     min_flux_radius=0.8,
     max_flux_radius=3.0,
-    finite_columns: Optional[List[str]] = None,
-    n_jobs: Optional[int] = None,
+    finite_columns: list[str] | None = None,
+    n_jobs: int | None = None,
     verbose=False,
 ):
     """
@@ -113,7 +113,7 @@ def clean_source_table(
         Minimum ``FLUX_RADIUS``. Default is 0.8.
     max_flux_radius : float, optional
         Maximum ``FLUX_RADIUS``. Default is 3.0.
-    finite_columns : List[str], optional
+    finite_columns : list[str], optional
         Column names for which only finite values are kept.
     n_jobs : int, optional
         Number of parallel jobs for the nearest-neighbour search.
@@ -441,7 +441,7 @@ def interpolate_classification(source_table, classification_table, verbose=False
 
 def remove_duplicates_wcs(
     table: Table,
-    sep: Union[int, float] = 1,
+    sep: int | float = 1,
     key_lon: str = "RA",
     key_lat: str = "DEC",
     temp_dir: str = "/tmp/",
@@ -501,7 +501,7 @@ def remove_duplicates_wcs(
         return table_cleaned
 
 
-def fill_masked_columns(table: Table, fill_value: Union[int, float]):
+def fill_masked_columns(table: Table, fill_value: int | float):
     """
     Loops over columns of tables and replaces masked columns with regular columns.
 
@@ -509,7 +509,7 @@ def fill_masked_columns(table: Table, fill_value: Union[int, float]):
     ----------
     table : Table
         Astropy table instance.
-    fill_value : Union[int, float]
+    fill_value : int or float
         Fill value of masked entries in table.
 
     Returns
@@ -530,7 +530,7 @@ def fill_masked_columns(table: Table, fill_value: Union[int, float]):
 def convert2public(
     input_table: Table,
     photerr_internal: float,
-    apertures: List,
+    apertures: list,
     mag_saturation: float,
     survey_name: str,
 ):
@@ -1157,7 +1157,7 @@ def sextractor_nanify_bad_values(table: Table) -> None:
             2         NaN         5
     """
     # Define criteria for NaN replacement in a dictionary
-    conditions: Dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    conditions: dict[str, Callable[[np.ndarray], np.ndarray]] = {
         "FLUX_RADIUS": lambda x: x <= 0,
         "FWHM_IMAGE": lambda x: x <= 0,
         "FWHM_WORLD": lambda x: x <= 0,
