@@ -120,7 +120,6 @@ class Setup:
     additional_source_masks: str | SourceMasks | None = None
     source_mask_method: Literal["noisechisel", "built-in"] = "noisechisel"
     source_masks_n_min: int = 5
-    source_masks_n_iter: int = 1
     source_mask_closing: bool = True
     source_masks_closing_size: int = 5
     source_masks_closing_iter: int = 2
