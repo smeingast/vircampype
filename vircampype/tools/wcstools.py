@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-def header_reset_wcs(header):
+def header_reset_wcs(header: fits.Header) -> fits.Header:
     """
     Given that VIRCAMs distrotion model which is saved in the fits header is very
     difficult to deal with, this function resets the WCS keywords to a more manageable
