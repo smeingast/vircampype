@@ -1127,49 +1127,42 @@ class SkyImagesProcessed(SkyImages):
             log.info("All output files already exist, skipping")
             return
 
-        # Start looping over detectors
-        paths_temp_mask = []
-        for d in self.iter_data_hdu[0]:
-            # Make temp filename
-            paths_temp_mask.append(
-                f"{self.setup.folders['temp']}"
-                f"MASK_DETECTOR_{d:02d}."
-                f"MJD_{self.mjd_mean:0.4f}."
-                f"FIL_{self.passband[0]}.fits"
-            )
+        use_noisechisel = self.setup.source_mask_method.lower() == "noisechisel"
+        detectors = self.iter_data_hdu[0]
+        n_detectors = len(detectors)
 
-            # TODO: Fix counter
+        # ---- Phase 1: Preprocess all detectors ----
+        # Per-detector mask results held in memory for direct assembly
+        detector_masks: list[np.ndarray | None] = [None] * n_detectors
+        # Per-detector state for noisechisel batching (Phase 2/3)
+        nc_batch: list[tuple[list[str], str, list[str], ImageCube] | None] = [
+            None
+        ] * n_detectors
+        all_cmds: list[str] = []
+
+        for idx_d, d in enumerate(detectors):
             # Print processing info
             message_calibration(
                 n_current=d,
-                n_total=len(self.iter_data_hdu[0]),
-                name=paths_temp_mask[-1],
+                n_total=n_detectors,
+                name=f"Detector {d:02d}",
                 d_current=None,
                 d_total=None,
                 silent=self.setup.silent,
             )
-            log.info(f"Processing detector {d}/{max(self.iter_data_hdu[0])}")
-
-            # Check if the file is already there and skip if it is
-            if check_file_exists(file_path=paths_temp_mask[-1], silent=True):
-                log.info(f"Temporary mask already exists, skipping detector {d}")
-                continue
+            log.info(f"Processing detector {d}/{max(detectors)}")
 
             # Get data
             cube_raw = self.hdu2cube(hdu_index=d, dtype=np.float32)
             bpm = master_bpm.hdu2cube(hdu_index=d, dtype=bool)
 
-            # Instantiate empty additional and source masks
+            # Instantiate empty additional masks
             mask_additional = ImageCube(
                 cube=np.full_like(cube_raw.cube, fill_value=False, dtype=bool),
                 setup=self.setup,
             )
-            mask_sources = ImageCube(
-                cube=np.full_like(cube_raw.cube, fill_value=False, dtype=bool),
-                setup=self.setup,
-            )
 
-            # Loop over files and keep only source that appear on at least one image
+            # Loop over files and keep only sources that appear on at least one image
             for idx_file in range(self.n_files):
                 ww = self.wcs[idx_file][d - 1]
                 mxx, myy = ww.wcs_world2pix(
@@ -1190,79 +1183,55 @@ class SkyImagesProcessed(SkyImages):
                     aa, bb = disk((sy, sx), ss, shape=(naxis2, naxis1))
                     mask_additional.cube[idx_file][aa, bb] = True
 
-            for i in range(self.setup.source_masks_n_iter):
-                # Copy original array
-                cube_masked = cube_raw.copy()
-                cube_raw_temp = cube_raw.copy()
+            # Preprocessing: mask, background, flat/sky, outliers, destripe
+            cube_masked = cube_raw.copy()
+            cube_raw_temp = cube_raw.copy()
 
-                # Apply masks
-                cube_masked.apply_masks(
-                    bpm=bpm,
-                    sources=mask_sources,
-                )
+            # Apply BPM and additional masks
+            cube_masked.apply_masks(bpm=bpm)
+            cube_masked.apply_masks(sources=mask_additional)
 
-                # Apply additional masks
-                cube_masked.apply_masks(sources=mask_additional)
+            # Determine background level
+            sky_scale, sky_std = cube_masked.background_planes()
 
-                # Determine background level
-                sky_scale, sky_std = cube_masked.background_planes()
+            # Scale to same background level
+            cube_masked.scale_planes(1 / sky_scale)
 
-                # Scale to same background level
-                cube_masked.scale_planes(1 / sky_scale)
+            # Collapse cube to median
+            sky_median = cube_masked.flatten(metric=np.nanmedian, axis=0)
 
-                # Collapse cube to median
-                sky_median = cube_masked.flatten(metric=np.nanmedian, axis=0)
-
-                # Depending on setup, use as flat or subtract background
-                with warnings.catch_warnings():
-                    warnings.filterwarnings(action="ignore", category=RuntimeWarning)
-                    if self.setup.flat_type == "twilight":
-                        # Subtract background
-                        cube_raw_temp -= sky_scale[:, np.newaxis, np.newaxis] * (
-                            sky_median - 1
-                        )
-                    elif self.setup.flat_type == "sky":
-                        # Flat-field cube
-                        cube_raw_temp /= sky_median
-
-                # Add extreme outliers to additional masks
-                # TODO: Fix this for twilight mode
-                mask_additional.cube += (
-                    cube_raw_temp.cube
-                    < sky_scale[:, np.newaxis, np.newaxis]
-                    - 10 * sky_std[:, np.newaxis, np.newaxis]
-                )
-
-                # destripe on last iteration
-                if (
-                    i == self.setup.source_masks_n_iter - 1
-                ) & self.setup.source_masks_destripe:
-                    cube_raw_temp.destripe(masks=mask_additional)
-
-                """ Destriping here is very problematic. Firstly, I can't average,
-                because I have only frames of a single detector and secondly, any
-                extended emission that covers a large part of the image will affect
-                the destriping.
-                """
-                # # Destripe with mask from temporary cube
-                # cube_raw_temp.destripe(
-                #     masks=np.isnan(cube_masked.cube),
-                #     smooth=True,
-                #     combine_bad_planes=False,
-                # )
-
-                # Run source detection
-                if self.setup.source_mask_method.lower() == "noisechisel":
-                    mask_sources = cube_raw_temp.build_source_masks_noisechisel()
-                elif self.setup.source_mask_method.lower() == "built-in":
-                    mask_sources = cube_raw_temp.build_source_masks()
-                else:
-                    raise ValueError(
-                        f"Source masking method "
-                        f"'{self.setup.source_mask_method}' not supported"
+            # Depending on setup, use as flat or subtract background
+            with warnings.catch_warnings():
+                warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+                if self.setup.flat_type == "twilight":
+                    cube_raw_temp -= sky_scale[:, np.newaxis, np.newaxis] * (
+                        sky_median - 1
                     )
+                elif self.setup.flat_type == "sky":
+                    cube_raw_temp /= sky_median
 
-                # Apply closing operation if set
+            # Add extreme outliers to additional masks
+            # TODO: Fix this for twilight mode
+            mask_additional.cube += (
+                cube_raw_temp.cube
+                < sky_scale[:, np.newaxis, np.newaxis]
+                - 10 * sky_std[:, np.newaxis, np.newaxis]
+            )
+
+            # Destripe if enabled
+            if self.setup.source_masks_destripe:
+                cube_raw_temp.destripe(masks=mask_additional)
+
+            # Source detection — branch on method
+            if use_noisechisel:
+                # Prepare noisechisel commands but don't run yet
+                cmds, path_input, paths_output = cube_raw_temp.prepare_noisechisel()
+                nc_batch[idx_d] = (cmds, path_input, paths_output, mask_additional)
+                all_cmds.extend(cmds)
+            else:
+                # Built-in detection runs in-process — finish this detector now
+                mask_sources = cube_raw_temp.build_source_masks()
+
                 if self.setup.source_mask_closing:
                     for pidx, plane in enumerate(mask_sources):
                         mask_sources.cube[pidx] = binary_closing(
@@ -1276,37 +1245,64 @@ class SkyImagesProcessed(SkyImages):
                             iterations=self.setup.source_masks_closing_iter,
                         )
 
-                # Add additional masks to source masks
                 mask_sources += mask_additional
+                detector_masks[idx_d] = mask_sources.cube.astype(np.uint8)
 
-            # Free memory
-            del cube_masked
-            del cube_raw_temp
+            # Free heavy float32 cubes
+            del cube_masked, cube_raw_temp, cube_raw
             gc.collect()
 
-            # Write to temporary master mask
-            mask_sources.write_mef(
-                path=paths_temp_mask[-1],
-                dtype=np.uint8,
-                overwrite=True,
+        # ---- Phase 2: Run ALL noisechisel commands at once ----
+        if use_noisechisel and all_cmds:
+            log.info(
+                f"Running {len(all_cmds)} noisechisel commands across all detectors"
             )
-            log.info(f"Wrote temporary mask: {paths_temp_mask[-1]}")
+            run_commands_shell_parallel(
+                cmds=all_cmds, silent=False, n_jobs=self.setup.n_jobs
+            )
 
-        # Load all of them into a FitsImages instance
-        masks_temp = FitsImages(setup=self.setup, file_paths=paths_temp_mask)
+        # ---- Phase 3: Collect noisechisel results and post-process ----
+        if use_noisechisel:
+            for idx_d, (d, entry) in enumerate(zip(detectors, nc_batch)):
+                if entry is None:
+                    continue
 
-        # Loop over output files
+                cmds, path_input, paths_output, mask_additional = entry
+                log.info(f"Collecting noisechisel results for detector {d}")
+
+                mask_sources = ImageCube.collect_noisechisel_results(
+                    paths_output, path_input, self.setup
+                )
+
+                if self.setup.source_mask_closing:
+                    for pidx, plane in enumerate(mask_sources):
+                        mask_sources.cube[pidx] = binary_closing(
+                            plane,
+                            structure=footprint_rectangle(
+                                (
+                                    self.setup.source_masks_closing_size,
+                                    self.setup.source_masks_closing_size,
+                                )
+                            ),
+                            iterations=self.setup.source_masks_closing_iter,
+                        )
+
+                mask_sources += mask_additional
+                detector_masks[idx_d] = mask_sources.cube.astype(np.uint8)
+
+        # ---- Write final output files directly ----
         for idx_file, outpath in enumerate(outpaths):
-            log.info(f"Assembling output {idx_file + 1}/{len(outpaths)}: {outpath}")
-            # # Check if file exists
+            log.info(f"Writing output {idx_file + 1}/{len(outpaths)}: {outpath}")
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 log.info("Output file already exists, skipping")
                 continue
 
-            # Load all masks for this file
-            masks = masks_temp.hdu2cube(hdu_index=idx_file + 1, dtype=np.uint8)
+            # Assemble one plane per detector for this file (transpose from
+            # detector-major to file-major layout)
+            planes = np.array(
+                [detector_masks[idx_d][idx_file] for idx_d in range(n_detectors)]
+            )
 
-            # Create header cards
             cards = make_cards(
                 keywords=[
                     self.setup.keywords.date_mjd,
@@ -1319,21 +1315,15 @@ class SkyImagesProcessed(SkyImages):
                     "MASTER-SOURCE-MASK",
                 ],
             )
-
-            # Make primary header
             prime_header = fits.Header(cards=cards)
 
-            # Write to disk
-            masks.write_mef(
+            ImageCube(cube=planes, setup=self.setup).write_mef(
                 path=outpath,
                 prime_header=prime_header,
                 dtype=np.uint8,
                 overwrite=True,
             )
             log.info(f"Written: {outpath}")
-
-        # Remove all temp files
-        [remove_file(f) for f in paths_temp_mask]
 
         # Print time
         elapsed = time.time() - tstart
