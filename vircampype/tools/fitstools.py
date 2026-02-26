@@ -43,7 +43,7 @@ __all__ = [
 ]
 
 
-def read_fits_headers(path: str) -> list:
+def read_fits_headers(path: str) -> list[fits.Header]:
     """Read and clean all HDU headers from a single FITS file."""
     with fits.open(path) as hdulist:
         fileheaders = []
@@ -57,26 +57,26 @@ def read_fits_headers(path: str) -> list:
     return fileheaders
 
 
-def check_card_value(value):
+def check_card_value(value: object) -> str | int | float:
     """
-    Checks if the given value for a FITS header entry is valid and transforms it to a
-    writeable parameter.
+    Validate and normalise a FITS header card value.
+
+    Callable values are converted to their string representation via
+    ``func2string``. All other non-numeric, non-string values are cast
+    to ``str``.
 
     Parameters
     ----------
-    value
-        The value to check
+    value : object
+        Raw value to validate.
 
     Returns
     -------
-    Checked value
-
+    str or int or float
+        Value safe to write into a FITS header card.
     """
-
-    # If the value is a callable:
     val = func2string(value) if hasattr(value, "__call__") else value
 
-    # Convert to string if necessary
     if not (
         isinstance(val, str)
         or isinstance(val, (np.floating, float))
@@ -84,142 +84,151 @@ def check_card_value(value):
     ):
         val = str(val)
 
-    # Return
     return val
 
 
-def make_card(keyword, value, comment=None, upper=True):
+def make_card(
+    keyword: str,
+    value: object,
+    comment: str | None = None,
+    upper: bool = True,
+) -> fits.Card:
     """
-    Create a FITS header card based on keyword, value, and comment.
+    Create a FITS header card from a keyword, value, and optional comment.
 
     Parameters
     ----------
     keyword : str
-        The keyword for the FITS card.
-    value
-        The value to write for the given keyword
-    comment : optional, str
-        Optionally, a comment to write.
-    upper : optional, bool
-        Whether to convert the keyword to upper case.
+        Header keyword.
+    value : object
+        Value for the card; passed through ``check_card_value`` before use.
+    comment : str, optional
+        Comment string for the card.
+    upper : bool, optional
+        Convert *keyword* to upper case. Default is ``True``.
 
     Returns
     -------
-    FITS Card
+    fits.Card
+        Assembled FITS header card.
 
+    Raises
+    ------
+    ValueError
+        If the total card length exceeds 80 characters.
     """
-
-    # Make upper case if set
     kw = keyword.upper() if upper else keyword
-
-    # Remove double spaces
     kw = re.sub(" +", " ", kw)
-
-    # Check value
     val = check_card_value(value=value)
 
-    # Raise error if card too long
     lcom = len(comment) if comment is not None else 0
     ltot = len(kw) + len(str(val)) + lcom
     if ltot > 80:
         raise ValueError(f"Card too long ({ltot})")
 
-    # Return card
     return fits.Card(keyword=kw, value=val, comment=comment)
 
 
-def make_cards(keywords, values: list, comments: list[str] | None = None):
+def make_cards(
+    keywords: list[str],
+    values: list,
+    comments: list[str] | None = None,
+) -> list[fits.Card]:
     """
-    Creates a list of FITS header cards from given keywords, values, and comments
+    Create a list of FITS header cards from keywords, values, and comments.
 
     Parameters
     ----------
     keywords : list[str]
-        List of keywords.
+        Header keywords.
     values : list
-        List of values.
+        Values corresponding to each keyword.
     comments : list[str], optional
-        List of comments.
+        Comments corresponding to each keyword. If omitted, no comments
+        are written.
+
     Returns
     -------
-    iterable
-        List containing FITS header cards.
+    list[fits.Card]
+        List of assembled FITS header cards.
 
+    Raises
+    ------
+    TypeError
+        If *keywords* or *values* are not lists.
+    ValueError
+        If the lengths of *keywords*, *values*, or *comments* do not match.
     """
-
-    # Length of input must match
     if not isinstance(keywords, list) or not isinstance(values, list):
         raise TypeError("keywords and values must be lists")
 
-    # Length must be the same for keywords and values
     if len(keywords) != len(values):
         raise ValueError("Keywords and Values don't match")
 
-    # If comments are supplied, they must match
     if comments is not None:
         if len(comments) != len(keywords):
             raise ValueError("Comments don't match input")
-    # If nothing is supplied we just have None
     else:
         comments = [None for _ in range(len(keywords))]
 
-    # Create FITS header cards
-    cards = []
-    for kw, val, cm in zip(keywords, values, comments):
-        cards.append(make_card(keyword=kw, value=val, comment=cm))
-
-    # Return
-    return cards
+    return [
+        make_card(keyword=kw, value=val, comment=cm)
+        for kw, val, cm in zip(keywords, values, comments)
+    ]
 
 
-def copy_keywords(path_1, path_2, keywords, hdu_1=0, hdu_2=0):
+def copy_keywords(
+    path_1: str,
+    path_2: str,
+    keywords: list[str],
+    hdu_1: int = 0,
+    hdu_2: int = 0,
+) -> None:
     """
-    Copies specific keywords from file 2 to file 1. Also both HDUs can be specified.
-    Default are primary HDUs.
+    Copy specific header keywords from one FITS file to another.
 
     Parameters
     ----------
     path_1 : str
-        Path to file where the keywords should be copied to.
+        Path to the file that receives the keywords.
     path_2 : str
-        Path to file where the keywords should be copied from.
-    keywords : iterable
-        List of keywords to copy.
+        Path to the file that the keywords are taken from.
+    keywords : list[str]
+        Keywords to copy.
     hdu_1 : int, optional
-        Extension number where to copy to. Default is 0 (primary).
+        Extension index to write to in *path_1*. Default is 0 (primary).
     hdu_2 : int, optional
-        Extension number where to copy from. Default is 0 (primary).
-
+        Extension index to read from in *path_2*. Default is 0 (primary).
     """
-
-    # Get HDUlists for both files
     with (
         fits.open(path_1, mode="update") as hdulist_1,
         fits.open(path_2, mode="readonly") as hdulist_2,
     ):
-        # Loop over files and update header
         for k in keywords:
             hdulist_1[hdu_1].header[k] = hdulist_2[hdu_2].header[k]
             hdulist_1.flush()
 
 
-def add_key_primary_hdu(path, key, value, comment=None):
+def add_key_primary_hdu(
+    path: str,
+    key: str,
+    value: str | int | float,
+    comment: str | None = None,
+) -> None:
     """
-    Add key/value/comment to primary HDU.
+    Add or update a keyword in the primary HDU of a FITS file.
 
     Parameters
     ----------
     path : str
-        Path to file.
+        Path to the FITS file.
     key : str
-        Key to be added/modified.
-    value : str, int, float
-        Value of card to be added.
+        Header keyword to add or update.
+    value : str or int or float
+        Value for the keyword.
     comment : str, optional
-        If set, also write a comment
-
+        Comment string for the card.
     """
-
     with fits.open(path, "update") as file:
         if comment is not None:
             file[0].header[key] = (value, comment)
@@ -236,48 +245,46 @@ def make_mef_image(
     overwrite: bool = False,
 ) -> None:
     """
-    Creates an MEF image file from multiple input image file.
+    Combine multiple single-extension FITS images into one MEF file.
 
     Parameters
     ----------
-    paths_input : iterable
-        List of input paths.
+    paths_input : list[str]
+        Paths to the input FITS images.
     path_output : str
-        Path of output file.
+        Path for the output MEF file.
     primeheader : fits.Header, optional
-        If set, the primary header for the output file.
-    add_constant : int, float, str, optional
-        A constant value that is added to each input file upon combining the files.
-        If given as a string, then
-        the value of each added constant will be read from the header.
+        Header to use for the primary HDU. An empty header is used if
+        not provided.
+    add_constant : int or float or str or list, optional
+        Constant added to each image's pixel data. If a ``str``, the
+        constant is read from that header keyword of each input file.
+        If a ``list``, one value per input file. Default is no offset.
     write_extname : bool, optional
-        If set, write standard EXTNAME keyword.
+        Write a standard ``EXTNAME`` keyword to each extension.
+        Default is ``True``.
     overwrite : bool, optional
-        Whether an existing file should be overwritten.
+        Overwrite an existing output file. Default is ``False``.
 
+    Raises
+    ------
+    ValueError
+        If *paths_input* is empty.
     """
-
     if len(paths_input) == 0:
         raise ValueError("No images to combine")
 
-    # Make add_constant loopable if passed as None or string or constant
     if not hasattr(add_constant, "__len__"):
         add_constant = [add_constant] * len(paths_input)
 
-    # Create empty HDUlist
     hdulist = fits.HDUList()
 
-    # Make Primary header
     if primeheader is None:
         primeheader = fits.Header()
-
-    # Put primary HDU
     hdulist.append(fits.PrimaryHDU(header=primeheader))
 
-    # Construct image HDUs from input
     for pidx, ac in enumerate(add_constant):
         with fits.open(paths_input[pidx]) as file:
-            # Determine constant to add
             if isinstance(ac, (int, float)):
                 const = ac
             elif isinstance(ac, str):
@@ -285,91 +292,84 @@ def make_mef_image(
             else:
                 const = 0
 
-            # Grab header
             hdr = file[0].header.copy()
-
-            # Write EXTNAME
             if write_extname:
                 hdr.set("EXTNAME", value=f"HDU{pidx + 1:>02d}", after="BITPIX")
-
-            # Append HDU
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
 
-    # Write final HDUlist to disk
     hdulist.writeto(path_output, overwrite=overwrite)
 
 
-def merge_headers(path_1, path_2, primary_only=False):
+def merge_headers(path_1: str, path_2: str, primary_only: bool = False) -> None:
     """
-    Merges header entries of file 2 into file 1, in the sense that every new item in
-    header 2 that is not present in header 1, is copied to file 1.
-    Forces a new write of the fits file in the end (flush).
+    Merge header keywords from one FITS file into another.
+
+    Every keyword present in *path_2* but absent in *path_1* is copied
+    to *path_1*. The file is flushed to disk afterwards.
 
     Parameters
     ----------
     path_1 : str
-        Path of file 1. Where keywords are copied to.
+        Path to the file that receives new keywords.
     path_2 : str
-        Path of file 2. Where keywords are taken from.
+        Path to the file that keywords are taken from.
     primary_only : bool, optional
-        If only primary header should be merged.
-
+        Only merge the primary HDU headers. Default is ``False``.
     """
-
     skip_list = ["SIMPLE", "NAXIS", "NAXIS1", "NAXIS2"]
 
-    # Get HDUlists for both files
     with (
         fits.open(path_1, mode="update") as hdulist_1,
         fits.open(path_2, mode="readonly") as hdulist_2,
     ):
-        # Iterate over HDUs
         for hdu1, hdu2 in zip(hdulist_1, hdulist_2):
-            # Check for Primary HDU
-            if primary_only:
-                if not isinstance(hdu1, fits.PrimaryHDU):
-                    continue
+            if primary_only and not isinstance(hdu1, fits.PrimaryHDU):
+                continue
 
             keys1 = list(hdu1.header.keys())
-
-            # Iterate over every item in 2
             for key2, val2 in hdu2.header.items():
                 if key2 in skip_list:
                     continue
-
-                # If not in header 1, put there, but ignore HIERARCH warnings
                 if key2 not in keys1:
                     with warnings.catch_warnings():
                         warnings.filterwarnings("ignore", category=VerifyWarning)
                         hdu1.header[key2] = val2
 
-        # Flush changes to first file
         hdulist_1.flush()
 
 
 def add_float_to_header(
-    header, key, value, decimals=3, comment=None, remove_before=True
-):
+    header: fits.Header,
+    key: str,
+    value: float,
+    decimals: int = 3,
+    comment: str | None = None,
+    remove_before: bool = True,
+) -> None:
     """
-    Adds float to header with fixed format.
+    Write a float value to a FITS header card with fixed decimal formatting.
 
     Parameters
     ----------
     header : fits.Header
-        FITS header to be modified.
+        Header to modify.
     key : str
-        Key of header entry.
-    value : float, ndarray
-        Value of header entry.
+        Header keyword.
+    value : float
+        Value to write.
     decimals : int, optional
-        How many decimals to write
+        Number of decimal places (1–6). Default is 3.
     comment : str, optional
-        Comment of header entry.
+        Comment string for the card.
     remove_before : bool, optional
-        If set, removes all occurrences of 'key' from header. Default is true
+        Remove all existing occurrences of *key* before writing.
+        Default is ``True``.
 
+    Raises
+    ------
+    ValueError
+        If *decimals* is outside the supported range 1–6.
     """
-    # If the key is already there, remove it
     if remove_before:
         try:
             header.remove(key, remove_all=True)
@@ -394,23 +394,29 @@ def add_float_to_header(
     header.append(c)
 
 
-def add_int_to_header(header, key, value, comment=None, remove_before=True):
+def add_int_to_header(
+    header: fits.Header,
+    key: str,
+    value: int,
+    comment: str | None = None,
+    remove_before: bool = True,
+) -> None:
     """
-    Add an integer value to a FITS header with fixed integer format.
+    Write an integer value to a FITS header card with fixed integer formatting.
 
     Parameters
     ----------
     header : fits.Header
-        FITS header to modify.
+        Header to modify.
     key : str
         Header keyword.
     value : int
         Integer value to write.
     comment : str, optional
-        Comment string for the header card.
+        Comment string for the card.
     remove_before : bool, optional
-        If ``True`` (default), remove all existing occurrences of *key*
-        before adding the new card.
+        Remove all existing occurrences of *key* before writing.
+        Default is ``True``.
     """
     if remove_before:
         try:
@@ -422,23 +428,29 @@ def add_int_to_header(header, key, value, comment=None, remove_before=True):
     header.append(c)
 
 
-def add_str_to_header(header, key, value, comment=None, remove_before=True):
+def add_str_to_header(
+    header: fits.Header,
+    key: str,
+    value: str,
+    comment: str | None = None,
+    remove_before: bool = True,
+) -> None:
     """
-    Add a string value to a FITS header.
+    Write a string value to a FITS header card.
 
     Parameters
     ----------
     header : fits.Header
-        FITS header to modify.
+        Header to modify.
     key : str
         Header keyword.
     value : str
         String value to write.
     comment : str, optional
-        Comment string for the header card.
+        Comment string for the card.
     remove_before : bool, optional
-        If ``True`` (default), remove all existing occurrences of *key*
-        before adding the new card.
+        Remove all existing occurrences of *key* before writing.
+        Default is ``True``.
     """
     if remove_before:
         try:
@@ -450,19 +462,22 @@ def add_str_to_header(header, key, value, comment=None, remove_before=True):
     header[key] = (value, comment)
 
 
-def convert_bitpix_image(path, new_type, offset=None):
+def convert_bitpix_image(
+    path: str,
+    new_type: type,
+    offset: int | float | None = None,
+) -> None:
     """
-    Converts image data to the requested data type across all HDUs.
+    Convert image pixel data to a new data type across all HDUs.
 
     Parameters
     ----------
     path : str
-        Path to FITS file.
-    new_type
-        New data type.
-    offset : int, float, optional
-        Optional offset to add to the data.
-
+        Path to the FITS file (modified in place).
+    new_type : type
+        Target numpy data type (e.g. ``np.float32``, ``np.int16``).
+    offset : int or float, optional
+        Offset added to each pixel value before the type conversion.
     """
     with fits.open(path, mode="update") as hdul:
         for hdu in hdul:
@@ -479,22 +494,21 @@ def convert_bitpix_image(path, new_type, offset=None):
                         hdu.data = hdu.data.astype(new_type)
 
 
-def delete_keyword_from_header(header, keyword):
+def delete_keyword_from_header(header: fits.Header, keyword: str) -> fits.Header:
     """
-    Deletes given keyword from header.
+    Remove a keyword from a FITS header, silently ignoring missing keys.
 
     Parameters
     ----------
     header : fits.Header
-        astropy fits header.
+        Header to modify.
     keyword : str
-        Which keyword to delete
+        Keyword to remove.
 
     Returns
     -------
     fits.Header
-        Cleaned fits header.
-
+        The modified header (same object, modified in place).
     """
     try:
         del header[keyword]
@@ -503,58 +517,57 @@ def delete_keyword_from_header(header, keyword):
     return header
 
 
-def replace_data(file_a: str, file_b: str):
+def replace_data(file_a: str, file_b: str) -> None:
     """
-    Copies all data from file A to file B, but leaves the headers untouched.
+    Copy pixel data from *file_a* into *file_b*, leaving headers untouched.
+
+    Both files must have the same number of HDUs and matching extension
+    types.
 
     Parameters
     ----------
     file_a : str
-        Path to file A.
+        Path to the source file (data is read from here).
     file_b : str
-        Path to file B.
+        Path to the target file (data is written here, headers kept).
 
+    Raises
+    ------
+    ValueError
+        If the files have different numbers of HDUs or mismatched extension
+        types.
     """
-
-    # Open both files
     with (
         fits.open(file_a) as hdul_a,
         fits.open(file_b, mode="update") as hdul_b,
     ):
-        # Number of HDUs must be equal
         if len(hdul_a) != len(hdul_b):
             raise ValueError(
                 f"Number of HDUs not equal. n(A)={len(hdul_a)}; n(B)={len(hdul_b)}"
             )
 
-        # Loop over HDUs:
         for idx_hdu in range(len(hdul_a)):
             hdu_a, hdu_b = hdul_a[idx_hdu], hdul_b[idx_hdu]
-
-            # Extension type must match
             if hdu_a.__class__ != hdu_b.__class__:
                 raise ValueError("Extension types do not match")
-
-            # Copy data
             hdu_b.data = hdu_a.data
 
-        # Flush data to file B
         hdul_b.flush()
 
 
-def mjd2dateobs(mjd):
+def mjd2dateobs(mjd: float) -> str:
     """
-    Convert MJD to fits date-obs format.
+    Convert a Modified Julian Date to a FITS DATE-OBS string.
 
     Parameters
     ----------
     mjd : float
+        Modified Julian Date.
 
     Returns
     -------
     str
-        DATE-OBS string.
-
+        ISO 8601 date-time string in FITS DATE-OBS format.
     """
     return Time(mjd, format="mjd").fits
 
@@ -574,13 +587,8 @@ def fix_vircam_headers(
     ----------
     prime_header : fits.Header
         Primary FITS header of the VIRCAM raw file.
-    data_headers : list of fits.Header
-        List of extension headers (one per detector).
-
-    Returns
-    -------
-    None
-        Modifies *prime_header* and *data_headers* in place.
+    data_headers : list[fits.Header]
+        Extension headers, one per detector. Modified in place.
     """
     log = PipelineLog()
 
@@ -591,7 +599,6 @@ def fix_vircam_headers(
         tde = str(prime_header["HIERARCH ESO TEL TARG DELTA"])
         log.info(f"Found RA/DEC in headers: {tra} / {tde}")
 
-        # Get declination sign and truncate string if necessary
         if tde.startswith("-"):
             decsign = -1
             tde = tde[1:]
@@ -602,7 +609,6 @@ def fix_vircam_headers(
         tra = "0" * (6 - len(tra.split(".")[0])) + tra
         tde = "0" * (6 - len(tde.split(".")[0])) + tde
 
-        # Compute field RA/DEC
         fra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
         fde = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
         log.info(f"Computed RA/DEC: {fra} / {fde}")
@@ -612,7 +618,6 @@ def fix_vircam_headers(
         fra, fde = None, None
 
     for idx_hdr in range(len(data_headers)):
-        # Overwrite with consistently working keyword
         try:
             crval1 = fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
             log.info(f"Overwriting CRVAL1 with {crval1} in extension {idx_hdr + 1}")
@@ -627,51 +632,40 @@ def fix_vircam_headers(
             warnings.filterwarnings("ignore")
             data_headers[idx_hdr] = header_reset_wcs(data_headers[idx_hdr])
 
-        # Remove useless keywords if set
         for kw in useless_extension_keywords:
-            # log.info(f"Removing '{kw}' from extension {idx_hdr + 1}")
             data_headers[idx_hdr].remove(kw, ignore_missing=True, remove_all=True)
 
-    # Purge also primary header
     for kw in useless_primary_keywords:
-        # log.info(f"Removing '{kw}' from primary header")
         prime_header.remove(kw, ignore_missing=True, remove_all=True)
 
 
-def compress_images(images, q=4, exe="fpack", n_jobs=1):
+def compress_images(
+    images: list[str],
+    q: int | float = 4,
+    exe: str = "fpack",
+    n_jobs: int = 1,
+) -> None:
     """
-    Compress images in parallel with fpack.
+    Compress FITS images in parallel using ``fpack``.
+
+    Already-compressed files (``*.fits.fz``) are skipped.
 
     Parameters
     ----------
-    images : list, iterable
-        List of images.
-    q : int, float, optional
-        Compression ratio.
+    images : list[str]
+        Paths to the FITS files to compress.
+    q : int or float, optional
+        ``fpack`` quantisation factor. Default is 4.
     exe : str, optional
-        Binary name.
+        Name or path of the ``fpack`` binary. Default is ``"fpack"``.
     n_jobs : int, optional
-        Number of parallel jobs.
-
-    Returns
-    -------
-
+        Number of parallel compression jobs. Default is 1.
     """
-
-    # Find executable
     fpack = which(exe)
-
-    # Check if files are already there
     paths_out = [x.replace(".fits", ".fits.fz") for x in images]
     done = [os.path.isfile(x) for x in paths_out]
-
-    # Build commands
     cmds = [f"{fpack} -q {q} {x}" for x in images]
-
-    # Clean commands
     cmds = [c for c, d in zip(cmds, done) if not d]
-
-    # Run commands
     run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
 
 
@@ -694,51 +688,56 @@ def make_gaia_refcat(
     key_gflux_error: str = "flux_error",
 ) -> Table:
     """
-    Generates an astrometric reference catalog based on downloaded Gaia data.
+    Build an astrometric reference catalogue in LDAC format from Gaia data.
 
+    Sources with non-finite positions, fluxes, or proper motions, or with
+    RUWE >= 1.5, are removed. Coordinates are optionally propagated to a
+    target epoch via proper motion before writing.
 
     Parameters
     ----------
     table_in : Table
-        Input table.
+        Input Gaia catalogue table.
     path_ldac_out : str
-        Path to output table.
-    epoch_in : float
-        Input epoch of catalog.
-    epoch_out : float, optional
-        If set, transforms the coordinates to the given output epoch.
+        Output path for the LDAC FITS catalogue.
+    epoch_in : int or float, optional
+        Decimal year epoch of the input catalogue. Default is 2016.0.
+    epoch_out : int or float, optional
+        Target decimal year epoch. If given, coordinates are propagated
+        via proper motion. If ``None``, no propagation is applied.
     key_ra : str, optional
-        Key for RA.
+        Column name for right ascension. Default is ``"ra"``.
     key_ra_error : str, optional
-        Key for RA error.
+        Column name for RA uncertainty. Default is ``"ra_error"``.
     key_dec : str, optional
-        Key for DEC.
+        Column name for declination. Default is ``"dec"``.
     key_dec_error : str, optional
-        Key for DEC error.
+        Column name for Dec uncertainty. Default is ``"dec_error"``.
     key_pmra : str, optional
-        Key for proper motion in RA.
+        Column name for proper motion in RA * cos(Dec). Default is ``"pmra"``.
     key_pmra_error : str, optional
-        Key for proper motion error in RA.
+        Column name for proper motion RA uncertainty. Default is
+        ``"pmra_error"``.
     key_pmdec : str, optional
-        Key for proper motion in DEC.
+        Column name for proper motion in Dec. Default is ``"pmdec"``.
     key_pmdec_error : str, optional
-        Key for proper motion error in DEC.
+        Column name for proper motion Dec uncertainty. Default is
+        ``"pmdec_error"``.
     key_ruwe : str, optional
-        Key for RUWE.
+        Column name for RUWE. Default is ``"ruwe"``.
     key_gmag : str, optional
-        Key for G magnitude.
+        Column name for G-band magnitude. Default is ``"mag"``.
     key_gflux : str, optional
-        Key for G flux.
+        Column name for G-band flux. Default is ``"flux"``.
     key_gflux_error : str, optional
-        Key for G flux error.
+        Column name for G-band flux uncertainty. Default is
+        ``"flux_error"``.
 
     Returns
     -------
     Table
-        Output table.
-
+        Output catalogue table (also written to *path_ldac_out*).
     """
-
     # Clean data
     keep = (
         np.isfinite(table_in[key_ra])
@@ -773,25 +772,18 @@ def make_gaia_refcat(
     # Create output table
     table_out = Table()
 
-    # Add positions
     table_out["ra"] = sc.ra.degree
     table_out["ra_error"] = table_in[key_ra_error].value / 3_600_000
     table_out["dec"] = sc.dec.degree
     table_out["dec_error"] = table_in[key_dec_error].value / 3_600_000
-
-    # Add proper motions
     table_out["pmra"] = table_in[key_pmra].value
     table_out["pmra_error"] = table_in[key_pmra_error].value
     table_out["pmdec"] = table_in[key_pmdec].value
     table_out["pmdec_error"] = table_in[key_pmdec_error].value
-
-    # Add magnitudes
     table_out["mag"] = table_in[key_gmag].value
     table_out["mag_error"] = (
         1.0857 * table_in[key_gflux_error].value / table_in[key_gflux].value
     )
-
-    # Add date
     table_out["obsdate"] = epoch_out
 
     # Sort by DEC
@@ -799,46 +791,34 @@ def make_gaia_refcat(
     for nn in table_out.columns.keys():
         table_out[nn] = table_out[nn][sortindex]
 
-    # Write temporary fits_table
+    # Write temporary fits table, convert to LDAC, remove temp file
     path_temp = make_path_system_tempfile(suffix=".cat.fits")
     table_out.write(path_temp, overwrite=True)
-
-    # Convert to LDAC
     fits2ldac(path_in=path_temp, path_out=path_ldac_out)
-
-    # Remove temporary file
     os.remove(path_temp)
 
-    # Return warped table
     return table_out
 
 
 def fits2ldac(path_in: str, path_out: str, extension: int = 1) -> None:
     """
-    Convert a plain FITS table on disk to LDAC format (required by SCAMP).
+    Convert a plain FITS binary table to LDAC format (required by SCAMP).
 
-    Reads the table from *path_in* and writes a new FITS file at *path_out*
-    containing an ``LDAC_IMHEAD`` binary table (storing the original header)
-    and an ``LDAC_OBJECTS`` binary table (storing the original data).
+    The output file contains an ``LDAC_IMHEAD`` extension (storing the
+    original header as a character array) and an ``LDAC_OBJECTS`` extension
+    (storing the original table data).
 
     Parameters
     ----------
     path_in : str
-        Path to the input FITS file containing the source table.
+        Path to the input FITS file.
     path_out : str
         Path for the output LDAC FITS file.
     extension : int, optional
-        Extension number to read from *path_in*. Default is 1.
-
-    Returns
-    -------
-    None
+        HDU index to read from *path_in*. Default is 1.
     """
-
-    # Read data
     data, header = fits.getdata(path_in, extension, header=True)
 
-    # Create HDUs
     ext2_str = header.tostring(endcard=False, padding=False)
     ext2_data = np.array([ext2_str])
     formatstr = str(len(ext2_str)) + "A"
@@ -849,10 +829,8 @@ def fits2ldac(path_in: str, path_out: str, extension: int = 1) -> None:
     ext2.header["TDIM1"] = f"(80, {len(ext2_str) / 80})"
     ext3 = fits.BinTableHDU(data)
     ext3.header["EXTNAME"] = "LDAC_OBJECTS"
-    prihdr = fits.Header()
-    prihdu = fits.PrimaryHDU(header=prihdr)
+    prihdu = fits.PrimaryHDU(header=fits.Header())
 
-    # Write HDUList to output LDAC fits table
     hdulist = fits.HDUList([prihdu, ext2, ext3])
     hdulist.writeto(path_out, overwrite=True)
     hdulist.close()
@@ -862,41 +840,34 @@ def combine_mjd_images(
     path_file_a: str, path_file_b: str, path_file_out: str, overwrite: bool = False
 ) -> None:
     """
-    Add pixel data from two MJD FITS images, preserving headers from file A.
+    Sum the pixel data of two MJD FITS images, preserving headers from file A.
 
-    Both files must have identical structure (same number of HDUs and matching
-    extension types). The pixel arrays of corresponding extensions are summed
-    as ``float64`` and written to *path_file_out*.
+    Both files must have identical structure (same number of HDUs and
+    matching extension types). Pixel arrays are cast to ``float64`` before
+    summation.
 
     Parameters
     ----------
     path_file_a : str
-        Path to the first FITS file (headers are preserved).
+        Path to the first FITS file; its headers are kept in the output.
     path_file_b : str
-        Path to the second FITS file (only data is used).
+        Path to the second FITS file; only its pixel data is used.
     path_file_out : str
         Output path for the combined FITS file.
     overwrite : bool, optional
-        Whether to overwrite an existing output file. Default is ``False``.
-
-    Returns
-    -------
-    None
+        Overwrite an existing output file. Default is ``False``.
 
     Raises
     ------
     ValueError
-        If the two files do not have the same number of HDUs.
+        If the two files have different numbers of HDUs.
     """
     with fits.open(path_file_a) as hdul_a, fits.open(path_file_b) as hdul_b:
-        # Files must have same number of HDUs
         if len(hdul_a) != len(hdul_b):
             raise ValueError("Files incompatible")
 
-        # Instantiate output HDU list
         hdul_o = fits.HDUList([])
 
-        # Loop over HDUs and combine
         for hdu_a, hdu_b in zip(hdul_a, hdul_b):
             da, db = hdu_a.data, hdu_b.data
             if (da is None) and (db is None):
@@ -909,5 +880,4 @@ def combine_mjd_images(
                     )
                 )
 
-        # Write to disk
         hdul_o.writeto(path_file_out, overwrite=overwrite)
