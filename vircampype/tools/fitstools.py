@@ -43,6 +43,20 @@ __all__ = [
 ]
 
 
+def _read_fits_headers(path: str) -> list:
+    """Read and clean all HDU headers from a single FITS file."""
+    with fits.open(path) as hdulist:
+        fileheaders = []
+        for hdu in hdulist:
+            hdr = hdu.header
+            try:
+                hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
+            except KeyError:
+                pass
+            fileheaders.append(hdr)
+    return fileheaders
+
+
 def check_card_value(value):
     """
     Checks if the given value for a FITS header entry is valid and transforms it to a

@@ -9,20 +9,7 @@ from astropy.time import Time
 from joblib import Parallel, delayed
 
 from vircampype.pipeline.setup import Setup
-
-
-def _read_fits_headers(path: str) -> list:
-    """Read and clean all HDU headers from a single FITS file."""
-    with fits.open(path) as hdulist:
-        fileheaders = []
-        for hdu in hdulist:
-            hdr = hdu.header
-            try:
-                hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
-            except KeyError:
-                pass
-            fileheaders.append(hdr)
-    return fileheaders
+from vircampype.tools.fitstools import _read_fits_headers
 
 
 class FitsFiles:
