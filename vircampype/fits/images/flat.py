@@ -251,8 +251,8 @@ class FlatTwilight(FlatImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     # =========================================================================== #
     # Master Weight
@@ -359,8 +359,8 @@ class FlatTwilight(FlatImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class FlatLampLin(FlatImages):
@@ -581,8 +581,8 @@ class FlatLampLin(FlatImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class FlatLampCheck(FlatImages):
@@ -735,8 +735,8 @@ class FlatLampCheck(FlatImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class FlatLampGain(FlatImages):
@@ -911,8 +911,8 @@ class FlatLampGain(FlatImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class MasterFlat(MasterImages):

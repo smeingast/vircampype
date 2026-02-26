@@ -420,7 +420,6 @@ class SkyImages(FitsImages):
                 end="\n",
                 logger=log,
             )
-            log.info(f"Elapsed time: {elapsed:.2f}s")
 
         # Select return class based on preset
         from vircampype.fits.tables.sextractor import (
@@ -594,8 +593,8 @@ class SkyImages(FitsImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_master_psf(self, preset):
         raise NotImplementedError
@@ -738,8 +737,8 @@ class SkyImages(FitsImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 def _process_one_basic_file(
@@ -995,8 +994,8 @@ class SkyImagesRaw(SkyImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class SkyImagesRawScience(SkyImagesRaw):
@@ -1331,8 +1330,8 @@ class SkyImagesProcessed(SkyImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_master_photometry(self):
         # Processing info
@@ -1393,8 +1392,8 @@ class SkyImagesProcessed(SkyImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_master_astrometry(self):
         # Processing info
@@ -1497,8 +1496,8 @@ class SkyImagesProcessed(SkyImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_master_sky(self):
         """
@@ -1632,8 +1631,8 @@ class SkyImagesProcessed(SkyImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def process_raw_final(self):
         """Main processing method."""
@@ -1816,8 +1815,8 @@ class SkyImagesProcessed(SkyImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class SkyImagesProcessedScience(SkyImagesProcessed):
@@ -1935,8 +1934,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_master_weight_image(self):
         """This is unfortunately necessary since sometimes detector 16 in particular
@@ -2069,8 +2068,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_coadd_header(self, path_header: str = None):
         # Processing info
@@ -2155,8 +2154,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def resample(self):
         """Resamples images."""
@@ -2275,8 +2274,8 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class SkyImagesProcessedOffset(SkyImagesProcessed):
@@ -2548,8 +2547,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     # def equalize_zero_point(self, stack_catalogs):
     #
@@ -2814,8 +2813,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def build_statistics(self):
         # Processing info
@@ -3013,8 +3012,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def coadd_statistics_stacks(self, mode):
         # Processing info
@@ -3137,8 +3136,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
     def coadd_statistics_tile(self, mode):
         # Processing info
@@ -3232,8 +3231,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class Stacks(SkyImages):

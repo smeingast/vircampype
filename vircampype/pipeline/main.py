@@ -1048,8 +1048,8 @@ class Pipeline:
                 message=f"\n-> Elapsed time: {elapsed:.2f}s",
                 kind="okblue",
                 end="\n",
+                logger=log,
             )
-            log.info(f"Elapsed time: {elapsed:.2f}s")
 
             # Update status
             self.update_status(archive=True)

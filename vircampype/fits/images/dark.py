@@ -198,8 +198,8 @@ class DarkImages(FitsImages):
             message=f"\n-> Elapsed time: {elapsed:.2f}s",
             kind="okblue",
             end="\n",
+            logger=log,
         )
-        log.info(f"Elapsed time: {elapsed:.2f}s")
 
 
 class MasterDark(MasterImages):
