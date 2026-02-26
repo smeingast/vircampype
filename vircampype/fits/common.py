@@ -6,8 +6,23 @@ import shelve
 import numpy as np
 from astropy.io import fits
 from astropy.time import Time
+from joblib import Parallel, delayed
 
 from vircampype.pipeline.setup import Setup
+
+
+def _read_fits_headers(path: str) -> list:
+    """Read and clean all HDU headers from a single FITS file."""
+    with fits.open(path) as hdulist:
+        fileheaders = []
+        for hdu in hdulist:
+            hdr = hdu.header
+            try:
+                hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
+            except KeyError:
+                pass
+            fileheaders.append(hdr)
+    return fileheaders
 
 
 class FitsFiles:
@@ -151,29 +166,26 @@ class FitsFiles:
         if self._headers is not None:
             return self._headers
 
-        headers = []
+        # Split into cached and missing, preserving original order
+        cached_indices, missing_indices = [], []
         with shelve.open(self._path_header_db) as db:
-            for idx in range(self.n_files):
-                key = self.basenames[idx]
-
-                # Return cached entry if present
+            for idx, key in enumerate(self.basenames):
                 if key in db:
-                    headers.append(db[key])
-                    continue
+                    cached_indices.append(idx)
+                else:
+                    missing_indices.append(idx)
 
-                # Otherwise read from FITS file and cache
-                with fits.open(self.paths_full[idx]) as hdulist:
-                    fileheaders = []
-                    for hdu in hdulist:
-                        hdr = hdu.header
-                        try:
-                            hdr.remove("HIERARCH ESO DET CHIP PXSPACE")
-                        except KeyError:
-                            pass
-                        fileheaders.append(hdr)
+            # Read missing files in parallel and write back to shelve
+            if missing_indices:
+                missing_paths = [self.paths_full[i] for i in missing_indices]
+                new_headers = Parallel(n_jobs=self.setup.n_jobs, prefer="threads")(
+                    delayed(_read_fits_headers)(p) for p in missing_paths
+                )
+                for idx, fileheaders in zip(missing_indices, new_headers):
+                    db[self.basenames[idx]] = fileheaders
 
-                db[key] = fileheaders
-                headers.append(fileheaders)
+            # Assemble in original order
+            headers = [db[self.basenames[i]] for i in range(self.n_files)]
 
         # Return all headers
         self._headers = headers
