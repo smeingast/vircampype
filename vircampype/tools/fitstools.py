@@ -40,10 +40,11 @@ __all__ = [
     "make_gaia_refcat",
     "combine_mjd_images",
     "fits2ldac",
+    "read_fits_headers",
 ]
 
 
-def _read_fits_headers(path: str) -> list:
+def read_fits_headers(path: str) -> list:
     """Read and clean all HDU headers from a single FITS file."""
     with fits.open(path) as hdulist:
         fileheaders = []

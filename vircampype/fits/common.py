@@ -9,7 +9,7 @@ from astropy.time import Time
 from joblib import Parallel, delayed
 
 from vircampype.pipeline.setup import Setup
-from vircampype.tools.fitstools import _read_fits_headers
+from vircampype.tools.fitstools import read_fits_headers
 
 
 class FitsFiles:
@@ -166,7 +166,7 @@ class FitsFiles:
             if missing_indices:
                 missing_paths = [self.paths_full[i] for i in missing_indices]
                 new_headers = Parallel(n_jobs=self.setup.n_jobs, prefer="threads")(
-                    delayed(_read_fits_headers)(p) for p in missing_paths
+                    delayed(read_fits_headers)(p) for p in missing_paths
                 )
                 for idx, fileheaders in zip(missing_indices, new_headers):
                     db[self.basenames[idx]] = fileheaders
