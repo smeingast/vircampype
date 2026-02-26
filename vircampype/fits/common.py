@@ -138,12 +138,12 @@ class FitsFiles:
     # =========================================================================== #
     @property
     def paths_headers(self):
-        return [f"{self.setup.folders['headers']}{x}.header" for x in self.basenames]
+        return [f"{self.setup.folders['temp']}{x}.header" for x in self.basenames]
 
     @property
     def _path_header_db(self) -> str:
         """Path to the consolidated header shelve database (without extension)."""
-        return f"{self.setup.folders['headers']}headers"
+        return f"{self.setup.folders['temp']}headers"
 
     _headers = None
 

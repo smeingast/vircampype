@@ -437,7 +437,6 @@ class Setup:
         self.folders["pype"] = self.path_pype
         self.folders["raw"] = self.path_data
         self.folders["object"] = f"{self.path_pype}{self.name}/"
-        self.folders["headers"] = f"{self.folders['object']}headers/"
         self.folders["master_common"] = f"{self.path_pype}master/"
         self.folders["master_object"] = f"{self.folders['object']}master/"
         self.folders["temp"] = f"{self.folders['object']}temp/"
@@ -466,7 +465,6 @@ class Setup:
         # Common paths
         folders_common = [
             self.folders["pype"],
-            self.folders["headers"],
             self.folders["master_common"],
             self.folders["temp"],
         ]

@@ -997,9 +997,6 @@ class Pipeline:
         """Remove intermediate processing steps,
         but leave the most important files in the directory tree."""
 
-        # Clean header directory
-        clean_directory(self.setup.folders["headers"])
-
         # Clean illumination correction directory
         clean_directory(self.setup.folders["illumcorr"])
 
@@ -1096,9 +1093,6 @@ class Pipeline:
         # Global master weight
         self.build_master_weight_global()
 
-        # Clean temporary headers
-        clean_directory(self.setup.folders["headers"])
-
     def process_science(self):
         """Sequentially process science data."""
 
@@ -1165,9 +1159,6 @@ class Pipeline:
 
         if self.setup.archive:
             self.archive()
-
-        # Clean temporary headers
-        clean_directory(self.setup.folders["headers"])
 
         # Print finish message
         print_end(tstart=t0)

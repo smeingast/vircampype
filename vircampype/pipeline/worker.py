@@ -89,7 +89,6 @@ def _run_pipeline(setup: Optional[str], reset_progress: bool, clean: bool) -> No
 
     if reset_progress:
         clean_directory(pipeline.setup.folders["temp"])
-        clean_directory(pipeline.setup.folders["headers"])
         return
 
     if "calibration" in pipeline.setup.name.lower():
