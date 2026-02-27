@@ -141,7 +141,7 @@ class SextractorCatalogs(SourceCatalogs):
         # Load preset
         options = yml2config(
             path_yml=scs.preset_config,
-            nthreads=self.setup.n_jobs,
+            nthreads=self.setup.n_jobs_scamp,
             checkplot_type=scs.qc_types(joined=True),
             checkplot_name=scs.qc_names(joined=True),
             skip=[

@@ -23,6 +23,8 @@ class Setup:
     n_jobs: int = 8
     n_jobs_basic: int = 2
     n_jobs_sex: int = 5
+    n_jobs_scamp: int | None = None
+    n_jobs_swarp: int | None = None
     silent: bool = False
     overwrite: bool = False
     qc_plots: bool = True
@@ -196,6 +198,14 @@ class Setup:
             raise ValueError("More parallel jobs than available CPUs requested.")
         self.n_jobs_basic = min(self.n_jobs_basic, self.n_jobs)
         self.n_jobs_sex = min(self.n_jobs_sex, self.n_jobs)
+        if self.n_jobs_scamp is None:
+            self.n_jobs_scamp = self.n_jobs
+        else:
+            self.n_jobs_scamp = min(self.n_jobs_scamp, self.n_jobs)
+        if self.n_jobs_swarp is None:
+            self.n_jobs_swarp = self.n_jobs
+        else:
+            self.n_jobs_swarp = min(self.n_jobs_swarp, self.n_jobs)
 
         # Set keywords
         self.keywords = HeaderKeywords()

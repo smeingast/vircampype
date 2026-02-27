@@ -2172,7 +2172,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             path_yml=sws.preset_resampling,
             imageout_name=self.setup.path_coadd,
             weightout_name=self.setup.path_coadd_weight,
-            nthreads=self.setup.n_jobs,
+            nthreads=self.setup.n_jobs_swarp,
             resample_suffix=sws.resample_suffix,
             resampling_type=self.setup.resampling_kernel.upper(),
             gain_keyword=self.setup.keywords.gain,
@@ -2386,7 +2386,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                     fscale_keyword="FSCLSTCK",
                     gain_keyword=self.setup.keywords.gain,
                     satlev_keyword=self.setup.keywords.saturate,
-                    nthreads=self.setup.n_jobs,
+                    nthreads=self.setup.n_jobs_swarp,
                     skip=["weight_thresh", "weight_image"],
                 )
 
@@ -2672,7 +2672,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 fscale_keyword="FSCLTILE",
                 gain_keyword=self.setup.keywords.gain,
                 satlev_keyword=self.setup.keywords.saturate,
-                nthreads=self.setup.n_jobs,
+                nthreads=self.setup.n_jobs_swarp,
                 skip=["weight_thresh", "weight_image"],
                 vmem_dir=swap_dir,
             )
@@ -3093,7 +3093,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                     weightout_name=paths_temp_weights[-1],
                     skip=["weight_thresh"],
                     weight_image=",".join(paths_weight_mod),
-                    nthreads=self.setup.n_jobs,
+                    nthreads=self.setup.n_jobs_swarp,
                     combine_type=self.setup.image_statistics_combine_type[mode],
                 )
 
@@ -3191,7 +3191,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             imageout_name=outpath_temp,
             weightout_name=outpath_temp_weight,
             combine_type=self.setup.image_statistics_combine_type[mode],
-            nthreads=self.setup.n_jobs,
+            nthreads=self.setup.n_jobs_swarp,
             skip=["weight_thresh", "weight_suffix"],
         )
 
