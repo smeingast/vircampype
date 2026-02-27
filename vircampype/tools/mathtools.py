@@ -28,6 +28,8 @@ __all__ = [
     "linearity_fitfunc",
     "clipped_mean",
     "cart2pol",
+    "cuberoot",
+    "squareroot",
     "get_nearest_neighbors",
     "interpolate_value",
     "find_neighbors_within_distance",
