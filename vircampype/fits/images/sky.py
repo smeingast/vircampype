@@ -392,10 +392,9 @@ class SkyImages(FitsImages):
             log.info(c)
 
         # Run Sextractor
-        n_jobs_sex = (
-            6 if self.setup.n_jobs > 6 else self.setup.n_jobs
-        )  # max of 6 parallel jobs
-        run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
+        run_commands_shell_parallel(
+            cmds=cmds, silent=True, n_jobs=self.setup.n_jobs_sex
+        )
 
         # Add some keywords to primary header
         for cat, i in zip(paths_tables_sex, indices_to_process):
@@ -530,11 +529,10 @@ class SkyImages(FitsImages):
                 log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}")
 
             # Run Sextractor
-            n_jobs_sex = (
-                5 if self.setup.n_jobs > 5 else self.setup.n_jobs
-            )  # max of 5 parallel jobs
             log.info(f"Running {len(cmds)} sextractor commands in parallel")
-            run_commands_shell_parallel(cmds=cmds, silent=True, n_jobs=n_jobs_sex)
+            run_commands_shell_parallel(
+                cmds=cmds, silent=True, n_jobs=self.setup.n_jobs_sex
+            )
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)

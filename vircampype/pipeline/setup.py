@@ -22,6 +22,7 @@ class Setup:
     path_pype: str = None
     n_jobs: int = 8
     n_jobs_basic: int = 2
+    n_jobs_sex: int = 5
     silent: bool = False
     overwrite: bool = False
     qc_plots: bool = True
@@ -193,8 +194,8 @@ class Setup:
             raise PipelineValueError("Please provide valid path for pipeline output")
         if self.n_jobs > cpu_count():
             raise ValueError("More parallel jobs than available CPUs requested.")
-        if self.n_jobs_basic > cpu_count():
-            raise ValueError("More parallel basic jobs than available CPUs requested.")
+        self.n_jobs_basic = min(self.n_jobs_basic, self.n_jobs)
+        self.n_jobs_sex = min(self.n_jobs_sex, self.n_jobs)
 
         # Set keywords
         self.keywords = HeaderKeywords()
