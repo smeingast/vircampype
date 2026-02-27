@@ -537,9 +537,16 @@ class FitsFiles:
             for mjd in self.mjd
         ]
 
-        # Remove duplicates
+        # Remove duplicates (preserve first-occurrence order)
         if remove_duplicates:
-            split_indices = [list(x) for x in set(tuple(x) for x in split_indices)]
+            seen = set()
+            deduped = []
+            for x in split_indices:
+                key = tuple(x)
+                if key not in seen:
+                    seen.add(key)
+                    deduped.append(x)
+            split_indices = deduped
 
         # Create FitsFiles entries for list
         split_list = []
@@ -576,8 +583,8 @@ class FitsFiles:
         # Construct list of tuples with the keywords
         tup = [tuple(i) for i in zip(*entries)]
 
-        # Find unique entries
-        utup = set(tup)
+        # Find unique entries (preserve first-occurrence order)
+        utup = list(dict.fromkeys(tup))
 
         # Get the split indices
         split_indices = [[i for i, j in enumerate(tup) if j == k] for k in utup]
