@@ -614,27 +614,35 @@ def convert2public(
         )
     )
 
-    # Compute total error in mas: ERRAWIN_WORLD is in degrees, ASTRMS1/2 in mas
-    data_erra_tot = np.sqrt((data_erra * 3_600_000) ** 2 + astrms1**2)
-    data_errb_tot = np.sqrt((data_errb * 3_600_000) ** 2 + astrms2**2)
+    # Build SExtractor error ellipse covariance matrix in RA/Dec frame (all in mas)
+    erra_mas = data_erra * 3_600_000
+    errb_mas = data_errb * 3_600_000
+    theta_rad = np.deg2rad(data_errpa)
+    cos_t = np.cos(theta_rad)
+    sin_t = np.sin(theta_rad)
+    cov_ra = cos_t**2 * errb_mas**2 + sin_t**2 * erra_mas**2
+    cov_dec = sin_t**2 * errb_mas**2 + cos_t**2 * erra_mas**2
+    cov_radec = cos_t * sin_t * (erra_mas**2 - errb_mas**2)
 
-    # Now for a few sources the minor axis is larger than the major axis
-    # For these we need to flip a and b and adjust the angle
-    needs_flipping = data_erra_tot < data_errb_tot
-    old_a = data_erra_tot[needs_flipping].copy()
-    old_b = data_errb_tot[needs_flipping].copy()
-    data_erra_tot[needs_flipping] = old_b
-    data_errb_tot[needs_flipping] = old_a
-    data_errpa[needs_flipping] = np.where(
-        data_errpa[needs_flipping] > 90,
-        data_errpa[needs_flipping] - 90,
-        data_errpa[needs_flipping] + 90,
+    # Add ASTRMS in quadrature (already in mas, aligned with RA/Dec axes)
+    cov_ra += astrms1**2
+    cov_dec += astrms2**2
+
+    # Re-derive total error ellipse from combined covariance matrix
+    trace = cov_ra + cov_dec
+    diff = cov_dec - cov_ra
+    disc = np.sqrt(diff**2 + 4 * cov_radec**2)
+    data_erra_tot = np.sqrt((trace + disc) / 2)
+    data_errb_tot = np.sqrt((trace - disc) / 2)
+    errpa_rad = 0.5 * np.arctan2(2 * cov_radec, diff)
+    data_errpa = np.where(
+        errpa_rad < 0, np.rad2deg(errpa_rad) + 180.0, np.rad2deg(errpa_rad)
     )
 
-    # Convert to ra/dec error and correlation coeff
-    data_ra_error, data_dec_error, data_ra_dec_corr = convert_position_error(
-        errmaj=data_erra_tot, errmin=data_errb_tot, errpa=data_errpa, degrees=True
-    )
+    # RA/Dec errors and correlation from combined covariance
+    data_ra_error = np.sqrt(cov_ra)
+    data_dec_error = np.sqrt(cov_dec)
+    data_ra_dec_corr = cov_radec / (data_ra_error * data_dec_error)
 
     # Get indices for 2MASS and VISIONS entries
     idx_survey = np.where(data_survey == survey_name)[0]
