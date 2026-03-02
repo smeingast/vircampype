@@ -575,8 +575,9 @@ def convert2public(
     # data_mag_aper_matched_cal_zpc = table["MAG_APER_MATCHED_CAL_ZPC_INTERP"].value
     data_erra = input_table["ERRAWIN_WORLD"].value
     data_errb = input_table["ERRBWIN_WORLD"].value
-    # Sextractor values are from -90 to +90
-    data_errpa = input_table["ERRTHETAWIN_SKY"].value + 90.0
+    # Sextractor values are from -90 to +90; remap to [0, 180] to match 2MASS
+    errpa_raw = input_table["ERRTHETAWIN_SKY"].value
+    data_errpa = np.where(errpa_raw < 0, errpa_raw + 180.0, errpa_raw)
     astrms1 = input_table["ASTRMS1"].value
     astrms2 = input_table["ASTRMS2"].value
     data_exptime = input_table["EXPTIME"].value
