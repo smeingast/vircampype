@@ -1563,9 +1563,8 @@ class SkyImagesProcessed(SkyImages):
             # Process all detectors in parallel
             data_headers = []
             bkg_all, bkg_std_all = [], []
-            results = Parallel(
-                n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
-            )(
+            # threads: FITS I/O + numpy cube ops, releases GIL
+            results = Parallel(n_jobs=self.setup.n_jobs, prefer="threads")(
                 delayed(_build_sky_detector)(
                     d, files, master_mask, master_bpm, self.setup
                 )

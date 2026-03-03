@@ -1368,9 +1368,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             np.stack([np.deg2rad(tt[self.key_ra]), np.deg2rad(tt[self.key_dec])]).T
             for tt in tables_all
         ]
-        with Parallel(
-            n_jobs=self.setup.n_jobs, prefer=self.setup.joblib_backend
-        ) as parallel:
+        # threads: sklearn KD-tree is compiled C/Cython, releases GIL
+        with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
             mp = parallel(
                 delayed(__match_catalogs)(i, j)
                 for i, j in zip(stacked_table, repeat(stacked_master))
