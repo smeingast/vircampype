@@ -11,6 +11,7 @@ from astropy.time import Time
 
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.misc import *
+from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
@@ -20,6 +21,7 @@ from vircampype.tools.systemtools import (
 from vircampype.tools.wcstools import header_reset_wcs
 
 __all__ = [
+    "build_qc_summary_row",
     "check_card_value",
     "make_card",
     "make_cards",
@@ -881,3 +883,128 @@ def combine_mjd_images(
                 )
 
         hdul_o.writeto(path_file_out, overwrite=overwrite)
+
+
+def build_qc_summary_row(
+    image_path: str,
+    catalog_path: str,
+    product_type: str,
+    filter_keyword: str,
+    mag_saturation: float,
+) -> dict:
+    """Extract QC metrics for a single product (stack or tile).
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the stack or tile FITS image.
+    catalog_path : str
+        Path to the photometrically calibrated catalog (.ctab).
+    product_type : str
+        Either ``"stack"`` or ``"tile"``.
+    filter_keyword : str
+        FITS keyword for the filter name (e.g. ``"HIERARCH ESO INS FILT1 NAME"``).
+    mag_saturation : float
+        Saturation magnitude from the setup.
+
+    Returns
+    -------
+    dict
+        Row dictionary suitable for building an `astropy.table.Table`.
+
+    """
+
+    with fits.open(image_path) as hdul_img:
+        phdr = hdul_img[0].header
+        name = os.path.basename(image_path)
+        filt = phdr.get(filter_keyword, "")
+        ncombine = phdr.get("NCOMBINE", 0)
+        astirms = phdr.get("ASTIRMS", np.nan)
+        astrrms = phdr.get("ASTRRMS", np.nan)
+
+    with fits.open(catalog_path) as hdul_cat:
+        # Determine data extensions (skip primary if multi-extension)
+        n_hdu = len(hdul_cat)
+        ext_range = range(1, n_hdu) if n_hdu > 1 else range(0, 1)
+
+        # Collect values across extensions
+        zp_values = []
+        zp_err_values = []
+        fwhm_all = []
+        ellip_all = []
+        mag_snr5 = []
+
+        for ext in ext_range:
+            hdr = hdul_cat[ext].header
+            data = hdul_cat[ext].data
+
+            # Zero points from extension headers
+            try:
+                zp_values.append(hdr["HIERARCH PYPE ZP MAG_AUTO"])
+            except KeyError:
+                pass
+            try:
+                zp_err_values.append(hdr["HIERARCH PYPE ZP ERR MAG_AUTO"])
+            except KeyError:
+                pass
+
+            # Catalog columns
+            if data is not None:
+                try:
+                    fwhm_all.append(data["FWHM_WORLD_INTERP"])
+                except KeyError:
+                    pass
+                try:
+                    ellip_all.append(data["ELLIPTICITY_INTERP"])
+                except KeyError:
+                    pass
+                try:
+                    fa = data["FLUX_AUTO"]
+                    fa_err = data["FLUXERR_AUTO"]
+                    snr = fa / fa_err
+                    good = (snr > 4.0) & (snr < 6.0)
+                    mag_snr5.append(data["MAG_AUTO_CAL"][good])
+                except KeyError:
+                    pass
+
+    # Aggregate ZP
+    zp_arr = np.array(zp_values) if zp_values else np.array([np.nan])
+    zp_err_arr = np.array(zp_err_values) if zp_err_values else np.array([np.nan])
+    zp_auto = float(np.nanmedian(zp_arr))
+    zp_auto_err = float(np.nanmedian(zp_err_arr))
+    zp_auto_scatter = float(np.nanstd(zp_arr)) if product_type == "stack" else np.nan
+
+    # Aggregate PSF
+    if fwhm_all:
+        psf_fwhm = float(np.nanmean(np.concatenate(fwhm_all)) * 3600)
+    else:
+        psf_fwhm = np.nan
+
+    if ellip_all:
+        ellipticity = float(np.nanmean(np.concatenate(ellip_all)))
+    else:
+        ellipticity = np.nan
+
+    # Magnitude limit
+    if mag_snr5:
+        maglim = float(clipped_median(np.concatenate(mag_snr5)))
+    else:
+        maglim = np.nan
+
+    return {
+        "name": name,
+        "type": product_type,
+        "filter": filt,
+        "n_combined": ncombine,
+        "zp_auto": round(zp_auto, 4),
+        "zp_auto_err": round(zp_auto_err, 4),
+        "zp_auto_scatter": round(zp_auto_scatter, 4)
+        if not np.isnan(zp_auto_scatter)
+        else np.nan,
+        "astirms": round(astirms, 3) if not np.isnan(astirms) else np.nan,
+        "astrrms": round(astrrms, 3) if not np.isnan(astrrms) else np.nan,
+        "psf_fwhm": round(psf_fwhm, 3) if not np.isnan(psf_fwhm) else np.nan,
+        "ellipticity": round(ellipticity, 3) if not np.isnan(ellipticity) else np.nan,
+        "maglim": round(maglim, 3) if not np.isnan(maglim) else np.nan,
+        "mag_saturation": mag_saturation,
+    }

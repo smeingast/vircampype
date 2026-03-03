@@ -4,13 +4,19 @@ import os.path
 import sys
 import time
 
+from astropy.table import Table
+
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
-from vircampype.tools.fitstools import combine_mjd_images, compress_images
+from vircampype.tools.fitstools import (
+    build_qc_summary_row,
+    combine_mjd_images,
+    compress_images,
+)
 from vircampype.tools.messaging import (
     print_end,
     print_header,
@@ -931,6 +937,93 @@ class Pipeline:
             )
 
     # =========================================================================== #
+    # QC summary
+    def build_qc_summary(self):
+        """Build a QC summary table aggregating key metrics from stacks and tile."""
+
+        if not self.status.qc_summary:
+            print_header(
+                header="QC SUMMARY TABLE",
+                silent=self.setup.silent,
+                left=None,
+                right=None,
+            )
+            log = PipelineLog()
+            tstart = time.time()
+
+            kw = {
+                "filter_keyword": self.setup.keywords.filter_name,
+                "mag_saturation": self.setup.reference_mag_lo,
+            }
+            rows = []
+
+            # Collect rows from stacks
+            if self.setup.build_stacks:
+                try:
+                    stacks = self.stacks
+                    catalogs = self.sources_stacks_cal
+                    for idx in range(len(stacks)):
+                        try:
+                            rows.append(
+                                build_qc_summary_row(
+                                    image_path=stacks.paths_full[idx],
+                                    catalog_path=catalogs.paths_full[idx],
+                                    product_type="stack",
+                                    **kw,
+                                )
+                            )
+                        except Exception as e:
+                            log.warning(f"QC summary: skipping stack {idx}: {e}")
+                except Exception as e:
+                    log.warning(f"QC summary: cannot read stacks: {e}")
+
+            # Collect row from tile
+            if self.setup.build_tile:
+                try:
+                    tile = self.tile
+                    catalog = self.sources_tile_cal
+                    try:
+                        rows.append(
+                            build_qc_summary_row(
+                                image_path=tile.paths_full[0],
+                                catalog_path=catalog.paths_full[0],
+                                product_type="tile",
+                                **kw,
+                            )
+                        )
+                    except Exception as e:
+                        log.warning(f"QC summary: skipping tile: {e}")
+                except Exception as e:
+                    log.warning(f"QC summary: cannot read tile: {e}")
+
+            if not rows:
+                print_message(
+                    message="No products available for QC summary",
+                    kind="warning",
+                    end=None,
+                )
+                return
+
+            # Build and write table
+            qc_table = Table(rows=rows)
+            path_out = os.path.join(self.setup.folders["qc"], "qc_summary.ecsv")
+            qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
+
+            print_message(
+                message=f"\n-> QC summary written to {os.path.basename(path_out)} "
+                f"({len(rows)} products, {time.time() - tstart:.1f}s)",
+                kind="okblue",
+                end="\n",
+                logger=log,
+            )
+
+            self.update_status(qc_summary=True)
+        else:
+            print_message(
+                message="QC SUMMARY TABLE already created", kind="warning", end=None
+            )
+
+    # =========================================================================== #
     # Phase 3
     @property
     def _paths_phase3(self):
@@ -1146,6 +1239,9 @@ class Pipeline:
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()
+
+        # Build QC summary table
+        self.build_qc_summary()
 
         # Phase 3
         if self.setup.build_phase3:
