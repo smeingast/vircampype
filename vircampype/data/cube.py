@@ -995,7 +995,7 @@ class ImageCube(object):
             masks = np.full_like(self.cube, False, dtype=bool)
 
         # Destripe in parallel (loky: Python-heavy iterative mmm() per row)
-        with Parallel(n_jobs=self.setup.n_jobs, prefer="loky") as parallel:
+        with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
             mp = parallel(
                 delayed(destripe_helper)(a, b, c)
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
@@ -1139,7 +1139,7 @@ class ImageCube(object):
         """
 
         # Build mask for each plane in parallel (loky: Python-heavy regionprops loops)
-        with Parallel(n_jobs=self.setup.n_jobs, prefer="loky") as parallel:
+        with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
             mp = parallel(
                 delayed(source_mask)(a, b, c, d, e)
                 for a, b, c, d, e in zip(
@@ -1426,7 +1426,7 @@ class ImageCube(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             # loky: Python-heavy repeated mmm() calls per mesh tile
-            with Parallel(n_jobs=self.setup.n_jobs, prefer="loky") as parallel:
+            with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
                 mp = parallel(
                     delayed(background_image)(a, b, c)
                     for a, b, c in zip(
