@@ -3404,6 +3404,7 @@ class MasterSky(MasterImages):
                     s=40,
                     alpha=1,
                     zorder=1,
+                    rasterized=True,
                 )
                 ax.errorbar(
                     24 * (mjd[idx] - mjd_floor),

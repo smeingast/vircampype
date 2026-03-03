@@ -153,7 +153,7 @@ def get_zeropoint(
             fig, ax = plt.subplots(
                 nrows=1, ncols=1, gridspec_kw=None, **dict(figsize=(7, 4))
             )
-            kwargs = dict(s=30, lw=0, alpha=1)
+            kwargs = dict(s=30, lw=0, alpha=1, rasterized=True)
             ax.scatter(mag_ref, mag_diff, fc="crimson", **kwargs)
             if method.lower() == "weighted":
                 ax.scatter(mag_ref[~mask], mag_diff[~mask], fc="green", **kwargs)

@@ -277,6 +277,7 @@ class MasterLinearity(MasterTables):
                     s=40,
                     alpha=0.7,
                     zorder=1,
+                    rasterized=True,
                 )
 
                 # Bad raw flux
@@ -287,6 +288,7 @@ class MasterLinearity(MasterTables):
                     s=40,
                     facecolors="none",
                     edgecolors="#1f77b4",
+                    rasterized=True,
                 )
 
                 # Linearized good flux
@@ -298,6 +300,7 @@ class MasterLinearity(MasterTables):
                     s=40,
                     alpha=0.7,
                     zorder=2,
+                    rasterized=True,
                 )
 
                 # Fit

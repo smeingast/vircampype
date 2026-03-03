@@ -1052,6 +1052,7 @@ class MasterFlat(MasterImages):
                     s=40,
                     alpha=0.7,
                     zorder=0,
+                    rasterized=True,
                 )
 
                 # Annotate detector ID and gain scale

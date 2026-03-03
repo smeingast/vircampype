@@ -1213,6 +1213,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     lw=0.5,
                     ec="black",
                     alpha=0.5,
+                    rasterized=True,
                     **kwargs,
                 )
 
@@ -1956,6 +1957,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     lw=0,
                     alpha=0.4,
                     zorder=0,
+                    rasterized=True,
                 )
 
                 # Draw for sources within mag limits
@@ -1967,6 +1969,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     lw=0,
                     alpha=1.0,
                     zorder=0,
+                    rasterized=True,
                 )
 
                 # Evaluate KDE

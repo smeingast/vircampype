@@ -87,6 +87,7 @@ def plot_value_detector(
         s=25,
         marker="o",
         zorder=2,
+        rasterized=True,
     )
 
     # Adjust axes
