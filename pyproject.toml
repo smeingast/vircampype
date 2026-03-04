@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vircampype"
+version = "1.4"
+description = "Pipeline for processing VIRCAM data."
+requires-python = ">= 3.13"
+license = "MIT"
+authors = [{ name = "Stefan Meingast", email = "stefan.meingast@univie.ac.at" }]
+urls = { Homepage = "https://github.com/smeingast/vircampype" }
+dependencies = [
+    "numpy >= 2.3",
+    "scipy >= 1.16",
+    "astropy >= 7.1",
+    "pillow >= 11.3",
+    "scikit-learn >= 1.7",
+    "scikit-image >= 0.25",
+    "matplotlib >= 3.10",
+    "astroquery >= 0.4.11",
+    "pyyaml >= 6.0",
+    "joblib >= 1.5",
+    "regions >= 0.10",
+    "tqdm >= 4.67",
+]
+
+[project.optional-dependencies]
+dev = ["pytest >= 8.4", "ruff"]
+
+[tool.setuptools.packages.find]
+include = ["vircampype*"]
+
+[tool.setuptools.package-data]
+"vircampype.visions.headers" = ["*header"]
+"vircampype.resources" = ["**/*config", "**/*yml", "**/*conv", "**/*nnw", "**/*param", "**/*xsl"]
