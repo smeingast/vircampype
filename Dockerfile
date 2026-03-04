@@ -43,13 +43,9 @@ RUN wget https://ftp.halifax.rwth-aachen.de/gnu/gnuastro/gnuastro-0.24.tar.gz &&
     export CPPFLAGS="-I/usr/include/cfitsio" && \
     ./configure && make && make install
 
-# Install requirements
-COPY requirements.txt /root/vircampype/
-WORKDIR /root/vircampype
-RUN pip install -r requirements.txt
-
 # Copy pipeline
 COPY . /root/vircampype
+WORKDIR /root/vircampype
 
 # Install pipeline
 RUN if [ "$BUILD_OPTION" = "dev" ] ; then \
