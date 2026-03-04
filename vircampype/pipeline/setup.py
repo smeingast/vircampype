@@ -444,12 +444,12 @@ class Setup:
         self.folders["raw"] = self.path_data
         self.folders["object"] = f"{self.path_pype}{self.name}/"
         self.folders["master_common"] = f"{self.path_pype}master/"
-        self.folders["master_object"] = f"{self.folders['object']}master/"
+        self.folders["master_object"] = f"{self.folders['object']}calibration/"
         self.folders["temp"] = f"{self.folders['object']}temp/"
-        self.folders["processed_basic"] = f"{self.folders['object']}processed_basic/"
-        self.folders["processed_final"] = f"{self.folders['object']}processed_final/"
-        self.folders["resampled"] = f"{self.folders['object']}resampled/"
-        self.folders["illumcorr"] = f"{self.folders['object']}illumcorr/"
+        self.folders["processed_basic"] = f"{self.folders['object']}processing/basic/"
+        self.folders["processed_final"] = f"{self.folders['object']}processing/final/"
+        self.folders["resampled"] = f"{self.folders['object']}processing/resampled/"
+        self.folders["illumcorr"] = f"{self.folders['object']}processing/illumcorr/"
         self.folders["qc"] = f"{self.folders['object']}qc/"
         self.folders["qc_bpm"] = f"{self.folders['qc']}bpm/"
         self.folders["qc_dark"] = f"{self.folders['qc']}dark/"
@@ -460,10 +460,10 @@ class Setup:
         self.folders["qc_astrometry"] = f"{self.folders['qc']}astrometry/"
         self.folders["qc_photometry"] = f"{self.folders['qc']}photometry/"
         self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
-        self.folders["statistics"] = f"{self.folders['object']}statistics/"
-        self.folders["stacks"] = f"{self.folders['object']}stacks/"
-        self.folders["tile"] = f"{self.folders['object']}tile/"
-        self.folders["phase3"] = f"{self.path_pype}phase3/{self.name}/"
+        self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
+        self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
+        self.folders["tile"] = f"{self.folders['object']}products/tile/"
+        self.folders["phase3"] = f"{self.folders['object']}products/phase3/"
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""
@@ -474,9 +474,6 @@ class Setup:
             self.folders["master_common"],
             self.folders["temp"],
         ]
-
-        if self.build_phase3:
-            folders_common += [self.folders["phase3"]]
 
         # calibration-specific paths
         folders_cal = [
@@ -490,6 +487,7 @@ class Setup:
         # Object-specific paths
         folders_object = [
             self.folders["master_object"],
+            self.folders["illumcorr"],
             self.folders["qc"],
             self.folders["qc_sky"],
             self.folders["processed_basic"],
@@ -500,12 +498,15 @@ class Setup:
             self.folders["tile"],
             self.folders["qc_photometry"],
             self.folders["qc_illumcorr"],
-            self.folders["illumcorr"],
         ]
 
         # Create folder for stacks if set
         if self.build_stacks:
             folders_object += [self.folders["stacks"]]
+
+        # Create folder for phase3 if set
+        if self.build_phase3:
+            folders_object += [self.folders["phase3"]]
 
         # Generate common paths
         for path in folders_common:

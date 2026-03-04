@@ -84,7 +84,6 @@ def _run_pipeline(setup: Optional[str], reset_progress: bool, clean: bool) -> No
     if clean:
         folders = pipeline.setup.folders
         remove_directory(folders["object"])
-        remove_directory(folders["phase3"])
         return
 
     if reset_progress:

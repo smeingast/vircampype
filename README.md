@@ -183,23 +183,25 @@ The pipeline creates the following folder structure under `path_pype`:
 
 ```
 path_pype/
-├── master/                     # Master calibration files (shared across runs)
-├── phase3/<name>/              # ESO Phase 3-compliant products
-└── <name>/                     # Per-target output folder
-    ├── master/                 # Master sky, source masks, illumination corrections
-    ├── processed_basic/        # Basic-calibrated pawprint images
-    ├── processed_final/        # Final-calibrated pawprint images
-    ├── resampled/              # Resampled pawprint images
-    ├── illumcorr/              # Illumination correction maps
-    ├── stacks/                 # Per-offset stack images and catalogs
-    ├── tile/                   # Final co-added tile image and catalog
-    ├── statistics/             # Statistics images (exptime, nimg, astrms, mjd)
-    ├── qc/                     # Quality control plots
+├── master/                         # Master calibration files (shared across runs)
+└── <name>/                         # Per-target output folder
+    ├── calibration/                # Master sky, source masks
+    ├── processing/
+    │   ├── basic/                  # Basic-calibrated pawprint images
+    │   ├── final/                  # Final-calibrated pawprint images
+    │   ├── illumcorr/              # Illumination correction maps
+    │   ├── resampled/              # Resampled pawprint images
+    │   └── statistics/             # Statistics images (exptime, nimg, astrms, mjd)
+    ├── products/
+    │   ├── stacks/                 # Per-offset stack images and catalogs
+    │   ├── tile/                   # Final co-added tile image and catalog
+    │   └── phase3/                 # ESO Phase 3-compliant products
+    ├── qc/                         # Quality control plots
     │   ├── astrometry/
     │   ├── photometry/
     │   ├── sky/
     │   └── illumcorr/
-    └── temp/                   # Temporary files and pipeline status
+    └── temp/                       # Temporary files and pipeline status
 ```
 
 ---
