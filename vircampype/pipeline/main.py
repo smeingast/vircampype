@@ -1,3 +1,4 @@
+import functools
 import glob
 import json
 import os.path
@@ -24,6 +25,42 @@ from vircampype.tools.messaging import (
     print_start,
 )
 from vircampype.tools.systemtools import *
+
+
+def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
+    """Decorator that wraps a Pipeline method with status-check boilerplate.
+
+    Skips execution if the step is already done (prints a warning instead).
+    Optionally skips silently if a guard attribute on ``self`` is None.
+    On success, sets the status flag to True automatically.
+
+    Parameters
+    ----------
+    status_attr : str
+        Name of the boolean attribute on ``self.status``.
+    message : str
+        Label used in the "already done" warning (e.g. ``"MASTER-BPM"``).
+    guard : str, optional
+        If given, the method is skipped entirely when
+        ``getattr(self, guard)`` is None (data not available).
+    """
+
+    def decorator(method):
+        @functools.wraps(method)
+        def wrapper(self, *args, **kwargs):
+            if guard is not None and getattr(self, guard) is None:
+                return
+            if getattr(self.status, status_attr):
+                print_message(
+                    message=f"{message} already done", kind="warning", end=None
+                )
+                return
+            method(self, *args, **kwargs)
+            self.update_status(**{status_attr: True})
+
+        return wrapper
+
+    return decorator
 
 
 class Pipeline:
@@ -549,479 +586,309 @@ class Pipeline:
 
     # =========================================================================== #
     # Master calibration
+    @pipeline_step("master_bpm", message="MASTER-BPM", guard="flat_lamp_check")
     def build_master_bpm(self):
-        if self.flat_lamp_check is not None:
-            if not self.status.master_bpm:
-                self.flat_lamp_check.build_master_bpm(darks=self.dark_check)
-                self.update_status(master_bpm=True)
-            else:
-                print_message(
-                    message="MASTER-BPM already created", kind="warning", end=None
-                )
+        self.flat_lamp_check.build_master_bpm(darks=self.dark_check)
 
+    @pipeline_step("master_dark", message="MASTER-DARK", guard="dark_all")
     def build_master_dark(self):
-        if self.dark_all is not None:
-            if not self.status.master_dark:
-                self.dark_all.build_master_dark()
-                self.update_status(master_dark=True)
-            else:
-                print_message(
-                    message="MASTER-DARK already created", kind="warning", end=None
-                )
+        self.dark_all.build_master_dark()
 
+    @pipeline_step("master_gain", message="MASTER-GAIN", guard="flat_lamp_gain")
     def build_master_gain(self):
-        if self.flat_lamp_gain is not None:
-            if not self.status.master_gain:
-                self.flat_lamp_gain.build_master_gain(darks=self.dark_gain)
-                self.update_status(master_gain=True)
-            else:
-                print_message(
-                    message="MASTER-GAIN already created", kind="warning", end=None
-                )
+        self.flat_lamp_gain.build_master_gain(darks=self.dark_gain)
 
+    @pipeline_step(
+        "master_linearity", message="MASTER-LINEARITY", guard="flat_lamp_lin"
+    )
     def build_master_linearity(self):
-        if self.flat_lamp_lin is not None:
-            if not self.status.master_linearity:
-                self.flat_lamp_lin.build_master_linearity(darks=self.dark_lin)
-                self.update_status(master_linearity=True)
-            else:
-                print_message(
-                    message="MASTER-LINEARITY already created", kind="warning", end=None
-                )
+        self.flat_lamp_lin.build_master_linearity(darks=self.dark_lin)
 
+    @pipeline_step(
+        "master_twilight_flat", message="MASTER-TWILIGHT-FLAT", guard="flat_twilight"
+    )
     def build_master_twilight_flat(self):
-        if self.flat_twilight is not None:
-            if not self.status.master_twilight_flat:
-                self.flat_twilight.build_master_twilight_flat()
-                self.update_status(master_twilight_flat=True)
-            else:
-                print_message(
-                    message="MASTER-TWILIGHT-FLAT already created",
-                    kind="warning",
-                    end=None,
-                )
+        self.flat_twilight.build_master_twilight_flat()
 
+    @pipeline_step(
+        "master_weight_global", message="MASTER-WEIGHT-GLOBAL", guard="flat_twilight"
+    )
     def build_master_weight_global(self):
-        if self.flat_twilight is not None:
-            if not self.status.master_weight_global:
-                self.flat_twilight.build_master_weight_global()
-                self.update_status(master_weight_global=True)
-            else:
-                print_message(
-                    message="MASTER-WEIGHT-GLOBAL already created",
-                    kind="warning",
-                    end=None,
-                )
+        self.flat_twilight.build_master_weight_global()
 
+    @pipeline_step("master_source_mask", message="MASTER-SOURCE-MASK")
     def build_master_source_mask(self):
-        if not self.status.master_source_mask:
-            self.processed_basic_science_and_offset.build_master_source_mask()
-            self.update_status(master_source_mask=True)
-        else:
-            print_message(
-                message="MASTER-SOURCE-MASK already created", kind="warning", end=None
-            )
+        self.processed_basic_science_and_offset.build_master_source_mask()
 
+    @pipeline_step("master_sky", message="MASTER-SKY")
     def build_master_sky(self):
-        if not self.status.master_sky:
-            # If mixed data is requested
-            if self.setup.sky_mix_science:
-                self.processed_basic_science_and_offset.build_master_sky()
+        # If mixed data is requested
+        if self.setup.sky_mix_science:
+            self.processed_basic_science_and_offset.build_master_sky()
 
-            # If no offset is present and mixing not requested, build from science
-            elif self.processed_basic_offset is None:
-                self.processed_basic_science.build_master_sky()
+        # If no offset is present and mixing not requested, build from science
+        elif self.processed_basic_offset is None:
+            self.processed_basic_science.build_master_sky()
 
-            # Otherwise build only from offset
-            else:
-                self.processed_basic_offset.build_master_sky()
-
-            self.update_status(master_sky=True)
+        # Otherwise build only from offset
         else:
-            print_message(
-                message="MASTER-SKY already created", kind="warning", end=None
-            )
+            self.processed_basic_offset.build_master_sky()
 
+    @pipeline_step(
+        "master_photometry", message="MASTER-PHOTOMETRY", guard="raw_science"
+    )
     def build_master_photometry(self):
-        if self.raw_science is not None:
-            if not self.status.master_photometry:
-                self.processed_basic_science.build_master_photometry()
-                self.update_status(master_photometry=True)
-            else:
-                print_message(
-                    message="MASTER-PHOTOMETRY already created",
-                    kind="warning",
-                    end=None,
-                )
+        self.processed_basic_science.build_master_photometry()
 
+    @pipeline_step("master_astrometry", message="MASTER-ASTROMETRY")
     def build_master_astrometry(self):
-        if not self.status.master_astrometry:
-            self.processed_basic_science.build_master_astrometry()
-            self.update_status(master_astrometry=True)
-        else:
-            print_message(
-                message="MASTER-ASTROMETRY already created", kind="warning", end=None
-            )
+        self.processed_basic_science.build_master_astrometry()
 
+    @pipeline_step("master_weight_image", message="MASTER WEIGHT IMAGE")
     def build_master_weight_image(self):
-        if not self.status.master_weight_image:
-            self.processed_science_final.build_master_weight_image()
-            self.update_status(master_weight_image=True)
-        else:
-            print_message(
-                message="MASTER WEIGHT IMAGE already built", kind="warning", end=None
-            )
+        self.processed_science_final.build_master_weight_image()
 
     # =========================================================================== #
     # Image processing
+    @pipeline_step("processed_raw_basic", message="BASIC RAW PROCESSING")
     def process_raw_basic(self):
-        if not self.status.processed_raw_basic:
-            self.raw_science_and_offset.process_raw_basic()
-            self.update_status(processed_raw_basic=True)
-        else:
-            print_message(
-                message="BASIC RAW PROCESSING already done", kind="warning", end=None
-            )
+        self.raw_science_and_offset.process_raw_basic()
 
+    @pipeline_step("processed_raw_final", message="FINAL RAW PROCESSING")
     def process_science_final(self):
-        if not self.status.processed_raw_final:
-            self.processed_basic_science.process_raw_final()
-            self.update_status(processed_raw_final=True)
-        else:
-            print_message(
-                message="FINAL RAW PROCESSING already done", kind="warning", end=None
-            )
+        self.processed_basic_science.process_raw_final()
 
+    @pipeline_step("astrometry", message="ASTROMETRY")
     def calibrate_astrometry(self):
-        if not self.status.astrometry:
-            self.processed_science_final.sextractor(preset="scamp")
-            if self.setup.external_headers:
-                nehdr = sum([os.path.isfile(p) for p in self._paths_scamp_headers])
-                nfproc = sum(
-                    [os.path.isfile(p) for p in self._paths_processed_science_final]
-                )
-                if (nehdr != nfproc) or (nehdr == 0):
-                    raise PipelineValueError(
-                        f"Not enough external headers present ({nehdr}/{nfproc})"
-                    )
-            else:
-                self.sources_processed_final_scamp.scamp()
-            self.update_status(astrometry=True)
-        else:
-            print_message(
-                message="ASTROMETRY already calibrated", kind="warning", end=None
+        self.processed_science_final.sextractor(preset="scamp")
+        if self.setup.external_headers:
+            nehdr = sum([os.path.isfile(p) for p in self._paths_scamp_headers])
+            nfproc = sum(
+                [os.path.isfile(p) for p in self._paths_processed_science_final]
             )
+            if (nehdr != nfproc) or (nehdr == 0):
+                raise PipelineValueError(
+                    f"Not enough external headers present ({nehdr}/{nfproc})"
+                )
+        else:
+            self.sources_processed_final_scamp.scamp()
 
+    @pipeline_step("illumcorr", message="ILLUMINATION CORRECTION")
     def illumination_correction(self):
-        if not self.status.illumcorr:
-            if not self.status.astrometry:
-                raise ValueError(
-                    "Astrometric calibration has to be "
-                    "completed before illumination correction"
-                )
-            self.processed_science_final.sextractor(preset="ic")
-            self.sources_processed_illumcorr.build_master_illumination_correction()
-            self.processed_science_final.apply_illumination_correction()
-            self.update_status(illumcorr=True)
-        else:
-            print_message(
-                message="ILLUMINATION CORRECTION already applied",
-                kind="warning",
-                end=None,
+        if not self.status.astrometry:
+            raise ValueError(
+                "Astrometric calibration has to be "
+                "completed before illumination correction"
             )
+        self.processed_science_final.sextractor(preset="ic")
+        self.sources_processed_illumcorr.build_master_illumination_correction()
+        self.processed_science_final.apply_illumination_correction()
 
+    @pipeline_step("tile_header", message="TILE HEADER", guard="raw_science")
     def build_coadd_header(self):
-        if self.raw_science is not None:
-            if not self.status.tile_header:
-                self.processed_basic_science.build_coadd_header()
-                self.update_status(tile_header=True)
-            else:
-                print_message(
-                    message="TILE HEADER already built", kind="warning", end=None
-                )
+        self.processed_basic_science.build_coadd_header()
 
+    @pipeline_step("resampled", message="PAWPRINT RESAMPLING")
     def resample(self):
-        if not self.status.resampled:
-            self.illumination_corrected.resample()
-            self.update_status(resampled=True)
-        else:
-            print_message(
-                message="PAWPRINT RESAMPLING already done", kind="warning", end=None
-            )
+        self.illumination_corrected.resample()
 
     # =========================================================================== #
     # Image assembly
+    @pipeline_step("stacks", message="STACKS")
     def build_stacks(self):
-        if not self.status.stacks:
-            self.resampled.build_stacks()
-            self.update_status(stacks=True)
-        else:
-            print_message(message="STACKS already built", kind="warning", end=None)
+        self.resampled.build_stacks()
 
+    @pipeline_step("tile", message="TILE")
     def build_tile(self):
-        if not self.status.tile:
-            self.resampled.build_tile()
-            self.update_status(tile=True)
-        else:
-            print_message(message="TILE already created", kind="warning", end=None)
+        self.resampled.build_tile()
 
     # =========================================================================== #
     # Statistics
+    @pipeline_step("statistics_resampled", message="IMAGE STATISTICS")
     def build_statistics_resampled(self):
-        if not self.status.statistics_resampled:
-            self.resampled.build_statistics()
-            self.update_status(statistics_resampled=True)
-        else:
-            print_message(
-                message="IMAGE STATISTICS already built", kind="warning", end=None
-            )
+        self.resampled.build_statistics()
 
+    @pipeline_step("statistics_stacks", message="STACKS STATISTICS")
     def build_statistics_stacks(self):
-        if not self.status.statistics_stacks:
-            for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
-                images = self.resampled_statistics(mode=mode)
-                images.coadd_statistics_stacks(mode=mode)
-            # Combine MJD data
-            for pmi, pmf, pmc in zip(
-                self._paths_statistics_stacks(mode="mjd.int"),
-                self._paths_statistics_stacks(mode="mjd.frac"),
-                self._paths_statistics_stacks(mode="mjd.eff"),
-            ):
-                combine_mjd_images(
-                    path_file_a=pmi, path_file_b=pmf, path_file_out=pmc, overwrite=True
-                )
-            self.update_status(statistics_stacks=True)
-        else:
-            print_message(
-                message="STACKS STATISTICS already created", kind="warning", end=None
-            )
-
-    def build_statistics_tile(self):
-        if not self.status.statistics_tile:
-            for mode in [
-                "mjd.int",
-                "mjd.frac",
-                "nimg",
-                "exptime",
-                "astrms1",
-                "astrms2",
-            ]:
-                images = self.resampled_statistics(mode=mode)
-                images.coadd_statistics_tile(mode=mode)
-            # Combine MJD data
+        for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
+            images = self.resampled_statistics(mode=mode)
+            images.coadd_statistics_stacks(mode=mode)
+        # Combine MJD data
+        for pmi, pmf, pmc in zip(
+            self._paths_statistics_stacks(mode="mjd.int"),
+            self._paths_statistics_stacks(mode="mjd.frac"),
+            self._paths_statistics_stacks(mode="mjd.eff"),
+        ):
             combine_mjd_images(
-                path_file_a=self._path_statistics_tile(mode="mjd.int"),
-                path_file_b=self._path_statistics_tile(mode="mjd.frac"),
-                path_file_out=self._path_statistics_tile(mode="mjd.eff"),
-                overwrite=True,
+                path_file_a=pmi, path_file_b=pmf, path_file_out=pmc, overwrite=True
             )
 
-            self.sources_tile_cal.build_statistics_tables()
-            self.update_status(statistics_tile=True)
-        else:
-            print_message(
-                message="TILE STATISTICS already created", kind="warning", end=None
-            )
+    @pipeline_step("statistics_tile", message="TILE STATISTICS")
+    def build_statistics_tile(self):
+        for mode in [
+            "mjd.int",
+            "mjd.frac",
+            "nimg",
+            "exptime",
+            "astrms1",
+            "astrms2",
+        ]:
+            images = self.resampled_statistics(mode=mode)
+            images.coadd_statistics_tile(mode=mode)
+        # Combine MJD data
+        combine_mjd_images(
+            path_file_a=self._path_statistics_tile(mode="mjd.int"),
+            path_file_b=self._path_statistics_tile(mode="mjd.frac"),
+            path_file_out=self._path_statistics_tile(mode="mjd.eff"),
+            overwrite=True,
+        )
+
+        self.sources_tile_cal.build_statistics_tables()
 
     # =========================================================================== #
     # Classification
+    @pipeline_step("classification_stacks", message="STACKS CLASSIFICATION")
     def classification_stacks(self):
-        if not self.status.classification_stacks:
-            self.stacks.build_class_star_library()
-            self.update_status(classification_stacks=True)
-        else:
-            print_message(
-                message="STACKS CLASSIFICATION library already built",
-                kind="warning",
-                end=None,
-            )
+        self.stacks.build_class_star_library()
 
+    @pipeline_step("classification_tile", message="TILE CLASSIFICATION")
     def classification_tile(self):
-        if not self.status.classification_tile:
-            self.tile.build_class_star_library()
-            self.update_status(classification_tile=True)
-        else:
-            print_message(
-                message="TILE CLASSIFICATION library already built",
-                kind="warning",
-                end=None,
-            )
+        self.tile.build_class_star_library()
 
     # =========================================================================== #
     # Photometry
+    @pipeline_step("photometry_pawprints", message="PAWPRINT PHOTOMETRY")
     def photometry_pawprints(self):
-        if not self.status.photometry_pawprints:
-            self.resampled.sextractor(preset="full")
-            self.sources_resampled_full.calibrate_photometry()
-            self.update_status(photometry_pawprints=True)
-        else:
-            print_message(
-                message="PAWPRINT PHOTOMETRY already done", kind="warning", end=None
-            )
+        self.resampled.sextractor(preset="full")
+        self.sources_resampled_full.calibrate_photometry()
 
+    @pipeline_step("photometry_stacks", message="STACKS PHOTOMETRY")
     def photometry_stacks(self):
-        if not self.status.photometry_stacks:
-            self.stacks.sextractor(preset="full")
-            self.sources_stacks_full.calibrate_photometry()
-            self.update_status(photometry_stacks=True)
-        else:
-            print_message(
-                message="STACKS PHOTOMETRY already done", kind="warning", end=None
-            )
+        self.stacks.sextractor(preset="full")
+        self.sources_stacks_full.calibrate_photometry()
 
+    @pipeline_step("photometry_tile", message="TILE PHOTOMETRY")
     def photometry_tile(self):
-        if not self.status.photometry_tile:
-            self.tile.sextractor(preset="full")
-            self.sources_tile_full.calibrate_photometry()
-            self.update_status(photometry_tile=True)
-        else:
-            print_message(
-                message="TILE PHOTOMETRY already done", kind="warning", end=None
-            )
+        self.tile.sextractor(preset="full")
+        self.sources_tile_full.calibrate_photometry()
 
+    @pipeline_step("photerr_internal", message="INTERNAL PHOTOMETRIC ERROR")
     def photerr_internal(self):
-        if not self.status.photerr_internal:
-            self.sources_resampled_cal.photerr_internal()
-            if self.setup.qc_plots:
-                self.sources_resampled_cal.plot_qc_photerr_internal()
-            self.update_status(photerr_internal=True)
-        else:
-            print_message(
-                message="INTERNAL PHOTOMETRIC ERROR already determined",
-                kind="warning",
-                end=None,
-            )
+        self.sources_resampled_cal.photerr_internal()
+        if self.setup.qc_plots:
+            self.sources_resampled_cal.plot_qc_photerr_internal()
 
     # =========================================================================== #
     # QC
+    @pipeline_step("qc_photometry_stacks", message="STACKS QC PHOTOMETRY")
     def qc_photometry_stacks(self):
-        if not self.status.qc_photometry_stacks:
-            self.sources_stacks_cal.plot_qc_phot_zp(axis_size=5)
-            self.sources_stacks_cal.plot_qc_phot_ref1d(axis_size=5)
-            self.sources_stacks_cal.plot_qc_phot_ref2d(axis_size=5)
-            self.update_status(qc_photometry_stacks=True)
-        else:
-            print_message(
-                message="STACKS QC PHOTOMETRY already done", kind="warning", end=None
-            )
+        self.sources_stacks_cal.plot_qc_phot_zp(axis_size=5)
+        self.sources_stacks_cal.plot_qc_phot_ref1d(axis_size=5)
+        self.sources_stacks_cal.plot_qc_phot_ref2d(axis_size=5)
 
+    @pipeline_step("qc_photometry_tile", message="TILE QC PHOTOMETRY")
     def qc_photometry_tile(self):
-        if not self.status.qc_photometry_tile:
-            self.sources_tile_cal.plot_qc_phot_zp(axis_size=5)
-            self.sources_tile_cal.plot_qc_phot_ref1d(axis_size=5)
-            self.sources_tile_cal.plot_qc_phot_ref2d(axis_size=5)
-            self.update_status(qc_photometry_tile=True)
-        else:
-            print_message(
-                message="TILE QC PHOTOMETRY already done", kind="warning", end=None
-            )
+        self.sources_tile_cal.plot_qc_phot_zp(axis_size=5)
+        self.sources_tile_cal.plot_qc_phot_ref1d(axis_size=5)
+        self.sources_tile_cal.plot_qc_phot_ref2d(axis_size=5)
 
+    @pipeline_step("qc_astrometry_stacks", message="STACKS QC ASTROMETRY")
     def qc_astrometry_stacks(self):
-        if not self.status.qc_astrometry_stacks:
-            self.sources_stacks_cal.plot_qc_astrometry_1d()
-            self.sources_stacks_cal.plot_qc_astrometry_2d()
-            self.update_status(qc_astrometry_stacks=True)
-        else:
-            print_message(
-                message="STACKS QC ASTROMETRY already done", kind="warning", end=None
-            )
+        self.sources_stacks_cal.plot_qc_astrometry_1d()
+        self.sources_stacks_cal.plot_qc_astrometry_2d()
 
+    @pipeline_step("qc_astrometry_tile", message="TILE QC ASTROMETRY")
     def qc_astrometry_tile(self):
-        if not self.status.qc_astrometry_tile:
-            self.sources_tile_cal.plot_qc_astrometry_1d()
-            self.sources_tile_cal.plot_qc_astrometry_2d()
-            self.update_status(qc_astrometry_tile=True)
-        else:
-            print_message(
-                message="TILE QC ASTROMETRY already done", kind="warning", end=None
-            )
+        self.sources_tile_cal.plot_qc_astrometry_1d()
+        self.sources_tile_cal.plot_qc_astrometry_2d()
 
     # =========================================================================== #
     # QC summary
     def build_qc_summary(self):
         """Build a QC summary table aggregating key metrics from stacks and tile."""
 
-        if not self.status.qc_summary:
-            print_header(
-                header="QC SUMMARY TABLE",
-                silent=self.setup.silent,
-                left=None,
-                right=None,
+        if self.status.qc_summary:
+            print_message(
+                message="QC SUMMARY TABLE already done", kind="warning", end=None
             )
-            log = PipelineLog()
-            tstart = time.time()
+            return
 
-            kw = {
-                "filter_keyword": self.setup.keywords.filter_name,
-                "mag_saturation": self.setup.reference_mag_lo,
-            }
-            rows = []
+        print_header(
+            header="QC SUMMARY TABLE",
+            silent=self.setup.silent,
+            left=None,
+            right=None,
+        )
+        log = PipelineLog()
+        tstart = time.time()
 
-            # Collect rows from stacks
-            if self.setup.build_stacks:
-                try:
-                    stacks = self.stacks
-                    catalogs = self.sources_stacks_cal
-                    for idx in range(len(stacks)):
-                        try:
-                            rows.append(
-                                build_qc_summary_row(
-                                    image_path=stacks.paths_full[idx],
-                                    catalog_path=catalogs.paths_full[idx],
-                                    product_type="stack",
-                                    **kw,
-                                )
-                            )
-                        except Exception as e:
-                            log.warning(f"QC summary: skipping stack {idx}: {e}")
-                except Exception as e:
-                    log.warning(f"QC summary: cannot read stacks: {e}")
+        kw = {
+            "filter_keyword": self.setup.keywords.filter_name,
+            "mag_saturation": self.setup.reference_mag_lo,
+        }
+        rows = []
 
-            # Collect row from tile
-            if self.setup.build_tile:
-                try:
-                    tile = self.tile
-                    catalog = self.sources_tile_cal
+        # Collect rows from stacks
+        if self.setup.build_stacks:
+            try:
+                stacks = self.stacks
+                catalogs = self.sources_stacks_cal
+                for idx in range(len(stacks)):
                     try:
                         rows.append(
                             build_qc_summary_row(
-                                image_path=tile.paths_full[0],
-                                catalog_path=catalog.paths_full[0],
-                                product_type="tile",
+                                image_path=stacks.paths_full[idx],
+                                catalog_path=catalogs.paths_full[idx],
+                                product_type="stack",
                                 **kw,
                             )
                         )
                     except Exception as e:
-                        log.warning(f"QC summary: skipping tile: {e}")
+                        log.warning(f"QC summary: skipping stack {idx}: {e}")
+            except Exception as e:
+                log.warning(f"QC summary: cannot read stacks: {e}")
+
+        # Collect row from tile
+        if self.setup.build_tile:
+            try:
+                tile = self.tile
+                catalog = self.sources_tile_cal
+                try:
+                    rows.append(
+                        build_qc_summary_row(
+                            image_path=tile.paths_full[0],
+                            catalog_path=catalog.paths_full[0],
+                            product_type="tile",
+                            **kw,
+                        )
+                    )
                 except Exception as e:
-                    log.warning(f"QC summary: cannot read tile: {e}")
+                    log.warning(f"QC summary: skipping tile: {e}")
+            except Exception as e:
+                log.warning(f"QC summary: cannot read tile: {e}")
 
-            if not rows:
-                print_message(
-                    message="No products available for QC summary",
-                    kind="warning",
-                    end=None,
-                )
-                return
-
-            # Build and write table
-            qc_table = Table(rows=rows)
-            path_out = os.path.join(self.setup.folders["qc"], "qc_summary.ecsv")
-            qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
-
+        if not rows:
             print_message(
-                message=f"\n-> QC summary written to {os.path.basename(path_out)} "
-                f"({len(rows)} products, {time.time() - tstart:.1f}s)",
-                kind="okblue",
-                end="\n",
-                logger=log,
+                message="No products available for QC summary",
+                kind="warning",
+                end=None,
             )
+            return
 
-            self.update_status(qc_summary=True)
-        else:
-            print_message(
-                message="QC SUMMARY TABLE already created", kind="warning", end=None
-            )
+        # Build and write table
+        qc_table = Table(rows=rows)
+        path_out = os.path.join(self.setup.folders["qc"], "qc_summary.ecsv")
+        qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
+
+        print_message(
+            message=f"\n-> QC summary written to {os.path.basename(path_out)} "
+            f"({len(rows)} products, {time.time() - tstart:.1f}s)",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+
+        self.update_status(qc_summary=True)
 
     # =========================================================================== #
     # Phase 3
@@ -1048,41 +915,27 @@ class Pipeline:
             n_jobs=n_jobs,
         )
 
+    @pipeline_step("phase3", message="PHASE 3")
     def build_phase3(self):
-        if not self.status.phase3:
-            if self.setup.build_stacks:
-                build_phase3_stacks(
-                    stacks_images=self.stacks,
-                    stacks_catalogs=self.sources_stacks_cal,
-                    mag_saturation=self.setup.reference_mag_lo,
-                )
-            if self.setup.build_tile:
-                build_phase3_tile(
-                    tile_image=self.tile,
-                    tile_catalog=self.sources_tile_cal,
-                    mag_saturation=self.setup.reference_mag_lo,
-                    pawprint_images=self.resampled,
-                )
-            # if self.setup.compress_phase3:
-            #     self.compress_phase3_images()
-            self.update_status(phase3=True)
-        else:
-            print_message(
-                message="PHASE 3 files already built", kind="warning", end=None
+        if self.setup.build_stacks:
+            build_phase3_stacks(
+                stacks_images=self.stacks,
+                stacks_catalogs=self.sources_stacks_cal,
+                mag_saturation=self.setup.reference_mag_lo,
+            )
+        if self.setup.build_tile:
+            build_phase3_tile(
+                tile_image=self.tile,
+                tile_catalog=self.sources_tile_cal,
+                mag_saturation=self.setup.reference_mag_lo,
+                pawprint_images=self.resampled,
             )
 
+    @pipeline_step("public_catalog", message="PUBLIC CATALOG")
     def build_public_catalog(self):
-        if not self.status.public_catalog:
-            # Read systematic astrometric error
-            self.sources_tile_cal.build_public_catalog(
-                photerr_internal=self.setup.photometric_error_floor,
-            )
-            self.update_status(public_catalog=True)
-
-        else:
-            print_message(
-                message="PUBLIC CATALOG already built", kind="warning", end=None
-            )
+        self.sources_tile_cal.build_public_catalog(
+            photerr_internal=self.setup.photometric_error_floor,
+        )
 
     # =========================================================================== #
     # Cleaning/archiving
