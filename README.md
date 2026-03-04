@@ -15,7 +15,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction
 - **Catalog building**: per-pawprint and per-tile source catalogs, public ESO Phase 3-compliant output
 - **QC plots**: astrometric and photometric quality control diagnostic plots
-- **Parallel processing**: multi-threaded execution via joblib
+- **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
 - **Checkpoint system**: interrupted runs resume from the last completed step
 
 ---
@@ -69,7 +69,7 @@ docker build -t vircampype .
 Before running the pipeline, raw FITS files need to be sorted into calibration and science sub-folders:
 
 ```bash
-vircampype --sort /path/to/raw/files/*.fits
+python vircampype/pipeline/worker.py --sort /path/to/raw/files/*.fits
 ```
 
 ### 2. Create a setup file
@@ -101,22 +101,16 @@ path_pype: /path/to/pipeline/output
 ### 3. Run the pipeline
 ```bash
 # Run calibration
-vircampype --setup /path/to/calibration_setup.yml
+python vircampype/pipeline/worker.py --setup /path/to/calibration_setup.yml
 
 # Run science reduction
-vircampype --setup /path/to/science_setup.yml
+python vircampype/pipeline/worker.py --setup /path/to/science_setup.yml
 
 # Reset progress (re-run from the start)
-vircampype --reset-progress --setup /path/to/setup.yml
+python vircampype/pipeline/worker.py --reset-progress --setup /path/to/setup.yml
 
 # Remove all generated object and phase3 folders
-vircampype --clean --setup /path/to/setup.yml
-```
-
-When installed as a Python package, the `vircampype` command is available directly. Alternatively, invoke the worker script:
-
-```bash
-python vircampype/pipeline/worker.py --setup /path/to/setup.yml
+python vircampype/pipeline/worker.py --clean --setup /path/to/setup.yml
 ```
 
 ---
@@ -148,7 +142,8 @@ Processes raw science frames through to final co-added products:
 10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, and MJD maps
 11. **Source catalogs** — SExtractor source extraction on stacks and tile
 12. **QC plots** — astrometric and photometric diagnostic plots
-13. **Phase 3 / Public catalog** — ESO Phase 3-compliant output and public source catalog
+13. **QC summary table** — aggregates key metrics from stacks and tile into `qc/qc_summary.ecsv`
+14. **Phase 3 / Public catalog** — ESO Phase 3-compliant output and public source catalog
 
 ---
 
@@ -161,7 +156,10 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `name` | — | Pipeline run name (required) |
 | `path_data` | — | Path to input FITS files (required) |
 | `path_pype` | — | Path for pipeline output (required) |
-| `n_jobs` | `8` | Number of parallel threads |
+| `n_jobs` | `8` | Number of parallel workers |
+| `n_jobs_sex` | `5` | Number of parallel SExtractor workers (capped at `n_jobs`) |
+| `n_jobs_scamp` | `n_jobs` | Number of parallel SCAMP workers (capped at `n_jobs`) |
+| `n_jobs_swarp` | `n_jobs` | Number of parallel SWarp workers (capped at `n_jobs`) |
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
