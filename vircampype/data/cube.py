@@ -1005,13 +1005,15 @@ class ImageCube(object):
         nbad = np.sum(masks, axis=2)
 
         # Identify rows with more than 50% masked pixels
-        bad_rows = nbad > (nbad.shape[1] * 0.5)
+        bad_rows = nbad > (nbad.shape[1] * self.setup.destripe_bad_row_fraction)
 
         # Count number of bad rows in each plane
         nbad_rows = np.sum(bad_rows, axis=1)
 
         # Identify bad planes as those that have more than 1/3 bad rows
-        bad_planes = nbad_rows > (self.shape[2] * 1 / 3)
+        bad_planes = nbad_rows > (
+            self.shape[2] * self.setup.destripe_bad_plane_fraction
+        )
 
         cube_destripe_avg = self.copy()
         if combine_bad_planes:
@@ -1067,7 +1069,7 @@ class ImageCube(object):
         """
 
         # Hardcoded Kernel
-        kernel = Gaussian2DKernel(1)
+        kernel = Gaussian2DKernel(self.setup.interpolate_nan_kernel_sigma)
 
         # Overlap is half the kernel size
         overlap = int(np.ceil(np.max(kernel.shape) / 2))

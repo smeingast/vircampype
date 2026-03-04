@@ -705,7 +705,9 @@ class SkyImages(FitsImages):
             # Copy self for background mask
             cube_self_copy = copy.deepcopy(cube_self)
             cube_self_copy.apply_masks(sources=cube_mask)
-            background = cube_self_copy.background(mesh_size=128, mesh_filtersize=3)[0]
+            background = cube_self_copy.background(
+                mesh_size=self.setup.ic_background_mesh_size, mesh_filtersize=3
+            )[0]
 
             # Apply background
             cube_self -= background
@@ -1212,7 +1214,8 @@ class SkyImagesProcessed(SkyImages):
             mask_additional.cube += (
                 cube_raw_temp.cube
                 < sky_scale[:, np.newaxis, np.newaxis]
-                - 10 * sky_std[:, np.newaxis, np.newaxis]
+                - self.setup.source_mask_outlier_sigma
+                * sky_std[:, np.newaxis, np.newaxis]
             )
 
             # Destripe if enabled
@@ -1357,7 +1360,7 @@ class SkyImagesProcessed(SkyImages):
             )
 
             # Determine size to download
-            radius = 1.1 * np.max(
+            radius = self.setup.catalog_download_radius_factor * np.max(
                 self.footprints_flat.separation(self.centroid_all).degree
             )
             log.info(f"Download query radius: {radius:.3f} deg")
@@ -1419,7 +1422,7 @@ class SkyImagesProcessed(SkyImages):
             )
 
             # Determine radius for download query
-            radius = 1.1 * np.max(
+            radius = self.setup.catalog_download_radius_factor * np.max(
                 self.footprints_flat.separation(self.centroid_all).degree
             )
             log.info(f"Download query radius: {radius:.3f} deg")
@@ -1439,12 +1442,12 @@ class SkyImagesProcessed(SkyImages):
                     & np.isfinite(table["pmdec"])
                     & np.isfinite(table["mag"])
                     & np.isfinite(table["mag_error"])
-                    & (table["ruwe"] < 1.5)
+                    & (table["ruwe"] < self.setup.gaia_ruwe_max)
                 )
 
                 log.info(
                     f"Keeping {int(np.sum(keep))}/{len(table)} Gaia sources "
-                    f"after quality cuts (finite pm, ruwe<1.5)"
+                    f"after quality cuts (finite pm, ruwe<{self.setup.gaia_ruwe_max})"
                 )
 
                 # Apply cut
@@ -1764,7 +1767,10 @@ class SkyImagesProcessed(SkyImages):
 
             # Dummy check if too many pixels where masked
             for plane in cube:
-                if np.sum(np.isfinite(plane)) / plane.size < 0.2:
+                if (
+                    np.sum(np.isfinite(plane)) / plane.size
+                    < self.setup.min_valid_pixel_fraction
+                ):
                     ntot, nmasked = plane.size, np.sum(~np.isfinite(plane))
                     raise ValueError(
                         f"Too many pixels masked ({nmasked / ntot * 100}%) "
@@ -1867,7 +1873,11 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             sky, sky_std = cube.background_planes()
 
             # Mask 3 sigma level above sky
-            cube.apply_masks(mask_above=(sky + 3 * sky_std)[:, np.newaxis, np.newaxis])
+            cube.apply_masks(
+                mask_above=(sky + self.setup.sky_static_sigma * sky_std)[
+                    :, np.newaxis, np.newaxis
+                ]
+            )
 
             # Normalize to same flux level
             sky_scale = sky / np.mean(sky)
@@ -2030,7 +2040,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Get background statistics
             cube.apply_masks(sources=master_mask)
-            bg_rms = cube.background(mesh_size=256, mesh_filtersize=3)[1]
+            bg_rms = cube.background(
+                mesh_size=self.setup.weight_background_mesh_size, mesh_filtersize=3
+            )[1]
 
             # Read and apply MaxiMask to weight
             if isinstance(masks, FitsImages):
@@ -2040,10 +2052,14 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Mask bad pixels
             try:
                 # Try to just mask detector 16 (silly workaround)
-                master_weight.cube[15][bg_rms[15] > 1.5 * np.nanmedian(bg_rms)] = 0
+                master_weight.cube[15][
+                    bg_rms[15] > self.setup.weight_bg_rms_factor * np.nanmedian(bg_rms)
+                ] = 0
             except IndexError:
                 # Mask all detectors
-                master_weight.cube[bg_rms > 1.5 * np.nanmedian(bg_rms)] = 0
+                master_weight.cube[
+                    bg_rms > self.setup.weight_bg_rms_factor * np.nanmedian(bg_rms)
+                ] = 0
 
             # Make primary header
             prime_header = fits.Header()
@@ -2131,7 +2147,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 enlarge=1.0,
                 rotation=np.deg2rad(np.round(rotation, 2)),
                 round_crval=True,
-                cdelt=(1 / 3) / 3600,
+                cdelt=self.setup.coadd_pixel_scale / 3600,
             )
 
         # Dummy check
@@ -2305,8 +2321,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         split = [split[i] for i in sidx]
 
         # Check sequence
-        if len(split) != 6:
-            raise ValueError("Sequence contains {0} offsets. Expected 6.")
+        if len(split) != self.setup.n_offset_positions:
+            raise ValueError(
+                f"Sequence contains {len(split)} offsets. Expected {self.setup.n_offset_positions}."
+            )
         log.info(f"Number of offset positions: {len(split)}")
 
         for idx_split in range(len(split)):
@@ -2692,7 +2710,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             stdout, stderr = run_command_shell(cmd=cmd, silent=True)
 
             # Wait 5 seconds to ensure file is written
-            time.sleep(5)
+            time.sleep(self.setup.swarp_post_sleep)
 
             # Add stdout and stderr to log
             log.info(f"Swarp stdout:\n{stdout}")
@@ -2753,8 +2771,10 @@ class SkyImagesResampled(SkyImagesProcessed):
                 coadd = hdul_tile[0].data
 
                 # Use a max of 50_000_000 pixels for sky calculation
-                if coadd.size > 50_000_000:
-                    backmod, backsig, backskew = mmm(coadd[:: coadd.size // 50_000_000])
+                if coadd.size > self.setup.mmm_max_pixels:
+                    backmod, backsig, backskew = mmm(
+                        coadd[:: coadd.size // self.setup.mmm_max_pixels]
+                    )
                 else:
                     backmod, backsig, backskew = mmm(coadd)
                 log.info(f"Background mode: {backmod:.3f}")

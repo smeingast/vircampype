@@ -57,7 +57,10 @@ class FlatTwilight(FlatImages):
             # Check flat sequence (at least three files, same nHDU, same NDIT,
             # and same filter)
             files.check_compatibility(
-                n_files_min=3, n_hdu_max=1, n_ndit_max=1, n_filter_max=1
+                n_files_min=self.setup.flat_n_min,
+                n_hdu_max=1,
+                n_ndit_max=1,
+                n_filter_max=1,
             )
 
             # Create Master name
@@ -490,11 +493,14 @@ class FlatLampLin(FlatImages):
 
                 # Interpolate non linearity at 10000 ADU (guard against
                 # sequences whose flux range does not include 10000 ADU)
-                if flux.min() <= 10000 <= flux.max():
-                    nl10000 = float((interp1d(flux, flux_lin)(10000) / 10000 - 1) * 100)
+                ref_adu = self.setup.linearity_reference_adu
+                if flux.min() <= ref_adu <= flux.max():
+                    nl10000 = float(
+                        (interp1d(flux, flux_lin)(ref_adu) / ref_adu - 1) * 100
+                    )
                 else:
                     nl10000 = np.nan
-                log.info(f"Detector {idx_hdu}: NL at 10000 ADU = {nl10000:.3f}%")
+                log.info(f"Detector {idx_hdu}: NL at {ref_adu} ADU = {nl10000:.3f}%")
 
                 # Make fits cards for coefficients
                 cards_coeff, cards_poly = [], []
@@ -613,7 +619,7 @@ class FlatLampCheck(FlatImages):
         for files, idx_print in zip(split, range(1, len(split) + 1)):
             # Check sequence compatibility
             files.check_compatibility(
-                n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=3
+                n_hdu_max=1, n_dit_max=1, n_ndit_max=1, n_files_min=self.setup.bpm_n_min
             )
 
             # Create Master name

@@ -38,7 +38,7 @@ class DarkImages(FitsImages):
         split = flat_list([s.split_lag(max_lag=self.setup.dark_max_lag) for s in split])
 
         # Remove sequences with too few images
-        split = prune_list(split, n_min=3)
+        split = prune_list(split, n_min=self.setup.dark_n_min)
         log.info(f"Number of dark groups: {len(split)}")
 
         # Now loop through separated files and build the Masterdarks
@@ -112,7 +112,9 @@ class DarkImages(FitsImages):
                 )
 
                 # Discard a plane if only NaNs
-                good_planes = cube.discard_nan_planes(threshold=0.9)
+                good_planes = cube.discard_nan_planes(
+                    threshold=self.setup.dark_nan_plane_threshold
+                )
                 bpm = bpm[good_planes]
 
                 # Destripe

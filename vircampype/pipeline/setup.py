@@ -16,175 +16,265 @@ from vircampype.tools.systemtools import *
 @dataclass
 class Setup:
     # Pipeline setup
-    name: str = None
-    path_data: str = None
-    pattern_data: str = "*.fits"
-    path_pype: str = None
-    n_jobs: int = 8
-    n_jobs_basic: int = 2
-    n_jobs_sex: int = 5
-    n_jobs_scamp: int | None = None
-    n_jobs_swarp: int | None = None
-    silent: bool = False
-    overwrite: bool = False
-    qc_plots: bool = True
-    log_level: str = "info"
+    name: str = None  # Name of the pipeline setup / target field
+    path_data: str = None  # Path to directory containing raw FITS files
+    pattern_data: str = "*.fits"  # Glob pattern for raw data file selection
+    path_pype: str = None  # Root output directory for pipeline products
+    n_jobs: int = 8  # Max number of parallel jobs (capped at CPU count)
+    n_jobs_basic: int = 2  # Parallel jobs for basic processing steps
+    n_jobs_sex: int = 5  # Parallel jobs for SExtractor runs
+    n_jobs_scamp: int | None = None  # Parallel jobs for SCAMP (None = n_jobs)
+    n_jobs_swarp: int | None = None  # Parallel jobs for SWarp (None = n_jobs)
+    silent: bool = False  # Suppress terminal progress messages
+    overwrite: bool = False  # Overwrite existing output files
+    qc_plots: bool = True  # Generate quality control plots
+    log_level: str = "info"  # Logging verbosity (debug, info, warning, error)
 
     # What to process
-    calibrate_pawprints: bool = False
-    build_stacks: bool = False
-    build_tile: bool = True
-    build_tile_only: bool = False
-    build_phase3: bool = False
-    build_public_catalog: bool = False
-    source_classification: bool = False
-    archive: bool = False
+    calibrate_pawprints: bool = False  # Run photometric calibration on pawprints
+    build_stacks: bool = False  # Build stacked images per offset position
+    build_tile: bool = True  # Build the final coadded tile
+    build_tile_only: bool = False  # Skip pawprint processing, build tile only
+    build_phase3: bool = False  # Create ESO Phase 3 compliant products
+    build_public_catalog: bool = False  # Build public source catalog
+    source_classification: bool = False  # Run star/galaxy classification
+    archive: bool = False  # Archive processed data
 
     # Phase 3
-    compress_phase3: bool = True
-    fpack_quantization_factor: int = 16
+    compress_phase3: bool = True  # Fpack-compress Phase 3 images
+    fpack_quantization_factor: int = (
+        16  # Fpack quantization factor (lower = less lossy)
+    )
 
     # Optional processing steps
-    destripe: bool = True
-    interpolate_nan: bool = True
-    interpolate_max_bad_neighbors: int = 3
+    destripe: bool = True  # Remove horizontal stripe pattern from images
+    interpolate_nan: bool = True  # Interpolate over NaN pixels
+    interpolate_max_bad_neighbors: int = (
+        3  # Max bad neighbors before skipping interpolation
+    )
+    destripe_bad_row_fraction: float = (
+        0.5  # Row is bad if masked pixel fraction exceeds this
+    )
+    destripe_bad_plane_fraction: float = (
+        1 / 3
+    )  # Plane is bad if bad-row fraction exceeds this
+    interpolate_nan_kernel_sigma: float = (
+        1.0  # Gaussian kernel sigma (px) for NaN interpolation
+    )
 
     # Projection
-    projection: str | Projection | None = None
+    projection: str | Projection | None = (
+        None  # Coadd projection (header file path or Projection)
+    )
 
     # Saturation levels
-    set_saturation_levels: str = "default"
+    set_saturation_levels: str = (
+        "default"  # Saturation level preset ('default' or 'sv')
+    )
 
     # Astrometry
-    warp_gaia: bool = True
-    external_headers: bool = False
-    scamp_mode: Literal["fix_focalplane", "loose"] = "loose"
+    warp_gaia: bool = True  # Propagate Gaia proper motions to observation epoch
+    external_headers: bool = False  # Use external astrometric headers
+    scamp_mode: Literal["fix_focalplane", "loose"] = (
+        "loose"  # SCAMP astrometric calibration mode
+    )
+    gaia_ruwe_max: float = 1.5  # Max Gaia RUWE for astrometric reference stars
 
     # Photometry
-    phot_reference_catalog: Literal["2MASS"] = "2MASS"
-    reference_mag_lo: int | float = None
-    reference_mag_hi: int | float = None
-    target_zp: float = 25.0
-    illumination_correction_mode: Literal["variable", "constant"] = "variable"
-    phot_interp_kernel_k: int = 10
-    photometric_error_floor: float = 0.005
+    phot_reference_catalog: Literal["2MASS"] = "2MASS"  # Photometric reference catalog
+    reference_mag_lo: int | float = None  # Bright magnitude cut for reference stars
+    reference_mag_hi: int | float = None  # Faint magnitude cut for reference stars
+    target_zp: float = 25.0  # Target photometric zero point (mag)
+    illumination_correction_mode: Literal["variable", "constant"] = (
+        "variable"  # Illumination correction mode
+    )
+    phot_interp_kernel_k: int = (
+        10  # Number of nearest neighbors for photometric interpolation
+    )
+    photometric_error_floor: float = 0.005  # Minimum photometric error (mag)
+    catalog_download_radius_factor: float = (
+        1.1  # Enlargement factor for catalog download radius
+    )
+    ic_background_mesh_size: int = (
+        128  # Background mesh size for illumination correction
+    )
 
     # Master calibration lookup
-    master_max_lag_bpm: int | float = 14
-    master_max_lag_dark: int | float = 14
-    master_max_lag_twilight_flat: int | float = 14
-    master_max_lag_sky: int | float = 60
-    master_max_lag_gain: int | float = 14
-    master_max_lag_weight: int | float = 14
-    master_max_lag_linearity: int | float = 14
+    master_max_lag_bpm: int | float = 14  # Max time lag (days) for BPM lookup
+    master_max_lag_dark: int | float = 14  # Max time lag (days) for dark lookup
+    master_max_lag_twilight_flat: int | float = (
+        14  # Max time lag (days) for twilight flat lookup
+    )
+    master_max_lag_sky: int | float = 60  # Max time lag (days) for sky flat lookup
+    master_max_lag_gain: int | float = 14  # Max time lag (days) for gain lookup
+    master_max_lag_weight: int | float = 14  # Max time lag (days) for weight lookup
+    master_max_lag_linearity: int | float = (
+        14  # Max time lag (days) for linearity lookup
+    )
 
     # Bad pixel masks
-    bpm_max_lag: int | float = 1
-    bpm_rel_threshold: int | float = 0.04
-    bpm_frac: int | float = 0.2
+    bpm_max_lag: int | float = 1  # Max time lag (days) between BPM input frames
+    bpm_rel_threshold: int | float = 0.04  # Relative threshold for bad pixel detection
+    bpm_frac: int | float = 0.2  # Fraction of frames a pixel must be bad to be flagged
+    bpm_n_min: int = 3  # Min number of BPM frames per group
 
     # Darks
-    dark_max_lag: int | float = 1
-    dark_mask_min: bool = True
-    dark_mask_max: bool = True
-    dark_metric: Literal["mean", "median", "clipped_mean", "clipped_median"] = "mean"
+    dark_max_lag: int | float = 1  # Max time lag (days) between dark input frames
+    dark_mask_min: bool = True  # Mask minimum value outliers in darks
+    dark_mask_max: bool = True  # Mask maximum value outliers in darks
+    dark_metric: Literal["mean", "median", "clipped_mean", "clipped_median"] = (
+        "mean"  # Combination metric for darks
+    )
+    dark_n_min: int = 3  # Min number of dark frames per group
+    dark_nan_plane_threshold: float = (
+        0.9  # Discard dark plane if valid pixel fraction below this
+    )
 
     # Gain
-    gain_max_lag: int | float = 1
+    gain_max_lag: int | float = 1  # Max time lag (days) between gain input frames
 
     # Linearity
-    linearity_max_lag: int | float = 1
+    linearity_max_lag: int | float = (
+        1  # Max time lag (days) between linearity input frames
+    )
+    linearity_reference_adu: int | float = (
+        10000  # Reference flux level (ADU) for non-linearity characterization
+    )
 
     # Flats
-    flat_type: Literal["sky", "twilight"] = "twilight"
-    flat_max_lag: int | float = 1
-    flat_mask_min: bool = True
-    flat_mask_max: bool = True
-    flat_rel_lo: int | float = 0.3
-    flat_rel_hi: int | float = 1.7
-    flat_sigma_level: int | float = 3
-    flat_sigma_iter: int = 1
+    flat_type: Literal["sky", "twilight"] = "twilight"  # Type of flat field frames
+    flat_max_lag: int | float = 1  # Max time lag (days) between flat input frames
+    flat_mask_min: bool = True  # Mask minimum value outliers in flats
+    flat_mask_max: bool = True  # Mask maximum value outliers in flats
+    flat_rel_lo: int | float = 0.3  # Low relative threshold for flat rejection
+    flat_rel_hi: int | float = 1.7  # High relative threshold for flat rejection
+    flat_sigma_level: int | float = 3  # Sigma-clipping level for flat combination
+    flat_sigma_iter: int = 1  # Number of sigma-clipping iterations for flats
     flat_metric: Literal[
         "weighted", "mean", "median", "clipped_mean", "clipped_median"
-    ] = "weighted"
+    ] = "weighted"  # Combination metric for flats
+    flat_n_min: int = 3  # Min number of flat frames per group
 
     # Weights
-    weight_mask_abs_min: int | float = 0.3
-    weight_mask_abs_max: int | float = 1.7
-    weight_mask_rel_min: int | float = 0.5
-    weight_mask_rel_max: int | float = 1.5
-    build_individual_weights_maximask: bool = False
+    weight_mask_abs_min: int | float = 0.3  # Absolute min flat value for weight masking
+    weight_mask_abs_max: int | float = 1.7  # Absolute max flat value for weight masking
+    weight_mask_rel_min: int | float = 0.5  # Relative min flat value for weight masking
+    weight_mask_rel_max: int | float = 1.5  # Relative max flat value for weight masking
+    build_individual_weights_maximask: bool = (
+        False  # Use MaxiMask for individual weight images
+    )
+    weight_bg_rms_factor: float = (
+        1.5  # Factor above median bg RMS to zero detector weight
+    )
+    weight_background_mesh_size: int = (
+        256  # Background mesh size for weight image RMS estimation
+    )
 
     # Source masks
-    mask_2mass_sources: bool = True
-    mask_2mass_sources_bright: int | float = 1.0
-    mask_2mass_sources_faint: int | float = 10.0
-    mask_bright_galaxies: bool = True
-    additional_source_masks: str | SourceMasks | None = None
-    source_mask_method: Literal["noisechisel", "built-in"] = "noisechisel"
-    source_masks_n_min: int = 5
-    source_mask_closing: bool = True
-    source_masks_closing_size: int = 5
-    source_masks_closing_iter: int = 2
-    source_masks_destripe: bool = True
+    mask_2mass_sources: bool = True  # Mask bright 2MASS sources in sky frames
+    mask_2mass_sources_bright: int | float = (
+        1.0  # Bright magnitude limit for 2MASS source masking
+    )
+    mask_2mass_sources_faint: int | float = (
+        10.0  # Faint magnitude limit for 2MASS source masking
+    )
+    mask_bright_galaxies: bool = True  # Mask bright galaxies from external catalog
+    additional_source_masks: str | SourceMasks | None = (
+        None  # Path to additional DS9 region masks
+    )
+    source_mask_method: Literal["noisechisel", "built-in"] = (
+        "noisechisel"  # Source detection method for masking
+    )
+    source_masks_n_min: int = 5  # Min frames required to build source masks
+    source_mask_closing: bool = True  # Apply morphological closing to source masks
+    source_masks_closing_size: int = 5  # Kernel size for mask morphological closing
+    source_masks_closing_iter: int = 2  # Number of morphological closing iterations
+    source_masks_destripe: bool = True  # Destripe images before source mask detection
+    source_mask_outlier_sigma: int | float = (
+        10  # Sigma threshold for extreme outlier masking
+    )
+    min_valid_pixel_fraction: float = (
+        0.2  # Min fraction of finite pixels before raising error
+    )
     # Noisechisel setup for source masks
-    noisechisel_qthresh: float = 0.9
-    noisechisel_erode: int = 2
-    noisechisel_detgrowquant: float = 1.0
-    noisechisel_tilesize: str = "32,32"
-    noisechisel_meanmedqdiff: float = 0.05
+    noisechisel_qthresh: float = 0.9  # Quantile threshold for noisechisel detection
+    noisechisel_erode: int = 2  # Erosion size for noisechisel segmentation
+    noisechisel_detgrowquant: float = 1.0  # Detection growth quantile for noisechisel
+    noisechisel_tilesize: str = (
+        "32,32"  # Tile size for noisechisel background estimation
+    )
+    noisechisel_meanmedqdiff: float = (
+        0.05  # Mean-median quantile diff threshold for noisechisel
+    )
     # Built-in setup for source masks
-    mask_sources_thresh: int | float = 3
-    mask_sources_min_area: int | float = 3
-    mask_sources_max_area: int | float = 250000
-    mask_bright_sources: bool = True
-    mask_sources_dilate: bool = True
+    mask_sources_thresh: int | float = (
+        3  # Detection threshold (sigma) for built-in source masking
+    )
+    mask_sources_min_area: int | float = 3  # Min source area (px) for built-in masking
+    mask_sources_max_area: int | float = (
+        250000  # Max source area (px) for built-in masking
+    )
+    mask_bright_sources: bool = True  # Mask saturated/bright sources in built-in mode
+    mask_sources_dilate: bool = True  # Dilate source masks in built-in mode
 
     # Sky
-    sky_n_min: int = 5
-    sky_mix_science: bool = True
-    sky_window: int | float = 180
-    sky_mask_min: bool = True
-    sky_mask_max: bool = True
-    sky_rel_lo: int | float = 0.3
-    sky_rel_hi: int | float = 1.7
-    sky_sigma_level: int | float = 3
-    sky_sigma_iter: int = 1
+    sky_n_min: int = 5  # Min number of frames for sky construction
+    sky_mix_science: bool = True  # Include science frames in sky building
+    sky_window: int | float = 180  # Time window (minutes) for sky frame selection
+    sky_mask_min: bool = True  # Mask minimum value outliers in sky frames
+    sky_mask_max: bool = True  # Mask maximum value outliers in sky frames
+    sky_rel_lo: int | float = 0.3  # Low relative threshold for sky rejection
+    sky_rel_hi: int | float = 1.7  # High relative threshold for sky rejection
+    sky_sigma_level: int | float = 3  # Sigma-clipping level for sky combination
+    sky_sigma_iter: int = 1  # Number of sigma-clipping iterations for sky
     sky_combine_metric: Literal[
         "weighted", "mean", "median", "clipped_mean", "clipped_median"
-    ] = "weighted"
+    ] = "weighted"  # Combination metric for sky frames
+    sky_static_sigma: int | float = (
+        3  # Sigma threshold for masking in static sky building
+    )
     # Background model
-    subtract_background: bool = True
-    background_mesh_size: int = 64
-    background_mesh_filtersize: int = 3
+    subtract_background: bool = True  # Subtract 2D background model before resampling
+    background_mesh_size: int = 64  # Background mesh size for 2D model estimation
+    background_mesh_filtersize: int = 3  # Background mesh filter size for smoothing
 
     # Statistics images
-    image_statistics_resize_factor: int | float = 0.25
+    image_statistics_resize_factor: int | float = (
+        0.25  # Downsample factor for statistics images
+    )
 
     # Sextractor
-    sex_back_size: int = 64
-    sex_back_filtersize: int = 3
-    sex_detection_image_path: str | None = None
+    sex_back_size: int = 64  # SExtractor background mesh size
+    sex_back_filtersize: int = 3  # SExtractor background filter size
+    sex_detection_image_path: str | None = (
+        None  # Path to external SExtractor detection image
+    )
 
     # Swarp
     resampling_kernel: Literal[
         "nearest", "bilinear", "lanczos2", "lanczos3", "lanczos4"
-    ] = "lanczos3"
+    ] = "lanczos3"  # SWarp resampling interpolation kernel
+    coadd_pixel_scale: float = (
+        1 / 3
+    )  # Default pixel scale (arcsec) for auto-built coadd headers
+    swarp_post_sleep: int = 5  # Seconds to wait after SWarp for filesystem sync
+    mmm_max_pixels: int = 50_000_000  # Max pixels for tile background estimation
+    n_offset_positions: int = 6  # Expected number of offset positions for stacks
 
     # Binary names
-    bin_sex: str = "sex"
-    bin_scamp: str = "scamp"
-    bin_swarp: str = "swarp"
-    bin_psfex: str = "psfex"
-    bin_noisechisel: str = "astnoisechisel"
-    bin_stilts: str = "stilts"
+    bin_sex: str = "sex"  # SExtractor binary name
+    bin_scamp: str = "scamp"  # SCAMP binary name
+    bin_swarp: str = "swarp"  # SWarp binary name
+    bin_psfex: str = "psfex"  # PSFEx binary name
+    bin_noisechisel: str = "astnoisechisel"  # Gnuastro noisechisel binary name
+    bin_stilts: str = "stilts"  # STILTS binary name
 
     # Miscellaneous
-    survey_name: str = "VISIONS"
-    fix_vircam_headers: bool = True
+    survey_name: str = "VISIONS"  # Survey name for FITS headers
+    fix_vircam_headers: bool = True  # Apply VIRCAM-specific header corrections
 
     # Folders
-    folders: dict[str, str] | None = None
+    folders: dict[str, str] | None = None  # Pipeline folder tree (auto-generated)
 
     def __post_init__(self):
         # Simple setup check
