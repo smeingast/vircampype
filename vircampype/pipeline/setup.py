@@ -15,6 +15,13 @@ from vircampype.tools.systemtools import *
 
 @dataclass
 class Setup:
+    """Pipeline configuration dataclass loaded from a YAML file.
+
+    Holds ~150 parameters controlling paths, processing flags, instrument
+    settings, calibration thresholds, and external tool options.  On
+    initialisation the output folder tree is created automatically.
+    """
+
     # Pipeline setup
     name: str = None  # Name of the pipeline setup / target field
     path_data: str = None  # Path to directory containing raw FITS files
@@ -319,10 +326,12 @@ class Setup:
     # Fixed properties that users can't change
     @property
     def set_airmass(self) -> bool:
+        """Whether to compute and store airmass in output headers."""
         return True
 
     @property
     def fpa_layout(self) -> list[int]:
+        """VIRCAM focal-plane array layout as [rows, columns]."""
         return [4, 4]
 
     # Mutable defaults that can be changed
@@ -384,6 +393,7 @@ class Setup:
 
     @property
     def image_statistics_combine_type(self) -> dict:
+        """SWarp combination types for each statistics image mode."""
         return {
             "nimg": "SUM",
             "exptime": "SUM",
@@ -395,6 +405,7 @@ class Setup:
 
     @property
     def apertures(self) -> list[float]:
+        """Fixed aperture diameters (pixels) for photometric extraction."""
         return [
             3.0,
             4.0,
@@ -614,6 +625,7 @@ class Setup:
 
     @property
     def to_dict(self) -> dict[str, Any]:
+        """Return a serialisable dictionary of the setup parameters."""
         # Get complete dict
         dd = asdict(self)
 
@@ -678,6 +690,8 @@ class Setup:
 
 
 class HeaderKeywords:
+    """Mapping of logical header field names to ESO/VIRCAM FITS keywords."""
+
     def __init__(
         self,
         obj="OBJECT",

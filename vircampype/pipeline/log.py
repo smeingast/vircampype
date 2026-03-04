@@ -10,6 +10,8 @@ __all__ = ["PipelineLog"]
 
 
 class PipelineLog(Borg):
+    """Shared-state logger using the Borg pattern for global pipeline logging."""
+
     initialized: bool = False
 
     def __init__(self, setup: Optional[Setup] = None):

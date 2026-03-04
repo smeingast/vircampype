@@ -18,6 +18,12 @@ from vircampype.tools.systemtools import *
 
 
 class ImageCube(object):
+    """Wrapper around a 2D/3D NumPy array for bulk image operations.
+
+    Provides masking, normalisation, sigma-clipping, background estimation,
+    and cube collapsing methods used throughout the pipeline.
+    """
+
     def __init__(self, setup, cube=None):
         """
         Parameters

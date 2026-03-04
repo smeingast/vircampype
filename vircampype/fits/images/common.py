@@ -1,12 +1,15 @@
 import os
-import numpy as np
 
+import numpy as np
 from astropy.io import fits
+
 from vircampype.data.cube import ImageCube
 from vircampype.fits.common import FitsFiles
 
 
 class FitsImages(FitsFiles):
+    """FITS image collection with exposure metadata, type splitting, and master calibration matching."""
+
     def __init__(self, setup, file_paths=None):
         """Class for Fits images that includees specific methods and functions
         applicable only to images."""
@@ -66,6 +69,7 @@ class FitsImages(FitsFiles):
 
     @property
     def texptime(self):
+        """Total exposure time (DIT * NDIT) for each file."""
         # Check if already determined
         if self._texptime is not None:
             return self._texptime
@@ -265,16 +269,16 @@ class FitsImages(FitsFiles):
 
         # Import
         from vircampype.fits.images.dark import DarkImages
-        from vircampype.fits.images.sky import (
-            SkyImagesRawScience,
-            SkyImagesRawOffset,
-            SkyImagesRawStd,
-        )
         from vircampype.fits.images.flat import (
-            FlatTwilight,
-            FlatLampLin,
             FlatLampCheck,
             FlatLampGain,
+            FlatLampLin,
+            FlatTwilight,
+        )
+        from vircampype.fits.images.sky import (
+            SkyImagesRawOffset,
+            SkyImagesRawScience,
+            SkyImagesRawStd,
         )
 
         # Get the type, and category from the primary header
@@ -791,6 +795,7 @@ class FitsImages(FitsFiles):
         raise ValueError("Not all images have weights")
 
     def get_master_weight_image(self):
+        """Return matched per-image master weight maps."""
         # Import
         from vircampype.fits.images.flat import MasterWeight
 
@@ -859,6 +864,8 @@ class FitsImages(FitsFiles):
 
 
 class MasterImages(FitsImages):
+    """Collection of master calibration images with type-based sub-selection properties."""
+
     def __init__(self, setup, file_paths=None):
         super(MasterImages, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -945,6 +952,7 @@ class MasterImages(FitsImages):
 
     @property
     def source_mask(self):
+        """Return all master source mask images."""
         # Import
         from vircampype.fits.images.sky import MasterSourceMask
 

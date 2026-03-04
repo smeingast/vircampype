@@ -125,6 +125,8 @@ def _build_sky_detector(d, files, master_mask, master_bpm, setup):
 
 
 class SkyImages(FitsImages):
+    """Base class for on-sky FITS images with WCS, footprint, and SExtractor support."""
+
     def __init__(self, setup, file_paths=None):
         super(SkyImages, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -198,6 +200,7 @@ class SkyImages(FitsImages):
 
     @property
     def centroid_all(self):
+        """Spherical centroid of all detector footprints."""
         return centroid_sphere(skycoord=self.footprints_flat)
 
     @property
@@ -439,6 +442,7 @@ class SkyImages(FitsImages):
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
 
     def build_class_star_library(self):
+        """Train and apply a star/galaxy classifier from PSF and aperture photometry."""
         # Fetch log
         log = PipelineLog()
         log.info(f"Building class star library for {self.n_files} files")
@@ -595,6 +599,7 @@ class SkyImages(FitsImages):
         )
 
     def build_master_psf(self, preset):
+        """Build master PSF model via PSFEx (not yet implemented)."""
         raise NotImplementedError
         # Run Sextractor with PSFEX preset
         # sources_psfex = self.sextractor(preset="psfex")
@@ -924,10 +929,13 @@ def _process_one_basic_file(
 
 
 class SkyImagesRaw(SkyImages):
+    """Raw (unprocessed) sky images before any calibration."""
+
     def __init__(self, setup, file_paths=None):
         super(SkyImagesRaw, self).__init__(setup=setup, file_paths=file_paths)
 
     def process_raw_basic(self):
+        """Apply dark, flat, linearity, and gain corrections to raw frames."""
         # Processing info
         print_header(
             header="BASIC RAW PROCESSING", right=None, silent=self.setup.silent
@@ -1014,6 +1022,8 @@ class SkyImagesRawStd(SkyImagesRaw):
 
 
 class SkyImagesProcessed(SkyImages):
+    """Basic-processed sky images ready for sky subtraction and calibration."""
+
     def __init__(self, setup, file_paths=None):
         super(SkyImagesProcessed, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -1088,6 +1098,7 @@ class SkyImagesProcessed(SkyImages):
         return additional_masks
 
     def build_master_source_mask(self):
+        """Detect and combine source masks for sky subtraction."""
         # Processing info
         print_header(
             header="MASTER-SOURCEMASK",
@@ -1335,6 +1346,7 @@ class SkyImagesProcessed(SkyImages):
         )
 
     def build_master_photometry(self):
+        """Download and store 2MASS photometric reference catalog."""
         # Processing info
         print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
 
@@ -1397,6 +1409,7 @@ class SkyImagesProcessed(SkyImages):
         )
 
     def build_master_astrometry(self):
+        """Download and store Gaia astrometric reference catalog."""
         # Processing info
         print_header(header="MASTER-ASTROMETRY", right=None, silent=self.setup.silent)
 
@@ -1635,7 +1648,7 @@ class SkyImagesProcessed(SkyImages):
         )
 
     def process_raw_final(self):
-        """Main processing method."""
+        """Subtract sky, apply destriping, and write final processed images."""
 
         # Processing info
         print_header(
@@ -1823,12 +1836,15 @@ class SkyImagesProcessed(SkyImages):
 
 
 class SkyImagesProcessedScience(SkyImagesProcessed):
+    """Final-processed science images ready for resampling."""
+
     def __init__(self, setup, file_paths=None):
         super(SkyImagesProcessedScience, self).__init__(
             setup=setup, file_paths=file_paths
         )
 
     def build_master_sky_static(self):
+        """Build a static master sky from sigma-clipped median of all frames."""
         # Processing info
         print_header(header="MASTER-SKY-STATIC", silent=self.setup.silent)
         log = PipelineLog()
@@ -1945,8 +1961,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         )
 
     def build_master_weight_image(self):
-        """This is unfortunately necessary since sometimes detector 16 in particular
-        is weird."""
+        """Build per-image weight maps, zeroing detectors with anomalous background."""
 
         # Processing info
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
@@ -2085,6 +2100,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         )
 
     def build_coadd_header(self, path_header: str = None):
+        """Build the WCS header for the coadded tile from detector footprints."""
         # Processing info
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
         log = PipelineLog()
@@ -2171,7 +2187,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         )
 
     def resample(self):
-        """Resamples images."""
+        """Resample images onto the tile grid using SWarp."""
 
         # Processing info
         print_header(header="RESAMPLING", silent=self.setup.silent)
@@ -2299,10 +2315,13 @@ class SkyImagesProcessedOffset(SkyImagesProcessed):
 
 
 class SkyImagesResampled(SkyImagesProcessed):
+    """Resampled pawprint images on the common tile grid."""
+
     def __init__(self, setup, file_paths=None):
         super(SkyImagesResampled, self).__init__(setup=setup, file_paths=file_paths)
 
     def build_stacks(self):
+        """Coadd resampled pawprints per offset position into stacks via SWarp."""
         # Processing info
         print_header(
             header="CREATING STACKS", silent=self.setup.silent, left=None, right=None
@@ -2644,6 +2663,7 @@ class SkyImagesResampled(SkyImagesProcessed):
     #     kind="okblue", end="\n")
 
     def build_tile(self):
+        """Coadd all resampled pawprints into a single deep tile via SWarp."""
         # Fetch log
         log = PipelineLog()
 
@@ -2834,6 +2854,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
     def build_statistics(self):
+        """Compute per-pawprint statistics images (MJD, nimg, exptime, astrometric RMS)."""
         # Processing info
         print_header(
             header="IMAGE STATISTICS", silent=self.setup.silent, left=None, right=None
@@ -3033,6 +3054,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
     def coadd_statistics_stacks(self, mode):
+        """Coadd per-pawprint statistics images into stack-level statistics."""
         # Processing info
         print_header(
             header=f"STACKS STATISTICS {mode.upper()}",
@@ -3157,6 +3179,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
 
     def coadd_statistics_tile(self, mode):
+        """Coadd per-pawprint statistics images into tile-level statistics."""
         # Processing info
         print_header(
             header=f"TILE STATISTICS {mode.upper()}",
@@ -3253,16 +3276,22 @@ class SkyImagesResampled(SkyImagesProcessed):
 
 
 class Stacks(SkyImages):
+    """Coadded images per offset position (one per jitter set)."""
+
     def __init__(self, setup, file_paths=None):
         super(Stacks, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class Tile(SkyImages):
+    """Deep coadd tile combining all offset positions."""
+
     def __init__(self, setup, file_paths=None):
         super(Tile, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class MasterSky(MasterImages):
+    """Master sky frames with per-detector sky level and noise metadata."""
+
     def __init__(self, setup, file_paths=None):
         super(MasterSky, self).__init__(setup=setup, file_paths=file_paths)
 
@@ -3484,6 +3513,7 @@ class MasterSky(MasterImages):
             plt.close("all")
 
     def qc_plot_sky_stability(self, paths=None, axis_size=5):
+        """Plot sky level time-series for each detector to assess stability."""
         # Import matplotlib
         import matplotlib.pyplot as plt
         from matplotlib.ticker import AutoMinorLocator, MaxNLocator
@@ -3541,5 +3571,7 @@ class MasterSky(MasterImages):
 
 
 class MasterSourceMask(MasterImages):
+    """Master source masks used to exclude sources during sky construction."""
+
     def __init__(self, setup, file_paths=None):
         super(MasterSourceMask, self).__init__(setup=setup, file_paths=file_paths)

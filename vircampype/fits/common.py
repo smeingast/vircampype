@@ -14,6 +14,12 @@ from vircampype.tools.fitstools import read_fits_headers
 
 
 class FitsFiles:
+    """Base class managing collections of FITS file paths, headers, and metadata.
+
+    Provides header caching, time-based splitting/matching, and master
+    calibration lookup for all downstream FITS file types.
+    """
+
     def __init__(self, setup, file_paths=None):
         """
         Top-level class of FITS files. Contains basic information on file structure and
@@ -52,6 +58,7 @@ class FitsFiles:
 
     @property
     def n_files(self):
+        """Number of FITS files in this collection."""
         return len(self.paths_full)
 
     # =========================================================================== #
@@ -132,6 +139,7 @@ class FitsFiles:
         return cls(setup=setup, file_paths=file_paths)
 
     def basenames2log(self, indent=4):
+        """Return basenames as a JSON-formatted string for logging."""
         return f"{json.dumps(self.basenames, indent=indent)}"
 
     # =========================================================================== #
@@ -139,11 +147,12 @@ class FitsFiles:
     # =========================================================================== #
     @property
     def paths_headers(self):
+        """Paths to cached header files in the temp directory."""
         return [f"{self.setup.folders['temp']}{x}.header" for x in self.basenames]
 
     @property
     def _path_header_db(self) -> str:
-        """Path to the consolidated header shelve database (without extension). """
+        """Path to the consolidated header shelve database (without extension)."""
         # Derive a stable, unique name from the pipeline temp folder path
         path_hash = hashlib.md5(self.setup.folders["temp"].encode()).hexdigest()[:12]
         return os.path.join(tempfile.gettempdir(), f"vircampype_headers_{path_hash}")
@@ -152,6 +161,7 @@ class FitsFiles:
 
     @property
     def headers(self):
+        """All FITS headers, lazily loaded and cached via shelve database."""
         # Check if already determined
         if self._headers is not None:
             return self._headers
@@ -435,10 +445,12 @@ class FitsFiles:
 
     @property
     def time_obs_mean(self):
+        """Mean observation time as an ``astropy.time.Time`` instance."""
         return Time(self.mjd_mean, format="mjd")
 
     @property
     def epoch_mean(self):
+        """Mean observation epoch as a decimal year."""
         return self.time_obs_mean.decimalyear
 
     # =========================================================================== #

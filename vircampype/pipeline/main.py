@@ -64,6 +64,20 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
 
 
 class Pipeline:
+    """Top-level pipeline orchestrator for VIRCAM data processing.
+
+    Loads a ``Setup`` from a YAML configuration file, tracks processing
+    progress via ``PipelineStatus``, and exposes the full calibration and
+    science reduction chain as checkpoint-guarded methods.
+
+    Parameters
+    ----------
+    setup : str or dict or Setup
+        Pipeline configuration (YAML path, dict, or ``Setup`` instance).
+    reset_status : bool, optional
+        If True, reset all pipeline progress flags on initialisation.
+    """
+
     def __init__(self, setup, reset_status=False, **kwargs):
         self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
@@ -104,10 +118,12 @@ class Pipeline:
         return self.status.__repr__()
 
     def update_status(self, **kwargs):
+        """Update pipeline status flags and persist to disk."""
         self.status.update(**kwargs)
         self.status.save(path=self.path_status)
 
     def reset_status(self):
+        """Reset all pipeline status flags to False and persist."""
         self.status.reset()
         self.status.save(path=self.path_status)
 
@@ -588,40 +604,48 @@ class Pipeline:
     # Master calibration
     @pipeline_step("master_bpm", message="MASTER-BPM", guard="flat_lamp_check")
     def build_master_bpm(self):
+        """Build master bad-pixel mask from lamp-check flats and darks."""
         self.flat_lamp_check.build_master_bpm(darks=self.dark_check)
 
     @pipeline_step("master_dark", message="MASTER-DARK", guard="dark_all")
     def build_master_dark(self):
+        """Combine dark frames into a master dark."""
         self.dark_all.build_master_dark()
 
     @pipeline_step("master_gain", message="MASTER-GAIN", guard="flat_lamp_gain")
     def build_master_gain(self):
+        """Derive per-detector gain and read-noise tables."""
         self.flat_lamp_gain.build_master_gain(darks=self.dark_gain)
 
     @pipeline_step(
         "master_linearity", message="MASTER-LINEARITY", guard="flat_lamp_lin"
     )
     def build_master_linearity(self):
+        """Derive per-detector non-linearity correction tables."""
         self.flat_lamp_lin.build_master_linearity(darks=self.dark_lin)
 
     @pipeline_step(
         "master_twilight_flat", message="MASTER-TWILIGHT-FLAT", guard="flat_twilight"
     )
     def build_master_twilight_flat(self):
+        """Combine twilight flats into a master flat field."""
         self.flat_twilight.build_master_twilight_flat()
 
     @pipeline_step(
         "master_weight_global", message="MASTER-WEIGHT-GLOBAL", guard="flat_twilight"
     )
     def build_master_weight_global(self):
+        """Build a global weight map from the master twilight flat."""
         self.flat_twilight.build_master_weight_global()
 
     @pipeline_step("master_source_mask", message="MASTER-SOURCE-MASK")
     def build_master_source_mask(self):
+        """Build source masks for sky subtraction from processed images."""
         self.processed_basic_science_and_offset.build_master_source_mask()
 
     @pipeline_step("master_sky", message="MASTER-SKY")
     def build_master_sky(self):
+        """Build master sky frame from science and/or offset images."""
         # If mixed data is requested
         if self.setup.sky_mix_science:
             self.processed_basic_science_and_offset.build_master_sky()
@@ -638,28 +662,34 @@ class Pipeline:
         "master_photometry", message="MASTER-PHOTOMETRY", guard="raw_science"
     )
     def build_master_photometry(self):
+        """Download and store 2MASS photometric reference catalog."""
         self.processed_basic_science.build_master_photometry()
 
     @pipeline_step("master_astrometry", message="MASTER-ASTROMETRY")
     def build_master_astrometry(self):
+        """Download and store Gaia astrometric reference catalog."""
         self.processed_basic_science.build_master_astrometry()
 
     @pipeline_step("master_weight_image", message="MASTER WEIGHT IMAGE")
     def build_master_weight_image(self):
+        """Build per-image weight maps for final processed science data."""
         self.processed_science_final.build_master_weight_image()
 
     # =========================================================================== #
     # Image processing
     @pipeline_step("processed_raw_basic", message="BASIC RAW PROCESSING")
     def process_raw_basic(self):
+        """Apply dark, flat, linearity, and gain corrections to raw frames."""
         self.raw_science_and_offset.process_raw_basic()
 
     @pipeline_step("processed_raw_final", message="FINAL RAW PROCESSING")
     def process_science_final(self):
+        """Apply sky subtraction and final corrections to science images."""
         self.processed_basic_science.process_raw_final()
 
     @pipeline_step("astrometry", message="ASTROMETRY")
     def calibrate_astrometry(self):
+        """Run SExtractor and SCAMP for astrometric calibration."""
         self.processed_science_final.sextractor(preset="scamp")
         if self.setup.external_headers:
             nehdr = sum([os.path.isfile(p) for p in self._paths_scamp_headers])
@@ -675,6 +705,7 @@ class Pipeline:
 
     @pipeline_step("illumcorr", message="ILLUMINATION CORRECTION")
     def illumination_correction(self):
+        """Derive and apply photometric illumination correction."""
         if not self.status.astrometry:
             raise ValueError(
                 "Astrometric calibration has to be "
@@ -686,30 +717,36 @@ class Pipeline:
 
     @pipeline_step("tile_header", message="TILE HEADER", guard="raw_science")
     def build_coadd_header(self):
+        """Build the WCS header for the coadded tile."""
         self.processed_basic_science.build_coadd_header()
 
     @pipeline_step("resampled", message="PAWPRINT RESAMPLING")
     def resample(self):
+        """Resample illumination-corrected images onto the tile grid via SWarp."""
         self.illumination_corrected.resample()
 
     # =========================================================================== #
     # Image assembly
     @pipeline_step("stacks", message="STACKS")
     def build_stacks(self):
+        """Coadd resampled images per offset position into stacks."""
         self.resampled.build_stacks()
 
     @pipeline_step("tile", message="TILE")
     def build_tile(self):
+        """Coadd all resampled images into a single deep tile."""
         self.resampled.build_tile()
 
     # =========================================================================== #
     # Statistics
     @pipeline_step("statistics_resampled", message="IMAGE STATISTICS")
     def build_statistics_resampled(self):
+        """Compute per-pawprint statistics images (MJD, nimg, exptime)."""
         self.resampled.build_statistics()
 
     @pipeline_step("statistics_stacks", message="STACKS STATISTICS")
     def build_statistics_stacks(self):
+        """Coadd statistics images for stacks and combine MJD maps."""
         for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
             images = self.resampled_statistics(mode=mode)
             images.coadd_statistics_stacks(mode=mode)
@@ -725,6 +762,7 @@ class Pipeline:
 
     @pipeline_step("statistics_tile", message="TILE STATISTICS")
     def build_statistics_tile(self):
+        """Coadd statistics images for the tile and build statistics tables."""
         for mode in [
             "mjd.int",
             "mjd.frac",
@@ -749,31 +787,37 @@ class Pipeline:
     # Classification
     @pipeline_step("classification_stacks", message="STACKS CLASSIFICATION")
     def classification_stacks(self):
+        """Run star/galaxy classification on stack catalogs."""
         self.stacks.build_class_star_library()
 
     @pipeline_step("classification_tile", message="TILE CLASSIFICATION")
     def classification_tile(self):
+        """Run star/galaxy classification on the tile catalog."""
         self.tile.build_class_star_library()
 
     # =========================================================================== #
     # Photometry
     @pipeline_step("photometry_pawprints", message="PAWPRINT PHOTOMETRY")
     def photometry_pawprints(self):
+        """Extract and photometrically calibrate pawprint source catalogs."""
         self.resampled.sextractor(preset="full")
         self.sources_resampled_full.calibrate_photometry()
 
     @pipeline_step("photometry_stacks", message="STACKS PHOTOMETRY")
     def photometry_stacks(self):
+        """Extract and photometrically calibrate stack source catalogs."""
         self.stacks.sextractor(preset="full")
         self.sources_stacks_full.calibrate_photometry()
 
     @pipeline_step("photometry_tile", message="TILE PHOTOMETRY")
     def photometry_tile(self):
+        """Extract and photometrically calibrate the tile source catalog."""
         self.tile.sextractor(preset="full")
         self.sources_tile_full.calibrate_photometry()
 
     @pipeline_step("photerr_internal", message="INTERNAL PHOTOMETRIC ERROR")
     def photerr_internal(self):
+        """Estimate internal photometric errors from pawprint overlaps."""
         self.sources_resampled_cal.photerr_internal()
         if self.setup.qc_plots:
             self.sources_resampled_cal.plot_qc_photerr_internal()
@@ -782,23 +826,27 @@ class Pipeline:
     # QC
     @pipeline_step("qc_photometry_stacks", message="STACKS QC PHOTOMETRY")
     def qc_photometry_stacks(self):
+        """Generate QC plots for stack photometric calibration."""
         self.sources_stacks_cal.plot_qc_phot_zp(axis_size=5)
         self.sources_stacks_cal.plot_qc_phot_ref1d(axis_size=5)
         self.sources_stacks_cal.plot_qc_phot_ref2d(axis_size=5)
 
     @pipeline_step("qc_photometry_tile", message="TILE QC PHOTOMETRY")
     def qc_photometry_tile(self):
+        """Generate QC plots for tile photometric calibration."""
         self.sources_tile_cal.plot_qc_phot_zp(axis_size=5)
         self.sources_tile_cal.plot_qc_phot_ref1d(axis_size=5)
         self.sources_tile_cal.plot_qc_phot_ref2d(axis_size=5)
 
     @pipeline_step("qc_astrometry_stacks", message="STACKS QC ASTROMETRY")
     def qc_astrometry_stacks(self):
+        """Generate QC plots for stack astrometric residuals."""
         self.sources_stacks_cal.plot_qc_astrometry_1d()
         self.sources_stacks_cal.plot_qc_astrometry_2d()
 
     @pipeline_step("qc_astrometry_tile", message="TILE QC ASTROMETRY")
     def qc_astrometry_tile(self):
+        """Generate QC plots for tile astrometric residuals."""
         self.sources_tile_cal.plot_qc_astrometry_1d()
         self.sources_tile_cal.plot_qc_astrometry_2d()
 
@@ -917,6 +965,7 @@ class Pipeline:
 
     @pipeline_step("phase3", message="PHASE 3")
     def build_phase3(self):
+        """Build ESO Phase 3 compliant image and catalog products."""
         if self.setup.build_stacks:
             build_phase3_stacks(
                 stacks_images=self.stacks,
@@ -933,6 +982,7 @@ class Pipeline:
 
     @pipeline_step("public_catalog", message="PUBLIC CATALOG")
     def build_public_catalog(self):
+        """Build the public release source catalog from the tile."""
         self.sources_tile_cal.build_public_catalog(
             photerr_internal=self.setup.photometric_error_floor,
         )
