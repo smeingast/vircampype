@@ -10,8 +10,9 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 
 - **Calibration pipeline**: bad pixel masks, linearity correction, dark subtraction, flat-fielding, gain tables
 - **Science pipeline**: sky subtraction, source masking (via noisechisel or built-in methods), destriping, background subtraction, NaN interpolation
-- **Astrometry**: SCAMP-based astrometric calibration against Gaia, with proper motion propagation
+- **Astrometry**: SCAMP-based astrometric calibration against Gaia, with proper motion propagation and optional header caching
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
+- **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction
 - **Catalog building**: per-pawprint and per-tile source catalogs, public ESO Phase 3-compliant output
 - **QC plots**: astrometric and photometric quality control diagnostic plots
@@ -23,7 +24,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 ## Requirements
 
 ### Python
-Python 3.13 or later is required. Python dependencies are listed in `requirements.txt` and include numpy, scipy, astropy, scikit-learn, scikit-image, matplotlib, astroquery, pyyaml, joblib, and regions.
+Python 3.13 or later is required. Python dependencies are declared in `pyproject.toml` and include numpy, scipy, astropy, scikit-learn, scikit-image, matplotlib, astroquery, pyyaml, joblib, regions, tqdm, and pillow.
 
 ### External tools
 The following tools must be installed and available in `PATH`:
@@ -43,8 +44,7 @@ The following tools must be installed and available in `PATH`:
 ```bash
 git clone https://github.com/smeingast/vircampype.git
 cd vircampype
-pip install -r requirements.txt
-pip install -e .          # development install
+pip install -e .          # development install (includes all dependencies)
 # or
 pip install .             # regular install
 ```
@@ -173,6 +173,9 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `illumination_correction_mode` | `variable` | IC mode: `variable` or `constant` |
 | `source_mask_method` | `noisechisel` | Source masking: `noisechisel` or `built-in` |
 | `resampling_kernel` | `lanczos3` | SWarp resampling kernel |
+| `local_gaia_catalog` | `null` | Path to local Gaia FITS catalog (skip Vizier download) |
+| `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
+| `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `mask_bright_galaxies` | `true` | Mask bright galaxies from de Vaucouleurs (1991) |
 
 ---
