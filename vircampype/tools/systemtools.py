@@ -361,21 +361,16 @@ def rsync_file(src: str, dst: str) -> None:
     FileNotFoundError
         If ``rsync`` is not found on ``PATH``.
     """
-    src_p = Path(src)
+    # Create destination directory as needed
     dst_p = Path(dst)
     if dst.endswith("/"):
         dst_p.mkdir(parents=True, exist_ok=True)
     else:
         dst_p.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        "rsync",
-        "-a",
-        "--checksum",
-        "--",
-        str(src_p),
-        str(dst_p),
-    ]
+    # Use original strings to preserve trailing slashes (rsync semantics:
+    # trailing slash on src means "copy contents", no slash means "copy dir")
+    cmd = ["rsync", "-a", "--checksum", "--", src, dst]
     subprocess.run(cmd, check=True)
 
 

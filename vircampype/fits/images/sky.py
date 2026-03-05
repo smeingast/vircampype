@@ -3075,6 +3075,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 for hdul, final_path in stats_map:
                     tmp_path = tmpdir_stats + os.path.basename(final_path)
                     hdul.writeto(tmp_path, overwrite=True)
+                # tmpdir_stats has trailing slash so rsync copies contents
                 rsync_file(tmpdir_stats, folder_statistics)
             finally:
                 remove_directory(tmpdir_stats)
