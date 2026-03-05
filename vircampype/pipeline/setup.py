@@ -276,6 +276,7 @@ class Setup:
     n_offset_positions: int = 6  # Expected number of offset positions for stacks
 
     # Completeness
+    build_completeness: bool = False  # Enable tile completeness analysis
     completeness_tile_size_arcmin: float = 10.0  # Sub-tile size for completeness
     completeness_iterations: int = 20  # Number of injection iterations per sub-tile
     completeness_mag_lo: float = 17.0  # Bright end of magnitude range
@@ -594,6 +595,7 @@ class Setup:
         self.folders["qc_astrometry"] = f"{self.folders['qc']}astrometry/"
         self.folders["qc_photometry"] = f"{self.folders['qc']}photometry/"
         self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
+        self.folders["qc_completeness"] = f"{self.folders['qc']}completeness/"
         self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
@@ -632,6 +634,7 @@ class Setup:
             self.folders["tile"],
             self.folders["qc_photometry"],
             self.folders["qc_illumcorr"],
+            self.folders["qc_completeness"],
         ]
 
         # Create folder for stacks if set

@@ -5,6 +5,7 @@ import os.path
 import sys
 import time
 
+import numpy as np
 from astropy.table import Table
 
 from vircampype.fits.images.common import FitsImages
@@ -12,6 +13,11 @@ from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
+from vircampype.tools.completeness import (
+    plot_completeness_curves,
+    plot_completeness_map,
+    run_completeness,
+)
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 from vircampype.tools.fitstools import (
     build_qc_summary_row,
@@ -850,6 +856,51 @@ class Pipeline:
         self.sources_tile_cal.plot_qc_astrometry_1d()
         self.sources_tile_cal.plot_qc_astrometry_2d()
 
+    @pipeline_step("qc_completeness_tile", message="TILE QC COMPLETENESS")
+    def qc_completeness_tile(self):
+        """Run completeness analysis on the tile and generate QC plots."""
+        tile = self.tile
+        image_path = tile.paths_full[0]
+
+        # Determine weight path (if available)
+        weight_path = None
+        weight_glob = image_path.replace(".fits", ".weight.fits")
+        if os.path.isfile(weight_glob):
+            weight_path = weight_glob
+
+        out_dir = self.setup.folders["qc_completeness"]
+
+        results = run_completeness(
+            image_path=image_path,
+            weight_path=weight_path,
+            setup=self.setup,
+            out_dir=out_dir,
+        )
+
+        if results:
+            plot_completeness_curves(
+                results=results,
+                out_path=os.path.join(out_dir, "completeness_curves.pdf"),
+                mag_range=(
+                    self.setup.completeness_mag_lo,
+                    self.setup.completeness_mag_hi,
+                ),
+            )
+            plot_completeness_map(
+                results=results,
+                out_path=os.path.join(out_dir, "completeness_map.pdf"),
+            )
+
+            # Log the median 90% completeness
+            comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
+            if comp90_values:
+                median_comp90 = np.median(comp90_values)
+                log = PipelineLog()
+                log.info(
+                    f"Completeness: median 90% limit = {median_comp90:.2f} mag "
+                    f"({len(comp90_values)} sub-tiles)"
+                )
+
     # =========================================================================== #
     # QC summary
     def build_qc_summary(self):
@@ -1124,6 +1175,8 @@ class Pipeline:
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()
+            if self.setup.build_completeness:
+                self.qc_completeness_tile()
 
         # Build QC summary table
         self.build_qc_summary()

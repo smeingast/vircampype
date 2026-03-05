@@ -22,6 +22,8 @@ from vircampype.tools.systemtools import (
 __all__ = [
     "build_psf_models",
     "measure_completeness",
+    "plot_completeness_curves",
+    "plot_completeness_map",
     "run_completeness",
 ]
 
@@ -492,3 +494,162 @@ def run_completeness(
             results.append(result)
 
     return results
+
+
+# --------------------------------------------------------------------------- #
+# QC Plotting
+# --------------------------------------------------------------------------- #
+def plot_completeness_curves(
+    results: list[dict],
+    out_path: str,
+    mag_range: tuple[float, float] = (17.0, 22.5),
+) -> None:
+    """
+    Plot completeness curves for all sub-tiles in a single PDF.
+
+    Each sub-tile gets one subplot showing data points with error bars,
+    the logistic fit, and a horizontal line at 90%.
+
+    Parameters
+    ----------
+    results : list[dict]
+        Output of :func:`run_completeness`.
+    out_path : str
+        Output PDF path.
+    mag_range : tuple[float, float]
+        Magnitude range for the x-axis.
+
+    """
+    import matplotlib.pyplot as plt
+
+    n = len(results)
+    if n == 0:
+        return
+
+    ncols = min(n, 4)
+    nrows = (n + ncols - 1) // ncols
+
+    fig, axes = plt.subplots(
+        nrows=nrows,
+        ncols=ncols,
+        figsize=(4 * ncols, 3.5 * nrows),
+        squeeze=False,
+    )
+
+    for idx, res in enumerate(results):
+        ax = axes[idx // ncols, idx % ncols]
+        mag = res["mag_center"]
+        comp = res["completeness"]
+        err = res["completeness_err"]
+
+        ax.errorbar(
+            mag,
+            comp,
+            yerr=err,
+            fmt="o",
+            ms=3,
+            color="#08519c",
+            ecolor="#6baed6",
+            capsize=2,
+            lw=0.8,
+            zorder=2,
+        )
+
+        # Plot fit curve
+        if res["fit_params"] is not None:
+            x_fine = np.linspace(mag_range[0], mag_range[1], 200)
+            y_fine = _logistic(x_fine, *res["fit_params"])
+            ax.plot(x_fine, y_fine, "-", color="#e34a33", lw=1.2, zorder=3)
+
+        # 90% line and comp90 marker
+        ax.axhline(90, ls="--", color="grey", lw=0.7, zorder=1)
+        if np.isfinite(res["comp90"]):
+            ax.axvline(res["comp90"], ls=":", color="#e34a33", lw=0.7, zorder=1)
+
+        gi = res.get("grid_index", (idx, 0))
+        ax.set_title(f"tile ({gi[0]},{gi[1]})  90%={res['comp90']:.2f}", fontsize=8)
+        ax.set_xlim(mag_range)
+        ax.set_ylim(-5, 110)
+        ax.set_xlabel("Magnitude", fontsize=7)
+        ax.set_ylabel("Completeness [%]", fontsize=7)
+        ax.tick_params(labelsize=6)
+
+    # Hide unused axes
+    for idx in range(n, nrows * ncols):
+        axes[idx // ncols, idx % ncols].set_visible(False)
+
+    fig.tight_layout()
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_completeness_map(
+    results: list[dict],
+    out_path: str,
+) -> None:
+    """
+    Plot a 2D map of 90%-completeness magnitude across sub-tiles.
+
+    Parameters
+    ----------
+    results : list[dict]
+        Output of :func:`run_completeness`.
+    out_path : str
+        Output PDF path.
+
+    """
+    import matplotlib.pyplot as plt
+
+    if not results:
+        return
+
+    # Determine grid dimensions from grid_index
+    indices = [r["grid_index"] for r in results if r.get("grid_index") is not None]
+    if not indices:
+        return
+
+    max_i = max(i for i, _ in indices) + 1
+    max_j = max(j for _, j in indices) + 1
+
+    grid = np.full((max_i, max_j), np.nan)
+    for res in results:
+        gi = res.get("grid_index")
+        if gi is not None:
+            grid[gi[0], gi[1]] = res["comp90"]
+
+    fig, ax = plt.subplots(figsize=(max(4, max_j * 1.5), max(3, max_i * 1.5)))
+
+    im = ax.imshow(
+        grid,
+        origin="lower",
+        cmap="RdYlGn",
+        aspect="equal",
+        interpolation="nearest",
+    )
+    cbar = fig.colorbar(im, ax=ax, shrink=0.8)
+    cbar.set_label("90% completeness [mag]", fontsize=9)
+
+    # Annotate cells
+    for i in range(max_i):
+        for j in range(max_j):
+            val = grid[i, j]
+            if np.isfinite(val):
+                ax.text(
+                    j,
+                    i,
+                    f"{val:.1f}",
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    fontweight="bold",
+                )
+
+    ax.set_xlabel("Tile column")
+    ax.set_ylabel("Tile row")
+    ax.set_title("90% Completeness Magnitude")
+    ax.set_xticks(range(max_j))
+    ax.set_yticks(range(max_i))
+
+    fig.tight_layout()
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
