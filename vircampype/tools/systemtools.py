@@ -363,7 +363,10 @@ def rsync_file(src: str, dst: str) -> None:
     """
     src_p = Path(src)
     dst_p = Path(dst)
-    dst_p.parent.mkdir(parents=True, exist_ok=True)
+    if dst.endswith("/"):
+        dst_p.mkdir(parents=True, exist_ok=True)
+    else:
+        dst_p.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
         "rsync",
