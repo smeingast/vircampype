@@ -371,11 +371,6 @@ class SkyImages(FitsImages):
                     self.paths_full[i],
                     f"{self.setup.sex_detection_image_path},{self.paths_full[i]}",
                 )
-                log.info(
-                    f"Double image mode\n"
-                    f"Detection image '{self.setup.sex_detection_image_path}'\n"
-                    f"Measurement image '{self.paths_full[i]}'"
-                )
 
         # Add kwargs to commands
         for key, val in kwargs.items():
@@ -388,11 +383,6 @@ class SkyImages(FitsImages):
         # Return commands if set
         if return_cmds:
             return cmds
-
-        # Log all sextractor commands
-        log.info("Sextractor commands:")
-        for c in cmds:
-            log.info(c)
 
         # Run Sextractor
         run_commands_shell_parallel(
@@ -464,7 +454,6 @@ class SkyImages(FitsImages):
         for idx_file in range(self.n_files):
             # Create output paths
             outpath = self.paths_full[idx_file].replace(".fits", ".cs.fits.tab")
-            log.info(f"File {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Check if the file is already there and skip if it is
             if (
@@ -494,7 +483,6 @@ class SkyImages(FitsImages):
             fwhm_percentiles = np.percentile(fwhms, [0.5, 99.5])
             fwhm_lo = round_decimals_down(fwhm_percentiles[0] / 3, decimals=2)
             fwhm_hi = round_decimals_up(fwhm_percentiles[1] / 3, decimals=2)
-            log.info(f"FWHM range: {fwhm_lo} - {fwhm_hi}")
 
             # Determine FWHM range
             fwhm_range = np.around(
@@ -504,7 +492,6 @@ class SkyImages(FitsImages):
             # Safety check for fwhm range
             if len(fwhm_range) > 30:
                 fwhm_range = np.around(np.arange(0.45, 1.91, 0.05), decimals=2)
-            log.info(f"Final FWHM range: {fwhm_range}")
 
             # Construct sextractor commands
             cmds = [
@@ -526,41 +513,24 @@ class SkyImages(FitsImages):
                 cmds[idx] = cmds[idx].replace(cpath, cpath_new)
                 catalog_paths.append(cpath_new)
 
-            # Log catalog paths and sextractor commands
-            for idx, c in enumerate(catalog_paths):
-                log.info(f"Catalog path {idx + 1}/{len(cmds)}: {c}")
-            for idx, c in enumerate(cmds):
-                log.info(f"Sextractor command {idx + 1}/{len(cmds)}: {c}")
-
             # Run Sextractor
-            log.info(f"Running {len(cmds)} sextractor commands in parallel")
             run_commands_shell_parallel(
                 cmds=cmds, silent=True, n_jobs=self.setup.n_jobs_sex
             )
 
             # Load catalogs with different input seeing
             catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
-            log.info(f"Loaded {len(catalogs)} catalogs")
 
             # Make output HDUList
             tables_out = [Table() for _ in self.iter_data_hdu[idx_file]]
 
             # Loop over files
             for idx_fwhm in range(catalogs.n_files):
-                # Log current FWHM value
-                log.info(f"Processing FWHM {fwhm_range[idx_fwhm]:4.2f}")
-                log.info(f"Filename: {catalogs.paths_full[idx_fwhm]}")
-
                 # Read tables for current seeing
                 tables_fwhm = catalogs.file2table(file_index=idx_fwhm)
-                log.info(f"Loaded {len(tables_fwhm)} FWHM tables")
 
                 # Add classifier and coordinates for all HDUs
                 for tidx in range(len(tables_fwhm)):
-                    # Log current catalog and number of sources
-                    log.info(f"Processing HDU {tidx + 1}/{len(tables_fwhm)}")
-                    log.info(f"Number of sources: {len(tables_fwhm[tidx])}")
-
                     # Add coordinates only on first iteration
                     if idx_fwhm == 0:
                         tables_out[tidx]["XWIN_IMAGE"] = tables_fwhm[tidx]["XWIN_IMAGE"]
@@ -582,12 +552,10 @@ class SkyImages(FitsImages):
             for t in tables_out:
                 hdul.append(fits.BinTableHDU(t))
             hdul.writeto(outpath, overwrite=True)
-            log.info(f"Saved to '{outpath}'")
 
             # Remove sextractor catalogs
             for f in catalogs.paths_full:
                 remove_file(filepath=f)
-            log.info("Removed sextractor catalogs")
 
         # Print time
         elapsed = time.time() - tstart
@@ -623,14 +591,11 @@ class SkyImages(FitsImages):
         # Fetch illumination correction for each image
         illumcor = self.get_master_illumination_correction()
         sourcemasks = self.get_master_source_mask()
-        log.info(f"Loaded {len(illumcor)} illumination corrections")
-        log.info(f"Loaded {len(sourcemasks)} source masks")
 
         # Loop over self
         for idx_file in range(self.n_files):
             # Create output path
             outpath = f"{self.setup.folders['illumcorr']}{self.names[idx_file]}.ic.fits"
-            log.info(f"File {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Check for ahead file
             path_ahead = self.paths_full[idx_file].replace(".fits", ".ahead")
@@ -657,7 +622,6 @@ class SkyImages(FitsImages):
             )
 
             # Read data
-            log.info(f"Reading data for {self.basenames[idx_file]}")
             cube_self = self.file2cube(file_index=idx_file)
             cube_flat = illumcor.file2cube(file_index=idx_file)
             cube_mask = sourcemasks.file2cube(file_index=idx_file)
@@ -670,7 +634,6 @@ class SkyImages(FitsImages):
 
                 # Modification factor is mean for the current illumination correction
                 mod = np.median(cube_flat[idx_hdr])
-                log.info(f"HDU {idx_hdr + 1}: IC median factor = {mod:.4f}")
 
                 # Add modification factor
                 hdr.set(
@@ -730,11 +693,8 @@ class SkyImages(FitsImages):
                 prime_header=self.headers_primary[idx_file],
                 data_headers=data_headers,
             )
-            log.info(f"Saved to '{outpath}'")
-
             # Copy aheader for swarping
             copy_file(path_ahead, path_ahead_sf)
-            log.info(f"Copied ahead file to '{path_ahead_sf}'")
 
         # Print time
         elapsed = time.time() - tstart
@@ -765,14 +725,15 @@ def _process_one_basic_file(
         f"{setup.folders['processed_basic']}{files.names[idx_file]}.proc.basic.fits"
     )
 
-    log.info(f"Processing file {idx_file + 1}/{files.n_files}:\n{outpath}")
+    log.info(
+        f"Processing file {idx_file + 1}/{files.n_files}: {os.path.basename(outpath)}"
+    )
 
     # Skip if already done
     if (
         check_file_exists(file_path=outpath, silent=setup.silent)
         and not setup.overwrite
     ):
-        log.info("File already exists, skipping")
         return
 
     # Print processing info
@@ -785,22 +746,11 @@ def _process_one_basic_file(
         silent=setup.silent,
     )
 
-    # Log more info
-    log.info(f"Number of extensions: {len(files.iter_data_hdu[idx_file])}")
-    log.info(f"Filter name: {files.passband[idx_file]}")
-    log.info(f"Target designation: {setup.name}")
-    log.info(f"Dark file name: {master_dark.basenames[idx_file]}")
-    log.info(f"Linearity file name: {master_linearity.basenames[idx_file]}")
-    log.info(f"Gain: {master_gain.gain[idx_file]}")
-    log.info(f"Read noise: {master_gain.rdnoise[idx_file]}")
-    log.info(f"Saturation levels: {setup.saturation_levels}")
-
     # Read science file into cube
     cube = files.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
     # Fetch calibration data from pre-populated caches (read-only, thread-safe)
     dark = dark_cache[master_dark.paths_full[idx_file]]
-    log.info(f"Using cached dark: {master_dark.basenames[idx_file]}")
 
     # Linearity coefficients are already loaded in memory — no I/O
     lcff = master_linearity.file2coeff(file_index=idx_file)
@@ -808,14 +758,12 @@ def _process_one_basic_file(
     # Norm to NDIT=1 (each DIT starts from a fresh reset in DCR mode, so
     # non-linearity is at the per-DIT level; normalise first so the signal
     # level matches the NDIT=1 linearity calibration frames)
-    log.info(f"Normalizing to NDIT=1; using NDIT={files.ndit[idx_file]}")
     cube.normalize(norm=files.ndit[idx_file])
 
     # Linearize (use DIT, not DIT×NDIT: after NDIT normalisation the signal
     # represents one DIT integration, matching the NDIT=1 calibration frames;
     # the reset-overhead factor kk = 1.0011/DIT is only correct at the
     # per-DIT level)
-    log.info(f"Linearizing data; using linearity coefficients:\n{lcff}")
     cube.linearize(coeff=lcff, texptime=files.dit[idx_file])
 
     # Subtract dark
@@ -823,7 +771,6 @@ def _process_one_basic_file(
 
     # Divide by flat if set
     if setup.flat_type == "twilight":
-        log.info("Dividing by twilight flat")
         cube /= flat_cache[master_flat.paths_full[idx_file]]
 
     # Add file info to main header
@@ -850,20 +797,12 @@ def _process_one_basic_file(
 
     # Fix headers
     if setup.fix_vircam_headers:
-        log.info("Fixing headers")
         fix_vircam_headers(prime_header=phdr, data_headers=hdrs_data)
 
     # Add stuff to data headers
     for idx_hdu, dhdr in enumerate(hdrs_data):
-        log.info(f"Modify data headers; extension {idx_hdu + 1}")
-        log.info(
-            f"Scaling gain {master_gain.gain[idx_file][idx_hdu]} "
-            f"with NDIT={files.ndit[idx_file]}"
-        )
         gain = master_gain.gain[idx_file][idx_hdu] * files.ndit_norm[idx_file]
-        log.info(f"New gain: {gain}")
         rdnoise = master_gain.rdnoise[idx_file][idx_hdu]
-        log.info(f"Read noise: {rdnoise}")
 
         # Grab other parameters
         offseti, noffsets, chipid = (
@@ -872,12 +811,7 @@ def _process_one_basic_file(
             dhdr["HIERARCH ESO DET CHIP NO"],
         )
         photstab = offseti + noffsets * (chipid - 1)
-        log.info(f"Photometric stability ID: {photstab}")
         dextinct = get_default_extinction(passband=files.passband[idx_file])
-        log.info(
-            f"Setting default extinction to {dextinct} "
-            f"for band {files.passband[idx_file]}"
-        )
 
         # Add stuff to header
         dhdr.set(setup.keywords.gain, value=np.round(gain, 3), comment="Gain (e-/ADU)")
@@ -914,7 +848,6 @@ def _process_one_basic_file(
             airmass = get_airmass_from_header(
                 header=dhdr, time=dhdr[setup.keywords.date_ut]
             )
-            log.info(f"Setting airmass to {airmass}")
             dhdr.set(
                 setup.keywords.airmass,
                 value=airmass,
@@ -922,7 +855,6 @@ def _process_one_basic_file(
             )
 
     # Write to disk
-    log.info(f"Writing to disk:\n{outpath}")
     cube.write_mef(
         path=outpath, prime_header=phdr, data_headers=hdrs_data, dtype="float32"
     )
@@ -943,40 +875,30 @@ class SkyImagesRaw(SkyImages):
 
         # Fetch log
         log = PipelineLog()
-        log.info(f"Processing {self.n_files} basic raw files:\n{self.basenames2log}")
+        log.info(f"Processing {self.n_files} basic raw files")
         tstart = time.time()
 
         # Fetch the Masterfiles
-        log.info("Fetching master files")
         master_gain = self.get_master_gain()
-        log.info(f"Master gain:\n{master_gain.basenames2log}")
         master_dark = self.get_master_dark(ignore_dit=False)
-        log.info(f"Master dark:\n{master_dark.basenames2log}")
         master_linearity = self.get_master_linearity()
-        log.info(f"Master linearity:\n{master_linearity.basenames2log}")
         master_flat = None
         if self.setup.flat_type == "twilight":
             master_flat = self.get_master_twilight_flat()
-            log.info(f"Master flat:\n{master_flat.basenames2log}")
 
         # Pre-populate calibration caches before the parallel section so that
         # all worker threads access them read-only (no locking required).
-        log.info("Pre-loading calibration files into cache")
         dark_cache: dict = {}
         flat_cache: dict = {}
         for idx_file in range(self.n_files):
             dark_path = master_dark.paths_full[idx_file]
             if dark_path not in dark_cache:
-                log.info(f"Loading dark into cache: {master_dark.basenames[idx_file]}")
                 dark_cache[dark_path] = master_dark.file2cube(
                     file_index=idx_file, dtype=np.float32
                 )
             if self.setup.flat_type == "twilight":
                 flat_path = master_flat.paths_full[idx_file]
                 if flat_path not in flat_cache:
-                    log.info(
-                        f"Loading flat into cache: {master_flat.basenames[idx_file]}"
-                    )
                     flat_cache[flat_path] = master_flat.file2cube(
                         file_index=idx_file, dtype=np.float32
                     )
@@ -1108,9 +1030,7 @@ class SkyImagesProcessed(SkyImages):
 
         # Fetch log
         log = PipelineLog()
-        log.info(
-            f"Building source masks for {self.n_files} files:\n{self.basenames2log}"
-        )
+        log.info(f"Building source masks for {self.n_files} files")
         tstart = time.time()
 
         self.check_compatibility(
@@ -1119,7 +1039,7 @@ class SkyImagesProcessed(SkyImages):
 
         # Fetch master BPM
         master_bpm = self.get_master_bpm()
-        log.info(f"Master BPM:\n{master_bpm.basenames2log}")
+        log.info(f"Master BPM: {master_bpm.basenames[0]}")
 
         # Build additional source masks
         additional_masks = self.__build_additional_masks()
@@ -1134,7 +1054,6 @@ class SkyImagesProcessed(SkyImages):
 
         # Check if all files exist and return if they do
         if all([check_file_exists(file_path=oo, silent=False) for oo in outpaths]):
-            log.info("All output files already exist, skipping")
             return
 
         use_noisechisel = self.setup.source_mask_method.lower() == "noisechisel"
@@ -1303,9 +1222,7 @@ class SkyImagesProcessed(SkyImages):
 
         # ---- Write final output files directly ----
         for idx_file, outpath in enumerate(outpaths):
-            log.info(f"Writing output {idx_file + 1}/{len(outpaths)}: {outpath}")
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                log.info("Output file already exists, skipping")
                 continue
 
             # Assemble one plane per detector for this file (transpose from
@@ -1334,7 +1251,6 @@ class SkyImagesProcessed(SkyImages):
                 dtype=np.uint8,
                 overwrite=True,
             )
-            log.info(f"Written: {outpath}")
 
         # Print time
         elapsed = time.time() - tstart
@@ -1549,9 +1465,7 @@ class SkyImagesProcessed(SkyImages):
 
         # Fetch log
         log = PipelineLog()
-        log.info(
-            f"Building master sky from {self.n_files} files:\n{self.basenames2log}"
-        )
+        log.info(f"Building master sky from {self.n_files} files")
         tstart = time.time()
 
         # Split based on filter and interval
@@ -1584,18 +1498,13 @@ class SkyImagesProcessed(SkyImages):
                 f"MJD_{files.mjd_mean:0.4f}."
                 f"FIL_{files.passband[0]}.fits"
             )
-            log.info(f"Processing sky group {fidx}/{len(split)}: {outpath}")
-
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
-                log.info("File already exists, skipping")
                 continue
 
             # Fetch the Masterfiles
             master_bpm = files.get_master_bpm()
-            log.info(f"Master BPM:\n{master_bpm.basenames2log}")
             master_mask = files.get_master_source_mask()
-            log.info(f"Master source mask:\n{master_mask.basenames2log}")
 
             # Instantiate output
             master_cube = ImageCube(setup=self.setup, cube=None)
@@ -1654,7 +1563,6 @@ class SkyImagesProcessed(SkyImages):
             master_cube.write_mef(
                 path=outpath, prime_header=hdr_prime, data_headers=data_headers
             )
-            log.info(f"Master sky written to: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:
@@ -1681,14 +1589,12 @@ class SkyImagesProcessed(SkyImages):
 
         # Fetch log
         log = PipelineLog()
-        log.info(f"Processing {self.n_files} final raw files:\n{self.basenames2log}")
+        log.info(f"Processing {self.n_files} final raw files")
         tstart = time.time()
 
         # Fetch the Masterfiles
         master_sky = self.get_master_sky()
-        log.info(f"Master sky:\n{master_sky.basenames2log}")
         master_source_mask = self.get_master_source_mask()
-        log.info(f"Master source mask:\n{master_source_mask.basenames2log}")
 
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
@@ -1698,15 +1604,11 @@ class SkyImagesProcessed(SkyImages):
                 f"{self.basenames[idx_file].replace('.proc.basic.', '.proc.final.')}"
             )
 
-            # Log processing info
-            log.info(f"Processing file {idx_file + 1}/{self.n_files}:\n{outpath}")
-
             # Check if the file is already there and skip if it is
             if (
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
-                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -1718,11 +1620,6 @@ class SkyImagesProcessed(SkyImages):
                 d_total=None,
                 silent=self.setup.silent,
             )
-
-            # Log which master files are being used
-            log.info(f"Sky file: {master_sky.basenames[idx_file]}")
-            log.info(f"Mask file: {master_source_mask.basenames[idx_file]}")
-            log.info(f"Sky subtraction mode: {self.setup.flat_type}")
 
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
@@ -1747,7 +1644,6 @@ class SkyImagesProcessed(SkyImages):
 
             # Destriping
             if self.setup.destripe:
-                log.info("Destriping enabled")
                 sources_bool = ImageCube(
                     setup=self.setup, cube=source_mask.cube.astype(bool)
                 )
@@ -1767,8 +1663,6 @@ class SkyImagesProcessed(SkyImages):
 
             # Background subtraction
             if self.setup.subtract_background:
-                log.info("Subtracting 2D background")
-
                 # Apply mask
                 temp_cube = cube.copy()
                 temp_cube.apply_masks(sources=source_mask)
@@ -1799,7 +1693,6 @@ class SkyImagesProcessed(SkyImages):
 
             # Bad pixel interpolation
             if self.setup.interpolate_nan:
-                log.info("Interpolating NaN pixels")
                 cube.interpolate_nan()
 
             # Dummy check if too many pixels where masked
@@ -1847,7 +1740,6 @@ class SkyImagesProcessed(SkyImages):
                 data_headers=hdrs_data,
                 dtype="float32",
             )
-            log.info(f"Written: {outpath}")
 
         # Print time
         elapsed = time.time() - tstart
@@ -1990,9 +1882,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Processing info
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
         log = PipelineLog()
-        log.info(
-            f"Building master weight images from {self.n_files} files:\n{self.basenames2log}"
-        )
+        log.info(f"Building master weight images from {self.n_files} files")
         tstart = time.time()
 
         # Generate weight outpaths
@@ -2051,7 +1941,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 )
                 and not self.setup.overwrite
             ):
-                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -2062,9 +1951,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 d_current=None,
                 d_total=None,
                 silent=self.setup.silent,
-            )
-            log.info(
-                f"Processing weight image {idx_file + 1}/{self.n_files}: {outpaths[idx_file]}"
             )
 
             # Load data
@@ -2112,7 +1998,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Write to disk
             master_weight.write_mef(path=outpaths[idx_file], prime_header=prime_header)
-            log.info(f"Written: {outpaths[idx_file]}")
 
         # Print time
         elapsed = time.time() - tstart
@@ -2216,7 +2101,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Processing info
         print_header(header="RESAMPLING", silent=self.setup.silent)
         log = PipelineLog()
-        log.info(f"Resampling {self.n_files} files:\n{self.basenames2log}")
+        log.info(f"Resampling {self.n_files} files")
         tstart = time.time()
 
         # Load Swarp setup
@@ -2266,10 +2151,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 check_file_exists(file_path=outpath, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
-                log.info("File already exists, skipping")
                 continue
-
-            log.info(f"Resampling file {idx_file + 1}/{self.n_files}: {outpath}")
 
             # Print processing info
             message_calibration(
@@ -2316,7 +2198,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
             # Copy header entries from original file
             merge_headers(path_1=outpath, path_2=self.paths_full[idx_file])
-            log.info(f"Written: {outpath}")
 
         # Remove temporary resampling directory
         shutil.rmtree(path_resampled_dir, ignore_errors=True)
@@ -2351,9 +2232,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             header="CREATING STACKS", silent=self.setup.silent, left=None, right=None
         )
         log = PipelineLog()
-        log.info(
-            f"Building stacks from {self.n_files} resampled files:\n{self.basenames2log}"
-        )
+        log.info(f"Building stacks from {self.n_files} resampled files")
         tstart = time.time()
 
         # Split based on Offset
@@ -2394,10 +2273,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 check_file_exists(file_path=path_stack, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
-                log.info("File already exists, skipping")
                 continue
-
-            log.info(f"Processing stack {idx_split + 1}/{len(split)}: {path_stack}")
 
             # Print processing info
             message_calibration(
@@ -2596,8 +2472,6 @@ class SkyImagesResampled(SkyImagesProcessed):
                 path_output=path_weight,
                 primeheader=prhdr_stk,
             )
-            log.info(f"Written: {path_stack}")
-
             # Remove intermediate temp directory
             remove_directory(tmpdir_stacks)
 
@@ -2701,7 +2575,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             right=None,
         )
         tstart = time.time()
-        log.info(f"Creating tile with {len(self)} images:\n{self.basenames2log()}")
+        log.info(f"Creating tile with {len(self)} images")
 
         # Run Swarp
         if not (
@@ -2710,23 +2584,18 @@ class SkyImagesResampled(SkyImagesProcessed):
         ):
             # Load Swarp setup
             sws = SwarpSetup(setup=self.setup)
-            log.info(f"Loaded Swarp preset used: {sws.preset_coadd}")
 
             # Make system temp dir for swap
             swap_dir = tempfile.mkdtemp(prefix="swarp_swap_")
-            log.info(f"Create temporary swap directory: {swap_dir}")
 
             # Generate temporary coadd and coadd weight names on local disk
             tmpdir = tempfile.gettempdir()
             path_coadd_tmp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
-            log.info(f"Saving temporary coadd image to {path_coadd_tmp}")
             path_weight_tmp = str(f"{tmpdir}/swarp_weight_{uuid.uuid4().hex}.fits")
-            log.info(f"Saving temporary coadd weight to {path_weight_tmp}")
             path_coadd_tmp_hdr = path_coadd_tmp.replace(".fits", ".ahead")
 
             # Copy coadd header to temp location
             shutil.copyfile(self.setup.path_coadd_header, path_coadd_tmp_hdr)
-            log.info(f"Copied coadd header to temporary location {path_coadd_tmp_hdr}")
 
             ss = yml2config(
                 path_yml=sws.preset_coadd,
@@ -2749,18 +2618,11 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Construct commands for swarping
             cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
 
-            # Add swarp command to log
-            log.info(f"Swarp command: {cmd}")
-
             # Run Swarp
-            stdout, stderr = run_command_shell(cmd=cmd, silent=True)
+            run_command_shell(cmd=cmd, silent=True)
 
             # Wait 5 seconds to ensure file is written
             time.sleep(self.setup.swarp_post_sleep)
-
-            # Add stdout and stderr to log
-            log.info(f"Swarp stdout:\n{stdout}")
-            log.info(f"Swarp stderr:\n{stderr}")
 
             # Remove temporary file list
             try:
@@ -2842,13 +2704,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                 self.setup.add_setup_to_header(header=hdul_tile[0].header)
 
                 # Add archive names of input
-                log.info("Adding ARCFILE names to header:")
                 arcnames = self.read_from_prime_headers(keywords=["ARCFILE"])[0]
                 for idx in range(len(arcnames)):
                     hdul_tile[0].header.set(
                         f"HIERARCH PYPE ARCNAME {idx:04d}", arcnames[idx]
                     )
-                    log.info(f"ARCFILE {idx:04d}: {arcnames[idx]}")
 
                 # Flush to disk
                 hdul_tile.flush()
@@ -2856,13 +2716,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Move temporary files to final location
             shutil.move(path_coadd_tmp, self.setup.path_coadd)
             shutil.move(path_weight_tmp, self.setup.path_coadd_weight)
-            log.info(
-                f"Moved temporary coadd to final location: {self.setup.path_coadd}"
-            )
-            log.info(
-                f"Moved temporary coadd weight to final location: "
-                f"{self.setup.path_coadd_weight}"
-            )
 
             # Remove swap dir
             shutil.rmtree(swap_dir, ignore_errors=True)
@@ -2886,9 +2739,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             header="IMAGE STATISTICS", silent=self.setup.silent, left=None, right=None
         )
         log = PipelineLog()
-        log.info(
-            f"Building image statistics for {self.n_files} files:\n{self.basenames2log}"
-        )
+        log.info(f"Building image statistics for {self.n_files} files")
         tstart = time.time()
 
         # Find weights
@@ -2941,12 +2792,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
                 and not self.setup.overwrite
             ):
-                log.info("File already exists, skipping")
                 continue
-
-            log.info(
-                f"Processing statistics {idx_file + 1}/{self.n_files}: {self.basenames[idx_file]}"
-            )
 
             # Print processing info
             message_calibration(
@@ -3079,7 +2925,6 @@ class SkyImagesResampled(SkyImagesProcessed):
                 rsync_file(tmpdir_stats, folder_statistics)
             finally:
                 remove_directory(tmpdir_stats)
-            log.info(f"Written statistics for: {self.basenames[idx_file]}")
 
         # Print time
         elapsed = time.time() - tstart

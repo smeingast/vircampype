@@ -1142,4 +1142,4 @@ class Pipeline:
             self.archive()
 
         # Print finish message
-        print_end(tstart=t0)
+        print_end(tstart=t0, logger=self.log)

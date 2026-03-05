@@ -603,11 +603,8 @@ def fix_vircam_headers(
     log = PipelineLog()
 
     try:
-        log.info("Attempting to rewrite WCS info in headers")
-
         tra = str(prime_header["HIERARCH ESO TEL TARG ALPHA"])
         tde = str(prime_header["HIERARCH ESO TEL TARG DELTA"])
-        log.info(f"Found RA/DEC in headers: {tra} / {tde}")
 
         if tde.startswith("-"):
             decsign = -1
@@ -621,19 +618,16 @@ def fix_vircam_headers(
 
         fra = 15 * (float(tra[:2]) + float(tra[2:4]) / 60 + float(tra[4:]) / 3600)
         fde = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
-        log.info(f"Computed RA/DEC: {fra} / {fde}")
 
     except KeyError:
-        log.warning("Could not find RA/DEC in headers")
+        log.warning("Could not find RA/DEC in headers for CRVAL rewrite")
         fra, fde = None, None
 
     for idx_hdr in range(len(data_headers)):
         try:
             crval1 = fra if fra is not None else data_headers[idx_hdr]["CRVAL1"]
-            log.info(f"Overwriting CRVAL1 with {crval1} in extension {idx_hdr + 1}")
             data_headers[idx_hdr]["CRVAL1"] = crval1
             crval2 = fde if fde is not None else data_headers[idx_hdr]["CRVAL2"]
-            log.info(f"Overwriting CRVAL2 with {crval2} in extension {idx_hdr + 1}")
             data_headers[idx_hdr]["CRVAL2"] = crval2
         except KeyError:
             log.warning("Could not reset CRVAL1/CRVAL2 in headers")
