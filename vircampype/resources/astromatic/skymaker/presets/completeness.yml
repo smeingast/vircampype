@@ -1,0 +1,58 @@
+# SkyMaker preset for completeness testing
+# Generates noiseless images with artificial stars using an external PSF
+
+#--------------------------------- Image -------------------------------------
+
+IMAGE_NAME:         sky.fits
+IMAGE_SIZE:         1024
+IMAGE_TYPE:         SKY_NONOISE
+IMAGE_HEADER:       INTERNAL
+LISTCOORD_TYPE:     PIXEL
+
+#----------------------------- Pixel weights --------------------------------
+
+WEIGHT_TYPE:        NONE
+
+#-------------------------------- Detector -----------------------------------
+
+GAIN:               1.0
+WELL_CAPACITY:      0
+SATUR_LEVEL:        65535
+READOUT_NOISE:      0.0
+EXPOSURE_TIME:      1.0
+MAG_ZEROPOINT:      26.0
+
+#-------------------------------- Sampling -----------------------------------
+
+PIXEL_SIZE:         0.339
+MICROSCAN_NSTEP:    1
+
+#---------------------------------- PSF --------------------------------------
+
+PSF_TYPE:           FILE
+PSF_NAME:           psf.fits
+PSFCENTER_TYPE:     CENTROID
+SEEING_TYPE:        NONE
+AUREOLE_RADIUS:     0
+PSF_OVERSAMP:       1
+PSF_MAPSIZE:        1024
+
+#--------------------------------- Signal ------------------------------------
+
+BACK_MAG:           99.0
+
+#------------------------------ Stellar field --------------------------------
+
+STARCOUNT_ZP:       0
+STARCOUNT_SLOPE:    0.0
+MAG_LIMITS:         17.0,26.0
+
+#------------------------------ Random Seeds ---------------------------------
+
+SEED_MOTION:        0
+SEED_STARPOS:       0
+
+#----------------------------- Miscellaneous ---------------------------------
+
+VERBOSE_TYPE:       QUIET
+NTHREADS:           0

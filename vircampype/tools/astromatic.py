@@ -1,7 +1,8 @@
 import os
+from collections.abc import Iterable
 
 from astropy.io import fits
-from collections.abc import Iterable
+
 from vircampype.tools.systemtools import *
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
     "SwarpSetup",
     "ScampSetup",
     "PSFExSetup",
+    "SkymakerSetup",
 ]
 
 
@@ -213,9 +215,7 @@ class SextractorSetup(AstromaticSetup):
             Path to preset yml.
         """
 
-        return get_resource_path(
-            package=self.package_presets, resource=f"{preset}.yml"
-        )
+        return get_resource_path(package=self.package_presets, resource=f"{preset}.yml")
 
     def path_param(self, preset):
         """
@@ -325,8 +325,9 @@ class ScampSetup(AstromaticSetup):
             Path to loose config.
 
         """
-        return get_resource_path(package=self.package_presets,
-                                 resource="scamp_loose.yml")
+        return get_resource_path(
+            package=self.package_presets, resource="scamp_loose.yml"
+        )
 
     @property
     def _path_config_fix_focalplane(self) -> str:
@@ -339,8 +340,7 @@ class ScampSetup(AstromaticSetup):
             Path to fix focalplane config.
 
         """
-        return get_resource_path(package=self.package_presets,
-                                 resource="scamp_ffp.yml")
+        return get_resource_path(package=self.package_presets, resource="scamp_ffp.yml")
 
     @staticmethod
     def qc_types(joined=False):
@@ -430,9 +430,7 @@ class PSFExSetup(AstromaticSetup):
             Path to preset yml.
         """
 
-        return get_resource_path(
-            package=self.package_presets, resource=f"{preset}.yml"
-        )
+        return get_resource_path(package=self.package_presets, resource=f"{preset}.yml")
 
     @staticmethod
     def checkplot_types(joined=False):
@@ -533,3 +531,31 @@ class PSFExSetup(AstromaticSetup):
             return ",".join(names)
         else:
             return names
+
+
+class SkymakerSetup(AstromaticSetup):
+    _package_name = "skymaker"
+
+    def __init__(self, setup):
+        super().__init__(setup=setup)
+
+    @property
+    def bin_name(self):
+        return self.setup.bin_skymaker
+
+    def path_yml(self, preset):
+        """
+        Returns path to Skymaker yml file, given preset.
+
+        Parameters
+        ----------
+        preset : str
+            Which preset to use.
+
+        Returns
+        -------
+        str
+            Path to preset yml.
+        """
+
+        return get_resource_path(package=self.package_presets, resource=f"{preset}.yml")

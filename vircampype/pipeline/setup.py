@@ -280,6 +280,7 @@ class Setup:
     bin_scamp: str = "scamp"  # SCAMP binary name
     bin_swarp: str = "swarp"  # SWarp binary name
     bin_psfex: str = "psfex"  # PSFEx binary name
+    bin_skymaker: str = "sky"  # SkyMaker binary name
     bin_noisechisel: str = "astnoisechisel"  # Gnuastro noisechisel binary name
     bin_stilts: str = "stilts"  # STILTS binary name
 
