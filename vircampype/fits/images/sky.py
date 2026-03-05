@@ -3060,14 +3060,24 @@ class SkyImagesResampled(SkyImagesProcessed):
                     )
                 )
 
-            # Write to disk
-            hdul_nimg.writeto(paths_nimg[idx_file], overwrite=True)
-            hdul_exptime.writeto(paths_exp[idx_file], overwrite=True)
-            hdul_mjd_frac.writeto(paths_mjd_frac[idx_file], overwrite=True)
-            hdul_mjd_int.writeto(paths_mjd_int[idx_file], overwrite=True)
-            hdul_astrms1.writeto(paths_astrms1[idx_file], overwrite=True)
-            hdul_astrms2.writeto(paths_astrms2[idx_file], overwrite=True)
-            hdul_weights.writeto(paths_weight[idx_file], overwrite=True)
+            # Write all statistics to local temp, then copy to NAS in bulk
+            tmpdir_stats = make_system_tempdir()
+            stats_map = [
+                (hdul_nimg, paths_nimg[idx_file]),
+                (hdul_exptime, paths_exp[idx_file]),
+                (hdul_mjd_frac, paths_mjd_frac[idx_file]),
+                (hdul_mjd_int, paths_mjd_int[idx_file]),
+                (hdul_astrms1, paths_astrms1[idx_file]),
+                (hdul_astrms2, paths_astrms2[idx_file]),
+                (hdul_weights, paths_weight[idx_file]),
+            ]
+            try:
+                for hdul, final_path in stats_map:
+                    tmp_path = tmpdir_stats + os.path.basename(final_path)
+                    hdul.writeto(tmp_path, overwrite=True)
+                rsync_file(tmpdir_stats, folder_statistics)
+            finally:
+                remove_directory(tmpdir_stats)
             log.info(f"Written statistics for: {self.basenames[idx_file]}")
 
         # Print time
