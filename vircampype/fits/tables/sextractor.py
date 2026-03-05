@@ -141,7 +141,8 @@ class SextractorCatalogs(SourceCatalogs):
 
         # If already available, skip
         if np.sum(ehdrs) == len(self):
-            print("Scamp headers already exist")
+            print(f"All {len(self)} scamp .ahead headers already present, skipping")
+            log.info("All scamp .ahead headers already present, skipping")
             return
 
         # Load astrometric reference
