@@ -1002,69 +1002,51 @@ class Pipeline:
         # Clean final processed directory
         clean_directory(self.setup.folders["processed_final"], pattern="*.fits")
         clean_directory(self.setup.folders["processed_final"], pattern="*.fits.tab")
+        clean_directory(self.setup.folders["processed_final"], pattern="*.ahead")
+
+        # Clean resampled pawprint images and catalogs
+        clean_directory(self.setup.folders["resampled"])
+
+        # Clean per-pawprint statistics images
+        clean_directory(self.setup.folders["statistics"])
 
     def deep_clean(self):
         """Runs a shallow clean followed by deleting the pipeline status"""
         self.shallow_clean()
         clean_directory(self.setup.folders["temp"])
 
-    def archive(self, compress_fits=False):
-        """First runs a shallow clean, then - if requested - compresses
-        all remaining FITS images."""
+    @pipeline_step("archive", message="ARCHIVING")
+    def archive(self):
+        """Run a shallow clean and compress all remaining FITS images."""
+        self.shallow_clean()
 
-        if not self.status.archive:
-            print_header(
-                header="ARCHIVING", silent=self.setup.silent, left=None, right=None
+        # Find all remaining FITS files (recursive)
+        fits_files = sorted(
+            glob.glob(self.setup.folders["object"] + "/**/*.fits", recursive=True)
+        )
+
+        if fits_files:
+            n_jobs = min(self.setup.n_jobs, 2)
+            compress_images(
+                fits_files,
+                q=self.setup.fpack_quantization_factor,
+                n_jobs=n_jobs,
             )
-            log = PipelineLog()
-            tstart = time.time()
-
-            # Shallow clean
-            self.shallow_clean()
-
-            if compress_fits:
-                # Find all remaining fits files
-                fits_files = sorted(
-                    glob.glob(self.setup.folders["object"] + "/**/*.fits")
-                )
-
-                # Construct compression commands
-                cmds = [
-                    f"fpack -D -Y -q {self.setup.fpack_quantization_factor} {f}"
-                    for f in fits_files
-                ]
-
-                # Run in parallel (maximum of 2 at a time)
-                n_jobs = 1 if self.setup.n_jobs == 1 else 2
-                run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
-
-            # Print time
-            elapsed = time.time() - tstart
-            print_message(
-                message=f"\n-> Elapsed time: {elapsed:.2f}s",
-                kind="okblue",
-                end="\n",
-                logger=log,
-            )
-
-            # Update status
-            self.update_status(archive=True)
-
-        else:
-            print_message(message="ARCHIVING already done", kind="warning", end=None)
 
     def unarchive(self):
-        """Uncompresses all compressed files."""
+        """Uncompress all compressed FITS files and reset archive status."""
 
-        # Find all compressed files
-        fz_files = sorted(glob.glob(self.setup.folders["object"] + "/**/*.fz"))
+        # Find all compressed files (recursive)
+        fz_files = sorted(
+            glob.glob(self.setup.folders["object"] + "/**/*.fz", recursive=True)
+        )
 
-        # Construct compression commands
-        cmds = [f"funpack -F {f}" for f in fz_files]
+        if fz_files:
+            cmds = [f"funpack -F {f}" for f in fz_files]
+            n_jobs = min(self.setup.n_jobs, 2)
+            run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
 
-        # Run in parallel (maximum of 2 at a time)
-        n_jobs = 1 if self.setup.n_jobs == 1 else 2
-        run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
+        self.update_status(archive=False)
 
     # =========================================================================== #
     # Pipeline processors

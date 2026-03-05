@@ -654,6 +654,7 @@ def compress_images(
     q: int | float = 4,
     exe: str = "fpack",
     n_jobs: int = 1,
+    delete_originals: bool = True,
 ) -> None:
     """
     Compress FITS images in parallel using ``fpack``.
@@ -670,11 +671,15 @@ def compress_images(
         Name or path of the ``fpack`` binary. Default is ``"fpack"``.
     n_jobs : int, optional
         Number of parallel compression jobs. Default is 1.
+    delete_originals : bool, optional
+        If True, pass ``-D -Y`` to ``fpack`` to delete originals after
+        compression. Default is False.
     """
     fpack = which(exe)
     paths_out = [x.replace(".fits", ".fits.fz") for x in images]
     done = [os.path.isfile(x) for x in paths_out]
-    cmds = [f"{fpack} -q {q} {x}" for x in images]
+    flags = "-D -Y " if delete_originals else ""
+    cmds = [f"{fpack} {flags}-q {q} {x}" for x in images]
     cmds = [c for c, d in zip(cmds, done) if not d]
     run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
 
