@@ -1377,11 +1377,23 @@ class SkyImagesProcessed(SkyImages):
             )
             log.info(f"Download query radius: {radius:.3f} deg")
 
-            # Download catalog
+            # Get catalog (local cutout or download)
             if self.setup.phot_reference_catalog.lower() == "2mass":
-                log.info("Downloading 2MASS catalog")
-                table = download_2mass(skycoord=self.centroid_all, radius=radius)
-                log.info(f"Downloaded {len(table)} sources")
+                if self.setup.local_2mass_catalog is not None:
+                    log.info(
+                        f"Cutting out 2MASS sources from local catalog: "
+                        f"{self.setup.local_2mass_catalog}"
+                    )
+                    table = cutout_2mass(
+                        path=self.setup.local_2mass_catalog,
+                        skycoord=self.centroid_all,
+                        radius=radius,
+                    )
+                    log.info(f"Extracted {len(table)} sources from local catalog")
+                else:
+                    log.info("Downloading 2MASS catalog")
+                    table = download_2mass(skycoord=self.centroid_all, radius=radius)
+                    log.info(f"Downloaded {len(table)} sources")
             else:
                 raise ValueError(
                     f"Catalog '{self.setup.phot_reference_catalog}' not supported"
@@ -1440,12 +1452,24 @@ class SkyImagesProcessed(SkyImages):
             )
             log.info(f"Download query radius: {radius:.3f} deg")
 
-            # Download catalog
+            # Get catalog (local cutout or download)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
-                log.info("Downloading Gaia catalog")
-                table = download_gaia(skycoord=self.centroid_all, radius=radius)
-                log.info(f"Downloaded {len(table)} Gaia sources")
+                if self.setup.local_gaia_catalog is not None:
+                    log.info(
+                        f"Cutting out Gaia sources from local catalog: "
+                        f"{self.setup.local_gaia_catalog}"
+                    )
+                    table = cutout_gaia(
+                        path=self.setup.local_gaia_catalog,
+                        skycoord=self.centroid_all,
+                        radius=radius,
+                    )
+                    log.info(f"Extracted {len(table)} Gaia sources from local catalog")
+                else:
+                    log.info("Downloading Gaia catalog")
+                    table = download_gaia(skycoord=self.centroid_all, radius=radius)
+                    log.info(f"Downloaded {len(table)} Gaia sources")
 
                 # Keep only sources with valid ra/dec/pm entries
                 keep = (

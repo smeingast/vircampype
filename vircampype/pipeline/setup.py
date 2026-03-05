@@ -86,9 +86,15 @@ class Setup:
         "loose"  # SCAMP astrometric calibration mode
     )
     gaia_ruwe_max: float = 1.5  # Max Gaia RUWE for astrometric reference stars
+    local_gaia_catalog: str | None = (
+        None  # Path to local Gaia FITS catalog (skip download)
+    )
 
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"  # Photometric reference catalog
+    local_2mass_catalog: str | None = (
+        None  # Path to local 2MASS FITS catalog (skip download)
+    )
     reference_mag_lo: int | float = None  # Bright magnitude cut for reference stars
     reference_mag_hi: int | float = None  # Faint magnitude cut for reference stars
     target_zp: float = 25.0  # Target photometric zero point (mag)
@@ -303,6 +309,18 @@ class Setup:
             self.n_jobs_swarp = self.n_jobs
         else:
             self.n_jobs_swarp = min(self.n_jobs_swarp, self.n_jobs)
+
+        # Validate local catalog paths
+        if self.local_gaia_catalog is not None:
+            if not os.path.isfile(self.local_gaia_catalog):
+                raise PipelineValueError(
+                    f"Local Gaia catalog not found: '{self.local_gaia_catalog}'"
+                )
+        if self.local_2mass_catalog is not None:
+            if not os.path.isfile(self.local_2mass_catalog):
+                raise PipelineValueError(
+                    f"Local 2MASS catalog not found: '{self.local_2mass_catalog}'"
+                )
 
         # Set keywords
         self.keywords = HeaderKeywords()

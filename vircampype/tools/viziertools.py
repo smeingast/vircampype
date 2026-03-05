@@ -4,7 +4,12 @@ from astropy.units import Unit
 from astroquery.vizier import Vizier
 
 # Define objects in this module
-__all__ = ["download_2mass", "download_gaia"]
+__all__ = [
+    "download_2mass",
+    "download_gaia",
+    "cutout_2mass",
+    "cutout_gaia",
+]
 
 
 def download_2mass(skycoord: SkyCoord, radius: float) -> Table:
@@ -95,3 +100,98 @@ def download_gaia(skycoord: SkyCoord, radius: float) -> Table:
     result.rename_column("RUWE", "ruwe")
 
     return result
+
+
+_REQUIRED_2MASS_COLUMNS = {
+    "RAJ2000",
+    "DEJ2000",
+    "Jmag",
+    "Hmag",
+    "Kmag",
+    "e_Jmag",
+    "e_Hmag",
+    "e_Kmag",
+    "Qflg",
+    "Cflg",
+}
+
+_REQUIRED_GAIA_COLUMNS = {
+    "ra",
+    "dec",
+    "ra_error",
+    "dec_error",
+    "pmra",
+    "pmra_error",
+    "pmdec",
+    "pmdec_error",
+    "mag",
+    "mag_error",
+    "flux",
+    "flux_error",
+    "ruwe",
+}
+
+
+def _check_columns(table: Table, required: set[str], catalog_name: str) -> None:
+    """Raise ``ValueError`` if *table* is missing any *required* columns."""
+    missing = required - set(table.colnames)
+    if missing:
+        raise ValueError(
+            f"Local {catalog_name} catalog is missing required columns: "
+            f"{', '.join(sorted(missing))}"
+        )
+
+
+def cutout_2mass(path: str, skycoord: SkyCoord, radius: float) -> Table:
+    """
+    Extract a cone-search cutout from a local 2MASS FITS catalog.
+
+    Parameters
+    ----------
+    path : str
+        Path to the local 2MASS FITS table. Must contain at least the
+        columns: ``RAJ2000``, ``DEJ2000``, ``Jmag``, ``Hmag``, ``Kmag``,
+        ``e_Jmag``, ``e_Hmag``, ``e_Kmag``, ``Qflg``, ``Cflg``.
+    skycoord : SkyCoord
+        Centre of the cone search.
+    radius : float
+        Cone-search radius in degrees.
+
+    Returns
+    -------
+    Table
+        Astropy Table with the same structure as :func:`download_2mass`.
+    """
+    table = Table.read(path)
+    _check_columns(table, _REQUIRED_2MASS_COLUMNS, "2MASS")
+    coords = SkyCoord(ra=table["RAJ2000"], dec=table["DEJ2000"], unit="deg")
+    mask = coords.separation(skycoord).degree <= radius
+    return table[mask]
+
+
+def cutout_gaia(path: str, skycoord: SkyCoord, radius: float) -> Table:
+    """
+    Extract a cone-search cutout from a local Gaia FITS catalog.
+
+    Parameters
+    ----------
+    path : str
+        Path to the local Gaia FITS table. Must contain at least the
+        columns: ``ra``, ``dec``, ``ra_error``, ``dec_error``, ``pmra``,
+        ``pmra_error``, ``pmdec``, ``pmdec_error``, ``mag``, ``mag_error``,
+        ``flux``, ``flux_error``, ``ruwe``.
+    skycoord : SkyCoord
+        Centre of the cone search.
+    radius : float
+        Cone-search radius in degrees.
+
+    Returns
+    -------
+    Table
+        Astropy Table with the same structure as :func:`download_gaia`.
+    """
+    table = Table.read(path)
+    _check_columns(table, _REQUIRED_GAIA_COLUMNS, "Gaia")
+    coords = SkyCoord(ra=table["ra"], dec=table["dec"], unit="deg")
+    mask = coords.separation(skycoord).degree <= radius
+    return table[mask]
