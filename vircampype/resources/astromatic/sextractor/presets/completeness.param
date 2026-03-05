@@ -1,0 +1,4 @@
+XWIN_IMAGE               # Windowed position estimate along x                        [pixel]
+YWIN_IMAGE               # Windowed position estimate along y                        [pixel]
+MAG_AUTO                 # Kron-like elliptical aperture magnitude                   [mag]
+FLAGS                    # Extraction flags

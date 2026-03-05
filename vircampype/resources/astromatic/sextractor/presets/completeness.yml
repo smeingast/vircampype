@@ -1,0 +1,50 @@
+# SExtractor preset for completeness detection
+# Minimal output, standard detection settings
+
+CATALOG_NAME:     test.cat
+CATALOG_TYPE:     FITS_LDAC
+
+DETECT_TYPE:      CCD
+DETECT_MINAREA:   3
+DETECT_MAXAREA:   10000
+THRESH_TYPE:      RELATIVE
+DETECT_THRESH:    1.5
+ANALYSIS_THRESH:  1.5
+
+FILTER:           Y
+FILTER_NAME:      default.conv
+
+DEBLEND_NTHRESH:  32
+DEBLEND_MINCONT:  0.005
+
+CLEAN:            Y
+CLEAN_PARAM:      1.0
+
+WEIGHT_TYPE:      MAP_WEIGHT
+RESCALE_WEIGHTS:  Y
+WEIGHT_IMAGE:     None
+WEIGHT_GAIN:      Y
+
+PHOT_AUTOPARAMS:  2.5, 3.5
+PHOT_AUTOAPERS:   0.0,0.0
+
+SATUR_LEVEL:      40000.0
+SATUR_KEY:        SATURATE
+
+MAG_ZEROPOINT:    0.0
+GAIN:             0.0
+GAIN_KEY:         GAIN
+PIXEL_SCALE:      0
+
+SEEING_FWHM:      0.8
+STARNNW_NAME:     default.nnw
+
+BACK_TYPE:        AUTO
+BACK_SIZE:        64
+BACK_FILTERSIZE:  3
+
+CHECKIMAGE_TYPE:  NONE
+
+VERBOSE_TYPE:     QUIET
+WRITE_XML:        N
+NTHREADS:         1

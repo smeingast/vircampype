@@ -1,0 +1,58 @@
+# PSFEx preset for completeness testing
+# Low-order PSF model, no check plots/images, quiet mode
+
+#-------------------------------- PSF model ----------------------------------
+
+BASIS_TYPE:      PIXEL_AUTO
+BASIS_NUMBER:    20
+PSF_SAMPLING:    0.0
+PSF_PIXELSIZE:   1.0
+PSF_ACCURACY:    0.01
+PSF_SIZE:        35,35
+PSF_RECENTER:    N
+MEF_TYPE:        INDEPENDENT
+
+#------------------------- Point source measurements -------------------------
+
+CENTER_KEYS:     XWIN_IMAGE,YWIN_IMAGE
+PHOTFLUX_KEY:    FLUX_APER
+PHOTFLUXERR_KEY: FLUXERR_APER
+
+#----------------------------- PSF variability -------------------------------
+
+PSFVAR_KEYS:     XWIN_IMAGE,YWIN_IMAGE
+PSFVAR_GROUPS:   1,1
+PSFVAR_DEGREES:  2
+PSFVAR_NSNAP:    9
+HIDDENMEF_TYPE:  COMMON
+STABILITY_TYPE:  EXPOSURE
+
+#----------------------------- Sample selection ------------------------------
+
+SAMPLE_AUTOSELECT:  Y
+SAMPLEVAR_TYPE:     SEEING
+SAMPLE_FWHMRANGE:   1.0,5.0
+SAMPLE_VARIABILITY: 0.3
+SAMPLE_MINSN:       20
+SAMPLE_MAXELLIP:    0.2
+SAMPLE_FLAGMASK:    0x00fe
+
+#----------------------------- Output catalogs -------------------------------
+
+OUTCAT_TYPE:        NONE
+
+#------------------------------- Check-plots ----------------------------------
+
+CHECKPLOT_TYPE:     NONE
+
+#------------------------------ Check-Images ---------------------------------
+
+CHECKIMAGE_TYPE:    NONE
+
+#----------------------------- Miscellaneous ---------------------------------
+
+PSF_DIR:
+PSF_SUFFIX:      .psf
+VERBOSE_TYPE:    QUIET
+WRITE_XML:       N
+NTHREADS:        1

@@ -275,6 +275,14 @@ class Setup:
     mmm_max_pixels: int = 50_000_000  # Max pixels for tile background estimation
     n_offset_positions: int = 6  # Expected number of offset positions for stacks
 
+    # Completeness
+    completeness_tile_size_arcmin: float = 10.0  # Sub-tile size for completeness
+    completeness_iterations: int = 20  # Number of injection iterations per sub-tile
+    completeness_mag_lo: float = 17.0  # Bright end of magnitude range
+    completeness_mag_hi: float = 22.5  # Faint end of magnitude range
+    completeness_mag_bin: float = 0.25  # Magnitude bin width
+    completeness_n_stars: int = 200  # Artificial stars injected per iteration
+
     # Binary names
     bin_sex: str = "sex"  # SExtractor binary name
     bin_scamp: str = "scamp"  # SCAMP binary name

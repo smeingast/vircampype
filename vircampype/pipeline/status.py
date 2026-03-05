@@ -1,5 +1,5 @@
-import pickle
 import dataclasses
+import pickle
 
 
 @dataclasses.dataclass
@@ -107,6 +107,7 @@ class PipelineStatus:
     photometry_tile: bool = False
     qc_photometry_tile: bool = False
     qc_astrometry_tile: bool = False
+    qc_completeness_tile: bool = False
     qc_summary: bool = False
     phase3: bool = False
     public_catalog: bool = False
