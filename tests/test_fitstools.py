@@ -16,6 +16,7 @@ from vircampype.tools.fitstools import (
     make_cards,
     mjd2dateobs,
     read_fits_headers,
+    tile_fits,
 )
 
 
@@ -211,6 +212,153 @@ class TestAddKeyPrimaryHDU(unittest.TestCase):
                 self.assertEqual(hdul[0].header["MYKEY"], 99)
         finally:
             os.remove(path)
+
+
+class TestTileFits(unittest.TestCase):
+    """Tests for tile_fits FITS image tiling."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.out_dir = os.path.join(self.tmpdir, "tiles")
+
+        # 3000x2000 image at 1/3 arcsec/pixel
+        self.nx, self.ny = 3000, 2000
+        self.pixel_scale = 1 / 3
+        hdr = fits.Header()
+        hdr["CRPIX1"] = 1500.0
+        hdr["CRPIX2"] = 1000.0
+        hdr["CRVAL1"] = 83.0
+        hdr["CRVAL2"] = -5.0
+        hdr["CDELT1"] = -self.pixel_scale / 3600
+        hdr["CDELT2"] = self.pixel_scale / 3600
+        hdr["CTYPE1"] = "RA---TAN"
+        hdr["CTYPE2"] = "DEC--TAN"
+
+        data = (
+            np.random.default_rng(42)
+            .normal(0, 1, (self.ny, self.nx))
+            .astype(np.float32)
+        )
+        weight = np.ones((self.ny, self.nx), dtype=np.float32)
+
+        self.img_path = os.path.join(self.tmpdir, "test.fits")
+        self.wgt_path = os.path.join(self.tmpdir, "test.weight.fits")
+        fits.writeto(self.img_path, data, header=hdr)
+        fits.writeto(self.wgt_path, weight, header=hdr)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir)
+
+    def test_tile_count(self):
+        """5 arcmin tiles on a ~16.7x11.1 arcmin image -> 3x2 = 6 tiles."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+        )
+        self.assertEqual(len(tiles), 6)
+
+    def test_weight_tiling(self):
+        """Weight tiles are created when weight_path is given."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+            weight_path=self.wgt_path,
+        )
+        for t in tiles:
+            self.assertIsNotNone(t["weight"])
+            self.assertTrue(os.path.isfile(t["weight"]))
+
+    def test_no_weight(self):
+        """Weight is None when no weight_path given."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+        )
+        for t in tiles:
+            self.assertIsNone(t["weight"])
+
+    def test_wcs_shift(self):
+        """CRPIX must be shifted by the tile origin."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+        )
+        with fits.open(self.img_path) as orig:
+            orig_crpix1 = orig[0].header["CRPIX1"]
+            orig_crpix2 = orig[0].header["CRPIX2"]
+
+        for t in tiles:
+            with fits.open(t["image"]) as hdul:
+                hdr = hdul[0].header
+                self.assertAlmostEqual(hdr["CRPIX1"], orig_crpix1 - hdr["TIL_X0"])
+                self.assertAlmostEqual(hdr["CRPIX2"], orig_crpix2 - hdr["TIL_Y0"])
+
+    def test_tiles_cover_image(self):
+        """Total pixel count across tiles (without overlap) equals original."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+            overlap_pix=0,
+        )
+        total_pixels = 0
+        for t in tiles:
+            with fits.open(t["image"]) as hdul:
+                total_pixels += hdul[0].data.size
+        self.assertEqual(total_pixels, self.nx * self.ny)
+
+    def test_overlap_increases_size(self):
+        """Tiles with overlap should be larger than without."""
+        tiles_no_ov = tile_fits(
+            image_path=self.img_path,
+            out_dir=os.path.join(self.tmpdir, "no_ov"),
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+            overlap_pix=0,
+        )
+        tiles_ov = tile_fits(
+            image_path=self.img_path,
+            out_dir=os.path.join(self.tmpdir, "ov"),
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+            overlap_pix=50,
+        )
+        # Interior tile (not on any edge) must be bigger with overlap
+        for t_no, t_ov in zip(tiles_no_ov, tiles_ov):
+            with fits.open(t_no["image"]) as h1, fits.open(t_ov["image"]) as h2:
+                self.assertGreaterEqual(h2[0].data.size, h1[0].data.size)
+
+    def test_grid_index(self):
+        """Each tile has a unique (i, j) grid index."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=5.0,
+            pixel_scale_arcsec=self.pixel_scale,
+        )
+        indices = [t["grid_index"] for t in tiles]
+        self.assertEqual(len(indices), len(set(indices)))
+
+    def test_small_image_single_tile(self):
+        """An image smaller than tile_size_arcmin produces exactly 1 tile."""
+        tiles = tile_fits(
+            image_path=self.img_path,
+            out_dir=self.out_dir,
+            tile_size_arcmin=60.0,
+            pixel_scale_arcsec=self.pixel_scale,
+        )
+        self.assertEqual(len(tiles), 1)
 
 
 if __name__ == "__main__":

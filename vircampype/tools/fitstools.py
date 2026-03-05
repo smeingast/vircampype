@@ -1,6 +1,7 @@
 import os.path
 import re
 import warnings
+from pathlib import Path
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -44,6 +45,7 @@ __all__ = [
     "combine_mjd_images",
     "fits2ldac",
     "read_fits_headers",
+    "tile_fits",
 ]
 
 
@@ -1015,3 +1017,151 @@ def build_qc_summary_row(
         "maglim": round(maglim, 3) if not np.isnan(maglim) else np.nan,
         "mag_saturation": mag_saturation,
     }
+
+
+def _compute_tile_edges(n: int, ntiles: int) -> list[tuple[int, int]]:
+    """
+    Split [0, n) into *ntiles* contiguous ranges whose union covers the interval.
+
+    Returns list of (start, end) with end exclusive. First tiles may be 1 pixel
+    larger when *n* is not evenly divisible.
+    """
+    base = n // ntiles
+    rem = n % ntiles
+    edges = []
+    start = 0
+    for i in range(ntiles):
+        size = base + (1 if i < rem else 0)
+        edges.append((start, start + size))
+        start += size
+    return edges
+
+
+def _update_wcs_for_cutout(header: fits.Header, x0: int, y0: int) -> fits.Header:
+    """Shift CRPIX so the WCS remains valid for a cutout starting at (x0, y0)."""
+    hdr = header.copy()
+    if "CRPIX1" in hdr:
+        hdr["CRPIX1"] = hdr["CRPIX1"] - x0
+    if "CRPIX2" in hdr:
+        hdr["CRPIX2"] = hdr["CRPIX2"] - y0
+    hdr["TIL_X0"] = (x0, "Tile origin X in parent image (0-based)")
+    hdr["TIL_Y0"] = (y0, "Tile origin Y in parent image (0-based)")
+    return hdr
+
+
+def tile_fits(
+    image_path: str,
+    out_dir: str,
+    tile_size_arcmin: float = 10.0,
+    pixel_scale_arcsec: float = 1 / 3,
+    overlap_pix: int = 0,
+    weight_path: str | None = None,
+    prefix: str = "tile",
+    overwrite: bool = True,
+) -> list[dict]:
+    """
+    Tile a FITS image (and optional weight) into sub-images of a given angular size.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the input FITS image.
+    out_dir : str
+        Output directory for the tiles.
+    tile_size_arcmin : float
+        Target tile size in arcminutes.
+    pixel_scale_arcsec : float
+        Pixel scale in arcseconds.
+    overlap_pix : int
+        Overlap in pixels on each side of a tile.
+    weight_path : str or None
+        Path to the weight image. If given, weight tiles are written alongside.
+    prefix : str
+        Filename prefix for the output tiles.
+    overwrite : bool
+        Overwrite existing tile files.
+
+    Returns
+    -------
+    list[dict]
+        One dict per tile with keys ``"image"``, ``"weight"`` (or None), and
+        ``"grid_index"`` (i, j).
+
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    tile_size_pix = int(round(tile_size_arcmin * 60.0 / pixel_scale_arcsec))
+
+    with fits.open(image_path, memmap=True) as hdul:
+        data = hdul[0].data
+        header = hdul[0].header
+
+        if data is None or data.ndim != 2:
+            raise ValueError(f"Expected 2D image, got {image_path}")
+
+        ny_img, nx_img = data.shape
+        nx_tiles = max(1, int(round(nx_img / tile_size_pix)))
+        ny_tiles = max(1, int(round(ny_img / tile_size_pix)))
+
+        x_ranges = _compute_tile_edges(nx_img, nx_tiles)
+        y_ranges = _compute_tile_edges(ny_img, ny_tiles)
+
+        # Optionally open weight
+        weight_data = None
+        if weight_path is not None:
+            whdul = fits.open(weight_path, memmap=True)
+            weight_data = whdul[0].data
+
+        tiles = []
+        for j, (y_start, y_end) in enumerate(y_ranges):
+            for i, (x_start, x_end) in enumerate(x_ranges):
+                # Expand by overlap, clip to image bounds
+                x0 = max(0, x_start - overlap_pix)
+                x1 = min(nx_img, x_end + overlap_pix)
+                y0 = max(0, y_start - overlap_pix)
+                y1 = min(ny_img, y_end + overlap_pix)
+
+                tile_header = _update_wcs_for_cutout(header, x0, y0)
+                tile_data = np.array(data[y0:y1, x0:x1], copy=False)
+
+                tile_name = f"{prefix}_x{i:03d}_y{j:03d}.fits"
+                tile_path = str(out_dir / tile_name)
+
+                if overwrite or not os.path.isfile(tile_path):
+                    fits.writeto(
+                        tile_path,
+                        tile_data,
+                        header=tile_header,
+                        overwrite=overwrite,
+                        output_verify="fix",
+                    )
+
+                tile_info = {
+                    "image": tile_path,
+                    "weight": None,
+                    "grid_index": (i, j),
+                }
+
+                # Write weight tile
+                if weight_data is not None:
+                    weight_tile = np.array(weight_data[y0:y1, x0:x1], copy=False)
+                    weight_name = f"{prefix}_x{i:03d}_y{j:03d}.weight.fits"
+                    weight_tile_path = str(out_dir / weight_name)
+
+                    if overwrite or not os.path.isfile(weight_tile_path):
+                        fits.writeto(
+                            weight_tile_path,
+                            weight_tile,
+                            header=tile_header,
+                            overwrite=overwrite,
+                            output_verify="fix",
+                        )
+                    tile_info["weight"] = weight_tile_path
+
+                tiles.append(tile_info)
+
+        if weight_data is not None:
+            whdul.close()
+
+    return tiles
