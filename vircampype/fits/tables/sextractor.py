@@ -121,8 +121,17 @@ class SextractorCatalogs(SourceCatalogs):
         # Construct XML path
         path_xml = f"{self.setup.folders['qc_astrometry']}scamp.xml"
 
+        # Restore cached .ahead files if available
+        ahead_paths = self._scamp_header_paths(joined=False)
+        if self.setup.scamp_cache_dir is not None:
+            for ap in ahead_paths:
+                cached = os.path.join(self.setup.scamp_cache_dir, os.path.basename(ap))
+                if os.path.isfile(cached) and not os.path.isfile(ap):
+                    rsync_file(cached, ap)
+                    log.info(f"Restored cached ahead file: {os.path.basename(ap)}")
+
         # Check for external headers
-        ehdrs = [os.path.isfile(p) for p in self._scamp_header_paths(joined=False)]
+        ehdrs = [os.path.isfile(p) for p in ahead_paths]
 
         # If already available, skip
         if np.sum(ehdrs) == len(self):
@@ -198,6 +207,15 @@ class SextractorCatalogs(SourceCatalogs):
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
+
+        # Cache .ahead files for future reprocessing
+        if self.setup.scamp_cache_dir is not None:
+            for ap in ahead_paths:
+                if os.path.isfile(ap):
+                    rsync_file(ap, self.setup.scamp_cache_dir)
+            log.info(
+                f"Cached {len(ahead_paths)} ahead files to {self.setup.scamp_cache_dir}"
+            )
 
         # Print time
         elapsed = time.time() - tstart

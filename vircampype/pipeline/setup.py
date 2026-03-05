@@ -89,6 +89,7 @@ class Setup:
     local_gaia_catalog: str | None = (
         None  # Path to local Gaia FITS catalog (skip download)
     )
+    scamp_cache_dir: str | None = None  # Directory for caching SCAMP .ahead files
 
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"  # Photometric reference catalog
@@ -321,6 +322,11 @@ class Setup:
                 raise PipelineValueError(
                     f"Local 2MASS catalog not found: '{self.local_2mass_catalog}'"
                 )
+
+        # Set up SCAMP cache directory
+        if self.scamp_cache_dir is not None:
+            self.scamp_cache_dir = os.path.join(self.scamp_cache_dir, self.name, "")
+            os.makedirs(self.scamp_cache_dir, exist_ok=True)
 
         # Set keywords
         self.keywords = HeaderKeywords()
