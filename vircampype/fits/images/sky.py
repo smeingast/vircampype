@@ -2427,15 +2427,18 @@ class SkyImagesResampled(SkyImagesProcessed):
             cpkw_data = files.read_from_data_headers(keywords=cpkw)
             cpkw_dict = dict(zip(cpkw, cpkw_data))
 
-            # Loop over extensions
+            # Loop over extensions — write SWarp intermediates to local temp
+            tmpdir_stacks = make_system_tempdir()
             paths_temp_stacks, paths_temp_weights = [], []
             for idx_data_hdu, idx_iter_hdu in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
-                # Construct output path
-                paths_temp_stacks.append(f"{path_stack}_{idx_data_hdu:02d}.fits")
+                # Construct output path in local temp directory
+                paths_temp_stacks.append(
+                    f"{tmpdir_stacks}stack_{idx_data_hdu:02d}.fits"
+                )
                 paths_temp_weights.append(
-                    f"{os.path.splitext(paths_temp_stacks[-1])[0]}.weight.fits"
+                    f"{tmpdir_stacks}stack_{idx_data_hdu:02d}.weight.fits"
                 )
 
                 # Build swarp options
@@ -2595,9 +2598,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             log.info(f"Written: {path_stack}")
 
-            # Remove intermediate files
-            [os.remove(x) for x in paths_temp_stacks]
-            [os.remove(x) for x in paths_temp_weights]
+            # Remove intermediate temp directory
+            remove_directory(tmpdir_stacks)
 
         # Print time
         elapsed = time.time() - tstart

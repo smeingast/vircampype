@@ -478,9 +478,15 @@ class ImageCube(object):
             ]
         )
 
-        # Prepend PrimaryHDU and write
+        # Prepend PrimaryHDU and write via local temp to avoid many small
+        # NAS writes; a single large sequential copy is much faster.
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
-        hdulist.writeto(fileobj=path, overwrite=overwrite)
+        path_temp = make_path_system_tempfile(suffix=".fits")
+        try:
+            hdulist.writeto(fileobj=path_temp, overwrite=True)
+            rsync_file(path_temp, path)
+        finally:
+            remove_file(path_temp)
 
     # =========================================================================== #
     # Masking

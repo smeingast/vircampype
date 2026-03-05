@@ -15,6 +15,8 @@ from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
+    remove_file,
+    rsync_file,
     run_commands_shell_parallel,
     which,
 )
@@ -299,7 +301,13 @@ def make_mef_image(
                 hdr.set("EXTNAME", value=f"HDU{pidx + 1:>02d}", after="BITPIX")
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
 
-    hdulist.writeto(path_output, overwrite=overwrite)
+    # Write via local temp to avoid many small NAS writes
+    path_temp = make_path_system_tempfile(suffix=".fits")
+    try:
+        hdulist.writeto(path_temp, overwrite=True)
+        rsync_file(path_temp, path_output)
+    finally:
+        remove_file(path_temp)
 
 
 def merge_headers(path_1: str, path_2: str, primary_only: bool = False) -> None:
