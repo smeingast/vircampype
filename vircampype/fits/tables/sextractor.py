@@ -124,11 +124,17 @@ class SextractorCatalogs(SourceCatalogs):
         # Restore cached .ahead files if available
         ahead_paths = self._scamp_header_paths(joined=False)
         if self.setup.scamp_cache_dir is not None:
+            n_restored = 0
             for ap in ahead_paths:
                 cached = os.path.join(self.setup.scamp_cache_dir, os.path.basename(ap))
                 if os.path.isfile(cached) and not os.path.isfile(ap):
                     rsync_file(cached, ap)
                     log.info(f"Restored cached ahead file: {os.path.basename(ap)}")
+                    n_restored += 1
+            if n_restored > 0:
+                print(
+                    f"Restored {n_restored} cached scamp headers from {self.setup.scamp_cache_dir}"
+                )
 
         # Check for external headers
         ehdrs = [os.path.isfile(p) for p in ahead_paths]
