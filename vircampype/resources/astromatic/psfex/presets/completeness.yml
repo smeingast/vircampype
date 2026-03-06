@@ -36,6 +36,7 @@ SAMPLE_VARIABILITY: 0.3
 SAMPLE_MINSN:       20
 SAMPLE_MAXELLIP:    0.2
 SAMPLE_FLAGMASK:    0x00fe
+BADPIXEL_FILTER:    Y
 
 #----------------------------- Output catalogs -------------------------------
 
