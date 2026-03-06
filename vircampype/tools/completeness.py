@@ -590,7 +590,7 @@ def run_completeness(
     if n_jobs > 1:
         from joblib import Parallel, delayed
 
-        raw_results = Parallel(n_jobs=n_jobs, prefer="processes")(
+        raw_results = Parallel(n_jobs=n_jobs, prefer="processes", verbose=10)(
             delayed(measure_completeness)(tile_info=tile, **kwargs)
             for tile in valid_tiles
         )
