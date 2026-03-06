@@ -552,6 +552,12 @@ def run_completeness(
         overwrite=False,
     )
 
+    print_message(
+        message=f"Tiled into {len(tile_infos)} sub-tiles, building PSF models",
+        kind="okblue",
+        end="\n",
+    )
+
     # 2. Build PSF models
     tile_infos = build_psf_models(tile_infos=tile_infos, setup=setup, psf_dir=psf_dir)
 
@@ -731,17 +737,18 @@ def plot_completeness_tile(
     if not results:
         return
 
-    # Stack completeness arrays and average
+    # Stack completeness arrays and take median
     mag_center = results[0]["mag_center"]
     comp_stack = np.array([r["completeness"] for r in results])
     err_stack = np.array([r["completeness_err"] for r in results])
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
-        comp_mean = np.nanmean(comp_stack, axis=0)
-        # Propagate errors: std of means + mean of per-tile errors
-        comp_scatter = np.nanstd(comp_stack, axis=0)
-        comp_err = np.sqrt(comp_scatter**2 + np.nanmean(err_stack**2, axis=0))
+        comp_mean = np.nanmedian(comp_stack, axis=0)
+        # Scatter: MAD-based robust estimate + median of per-tile errors
+        mad = np.nanmedian(np.abs(comp_stack - comp_mean), axis=0)
+        comp_scatter = 1.4826 * mad  # scaled MAD ≈ std for normal data
+        comp_err = np.sqrt(comp_scatter**2 + np.nanmedian(err_stack**2, axis=0))
 
     # Fit logistic to the tile-average curve
     fit_params = None
@@ -780,7 +787,7 @@ def plot_completeness_tile(
         capsize=2,
         lw=0.8,
         zorder=2,
-        label="Mean across sub-tiles",
+        label="Median across sub-tiles",
     )
 
     if fit_params is not None:

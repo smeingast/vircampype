@@ -891,6 +891,11 @@ class Pipeline:
         )
 
         if results:
+            print_message(
+                message=f"Generating QC plots and completeness image",
+                kind="okblue",
+                end="\n",
+            )
             plot_completeness_curves(
                 results=results,
                 out_path=os.path.join(qc_dir, "completeness_curves.pdf"),
