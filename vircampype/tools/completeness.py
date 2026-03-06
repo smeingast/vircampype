@@ -500,20 +500,10 @@ def measure_completeness(
     #     if os.path.isfile(p):
     #         os.remove(p)
 
-    # Average completeness across iterations with sigma-clipping
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        comp_array = np.array(all_completeness)
-
-        # Per-bin 3-sigma clipping based on median/MAD
-        median = np.nanmedian(comp_array, axis=0)
-        mad = np.nanmedian(np.abs(comp_array - median), axis=0)
-        sigma = 1.4826 * mad  # scaled MAD ≈ std
-        mask = np.abs(comp_array - median) > 3 * np.maximum(sigma, 1e-6)
-        comp_clipped = np.where(mask, np.nan, comp_array)
-
-        comp_mean = np.nanmean(comp_clipped, axis=0)
-        comp_err = np.nanstd(comp_clipped, axis=0)
+    # Average completeness across iterations
+    comp_array = np.array(all_completeness)
+    comp_mean = np.nanmean(comp_array, axis=0)
+    comp_err = np.nanstd(comp_array, axis=0)
 
     # Fit logistic curve
     fit_params = None
@@ -788,24 +778,15 @@ def plot_completeness_tile(
     if not results:
         return
 
-    # Stack completeness arrays and compute sigma-clipped mean
+    # Stack completeness arrays and compute mean across sub-tiles
     mag_center = results[0]["mag_center"]
     comp_stack = np.array([r["completeness"] for r in results])
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        # Per-bin 3-sigma clipping based on median/MAD
-        median = np.nanmedian(comp_stack, axis=0)
-        mad = np.nanmedian(np.abs(comp_stack - median), axis=0)
-        sigma = 1.4826 * mad
-        mask = np.abs(comp_stack - median) > 3 * np.maximum(sigma, 1e-6)
-        comp_clipped = np.where(mask, np.nan, comp_stack)
-
-        comp_mean = np.nanmean(comp_clipped, axis=0)
-        # Asymmetric error bars from 16th/84th percentiles
-        pct_lo = np.nanpercentile(comp_clipped, 16, axis=0)
-        pct_hi = np.nanpercentile(comp_clipped, 84, axis=0)
-        comp_err = np.array([comp_mean - pct_lo, pct_hi - comp_mean])
+    comp_mean = np.nanmean(comp_stack, axis=0)
+    # Asymmetric error bars from 16th/84th percentiles
+    pct_lo = np.nanpercentile(comp_stack, 16, axis=0)
+    pct_hi = np.nanpercentile(comp_stack, 84, axis=0)
+    comp_err = np.array([comp_mean - pct_lo, pct_hi - comp_mean])
 
     # Fit logistic to the tile-average curve
     fit_params = None
@@ -1167,17 +1148,9 @@ def save_completeness_results(
     # --- Tile summary ---
     comp_stack = np.array([r["completeness"] for r in results])
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        median = np.nanmedian(comp_stack, axis=0)
-        mad = np.nanmedian(np.abs(comp_stack - median), axis=0)
-        sigma = 1.4826 * mad
-        mask = np.abs(comp_stack - median) > 3 * np.maximum(sigma, 1e-6)
-        comp_clipped = np.where(mask, np.nan, comp_stack)
-
-        comp_mean = np.nanmean(comp_clipped, axis=0)
-        pct_lo = np.nanpercentile(comp_clipped, 16, axis=0)
-        pct_hi = np.nanpercentile(comp_clipped, 84, axis=0)
+    comp_mean = np.nanmean(comp_stack, axis=0)
+    pct_lo = np.nanpercentile(comp_stack, 16, axis=0)
+    pct_hi = np.nanpercentile(comp_stack, 84, axis=0)
 
     # Fit logistic to tile-average curve
     tile_fit = np.full(5, np.nan, dtype=np.float32)
