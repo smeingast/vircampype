@@ -750,10 +750,10 @@ def plot_completeness_tile(
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
         comp_mean = np.nanmedian(comp_stack, axis=0)
-        # Scatter: MAD-based robust estimate + median of per-tile errors
-        mad = np.nanmedian(np.abs(comp_stack - comp_mean), axis=0)
-        comp_scatter = 1.4826 * mad  # scaled MAD ≈ std for normal data
-        comp_err = np.sqrt(comp_scatter**2 + np.nanmedian(err_stack**2, axis=0))
+        # Asymmetric error bars from 16th/84th percentiles
+        pct_lo = np.nanpercentile(comp_stack, 16, axis=0)
+        pct_hi = np.nanpercentile(comp_stack, 84, axis=0)
+        comp_err = np.array([comp_mean - pct_lo, pct_hi - comp_mean])
 
     # Fit logistic to the tile-average curve
     fit_params = None
