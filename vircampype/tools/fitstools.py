@@ -1,5 +1,6 @@
 import os.path
 import re
+import time
 import warnings
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from astropy.time import Time
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.misc import *
 from vircampype.tools.mathtools import clipped_median
+from vircampype.tools.messaging import print_header, print_message
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
@@ -24,6 +26,7 @@ from vircampype.tools.systemtools import (
 from vircampype.tools.wcstools import header_reset_wcs
 
 __all__ = [
+    "build_qc_summary",
     "build_qc_summary_row",
     "check_card_value",
     "make_card",
@@ -1203,3 +1206,100 @@ def tile_fits(
             whdul.close()
 
     return tiles
+
+
+def build_qc_summary(
+    setup,
+    stacks=None,
+    stacks_catalogs=None,
+    tile=None,
+    tile_catalog=None,
+) -> str | None:
+    """Build a QC summary table aggregating key metrics from stacks and tile.
+
+    Parameters
+    ----------
+    setup
+        Pipeline Setup instance.
+    stacks
+        Stack images (FitsImages), or None.
+    stacks_catalogs
+        Calibrated stack catalogs, or None.
+    tile
+        Tile image (FitsImages), or None.
+    tile_catalog
+        Calibrated tile catalog, or None.
+
+    Returns
+    -------
+    str or None
+        Path to the written summary table, or None if no rows were collected.
+
+    """
+
+    print_header(
+        header="QC SUMMARY TABLE",
+        silent=setup.silent,
+        left=None,
+        right=None,
+    )
+    log = PipelineLog()
+    tstart = time.time()
+
+    kw = {
+        "filter_keyword": setup.keywords.filter_name,
+        "mag_saturation": setup.reference_mag_lo,
+    }
+    rows = []
+
+    # Collect rows from stacks
+    if stacks is not None and stacks_catalogs is not None:
+        for idx in range(len(stacks)):
+            try:
+                rows.append(
+                    build_qc_summary_row(
+                        image_path=stacks.paths_full[idx],
+                        catalog_path=stacks_catalogs.paths_full[idx],
+                        product_type="stack",
+                        **kw,
+                    )
+                )
+            except Exception as e:
+                log.warning(f"QC summary: skipping stack {idx}: {e}")
+
+    # Collect row from tile
+    if tile is not None and tile_catalog is not None:
+        try:
+            rows.append(
+                build_qc_summary_row(
+                    image_path=tile.paths_full[0],
+                    catalog_path=tile_catalog.paths_full[0],
+                    product_type="tile",
+                    **kw,
+                )
+            )
+        except Exception as e:
+            log.warning(f"QC summary: skipping tile: {e}")
+
+    if not rows:
+        print_message(
+            message="No products available for QC summary",
+            kind="warning",
+            end=None,
+        )
+        return None
+
+    # Build and write table
+    qc_table = Table(rows=rows)
+    path_out = os.path.join(setup.folders["qc"], "qc_summary.ecsv")
+    qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
+
+    print_message(
+        message=f"\n-> QC summary written to {os.path.basename(path_out)} "
+        f"({len(rows)} products, {time.time() - tstart:.1f}s)",
+        kind="okblue",
+        end="\n",
+        logger=log,
+    )
+
+    return path_out
