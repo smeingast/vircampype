@@ -930,14 +930,15 @@ class Pipeline:
                 weight_path=weight_path,
             )
 
-            # Compute and store comp90 summary in tile header
+            # Compute and store completeness summary in tile header
             comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
-            if comp90_values:
-                comp90_med = float(np.median(comp90_values))
-                comp90_min = float(np.min(comp90_values))
-                comp90_max = float(np.max(comp90_values))
+            comp50_values = [r["comp50"] for r in results if np.isfinite(r["comp50"])]
 
-                with fits.open(image_path, mode="update") as hdul:
+            with fits.open(image_path, mode="update") as hdul:
+                if comp90_values:
+                    comp90_med = float(np.median(comp90_values))
+                    comp90_min = float(np.min(comp90_values))
+                    comp90_max = float(np.max(comp90_values))
                     hdul[0].header["HIERARCH PYPE COMP90 MED"] = (
                         round(comp90_med, 3),
                         "Median 90% completeness (mag)",
@@ -950,20 +951,38 @@ class Pipeline:
                         round(comp90_max, 3),
                         "Max 90% completeness (mag)",
                     )
+                if comp50_values:
+                    comp50_med = float(np.median(comp50_values))
+                    comp50_min = float(np.min(comp50_values))
+                    comp50_max = float(np.max(comp50_values))
+                    hdul[0].header["HIERARCH PYPE COMP50 MED"] = (
+                        round(comp50_med, 3),
+                        "Median 50% completeness (mag)",
+                    )
+                    hdul[0].header["HIERARCH PYPE COMP50 MIN"] = (
+                        round(comp50_min, 3),
+                        "Min 50% completeness (mag)",
+                    )
+                    hdul[0].header["HIERARCH PYPE COMP50 MAX"] = (
+                        round(comp50_max, 3),
+                        "Max 50% completeness (mag)",
+                    )
 
-                log = PipelineLog()
-                log.info(
+            log = PipelineLog()
+            if comp90_values:
+                msg90 = (
                     f"Completeness 90%: median={comp90_med:.2f} "
-                    f"min={comp90_min:.2f} max={comp90_max:.2f} mag "
-                    f"({len(comp90_values)} sub-tiles)"
+                    f"min={comp90_min:.2f} max={comp90_max:.2f} mag"
                 )
-                print_message(
-                    message=f"Completeness 90%: median={comp90_med:.2f} "
-                    f"min={comp90_min:.2f} max={comp90_max:.2f} mag "
-                    f"({len(comp90_values)} sub-tiles)",
-                    kind="okblue",
-                    end="\n",
+                log.info(f"{msg90} ({len(comp90_values)} sub-tiles)")
+                print_message(message=msg90, kind="okblue", end="\n")
+            if comp50_values:
+                msg50 = (
+                    f"Completeness 50%: median={comp50_med:.2f} "
+                    f"min={comp50_min:.2f} max={comp50_max:.2f} mag"
                 )
+                log.info(f"{msg50} ({len(comp50_values)} sub-tiles)")
+                print_message(message=msg50, kind="okblue", end="\n")
 
         print_message(
             message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",

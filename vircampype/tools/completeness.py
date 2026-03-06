@@ -298,6 +298,7 @@ def measure_completeness(
         - ``completeness``: mean recovery fraction (%)
         - ``completeness_err``: std across iterations (%)
         - ``comp90``: magnitude at 90 % completeness (from fit)
+        - ``comp50``: magnitude at 50 % completeness (from fit)
         - ``fit_params``: logistic fit parameters
         - ``grid_index``: (i, j) from tile_info
 
@@ -471,6 +472,7 @@ def measure_completeness(
     # Fit logistic curve
     fit_params = None
     comp90 = np.nan
+    comp50 = np.nan
     try:
         clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
         if np.sum(clean) > 4:
@@ -485,11 +487,13 @@ def measure_completeness(
             )
             fit_params = popt
 
-            # Find 90% completeness from fit
+            # Find 90% and 50% completeness from fit
             x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
             y_fine = _logistic(x_fine, *popt)
             idx_90 = np.argmin(np.abs(y_fine - 90))
             comp90 = x_fine[idx_90]
+            idx_50 = np.argmin(np.abs(y_fine - 50))
+            comp50 = x_fine[idx_50]
     except (RuntimeError, ValueError):
         pass
 
@@ -498,6 +502,7 @@ def measure_completeness(
         "completeness": comp_mean,
         "completeness_err": comp_err,
         "comp90": comp90,
+        "comp50": comp50,
         "fit_params": fit_params,
         "grid_index": tile_info.get("grid_index"),
     }
@@ -753,6 +758,7 @@ def plot_completeness_tile(
     # Fit logistic to the tile-average curve
     fit_params = None
     comp90 = np.nan
+    comp50 = np.nan
     try:
         clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
         if np.sum(clean) > 4:
@@ -770,6 +776,8 @@ def plot_completeness_tile(
             y_fine = _logistic(x_fine, *popt)
             idx_90 = np.argmin(np.abs(y_fine - 90))
             comp90 = x_fine[idx_90]
+            idx_50 = np.argmin(np.abs(y_fine - 50))
+            comp50 = x_fine[idx_50]
     except (RuntimeError, ValueError):
         pass
 
@@ -798,12 +806,22 @@ def plot_completeness_tile(
         )
 
     ax.axhline(90, ls="--", color="grey", lw=0.7, zorder=1)
+    ax.axhline(50, ls="--", color="grey", lw=0.7, zorder=1)
     if np.isfinite(comp90):
         ax.axvline(comp90, ls=":", color="#e34a33", lw=0.7, zorder=1)
         ax.text(
             comp90 + 0.1,
             85,
             f"90%: {comp90:.2f}",
+            fontsize=9,
+            color="#e34a33",
+        )
+    if np.isfinite(comp50):
+        ax.axvline(comp50, ls=":", color="#e34a33", lw=0.7, zorder=1)
+        ax.text(
+            comp50 + 0.1,
+            45,
+            f"50%: {comp50:.2f}",
             fontsize=9,
             color="#e34a33",
         )
