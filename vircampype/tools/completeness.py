@@ -462,12 +462,20 @@ def measure_completeness(
     #     if os.path.isfile(p):
     #         os.remove(p)
 
-    # Average completeness across iterations
+    # Average completeness across iterations with sigma-clipping
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
         comp_array = np.array(all_completeness)
-        comp_mean = np.nanmean(comp_array, axis=0)
-        comp_err = np.nanstd(comp_array, axis=0)
+
+        # Per-bin 3-sigma clipping based on median/MAD
+        median = np.nanmedian(comp_array, axis=0)
+        mad = np.nanmedian(np.abs(comp_array - median), axis=0)
+        sigma = 1.4826 * mad  # scaled MAD ≈ std
+        mask = np.abs(comp_array - median) > 3 * np.maximum(sigma, 1e-6)
+        comp_clipped = np.where(mask, np.nan, comp_array)
+
+        comp_mean = np.nanmean(comp_clipped, axis=0)
+        comp_err = np.nanstd(comp_clipped, axis=0)
 
     # Fit logistic curve
     fit_params = None

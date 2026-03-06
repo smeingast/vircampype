@@ -282,7 +282,7 @@ class Setup:
     completeness_mag_lo: float = 14.0  # Bright end of magnitude range
     completeness_mag_hi: float = 22.5  # Faint end of magnitude range
     completeness_mag_bin: float = 0.25  # Magnitude bin width
-    completeness_n_stars: int = 100  # Artificial stars injected per iteration
+    completeness_n_stars: int = 200  # Artificial stars injected per iteration
 
     # Binary names
     bin_sex: str = "sex"  # SExtractor binary name
