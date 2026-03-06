@@ -35,10 +35,10 @@ RUN git clone https://github.com/astromatic/psfex.git && \
     cd /root/psfex && \
     ./autogen.sh && ./configure --enable-openblas --enable-plplot && make && make install
 
-# Install SkyMaker
+# Install SkyMaker (legacy code needs C17 mode; C23 default treats () as (void))
 RUN git clone https://github.com/astromatic/skymaker.git && \
     cd /root/skymaker && \
-    ./autogen.sh && ./configure && make && make install
+    ./autogen.sh && CFLAGS="-O2 -std=gnu17" ./configure && make && make install
 
 # Install Swarp
 RUN git clone https://github.com/astromatic/swarp.git && \
