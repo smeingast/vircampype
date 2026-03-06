@@ -619,7 +619,12 @@ def run_completeness(
         iterations=setup.completeness_iterations,
         mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
         mag_bin=setup.completeness_mag_bin,
-        n_stars=setup.completeness_n_stars,
+        n_stars=max(
+            10,
+            int(
+                setup.completeness_star_density * setup.completeness_tile_size_arcmin**2
+            ),
+        ),
     )
 
     tstart = time.time()
