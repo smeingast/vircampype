@@ -24,11 +24,14 @@ from vircampype.tools.systemtools import (
 __all__ = [
     "build_completeness_image",
     "build_psf_models",
+    "load_completeness_results",
     "measure_completeness",
     "plot_completeness_curves",
     "plot_completeness_map",
     "plot_completeness_tile",
+    "qc_completeness_tile",
     "run_completeness",
+    "save_completeness_results",
 ]
 
 
@@ -1044,3 +1047,398 @@ def build_completeness_image(
     hdr["BUNIT"] = ("mag", "90% completeness magnitude")
 
     fits.writeto(out_path, image.astype(np.float32), header=hdr, overwrite=True)
+
+
+# --------------------------------------------------------------------------- #
+# Results I/O
+# --------------------------------------------------------------------------- #
+def save_completeness_results(
+    results: list[dict],
+    out_path: str,
+    mag_range: tuple[float, float] = (15.0, 22.5),
+) -> None:
+    """
+    Save completeness results to a FITS file with two binary table HDUs.
+
+    HDU 1 (TILE_SUMMARY): sigma-clipped mean curve across all sub-tiles with
+    percentiles and logistic fit parameters.
+
+    HDU 2 (SUBTILES): one row per sub-tile with per-bin completeness arrays
+    and fit parameters.
+
+    Parameters
+    ----------
+    results : list[dict]
+        Output of :func:`run_completeness`.
+    out_path : str
+        Output FITS file path.
+    mag_range : tuple[float, float]
+        Magnitude range used for fitting.
+
+    """
+    if not results:
+        return
+
+    mag_center = results[0]["mag_center"]
+    n_bins = len(mag_center)
+
+    # --- Subtiles table ---
+    n_sub = len(results)
+    grid_i = np.zeros(n_sub, dtype=np.int32)
+    grid_j = np.zeros(n_sub, dtype=np.int32)
+    comp_arr = np.full((n_sub, n_bins), np.nan, dtype=np.float32)
+    comp_err_arr = np.full((n_sub, n_bins), np.nan, dtype=np.float32)
+    comp90_arr = np.full(n_sub, np.nan, dtype=np.float32)
+    comp50_arr = np.full(n_sub, np.nan, dtype=np.float32)
+    fit_l = np.full(n_sub, np.nan, dtype=np.float32)
+    fit_k = np.full(n_sub, np.nan, dtype=np.float32)
+    fit_x0 = np.full(n_sub, np.nan, dtype=np.float32)
+    fit_offset = np.full(n_sub, np.nan, dtype=np.float32)
+    fit_slope = np.full(n_sub, np.nan, dtype=np.float32)
+
+    for idx, r in enumerate(results):
+        gi = r.get("grid_index")
+        if gi is not None:
+            grid_i[idx], grid_j[idx] = gi
+        comp_arr[idx] = r["completeness"]
+        comp_err_arr[idx] = r["completeness_err"]
+        comp90_arr[idx] = r["comp90"]
+        comp50_arr[idx] = r["comp50"]
+        if r["fit_params"] is not None:
+            fit_l[idx] = r["fit_params"][0]
+            fit_k[idx] = r["fit_params"][1]
+            fit_x0[idx] = r["fit_params"][2]
+            fit_offset[idx] = r["fit_params"][3]
+            fit_slope[idx] = r["fit_params"][4]
+
+    subtile_cols = [
+        fits.Column(name="grid_i", format="J", array=grid_i),
+        fits.Column(name="grid_j", format="J", array=grid_j),
+        fits.Column(
+            name="mag_center", format=f"{n_bins}E", array=comp_arr * 0 + mag_center
+        ),
+        fits.Column(name="completeness", format=f"{n_bins}E", array=comp_arr),
+        fits.Column(name="completeness_err", format=f"{n_bins}E", array=comp_err_arr),
+        fits.Column(name="comp90", format="E", array=comp90_arr),
+        fits.Column(name="comp50", format="E", array=comp50_arr),
+        fits.Column(name="fit_l", format="E", array=fit_l),
+        fits.Column(name="fit_k", format="E", array=fit_k),
+        fits.Column(name="fit_x0", format="E", array=fit_x0),
+        fits.Column(name="fit_offset", format="E", array=fit_offset),
+        fits.Column(name="fit_slope", format="E", array=fit_slope),
+    ]
+    subtile_hdu = fits.BinTableHDU.from_columns(subtile_cols, name="SUBTILES")
+
+    # --- Tile summary ---
+    comp_stack = np.array([r["completeness"] for r in results])
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        median = np.nanmedian(comp_stack, axis=0)
+        mad = np.nanmedian(np.abs(comp_stack - median), axis=0)
+        sigma = 1.4826 * mad
+        mask = np.abs(comp_stack - median) > 3 * np.maximum(sigma, 1e-6)
+        comp_clipped = np.where(mask, np.nan, comp_stack)
+
+        comp_mean = np.nanmean(comp_clipped, axis=0)
+        pct_lo = np.nanpercentile(comp_clipped, 16, axis=0)
+        pct_hi = np.nanpercentile(comp_clipped, 84, axis=0)
+
+    # Fit logistic to tile-average curve
+    tile_fit = np.full(5, np.nan, dtype=np.float32)
+    tile_comp90 = np.nan
+    tile_comp50 = np.nan
+    try:
+        clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
+        if np.sum(clean) > 4:
+            mid = (mag_range[0] + mag_range[1]) / 2
+            popt, _ = curve_fit(
+                _logistic,
+                mag_center[clean],
+                comp_mean[clean],
+                p0=[100, 8, mid, 100, 1.0],
+                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
+                maxfev=10000,
+            )
+            tile_fit = popt.astype(np.float32)
+            x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
+            y_fine = _logistic(x_fine, *popt)
+            tile_comp90 = x_fine[np.argmin(np.abs(y_fine - 90))]
+            tile_comp50 = x_fine[np.argmin(np.abs(y_fine - 50))]
+    except (RuntimeError, ValueError):
+        pass
+
+    tile_cols = [
+        fits.Column(
+            name="mag_center",
+            format=f"{n_bins}E",
+            array=mag_center.reshape(1, -1).astype(np.float32),
+        ),
+        fits.Column(
+            name="comp_mean",
+            format=f"{n_bins}E",
+            array=comp_mean.reshape(1, -1).astype(np.float32),
+        ),
+        fits.Column(
+            name="comp_pct16",
+            format=f"{n_bins}E",
+            array=pct_lo.reshape(1, -1).astype(np.float32),
+        ),
+        fits.Column(
+            name="comp_pct84",
+            format=f"{n_bins}E",
+            array=pct_hi.reshape(1, -1).astype(np.float32),
+        ),
+        fits.Column(
+            name="comp90", format="E", array=np.array([tile_comp90], dtype=np.float32)
+        ),
+        fits.Column(
+            name="comp50", format="E", array=np.array([tile_comp50], dtype=np.float32)
+        ),
+        fits.Column(
+            name="fit_l", format="E", array=np.array([tile_fit[0]], dtype=np.float32)
+        ),
+        fits.Column(
+            name="fit_k", format="E", array=np.array([tile_fit[1]], dtype=np.float32)
+        ),
+        fits.Column(
+            name="fit_x0", format="E", array=np.array([tile_fit[2]], dtype=np.float32)
+        ),
+        fits.Column(
+            name="fit_offset",
+            format="E",
+            array=np.array([tile_fit[3]], dtype=np.float32),
+        ),
+        fits.Column(
+            name="fit_slope",
+            format="E",
+            array=np.array([tile_fit[4]], dtype=np.float32),
+        ),
+    ]
+    tile_hdu = fits.BinTableHDU.from_columns(tile_cols, name="TILE_SUMMARY")
+
+    # Write
+    hdul = fits.HDUList([fits.PrimaryHDU(), tile_hdu, subtile_hdu])
+    hdul.writeto(out_path, overwrite=True)
+
+
+def load_completeness_results(path: str) -> tuple[list[dict], dict]:
+    """
+    Load completeness results from a FITS file written by
+    :func:`save_completeness_results`.
+
+    Parameters
+    ----------
+    path : str
+        Path to the FITS file.
+
+    Returns
+    -------
+    results : list[dict]
+        Per-sub-tile results in the same format as :func:`measure_completeness`.
+    tile_summary : dict
+        Tile-averaged summary with keys ``mag_center``, ``comp_mean``,
+        ``comp_pct16``, ``comp_pct84``, ``comp90``, ``comp50``, ``fit_params``.
+
+    """
+    with fits.open(path) as hdul:
+        # Tile summary
+        tile = hdul["TILE_SUMMARY"].data
+        tile_fit = np.array(
+            [
+                tile["fit_l"][0],
+                tile["fit_k"][0],
+                tile["fit_x0"][0],
+                tile["fit_offset"][0],
+                tile["fit_slope"][0],
+            ]
+        )
+        tile_summary = {
+            "mag_center": np.array(tile["mag_center"][0]),
+            "comp_mean": np.array(tile["comp_mean"][0]),
+            "comp_pct16": np.array(tile["comp_pct16"][0]),
+            "comp_pct84": np.array(tile["comp_pct84"][0]),
+            "comp90": float(tile["comp90"][0]),
+            "comp50": float(tile["comp50"][0]),
+            "fit_params": tile_fit if np.isfinite(tile_fit).all() else None,
+        }
+
+        # Subtiles
+        sub = hdul["SUBTILES"].data
+        results = []
+        for row in sub:
+            fp = np.array(
+                [
+                    row["fit_l"],
+                    row["fit_k"],
+                    row["fit_x0"],
+                    row["fit_offset"],
+                    row["fit_slope"],
+                ]
+            )
+            results.append(
+                {
+                    "mag_center": np.array(row["mag_center"]),
+                    "completeness": np.array(row["completeness"]),
+                    "completeness_err": np.array(row["completeness_err"]),
+                    "comp90": float(row["comp90"]),
+                    "comp50": float(row["comp50"]),
+                    "fit_params": fp if np.isfinite(fp).all() else None,
+                    "grid_index": (int(row["grid_i"]), int(row["grid_j"])),
+                }
+            )
+
+    return results, tile_summary
+
+
+def qc_completeness_tile(image_path: str, setup) -> None:
+    """Run completeness analysis on a tile and generate all QC products.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the tile FITS image.
+    setup
+        Pipeline Setup instance.
+
+    """
+
+    from vircampype.pipeline.log import PipelineLog
+    from vircampype.tools.messaging import check_file_exists, print_header
+
+    print_header(
+        header="TILE QC COMPLETENESS",
+        silent=setup.silent,
+        left=None,
+        right=None,
+    )
+
+    tstart = time.time()
+
+    qc_dir = setup.folders["qc_completeness"]
+    results_path = os.path.join(qc_dir, "completeness_results.fits")
+
+    # Check if completeness results already exist
+    if os.path.isfile(results_path) and not setup.overwrite:
+        check_file_exists(file_path=results_path, silent=setup.silent)
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
+        return
+
+    # Determine weight path (if available)
+    weight_path = None
+    weight_glob = image_path.replace(".fits", ".weight.fits")
+    if os.path.isfile(weight_glob):
+        weight_path = weight_glob
+
+    results = run_completeness(
+        image_path=image_path,
+        weight_path=weight_path,
+        setup=setup,
+        tiles_dir=setup.folders["temp_completeness_tiles"],
+        psf_dir=setup.folders["temp_completeness_psf"],
+    )
+
+    if results:
+        print_message(
+            message=f"Generating QC plots and completeness image",
+            kind="okblue",
+            end="\n",
+        )
+        plot_completeness_curves(
+            results=results,
+            out_path=os.path.join(qc_dir, "completeness_curves.pdf"),
+            mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
+        )
+        plot_completeness_map(
+            results=results,
+            out_path=os.path.join(qc_dir, "completeness_map.pdf"),
+        )
+        plot_completeness_tile(
+            results=results,
+            out_path=os.path.join(qc_dir, "completeness_tile.pdf"),
+            mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
+        )
+
+        # Write completeness FITS image
+        with fits.open(image_path) as hdul:
+            tile_header = hdul[0].header
+            tile_shape = (hdul[0].data.shape[0], hdul[0].data.shape[1])
+        build_completeness_image(
+            results=results,
+            tile_header=tile_header,
+            tile_shape=tile_shape,
+            out_path=os.path.join(qc_dir, "completeness.fits"),
+            resize_factor=setup.image_statistics_resize_factor,
+            weight_path=weight_path,
+        )
+
+        # Save results table
+        save_completeness_results(
+            results=results,
+            out_path=results_path,
+            mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
+        )
+
+        # Compute and store completeness summary in tile header
+        comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
+        comp50_values = [r["comp50"] for r in results if np.isfinite(r["comp50"])]
+
+        with fits.open(image_path, mode="update") as hdul:
+            if comp90_values:
+                comp90_med = float(np.median(comp90_values))
+                comp90_min = float(np.min(comp90_values))
+                comp90_max = float(np.max(comp90_values))
+                hdul[0].header["HIERARCH PYPE COMP90 MED"] = (
+                    round(comp90_med, 3),
+                    "Median 90% completeness (mag)",
+                )
+                hdul[0].header["HIERARCH PYPE COMP90 MIN"] = (
+                    round(comp90_min, 3),
+                    "Min 90% completeness (mag)",
+                )
+                hdul[0].header["HIERARCH PYPE COMP90 MAX"] = (
+                    round(comp90_max, 3),
+                    "Max 90% completeness (mag)",
+                )
+            if comp50_values:
+                comp50_med = float(np.median(comp50_values))
+                comp50_min = float(np.min(comp50_values))
+                comp50_max = float(np.max(comp50_values))
+                hdul[0].header["HIERARCH PYPE COMP50 MED"] = (
+                    round(comp50_med, 3),
+                    "Median 50% completeness (mag)",
+                )
+                hdul[0].header["HIERARCH PYPE COMP50 MIN"] = (
+                    round(comp50_min, 3),
+                    "Min 50% completeness (mag)",
+                )
+                hdul[0].header["HIERARCH PYPE COMP50 MAX"] = (
+                    round(comp50_max, 3),
+                    "Max 50% completeness (mag)",
+                )
+
+        log = PipelineLog()
+        if comp90_values:
+            msg90 = (
+                f"Completeness 90%: median={comp90_med:.2f} "
+                f"min={comp90_min:.2f} max={comp90_max:.2f} mag"
+            )
+            log.info(f"{msg90} ({len(comp90_values)} sub-tiles)")
+            print_message(message=msg90, kind="okblue", end="\n")
+        if comp50_values:
+            msg50 = (
+                f"Completeness 50%: median={comp50_med:.2f} "
+                f"min={comp50_min:.2f} max={comp50_max:.2f} mag"
+            )
+            log.info(f"{msg50} ({len(comp50_values)} sub-tiles)")
+            print_message(message=msg50, kind="okblue", end="\n")
+
+    print_message(
+        message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+        kind="okblue",
+        end="\n",
+    )

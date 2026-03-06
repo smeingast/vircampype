@@ -3,36 +3,20 @@ import glob
 import json
 import os.path
 import sys
-import time
-
-import numpy as np
-from astropy.io import fits
-from astropy.table import Table
 
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
-from vircampype.tools.completeness import (
-    build_completeness_image,
-    plot_completeness_curves,
-    plot_completeness_map,
-    plot_completeness_tile,
-    run_completeness,
-)
+from vircampype.tools.completeness import qc_completeness_tile
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 from vircampype.tools.fitstools import (
-    build_qc_summary_row,
+    build_qc_summary,
     combine_mjd_images,
     compress_images,
 )
-from vircampype.tools.messaging import (
-    print_end,
-    print_header,
-    print_message,
-    print_start,
-)
+from vircampype.tools.messaging import print_end, print_message, print_start
 from vircampype.tools.systemtools import *
 
 
@@ -862,132 +846,9 @@ class Pipeline:
     @pipeline_step("qc_completeness_tile", message="TILE QC COMPLETENESS")
     def qc_completeness_tile(self):
         """Run completeness analysis on the tile and generate QC plots."""
-        print_header(
-            header="TILE QC COMPLETENESS",
-            silent=self.setup.silent,
-            left=None,
-            right=None,
-        )
-
-        tstart = time.time()
-
-        tile = self.tile
-        image_path = tile.paths_full[0]
-
-        # Determine weight path (if available)
-        weight_path = None
-        weight_glob = image_path.replace(".fits", ".weight.fits")
-        if os.path.isfile(weight_glob):
-            weight_path = weight_glob
-
-        qc_dir = self.setup.folders["qc_completeness"]
-
-        results = run_completeness(
-            image_path=image_path,
-            weight_path=weight_path,
+        qc_completeness_tile(
+            image_path=self.tile.paths_full[0],
             setup=self.setup,
-            tiles_dir=self.setup.folders["temp_completeness_tiles"],
-            psf_dir=self.setup.folders["temp_completeness_psf"],
-        )
-
-        if results:
-            print_message(
-                message=f"Generating QC plots and completeness image",
-                kind="okblue",
-                end="\n",
-            )
-            plot_completeness_curves(
-                results=results,
-                out_path=os.path.join(qc_dir, "completeness_curves.pdf"),
-                mag_range=(
-                    self.setup.completeness_mag_lo,
-                    self.setup.completeness_mag_hi,
-                ),
-            )
-            plot_completeness_map(
-                results=results,
-                out_path=os.path.join(qc_dir, "completeness_map.pdf"),
-            )
-            plot_completeness_tile(
-                results=results,
-                out_path=os.path.join(qc_dir, "completeness_tile.pdf"),
-                mag_range=(
-                    self.setup.completeness_mag_lo,
-                    self.setup.completeness_mag_hi,
-                ),
-            )
-
-            # Write completeness FITS image
-            with fits.open(image_path) as hdul:
-                tile_header = hdul[0].header
-                tile_shape = (hdul[0].data.shape[0], hdul[0].data.shape[1])
-            build_completeness_image(
-                results=results,
-                tile_header=tile_header,
-                tile_shape=tile_shape,
-                out_path=os.path.join(qc_dir, "completeness.fits"),
-                resize_factor=self.setup.image_statistics_resize_factor,
-                weight_path=weight_path,
-            )
-
-            # Compute and store completeness summary in tile header
-            comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
-            comp50_values = [r["comp50"] for r in results if np.isfinite(r["comp50"])]
-
-            with fits.open(image_path, mode="update") as hdul:
-                if comp90_values:
-                    comp90_med = float(np.median(comp90_values))
-                    comp90_min = float(np.min(comp90_values))
-                    comp90_max = float(np.max(comp90_values))
-                    hdul[0].header["HIERARCH PYPE COMP90 MED"] = (
-                        round(comp90_med, 3),
-                        "Median 90% completeness (mag)",
-                    )
-                    hdul[0].header["HIERARCH PYPE COMP90 MIN"] = (
-                        round(comp90_min, 3),
-                        "Min 90% completeness (mag)",
-                    )
-                    hdul[0].header["HIERARCH PYPE COMP90 MAX"] = (
-                        round(comp90_max, 3),
-                        "Max 90% completeness (mag)",
-                    )
-                if comp50_values:
-                    comp50_med = float(np.median(comp50_values))
-                    comp50_min = float(np.min(comp50_values))
-                    comp50_max = float(np.max(comp50_values))
-                    hdul[0].header["HIERARCH PYPE COMP50 MED"] = (
-                        round(comp50_med, 3),
-                        "Median 50% completeness (mag)",
-                    )
-                    hdul[0].header["HIERARCH PYPE COMP50 MIN"] = (
-                        round(comp50_min, 3),
-                        "Min 50% completeness (mag)",
-                    )
-                    hdul[0].header["HIERARCH PYPE COMP50 MAX"] = (
-                        round(comp50_max, 3),
-                        "Max 50% completeness (mag)",
-                    )
-
-            log = PipelineLog()
-            if comp90_values:
-                msg90 = (
-                    f"Completeness 90%: median={comp90_med:.2f} "
-                    f"min={comp90_min:.2f} max={comp90_max:.2f} mag"
-                )
-                log.info(f"{msg90} ({len(comp90_values)} sub-tiles)")
-                print_message(message=msg90, kind="okblue", end="\n")
-            if comp50_values:
-                msg50 = (
-                    f"Completeness 50%: median={comp50_med:.2f} "
-                    f"min={comp50_min:.2f} max={comp50_max:.2f} mag"
-                )
-                log.info(f"{msg50} ({len(comp50_values)} sub-tiles)")
-                print_message(message=msg50, kind="okblue", end="\n")
-
-        print_message(
-            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
-            kind="okblue",
-            end="\n",
         )
 
     # =========================================================================== #
@@ -1001,82 +862,29 @@ class Pipeline:
             )
             return
 
-        print_header(
-            header="QC SUMMARY TABLE",
-            silent=self.setup.silent,
-            left=None,
-            right=None,
-        )
-        log = PipelineLog()
-        tstart = time.time()
-
-        kw = {
-            "filter_keyword": self.setup.keywords.filter_name,
-            "mag_saturation": self.setup.reference_mag_lo,
-        }
-        rows = []
-
-        # Collect rows from stacks
+        stacks = catalogs = tile = tile_cat = None
         if self.setup.build_stacks:
             try:
                 stacks = self.stacks
                 catalogs = self.sources_stacks_cal
-                for idx in range(len(stacks)):
-                    try:
-                        rows.append(
-                            build_qc_summary_row(
-                                image_path=stacks.paths_full[idx],
-                                catalog_path=catalogs.paths_full[idx],
-                                product_type="stack",
-                                **kw,
-                            )
-                        )
-                    except Exception as e:
-                        log.warning(f"QC summary: skipping stack {idx}: {e}")
-            except Exception as e:
-                log.warning(f"QC summary: cannot read stacks: {e}")
-
-        # Collect row from tile
+            except Exception:
+                pass
         if self.setup.build_tile:
             try:
                 tile = self.tile
-                catalog = self.sources_tile_cal
-                try:
-                    rows.append(
-                        build_qc_summary_row(
-                            image_path=tile.paths_full[0],
-                            catalog_path=catalog.paths_full[0],
-                            product_type="tile",
-                            **kw,
-                        )
-                    )
-                except Exception as e:
-                    log.warning(f"QC summary: skipping tile: {e}")
-            except Exception as e:
-                log.warning(f"QC summary: cannot read tile: {e}")
+                tile_cat = self.sources_tile_cal
+            except Exception:
+                pass
 
-        if not rows:
-            print_message(
-                message="No products available for QC summary",
-                kind="warning",
-                end=None,
-            )
-            return
-
-        # Build and write table
-        qc_table = Table(rows=rows)
-        path_out = os.path.join(self.setup.folders["qc"], "qc_summary.ecsv")
-        qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
-
-        print_message(
-            message=f"\n-> QC summary written to {os.path.basename(path_out)} "
-            f"({len(rows)} products, {time.time() - tstart:.1f}s)",
-            kind="okblue",
-            end="\n",
-            logger=log,
+        result = build_qc_summary(
+            setup=self.setup,
+            stacks=stacks,
+            stacks_catalogs=catalogs,
+            tile=tile,
+            tile_catalog=tile_cat,
         )
-
-        self.update_status(qc_summary=True)
+        if result is not None:
+            self.update_status(qc_summary=True)
 
     # =========================================================================== #
     # Phase 3
