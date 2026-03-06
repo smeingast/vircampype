@@ -203,12 +203,17 @@ def build_psf_models(
         back_filtersize=setup.sex_back_filtersize,
     )
 
+    n_tiles = len(tile_infos)
+
     sex_cmds = []
     for tile in tile_infos:
         image_path: str = tile["image"]
         cat_name = os.path.basename(image_path).replace(".fits", ".psfex.cat")
         cat_path = os.path.join(psf_dir, cat_name)
         tile["sex_catalog"] = cat_path
+
+        if os.path.isfile(cat_path):
+            continue
 
         weight_arg = ""
         if tile.get("weight") is not None:
@@ -224,7 +229,19 @@ def build_psf_models(
         )
         sex_cmds.append(cmd)
 
-    run_commands_shell_parallel(cmds=sex_cmds, silent=True, n_jobs=setup.n_jobs_sex)
+    if sex_cmds:
+        print_message(
+            message=f"Running SExtractor on {len(sex_cmds)}/{n_tiles} sub-tiles",
+            kind="okblue",
+            end="\n",
+        )
+        run_commands_shell_parallel(cmds=sex_cmds, silent=True, n_jobs=setup.n_jobs_sex)
+    else:
+        print_message(
+            message=f"SExtractor catalogs already exist for all {n_tiles} sub-tiles",
+            kind="okblue",
+            end="\n",
+        )
 
     # --- Step 2: PSFEx ------------------------------------------------------
     psfex_config = yml2config(
@@ -239,6 +256,9 @@ def build_psf_models(
         psf_path = os.path.splitext(cat_path)[0] + ".psf"
         psf_paths.append(psf_path)
 
+        if os.path.isfile(psf_path):
+            continue
+
         cmd = (
             f"{psfex.bin} -c {psfex.default_config} {cat_path} "
             f"-PSF_DIR {os.path.dirname(cat_path)} "
@@ -247,7 +267,22 @@ def build_psf_models(
         )
         psfex_cmds.append(cmd)
 
-    run_commands_shell_parallel(cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs_sex)
+    if psfex_cmds:
+        print_message(
+            message=f"Running PSFEx on {len(psfex_cmds)}/{n_tiles} sub-tiles",
+            kind="okblue",
+            end="\n",
+        )
+        run_commands_shell_parallel(
+            cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs_sex
+        )
+
+    n_valid = sum(1 for p in psf_paths if os.path.isfile(p))
+    print_message(
+        message=f"PSF models available for {n_valid}/{n_tiles} sub-tiles",
+        kind="okblue",
+        end="\n",
+    )
 
     for tile, psf_path in zip(tile_infos, psf_paths):
         tile["psf_model"] = psf_path if os.path.isfile(psf_path) else None
