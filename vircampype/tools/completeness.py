@@ -750,17 +750,23 @@ def plot_completeness_tile(
     if not results:
         return
 
-    # Stack completeness arrays and take median
+    # Stack completeness arrays and compute sigma-clipped mean
     mag_center = results[0]["mag_center"]
     comp_stack = np.array([r["completeness"] for r in results])
-    err_stack = np.array([r["completeness_err"] for r in results])
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
-        comp_mean = np.nanmedian(comp_stack, axis=0)
+        # Per-bin 3-sigma clipping based on median/MAD
+        median = np.nanmedian(comp_stack, axis=0)
+        mad = np.nanmedian(np.abs(comp_stack - median), axis=0)
+        sigma = 1.4826 * mad
+        mask = np.abs(comp_stack - median) > 3 * np.maximum(sigma, 1e-6)
+        comp_clipped = np.where(mask, np.nan, comp_stack)
+
+        comp_mean = np.nanmean(comp_clipped, axis=0)
         # Asymmetric error bars from 16th/84th percentiles
-        pct_lo = np.nanpercentile(comp_stack, 16, axis=0)
-        pct_hi = np.nanpercentile(comp_stack, 84, axis=0)
+        pct_lo = np.nanpercentile(comp_clipped, 16, axis=0)
+        pct_hi = np.nanpercentile(comp_clipped, 84, axis=0)
         comp_err = np.array([comp_mean - pct_lo, pct_hi - comp_mean])
 
     # Fit logistic to the tile-average curve
@@ -803,7 +809,7 @@ def plot_completeness_tile(
         capsize=2,
         lw=0.8,
         zorder=2,
-        label="Median across sub-tiles",
+        label="Mean across sub-tiles",
     )
 
     if fit_params is not None:
