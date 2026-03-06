@@ -35,9 +35,13 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 # Fitting functions
 # --------------------------------------------------------------------------- #
-def _logistic(x, l, k, x0, offset):
-    """Logistic (sigmoid) completeness model."""
-    return -l / (1 + np.exp(-k * (x - x0))) + offset
+def _logistic(x, l, k, x0, offset, slope=0.0):
+    """Logistic (sigmoid) completeness model with optional linear slope.
+
+    The slope term captures the gradual decline at the bright end due to
+    crowding and blending before the main sigmoid drop.
+    """
+    return -l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0)
 
 
 def _fleming95(x, amp, alpha, v_lim):
@@ -448,10 +452,10 @@ def measure_completeness(
 
         all_completeness.append(completeness)
 
-    # # Clean up temp files
-    # for p in [starlist_path, sky_image_path, combined_path, det_cat_path]:
-    #     if os.path.isfile(p):
-    #         os.remove(p)
+    # Clean up temp files
+    for p in [starlist_path, sky_image_path, combined_path, det_cat_path]:
+        if os.path.isfile(p):
+            os.remove(p)
 
     # Average completeness across iterations
     with warnings.catch_warnings():
@@ -466,11 +470,13 @@ def measure_completeness(
     try:
         clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
         if np.sum(clean) > 4:
+            mid = (mag_range[0] + mag_range[1]) / 2
             popt, _ = curve_fit(
                 _logistic,
                 mag_center[clean],
                 comp_mean[clean],
-                p0=[100, 8, (mag_range[0] + mag_range[1]) / 2, 100],
+                p0=[100, 8, mid, 100, 1.0],
+                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
                 maxfev=10000,
             )
             fit_params = popt
@@ -736,11 +742,13 @@ def plot_completeness_tile(
     try:
         clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
         if np.sum(clean) > 4:
+            mid = (mag_range[0] + mag_range[1]) / 2
             popt, _ = curve_fit(
                 _logistic,
                 mag_center[clean],
                 comp_mean[clean],
-                p0=[100, 8, (mag_range[0] + mag_range[1]) / 2, 100],
+                p0=[100, 8, mid, 100, 1.0],
+                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
                 maxfev=10000,
             )
             fit_params = popt
@@ -838,7 +846,7 @@ def plot_completeness_map(
     im = ax.imshow(
         grid,
         origin="lower",
-        cmap="RdYlGn",
+        cmap="YlGnBu",
         aspect="equal",
         interpolation="nearest",
     )
