@@ -15,6 +15,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction
 - **Catalog building**: per-pawprint and per-tile source catalogs, public ESO Phase 3-compliant output
+- **Completeness testing**: artificial star injection/recovery via SkyMaker and PSFEx to measure detection completeness as a function of magnitude
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
 - **Checkpoint system**: interrupted runs resume from the last completed step
@@ -34,6 +35,8 @@ The following tools must be installed and available in `PATH`:
 | [SExtractor](https://github.com/astromatic/sextractor) | Source extraction |
 | [SCAMP](https://github.com/astromatic/scamp) | Astrometric calibration |
 | [SWarp](https://github.com/astromatic/swarp) | Image resampling and coaddition |
+| [PSFEx](https://github.com/astromatic/psfex) | PSF modelling (completeness testing) |
+| [SkyMaker](https://github.com/astromatic/skymaker) | Artificial image generation (completeness testing) |
 | [GNU Astro / noisechisel](https://www.gnu.org/software/gnuastro/) | Source mask generation |
 
 ---
@@ -143,7 +146,8 @@ Processes raw science frames through to final co-added products:
 11. **Source catalogs** — SExtractor source extraction on stacks and tile
 12. **QC plots** — astrometric and photometric diagnostic plots
 13. **QC summary table** — aggregates key metrics from stacks and tile into `qc/qc_summary.ecsv`
-14. **Phase 3 / Public catalog** — ESO Phase 3-compliant output and public source catalog
+14. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
+15. **Phase 3 / Public catalog** — ESO Phase 3-compliant output and public source catalog
 
 ---
 
@@ -166,6 +170,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `build_tile` | `true` | Build final co-added tile |
 | `build_phase3` | `false` | Build ESO Phase 3 products |
 | `build_public_catalog` | `false` | Build public source catalog |
+| `build_completeness` | `false` | Run completeness analysis on tile |
 | `destripe` | `true` | Apply destriping correction |
 | `subtract_background` | `true` | Subtract 2D background model |
 | `flat_type` | `twilight` | Flat field type: `twilight` or `sky` |
@@ -203,8 +208,12 @@ path_pype/
     │   ├── astrometry/
     │   ├── photometry/
     │   ├── sky/
-    │   └── illumcorr/
+    │   ├── illumcorr/
+    │   └── completeness/           # Completeness QC plots and FITS image
     └── temp/                       # Temporary files and pipeline status
+        └── completeness/           # Completeness sub-tiles and PSF models
+            ├── tiles/
+            └── psf/
 ```
 
 ---
