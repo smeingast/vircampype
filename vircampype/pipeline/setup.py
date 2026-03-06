@@ -596,6 +596,12 @@ class Setup:
         self.folders["qc_photometry"] = f"{self.folders['qc']}photometry/"
         self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
         self.folders["qc_completeness"] = f"{self.folders['qc']}completeness/"
+        self.folders["temp_completeness_tiles"] = (
+            f"{self.folders['temp']}completeness/tiles/"
+        )
+        self.folders["temp_completeness_psf"] = (
+            f"{self.folders['temp']}completeness/psf/"
+        )
         self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
@@ -635,6 +641,8 @@ class Setup:
             self.folders["qc_photometry"],
             self.folders["qc_illumcorr"],
             self.folders["qc_completeness"],
+            self.folders["temp_completeness_tiles"],
+            self.folders["temp_completeness_psf"],
         ]
 
         # Create folder for stacks if set

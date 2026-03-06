@@ -145,6 +145,7 @@ def _generate_star_list(
 def build_psf_models(
     tile_infos: list[dict],
     setup,
+    psf_dir: str,
     sex_preset: str = "psfex",
     psfex_preset: str = "completeness",
     detect_thresh: float = 20.0,
@@ -168,6 +169,8 @@ def build_psf_models(
         Each dict must have ``"image"`` and optionally ``"weight"`` keys.
     setup
         Pipeline Setup instance.
+    psf_dir : str
+        Output directory for SExtractor catalogs and PSFEx models.
     sex_preset : str
         SExtractor preset name for PSF-star extraction.
     psfex_preset : str
@@ -199,8 +202,9 @@ def build_psf_models(
 
     sex_cmds = []
     for tile in tile_infos:
-        image_path = tile["image"]
-        cat_path = image_path.replace(".fits", ".psfex.cat")
+        image_path: str = tile["image"]
+        cat_name = os.path.basename(image_path).replace(".fits", ".psfex.cat")
+        cat_path = os.path.join(psf_dir, cat_name)
         tile["sex_catalog"] = cat_path
 
         weight_arg = ""
@@ -452,10 +456,10 @@ def measure_completeness(
 
         all_completeness.append(completeness)
 
-    # Clean up temp files
-    for p in [starlist_path, sky_image_path, combined_path, det_cat_path]:
-        if os.path.isfile(p):
-            os.remove(p)
+    # # Clean up temp files
+    # for p in [starlist_path, sky_image_path, combined_path, det_cat_path]:
+    #     if os.path.isfile(p):
+    #         os.remove(p)
 
     # Average completeness across iterations
     with warnings.catch_warnings():
@@ -506,7 +510,8 @@ def run_completeness(
     image_path: str,
     weight_path: str | None,
     setup,
-    out_dir: str,
+    tiles_dir: str,
+    psf_dir: str,
 ) -> list[dict]:
     """
     Run the full completeness analysis on a tile image.
@@ -522,8 +527,10 @@ def run_completeness(
         Path to the tile weight image.
     setup
         Pipeline Setup instance.
-    out_dir : str
-        Output directory for sub-tiles and intermediate products.
+    tiles_dir : str
+        Output directory for sub-tile images and weights.
+    psf_dir : str
+        Output directory for PSF catalogs and models.
 
     Returns
     -------
@@ -537,7 +544,7 @@ def run_completeness(
     # 1. Tile the image
     tile_infos = tile_fits(
         image_path=image_path,
-        out_dir=out_dir,
+        out_dir=tiles_dir,
         tile_size_arcmin=setup.completeness_tile_size_arcmin,
         pixel_scale_arcsec=setup.coadd_pixel_scale,
         weight_path=weight_path,
@@ -546,7 +553,7 @@ def run_completeness(
     )
 
     # 2. Build PSF models
-    tile_infos = build_psf_models(tile_infos=tile_infos, setup=setup)
+    tile_infos = build_psf_models(tile_infos=tile_infos, setup=setup, psf_dir=psf_dir)
 
     # 3. Measure completeness per sub-tile
     valid_tiles = [t for t in tile_infos if t.get("psf_model") is not None]

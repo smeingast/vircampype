@@ -880,19 +880,20 @@ class Pipeline:
         if os.path.isfile(weight_glob):
             weight_path = weight_glob
 
-        out_dir = self.setup.folders["qc_completeness"]
+        qc_dir = self.setup.folders["qc_completeness"]
 
         results = run_completeness(
             image_path=image_path,
             weight_path=weight_path,
             setup=self.setup,
-            out_dir=out_dir,
+            tiles_dir=self.setup.folders["temp_completeness_tiles"],
+            psf_dir=self.setup.folders["temp_completeness_psf"],
         )
 
         if results:
             plot_completeness_curves(
                 results=results,
-                out_path=os.path.join(out_dir, "completeness_curves.pdf"),
+                out_path=os.path.join(qc_dir, "completeness_curves.pdf"),
                 mag_range=(
                     self.setup.completeness_mag_lo,
                     self.setup.completeness_mag_hi,
@@ -900,11 +901,11 @@ class Pipeline:
             )
             plot_completeness_map(
                 results=results,
-                out_path=os.path.join(out_dir, "completeness_map.pdf"),
+                out_path=os.path.join(qc_dir, "completeness_map.pdf"),
             )
             plot_completeness_tile(
                 results=results,
-                out_path=os.path.join(out_dir, "completeness_tile.pdf"),
+                out_path=os.path.join(qc_dir, "completeness_tile.pdf"),
                 mag_range=(
                     self.setup.completeness_mag_lo,
                     self.setup.completeness_mag_hi,
@@ -919,7 +920,7 @@ class Pipeline:
                 results=results,
                 tile_header=tile_header,
                 tile_shape=tile_shape,
-                out_path=os.path.join(out_dir, "completeness.fits"),
+                out_path=os.path.join(qc_dir, "completeness.fits"),
                 resize_factor=self.setup.image_statistics_resize_factor,
                 weight_path=weight_path,
             )
