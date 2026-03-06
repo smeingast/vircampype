@@ -2665,6 +2665,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                     value=hdu_paw0[0].header[self.setup.keywords.filter_name],
                 )
                 hdul_tile[0].header.set(
+                    keyword="NCOMBINE",
+                    value=len(self),
+                    comment="Number of combined images",
+                )
+                hdul_tile[0].header.set(
                     keyword="ASTIRMS",
                     value=np.round(astirms, 2),
                     comment="Internal astr. dispersion RMS (mas)",
