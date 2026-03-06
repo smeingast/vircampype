@@ -20,7 +20,7 @@ WELL_CAPACITY:      0
 SATUR_LEVEL:        65535
 READOUT_NOISE:      0.0
 EXPOSURE_TIME:      1.0
-MAG_ZEROPOINT:      26.0
+MAG_ZEROPOINT:      0.0              # overridden at runtime from tile header
 
 #-------------------------------- Sampling -----------------------------------
 
@@ -44,7 +44,7 @@ BACK_MAG:           99.0
 #------------------------------ Stellar field --------------------------------
 
 STARCOUNT_ZP:       0
-STARCOUNT_SLOPE:    0.0
+STARCOUNT_SLOPE:    0.2
 MAG_LIMITS:         17.0,26.0
 
 #------------------------------ Random Seeds ---------------------------------

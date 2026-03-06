@@ -3,6 +3,7 @@
 
 CATALOG_NAME:     test.cat
 CATALOG_TYPE:     FITS_LDAC
+PARAMETERS_NAME:  completeness.param
 
 DETECT_TYPE:      CCD
 DETECT_MINAREA:   3

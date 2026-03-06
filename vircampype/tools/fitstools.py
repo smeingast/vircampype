@@ -1128,7 +1128,28 @@ def tile_fits(
                 tile_name = f"{prefix}_x{i:03d}_y{j:03d}.fits"
                 tile_path = str(out_dir / tile_name)
 
-                if overwrite or not os.path.isfile(tile_path):
+                write_tile = overwrite or not os.path.isfile(tile_path)
+
+                # Verify existing tile matches expected geometry
+                if not write_tile:
+                    with fits.open(tile_path) as existing:
+                        eh = existing[0].header
+                        expected_shape = (y1 - y0, x1 - x0)
+                        existing_ok = (
+                            eh.get("NAXIS1") == expected_shape[1]
+                            and eh.get("NAXIS2") == expected_shape[0]
+                            and eh.get("TIL_X0") == x0
+                            and eh.get("TIL_Y0") == y0
+                        )
+                    if not existing_ok:
+                        raise ValueError(
+                            f"Existing tile {tile_path} does not match "
+                            f"expected geometry (shape={expected_shape}, "
+                            f"origin=({x0},{y0})). Remove it or use "
+                            f"overwrite=True."
+                        )
+
+                if write_tile:
                     fits.writeto(
                         tile_path,
                         tile_data,
@@ -1149,7 +1170,24 @@ def tile_fits(
                     weight_name = f"{prefix}_x{i:03d}_y{j:03d}.weight.fits"
                     weight_tile_path = str(out_dir / weight_name)
 
-                    if overwrite or not os.path.isfile(weight_tile_path):
+                    write_weight = overwrite or not os.path.isfile(weight_tile_path)
+
+                    if not write_weight:
+                        with fits.open(weight_tile_path) as existing:
+                            eh = existing[0].header
+                            existing_ok = (
+                                eh.get("NAXIS1") == expected_shape[1]
+                                and eh.get("NAXIS2") == expected_shape[0]
+                                and eh.get("TIL_X0") == x0
+                                and eh.get("TIL_Y0") == y0
+                            )
+                        if not existing_ok:
+                            raise ValueError(
+                                f"Existing weight tile {weight_tile_path} "
+                                f"does not match expected geometry."
+                            )
+
+                    if write_weight:
                         fits.writeto(
                             weight_tile_path,
                             weight_tile,

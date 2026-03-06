@@ -6,6 +6,7 @@ import sys
 import time
 
 import numpy as np
+from astropy.io import fits
 from astropy.table import Table
 
 from vircampype.fits.images.common import FitsImages
@@ -14,8 +15,10 @@ from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.completeness import (
+    build_completeness_image,
     plot_completeness_curves,
     plot_completeness_map,
+    plot_completeness_tile,
     run_completeness,
 )
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
@@ -859,6 +862,15 @@ class Pipeline:
     @pipeline_step("qc_completeness_tile", message="TILE QC COMPLETENESS")
     def qc_completeness_tile(self):
         """Run completeness analysis on the tile and generate QC plots."""
+        print_header(
+            header="TILE QC COMPLETENESS",
+            silent=self.setup.silent,
+            left=None,
+            right=None,
+        )
+
+        tstart = time.time()
+
         tile = self.tile
         image_path = tile.paths_full[0]
 
@@ -890,16 +902,68 @@ class Pipeline:
                 results=results,
                 out_path=os.path.join(out_dir, "completeness_map.pdf"),
             )
+            plot_completeness_tile(
+                results=results,
+                out_path=os.path.join(out_dir, "completeness_tile.pdf"),
+                mag_range=(
+                    self.setup.completeness_mag_lo,
+                    self.setup.completeness_mag_hi,
+                ),
+            )
 
-            # Log the median 90% completeness
+            # Write completeness FITS image
+            with fits.open(image_path) as hdul:
+                tile_header = hdul[0].header
+                tile_shape = (hdul[0].data.shape[0], hdul[0].data.shape[1])
+            build_completeness_image(
+                results=results,
+                tile_header=tile_header,
+                tile_shape=tile_shape,
+                out_path=os.path.join(out_dir, "completeness.fits"),
+                resize_factor=self.setup.image_statistics_resize_factor,
+                weight_path=weight_path,
+            )
+
+            # Compute and store comp90 summary in tile header
             comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
             if comp90_values:
-                median_comp90 = np.median(comp90_values)
+                comp90_med = float(np.median(comp90_values))
+                comp90_min = float(np.min(comp90_values))
+                comp90_max = float(np.max(comp90_values))
+
+                with fits.open(image_path, mode="update") as hdul:
+                    hdul[0].header["HIERARCH PYPE COMP90 MED"] = (
+                        round(comp90_med, 3),
+                        "Median 90% completeness (mag)",
+                    )
+                    hdul[0].header["HIERARCH PYPE COMP90 MIN"] = (
+                        round(comp90_min, 3),
+                        "Min 90% completeness (mag)",
+                    )
+                    hdul[0].header["HIERARCH PYPE COMP90 MAX"] = (
+                        round(comp90_max, 3),
+                        "Max 90% completeness (mag)",
+                    )
+
                 log = PipelineLog()
                 log.info(
-                    f"Completeness: median 90% limit = {median_comp90:.2f} mag "
+                    f"Completeness 90%: median={comp90_med:.2f} "
+                    f"min={comp90_min:.2f} max={comp90_max:.2f} mag "
                     f"({len(comp90_values)} sub-tiles)"
                 )
+                print_message(
+                    message=f"Completeness 90%: median={comp90_med:.2f} "
+                    f"min={comp90_min:.2f} max={comp90_max:.2f} mag "
+                    f"({len(comp90_values)} sub-tiles)",
+                    kind="okblue",
+                    end="\n",
+                )
+
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+        )
 
     # =========================================================================== #
     # QC summary
