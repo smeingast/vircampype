@@ -30,6 +30,16 @@ RUN git clone https://github.com/astromatic/scamp.git && \
     cd /root/scamp && \
     ./autogen.sh && ./configure --enable-openblas --enable-plplot && make && make install
 
+# Install PSFEx
+RUN git clone https://github.com/astromatic/psfex.git && \
+    cd /root/psfex && \
+    ./autogen.sh && ./configure --enable-openblas --enable-plplot && make && make install
+
+# Install SkyMaker
+RUN git clone https://github.com/astromatic/skymaker.git && \
+    cd /root/skymaker && \
+    ./autogen.sh && ./configure && make && make install
+
 # Install Swarp
 RUN git clone https://github.com/astromatic/swarp.git && \
     cd /root/swarp && \
@@ -52,7 +62,7 @@ RUN if [ "$BUILD_OPTION" = "dev" ] ; then \
         pip install -e . ; \
     elif [ "$BUILD_OPTION" = "user" ] ; then \
         pip install . && \
-        rm -rf /root/scamp /root/sextractor /root/swarp /root/gnuastro-0.24 && \
+        rm -rf /root/scamp /root/sextractor /root/psfex /root/skymaker /root/swarp /root/gnuastro-0.24 && \
         dnf clean all && rm -rf /var/cache/dnf/* /tmp/* /var/tmp/* && \
         ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype ; \
     fi
