@@ -1299,11 +1299,16 @@ def build_qc_summary(
     qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
 
     print_message(
-        message=f"\n-> QC summary written to {os.path.basename(path_out)} "
-        f"({len(rows)} products, {time.time() - tstart:.1f}s)",
+        message=f"QC summary written to {os.path.basename(path_out)} "
+        f"({len(rows)} products)",
         kind="okblue",
         end="\n",
         logger=log,
+    )
+    print_message(
+        message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+        kind="okblue",
+        end="\n",
     )
 
     return path_out
