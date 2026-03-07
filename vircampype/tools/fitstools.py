@@ -1061,7 +1061,7 @@ def tile_fits(
     weight_path: str | None = None,
     prefix: str = "tile",
     overwrite: bool = True,
-) -> list[dict]:
+) -> tuple[list[dict], int]:
     """
     Tile a FITS image (and optional weight) into sub-images of a given angular size.
 
@@ -1086,9 +1086,11 @@ def tile_fits(
 
     Returns
     -------
-    list[dict]
+    tiles : list[dict]
         One dict per tile with keys ``"image"``, ``"weight"`` (or None), and
         ``"grid_index"`` (i, j).
+    n_written : int
+        Number of tiles that were newly written (0 when all existed already).
 
     """
     out_dir = Path(out_dir)
@@ -1117,6 +1119,7 @@ def tile_fits(
             weight_data = whdul[0].data
 
         tiles = []
+        n_written = 0
         for j, (y_start, y_end) in enumerate(y_ranges):
             for i, (x_start, x_end) in enumerate(x_ranges):
                 # Expand by overlap, clip to image bounds
@@ -1160,6 +1163,7 @@ def tile_fits(
                         overwrite=overwrite,
                         output_verify="fix",
                     )
+                    n_written += 1
 
                 tile_info = {
                     "image": tile_path,
@@ -1205,7 +1209,7 @@ def tile_fits(
         if weight_data is not None:
             whdul.close()
 
-    return tiles
+    return tiles, n_written
 
 
 def build_qc_summary(

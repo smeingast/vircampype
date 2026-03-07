@@ -583,7 +583,7 @@ def run_completeness(
     from vircampype.tools.fitstools import tile_fits
 
     # 1. Tile the image
-    tile_infos = tile_fits(
+    tile_infos, n_tiles_written = tile_fits(
         image_path=image_path,
         out_dir=tiles_dir,
         tile_size_arcmin=setup.completeness_tile_size_arcmin,
@@ -593,11 +593,19 @@ def run_completeness(
         overwrite=False,
     )
 
-    print_message(
-        message=f"Tiled into {len(tile_infos)} sub-tiles, building PSF models",
-        kind="okblue",
-        end="\n",
-    )
+    n_sub = len(tile_infos)
+    if n_tiles_written == 0:
+        print_message(
+            message=f"Sub-tiles already exist for all {n_sub} tiles",
+            kind="warning",
+            end="\n",
+        )
+    else:
+        print_message(
+            message=f"Tiled into {n_sub} sub-tiles ({n_tiles_written} newly created)",
+            kind="okblue",
+            end="\n",
+        )
 
     # 2. Build PSF models
     tile_infos = build_psf_models(tile_infos=tile_infos, setup=setup, psf_dir=psf_dir)
@@ -608,7 +616,7 @@ def run_completeness(
     n_valid = len(valid_tiles)
     n_jobs = min(n_valid, setup.n_jobs)
     print_message(
-        message=f"Measuring completeness on {n_valid}/{n_tiles} sub-tiles "
+        message=f"Measuring completeness on {n_valid} sub-tiles "
         f"({setup.completeness_iterations} iterations each, {n_jobs} parallel)",
         kind="okblue",
         end="\n",

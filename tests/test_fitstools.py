@@ -253,7 +253,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_tile_count(self):
         """5 arcmin tiles on a ~16.7x11.1 arcmin image -> 3x2 = 6 tiles."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=5.0,
@@ -263,7 +263,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_weight_tiling(self):
         """Weight tiles are created when weight_path is given."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=5.0,
@@ -276,7 +276,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_no_weight(self):
         """Weight is None when no weight_path given."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=5.0,
@@ -287,7 +287,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_wcs_shift(self):
         """CRPIX must be shifted by the tile origin."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=5.0,
@@ -305,7 +305,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_tiles_cover_image(self):
         """Total pixel count across tiles (without overlap) equals original."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=5.0,
@@ -320,14 +320,14 @@ class TestTileFits(unittest.TestCase):
 
     def test_overlap_increases_size(self):
         """Tiles with overlap should be larger than without."""
-        tiles_no_ov = tile_fits(
+        tiles_no_ov, _ = tile_fits(
             image_path=self.img_path,
             out_dir=os.path.join(self.tmpdir, "no_ov"),
             tile_size_arcmin=5.0,
             pixel_scale_arcsec=self.pixel_scale,
             overlap_pix=0,
         )
-        tiles_ov = tile_fits(
+        tiles_ov, _ = tile_fits(
             image_path=self.img_path,
             out_dir=os.path.join(self.tmpdir, "ov"),
             tile_size_arcmin=5.0,
@@ -341,7 +341,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_grid_index(self):
         """Each tile has a unique (i, j) grid index."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=5.0,
@@ -352,7 +352,7 @@ class TestTileFits(unittest.TestCase):
 
     def test_small_image_single_tile(self):
         """An image smaller than tile_size_arcmin produces exactly 1 tile."""
-        tiles = tile_fits(
+        tiles, _ = tile_fits(
             image_path=self.img_path,
             out_dir=self.out_dir,
             tile_size_arcmin=60.0,
