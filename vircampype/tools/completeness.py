@@ -239,7 +239,7 @@ def build_psf_models(
     else:
         print_message(
             message=f"SExtractor catalogs already exist for all {n_tiles} sub-tiles",
-            kind="okblue",
+            kind="warning",
             end="\n",
         )
 
@@ -280,7 +280,7 @@ def build_psf_models(
     n_valid = sum(1 for p in psf_paths if os.path.isfile(p))
     print_message(
         message=f"PSF models available for {n_valid}/{n_tiles} sub-tiles",
-        kind="okblue",
+        kind="warning",
         end="\n",
     )
 
