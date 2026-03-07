@@ -612,7 +612,6 @@ def run_completeness(
 
     # 3. Measure completeness per sub-tile
     valid_tiles = [t for t in tile_infos if t.get("psf_model") is not None]
-    n_tiles = len(tile_infos)
     n_valid = len(valid_tiles)
     n_jobs = min(n_valid, setup.n_jobs)
     print_message(
