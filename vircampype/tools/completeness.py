@@ -44,7 +44,7 @@ def _logistic(x, l, k, x0, offset, slope=0.0):
     The slope term captures the gradual decline at the bright end due to
     crowding and blending before the main sigmoid drop.
     """
-    return -l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0)
+    return np.maximum(-l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0), 0.0)
 
 
 def _fleming95(x, amp, alpha, v_lim):
@@ -749,8 +749,10 @@ def plot_completeness_curves(
                 y_fine = _logistic(x_fine, *res["fit_params"])
                 ax.plot(x_fine, y_fine, "-", color="#e34a33", lw=1.2, zorder=3)
 
-            # 90% line and comp90 marker
+            # Reference lines at 0%, 90%, and 100%
+            ax.axhline(0, ls="-", color="lightgrey", lw=0.5, zorder=1)
             ax.axhline(90, ls="--", color="grey", lw=0.7, zorder=1)
+            ax.axhline(100, ls="-", color="lightgrey", lw=0.5, zorder=1)
             if np.isfinite(res["comp90"]):
                 ax.axvline(res["comp90"], ls=":", color="#e34a33", lw=0.7, zorder=1)
 
@@ -850,8 +852,10 @@ def plot_completeness_tile(
             x_fine, y_fine, "-", color="#e34a33", lw=1.5, zorder=3, label="Logistic fit"
         )
 
-    ax.axhline(90, ls="--", color="grey", lw=0.7, zorder=1)
+    ax.axhline(0, ls="-", color="lightgrey", lw=0.5, zorder=1)
     ax.axhline(50, ls="--", color="grey", lw=0.7, zorder=1)
+    ax.axhline(90, ls="--", color="grey", lw=0.7, zorder=1)
+    ax.axhline(100, ls="-", color="lightgrey", lw=0.5, zorder=1)
     if np.isfinite(comp90):
         ax.axvline(comp90, ls=":", color="#e34a33", lw=0.7, zorder=1)
         ax.text(
