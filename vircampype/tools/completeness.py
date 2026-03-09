@@ -17,6 +17,7 @@ from scipy.spatial import cKDTree
 from vircampype.tools.astromatic import PSFExSetup, SextractorSetup, SkymakerSetup
 from vircampype.tools.messaging import message_calibration, print_message
 from vircampype.tools.systemtools import (
+    read_yml,
     run_command_shell,
     run_commands_shell_parallel,
     yml2config,
@@ -418,6 +419,21 @@ def measure_completeness(
     sxs = SextractorSetup(setup=setup)
     skm = SkymakerSetup(setup=setup)
 
+    # Read detection parameters from the 'full' preset so completeness
+    # uses the same thresholds as the tile source catalog.
+    _det_keys = [
+        "DETECT_THRESH",
+        "DETECT_MINAREA",
+        "DETECT_MAXAREA",
+        "ANALYSIS_THRESH",
+        "DEBLEND_NTHRESH",
+        "DEBLEND_MINCONT",
+    ]
+    full_cfg = read_yml(sxs.path_yml(preset="full"))
+    det_overrides = {
+        k.lower(): v for k, v in full_cfg.items() if k.upper() in _det_keys
+    }
+
     # SExtractor config for detection
     sex_config = yml2config(
         path_yml=sxs.path_yml(preset="completeness"),
@@ -432,6 +448,7 @@ def measure_completeness(
         parameters_name=sxs.path_param(preset="completeness"),
         back_size=setup.sex_back_size,
         back_filtersize=setup.sex_back_filtersize,
+        **det_overrides,
     )
 
     # SkyMaker config
