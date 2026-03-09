@@ -281,7 +281,7 @@ class Setup:
     completeness_resolution_arcmin: float = 10.0  # Spatial resolution for results
     completeness_iterations: int = 25  # Number of injection iterations per sub-tile
     completeness_mag_lo: float = 15.0  # Bright end of magnitude range
-    completeness_mag_hi: float = 24.0  # Faint end of magnitude range
+    completeness_mag_hi: float = 23.5  # Faint end of magnitude range
     completeness_mag_bin: float = 0.25  # Magnitude bin width
     completeness_star_density: float = 3.0  # Artificial stars per arcmin² per iteration
     completeness_match_radius: float = 1.0  # Match radius in arcsec
