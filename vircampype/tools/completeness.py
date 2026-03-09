@@ -420,6 +420,32 @@ def measure_completeness(
     combined_path = base + ".combined.fits"
     det_cat_path = base + ".det.cat"
 
+    # Run SExtractor on the original (uninjected) image to build a catalog of
+    # real sources.  This is used to filter out false matches: a detection near
+    # an injected position that already existed in the original image is not a
+    # true recovery.
+    orig_cat_path = base + ".orig.cat"
+    weight_arg_orig = f"-WEIGHT_IMAGE {weight_path}" if weight_path else ""
+    orig_cmd = (
+        f"{sxs.bin} -c {sxs.default_config} {image_path} "
+        f"-STARNNW_NAME {sxs.default_nnw} "
+        f"-CATALOG_NAME {orig_cat_path} "
+        f"-GAIN_KEY {setup.keywords.gain} "
+        f"-SATUR_KEY {setup.keywords.saturate} "
+        f"{weight_arg_orig} {sex_config}"
+    )
+    run_command_shell(cmd=orig_cmd, silent=True)
+
+    try:
+        with fits.open(orig_cat_path) as cat_hdul:
+            orig_data = cat_hdul[2].data
+        orig_coords = np.column_stack(
+            [orig_data["XWIN_IMAGE"], orig_data["YWIN_IMAGE"]]
+        )
+        orig_tree = cKDTree(orig_coords)
+    except (OSError, IndexError, KeyError):
+        orig_tree = None
+
     all_completeness = []
 
     for _ in range(iterations):
@@ -488,8 +514,18 @@ def measure_completeness(
         tree = cKDTree(det_coords)
 
         input_coords = stars[:, :2]
-        distances, _ = tree.query(input_coords)
+        distances, indices = tree.query(input_coords)
         matched = distances < match_radius_pix
+
+        # Exclude false matches: if the matched detection is closer to an
+        # original (pre-existing) source than to the injected position, it
+        # is not a true recovery.
+        if orig_tree is not None and matched.any():
+            matched_det_coords = det_coords[indices[matched]]
+            orig_dist, _ = orig_tree.query(matched_det_coords)
+            false_match = orig_dist < distances[matched]
+            matched_idx = np.where(matched)[0]
+            matched[matched_idx[false_match]] = False
 
         input_mag = stars[:, 2]
         matched_mag = input_mag[matched]
