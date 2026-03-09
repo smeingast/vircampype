@@ -46,7 +46,7 @@ def _logistic(x, l, k, x0, offset, slope=0.0):
     The slope term captures the gradual decline at the bright end due to
     crowding and blending before the main sigmoid drop.
     """
-    return np.maximum(-l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0), 0.0)
+    return np.clip(-l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0), 0.0, 100.0)
 
 
 def _fleming95(x, amp, alpha, v_lim):
