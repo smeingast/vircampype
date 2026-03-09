@@ -310,7 +310,6 @@ def measure_completeness(
     mag_range: tuple[float, float] = (17.0, 22.5),
     mag_bin: float = 0.25,
     n_stars: int = 200,
-    match_radius_pix: float = 3.0,
 ) -> dict | None:
     """
     Measure source-detection completeness for a single sub-tile.
@@ -325,7 +324,9 @@ def measure_completeness(
         Sub-tile dict with keys ``"image"``, ``"weight"`` (optional),
         ``"psf_model"``.
     setup
-        Pipeline Setup instance.
+        Pipeline Setup instance (``completeness_match_radius`` in arcsec
+        and ``pixel_scale`` in arcsec are used to compute the match radius
+        in pixels).
     iterations : int
         Number of injection/recovery iterations.
     mag_range : tuple[float, float]
@@ -334,8 +335,6 @@ def measure_completeness(
         Magnitude bin width.
     n_stars : int
         Number of artificial stars per iteration.
-    match_radius_pix : float
-        Maximum distance in pixels for a match.
 
     Returns
     -------
@@ -406,6 +405,9 @@ def measure_completeness(
         path_yml=skm.path_yml(preset="completeness"),
         skip=["image_name", "psf_name", "image_size", "mag_zeropoint", "mag_limits"],
     )
+
+    # Convert match radius from arcsec to pixels
+    match_radius_pix = setup.completeness_match_radius / setup.coadd_pixel_scale
 
     ny, nx = image_shape
 

@@ -283,6 +283,7 @@ class Setup:
     completeness_mag_hi: float = 24.0  # Faint end of magnitude range
     completeness_mag_bin: float = 0.25  # Magnitude bin width
     completeness_star_density: float = 3.0  # Artificial stars per arcmin² per iteration
+    completeness_match_radius: float = 1.0  # Match radius in arcsec
 
     # Binary names
     bin_sex: str = "sex"  # SExtractor binary name
