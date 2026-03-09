@@ -303,6 +303,37 @@ def build_psf_models(
 # --------------------------------------------------------------------------- #
 # Core completeness measurement
 # --------------------------------------------------------------------------- #
+def _fit_completeness(
+    mag_center: np.ndarray,
+    comp_mean: np.ndarray,
+    mag_range: tuple[float, float],
+) -> tuple[np.ndarray | None, float, float]:
+    """Fit a logistic curve and return (fit_params, comp90, comp50)."""
+    fit_params = None
+    comp90 = np.nan
+    comp50 = np.nan
+    try:
+        clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
+        if np.sum(clean) > 4:
+            mid = (mag_range[0] + mag_range[1]) / 2
+            popt, _ = curve_fit(
+                _logistic,
+                mag_center[clean],
+                comp_mean[clean],
+                p0=[100, 8, mid, 100, 1.0],
+                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
+                maxfev=10000,
+            )
+            fit_params = popt
+            x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
+            y_fine = _logistic(x_fine, *popt)
+            comp90 = x_fine[np.argmin(np.abs(y_fine - 90))]
+            comp50 = x_fine[np.argmin(np.abs(y_fine - 50))]
+    except (RuntimeError, ValueError):
+        pass
+    return fit_params, comp90, comp50
+
+
 def measure_completeness(
     tile_info: dict,
     setup,
@@ -310,23 +341,26 @@ def measure_completeness(
     mag_range: tuple[float, float] = (17.0, 22.5),
     mag_bin: float = 0.25,
     n_stars: int = 200,
-) -> dict | None:
+) -> list[dict] | None:
     """
     Measure source-detection completeness for a single sub-tile.
 
     For each iteration, artificial stars are injected into the real image via
     SkyMaker and recovered with SExtractor.  The recovery fraction is binned
-    by magnitude, averaged over iterations, and fitted with a logistic curve.
+    by magnitude and by spatial sub-region, averaged over iterations, and
+    fitted with a logistic curve.
+
+    The tile is subdivided into a grid of sub-regions whose size is set by
+    ``setup.completeness_resolution_arcmin``.  Each sub-region produces its
+    own completeness curve.
 
     Parameters
     ----------
     tile_info : dict
         Sub-tile dict with keys ``"image"``, ``"weight"`` (optional),
-        ``"psf_model"``.
+        ``"psf_model"``, ``"grid_index"``.
     setup
-        Pipeline Setup instance (``completeness_match_radius`` in arcsec
-        and ``pixel_scale`` in arcsec are used to compute the match radius
-        in pixels).
+        Pipeline Setup instance.
     iterations : int
         Number of injection/recovery iterations.
     mag_range : tuple[float, float]
@@ -338,8 +372,8 @@ def measure_completeness(
 
     Returns
     -------
-    dict or None
-        Result dictionary with keys:
+    list[dict] or None
+        List of result dicts (one per spatial sub-region), each with keys:
 
         - ``mag_center``: bin centres
         - ``completeness``: mean recovery fraction (%)
@@ -347,7 +381,7 @@ def measure_completeness(
         - ``comp90``: magnitude at 90 % completeness (from fit)
         - ``comp50``: magnitude at 50 % completeness (from fit)
         - ``fit_params``: logistic fit parameters
-        - ``grid_index``: (i, j) from tile_info
+        - ``grid_index``: (i, j) in the global fine grid
 
         Returns ``None`` if the sub-tile has no valid PSF model.
 
@@ -411,9 +445,25 @@ def measure_completeness(
 
     ny, nx = image_shape
 
+    # Determine spatial sub-grid within this tile
+    n_sub_x = max(
+        1,
+        int(
+            round(
+                setup.completeness_tile_size_arcmin
+                / setup.completeness_resolution_arcmin
+            )
+        ),
+    )
+    n_sub_y = n_sub_x
+    # Pixel boundaries for sub-regions
+    sub_edges_x = np.linspace(0, nx, n_sub_x + 1)
+    sub_edges_y = np.linspace(0, ny, n_sub_y + 1)
+
     # Magnitude bins
     mag_edges = np.arange(mag_range[0], mag_range[1] + mag_bin, mag_bin)
     mag_center = (mag_edges[:-1] + mag_edges[1:]) / 2
+    n_mag = len(mag_center)
 
     # Temp paths
     base = os.path.splitext(image_path)[0]
@@ -448,7 +498,8 @@ def measure_completeness(
     except (OSError, IndexError, KeyError):
         orig_tree = None
 
-    all_completeness = []
+    # all_completeness[si][sj] is a list of per-iteration completeness arrays
+    all_completeness = [[[] for _ in range(n_sub_y)] for _ in range(n_sub_x)]
 
     for _ in range(iterations):
         # 1. Generate random star list
@@ -507,8 +558,9 @@ def measure_completeness(
             det_x = det_data["XWIN_IMAGE"]
             det_y = det_data["YWIN_IMAGE"]
         except (OSError, IndexError, KeyError):
-            # SExtractor produced no or unreadable detections
-            all_completeness.append(np.zeros(len(mag_center)))
+            for si in range(n_sub_x):
+                for sj in range(n_sub_y):
+                    all_completeness[si][sj].append(np.zeros(n_mag))
             continue
 
         # Build KD-tree for fast spatial matching
@@ -530,66 +582,64 @@ def measure_completeness(
             matched[matched_idx[false_match]] = False
 
         input_mag = stars[:, 2]
-        matched_mag = input_mag[matched]
 
-        # 6. Bin recovery fraction
+        # 6. Assign each star to a spatial sub-region and bin recovery
+        # Star positions are 1-based (FITS convention), convert to 0-based
+        star_x = stars[:, 0] - 1.0
+        star_y = stars[:, 1] - 1.0
+        star_si = np.clip(
+            np.searchsorted(sub_edges_x, star_x, side="right") - 1, 0, n_sub_x - 1
+        )
+        star_sj = np.clip(
+            np.searchsorted(sub_edges_y, star_y, side="right") - 1, 0, n_sub_y - 1
+        )
+
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            hist_input, _ = np.histogram(input_mag, bins=mag_edges)
-            hist_matched, _ = np.histogram(matched_mag, bins=mag_edges)
-            completeness = np.where(
-                hist_input > 0, 100.0 * hist_matched / hist_input, np.nan
+            for si in range(n_sub_x):
+                for sj in range(n_sub_y):
+                    mask = (star_si == si) & (star_sj == sj)
+                    sub_mag = input_mag[mask]
+                    sub_matched_mag = input_mag[mask & matched]
+                    hist_input, _ = np.histogram(sub_mag, bins=mag_edges)
+                    hist_matched, _ = np.histogram(sub_matched_mag, bins=mag_edges)
+                    comp = np.where(
+                        hist_input > 0, 100.0 * hist_matched / hist_input, np.nan
+                    )
+                    all_completeness[si][sj].append(comp)
+
+    # Compute the coarse tile grid_index offset for this tile
+    tile_gi = tile_info.get("grid_index", (0, 0))
+    tile_i0, tile_j0 = tile_gi
+
+    # Build results for each sub-region
+    sub_results = []
+    for si in range(n_sub_x):
+        for sj in range(n_sub_y):
+            if not all_completeness[si][sj]:
+                continue
+            comp_array = np.array(all_completeness[si][sj])
+            comp_mean = np.nanmean(comp_array, axis=0)
+            comp_err = np.nanstd(comp_array, axis=0)
+            fit_params, comp90, comp50 = _fit_completeness(
+                mag_center, comp_mean, mag_range
+            )
+            # Map to global fine grid
+            fine_i = tile_i0 * n_sub_x + si
+            fine_j = tile_j0 * n_sub_y + sj
+            sub_results.append(
+                {
+                    "mag_center": mag_center,
+                    "completeness": comp_mean,
+                    "completeness_err": comp_err,
+                    "comp90": comp90,
+                    "comp50": comp50,
+                    "fit_params": fit_params,
+                    "grid_index": (fine_i, fine_j),
+                }
             )
 
-        all_completeness.append(completeness)
-
-    # # Clean up temp files
-    # for p in [starlist_path, sky_image_path, combined_path, det_cat_path]:
-    #     if os.path.isfile(p):
-    #         os.remove(p)
-
-    # Average completeness across iterations
-    comp_array = np.array(all_completeness)
-    comp_mean = np.nanmean(comp_array, axis=0)
-    comp_err = np.nanstd(comp_array, axis=0)
-
-    # Fit logistic curve
-    fit_params = None
-    comp90 = np.nan
-    comp50 = np.nan
-    try:
-        clean = np.isfinite(mag_center) & np.isfinite(comp_mean)
-        if np.sum(clean) > 4:
-            mid = (mag_range[0] + mag_range[1]) / 2
-            popt, _ = curve_fit(
-                _logistic,
-                mag_center[clean],
-                comp_mean[clean],
-                p0=[100, 8, mid, 100, 1.0],
-                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
-                maxfev=10000,
-            )
-            fit_params = popt
-
-            # Find 90% and 50% completeness from fit
-            x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
-            y_fine = _logistic(x_fine, *popt)
-            idx_90 = np.argmin(np.abs(y_fine - 90))
-            comp90 = x_fine[idx_90]
-            idx_50 = np.argmin(np.abs(y_fine - 50))
-            comp50 = x_fine[idx_50]
-    except (RuntimeError, ValueError):
-        pass
-
-    return {
-        "mag_center": mag_center,
-        "completeness": comp_mean,
-        "completeness_err": comp_err,
-        "comp90": comp90,
-        "comp50": comp50,
-        "fit_params": fit_params,
-        "grid_index": tile_info.get("grid_index"),
-    }
+    return sub_results if sub_results else None
 
 
 # --------------------------------------------------------------------------- #
@@ -690,22 +740,25 @@ def run_completeness(
             delayed(measure_completeness)(tile_info=tile, **kwargs)
             for tile in valid_tiles
         )
-        results = [r for r in raw_results if r is not None]
     else:
-        results = []
+        raw_results = []
         for idx, tile in enumerate(valid_tiles):
             message_calibration(
                 n_current=idx + 1,
                 n_total=n_valid,
                 name=os.path.basename(tile["image"]),
             )
-            result = measure_completeness(tile_info=tile, **kwargs)
-            if result is not None:
-                results.append(result)
+            raw_results.append(measure_completeness(tile_info=tile, **kwargs))
+
+    # Flatten: each tile returns a list of sub-region dicts
+    results = []
+    for r in raw_results:
+        if r is not None:
+            results.extend(r)
 
     elapsed = time.time() - tstart
     print_message(
-        message=f"\n-> {len(results)} sub-tiles done in {elapsed:.1f}s",
+        message=f"\n-> {len(results)} sub-regions done in {elapsed:.1f}s",
         kind="okblue",
         end="\n",
     )

@@ -277,7 +277,8 @@ class Setup:
 
     # Completeness
     build_completeness: bool = False  # Enable tile completeness analysis
-    completeness_tile_size_arcmin: float = 10.0  # Sub-tile size for completeness
+    completeness_tile_size_arcmin: float = 20.0  # Sub-tile size for completeness
+    completeness_resolution_arcmin: float = 10.0  # Spatial resolution for results
     completeness_iterations: int = 25  # Number of injection iterations per sub-tile
     completeness_mag_lo: float = 15.0  # Bright end of magnitude range
     completeness_mag_hi: float = 24.0  # Faint end of magnitude range
