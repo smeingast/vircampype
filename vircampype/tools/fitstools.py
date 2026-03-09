@@ -1019,6 +1019,8 @@ def build_qc_summary_row(
         "ellipticity": round(ellipticity, 3) if not np.isnan(ellipticity) else np.nan,
         "maglim": round(maglim, 3) if not np.isnan(maglim) else np.nan,
         "mag_saturation": mag_saturation,
+        "comp90": np.nan,
+        "comp50": np.nan,
     }
 
 
@@ -1284,6 +1286,19 @@ def build_qc_summary(
             )
         except Exception as e:
             log.warning(f"QC summary: skipping tile: {e}")
+
+    # Add completeness metrics to the tile row (if available)
+    comp_path = os.path.join(
+        setup.folders["qc_completeness"], "completeness_results.fits"
+    )
+    if os.path.isfile(comp_path):
+        from vircampype.tools.completeness import load_completeness_results
+
+        _, tile_summary = load_completeness_results(comp_path)
+        for row in rows:
+            if row["type"] == "tile":
+                row["comp90"] = round(tile_summary["comp90"], 3)
+                row["comp50"] = round(tile_summary["comp50"], 3)
 
     if not rows:
         print_message(
