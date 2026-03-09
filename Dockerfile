@@ -4,7 +4,7 @@ ARG BUILD_OPTION=user
 # Install libraries
 RUN dnf update -y && dnf install -y git automake gcc gcc-c++ libtool fftw-devel openblas-devel \
     cfitsio-devel plplot-devel libcurl-devel python3-devel python3.14-pip python3.14-cython \
-    wcslib-devel gsl-devel wget fpack
+    wcslib-devel gsl-devel wget fpack rsync procps-ng
 
 # Set Python aliases
 RUN ln -sf /usr/bin/python3.14 /usr/bin/python && \
