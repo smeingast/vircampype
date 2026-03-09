@@ -280,7 +280,7 @@ class Setup:
     completeness_tile_size_arcmin: float = 10.0  # Sub-tile size for completeness
     completeness_iterations: int = 25  # Number of injection iterations per sub-tile
     completeness_mag_lo: float = 15.0  # Bright end of magnitude range
-    completeness_mag_hi: float = 22.5  # Faint end of magnitude range
+    completeness_mag_hi: float = 24.0  # Faint end of magnitude range
     completeness_mag_bin: float = 0.25  # Magnitude bin width
     completeness_star_density: float = 3.0  # Artificial stars per arcmin² per iteration
 
