@@ -10,6 +10,7 @@ import warnings
 
 import numpy as np
 from astropy.io import fits
+from scipy.ndimage import zoom
 from scipy.optimize import curve_fit
 from scipy.spatial import cKDTree
 
@@ -58,17 +59,26 @@ def _fleming95(x, amp, alpha, v_lim):
 def _psfex_to_fits(psf_model_path: str) -> str:
     """Extract the central (constant-term) PSF from a PSFEx model file.
 
-    SkyMaker expects a simple 2D FITS image, but PSFEx stores a
-    polynomial-varying PSF as a 3D cube.  The first slice is the
-    zeroth-order component (i.e. the spatially-constant PSF).
+    SkyMaker expects a simple 2D FITS image at native pixel scale, but
+    PSFEx stores a polynomial-varying PSF as a 3D cube that is typically
+    oversampled (PSF_SAMP < 1).  The first slice is the zeroth-order
+    component (i.e. the spatially-constant PSF).  We resample it to
+    native pixel scale so that SkyMaker (with PSF_OVERSAMP=1) renders
+    stars at the correct width.
 
     Returns the path to the 2D FITS snapshot (written next to the model).
     """
     out_path = psf_model_path + ".fits"
     with fits.open(psf_model_path) as hdul:
+        psf_samp = hdul[1].header["PSF_SAMP"]
         psf_cube = hdul[1].data["PSF_MASK"][0]
         psf_2d = psf_cube[0]  # zeroth-order component
-        psf_2d = psf_2d / psf_2d.sum()  # normalise
+
+    # Resample from oversampled grid to native pixel scale
+    if psf_samp < 1.0:
+        psf_2d = zoom(psf_2d, psf_samp, order=3)
+
+    psf_2d = psf_2d / psf_2d.sum()  # normalise
     fits.writeto(out_path, psf_2d.astype(np.float32), overwrite=True)
     return out_path
 
