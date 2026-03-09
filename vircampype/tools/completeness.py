@@ -322,7 +322,7 @@ def _fit_completeness(
                 mag_center[clean],
                 comp_mean[clean],
                 p0=[100, 8, mid, 100, 1.0],
-                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
+                bounds=([0, 0, mag_range[0], 0, 0], [100, 50, mag_range[1], 100, 20]),
                 maxfev=10000,
             )
             fit_params = popt
@@ -933,7 +933,7 @@ def plot_completeness_tile(
                 mag_center[clean],
                 comp_mean[clean],
                 p0=[100, 8, mid, 100, 1.0],
-                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
+                bounds=([0, 0, mag_range[0], 0, 0], [100, 50, mag_range[1], 100, 20]),
                 maxfev=10000,
             )
             fit_params = popt
@@ -1299,7 +1299,7 @@ def save_completeness_results(
                 mag_center[clean],
                 comp_mean[clean],
                 p0=[100, 8, mid, 100, 1.0],
-                bounds=([0, 0, mag_range[0], 0, 0], [200, 50, mag_range[1], 200, 20]),
+                bounds=([0, 0, mag_range[0], 0, 0], [100, 50, mag_range[1], 100, 20]),
                 maxfev=10000,
             )
             tile_fit = popt.astype(np.float32)
