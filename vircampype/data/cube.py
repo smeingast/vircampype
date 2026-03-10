@@ -481,7 +481,9 @@ class ImageCube(object):
         # Prepend PrimaryHDU and write via local temp to avoid many small
         # NAS writes; a single large sequential copy is much faster.
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
-        path_temp = make_path_system_tempfile(suffix=".fits")
+        path_temp = make_path_system_tempfile(
+            suffix=".fits", base_dir=self.setup.local_cache_dir
+        )
         try:
             hdulist.writeto(fileobj=path_temp, overwrite=True)
             rsync_file(path_temp, path)
@@ -1180,7 +1182,9 @@ class ImageCube(object):
 
         """
         # Write cube to temp file on disk
-        path_input = make_path_system_tempfile(suffix=".fits")
+        path_input = make_path_system_tempfile(
+            suffix=".fits", base_dir=self.setup.local_cache_dir
+        )
         self.write_mef(path=path_input, overwrite=True, dtype=np.float32)
 
         # Create temp paths for noisechisel output

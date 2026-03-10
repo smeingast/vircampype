@@ -90,6 +90,9 @@ class Setup:
         None  # Path to local Gaia FITS catalog (skip download)
     )
     scamp_cache_dir: str | None = None  # Directory for caching SCAMP .ahead files
+    local_cache_dir: str | None = (
+        None  # Local temp directory for intermediate files (default: system temp)
+    )
 
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"  # Photometric reference catalog
@@ -339,6 +342,11 @@ class Setup:
         if self.scamp_cache_dir is not None:
             self.scamp_cache_dir = os.path.join(self.scamp_cache_dir, self.name, "")
             os.makedirs(self.scamp_cache_dir, exist_ok=True)
+
+        # Set up local cache directory for intermediate/temporary files
+        if self.local_cache_dir is not None:
+            self.local_cache_dir = os.path.join(self.local_cache_dir, self.name, "")
+            os.makedirs(self.local_cache_dir, exist_ok=True)
 
         # Set keywords
         self.keywords = HeaderKeywords()

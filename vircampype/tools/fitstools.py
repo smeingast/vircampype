@@ -252,6 +252,7 @@ def make_mef_image(
     add_constant: int | float | str | list | None = None,
     write_extname: bool = True,
     overwrite: bool = False,
+    cache_dir: str | None = None,
 ) -> None:
     """
     Combine multiple single-extension FITS images into one MEF file.
@@ -274,6 +275,9 @@ def make_mef_image(
         Default is ``True``.
     overwrite : bool, optional
         Overwrite an existing output file. Default is ``False``.
+    cache_dir : str, optional
+        Directory for the temporary intermediate file. If ``None``,
+        the system temp directory is used.
 
     Raises
     ------
@@ -307,7 +311,7 @@ def make_mef_image(
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
 
     # Write via local temp to avoid many small NAS writes
-    path_temp = make_path_system_tempfile(suffix=".fits")
+    path_temp = make_path_system_tempfile(suffix=".fits", base_dir=cache_dir)
     try:
         hdulist.writeto(path_temp, overwrite=True)
         rsync_file(path_temp, path_output)
@@ -700,6 +704,7 @@ def make_gaia_refcat(
     key_gmag: str = "mag",
     key_gflux: str = "flux",
     key_gflux_error: str = "flux_error",
+    cache_dir: str | None = None,
 ) -> Table:
     """
     Build an astrometric reference catalogue in LDAC format from Gaia data.
@@ -746,6 +751,9 @@ def make_gaia_refcat(
     key_gflux_error : str, optional
         Column name for G-band flux uncertainty. Default is
         ``"flux_error"``.
+    cache_dir : str, optional
+        Directory for the temporary intermediate file. If ``None``,
+        the system temp directory is used.
 
     Returns
     -------
@@ -806,7 +814,7 @@ def make_gaia_refcat(
         table_out[nn] = table_out[nn][sortindex]
 
     # Write temporary fits table, convert to LDAC, remove temp file
-    path_temp = make_path_system_tempfile(suffix=".cat.fits")
+    path_temp = make_path_system_tempfile(suffix=".cat.fits", base_dir=cache_dir)
     table_out.write(path_temp, overwrite=True)
     fits2ldac(path_in=path_temp, path_out=path_ldac_out)
     os.remove(path_temp)

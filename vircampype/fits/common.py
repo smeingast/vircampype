@@ -155,7 +155,8 @@ class FitsFiles:
         """Path to the consolidated header shelve database (without extension)."""
         # Derive a stable, unique name from the pipeline temp folder path
         path_hash = hashlib.md5(self.setup.folders["temp"].encode()).hexdigest()[:12]
-        return os.path.join(tempfile.gettempdir(), f"vircampype_headers_{path_hash}")
+        base = self.setup.local_cache_dir or tempfile.gettempdir()
+        return os.path.join(base, f"vircampype_headers_{path_hash}")
 
     _headers = None
 

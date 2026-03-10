@@ -615,9 +615,11 @@ def wait_for_no_process(
         time.sleep(poll_s)
 
 
-def make_path_system_tempfile(prefix: str = "", suffix: str = ".tmp") -> str:
+def make_path_system_tempfile(
+    prefix: str = "", suffix: str = ".tmp", base_dir: str | None = None
+) -> str:
     """
-    Return a unique temp file path in the system temp directory.
+    Return a unique temp file path in the given (or system) temp directory.
 
     Parameters
     ----------
@@ -625,24 +627,36 @@ def make_path_system_tempfile(prefix: str = "", suffix: str = ".tmp") -> str:
         Prefix string prepended to the filename, by default "".
     suffix : str, optional
         File suffix (including leading dot), by default ".tmp".
+    base_dir : str, optional
+        Base directory for the temp file. If ``None``, the system temp
+        directory is used.
 
     Returns
     -------
     str
         Temp file path (file is not created).
     """
-    return os.path.join(tempfile.gettempdir(), f"{prefix}{uuid.uuid4().hex}{suffix}")
+    base = base_dir if base_dir is not None else tempfile.gettempdir()
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, f"{prefix}{uuid.uuid4().hex}{suffix}")
 
 
-def make_system_tempdir() -> str:
+def make_system_tempdir(base_dir: str | None = None) -> str:
     """
-    Create a unique temporary directory in the system temp directory.
+    Create a unique temporary directory in the given (or system) temp directory.
+
+    Parameters
+    ----------
+    base_dir : str, optional
+        Base directory under which the new directory is created.
+        If ``None``, the system temp directory is used.
 
     Returns
     -------
     str
         Path to the created temporary directory.
     """
-    path = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex)
+    base = base_dir if base_dir is not None else tempfile.gettempdir()
+    path = os.path.join(base, uuid.uuid4().hex)
     os.makedirs(path)
     return path + os.sep

@@ -6,7 +6,6 @@ import os
 import shutil
 import tempfile
 import time
-import uuid
 import warnings
 
 import numpy as np
@@ -339,7 +338,9 @@ class SkyImages(FitsImages):
         # Create temporary system file paths
         paths_tables_sex = [
             make_path_system_tempfile(
-                prefix=f"{os.path.basename(pt)}_", suffix=".sex.cat"
+                prefix=f"{os.path.basename(pt)}_",
+                suffix=".sex.cat",
+                base_dir=self.setup.local_cache_dir,
             )
             for pt in path_tables_clean
         ]
@@ -1428,6 +1429,7 @@ class SkyImagesProcessed(SkyImages):
                     key_gmag="mag",
                     key_gflux="flux",
                     key_gflux_error="flux_error",
+                    cache_dir=self.setup.local_cache_dir,
                 )
                 log.info(f"Gaia reference catalog saved to {outpath}")
 
@@ -2122,7 +2124,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         )
 
         # Make system temp directory for resampling
-        path_resampled_dir = make_system_tempdir()
+        path_resampled_dir = make_system_tempdir(base_dir=self.setup.local_cache_dir)
 
         # Construct commands for resampling
         cmds = [
@@ -2184,12 +2186,14 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
                 overwrite=self.setup.overwrite,
                 path_output=outpath,
                 primeheader=self.headers_primary[idx_file],
+                cache_dir=self.setup.local_cache_dir,
             )
             make_mef_image(
                 paths_input=sorted(paths_weights),
                 overwrite=self.setup.overwrite,
                 path_output=outpath_weight,
                 primeheader=self.headers_primary[idx_file],
+                cache_dir=self.setup.local_cache_dir,
             )
 
             # Remove intermediate files
@@ -2304,7 +2308,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             cpkw_dict = dict(zip(cpkw, cpkw_data))
 
             # Loop over extensions — write SWarp intermediates to local temp
-            tmpdir_stacks = make_system_tempdir()
+            tmpdir_stacks = make_system_tempdir(base_dir=self.setup.local_cache_dir)
             paths_temp_stacks, paths_temp_weights = [], []
             for idx_data_hdu, idx_iter_hdu in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
@@ -2465,12 +2469,14 @@ class SkyImagesResampled(SkyImagesProcessed):
                 overwrite=self.setup.overwrite,
                 path_output=path_stack,
                 primeheader=prhdr_stk,
+                cache_dir=self.setup.local_cache_dir,
             )
             make_mef_image(
                 paths_input=sorted(paths_temp_weights),
                 overwrite=self.setup.overwrite,
                 path_output=path_weight,
                 primeheader=prhdr_stk,
+                cache_dir=self.setup.local_cache_dir,
             )
             # Remove intermediate temp directory
             remove_directory(tmpdir_stacks)
@@ -2586,12 +2592,20 @@ class SkyImagesResampled(SkyImagesProcessed):
             sws = SwarpSetup(setup=self.setup)
 
             # Make system temp dir for swap
-            swap_dir = tempfile.mkdtemp(prefix="swarp_swap_")
+            cache_base = self.setup.local_cache_dir or tempfile.gettempdir()
+            swap_dir = tempfile.mkdtemp(prefix="swarp_swap_", dir=cache_base)
 
             # Generate temporary coadd and coadd weight names on local disk
-            tmpdir = tempfile.gettempdir()
-            path_coadd_tmp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
-            path_weight_tmp = str(f"{tmpdir}/swarp_weight_{uuid.uuid4().hex}.fits")
+            path_coadd_tmp = make_path_system_tempfile(
+                prefix="swarp_",
+                suffix=".fits",
+                base_dir=self.setup.local_cache_dir,
+            )
+            path_weight_tmp = make_path_system_tempfile(
+                prefix="swarp_weight_",
+                suffix=".fits",
+                base_dir=self.setup.local_cache_dir,
+            )
             path_coadd_tmp_hdr = path_coadd_tmp.replace(".fits", ".ahead")
 
             # Copy coadd header to temp location
@@ -2912,7 +2926,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
 
             # Write all statistics to local temp, then copy to NAS in bulk
-            tmpdir_stats = make_system_tempdir()
+            tmpdir_stats = make_system_tempdir(base_dir=self.setup.local_cache_dir)
             stats_map = [
                 (hdul_nimg, paths_nimg[idx_file]),
                 (hdul_exptime, paths_exp[idx_file]),
@@ -2997,7 +3011,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
 
             # Generate temporary coadd and coadd weight names on local disk
-            tmpdir = tempfile.gettempdir()
 
             # Loop over extensions
             paths_temp_stacks, paths_temp_weights = [], []
@@ -3005,7 +3018,13 @@ class SkyImagesResampled(SkyImagesProcessed):
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
                 # Construct output path
-                paths_temp_stacks.append(str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits"))
+                paths_temp_stacks.append(
+                    make_path_system_tempfile(
+                        prefix="swarp_",
+                        suffix=".fits",
+                        base_dir=self.setup.local_cache_dir,
+                    )
+                )
                 paths_temp_weights.append(
                     f"{os.path.splitext(paths_temp_stacks[-1])[0]}.weight.fits"
                 )
@@ -3040,6 +3059,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 overwrite=self.setup.overwrite,
                 path_output=path_stack,
                 primeheader=None,
+                cache_dir=self.setup.local_cache_dir,
             )
 
             # Convert data types
@@ -3093,8 +3113,11 @@ class SkyImagesResampled(SkyImagesProcessed):
             return
 
         # Generate temporary coadd and coadd weight names on local disk
-        tmpdir = tempfile.gettempdir()
-        outpath_temp = str(f"{tmpdir}/swarp_{uuid.uuid4().hex}.fits")
+        outpath_temp = make_path_system_tempfile(
+            prefix="swarp_",
+            suffix=".fits",
+            base_dir=self.setup.local_cache_dir,
+        )
         outpath_temp_weight = outpath_temp.replace(".fits", ".weight.fits")
 
         # Get weight paths

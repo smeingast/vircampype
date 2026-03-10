@@ -114,5 +114,5 @@ NODE_INDEX:             0               # Node index (for clusters)
 NTHREADS:               0               # Number of simultaneous threads for
                                        # the SMP version of SWarp
                                        # 0 = automatic
-NOPENFILES_MAX:         16384           # Maximum number of files opened by SWarp
+NOPENFILES_MAX:         32768           # Maximum number of files opened by SWarp
 TILE_COMPRESS:          N               # Write tile compressed output image (Y/N)?
