@@ -171,6 +171,7 @@ class Setup:
         "weighted", "mean", "median", "clipped_mean", "clipped_median"
     ] = "weighted"  # Combination metric for flats
     flat_n_min: int = 3  # Min number of flat frames per group
+    flat_min_flux: int | float = 500  # Min flux (ADU) per plane; lower planes are discarded
 
     # Weights
     weight_mask_abs_min: int | float = 0.3  # Absolute min flat value for weight masking

@@ -139,6 +139,15 @@ class FlatTwilight(FlatImages):
                 # Determine flux for each plane of the cube
                 flux.append(cube.background_planes()[0])
 
+                # Discard planes with flux below minimum threshold
+                low_flux = flux[-1] < self.setup.flat_min_flux
+                if np.any(low_flux):
+                    cube.cube[low_flux] = np.nan
+                    log.info(
+                        f"Detector {d}: discarded {low_flux.sum()} planes "
+                        f"with flux < {self.setup.flat_min_flux} ADU"
+                    )
+
                 # Scale the cube with the fluxes
                 cube.scale_planes(scales=1 / flux[-1])
 
