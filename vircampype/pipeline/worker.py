@@ -14,9 +14,11 @@ Tip (dev install):
 """
 
 import argparse
+import glob
 import os
 import sys
-from typing import Optional, Sequence
+import tempfile
+from collections.abc import Sequence
 
 from vircampype.pipeline.main import Pipeline
 from vircampype.tools.datatools import (
@@ -42,7 +44,7 @@ def _set_console_title(title: str) -> None:
         pass
 
 
-def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pipeline for VIRCAM images.")
     parser.add_argument(
         "-s", "--setup", help="Input setup file", type=str, default=None
@@ -66,6 +68,11 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="Remove all folders within the setup folder structure.",
         action="store_true",
     )
+    parser.add_argument(
+        "--clean-cache",
+        help="Remove cached header databases for this setup.",
+        action="store_true",
+    )
     return parser.parse_args(argv)
 
 
@@ -77,9 +84,20 @@ def _run_sort(paths: Sequence[str]) -> None:
     sort_vircam_science(paths_science=paths_science)
 
 
-def _run_pipeline(setup: Optional[str], reset_progress: bool, clean: bool) -> None:
+def _run_pipeline(
+    setup: str | None, reset_progress: bool, clean: bool, clean_cache: bool
+) -> None:
     pipeline = Pipeline(setup=setup)
     _set_console_title(pipeline.setup.name)
+
+    if clean_cache:
+        cache_dir = pipeline.setup.local_cache_dir or tempfile.gettempdir()
+        removed = 0
+        for path in glob.glob(os.path.join(cache_dir, "vircampype_headers_*")):
+            os.remove(path)
+            removed += 1
+        print(f"Removed {removed} cached header file(s) from {cache_dir}")
+        return
 
     if clean:
         folders = pipeline.setup.folders
@@ -96,7 +114,7 @@ def _run_pipeline(setup: Optional[str], reset_progress: bool, clean: bool) -> No
         pipeline.process_science()
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
 
     if args.sort:
@@ -104,7 +122,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     _run_pipeline(
-        setup=args.setup, reset_progress=args.reset_progress, clean=args.clean
+        setup=args.setup,
+        reset_progress=args.reset_progress,
+        clean=args.clean,
+        clean_cache=args.clean_cache,
     )
     return 0
 
