@@ -8,7 +8,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 
 ## Features
 
-- **Calibration pipeline**: bad pixel masks, linearity correction, dark subtraction, flat-fielding, gain tables
+- **Calibration pipeline**: bad pixel masks, per-channel linearity correction, dark subtraction, flat-fielding, gain tables
 - **Science pipeline**: sky subtraction, source masking (via noisechisel or built-in methods), destriping, background subtraction, NaN interpolation
 - **Astrometry**: SCAMP-based astrometric calibration against Gaia, with proper motion propagation and optional header caching
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
@@ -114,6 +114,9 @@ python vircampype/pipeline/worker.py --reset-progress --setup /path/to/setup.yml
 
 # Remove all generated object and phase3 folders
 python vircampype/pipeline/worker.py --clean --setup /path/to/setup.yml
+
+# Clear cached header databases for this setup
+python vircampype/pipeline/worker.py --clean-cache --setup /path/to/setup.yml
 ```
 
 ---
@@ -124,7 +127,7 @@ python vircampype/pipeline/worker.py --clean --setup /path/to/setup.yml
 Processes a set of raw calibration frames and produces master calibration files:
 
 1. **Master bad pixel mask** — from lamp flat frames
-2. **Master linearity** — non-linearity correction table from lamp flats
+2. **Master linearity** — per-channel non-linearity correction table from lamp flats (16 readout channels per detector)
 3. **Master dark** — median-combined dark current frames
 4. **Master gain table** — per-detector gain and read noise
 5. **Master twilight flat** — normalised twilight flat fields
@@ -181,6 +184,10 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `local_gaia_catalog` | `null` | Path to local Gaia FITS catalog (skip Vizier download) |
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
+| `local_cache_dir` | `null` | Local directory for temp files, header cache, and SWarp swap (default: system temp) |
+| `swarp_mem_max` | `12288` | Max usable RAM for SWarp (MB) |
+| `swarp_combine_bufsize` | `12288` | RAM for SWarp co-addition buffer (MB) |
+| `swarp_vmem_max` | `524288` | Max virtual memory (disk swap) for SWarp (MB) |
 | `mask_bright_galaxies` | `true` | Mask bright galaxies from de Vaucouleurs (1991) |
 
 ---
