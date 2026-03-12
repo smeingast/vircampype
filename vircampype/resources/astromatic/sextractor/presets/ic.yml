@@ -113,7 +113,7 @@ VERBOSE_TYPE:     NORMAL         # can be QUIET, NORMAL or FULL
 HEADER_SUFFIX:    .ahead          # Filename extension for additional headers
 WRITE_XML:        N              # Write XML file (Y/N)?
 XML_NAME:         sex.xml        # Filename for XML output
-XSL_URL:          file:///Users/stefan/Dropbox/Software/Astromatic/Sextractor/share/sextractor/sextractor.xsl
+XSL_URL:          unused
                                 # Filename for XSL style-sheet
 NTHREADS:         1              # 1 single thread
 

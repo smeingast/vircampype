@@ -924,18 +924,24 @@ class ImageCube(object):
         ----------
         coeff : iterable
             If a list of coefficients (floats), the same non-linear inversion will be
-            applied to all planes of the cube If a list of lists with coefficients, it
+            applied to all planes of the cube. If a list of lists with coefficients, it
             must have the length of the cube and each plane will be linearized with the
-            corresponding coefficients.
+            corresponding coefficients. If a list of lists of lists, per-channel
+            coefficients are assumed (one list of coefficient lists per plane, where
+            each inner list corresponds to a readout channel).
         texptime : iterable
             TEXPTIME for each plane in cube.
 
-        Returns
-        -------
-
         """
 
-        # Check if it's list of lists
+        # Detect per-channel mode: coeff[plane][channel] = [c0, c1, c2, c3]
+        per_channel = (
+            isinstance(coeff[0], list)
+            and len(coeff[0]) > 0
+            and isinstance(coeff[0][0], list)
+        )
+
+        # Check if it's list of lists (per-detector or per-channel)
         if isinstance(coeff[0], list):
             cff = coeff
 
@@ -951,13 +957,22 @@ class ImageCube(object):
         if isinstance(texptime, (int, float)):
             texptime = repeat(texptime)
 
+        # Pick the right linearization function
+        func = linearize_data_channels if per_channel else linearize_data
+
+        # Build the argument name for the coefficient parameter
+        coeff_kwarg = "channel_coeffs" if per_channel else "coeff"
+
         # Only launch Pool if more than one thread is requested
         if self.setup.n_jobs == 1:
             mp = []
             for a, b, c in zip(self.cube, cff, texptime):
                 mp.append(
-                    linearize_data(
-                        data=a, coeff=b, texptime=c, reset_read_overhead=1.0011
+                    func(
+                        data=a,
+                        **{coeff_kwarg: b},
+                        texptime=c,
+                        reset_read_overhead=1.0011,
                     )
                 )
 
@@ -965,7 +980,7 @@ class ImageCube(object):
             # Start parallel linearization (threads: pure numpy, releases GIL)
             with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
                 mp = parallel(
-                    delayed(linearize_data)(a, b, c, d)
+                    delayed(func)(a, b, c, d)
                     for a, b, c, d in zip(self.cube, cff, texptime, repeat(1.0011))
                 )
 
@@ -1071,7 +1086,7 @@ class ImageCube(object):
             ax.set_ylim(-30, 60)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
-                fig.savefig(path_plot, bbox_inches="tight", dpi=300)
+                fig.savefig(path_plot, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
 
     def interpolate_nan(self):

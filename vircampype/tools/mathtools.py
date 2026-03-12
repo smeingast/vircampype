@@ -14,6 +14,7 @@ from vircampype.tools.miscellaneous import *
 __all__ = [
     "apply_sigma_clip",
     "linearize_data",
+    "linearize_data_channels",
     "apply_along_axes",
     "ceil_value",
     "floor_value",
@@ -441,6 +442,41 @@ def linearize_data(data, coeff, texptime, reset_read_overhead):
     data_lin[data < 0] = data[data < 0]
 
     return data_lin
+
+
+def linearize_data_channels(data, channel_coeffs, texptime, reset_read_overhead):
+    """
+    Linearize a 2D detector image using per-channel coefficients.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        2D array of shape (ny, nx).
+    channel_coeffs : list[list[float]]
+        List of coefficient lists, one per channel, each [c0, c1, c2, c3].
+    texptime : int | float
+        Total exposure time.
+    reset_read_overhead : float
+        Reset-read-overhead in seconds.
+
+    Returns
+    -------
+    np.ndarray
+        Linearized 2D array.
+
+    """
+    n_channels = len(channel_coeffs)
+    channel_width = data.shape[1] // n_channels
+    result = np.empty_like(data)
+    for ch in range(n_channels):
+        x0, x1 = ch * channel_width, (ch + 1) * channel_width
+        result[:, x0:x1] = linearize_data(
+            data=data[:, x0:x1],
+            coeff=channel_coeffs[ch],
+            texptime=texptime,
+            reset_read_overhead=reset_read_overhead,
+        )
+    return result
 
 
 def apply_along_axes(array, method="median", axis=None, norm=True, copy=True):

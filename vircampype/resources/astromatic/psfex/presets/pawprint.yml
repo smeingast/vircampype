@@ -86,7 +86,7 @@ PSF_SUFFIX:      .psf            # Filename extension for output PSF filename
 VERBOSE_TYPE:    NORMAL          # can be QUIET,NORMAL,LOG or FULL
 WRITE_XML:       Y               # Write XML file (Y/N)?
 XML_NAME:        psfex.xml       # Filename for XML output
-XSL_URL:         file:///Users/stefan/Dropbox/Software/Astromatic/psfex-master/share/psfex/psfex.xsl
+XSL_URL:         unused
                                 # Filename for XSL style-sheet
 NTHREADS:        1              # Number of simultaneous threads for
                                 # the SMP version of PSFEx

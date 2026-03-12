@@ -311,7 +311,19 @@ class SkyImages(FitsImages):
         )
 
         # Read setup based on preset
-        if preset.lower() in ["scamp", "fwhm", "psfex"]:
+        if preset.lower() == "fwhm":
+            ss = yml2config(
+                skip=[
+                    "catalog_name",
+                    "weight_image",
+                    "detect_thresh",
+                    "analysis_thresh",
+                ],
+                detect_thresh=self.setup.sex_fwhm_detect_thresh,
+                analysis_thresh=self.setup.sex_fwhm_detect_thresh,
+                **kwargs_yml,
+            )
+        elif preset.lower() in ["scamp", "psfex"]:
             ss = yml2config(skip=["catalog_name", "weight_image"], **kwargs_yml)
         elif preset == "class_star":
             ss = yml2config(
@@ -2322,6 +2334,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
 
                 # Build swarp options
+                cache_base = self.setup.local_cache_dir or tempfile.gettempdir()
+                swap_dir = tempfile.mkdtemp(prefix="swarp_swap_", dir=cache_base)
                 ss = yml2config(
                     path_yml=sws.preset_coadd,
                     imageout_name=paths_temp_stacks[-1],
@@ -2331,6 +2345,10 @@ class SkyImagesResampled(SkyImagesProcessed):
                     satlev_keyword=self.setup.keywords.saturate,
                     nthreads=self.setup.n_jobs_swarp,
                     skip=["weight_thresh", "weight_image"],
+                    vmem_dir=swap_dir,
+                    vmem_max=self.setup.swarp_vmem_max,
+                    mem_max=self.setup.swarp_mem_max,
+                    combine_bufsize=self.setup.swarp_combine_bufsize,
                 )
 
                 # Modify file paths with current extension
@@ -2621,6 +2639,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                 nthreads=self.setup.n_jobs_swarp,
                 skip=["weight_thresh", "weight_image"],
                 vmem_dir=swap_dir,
+                vmem_max=self.setup.swarp_vmem_max,
+                mem_max=self.setup.swarp_mem_max,
+                combine_bufsize=self.setup.swarp_combine_bufsize,
             )
 
             # Write all full paths into a text file in the temp folder
@@ -3034,6 +3055,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 paths_weight_mod = [f"{x}[{idx_data_hdu}]" for x in weights]
 
                 # Build swarp options
+                cache_base = self.setup.local_cache_dir or tempfile.gettempdir()
+                swap_dir = tempfile.mkdtemp(prefix="swarp_swap_", dir=cache_base)
                 ss = yml2config(
                     path_yml=sws.preset_coadd,
                     imageout_name=paths_temp_stacks[-1],
@@ -3042,6 +3065,10 @@ class SkyImagesResampled(SkyImagesProcessed):
                     weight_image=",".join(paths_weight_mod),
                     nthreads=self.setup.n_jobs_swarp,
                     combine_type=self.setup.image_statistics_combine_type[mode],
+                    vmem_dir=swap_dir,
+                    vmem_max=self.setup.swarp_vmem_max,
+                    mem_max=self.setup.swarp_mem_max,
+                    combine_bufsize=self.setup.swarp_combine_bufsize,
                 )
 
                 # Construct final command
@@ -3137,6 +3164,8 @@ class SkyImagesResampled(SkyImagesProcessed):
             f1.write("\n".join(self.paths_full))
             f2.write("\n".join(paths_weight))
 
+        cache_base = self.setup.local_cache_dir or tempfile.gettempdir()
+        swap_dir = tempfile.mkdtemp(prefix="swarp_swap_", dir=cache_base)
         ss = yml2config(
             path_yml=sws.preset_coadd,
             weight_image=f"@{path_temp_weights}",
@@ -3145,6 +3174,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             combine_type=self.setup.image_statistics_combine_type[mode],
             nthreads=self.setup.n_jobs_swarp,
             skip=["weight_thresh", "weight_suffix"],
+            vmem_dir=swap_dir,
+            vmem_max=self.setup.swarp_vmem_max,
+            mem_max=self.setup.swarp_mem_max,
+            combine_bufsize=self.setup.swarp_combine_bufsize,
         )
 
         # Construct commands for source extraction
@@ -3419,7 +3452,7 @@ class MasterSky(MasterImages):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path, bbox_inches="tight")
+                fig.savefig(path, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
 
     def qc_plot_sky_stability(self, paths=None, axis_size=5):
@@ -3476,7 +3509,7 @@ class MasterSky(MasterImages):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path, bbox_inches="tight")
+                fig.savefig(path, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
 
 

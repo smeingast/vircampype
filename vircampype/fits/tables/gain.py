@@ -38,7 +38,11 @@ class MasterGain(MasterTables):
         # Loop over files and create plots
         for gain, path in zip(self.gain, paths):
             plot_value_detector(
-                values=gain, path=path, ylabel="Gain (e-/ADU)", axis_size=axis_size
+                values=gain,
+                path=path,
+                ylabel="Gain (e-/ADU)",
+                axis_size=axis_size,
+                dpi=self.setup.qc_plot_dpi,
             )
 
     def qc_plot_rdnoise(self, paths=None, axis_size=5):
@@ -49,7 +53,11 @@ class MasterGain(MasterTables):
         # Loop over files and create plots
         for rdn, path in zip(self.rdnoise, paths):
             plot_value_detector(
-                values=rdn, path=path, ylabel="Read Noise (e-)", axis_size=axis_size
+                values=rdn,
+                path=path,
+                ylabel="Read Noise (e-)",
+                axis_size=axis_size,
+                dpi=self.setup.qc_plot_dpi,
             )
 
     def paths_qc_plots(self, paths, prefix=""):

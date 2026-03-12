@@ -40,4 +40,5 @@ class MasterBadPixelMask(MasterImages):
                 path=path,
                 ylabel="Bad pixel fraction (%)",
                 axis_size=axis_size,
+                dpi=self.setup.qc_plot_dpi,
             )

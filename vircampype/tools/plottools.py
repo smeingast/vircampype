@@ -1,12 +1,20 @@
 import warnings
+
 import numpy as np
-from matplotlib.ticker import MultipleLocator, MaxNLocator, AutoMinorLocator
+from matplotlib.ticker import AutoMinorLocator, MaxNLocator, MultipleLocator
 
 __all__ = ["plot_value_detector", "get_plotgrid"]
 
 
 def plot_value_detector(
-    values, path, errors=None, ylabel=None, yrange=None, axis_size=5, hlines=None
+    values,
+    path,
+    errors=None,
+    ylabel=None,
+    yrange=None,
+    axis_size=5,
+    hlines=None,
+    dpi=300,
 ):
     """
     Generates a plot to display a single statistical value (e.g. dark current or gain)
@@ -39,9 +47,10 @@ def plot_value_detector(
         yrange = [np.min(values) - np.std(values), np.max(values) + np.std(values)]
 
     if errors is not None:
-        yrange = np.min(np.array(values) - np.array(errors)) - 0.1 * np.std(
-            values
-        ), np.max(np.array(values) + np.array(errors)) + 0.1 * np.std(values)
+        yrange = (
+            np.min(np.array(values) - np.array(errors)) - 0.1 * np.std(values),
+            np.max(np.array(values) + np.array(errors)) + 0.1 * np.std(values),
+        )
 
     # Create figure
     fig, ax = plt.subplots(
@@ -109,7 +118,7 @@ def plot_value_detector(
         warnings.filterwarnings(
             "ignore", message="tight_layout : falling back to Agg renderer"
         )
-        fig.savefig(path, bbox_inches="tight")
+        fig.savefig(path, bbox_inches="tight", dpi=dpi)
     plt.close("all")
 
 
@@ -148,7 +157,7 @@ def get_plotgrid(layout, xsize=4, ysize=4):
             "right": 0.9,
             "bottom": 0.1,
             "top": 0.9,
-        }
+        },
     )
 
     # Rearrange axes order

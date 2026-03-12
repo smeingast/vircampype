@@ -105,7 +105,7 @@ WRITE_FILEINFO:         Y               # Write information about each input
                                        # file in the output image header?
 WRITE_XML:              N               # Write XML file (Y/N)?
 XML_NAME:               swarp.xml       # Filename for XML output
-XSL_URL:                file:///Users/stefan/Dropbox/Software/Astromatic/Swarp/share/swarp/swarp.xsl
+XSL_URL:                unused
                                        # Filename for XSL style-sheet
 VERBOSE_TYPE:           NORMAL          # QUIET,LOG,NORMAL, or FULL
 NNODES:                 1               # Number of nodes (for clusters)

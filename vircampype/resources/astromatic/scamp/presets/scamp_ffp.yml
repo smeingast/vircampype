@@ -151,7 +151,7 @@ CHECKIMAGE_NAME:        check.fits      # Check-image filename(s)
 VERBOSE_TYPE:           NORMAL          # QUIET, NORMAL, LOG or FULL
 WRITE_XML:              Y               # Write XML file (Y/N)?
 XML_NAME:               scamp.xml       # Filename for XML output
-XSL_URL:                file:///Users/stefan/Dropbox/Software/Astromatic/Scamp/share/scamp/scamp.xsl
+XSL_URL:                unused
                                        # Filename for XSL style-sheet
 NTHREADS:               0               # Number of simultaneous threads for
                                        # the SMP version of SCAMP

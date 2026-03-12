@@ -91,9 +91,9 @@ BACK_FILTTHRESH:        0.0             # Threshold above which the background-
 #------------------------------ Memory management -----------------------------
 
 VMEM_DIR:               /tmp/               # Directory path for swap files
-VMEM_MAX:               262144          # Maximum amount of virtual memory (MB)
-MEM_MAX:                24576           # Maximum amount of usable RAM (MB)
-COMBINE_BUFSIZE:        24576           # RAM dedicated to co-addition(MB)
+VMEM_MAX:               524288          # Maximum amount of virtual memory (MB)
+MEM_MAX:                12288           # Maximum amount of usable RAM (MB)
+COMBINE_BUFSIZE:        12288           # RAM dedicated to co-addition(MB)
 
 #------------------------------ Miscellaneous ---------------------------------
 
@@ -105,7 +105,7 @@ WRITE_FILEINFO:         N               # Write information about each input
                                        # file in the output image header?
 WRITE_XML:              N               # Write XML file (Y/N)?
 XML_NAME:               swarp.xml       # Filename for XML output
-XSL_URL:                file:///Users/stefan/Dropbox/Software/Astromatic/Swarp/share/swarp/swarp.xsl
+XSL_URL:                unused
                                        # Filename for XSL style-sheet
 VERBOSE_TYPE:           NORMAL          # QUIET,LOG,NORMAL, or FULL
 NNODES:                 1               # Number of nodes (for clusters)

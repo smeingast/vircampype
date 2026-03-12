@@ -1079,8 +1079,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig1.savefig(outpath_sep, bbox_inches="tight")
-                fig2.savefig(outpath_ang, bbox_inches="tight")
+                fig1.savefig(
+                    outpath_sep, bbox_inches="tight", dpi=self.setup.qc_plot_dpi
+                )
+                fig2.savefig(
+                    outpath_ang, bbox_inches="tight", dpi=self.setup.qc_plot_dpi
+                )
             plt.close("all")
             log.info(f"Written: {outpath_sep}, {outpath_ang}")
 
@@ -1228,7 +1232,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 kwargs = dict(vmin=0, vmax=100, cmap="Spectral_r")
                 extent = [0, header["NAXIS1"], 0, header["NAXIS2"]]
                 im = ax_all[idx_hdu].imshow(
-                    grid, extent=extent, origin="lower", **kwargs
+                    grid, extent=extent, origin="lower", rasterized=True, **kwargs
                 )
                 ax_all[idx_hdu].scatter(
                     x_hdu,
@@ -1288,7 +1292,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(outpath, bbox_inches="tight")
+                fig.savefig(outpath, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
             log.info(f"Written: {outpath}")
 
@@ -1807,7 +1811,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             warnings.filterwarnings(
                 "ignore", message="tight_layout : falling back to Agg renderer"
             )
-            fig.savefig(outpath, bbox_inches="tight")
+            fig.savefig(outpath, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
         plt.close("all")
 
         # Print time
@@ -1864,6 +1868,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 ylabel="ZP AUTO (mag)",
                 axis_size=axis_size,
                 yrange=(np.median(zp_auto) - 0.1, np.median(zp_auto) + 0.1),
+                dpi=self.setup.qc_plot_dpi,
             )
             log.info(f"Written: {path_out}")
 
@@ -2053,7 +2058,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path_out, bbox_inches="tight")
+                fig.savefig(path_out, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
             log.info(f"Written: {path_out}")
 
@@ -2189,7 +2194,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Draw
                 kwargs = {"vmin": -0.1, "vmax": +0.1, "cmap": plt.get_cmap("RdBu", 20)}
                 extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
-                im = ax.imshow(grid, extent=extent, origin="lower", **kwargs)
+                im = ax.imshow(
+                    grid, extent=extent, origin="lower", rasterized=True, **kwargs
+                )
                 # ax.scatter(x_hdu, y_hdu, c=mag_delta, s=7,
                 #            lw=0.5, ec="black", **kwargs)
 
@@ -2260,7 +2267,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path_out, bbox_inches="tight")
+                fig.savefig(path_out, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
             log.info(f"Written: {path_out}")
 

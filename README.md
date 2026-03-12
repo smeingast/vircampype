@@ -164,9 +164,6 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `path_data` | — | Path to input FITS files (required) |
 | `path_pype` | — | Path for pipeline output (required) |
 | `n_jobs` | `8` | Number of parallel workers |
-| `n_jobs_sex` | `5` | Number of parallel SExtractor workers (capped at `n_jobs`) |
-| `n_jobs_scamp` | `n_jobs` | Number of parallel SCAMP workers (capped at `n_jobs`) |
-| `n_jobs_swarp` | `n_jobs` | Number of parallel SWarp workers (capped at `n_jobs`) |
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
@@ -185,9 +182,6 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `local_cache_dir` | `null` | Local directory for temp files, header cache, and SWarp swap (default: system temp) |
-| `swarp_mem_max` | `12288` | Max usable RAM for SWarp (MB) |
-| `swarp_combine_bufsize` | `12288` | RAM for SWarp co-addition buffer (MB) |
-| `swarp_vmem_max` | `524288` | Max virtual memory (disk swap) for SWarp (MB) |
 | `mask_bright_galaxies` | `true` | Mask bright galaxies from de Vaucouleurs (1991) |
 
 ---

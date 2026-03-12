@@ -248,4 +248,5 @@ class MasterDark(MasterImages):
                 ylabel="Dark Current (ADU/s)",
                 axis_size=axis_size,
                 hlines=[0],
+                dpi=self.setup.qc_plot_dpi,
             )

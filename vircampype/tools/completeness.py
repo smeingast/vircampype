@@ -46,7 +46,9 @@ def _logistic(x, l, k, x0, offset, slope=0.0):
     The slope term captures the gradual decline at the bright end due to
     crowding and blending before the main sigmoid drop.
     """
-    return np.clip(-l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0), 0.0, 100.0)
+    return np.clip(
+        -l / (1 + np.exp(-k * (x - x0))) + offset - slope * (x - x0), 0.0, 100.0
+    )
 
 
 def _fleming95(x, amp, alpha, v_lim):
@@ -790,6 +792,7 @@ def plot_completeness_curves(
     results: list[dict],
     out_path: str,
     mag_range: tuple[float, float] = (17.0, 22.5),
+    dpi: int = 300,
 ) -> None:
     """
     Plot completeness curves for all sub-tiles in a single PDF.
@@ -882,7 +885,7 @@ def plot_completeness_curves(
             ax.tick_params(labelsize=6)
 
     fig.tight_layout()
-    fig.savefig(out_path, bbox_inches="tight")
+    fig.savefig(out_path, bbox_inches="tight", dpi=dpi)
     plt.close(fig)
 
 
@@ -890,6 +893,7 @@ def plot_completeness_tile(
     results: list[dict],
     out_path: str,
     mag_range: tuple[float, float] = (17.0, 22.5),
+    dpi: int = 300,
 ) -> None:
     """
     Plot the average completeness curve across all sub-tiles.
@@ -1001,13 +1005,14 @@ def plot_completeness_tile(
     ax.legend(fontsize=8)
 
     fig.tight_layout()
-    fig.savefig(out_path, bbox_inches="tight")
+    fig.savefig(out_path, bbox_inches="tight", dpi=dpi)
     plt.close(fig)
 
 
 def plot_completeness_map(
     results: list[dict],
     out_path: str,
+    dpi: int = 300,
 ) -> None:
     """
     Plot a 2D map of 90%-completeness magnitude across sub-tiles.
@@ -1048,6 +1053,7 @@ def plot_completeness_map(
         cmap="YlGnBu",
         aspect="equal",
         interpolation="nearest",
+        rasterized=True,
     )
     cbar = fig.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label("90% completeness [mag]", fontsize=9)
@@ -1074,7 +1080,7 @@ def plot_completeness_map(
     ax.set_yticks(range(nrows))
 
     fig.tight_layout()
-    fig.savefig(out_path, bbox_inches="tight")
+    fig.savefig(out_path, bbox_inches="tight", dpi=dpi)
     plt.close(fig)
 
 
@@ -1494,15 +1500,18 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             results=results,
             out_path=os.path.join(qc_dir, "completeness_curves.pdf"),
             mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
+            dpi=setup.qc_plot_dpi,
         )
         plot_completeness_map(
             results=results,
             out_path=os.path.join(qc_dir, "completeness_map.pdf"),
+            dpi=setup.qc_plot_dpi,
         )
         plot_completeness_tile(
             results=results,
             out_path=os.path.join(qc_dir, "completeness_tile.pdf"),
             mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
+            dpi=setup.qc_plot_dpi,
         )
 
         # Write completeness FITS image

@@ -16,6 +16,19 @@ class MasterLinearity(MasterTables):
     # =========================================================================== #
     # Properties
     # =========================================================================== #
+    _is_per_channel = None
+
+    @property
+    def is_per_channel(self):
+        """Whether this linearity file uses per-channel coefficients."""
+        if self._is_per_channel is None:
+            try:
+                mode = self.headers_data[0][0]["HIERARCH PYPE LINEARITY MODE"]
+                self._is_per_channel = mode == "channel"
+            except KeyError:
+                self._is_per_channel = False
+        return self._is_per_channel
+
     _nl10000 = None
 
     @property
@@ -47,10 +60,13 @@ class MasterLinearity(MasterTables):
         """
         Extracts the linearity coefficients stored in the header for linearizing.
 
+        For per-detector files: coeff[file][detector] = [c0, c1, c2, c3]
+        For per-channel files: coeff[file][detector][channel] = [c0, c1, c2, c3]
+
         Returns
         -------
-        List
-            List of coefficients
+        list
+            Nested list of coefficients.
 
         """
 
@@ -58,9 +74,14 @@ class MasterLinearity(MasterTables):
         if self._coeff is not None:
             return self._coeff
 
-        self._coeff = self._read_sequence_from_data_headers(
-            keyword="HIERARCH PYPE COEFF LINEAR"
-        )
+        if self.is_per_channel:
+            self._coeff = self._read_channel_coefficients(
+                keyword_base="HIERARCH PYPE COEFF LINEAR"
+            )
+        else:
+            self._coeff = self._read_sequence_from_data_headers(
+                keyword="HIERARCH PYPE COEFF LINEAR"
+            )
         return self._coeff
 
     _coeff_poly = None
@@ -70,10 +91,13 @@ class MasterLinearity(MasterTables):
         """
         Fitting coefficients
 
+        For per-detector files: coeff_poly[file][detector] = [c0, c1, c2, c3]
+        For per-channel files: coeff_poly[file][detector][channel] = [c0, c1, c2, c3]
+
         Returns
         -------
-        List
-            List of coefficients
+        list
+            Nested list of coefficients.
 
         """
 
@@ -81,10 +105,53 @@ class MasterLinearity(MasterTables):
         if self._coeff_poly is not None:
             return self._coeff_poly
 
-        self._coeff_poly = self._read_sequence_from_data_headers(
-            keyword="HIERARCH PYPE COEFF POLY"
-        )
+        if self.is_per_channel:
+            self._coeff_poly = self._read_channel_coefficients(
+                keyword_base="HIERARCH PYPE COEFF POLY"
+            )
+        else:
+            self._coeff_poly = self._read_sequence_from_data_headers(
+                keyword="HIERARCH PYPE COEFF POLY"
+            )
         return self._coeff_poly
+
+    def _read_channel_coefficients(self, keyword_base, n_channels=16):
+        """
+        Read per-channel coefficient keywords from data headers.
+
+        Keywords are expected in the form '{keyword_base} {channel} {order}'.
+
+        Parameters
+        ----------
+        keyword_base : str
+            Base keyword prefix.
+        n_channels : int, optional
+            Number of readout channels per detector. Default is 16.
+
+        Returns
+        -------
+        list
+            result[file][detector][channel] = [c0, c1, ...]
+
+        """
+        result = []
+        for headers_file in self.headers_data:
+            file_coeffs = []
+            for hdr in headers_file:
+                det_coeffs = []
+                for ch in range(n_channels):
+                    ch_coeffs = []
+                    order = 0
+                    while True:
+                        try:
+                            ch_coeffs.append(hdr[f"{keyword_base} {ch} {order}"])
+                            order += 1
+                        except KeyError:
+                            break
+                    det_coeffs.append(ch_coeffs)
+                file_coeffs.append(det_coeffs)
+            result.append(file_coeffs)
+        return result
 
     _linearity_texp = None
 
@@ -209,6 +276,7 @@ class MasterLinearity(MasterTables):
                 ylabel="Non-linearity @10000ADU/TEXP=2 (%)",
                 axis_size=axis_size,
                 hlines=[0],
+                dpi=self.setup.qc_plot_dpi,
             )
 
     def qc_plot_linearity_fit(self, paths=None, axis_size=4):
@@ -303,14 +371,24 @@ class MasterLinearity(MasterTables):
                     rasterized=True,
                 )
 
-                # Fit
-                ax.plot(
-                    texp[idx],
-                    linearity_fitfunc(texp[idx], *coeff_poly[idx][1:]),
-                    c="black",
-                    lw=0.8,
-                    zorder=0,
-                )
+                # Fit line (use mean across channels for per-channel mode)
+                if self.is_per_channel:
+                    mean_poly = np.mean(coeff_poly[idx], axis=0)
+                    ax.plot(
+                        texp[idx],
+                        linearity_fitfunc(texp[idx], *mean_poly[1:]),
+                        c="black",
+                        lw=0.8,
+                        zorder=0,
+                    )
+                else:
+                    ax.plot(
+                        texp[idx],
+                        linearity_fitfunc(texp[idx], *coeff_poly[idx][1:]),
+                        c="black",
+                        lw=0.8,
+                        zorder=0,
+                    )
 
                 # Saturation
                 ax.hlines(
@@ -368,7 +446,7 @@ class MasterLinearity(MasterTables):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path, bbox_inches="tight")
+                fig.savefig(path, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
 
     def qc_plot_linearity_delta(self, paths=None, axis_size=4):
@@ -406,17 +484,47 @@ class MasterLinearity(MasterTables):
 
                 # Sample a few TEXPs
                 texps = [2, 5, 10]
-                data_lin = [
-                    linearize_data(
-                        data=data,
-                        coeff=coeff_hdu,
-                        texptime=t,
-                        reset_read_overhead=1.0011,
-                    )
-                    for t in texps
-                ]
 
-                # Draw
+                if self.is_per_channel:
+                    # Per-channel: draw all channels as thin lines, use mean
+                    # coefficients for the labeled thick line
+                    mean_coeff = np.mean(coeff_hdu, axis=0).tolist()
+                    for ch_coeff in coeff_hdu:
+                        for t in texps:
+                            dl = linearize_data(
+                                data=data,
+                                coeff=ch_coeff,
+                                texptime=t,
+                                reset_read_overhead=1.0011,
+                            )
+                            ax.plot(
+                                data,
+                                dl - data,
+                                lw=0.3,
+                                alpha=0.3,
+                                c="gray",
+                            )
+                    data_lin = [
+                        linearize_data(
+                            data=data,
+                            coeff=mean_coeff,
+                            texptime=t,
+                            reset_read_overhead=1.0011,
+                        )
+                        for t in texps
+                    ]
+                else:
+                    data_lin = [
+                        linearize_data(
+                            data=data,
+                            coeff=coeff_hdu,
+                            texptime=t,
+                            reset_read_overhead=1.0011,
+                        )
+                        for t in texps
+                    ]
+
+                # Draw mean/detector-level curves with labels
                 for idx_texp in range(len(texps)):
                     ax.plot(
                         data,
@@ -491,5 +599,5 @@ class MasterLinearity(MasterTables):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path, bbox_inches="tight")
+                fig.savefig(path, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")

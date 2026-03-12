@@ -35,6 +35,7 @@ class Setup:
     silent: bool = False  # Suppress terminal progress messages
     overwrite: bool = False  # Overwrite existing output files
     qc_plots: bool = True  # Generate quality control plots
+    qc_plot_dpi: int = 300  # DPI for rasterized elements in QC plots
     log_level: str = "info"  # Logging verbosity (debug, info, warning, error)
 
     # What to process
@@ -171,7 +172,9 @@ class Setup:
         "weighted", "mean", "median", "clipped_mean", "clipped_median"
     ] = "weighted"  # Combination metric for flats
     flat_n_min: int = 3  # Min number of flat frames per group
-    flat_min_flux: int | float = 500  # Min flux (ADU) per plane; lower planes are discarded
+    flat_min_flux: int | float = (
+        500  # Min flux (ADU) per plane; lower planes are discarded
+    )
 
     # Weights
     weight_mask_abs_min: int | float = 0.3  # Absolute min flat value for weight masking
@@ -264,6 +267,9 @@ class Setup:
     # Sextractor
     sex_back_size: int = 64  # SExtractor background mesh size
     sex_back_filtersize: int = 3  # SExtractor background filter size
+    sex_fwhm_detect_thresh: int | float = (
+        50  # Detection threshold (sigma) for FWHM preset
+    )
     sex_detection_image_path: str | None = (
         None  # Path to external SExtractor detection image
     )
@@ -275,6 +281,9 @@ class Setup:
     coadd_pixel_scale: float = (
         1 / 3
     )  # Default pixel scale (arcsec) for auto-built coadd headers
+    swarp_mem_max: int = 12288  # Max usable RAM for SWarp (MB)
+    swarp_combine_bufsize: int = 12288  # RAM for SWarp co-addition buffer (MB)
+    swarp_vmem_max: int = 524288  # Max virtual memory (disk swap) for SWarp (MB)
     swarp_post_sleep: int = 5  # Seconds to wait after SWarp for filesystem sync
     mmm_max_pixels: int = 50_000_000  # Max pixels for tile background estimation
     n_offset_positions: int = 6  # Expected number of offset positions for stacks

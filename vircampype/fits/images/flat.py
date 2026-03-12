@@ -7,6 +7,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
 from vircampype.data.cube import ImageCube
+from vircampype.external.mmm import mmm
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.common import FitsImages, MasterImages
 from vircampype.fits.tables.gain import MasterGain
@@ -454,85 +455,143 @@ class FlatLampLin(FlatImages):
                 # Mask bad pixels
                 cube_flat.apply_masks(bpm=cube_bpm)
 
-                # Determine flux and flux sigma
+                # Determine detector-level flux (kept for QC table columns)
                 flux, flux_err = cube_flat.background_planes()
 
-                # Grab saturation level
+                # Grab saturation level and exposure times
                 satlevel = self.setup.saturation_levels[idx_hdu - 1]
+                texptime = np.array(sflats.texptime)
 
-                # Find values above saturation limit
+                # Find values above saturation limit (detector-level)
                 saturated = flux > satlevel
 
-                # Grab clean DIT and clean flux
-                flux_clean, flux_err_clean = flux[~saturated], flux_err[~saturated]
-                texptime = np.array(sflats.texptime)
-                texptime_clean = texptime[~saturated]
+                # Number of readout channels and channel width
+                n_channels = 16
+                channel_width = cube_flat.cube.shape[2] // n_channels
 
-                # Do curve fit (force positive in first order term, negative in second
-                # order term)
-                coeff, _ = curve_fit(  # noqa
-                    linearity_fitfunc,
-                    texptime_clean,
-                    flux_clean,
-                    p0=[1, -1, -0.001],
-                    bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]),
+                # Per-channel fitting
+                cards_coeff, cards_poly = [], []
+                channel_nl10000 = []
+                ref_adu = self.setup.linearity_reference_adu
+
+                for ch in range(n_channels):
+                    x0, x1 = ch * channel_width, (ch + 1) * channel_width
+
+                    # Measure per-channel flux for each plane
+                    ch_flux = np.array(
+                        [mmm(plane[:, x0:x1])[0] for plane in cube_flat.cube]
+                    )
+
+                    # Per-channel saturation mask
+                    ch_saturated = ch_flux > satlevel
+                    ch_flux_clean = ch_flux[~ch_saturated]
+                    ch_texptime_clean = texptime[~ch_saturated]
+
+                    # Fit per-channel linearity
+                    ch_coeff, _ = curve_fit(  # noqa
+                        linearity_fitfunc,
+                        ch_texptime_clean,
+                        ch_flux_clean,
+                        p0=[1, -1, -0.001],
+                        bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]),
+                    )
+
+                    # Compute normalized final coefficients
+                    ch_coeff_norm = [
+                        ch_coeff[i] / ch_coeff[0] ** (i + 1)
+                        for i in range(len(ch_coeff))
+                    ]
+
+                    # Add 0 order term
+                    ch_coeff = np.insert(ch_coeff, 0, 0)
+                    ch_coeff_norm = np.insert(ch_coeff_norm, 0, 0)
+
+                    # Per-channel NL at reference ADU
+                    if ch_flux.min() <= ref_adu <= ch_flux.max():
+                        ch_flux_lin = np.array(
+                            [
+                                linearize_data(
+                                    data=f,
+                                    coeff=ch_coeff_norm,
+                                    texptime=t,
+                                    reset_read_overhead=1.0011,
+                                )
+                                for f, t in zip(ch_flux, texptime)
+                            ]
+                        )
+                        ch_nl = float(
+                            (interp1d(ch_flux, ch_flux_lin)(ref_adu) / ref_adu - 1)
+                            * 100
+                        )
+                    else:
+                        ch_nl = np.nan
+                    channel_nl10000.append(ch_nl)
+
+                    # Write per-channel coefficient cards
+                    for cidx in range(len(ch_coeff_norm)):
+                        cards_coeff.append(
+                            fits.Card(
+                                keyword=f"HIERARCH PYPE COEFF LINEAR {ch} {cidx}",
+                                value=ch_coeff_norm[cidx],
+                                comment=f"Lin coeff ch{ch} order{cidx}",
+                            )
+                        )
+                        cards_poly.append(
+                            fits.Card(
+                                keyword=f"HIERARCH PYPE COEFF POLY {ch} {cidx}",
+                                value=ch_coeff[cidx],
+                                comment=f"Poly coeff ch{ch} order{cidx}",
+                            )
+                        )
+
+                # Detector-level NL10000 as mean across channels (for QC)
+                nl10000 = float(np.nanmean(channel_nl10000))
+                log.info(
+                    f"Detector {idx_hdu}: mean NL at {ref_adu} ADU = {nl10000:.3f}% "
+                    f"(range {np.nanmin(channel_nl10000):.3f}% to "
+                    f"{np.nanmax(channel_nl10000):.3f}%)"
                 )
 
-                # Compute normalized final coefficients
-                coeff_norm = [
-                    coeff[i] / coeff[0] ** (i + 1) for i in range(0, len(coeff))
+                # Linearize detector-level flux for QC table columns using
+                # mean coefficients across all channels
+                n_orders = 4
+                det_coeff_norm = [
+                    float(
+                        np.mean(
+                            [
+                                cards_coeff[ch * n_orders + cidx].value
+                                for ch in range(n_channels)
+                            ]
+                        )
+                    )
+                    for cidx in range(n_orders)
                 ]
-
-                # Add 0 order term
-                coeff = np.insert(coeff, 0, 0)
-                coeff_norm = np.insert(coeff_norm, 0, 0)
-
-                # Linearize data
                 flux_lin = []
                 for f, t in zip(flux, texptime):
                     flux_lin.append(
                         linearize_data(
                             data=f,
-                            coeff=coeff_norm,
+                            coeff=det_coeff_norm,
                             texptime=t,
                             reset_read_overhead=1.0011,
                         )
                     )
                 flux_lin = np.asarray(flux_lin)
 
-                # Interpolate non linearity at 10000 ADU (guard against
-                # sequences whose flux range does not include 10000 ADU)
-                ref_adu = self.setup.linearity_reference_adu
-                if flux.min() <= ref_adu <= flux.max():
-                    nl10000 = float(
-                        (interp1d(flux, flux_lin)(ref_adu) / ref_adu - 1) * 100
-                    )
-                else:
-                    nl10000 = np.nan
-                log.info(f"Detector {idx_hdu}: NL at {ref_adu} ADU = {nl10000:.3f}%")
-
-                # Make fits cards for coefficients
-                cards_coeff, cards_poly = [], []
-                for cidx in range(len(coeff_norm)):
-                    cards_poly.append(
+                # Create header with mode flag and per-channel coefficients
+                hdr = fits.Header(
+                    cards=[
                         fits.Card(
-                            keyword=f"HIERARCH PYPE COEFF POLY {cidx}",
-                            value=coeff[cidx],
-                            comment=f"Polynomial coefficient {cidx}",
+                            keyword="HIERARCH PYPE LINEARITY MODE",
+                            value="channel",
+                            comment="Per-channel linearity coefficients",
                         )
-                    )
-                    cards_coeff.append(
-                        fits.Card(
-                            keyword=f"HIERARCH PYPE COEFF LINEAR {cidx}",
-                            value=coeff_norm[cidx],
-                            comment=f"Linearity coefficient {cidx}",
-                        )
-                    )
+                    ]
+                    + cards_coeff
+                    + cards_poly
+                )
 
-                # Create header
-                hdr = fits.Header(cards=cards_coeff + cards_poly)
-
-                # Add some more values
+                # Add QC values
                 add_float_to_header(
                     header=hdr,
                     key="HIERARCH PYPE QC SATURATION",
@@ -545,7 +604,7 @@ class FlatLampLin(FlatImages):
                     key="HIERARCH PYPE QC NL10000",
                     value=nl10000,
                     decimals=3,
-                    comment="Non-linearity at 10000 ADU (%)",
+                    comment="Mean non-linearity at ref ADU (%)",
                 )
 
                 # Add data to HDU
@@ -1122,7 +1181,7 @@ class MasterFlat(MasterImages):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(path, bbox_inches="tight")
+                fig.savefig(path, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
             plt.close("all")
 
 
@@ -1192,6 +1251,7 @@ class MasterIlluminationCorrection(MasterImages):
                     vmax=vmax,
                     cmap=plt.get_cmap("RdYlBu_r", 30),
                     origin="lower",
+                    rasterized=True,
                 )
 
                 # Add colorbar
@@ -1250,5 +1310,7 @@ class MasterIlluminationCorrection(MasterImages):
                 warnings.filterwarnings(
                     "ignore", message="tight_layout : falling back to Agg renderer"
                 )
-                fig.savefig(paths[idx_file], bbox_inches="tight")
+                fig.savefig(
+                    paths[idx_file], bbox_inches="tight", dpi=self.setup.qc_plot_dpi
+                )
             plt.close("all")
