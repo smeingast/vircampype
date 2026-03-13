@@ -72,7 +72,7 @@ class FlatTwilight(FlatImages):
             )
             log.info(
                 f"Processing flat group {fidx}/{len(split)} "
-                f"(filter: {files.passband[0]}): {outpath}"
+                f"({len(files)} files, filter: {files.passband[0]}): {outpath}"
             )
 
             # Check if the file is already there and skip if it is
