@@ -82,6 +82,7 @@ The pipeline is configured via a YAML file. A minimal science setup looks like t
 name: my_field
 path_data: /path/to/sorted/science/data
 path_pype: /path/to/pipeline/output
+path_master_common: /path/to/pipeline/output/master/
 
 n_jobs: 8
 overwrite: false
@@ -99,6 +100,7 @@ A separate setup file is needed for calibration data (the pipeline detects calib
 name: calibration_2024
 path_data: /path/to/sorted/calibration/data
 path_pype: /path/to/pipeline/output
+path_master_common: /path/to/pipeline/output/master/
 ```
 
 ### 3. Run the pipeline
@@ -163,6 +165,8 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `name` | — | Pipeline run name (required) |
 | `path_data` | — | Path to input FITS files (required) |
 | `path_pype` | — | Path for pipeline output (required) |
+| `path_master_common` | — | Path to shared master calibration files (required) |
+| `path_master_object` | `null` | Path to object-specific calibration files (default: `<path_pype>/<name>/calibration/`) |
 | `n_jobs` | `8` | Number of parallel workers |
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
@@ -192,9 +196,8 @@ The pipeline creates the following folder structure under `path_pype`:
 
 ```
 path_pype/
-├── master/                         # Master calibration files (shared across runs)
 └── <name>/                         # Per-target output folder
-    ├── calibration/                # Master sky, source masks
+    ├── calibration/                # Object-specific masters (sky, source masks; configurable via path_master_object)
     ├── processing/
     │   ├── basic/                  # Basic-calibrated pawprint images
     │   ├── final/                  # Final-calibrated pawprint images
