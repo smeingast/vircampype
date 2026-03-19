@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vircampype"
-version = "1.7.0"
+version = "1.8.0"
 description = "Pipeline for processing VIRCAM data."
 requires-python = ">= 3.13"
 license = "MIT"
