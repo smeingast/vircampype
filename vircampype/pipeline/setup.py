@@ -27,6 +27,8 @@ class Setup:
     path_data: str = None  # Path to directory containing raw FITS files
     pattern_data: str = "*.fits"  # Glob pattern for raw data file selection
     path_pype: str = None  # Root output directory for pipeline products
+    path_master_common: str = None  # Path to shared master calibration files
+    path_master_object: str | None = None  # Path to object-specific calibrations
     n_jobs: int = 8  # Max number of parallel jobs (capped at CPU count)
     n_jobs_basic: int = 2  # Parallel jobs for basic processing steps
     n_jobs_sex: int = 5  # Parallel jobs for SExtractor runs
@@ -323,6 +325,17 @@ class Setup:
             raise PipelineValueError("Please provide valid path to data")
         if self.path_pype is None:
             raise PipelineValueError("Please provide valid path for pipeline output")
+        if self.path_master_common is None:
+            raise PipelineValueError(
+                "Please provide path_master_common in the pipeline setup"
+            )
+        # Ensure trailing slashes on master paths
+        if not self.path_master_common.endswith("/"):
+            self.path_master_common += "/"
+        if self.path_master_object is not None and not self.path_master_object.endswith(
+            "/"
+        ):
+            self.path_master_object += "/"
         if self.n_jobs > cpu_count():
             raise ValueError("More parallel jobs than available CPUs requested.")
         self.n_jobs_basic = min(self.n_jobs_basic, self.n_jobs)
@@ -598,8 +611,10 @@ class Setup:
         self.folders["pype"] = self.path_pype
         self.folders["raw"] = self.path_data
         self.folders["object"] = f"{self.path_pype}{self.name}/"
-        self.folders["master_common"] = f"{self.path_pype}master/"
-        self.folders["master_object"] = f"{self.folders['object']}calibration/"
+        self.folders["master_common"] = self.path_master_common
+        self.folders["master_object"] = (
+            self.path_master_object or f"{self.folders['object']}calibration/"
+        )
         self.folders["temp"] = f"{self.folders['object']}temp/"
         self.folders["processed_basic"] = f"{self.folders['object']}processing/basic/"
         self.folders["processed_final"] = f"{self.folders['object']}processing/final/"
