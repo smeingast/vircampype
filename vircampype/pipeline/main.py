@@ -837,11 +837,25 @@ class Pipeline:
         self.sources_stacks_cal.plot_qc_astrometry_1d()
         self.sources_stacks_cal.plot_qc_astrometry_2d()
 
+    @pipeline_step("qc_psf_stacks", message="STACKS QC PSF")
+    def qc_psf_stacks(self):
+        """Generate QC plots for stack PSF FWHM."""
+        if self.setup.qc_plots:
+            self.sources_stacks_cal.plot_qc_psf_2d()
+            self.sources_stacks_cal.plot_qc_psf_1d()
+
     @pipeline_step("qc_astrometry_tile", message="TILE QC ASTROMETRY")
     def qc_astrometry_tile(self):
         """Generate QC plots for tile astrometric residuals."""
         self.sources_tile_cal.plot_qc_astrometry_1d()
         self.sources_tile_cal.plot_qc_astrometry_2d()
+
+    @pipeline_step("qc_psf_tile", message="TILE QC PSF")
+    def qc_psf_tile(self):
+        """Generate QC plots for tile PSF FWHM."""
+        if self.setup.qc_plots:
+            self.sources_tile_cal.plot_qc_psf_2d()
+            self.sources_tile_cal.plot_qc_psf_1d()
 
     @pipeline_step("qc_completeness_tile", message="TILE QC COMPLETENESS")
     def qc_completeness_tile(self):
@@ -1062,6 +1076,7 @@ class Pipeline:
             self.photometry_stacks()
             self.qc_photometry_stacks()
             self.qc_astrometry_stacks()
+            self.qc_psf_stacks()
 
         # Build and calibrate tile
         if self.setup.build_tile:
@@ -1072,6 +1087,7 @@ class Pipeline:
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()
+            self.qc_psf_tile()
             if self.setup.build_completeness:
                 self.qc_completeness_tile()
 

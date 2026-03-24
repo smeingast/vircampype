@@ -101,12 +101,14 @@ class PipelineStatus:
     photometry_stacks: bool = False
     qc_photometry_stacks: bool = False
     qc_astrometry_stacks: bool = False
+    qc_psf_stacks: bool = False
     tile: bool = False
     statistics_tile: bool = False
     classification_tile: bool = False
     photometry_tile: bool = False
     qc_photometry_tile: bool = False
     qc_astrometry_tile: bool = False
+    qc_psf_tile: bool = False
     qc_completeness_tile: bool = False
     qc_summary: bool = False
     phase3: bool = False

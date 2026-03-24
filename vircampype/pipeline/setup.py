@@ -631,6 +631,7 @@ class Setup:
         self.folders["qc_photometry"] = f"{self.folders['qc']}photometry/"
         self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
         self.folders["qc_completeness"] = f"{self.folders['qc']}completeness/"
+        self.folders["qc_psf"] = f"{self.folders['qc']}psf/"
         self.folders["temp_completeness_tiles"] = (
             f"{self.folders['temp']}completeness/tiles/"
         )
@@ -676,6 +677,7 @@ class Setup:
             self.folders["qc_photometry"],
             self.folders["qc_illumcorr"],
             self.folders["qc_completeness"],
+            self.folders["qc_psf"],
             self.folders["temp_completeness_tiles"],
             self.folders["temp_completeness_psf"],
         ]

@@ -2280,6 +2280,396 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             logger=log,
         )
 
+    def plot_qc_psf_2d(self, axis_size=5):
+        """Plot 2D spatial FWHM map per detector/extension."""
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Processing info
+        print_header(header="QC PSF 2D", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Generating QC PSF 2D plots for {self.n_files} files")
+        tstart = time.time()
+
+        # Get magnitude limits for source selection
+        master_phot = self.get_master_photometry()[0]
+
+        for idx_file in range(self.n_files):
+            # Generate output path
+            path_out = (
+                f"{self.setup.folders['qc_psf']}{self.basenames[idx_file]}.psf.2D.pdf"
+            )
+
+            # Check if file already exists
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
+                log.info("File already exists, skipping")
+                continue
+
+            log.info(
+                f"Plotting PSF 2D for file {idx_file + 1}/{self.n_files}: "
+                f"{self.names[idx_file]}"
+            )
+            message_calibration(
+                n_current=idx_file + 1,
+                n_total=self.n_files,
+                name=path_out,
+            )
+
+            # Get magnitude limits and read tables
+            mag_lim = master_phot.mag_lim(self.passband[idx_file])
+            table_file = self.file2table(file_index=idx_file)
+            n_hdu = len(self.iter_data_hdu[idx_file])
+
+            # Clean all HDUs and collect FWHM for shared colorbar range
+            cleaned_tables = []
+            fwhm_arrays = []
+            for idx_hdu in range(n_hdu):
+                tab = clean_source_table(
+                    table=table_file[idx_hdu],
+                    mag_cal_min=mag_lim[0],
+                    mag_cal_max=mag_lim[1],
+                )
+                cleaned_tables.append(tab)
+                fwhm_col = (
+                    "FWHM_WORLD_INTERP"
+                    if "FWHM_WORLD_INTERP" in tab.colnames
+                    else "FWHM_WORLD"
+                )
+                if len(tab) > 0 and fwhm_col in tab.colnames:
+                    fwhm = np.array(tab[fwhm_col], dtype=np.float64) * 3600
+                    fwhm_arrays.append(fwhm[np.isfinite(fwhm)])
+                else:
+                    fwhm_arrays.append(np.array([]))
+
+            # Determine shared colorbar range across all detectors
+            fwhm_concat = np.concatenate([f for f in fwhm_arrays if len(f) > 0])
+            if len(fwhm_concat) > 0:
+                vmin = float(np.percentile(fwhm_concat, 5))
+                vmax = float(np.percentile(fwhm_concat, 95))
+            else:
+                vmin, vmax = 0.5, 2.0
+
+            # Create figure
+            if n_hdu == 1:
+                fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9, 9))
+                ax_file = [ax]
+            else:
+                fig, ax_file = get_plotgrid(
+                    layout=self.setup.fpa_layout,
+                    xsize=axis_size,
+                    ysize=axis_size,
+                )
+                ax_file = ax_file.ravel()
+            cax = fig.add_axes([0.25, 0.92, 0.5, 0.02])
+
+            # Plot each detector
+            im = None
+            for idx_hdu in range(n_hdu):
+                ax = ax_file[idx_hdu]
+                header = self.image_headers[idx_file][idx_hdu]
+                tab = cleaned_tables[idx_hdu]
+                fwhm_arcsec = fwhm_arrays[idx_hdu]
+
+                if len(fwhm_arcsec) > 3:
+                    x_hdu = np.array(tab["XWIN_IMAGE"], dtype=np.float64)
+                    y_hdu = np.array(tab["YWIN_IMAGE"], dtype=np.float64)
+
+                    # Keep only sources with finite FWHM
+                    fwhm_col = (
+                        "FWHM_WORLD_INTERP"
+                        if "FWHM_WORLD_INTERP" in tab.colnames
+                        else "FWHM_WORLD"
+                    )
+                    fwhm_raw = np.array(tab[fwhm_col], dtype=np.float64) * 3600
+                    finite = np.isfinite(fwhm_raw)
+                    x_hdu, y_hdu, fwhm_raw = (
+                        x_hdu[finite],
+                        y_hdu[finite],
+                        fwhm_raw[finite],
+                    )
+
+                    # Grid data
+                    grid = grid_value_2d_nn(
+                        x=x_hdu,
+                        y=y_hdu,
+                        values=fwhm_raw,
+                        n_nearest_neighbors=min(50, len(x_hdu)),
+                        n_bins_x=max(3, header["NAXIS1"] // 100),
+                        n_bins_y=max(3, header["NAXIS2"] // 100),
+                        x_min=1,
+                        y_min=1,
+                        x_max=header["NAXIS1"],
+                        y_max=header["NAXIS2"],
+                    )
+
+                    extent = [1, header["NAXIS1"], 1, header["NAXIS2"]]
+                    im = ax.imshow(
+                        grid,
+                        extent=extent,
+                        origin="lower",
+                        rasterized=True,
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap=plt.get_cmap("RdYlBu_r", 20),
+                    )
+
+                    # Contour overlay
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message="No contour levels were found",
+                        )
+                        levels = np.linspace(vmin, vmax, 21)
+                        cs = ax.contour(
+                            grid,
+                            levels,
+                            colors="k",
+                            origin="lower",
+                            extent=extent,
+                            vmin=vmin,
+                            vmax=vmax,
+                        )
+                        ax.clabel(cs, inline=True, fontsize=10, fmt="%0.2f")
+
+                # Annotate detector ID
+                ax.annotate(
+                    f"Det.ID: {idx_hdu + 1:0d}",
+                    xy=(0.02, 1.01),
+                    xycoords="axes fraction",
+                    ha="left",
+                    va="bottom",
+                )
+
+                # Annotate median FWHM
+                if len(fwhm_arcsec) > 0:
+                    ax.annotate(
+                        f'{np.nanmedian(fwhm_arcsec):.2f}"',
+                        xy=(0.98, 1.01),
+                        xycoords="axes fraction",
+                        ha="right",
+                        va="bottom",
+                    )
+
+                # Axis labels
+                if (idx_hdu < self.setup.fpa_layout[1]) | (n_hdu == 1):
+                    ax.set_xlabel("X (pix)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if (
+                    idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1
+                ) | (n_hdu == 1):
+                    ax.set_ylabel("Y (pix)")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                ax.set_aspect("equal")
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+                ax.set_xlim(1, header["NAXIS1"])
+                ax.set_ylim(1, header["NAXIS2"])
+
+            # Colorbar
+            if im is not None:
+                cbar = plt.colorbar(
+                    im,
+                    cax=cax,
+                    orientation="horizontal",
+                    label="FWHM (arcsec)",
+                )
+                cbar.ax.xaxis.set_ticks_position("top")
+                cbar.ax.xaxis.set_label_position("top")
+
+            # Save
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="tight_layout : falling back to Agg renderer",
+                )
+                fig.savefig(path_out, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
+            plt.close("all")
+            log.info(f"Written: {path_out}")
+
+        # Print time
+        elapsed = time.time() - tstart
+        print_message(
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+
+    def plot_qc_psf_1d(self, axis_size=5):
+        """Plot FWHM distribution histogram per detector/extension."""
+
+        # Import
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+
+        # Processing info
+        print_header(header="QC PSF 1D", silent=self.setup.silent)
+        log = PipelineLog()
+        log.info(f"Generating QC PSF 1D plots for {self.n_files} files")
+        tstart = time.time()
+
+        # Get magnitude limits for source selection
+        master_phot = self.get_master_photometry()[0]
+
+        for idx_file in range(self.n_files):
+            # Generate output path
+            path_out = (
+                f"{self.setup.folders['qc_psf']}{self.basenames[idx_file]}.psf.1D.pdf"
+            )
+
+            # Check if file already exists
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
+                log.info("File already exists, skipping")
+                continue
+
+            log.info(
+                f"Plotting PSF 1D for file {idx_file + 1}/{self.n_files}: "
+                f"{self.names[idx_file]}"
+            )
+            message_calibration(
+                n_current=idx_file + 1,
+                n_total=self.n_files,
+                name=path_out,
+            )
+
+            # Get magnitude limits and read tables
+            mag_lim = master_phot.mag_lim(self.passband[idx_file])
+            table_file = self.file2table(file_index=idx_file)
+            n_hdu = len(self.iter_data_hdu[idx_file])
+
+            # Clean all HDUs and collect FWHM for shared x-axis range
+            fwhm_arrays = []
+            for idx_hdu in range(n_hdu):
+                tab = clean_source_table(
+                    table=table_file[idx_hdu],
+                    mag_cal_min=mag_lim[0],
+                    mag_cal_max=mag_lim[1],
+                )
+                fwhm_col = (
+                    "FWHM_WORLD_INTERP"
+                    if "FWHM_WORLD_INTERP" in tab.colnames
+                    else "FWHM_WORLD"
+                )
+                if len(tab) > 0 and fwhm_col in tab.colnames:
+                    fwhm = np.array(tab[fwhm_col], dtype=np.float64) * 3600
+                    fwhm_arrays.append(fwhm[np.isfinite(fwhm)])
+                else:
+                    fwhm_arrays.append(np.array([]))
+
+            # Determine shared x-axis range across all detectors
+            fwhm_concat = np.concatenate([f for f in fwhm_arrays if len(f) > 0])
+            if len(fwhm_concat) > 0:
+                xlim_lo = float(np.percentile(fwhm_concat, 1))
+                xlim_hi = float(np.percentile(fwhm_concat, 99))
+            else:
+                xlim_lo, xlim_hi = 0.5, 2.0
+
+            # Create figure
+            if n_hdu == 1:
+                fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9, 9))
+                ax_file = [ax]
+            else:
+                fig, ax_file = get_plotgrid(
+                    layout=self.setup.fpa_layout,
+                    xsize=axis_size,
+                    ysize=axis_size,
+                )
+                ax_file = ax_file.ravel()
+
+            # Plot each detector
+            for idx_hdu in range(n_hdu):
+                ax = ax_file[idx_hdu]
+                fwhm_arcsec = fwhm_arrays[idx_hdu]
+
+                if len(fwhm_arcsec) > 0:
+                    # Histogram
+                    ax.hist(
+                        fwhm_arcsec,
+                        bins=30,
+                        range=(xlim_lo, xlim_hi),
+                        histtype="stepfilled",
+                        fc="dodgerblue",
+                        ec="black",
+                        alpha=0.5,
+                        lw=1.0,
+                    )
+
+                    # Median line
+                    med = np.nanmedian(fwhm_arcsec)
+                    ax.axvline(med, color="crimson", ls="dashed", lw=1.5)
+
+                # Annotate detector ID
+                ax.annotate(
+                    f"Det.ID: {idx_hdu + 1:0d}",
+                    xy=(0.02, 1.01),
+                    xycoords="axes fraction",
+                    ha="left",
+                    va="bottom",
+                )
+
+                # Annotate median and N
+                if len(fwhm_arcsec) > 0:
+                    ax.annotate(
+                        f'{med:.2f}" (N={len(fwhm_arcsec)})',
+                        xy=(0.98, 1.01),
+                        xycoords="axes fraction",
+                        ha="right",
+                        va="bottom",
+                    )
+
+                # Axis labels
+                if (idx_hdu < self.setup.fpa_layout[1]) | (n_hdu == 1):
+                    ax.set_xlabel("FWHM (arcsec)")
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                if (
+                    idx_hdu % self.setup.fpa_layout[0] == self.setup.fpa_layout[0] - 1
+                ) | (n_hdu == 1):
+                    ax.set_ylabel("N")
+                else:
+                    ax.axes.yaxis.set_ticklabels([])
+
+                # Ticks
+                ax.xaxis.set_major_locator(MaxNLocator(5))
+                ax.xaxis.set_minor_locator(AutoMinorLocator())
+                ax.yaxis.set_major_locator(MaxNLocator(5))
+                ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+                # Shared x range
+                ax.set_xlim(xlim_lo, xlim_hi)
+
+            # Save
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="tight_layout : falling back to Agg renderer",
+                )
+                fig.savefig(path_out, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
+            plt.close("all")
+            log.info(f"Written: {path_out}")
+
+        # Print time
+        elapsed = time.time() - tstart
+        print_message(
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+
     def build_public_catalog(self, photerr_internal: float):
         # Fetch log
         log = PipelineLog()
