@@ -67,6 +67,8 @@ def clean_source_table(
     min_flux_radius=0.8,
     max_flux_radius=3.0,
     finite_columns: list[str] | None = None,
+    mag_cal_min: float | None = None,
+    mag_cal_max: float | None = None,
     n_jobs: int | None = None,
     verbose=False,
 ):
@@ -115,6 +117,10 @@ def clean_source_table(
         Maximum ``FLUX_RADIUS``. Default is 3.0.
     finite_columns : list[str], optional
         Column names for which only finite values are kept.
+    mag_cal_min : float, optional
+        Minimum ``MAG_AUTO_CAL`` (bright/saturation limit).
+    mag_cal_max : float, optional
+        Maximum ``MAG_AUTO_CAL`` (faint limit).
     n_jobs : int, optional
         Number of parallel jobs for the nearest-neighbour search.
     verbose : bool, optional
@@ -281,6 +287,22 @@ def clean_source_table(
                 print(
                     f" - After FLUX_MAX percentiles cut: {np.sum(good)} entries remain."
                 )
+        except KeyError:
+            pass
+
+    if mag_cal_min is not None:
+        try:
+            good &= table["MAG_AUTO_CAL"] >= mag_cal_min
+            if verbose:
+                print(f" - After MAG_AUTO_CAL min cut: {np.sum(good)} entries remain.")
+        except KeyError:
+            pass
+
+    if mag_cal_max is not None:
+        try:
+            good &= table["MAG_AUTO_CAL"] <= mag_cal_max
+            if verbose:
+                print(f" - After MAG_AUTO_CAL max cut: {np.sum(good)} entries remain.")
         except KeyError:
             pass
 
