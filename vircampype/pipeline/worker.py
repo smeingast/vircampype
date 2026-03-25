@@ -73,6 +73,11 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Remove cached header databases for this setup.",
         action="store_true",
     )
+    parser.add_argument(
+        "--dry-run",
+        help="Validate setup (check all paths exist) without processing.",
+        action="store_true",
+    )
     return parser.parse_args(argv)
 
 
@@ -85,10 +90,18 @@ def _run_sort(paths: Sequence[str]) -> None:
 
 
 def _run_pipeline(
-    setup: str | None, reset_progress: bool, clean: bool, clean_cache: bool
+    setup: str | None,
+    reset_progress: bool,
+    clean: bool,
+    clean_cache: bool,
+    dry_run: bool = False,
 ) -> None:
     pipeline = Pipeline(setup=setup)
     _set_console_title(pipeline.setup.name)
+
+    if dry_run:
+        print(f"Setup '{pipeline.setup.name}' validated successfully.")
+        return
 
     if clean_cache:
         cache_dir = pipeline.setup.local_cache_dir or tempfile.gettempdir()
@@ -126,6 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         reset_progress=args.reset_progress,
         clean=args.clean,
         clean_cache=args.clean_cache,
+        dry_run=args.dry_run,
     )
     return 0
 
