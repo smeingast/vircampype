@@ -29,7 +29,7 @@ class Setup:
     path_pype: str = None  # Root output directory for pipeline products
     path_master_common: str = None  # Path to shared master calibration files
     path_master_object: str | None = None  # Path to object-specific calibrations
-    n_jobs: int = 8  # Max number of parallel jobs (capped at CPU count)
+    n_jobs: int = -2  # Parallel jobs: 0=all cores, -1=all-1, -2=all-2, >0=exact
     n_jobs_basic: int = 2  # Parallel jobs for basic processing steps
     n_jobs_sex: int = 5  # Parallel jobs for SExtractor runs
     n_jobs_scamp: int | None = None  # Parallel jobs for SCAMP (None = n_jobs)
@@ -325,6 +325,8 @@ class Setup:
             raise PipelineValueError("Please provide valid path to data")
         if self.path_pype is None:
             raise PipelineValueError("Please provide valid path for pipeline output")
+        if not self.path_pype.endswith("/"):
+            self.path_pype += "/"
         if self.path_master_common is None:
             raise PipelineValueError(
                 "Please provide path_master_common in the pipeline setup"
@@ -336,8 +338,13 @@ class Setup:
             "/"
         ):
             self.path_master_object += "/"
-        if self.n_jobs > cpu_count():
-            raise ValueError("More parallel jobs than available CPUs requested.")
+        physical_cores = cpu_count(only_physical_cores=True)
+        if self.n_jobs == 0:
+            self.n_jobs = physical_cores
+        elif self.n_jobs < 0:
+            self.n_jobs = max(1, physical_cores + self.n_jobs)
+        elif self.n_jobs > physical_cores:
+            self.n_jobs = physical_cores
         self.n_jobs_basic = min(self.n_jobs_basic, self.n_jobs)
         self.n_jobs_sex = min(self.n_jobs_sex, self.n_jobs)
         if self.n_jobs_scamp is None:
