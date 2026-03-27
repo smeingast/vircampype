@@ -19,6 +19,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
 - **Checkpoint system**: interrupted runs resume from the last completed step
+- **Cluster batch processing**: distribute jobs across multiple machines via SSH + Docker using a shared NAS (see [`cluster/README.md`](cluster/README.md))
 
 ---
 
@@ -84,7 +85,7 @@ path_data: /path/to/sorted/science/data
 path_pype: /path/to/pipeline/output
 path_master_common: /path/to/pipeline/output/master/
 
-n_jobs: 8
+n_jobs: -2
 overwrite: false
 qc_plots: true
 
@@ -119,7 +120,22 @@ python vircampype/pipeline/worker.py --clean --setup /path/to/setup.yml
 
 # Clear cached header databases for this setup
 python vircampype/pipeline/worker.py --clean-cache --setup /path/to/setup.yml
+
+# Validate setup paths without processing
+python vircampype/pipeline/worker.py --dry-run --setup /path/to/setup.yml
 ```
+
+### 4. Cluster batch processing (optional)
+
+To process many configs across multiple machines, use the cluster batch system:
+
+```bash
+vircampype --cluster cluster.yml              # queue + dispatch to all nodes
+vircampype --cluster cluster.yml --status     # monitor progress
+vircampype --cluster cluster.yml --abort      # stop all workers and reset
+```
+
+Each node only needs Docker and SSH access — no Python or vircampype install required. See [`cluster/README.md`](cluster/README.md) for full setup instructions.
 
 ---
 
@@ -167,7 +183,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `path_pype` | — | Path for pipeline output (required) |
 | `path_master_common` | — | Path to shared master calibration files (required) |
 | `path_master_object` | `null` | Path to object-specific calibration files (default: `<path_pype>/<name>/calibration/`) |
-| `n_jobs` | `8` | Number of parallel workers |
+| `n_jobs` | `-2` | Parallel workers: `0` = all physical cores, `-1` = all minus 1, `-2` = all minus 2, `>0` = exact count (capped at physical cores) |
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
