@@ -152,6 +152,10 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
         hdul_stk_p3.writeto(path_stk_p3, overwrite=True, checksum=True)
         hdul_ctg_p3.writeto(path_ctg_p3, overwrite=True, checksum=True)
 
+        # Close input HDULists
+        hdul_stk_pipe.close()
+        hdul_ctg_pipe.close()
+
         # There also has to be a weight map
         with fits.open(
             stacks_images.paths_full[idx_file].replace(".fits", ".weight.fits")
@@ -646,6 +650,12 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     # Write to disk
     hdul_tile_out.writeto(path_tile_p3, overwrite=True, checksum=True)
     hdul_catalog_out.writeto(path_catalog_p3, overwrite=True, checksum=True)
+
+    # Close input HDULists
+    hdul_tile_in.close()
+    hdul_catalog_in.close()
+    for hdul in hdul_pawprints:
+        hdul.close()
 
     # There also has to be a weight map
     with fits.open(tile_image.paths_full[0].replace(".fits", ".weight.fits")) as weight:

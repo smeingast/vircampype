@@ -1676,6 +1676,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Write to new output file
             hdul_out.writeto(path_out, overwrite=self.setup.overwrite)
+            hdul_in.close()
             hdul_out.close()
             log.info(f"Written: {path_out}")
 
