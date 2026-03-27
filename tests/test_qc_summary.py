@@ -23,6 +23,8 @@ EXPECTED_KEYS = {
     "ellipticity",
     "maglim",
     "mag_saturation",
+    "comp50",
+    "comp90",
 }
 
 
