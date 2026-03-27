@@ -136,9 +136,10 @@ class FitsFiles:
         # Return new instance
         return cls(setup=setup, file_paths=file_paths)
 
-    def basenames2log(self, indent=4):
+    @property
+    def basenames2log(self):
         """Return basenames as a JSON-formatted string for logging."""
-        return f"{json.dumps(self.basenames, indent=indent)}"
+        return f"{json.dumps(self.basenames, indent=4)}"
 
     # =========================================================================== #
     # Headers
