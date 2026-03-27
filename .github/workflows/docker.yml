@@ -85,6 +85,16 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE }}
+
       - name: Create manifest and push
         working-directory: /tmp/digests
         run: |
