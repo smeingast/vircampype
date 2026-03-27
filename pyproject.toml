@@ -33,4 +33,4 @@ include = ["vircampype*"]
 
 [tool.setuptools.package-data]
 "vircampype.visions.headers" = ["*header"]
-"vircampype.resources" = ["**/*config", "**/*yml", "**/*conv", "**/*nnw", "**/*param", "**/*xsl"]
+"vircampype.resources" = ["**/*config", "**/*yml", "**/*conv", "**/*nnw", "**/*param", "**/*xsl", "**/*.fits"]
