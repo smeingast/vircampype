@@ -327,7 +327,8 @@ mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$(dirname "$LOG_FILE")
         CONFIG_PATH=$(cat "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}")
         echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Processing ${{JOBNAME%.job}}"
 
-        if docker run --rm $DOCKER_FLAGS "$IMAGE" vircampype --setup "$CONFIG_PATH"; then
+        CONTAINER_NAME="vircampype_${{JOBNAME%.job}}"
+        if docker run --rm --name "$CONTAINER_NAME" $DOCKER_FLAGS "$IMAGE" vircampype --setup "$CONFIG_PATH"; then
             mv "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$DONE_DIR/$JOBNAME"
             echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Completed ${{JOBNAME%.job}}"
         else
