@@ -19,7 +19,6 @@ import argparse
 import glob
 import os
 import sys
-import tempfile
 from collections.abc import Sequence
 
 
@@ -145,9 +144,9 @@ def _run_pipeline(
         return
 
     if clean_cache:
-        cache_dir = pipeline.setup.local_cache_dir or tempfile.gettempdir()
+        cache_dir = pipeline.setup.folders["temp"]
         removed = 0
-        for path in glob.glob(os.path.join(cache_dir, "vircampype_headers_*")):
+        for path in glob.glob(os.path.join(cache_dir, "vircampype_headers*")):
             os.remove(path)
             removed += 1
         print(f"Removed {removed} cached header file(s) from {cache_dir}")

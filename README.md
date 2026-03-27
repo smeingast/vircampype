@@ -201,7 +201,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `local_gaia_catalog` | `null` | Path to local Gaia FITS catalog (skip Vizier download) |
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
-| `local_cache_dir` | `null` | Local directory for temp files, header cache, and SWarp swap (default: system temp) |
+| `local_cache_dir` | `null` | Local directory for temp files and SWarp swap (default: system temp); header cache is stored in the pipeline temp directory |
 | `mask_bright_galaxies` | `true` | Mask bright galaxies from de Vaucouleurs (1991) |
 
 ---
