@@ -220,7 +220,7 @@ def cmd_prepend_libraries(cmd: str) -> str:
 
 
 def run_commands_shell_parallel(
-    cmds, n_jobs: int = 1, shell: str = "zsh", silent: bool = True
+    cmds, n_jobs: int = 1, shell: str = "bash", silent: bool = True
 ):
     """
     Runs a list of shell commands in parallel using a thread pool.
@@ -259,7 +259,7 @@ def run_commands_shell_parallel(
 
 
 def run_command_shell(
-    cmd: str, shell: str = "zsh", silent: bool = False
+    cmd: str, shell: str = "bash", silent: bool = False
 ) -> tuple[str, str]:
     """
     Runs a single shell command in the specified shell.
