@@ -1,0 +1,74 @@
+# vircampype cluster configuration
+# Copy this file and adapt it for your batch run.
+# See README.md for detailed documentation.
+#
+# Usage:
+#   vircampype --cluster cluster.yml                # queue + dispatch
+#   vircampype --cluster cluster.yml --status       # show queue status
+#   vircampype --cluster cluster.yml --queue-only   # populate queue only
+#   vircampype --cluster cluster.yml --requeue      # move failed -> pending
+#   vircampype --cluster cluster.yml --reset-queue  # wipe all queue state
+#   vircampype --cluster cluster.yml --abort        # kill containers + reset
+
+# Docker image to use
+image: smeingast/vircampype
+
+# Directory containing the pipeline YAML configs to process.
+# Every *.yml file in this directory becomes a job in the queue.
+# Container-side path (must be covered by a volume mount below).
+config_dir: /data/configs
+
+# Queue directory for job tracking (pending/running/done/failed).
+# Created automatically.
+# Container-side path (must be covered by a volume mount below).
+queue_dir: /data/queue
+
+# Worker nodes.
+# host:    SSH hostname (reachable from the control machine)
+# volumes: Docker volume mounts (host_path:container_path)
+#
+# NOTE: The machine where you run vircampype --cluster (the "control
+# machine") must also be listed here so container paths can be resolved
+# to local host paths. It does not need to run pipeline jobs.
+#
+# IMPORTANT: Every path that the pipeline reads or writes must be
+# accessible inside the Docker container. This includes config_dir
+# and queue_dir above, but also ALL paths referenced in your pipeline
+# YAML configs:
+#
+#   path_data, path_pype, path_master_common, path_master_object,
+#   projection, additional_source_masks, scamp_cache_dir
+#
+# If any of these paths point to different locations on the NAS (or
+# different NAS shares), each one needs its own volume mount.
+# If the pipeline fails with "file not found", a missing volume
+# mount is the most likely cause.
+#
+# The container paths (right of ":") are the same on every node.
+# The host paths (left of ":") depend on where the NAS is mounted
+# on each machine.
+#
+# NOTE: Windows is not supported as a worker node. Use WSL (Windows
+# Subsystem for Linux) instead — install Docker inside WSL, mount
+# the NAS there, and treat the WSL instance as a regular Linux node.
+nodes:
+  - host: worker1
+    volumes:
+      - /mnt/nas/raw:/data/raw
+      - /mnt/nas/output:/data/output
+      - /mnt/nas/configs:/data/configs
+      - /mnt/nas/vircampype_queue:/data/queue
+
+  - host: worker2
+    volumes:
+      - /mnt/nas/raw:/data/raw
+      - /mnt/nas/output:/data/output
+      - /mnt/nas/configs:/data/configs
+      - /mnt/nas/vircampype_queue:/data/queue
+
+#  - host: mac-mini
+#    volumes:
+#      - /Volumes/NAS/raw:/data/raw
+#      - /Volumes/NAS/output:/data/output
+#      - /Volumes/NAS/configs:/data/configs
+#      - /Volumes/NAS/vircampype_queue:/data/queue

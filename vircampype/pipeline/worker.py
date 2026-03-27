@@ -7,6 +7,8 @@ Usage examples:
     python vircam_worker.py --reset-progress --setup /path/to/setup.yml
     python vircam_worker.py --clean --setup /path/to/setup.yml
     python vircam_worker.py --sort /path/to/files/*fits
+    python vircam_worker.py --cluster /path/to/cluster.yml
+    python vircam_worker.py --cluster /path/to/cluster.yml --status
 
 Tip (dev install):
     Either install `vircampype` or add the project root to PYTHONPATH, e.g.
@@ -19,14 +21,6 @@ import os
 import sys
 import tempfile
 from collections.abc import Sequence
-
-from vircampype.pipeline.main import Pipeline
-from vircampype.tools.datatools import (
-    sort_vircam_calibration,
-    sort_vircam_science,
-    split_in_science_and_calibration,
-)
-from vircampype.tools.systemtools import clean_directory, remove_directory
 
 
 def get_worker_path() -> str:
@@ -78,10 +72,54 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Validate setup (check all paths exist) without processing.",
         action="store_true",
     )
+
+    # Cluster batch options.
+    cluster_group = parser.add_argument_group(
+        "cluster options", "Batch processing across multiple nodes via SSH + Docker."
+    )
+    cluster_group.add_argument(
+        "--cluster",
+        help="Run cluster batch operations using a cluster.yml config.",
+        type=str,
+        default=None,
+        metavar="CLUSTER_YML",
+    )
+    cluster_group.add_argument(
+        "--status",
+        help="Show cluster queue status.",
+        action="store_true",
+    )
+    cluster_group.add_argument(
+        "--queue-only",
+        help="Populate the job queue without dispatching workers.",
+        action="store_true",
+    )
+    cluster_group.add_argument(
+        "--requeue",
+        help="Move all failed jobs back to pending.",
+        action="store_true",
+    )
+    cluster_group.add_argument(
+        "--reset-queue",
+        help="Remove all queue state and start fresh.",
+        action="store_true",
+    )
+    cluster_group.add_argument(
+        "--abort",
+        help="Kill all running containers on every node and reset the queue.",
+        action="store_true",
+    )
+
     return parser.parse_args(argv)
 
 
 def _run_sort(paths: Sequence[str]) -> None:
+    from vircampype.tools.datatools import (
+        sort_vircam_calibration,
+        sort_vircam_science,
+        split_in_science_and_calibration,
+    )
+
     paths_science, paths_calib = split_in_science_and_calibration(
         paths_files=list(paths)
     )
@@ -96,6 +134,9 @@ def _run_pipeline(
     clean_cache: bool,
     dry_run: bool = False,
 ) -> None:
+    from vircampype.pipeline.main import Pipeline
+    from vircampype.tools.systemtools import clean_directory, remove_directory
+
     pipeline = Pipeline(setup=setup)
     _set_console_title(pipeline.setup.name)
 
@@ -127,11 +168,56 @@ def _run_pipeline(
         pipeline.process_science()
 
 
+def _run_cluster(
+    cluster_yml: str,
+    status: bool,
+    queue_only: bool,
+    requeue: bool,
+    reset_queue: bool,
+    abort_cluster: bool,
+) -> None:
+    from vircampype.pipeline.cluster import (
+        ClusterConfig,
+        abort,
+        dispatch,
+        queue_reset,
+        queue_setup,
+        queue_status,
+        requeue_failed,
+    )
+
+    config = ClusterConfig.load(cluster_yml)
+
+    if status:
+        queue_status(config)
+    elif abort_cluster:
+        abort(config)
+    elif reset_queue:
+        queue_reset(config)
+    elif queue_only:
+        queue_setup(config)
+    elif requeue:
+        requeue_failed(config)
+    else:
+        dispatch(config)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
 
     if args.sort:
         _run_sort(args.sort)
+        return 0
+
+    if args.cluster:
+        _run_cluster(
+            cluster_yml=args.cluster,
+            status=args.status,
+            queue_only=args.queue_only,
+            requeue=args.requeue,
+            reset_queue=args.reset_queue,
+            abort_cluster=args.abort,
+        )
         return 0
 
     _run_pipeline(
