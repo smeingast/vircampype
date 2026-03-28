@@ -1,71 +1,72 @@
-FROM fedora:43
-ARG BUILD_OPTION=user
+# ---- Stage 1: Builder ----
+FROM fedora:43 AS builder
 
-# Install libraries
-RUN dnf update -y && dnf install -y git automake gcc gcc-c++ libtool fftw-devel openblas-devel \
-    cfitsio-devel plplot-devel libcurl-devel python3-devel python3.14-pip python3.14-cython \
-    wcslib-devel gsl-devel wget fpack rsync procps-ng
+RUN dnf update -y && dnf install -y \
+    git automake gcc gcc-c++ libtool wget \
+    fftw-devel openblas-devel cfitsio-devel plplot-devel \
+    libcurl-devel python3-devel python3.14-pip python3.14-cython \
+    wcslib-devel gsl-devel \
+    && dnf clean all && rm -rf /var/cache/dnf
 
-# Set Python aliases
 RUN ln -sf /usr/bin/python3.14 /usr/bin/python && \
     ln -sf /usr/bin/pip3.14 /usr/bin/pip
 
-# Set workdir
 WORKDIR /root
 
-# Install more stuff for dev mode
-RUN if [ "$BUILD_OPTION" = "dev" ] ; then \
-    dnf install -y python3.14-ipython ImageMagick && \
-    git clone https://github.com/granttremblay/eso_fits_tools.git && \
-    cd eso_fits_tools && make && cp dfits fitsort /usr/bin/ ; \
-    fi
-
-# Install SExtractor
+# Build all C tools in one layer, then clean sources and strip binaries
 RUN git clone https://github.com/astromatic/sextractor.git && \
-    cd /root/sextractor && \
-    ./autogen.sh && ./configure --enable-openblas && make && make install
+    cd sextractor && ./autogen.sh && ./configure --enable-openblas && make -j"$(nproc)" && make install && \
+    cd /root && git clone https://github.com/astromatic/scamp.git && \
+    cd scamp && ./autogen.sh && ./configure --enable-openblas --enable-plplot && make -j"$(nproc)" && make install && \
+    cd /root && git clone https://github.com/astromatic/psfex.git && \
+    cd psfex && ./autogen.sh && ./configure --enable-openblas --enable-plplot && make -j"$(nproc)" && make install && \
+    cd /root && git clone https://github.com/astromatic/skymaker.git && \
+    cd skymaker && ./autogen.sh && CFLAGS="-O2 -std=gnu17" ./configure && make -j"$(nproc)" && make install && \
+    cd /root && git clone https://github.com/astromatic/swarp.git && \
+    cd swarp && ./autogen.sh && ./configure && make -j"$(nproc)" && make install && \
+    cd /root && wget -q https://ftp.halifax.rwth-aachen.de/gnu/gnuastro/gnuastro-0.24.tar.gz && \
+    tar xfz gnuastro-0.24.tar.gz && rm gnuastro-0.24.tar.gz && \
+    cd gnuastro-0.24 && CPPFLAGS="-I/usr/include/cfitsio" ./configure && make -j"$(nproc)" && make install && \
+    cd /root && rm -rf sextractor scamp psfex skymaker swarp gnuastro-0.24 && \
+    find /usr/local/bin -type f -executable -exec strip {} + 2>/dev/null; \
+    find /usr/local/lib -name '*.so*' -exec strip --strip-unneeded {} + 2>/dev/null; \
+    ldconfig
 
-# Install Scamp
-RUN git clone https://github.com/astromatic/scamp.git && \
-    cd /root/scamp && \
-    ./autogen.sh && ./configure --enable-openblas --enable-plplot && make && make install
-
-# Install PSFEx
-RUN git clone https://github.com/astromatic/psfex.git && \
-    cd /root/psfex && \
-    ./autogen.sh && ./configure --enable-openblas --enable-plplot && make && make install
-
-# Install SkyMaker (legacy code needs C17 mode; C23 default treats () as (void))
-RUN git clone https://github.com/astromatic/skymaker.git && \
-    cd /root/skymaker && \
-    ./autogen.sh && CFLAGS="-O2 -std=gnu17" ./configure && make && make install
-
-# Install Swarp
-RUN git clone https://github.com/astromatic/swarp.git && \
-    cd /root/swarp && \
-    ./autogen.sh && ./configure && make && make install
-
-# Install gnuastro (main: https://ftp.gnu.org/gnu/gnuastro/gnuastro-0.24.tar.gz)
-RUN wget https://ftp.halifax.rwth-aachen.de/gnu/gnuastro/gnuastro-0.24.tar.gz && \
-    tar xfz gnuastro-0.24.tar.gz && \
-    rm -f gnuastro-0.24.tar.gz && \
-    cd gnuastro-0.24 && \
-    export CPPFLAGS="-I/usr/include/cfitsio" && \
-    ./configure && make && make install
-
-# Copy pipeline
+# Install Python package
 COPY . /root/vircampype
+RUN pip install --no-cache-dir /root/vircampype
+
+
+# ---- Stage 2: Dev (use with: docker build --target=dev .) ----
+FROM builder AS dev
+
+RUN dnf install -y python3.14-ipython ImageMagick && \
+    git clone https://github.com/granttremblay/eso_fits_tools.git && \
+    cd eso_fits_tools && make && cp dfits fitsort /usr/bin/ && \
+    cd /root && rm -rf eso_fits_tools && \
+    dnf clean all && rm -rf /var/cache/dnf
+
 WORKDIR /root/vircampype
+RUN pip install --no-cache-dir -e .
+WORKDIR /home
 
-# Install pipeline
-RUN if [ "$BUILD_OPTION" = "dev" ] ; then \
-        pip install -e . ; \
-    elif [ "$BUILD_OPTION" = "user" ] ; then \
-        pip install . && \
-        rm -rf /root/scamp /root/sextractor /root/psfex /root/skymaker /root/swarp /root/gnuastro-0.24 && \
-        dnf clean all && rm -rf /var/cache/dnf/* /tmp/* /var/tmp/* && \
-        ln -s /root/vircampype/vircampype/pipeline/worker.py /usr/bin/vircampype ; \
-    fi
 
-# Set working directory
+# ---- Stage 3: Runtime (default) ----
+FROM fedora:43
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+    fftw-libs openblas-threads cfitsio plplot libcurl wcslib gsl \
+    python3.14 fpack rsync procps-ng \
+    && dnf clean all && rm -rf /var/cache/dnf/* /tmp/* /var/tmp/*
+
+RUN ln -sf /usr/bin/python3.14 /usr/bin/python
+
+# Copy compiled C tools, shared libraries, and Python packages from builder
+COPY --from=builder /usr/local/ /usr/local/
+RUN ldconfig
+
+# Create entry-point wrapper
+RUN printf '#!/usr/bin/env python\nfrom vircampype.pipeline.worker import main\nraise SystemExit(main())\n' \
+    > /usr/bin/vircampype && chmod +x /usr/bin/vircampype
+
 WORKDIR /home
