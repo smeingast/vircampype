@@ -298,13 +298,13 @@ _WORKER_SCRIPT_TEMPLATE = r"""#!/usr/bin/env bash
 set -euo pipefail
 
 # Source profile so Docker (and other tools) are on PATH even in
-# non-interactive SSH sessions.  Temporarily disable -e so that
-# zsh-specific commands (compinit, etc.) don't kill the script.
-set +e
+# non-interactive SSH sessions.  Temporarily disable -eu so that
+# zsh-specific commands and undefined variables don't kill the script.
+set +eu
 for f in "$HOME/.bash_profile" "$HOME/.zprofile" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.bashrc"; do
     [[ -f "$f" ]] && source "$f" 2>/dev/null
 done
-set -e
+set -eu
 
 IMAGE="{image}"
 DOCKER_FLAGS="{docker_flags}"
