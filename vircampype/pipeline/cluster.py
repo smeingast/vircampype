@@ -297,6 +297,12 @@ def requeue_failed(config: ClusterConfig) -> None:
 _WORKER_SCRIPT_TEMPLATE = r"""#!/usr/bin/env bash
 set -euo pipefail
 
+# Source profile so Docker (and other tools) are on PATH even in
+# non-interactive SSH sessions.
+for f in "$HOME/.bash_profile" "$HOME/.zprofile" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.bashrc"; do
+    [[ -f "$f" ]] && source "$f" 2>/dev/null
+done
+
 IMAGE="{image}"
 DOCKER_FLAGS="{docker_flags}"
 NODE_NAME="{node_name}"
@@ -311,7 +317,11 @@ mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$(dirname "$LOG_FILE")
 {{
     echo "[$NODE_NAME] Worker started at $(date '+%Y-%m-%d %H:%M:%S')"
 
+    STOP_FILE="{queue_dir}/logs/{node_name}.stop"
+
     while true; do
+        [[ -f "$STOP_FILE" ]] && {{ echo "[$NODE_NAME] Stop requested. Exiting."; rm -f "$STOP_FILE"; break; }}
+
         JOB=$(find "$PENDING" -name "*.job" -print -quit 2>/dev/null) || true
         [[ -z "$JOB" ]] && {{ echo "[$NODE_NAME] No more jobs. Exiting."; break; }}
 
@@ -366,7 +376,21 @@ def abort(config: ClusterConfig) -> None:
             local_node = node
             break
 
-    print("=== Stopping workers ===")
+    # Step 1: create stop sentinel files so worker loops exit after the
+    # current container is killed.  The stop file must exist before the
+    # container is killed, otherwise the worker treats the kill as a job
+    # failure and immediately picks up the next pending job.
+    print("=== Signalling workers to stop ===")
+    host_queue_dir, _ = config.resolve_auto(config.queue_dir)
+    logs_dir = Path(host_queue_dir) / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    for node in config.nodes:
+        stop_file = logs_dir / f"{node.host}.stop"
+        stop_file.touch()
+        print(f"  {node.host}")
+
+    print()
+    print("=== Killing containers ===")
     kill_cmd = (
         f"docker ps -q --filter ancestor={config.image} "
         f"| xargs -r docker kill 2>/dev/null; true"
@@ -414,6 +438,17 @@ def dispatch(config: ClusterConfig) -> None:
     print("=== Starting workers ===")
     processes: list[tuple[str, subprocess.Popen]] = []
 
+    # Detect nodes that already have a running worker by checking the running
+    # directory for job files prefixed with the node's hostname.
+    host_queue_dir, _ = config.resolve_auto(config.queue_dir)
+    running_dir = Path(host_queue_dir) / "running"
+    active_nodes: set[str] = set()
+    if running_dir.is_dir():
+        for job in running_dir.glob("*.job"):
+            name = job.stem
+            if "_" in name:
+                active_nodes.add(name.split("_", 1)[0])
+
     for node in config.nodes:
         node_queue_dir = node.resolve_path(config.queue_dir)
         if node_queue_dir is None:
@@ -421,6 +456,10 @@ def dispatch(config: ClusterConfig) -> None:
                 f"WARNING: Cannot resolve queue_dir for node '{node.host}', skipping",
                 file=sys.stderr,
             )
+            continue
+
+        if node.host in active_nodes:
+            print(f"Skipping {node.host} (already has running jobs)")
             continue
 
         script = _build_worker_script(
