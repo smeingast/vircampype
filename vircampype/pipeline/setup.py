@@ -129,7 +129,7 @@ class Setup:
     master_max_lag_gain: int | float = 14  # Max time lag (days) for gain lookup
     master_max_lag_weight: int | float = 14  # Max time lag (days) for weight lookup
     master_max_lag_linearity: int | float = (
-        14  # Max time lag (days) for linearity lookup
+        21  # Max time lag (days) for linearity lookup
     )
 
     # Bad pixel masks
