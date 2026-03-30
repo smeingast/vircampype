@@ -49,6 +49,14 @@ class NodeConfig:
 
     host: str
     volumes: list[str]
+    setup_overrides: dict[str, str | int | float | bool] = field(default_factory=dict)
+
+    def setup_override_flags(self) -> str:
+        """Return CLI override flags for ``vircampype --setup``."""
+        parts = []
+        for key, value in self.setup_overrides.items():
+            parts.append(f"--{key} {value}")
+        return " ".join(parts)
 
     def docker_volume_flags(self) -> str:
         """Return the ``-v`` flags string for ``docker run``."""
@@ -107,7 +115,13 @@ class ClusterConfig:
                 raise ClusterError(
                     f"Each node must have 'host' and 'volumes' keys ({path})"
                 )
-            nodes.append(NodeConfig(host=entry["host"], volumes=entry["volumes"]))
+            nodes.append(
+                NodeConfig(
+                    host=entry["host"],
+                    volumes=entry["volumes"],
+                    setup_overrides=entry.get("setup_overrides", {}),
+                )
+            )
 
         return cls(
             image=raw["image"],
@@ -380,6 +394,7 @@ set -eu
 IMAGE="{image}"
 DOCKER_FLAGS="{docker_flags}"
 NODE_NAME="{node_name}"
+SETUP_OVERRIDES="{setup_overrides}"
 PENDING="{queue_dir}/pending"
 RUNNING="{queue_dir}/running"
 DONE_DIR="{queue_dir}/done"
@@ -412,7 +427,7 @@ mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$(dirname "$LOG_FILE")
         echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Processing ${{JOBNAME%.job}}"
 
         CONTAINER_NAME="vircampype_${{JOBNAME%.job}}"
-        if docker run --rm --name "$CONTAINER_NAME" $DOCKER_FLAGS "$IMAGE" vircampype --setup "$CONFIG_PATH"; then
+        if docker run --rm --name "$CONTAINER_NAME" $DOCKER_FLAGS "$IMAGE" vircampype --setup "$CONFIG_PATH" $SETUP_OVERRIDES; then
             mv "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$DONE_DIR/$JOBNAME" 2>/dev/null || true
             echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Completed ${{JOBNAME%.job}}"
         else
@@ -432,6 +447,7 @@ def _build_worker_script(
     docker_flags: str,
     node_name: str,
     queue_dir: str,
+    setup_overrides: str = "",
 ) -> str:
     """Build the self-contained bash worker script for a remote node."""
     return _WORKER_SCRIPT_TEMPLATE.format(
@@ -439,6 +455,7 @@ def _build_worker_script(
         docker_flags=docker_flags,
         node_name=node_name,
         queue_dir=queue_dir,
+        setup_overrides=setup_overrides,
     )
 
 
@@ -541,6 +558,7 @@ def dispatch(config: ClusterConfig) -> None:
             docker_flags=node.docker_volume_flags(),
             node_name=node.host,
             queue_dir=node_queue_dir,
+            setup_overrides=node.setup_override_flags(),
         )
 
         log_path = f"{node_queue_dir}/logs/{node.host}.log"

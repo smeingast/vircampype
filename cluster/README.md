@@ -88,6 +88,8 @@ nodes:
       - /mnt/nas/output:/data/output
       - /mnt/nas/configs:/data/configs
       - /mnt/nas/vircampype_queue:/data/queue
+    setup_overrides:
+      n_jobs: 4
 ```
 
 ### Volume mapping rule
@@ -117,6 +119,28 @@ host_path:container_path
 The container path (right side) is the same on every node — it matches what the
 configs expect. The host path (left side) depends on where the NAS is mounted
 on that machine.
+
+### Per-node setup overrides
+
+Each node can optionally override pipeline setup parameters via
+`setup_overrides`. These are passed as CLI flags to `vircampype --setup` and
+take precedence over the values in the pipeline YAML configs. This is useful for
+tuning resource usage per machine — for example, fewer parallel jobs on a node
+with less RAM:
+
+```yaml
+nodes:
+  - host: big-machine
+    volumes: [...]
+    # Uses n_jobs from the pipeline YAML (default)
+
+  - host: small-machine
+    volumes: [...]
+    setup_overrides:
+      n_jobs: 4
+```
+
+Any pipeline setup parameter can be overridden this way.
 
 ## Workflow
 

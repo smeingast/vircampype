@@ -65,6 +65,12 @@ nodes:
       - /mnt/nas/output:/data/output
       - /mnt/nas/configs:/data/configs
       - /mnt/nas/vircampype_queue:/data/queue
+    # Optional: override pipeline setup parameters for this node.
+    # Useful for tuning resource usage per machine (e.g. fewer parallel
+    # jobs on a node with less RAM). These are passed as CLI overrides
+    # to vircampype --setup and take precedence over YAML config values.
+    setup_overrides:
+      n_jobs: 4
 
 #  - host: mac-mini
 #    volumes:
