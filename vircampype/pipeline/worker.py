@@ -110,7 +110,34 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
     )
 
-    return parser.parse_args(argv)
+    return parser.parse_known_args(argv)
+
+
+def _parse_setup_overrides(extra: list[str]) -> dict:
+    """Parse leftover CLI args (``--key value``) into a dict of Setup overrides."""
+    overrides: dict = {}
+    i = 0
+    while i < len(extra):
+        arg = extra[i]
+        if not arg.startswith("--"):
+            raise SystemExit(f"Unrecognised argument: {arg}")
+        key = arg.lstrip("-").replace("-", "_")
+        if i + 1 >= len(extra) or extra[i + 1].startswith("--"):
+            raise SystemExit(f"Missing value for {arg}")
+        value = extra[i + 1]
+        # Try to cast to int/float/bool so the dataclass gets the right type.
+        for cast in (int, float):
+            try:
+                value = cast(value)
+                break
+            except ValueError:
+                pass
+        else:
+            if value.lower() in ("true", "false"):
+                value = value.lower() == "true"
+        overrides[key] = value
+        i += 2
+    return overrides
 
 
 def _run_sort(paths: Sequence[str]) -> None:
@@ -133,11 +160,12 @@ def _run_pipeline(
     clean: bool,
     clean_cache: bool,
     dry_run: bool = False,
+    **setup_overrides,
 ) -> None:
     from vircampype.pipeline.main import Pipeline
     from vircampype.tools.systemtools import clean_directory, remove_directory
 
-    pipeline = Pipeline(setup=setup)
+    pipeline = Pipeline(setup=setup, **setup_overrides)
     _set_console_title(pipeline.setup.name)
 
     if dry_run:
@@ -203,7 +231,7 @@ def _run_cluster(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parse_args(argv)
+    args, extra = _parse_args(argv)
 
     if args.sort:
         _run_sort(args.sort)
@@ -226,6 +254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         clean=args.clean,
         clean_cache=args.clean_cache,
         dry_run=args.dry_run,
+        **_parse_setup_overrides(extra),
     )
     return 0
 
