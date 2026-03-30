@@ -10,8 +10,8 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import List
 
+import requests
 import yaml
 
 __all__ = [
@@ -27,7 +27,7 @@ __all__ = [
     "remove_file",
     "remove_directory",
     "clean_directory",
-    "notify",
+    "notify_pushover",
     "make_symlinks",
     "make_executable",
     "cmd_prepend_libraries",
@@ -463,46 +463,38 @@ def clean_directory(directorypath: str, pattern: str = "*") -> None:
         remove_file(f)
 
 
-def notify(
+def notify_pushover(
     message: str,
-    title: str = None,
-    subtitle: str = None,
-    sound: str = "default",
-    open_url: str = None,
-    ignore_dnd: bool = False,
+    title: str,
+    user_key: str,
+    api_token: str,
 ) -> None:
-    """
-    macOS notification wrapper built around terminal-notifier.
+    """Send a notification via the Pushover service.
 
     Parameters
     ----------
     message : str
-        The message to display in the notification.
-    title : str, optional
-        The title of the notification. Default is None.
-    subtitle : str, optional
-        The subtitle of the notification. Default is None.
-    sound : str, optional
-        The sound to play with the notification. Default is "default".
-    open_url : str, optional
-        The URL to open when the notification is clicked. Default is None.
-    ignore_dnd : bool, optional
-        If True, the notification will bypass Do Not Disturb mode. Default is False.
-
-    Returns
-    -------
-    None
+        The notification message body.
+    title : str
+        The notification title.
+    user_key : str
+        Pushover user key.
+    api_token : str
+        Pushover application API token.
     """
-    me = f"-message {message!r}"
-    ti = f"-title {title!r}" if title is not None else ""
-    su = f"-subtitle {subtitle!r}" if subtitle is not None else ""
-    so = f"-sound {sound!r}" if sound is not None else ""
-    op = f"-open {open_url!r}" if open_url is not None else ""
-    ig = "-ignoreDnD" if ignore_dnd else ""
-    os.system(f"terminal-notifier {' '.join([me, ti, su, so, op, ig])}")
+    requests.post(
+        "https://api.pushover.net/1/messages.json",
+        data={
+            "token": api_token,
+            "user": user_key,
+            "title": title,
+            "message": message,
+        },
+        timeout=10,
+    )
 
 
-def make_symlinks(paths_files: List[str], paths_links: List[str]) -> None:
+def make_symlinks(paths_files: list[str], paths_links: list[str]) -> None:
     """
     Create symbolic links for all items in paths_files to corresponding paths in
     paths_links

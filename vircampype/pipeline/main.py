@@ -3,6 +3,7 @@ import glob
 import json
 import os.path
 import sys
+import time
 
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.errors import PipelineValueError
@@ -54,6 +55,24 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
         return wrapper
 
     return decorator
+
+
+def _notify_on_completion(method):
+    """Decorator that times a pipeline processor and sends a Pushover notification."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        t0 = print_start(obj=self.setup.name)
+        try:
+            method(self, *args, **kwargs)
+        except Exception as e:
+            self._notify_pushover(f"Failed with {type(e).__name__}: {e}")
+            raise
+        elapsed = time.time() - t0
+        print_end(tstart=t0, logger=self.log)
+        self._notify_pushover(f"Processing finished in {elapsed / 60:.1f} min.")
+
+    return wrapper
 
 
 class Pipeline:
@@ -1011,7 +1030,20 @@ class Pipeline:
         self.update_status(archive=False)
 
     # =========================================================================== #
+    # Notifications
+    def _notify_pushover(self, message: str) -> None:
+        """Send a Pushover notification if credentials are configured."""
+        if self.setup.pushover_user_key and self.setup.pushover_api_token:
+            notify_pushover(
+                title=f"vircampype: {self.setup.name}",
+                message=message,
+                user_key=self.setup.pushover_user_key,
+                api_token=self.setup.pushover_api_token,
+            )
+
+    # =========================================================================== #
     # Pipeline processors
+    @_notify_on_completion
     def process_calibration(self):
         """Sequentially build master calibration files."""
 
@@ -1033,11 +1065,9 @@ class Pipeline:
         # Global master weight
         self.build_master_weight_global()
 
+    @_notify_on_completion
     def process_science(self):
         """Sequentially process science data."""
-
-        # Start time
-        t0 = print_start(obj=self.setup.name)
 
         # Basic processing
         self.process_raw_basic()
@@ -1082,8 +1112,7 @@ class Pipeline:
         if self.setup.build_tile:
             self.build_tile()
             if self.setup.build_tile_only:
-                print_end(tstart=t0)
-                sys.exit()
+                return
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()
@@ -1106,6 +1135,3 @@ class Pipeline:
 
         if self.setup.archive:
             self.archive()
-
-        # Print finish message
-        print_end(tstart=t0, logger=self.log)

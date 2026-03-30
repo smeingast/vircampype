@@ -310,6 +310,10 @@ class Setup:
     bin_noisechisel: str = "astnoisechisel"  # Gnuastro noisechisel binary name
     bin_stilts: str = "stilts"  # STILTS binary name
 
+    # Notifications
+    pushover_user_key: str | None = None  # Pushover user key
+    pushover_api_token: str | None = None  # Pushover API token
+
     # Miscellaneous
     survey_name: str = "VISIONS"  # Survey name for FITS headers
     fix_vircam_headers: bool = True  # Apply VIRCAM-specific header corrections
