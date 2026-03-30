@@ -602,9 +602,9 @@ class Setup:
 
         """
 
-        # If given as string, load YML
+        # If given as string, load YML (kwargs override YAML values)
         if isinstance(setup, str):
-            return cls(**read_yml(path_yml=setup), **kwargs)
+            return cls(**{**read_yml(path_yml=setup), **kwargs})
 
         # If given as Setup instance, just return it again
         if isinstance(setup, cls):
