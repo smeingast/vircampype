@@ -638,6 +638,10 @@ def measure_completeness(
             if not all_completeness[si][sj]:
                 continue
             comp_array = np.array(all_completeness[si][sj])
+            # Skip sub-tiles where most magnitude bins lack sources
+            n_valid = np.sum(np.any(np.isfinite(comp_array), axis=0))
+            if n_valid < len(mag_center) // 2:
+                continue
             comp_mean = np.nanmean(comp_array, axis=0)
             comp_err = np.nanstd(comp_array, axis=0)
             fit_params, comp90, comp50 = _fit_completeness(
@@ -918,11 +922,16 @@ def plot_completeness_tile(
     mag_center = results[0]["mag_center"]
     comp_stack = np.array([r["completeness"] for r in results])
 
+    # Require at least 3 sub-tiles with data per magnitude bin for error bars
+    n_valid = np.sum(np.isfinite(comp_stack), axis=0)
     comp_mean = np.nanmean(comp_stack, axis=0)
     # Asymmetric error bars from 16th/84th percentiles
     pct_lo = np.nanpercentile(comp_stack, 16, axis=0)
     pct_hi = np.nanpercentile(comp_stack, 84, axis=0)
     comp_err = np.array([comp_mean - pct_lo, pct_hi - comp_mean])
+    # Suppress error bars for bins with too few sub-tiles and clamp negatives
+    comp_err[:, n_valid < 3] = 0.0
+    np.clip(comp_err, 0.0, None, out=comp_err)
 
     # Fit logistic to the tile-average curve
     fit_params = None
