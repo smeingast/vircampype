@@ -428,10 +428,10 @@ mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$(dirname "$LOG_FILE")
 
         CONTAINER_NAME="vircampype_${{JOBNAME%.job}}"
         if docker run --rm --name "$CONTAINER_NAME" $DOCKER_FLAGS "$IMAGE" vircampype --setup "$CONFIG_PATH" $SETUP_OVERRIDES; then
-            mv "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$DONE_DIR/$JOBNAME" 2>/dev/null || true
+            cp "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$DONE_DIR/$JOBNAME" 2>/dev/null && rm -f "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null || true
             echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Completed ${{JOBNAME%.job}}"
         else
-            mv "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$FAILED_DIR/$JOBNAME" 2>/dev/null || true
+            cp "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$FAILED_DIR/$JOBNAME" 2>/dev/null && rm -f "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null || true
             echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') FAILED ${{JOBNAME%.job}}"
         fi
     done
