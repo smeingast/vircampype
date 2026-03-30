@@ -195,8 +195,46 @@ def queue_setup(config: ClusterConfig) -> None:
     print(f"Total pending: {pending}")
 
 
+def _parse_log_activity(log_dir: Path) -> dict[str, tuple[str, str]]:
+    """Parse log files and return the last activity line per node.
+
+    Returns
+    -------
+    dict
+        ``{node_name: (timestamp, message)}``
+    """
+    activity: dict[str, tuple[str, str]] = {}
+    for log_file in sorted(log_dir.glob("*.log")):
+        node = log_file.stem
+        last_ts, last_msg = "", ""
+        try:
+            with open(log_file, "rb") as f:
+                # Read last 4 KB to find the last timestamped line
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - 4096))
+                tail = f.read().decode("utf-8", errors="replace")
+            import re
+
+            for line in tail.splitlines():
+                m = re.match(
+                    r"\[(\S+)\]\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(.*)",
+                    line,
+                )
+                if m:
+                    last_ts = m.group(2)
+                    last_msg = m.group(3)
+        except OSError:
+            pass
+        if last_ts:
+            activity[node] = (last_ts, last_msg)
+    return activity
+
+
 def queue_status(config: ClusterConfig) -> None:
     """Print the current state of the job queue."""
+    from datetime import datetime
+
     host_queue_dir, _ = config.resolve_auto(config.queue_dir)
     queue_path = Path(host_queue_dir)
 
@@ -213,29 +251,62 @@ def queue_status(config: ClusterConfig) -> None:
     done = _count("done")
     failed = _count("failed")
 
-    # Count running jobs and collect node names.
-    running = 0
-    running_nodes: list[str] = []
+    # Collect running jobs grouped by node.
+    running_by_node: dict[str, list[tuple[str, float]]] = {}
     running_dir = queue_path / "running"
+    now = datetime.now().timestamp()
     if running_dir.is_dir():
-        for job in running_dir.glob("*.job"):
-            running += 1
+        for job in sorted(running_dir.glob("*.job")):
             name = job.stem
-            if "_" in name:
-                running_nodes.append(name.split("_", 1)[0])
+            node = name.split("_", 1)[0] if "_" in name else "?"
+            jobname = name.split("_", 1)[1] if "_" in name else name
+            elapsed = now - job.stat().st_mtime
+            running_by_node.setdefault(node, []).append((jobname, elapsed))
 
+    running = sum(len(v) for v in running_by_node.values())
     total = pending + running + done + failed
 
+    # Header
     print("vircampype cluster queue status")
-    print("\u2500" * 31)
+    print("\u2500" * 40)
     print(f"  pending:  {pending:4d}")
-    if running and running_nodes:
-        print(f"  running:  {running:4d}  ({', '.join(running_nodes)})")
-    else:
-        print(f"  running:  {running:4d}")
+    print(f"  running:  {running:4d}")
     print(f"  done:     {done:4d}")
     print(f"  failed:   {failed:4d}")
     print(f"  total:    {total:4d}")
+
+    # Per-node running jobs with elapsed time
+    if running_by_node:
+        print(f"\n{'running jobs':}")
+        print("\u2500" * 40)
+        for node in sorted(running_by_node):
+            for jobname, elapsed in running_by_node[node]:
+                mins, secs = divmod(int(elapsed), 60)
+                hrs, mins = divmod(mins, 60)
+                if hrs:
+                    elapsed_str = f"{hrs}h{mins:02d}m"
+                else:
+                    elapsed_str = f"{mins}m{secs:02d}s"
+                print(f"  {node:12s} {jobname}  ({elapsed_str})")
+
+    # Failed job names
+    if failed:
+        print(f"\n{'failed jobs':}")
+        print("\u2500" * 40)
+        failed_dir = queue_path / "failed"
+        for job in sorted(failed_dir.glob("*.job")):
+            print(f"  {job.stem}")
+
+    # Last activity per node from logs
+    log_dir = queue_path / "logs"
+    if log_dir.is_dir():
+        activity = _parse_log_activity(log_dir)
+        if activity:
+            print(f"\n{'last node activity':}")
+            print("\u2500" * 40)
+            for node in sorted(activity):
+                ts, msg = activity[node]
+                print(f"  {node:12s} {ts}  {msg}")
 
 
 def queue_reset(config: ClusterConfig) -> None:

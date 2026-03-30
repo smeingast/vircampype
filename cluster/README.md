@@ -170,12 +170,29 @@ Output:
 
 ```
 vircampype cluster queue status
--------------------------------
-  pending:   62
-  running:    4  (worker1, worker2)
-  done:      30
-  failed:     0
-  total:     96
+────────────────────────────────────────
+  pending:    62
+  running:     4
+  done:       30
+  failed:      2
+  total:      98
+
+running jobs
+────────────────────────────────────────
+  worker1      MyRegion_wide_1_1_A  (12m34s)
+  worker1      MyRegion_wide_2_3_B  (5m02s)
+  worker2      MyRegion_wide_3_1_C  (1h07m)
+  worker2      MyRegion_wide_4_2_D  (42m18s)
+
+failed jobs
+────────────────────────────────────────
+  MyRegion_wide_5_1_E
+  MyRegion_wide_6_2_F
+
+last node activity
+────────────────────────────────────────
+  worker1      2026-03-30 14:23:01  Completed MyRegion_wide_1_1_A
+  worker2      2026-03-30 14:19:45  Processing MyRegion_wide_3_1_C
 ```
 
 ### Step 5: Handle failures (if any)
@@ -211,7 +228,7 @@ vircampype --cluster cluster.yml --reset-queue
 | Command | Description |
 |---------|-------------|
 | `vircampype --cluster X.yml` | Populate queue + dispatch workers to all nodes |
-| `vircampype --cluster X.yml --status` | Show queue counts (pending/running/done/failed) |
+| `vircampype --cluster X.yml --status` | Show queue status, per-node activity, and failed jobs |
 | `vircampype --cluster X.yml --queue-only` | Populate queue without dispatching workers |
 | `vircampype --cluster X.yml --requeue` | Move all failed jobs back to pending |
 | `vircampype --cluster X.yml --reset-queue` | Remove all queue state and start fresh |
