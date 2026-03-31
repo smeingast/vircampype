@@ -2654,10 +2654,19 @@ class SkyImagesResampled(SkyImagesProcessed):
             cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
 
             # Run Swarp
-            run_command_shell(cmd=cmd, silent=True)
+            _, stderr = run_command_shell(cmd=cmd, silent=True)
 
-            # Wait 5 seconds to ensure file is written
+            # Wait to ensure file is written
             time.sleep(self.setup.swarp_post_sleep)
+
+            # Verify SWarp produced output
+            if (
+                not os.path.isfile(path_coadd_tmp)
+                or os.path.getsize(path_coadd_tmp) < 10 * 1024 * 1024
+            ):
+                raise PipelineError(
+                    f"SWarp failed to produce tile output. stderr: {stderr}"
+                )
 
             # Remove temporary file list
             try:
