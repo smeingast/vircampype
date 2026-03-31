@@ -88,6 +88,12 @@ class ImageCube(object):
         else:
             return 0
 
+    def __iter__(self):
+        """Iterate over planes of the cube."""
+        if self.cube is not None:
+            return iter(self.cube)
+        return iter([])
+
     def __getitem__(self, key):
         """
         Defines behavior for when an item is accessed

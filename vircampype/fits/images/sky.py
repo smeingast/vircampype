@@ -2715,12 +2715,12 @@ class SkyImagesResampled(SkyImagesProcessed):
                 )
                 hdul_tile[0].header.set(
                     keyword="ASTIRMS",
-                    value=np.round(astirms, 2),
+                    value=round(float(astirms), 2),
                     comment="Internal astr. dispersion RMS (mas)",
                 )
                 hdul_tile[0].header.set(
                     keyword="ASTRRMS",
-                    value=np.round(astrrms, 2),
+                    value=round(float(astrrms), 2),
                     comment="External astr. dispersion RMS (mas)",
                 )
 
