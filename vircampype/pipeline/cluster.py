@@ -417,7 +417,7 @@ mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$(dirname "$LOG_FILE")
         JOBNAME=$(basename "$JOB")
 
         mkdir "$JOB.lock" 2>/dev/null || continue
-        mv "$JOB" "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null || {{
+        cp "$JOB" "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null && rm -f "$JOB" 2>/dev/null || {{
             rmdir "$JOB.lock" 2>/dev/null || true
             continue
         }}
