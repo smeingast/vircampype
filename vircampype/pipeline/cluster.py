@@ -223,10 +223,11 @@ def _parse_log_activity(log_dir: Path) -> dict[str, tuple[str, str]]:
         last_ts, last_msg = "", ""
         try:
             with open(log_file, "rb") as f:
-                # Read last 4 KB to find the last timestamped line
+                # Read last 128 KB to find the last timestamped line
+                # (heartbeat lines can be far from EOF due to verbose output)
                 f.seek(0, 2)
                 size = f.tell()
-                f.seek(max(0, size - 4096))
+                f.seek(max(0, size - 131072))
                 tail = f.read().decode("utf-8", errors="replace")
             import re
 
