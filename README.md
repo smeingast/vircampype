@@ -229,6 +229,7 @@ path_pype/
     │   ├── photometry/
     │   ├── sky/
     │   ├── illumcorr/
+    │   ├── psf/                    # PSF diagnostic plots and PSFEx checkplots
     │   └── completeness/           # Completeness QC plots and FITS image
     └── temp/                       # Temporary files and pipeline status
         └── completeness/           # Completeness sub-tiles and PSF models
