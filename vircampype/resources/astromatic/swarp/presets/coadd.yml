@@ -92,8 +92,8 @@ BACK_FILTTHRESH:        0.0             # Threshold above which the background-
 
 VMEM_DIR:               /tmp/               # Directory path for swap files
 VMEM_MAX:               524288          # Maximum amount of virtual memory (MB)
-MEM_MAX:                12288           # Maximum amount of usable RAM (MB)
-COMBINE_BUFSIZE:        12288           # RAM dedicated to co-addition(MB)
+MEM_MAX:                10240           # Maximum amount of usable RAM (MB)
+COMBINE_BUFSIZE:        10240           # RAM dedicated to co-addition(MB)
 
 #------------------------------ Miscellaneous ---------------------------------
 
