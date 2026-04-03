@@ -313,12 +313,7 @@ class SkyImages(FitsImages):
         # Read setup based on preset
         if preset.lower() == "fwhm":
             ss = yml2config(
-                skip=[
-                    "catalog_name",
-                    "weight_image",
-                    "detect_thresh",
-                    "analysis_thresh",
-                ],
+                skip=["catalog_name", "weight_image"],
                 detect_thresh=self.setup.sex_fwhm_detect_thresh,
                 analysis_thresh=self.setup.sex_fwhm_detect_thresh,
                 **kwargs_yml,
@@ -491,24 +486,24 @@ class SkyImages(FitsImages):
             # Get percentiles image quality measurements
             fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
             fwhm_percentiles = np.percentile(fwhms, [0.5, 99.5])
-            fwhm_lo = round_decimals_down(fwhm_percentiles[0] / 3, decimals=2)
-            fwhm_hi = round_decimals_up(fwhm_percentiles[1] / 3, decimals=2)
+            fwhm_lo = round_decimals_down(fwhm_percentiles[0] / 3, decimals=3)
+            fwhm_hi = round_decimals_up(fwhm_percentiles[1] / 3, decimals=3)
 
             # Determine FWHM range
             n_seeing = self.setup.classification_n_seeing
             fwhm_range = np.around(
-                np.linspace(fwhm_lo - 0.05, fwhm_hi + 0.05, n_seeing), decimals=2
+                np.linspace(fwhm_lo - 0.05, fwhm_hi + 0.05, n_seeing), decimals=3
             )
             step_size = (fwhm_range[-1] - fwhm_range[0]) / (n_seeing - 1)
             if step_size > self.setup.classification_seeing_step_warn:
                 log.warning(
                     f"CLASS_STAR FWHM step size {step_size:.3f} arcsec "
                     f"exceeds {self.setup.classification_seeing_step_warn} arcsec "
-                    f"(range {fwhm_range[0]:.2f}-{fwhm_range[-1]:.2f} arcsec)"
+                    f"(range {fwhm_range[0]:.3f}-{fwhm_range[-1]:.3f} arcsec)"
                 )
 
             # Build comma-separated FWHM string for multi-seeing mode
-            fwhm_str = ",".join(f"{f:0.2f}" for f in fwhm_range)
+            fwhm_str = ",".join(f"{f:0.3f}" for f in fwhm_range)
 
             # Get SExtractor command for this file (no seeing_fwhm kwarg — it's
             # skipped from the class_star YAML preset, so we append it manually.
@@ -553,7 +548,7 @@ class SkyImages(FitsImages):
                         )
 
                     for idx_fwhm, fwhm_val in enumerate(fwhm_range):
-                        t[f"CLASS_STAR_{fwhm_val:4.2f}"] = class_star[:, idx_fwhm]
+                        t[f"CLASS_STAR_{fwhm_val:5.3f}"] = class_star[:, idx_fwhm]
 
                     tables_out.append(t)
 

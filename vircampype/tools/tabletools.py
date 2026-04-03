@@ -425,7 +425,7 @@ def interpolate_classification(source_table, classification_table, verbose=False
 
     # Read classifications in array
     array_class = np.array(
-        [classification_table[f"CLASS_STAR_{s:4.2f}"][idx] for s in fwhm_range]
+        [classification_table[f"CLASS_STAR_{s:5.3f}"][idx] for s in fwhm_range]
     )
 
     # Mulit-dimensional interpolation consumes far too much memory

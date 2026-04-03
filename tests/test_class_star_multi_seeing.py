@@ -57,7 +57,7 @@ def _split_class_star(catalog_path, fwhm_range):
         )
 
     for idx_fwhm, fwhm_val in enumerate(fwhm_range):
-        t[f"CLASS_STAR_{fwhm_val:4.2f}"] = class_star[:, idx_fwhm]
+        t[f"CLASS_STAR_{fwhm_val:5.3f}"] = class_star[:, idx_fwhm]
 
     return t
 
@@ -72,7 +72,7 @@ class TestClassStarColumnSplitting(unittest.TestCase):
 
         self.assertEqual(len([c for c in t.colnames if c.startswith("CLASS_STAR")]), 32)
         for idx, fwhm_val in enumerate(fwhm_range):
-            col = f"CLASS_STAR_{fwhm_val:4.2f}"
+            col = f"CLASS_STAR_{fwhm_val:5.3f}"
             self.assertIn(col, t.colnames)
             np.testing.assert_array_equal(t[col], cs_expected[:, idx])
 
@@ -105,9 +105,9 @@ class TestClassStarColumnSplitting(unittest.TestCase):
         fwhm_range = np.array([1.0])
         t = _split_class_star(path, fwhm_range)
 
-        self.assertIn("CLASS_STAR_1.00", t.colnames)
-        self.assertEqual(np.array(t["CLASS_STAR_1.00"]).ndim, 1)
-        np.testing.assert_array_equal(t["CLASS_STAR_1.00"], t_in["CLASS_STAR"])
+        self.assertIn("CLASS_STAR_1.000", t.colnames)
+        self.assertEqual(np.array(t["CLASS_STAR_1.000"]).ndim, 1)
+        np.testing.assert_array_equal(t["CLASS_STAR_1.000"], t_in["CLASS_STAR"])
 
     def test_shape_mismatch_raises(self):
         """Mismatched column count raises ValueError (guardrail)."""
