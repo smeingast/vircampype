@@ -1,7 +1,10 @@
 import os
+import tempfile
 from collections.abc import Iterable
 
+import numpy as np
 from astropy.io import fits
+from astropy.table import Table
 
 from vircampype.tools.systemtools import *
 
@@ -9,6 +12,7 @@ __all__ = [
     "sextractor2imagehdr",
     "read_aheaders",
     "write_aheaders",
+    "verify_sextractor_multi_seeing",
     "SextractorSetup",
     "SwarpSetup",
     "ScampSetup",
@@ -122,6 +126,72 @@ def write_aheaders(headers: Iterable, path: str):
     # Write to disk
     with open(path, "w") as file:
         file.write(ss)
+
+
+def verify_sextractor_multi_seeing(setup):
+    """Verify that the SExtractor binary supports multi-seeing CLASS_STAR.
+
+    Runs SExtractor on a tiny synthetic image with two SEEING_FWHM values and
+    checks that the output CLASS_STAR column is 2D.  Raises PipelineError if
+    the installed binary does not support multi-seeing.
+
+    Parameters
+    ----------
+    setup : Setup
+        Pipeline setup (used to locate the SExtractor binary and resources).
+
+    """
+    from vircampype.pipeline.errors import PipelineError
+
+    sxs = SextractorSetup(setup=setup)
+
+    # Create a minimal 64x64 FITS image with a few bright sources
+    rng = np.random.default_rng(0)
+    data = rng.normal(100, 10, (64, 64)).astype(np.float32)
+    for x, y in [(20, 20), (40, 40), (10, 50)]:
+        data[y - 1 : y + 2, x - 1 : x + 2] += 500
+
+    tmp_dir = tempfile.mkdtemp(prefix="sex_check_")
+    path_image = os.path.join(tmp_dir, "test.fits")
+    path_catalog = os.path.join(tmp_dir, "test.cat")
+    path_param = os.path.join(tmp_dir, "test.param")
+
+    try:
+        fits.PrimaryHDU(data).writeto(path_image, overwrite=True)
+
+        with open(path_param, "w") as f:
+            f.write("XWIN_IMAGE\nYWIN_IMAGE\nCLASS_STAR\n")
+
+        cmd = (
+            f"{sxs.bin} {path_image} "
+            f"-CATALOG_NAME {path_catalog} "
+            f"-CATALOG_TYPE FITS_LDAC "
+            f"-PARAMETERS_NAME {path_param} "
+            f"-FILTER_NAME {sxs.default_filter} "
+            f"-STARNNW_NAME {sxs.default_nnw} "
+            f"-DETECT_THRESH 3.0 "
+            f"-SEEING_FWHM 0.8,1.0 "
+            f"-VERBOSE_TYPE QUIET"
+        )
+        run_command_shell(cmd=cmd, silent=True)
+
+        cat_data = Table.read(path_catalog, hdu=2)
+        class_star = np.array(cat_data["CLASS_STAR"])
+
+        if class_star.ndim != 2 or class_star.shape[1] != 2:
+            raise PipelineError(
+                message=(
+                    "The installed SExtractor binary does not support "
+                    "multi-seeing CLASS_STAR. Install the modified version "
+                    "from github.com/smeingast/sextractor "
+                    "(branch feature/multi-seeing-class-star)."
+                ),
+            )
+    finally:
+        for f in [path_image, path_catalog, path_param]:
+            if os.path.isfile(f):
+                os.remove(f)
+        os.rmdir(tmp_dir)
 
 
 class AstromaticSetup:

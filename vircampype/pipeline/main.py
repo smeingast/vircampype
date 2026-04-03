@@ -10,6 +10,7 @@ from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
+from vircampype.tools.astromatic import verify_sextractor_multi_seeing
 from vircampype.tools.completeness import qc_completeness_tile
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 from vircampype.tools.fitstools import (
@@ -121,6 +122,12 @@ class Pipeline:
         self.log.info(
             f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
         )
+
+        # Verify SExtractor supports multi-seeing if classification is enabled
+        if self.setup.source_classification:
+            self.log.info("Verifying SExtractor multi-seeing support")
+            verify_sextractor_multi_seeing(setup=self.setup)
+            self.log.info("SExtractor multi-seeing support verified")
 
     # =========================================================================== #
     def __str__(self):

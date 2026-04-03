@@ -33,7 +33,7 @@ The following tools must be installed and available in `PATH`:
 
 | Tool | Purpose |
 |---|---|
-| [SExtractor](https://github.com/astromatic/sextractor) | Source extraction |
+| [SExtractor](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) | Source extraction (requires multi-seeing CLASS_STAR fork) |
 | [SCAMP](https://github.com/astromatic/scamp) | Astrometric calibration |
 | [SWarp](https://github.com/astromatic/swarp) | Image resampling and coaddition |
 | [PSFEx](https://github.com/astromatic/psfex) | PSF modelling (completeness testing) |

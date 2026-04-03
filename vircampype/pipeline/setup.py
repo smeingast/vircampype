@@ -48,6 +48,8 @@ class Setup:
     build_phase3: bool = False  # Create ESO Phase 3 compliant products
     build_public_catalog: bool = False  # Build public source catalog
     source_classification: bool = False  # Run star/galaxy classification
+    classification_n_seeing: int = 32  # Number of SEEING_FWHM grid points
+    classification_seeing_step_warn: float = 0.05  # Warn if step exceeds this (arcsec)
     archive: bool = False  # Archive processed data
 
     # Phase 3

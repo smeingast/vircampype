@@ -14,7 +14,7 @@ RUN ln -sf /usr/bin/python3.14 /usr/bin/python && \
 WORKDIR /root
 
 # Build all C tools in one layer, then clean sources and strip binaries
-RUN git clone https://github.com/astromatic/sextractor.git && \
+RUN git clone -b feature/multi-seeing-class-star https://github.com/smeingast/sextractor.git && \
     cd sextractor && ./autogen.sh && ./configure --enable-openblas && make -j"$(nproc)" && make install && \
     cd /root && git clone https://github.com/astromatic/scamp.git && \
     cd scamp && ./autogen.sh && ./configure --enable-openblas --enable-plplot && make -j"$(nproc)" && make install && \

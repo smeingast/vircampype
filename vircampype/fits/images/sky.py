@@ -450,9 +450,6 @@ class SkyImages(FitsImages):
         log = PipelineLog()
         log.info(f"Building class star library for {self.n_files} files")
 
-        # Import
-        from vircampype.fits.tables.sextractor import SextractorCatalogs
-
         # Processing info
         print_header(
             header="CLASSIFICATION", left="File", right=None, silent=self.setup.silent
@@ -498,60 +495,67 @@ class SkyImages(FitsImages):
             fwhm_hi = round_decimals_up(fwhm_percentiles[1] / 3, decimals=2)
 
             # Determine FWHM range
+            n_seeing = self.setup.classification_n_seeing
             fwhm_range = np.around(
-                np.arange(fwhm_lo - 0.05, fwhm_hi + 0.11, 0.05), decimals=2
+                np.linspace(fwhm_lo - 0.05, fwhm_hi + 0.05, n_seeing), decimals=2
             )
+            step_size = (fwhm_range[-1] - fwhm_range[0]) / (n_seeing - 1)
+            if step_size > self.setup.classification_seeing_step_warn:
+                log.warning(
+                    f"CLASS_STAR FWHM step size {step_size:.3f} arcsec "
+                    f"exceeds {self.setup.classification_seeing_step_warn} arcsec "
+                    f"(range {fwhm_range[0]:.2f}-{fwhm_range[-1]:.2f} arcsec)"
+                )
 
-            # Safety check for fwhm range
-            if len(fwhm_range) > 30:
-                fwhm_range = np.around(np.arange(0.45, 1.91, 0.05), decimals=2)
+            # Build comma-separated FWHM string for multi-seeing mode
+            fwhm_str = ",".join(f"{f:0.2f}" for f in fwhm_range)
 
-            # Construct sextractor commands
-            cmds = [
-                self.sextractor(
-                    preset="class_star",
-                    seeing_fwhm=ss,
-                    return_cmds=True,
-                    silent=True,
-                )[idx_file]
-                for ss in fwhm_range
-            ]
+            # Get SExtractor command for this file (no seeing_fwhm kwarg — it's
+            # skipped from the class_star YAML preset, so we append it manually.
+            # We can't use kwargs because strings support indexing without raising
+            # IndexError, breaking the try/except pattern in sextractor().)
+            cmd = self.sextractor(
+                preset="class_star",
+                return_cmds=True,
+                silent=True,
+            )[idx_file]
+            cmd += f" -SEEING_FWHM {fwhm_str}"
 
-            # Get catalog paths
-            catalog_paths = []
-            for idx in range(len(cmds)):
-                cpath = cmds[idx].split("-CATALOG_NAME ")[1].split(" ")[0]
-                cname = os.path.basename(cpath)
-                cpath_new = cpath.replace(cname, f"FWHM{fwhm_range[idx]:0.2f}.sex.cat")
-                cmds[idx] = cmds[idx].replace(cpath, cpath_new)
-                catalog_paths.append(cpath_new)
+            # Extract catalog path from command and run
+            catalog_path = cmd.split("-CATALOG_NAME ")[1].split(" ")[0]
+            run_command_shell(cmd=cmd, silent=True)
 
-            # Run Sextractor
-            run_commands_shell_parallel(
-                cmds=cmds, silent=True, n_jobs=self.setup.n_jobs_sex
-            )
+            # Read single catalog, split 2D CLASS_STAR vector into columns
+            tables_out = []
+            with fits.open(catalog_path) as hdul_cat:
+                for hdu_idx in range(2, len(hdul_cat), 2):
+                    cat_data = Table.read(catalog_path, hdu=hdu_idx)
+                    t = Table()
+                    t["XWIN_IMAGE"] = cat_data["XWIN_IMAGE"]
+                    t["YWIN_IMAGE"] = cat_data["YWIN_IMAGE"]
 
-            # Load catalogs with different input seeing
-            catalogs = SextractorCatalogs(setup=self.setup, file_paths=catalog_paths)
+                    # CLASS_STAR is now shape (nobj, nseeing)
+                    class_star = np.array(cat_data["CLASS_STAR"])
+                    if class_star.ndim == 1:
+                        class_star = class_star[:, np.newaxis]
 
-            # Make output HDUList
-            tables_out = [Table() for _ in self.iter_data_hdu[idx_file]]
+                    if class_star.shape[1] != len(fwhm_range):
+                        raise PipelineError(
+                            logger=log,
+                            message=(
+                                f"CLASS_STAR has {class_star.shape[1]} columns, "
+                                f"expected {len(fwhm_range)}. The installed "
+                                f"SExtractor binary does not support multi-seeing "
+                                f"CLASS_STAR. Install the modified version from "
+                                f"github.com/smeingast/sextractor "
+                                f"(branch feature/multi-seeing-class-star)."
+                            ),
+                        )
 
-            # Loop over files
-            for idx_fwhm in range(catalogs.n_files):
-                # Read tables for current seeing
-                tables_fwhm = catalogs.file2table(file_index=idx_fwhm)
+                    for idx_fwhm, fwhm_val in enumerate(fwhm_range):
+                        t[f"CLASS_STAR_{fwhm_val:4.2f}"] = class_star[:, idx_fwhm]
 
-                # Add classifier and coordinates for all HDUs
-                for tidx in range(len(tables_fwhm)):
-                    # Add coordinates only on first iteration
-                    if idx_fwhm == 0:
-                        tables_out[tidx]["XWIN_IMAGE"] = tables_fwhm[tidx]["XWIN_IMAGE"]
-                        tables_out[tidx]["YWIN_IMAGE"] = tables_fwhm[tidx]["YWIN_IMAGE"]
-
-                    # Add classifier
-                    cs_column_name = f"CLASS_STAR_{fwhm_range[idx_fwhm]:4.2f}"
-                    tables_out[tidx][cs_column_name] = tables_fwhm[tidx]["CLASS_STAR"]
+                    tables_out.append(t)
 
             # Make FITS table
             header_prime = fits.Header()
@@ -566,9 +570,8 @@ class SkyImages(FitsImages):
                 hdul.append(fits.BinTableHDU(t))
             hdul.writeto(outpath, overwrite=True)
 
-            # Remove sextractor catalogs
-            for f in catalogs.paths_full:
-                remove_file(filepath=f)
+            # Remove sextractor catalog
+            remove_file(filepath=catalog_path)
 
         # Print time
         elapsed = time.time() - tstart
