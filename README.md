@@ -40,6 +40,8 @@ The following tools must be installed and available in `PATH`:
 | [SkyMaker](https://github.com/astromatic/skymaker) | Artificial image generation (completeness testing) |
 | [GNU Astro / noisechisel](https://www.gnu.org/software/gnuastro/) | Source mask generation |
 
+**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work when star/galaxy classification is enabled (`source_classification: true`). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The Docker image includes the correct build.
+
 ---
 
 ## Installation
