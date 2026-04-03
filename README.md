@@ -115,13 +115,13 @@ python vircampype/pipeline/worker.py --setup /path/to/calibration_setup.yml
 python vircampype/pipeline/worker.py --setup /path/to/science_setup.yml
 
 # Reset progress (re-run from the start)
-python vircampype/pipeline/worker.py --reset-progress --setup /path/to/setup.yml
-
-# Remove all generated object and phase3 folders
-python vircampype/pipeline/worker.py --clean --setup /path/to/setup.yml
+python vircampype/pipeline/worker.py --reset progress --setup /path/to/setup.yml
 
 # Clear cached header databases for this setup
-python vircampype/pipeline/worker.py --clean-cache --setup /path/to/setup.yml
+python vircampype/pipeline/worker.py --reset cache --setup /path/to/setup.yml
+
+# Remove all generated output folders
+python vircampype/pipeline/worker.py --reset all --setup /path/to/setup.yml
 
 # Validate setup paths without processing
 python vircampype/pipeline/worker.py --dry-run --setup /path/to/setup.yml

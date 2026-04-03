@@ -4,8 +4,9 @@ VIRCAM pipeline entrypoint.
 
 Usage examples:
     python vircam_worker.py --setup /path/to/setup.yml
-    python vircam_worker.py --reset-progress --setup /path/to/setup.yml
-    python vircam_worker.py --clean --setup /path/to/setup.yml
+    python vircam_worker.py --reset progress --setup /path/to/setup.yml
+    python vircam_worker.py --reset cache --setup /path/to/setup.yml
+    python vircam_worker.py --reset all --setup /path/to/setup.yml
     python vircam_worker.py --sort /path/to/files/*fits
     python vircam_worker.py --cluster /path/to/cluster.yml
     python vircam_worker.py --cluster /path/to/cluster.yml --status
@@ -53,19 +54,16 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
-        "--reset-progress",
-        help="Reset pipeline progress (clears temp and headers folders).",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--clean",
-        help="Remove all folders within the setup folder structure.",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--clean-cache",
-        help="Remove cached header databases for this setup.",
-        action="store_true",
+        "--reset",
+        help=(
+            "Reset pipeline state. Scope: "
+            "'progress' clears checkpoint state so the pipeline re-runs from scratch; "
+            "'cache' removes cached header databases for this setup; "
+            "'all' removes the entire output folder."
+        ),
+        choices=["progress", "cache", "all"],
+        default=None,
+        metavar="{progress,cache,all}",
     )
     parser.add_argument(
         "--dry-run",
@@ -156,9 +154,7 @@ def _run_sort(paths: Sequence[str]) -> None:
 
 def _run_pipeline(
     setup: str | None,
-    reset_progress: bool,
-    clean: bool,
-    clean_cache: bool,
+    reset: str | None,
     dry_run: bool = False,
     **setup_overrides,
 ) -> None:
@@ -172,7 +168,7 @@ def _run_pipeline(
         print(f"Setup '{pipeline.setup.name}' validated successfully.")
         return
 
-    if clean_cache:
+    if reset == "cache":
         cache_dir = pipeline.setup.local_cache_dir or tempfile.gettempdir()
         removed = 0
         for path in glob.glob(os.path.join(cache_dir, "vircampype_headers_*")):
@@ -181,12 +177,12 @@ def _run_pipeline(
         print(f"Removed {removed} cached header file(s) from {cache_dir}")
         return
 
-    if clean:
+    if reset == "all":
         folders = pipeline.setup.folders
         remove_directory(folders["object"])
         return
 
-    if reset_progress:
+    if reset == "progress":
         clean_directory(pipeline.setup.folders["temp"])
         return
 
@@ -250,9 +246,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     _run_pipeline(
         setup=args.setup,
-        reset_progress=args.reset_progress,
-        clean=args.clean,
-        clean_cache=args.clean_cache,
+        reset=args.reset,
         dry_run=args.dry_run,
         **_parse_setup_overrides(extra),
     )
