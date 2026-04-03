@@ -202,7 +202,12 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `local_cache_dir` | `null` | Local directory for temp files, header cache, and SWarp swap (default: system temp) |
+| `source_classification` | `false` | Run star/galaxy classification (requires multi-seeing SExtractor fork) |
+| `classification_n_seeing` | `32` | Number of SEEING_FWHM grid points for classification |
+| `classification_seeing_step_warn` | `0.05` | Warn if classification FWHM step exceeds this value (arcsec) |
 | `mask_bright_galaxies` | `true` | Mask bright galaxies from de Vaucouleurs (1991) |
+| `pushover_user_key` | `null` | Pushover user key for pipeline completion/failure notifications |
+| `pushover_api_token` | `null` | Pushover API token for pipeline completion/failure notifications |
 
 ---
 
