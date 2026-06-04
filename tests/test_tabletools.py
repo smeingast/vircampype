@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 
 import numpy as np
@@ -6,6 +8,7 @@ from astropy.table.column import MaskedColumn
 
 from vircampype.tools.tabletools import (
     fill_masked_columns,
+    scamp_xml_radec_correlation,
     sextractor_nanify_bad_values,
     split_table,
     table2bintablehdu,
@@ -147,6 +150,77 @@ class TestTable2BinTableHDU(unittest.TestCase):
         t = Table({"arr": data})
         hdu = table2bintablehdu(t)
         self.assertEqual(hdu.data["arr"].shape, (3, 2))
+
+
+class TestScampXmlRadecCorrelation(unittest.TestCase):
+    # Minimal 2-table VOTable mirroring a real scamp.xml: table_id=0 is a Fields
+    # stand-in, table_id=1 is the FGroups table the reader consumes. The numbers are
+    # the high-S/N values measured for the CoronaAustralis/vhs P87A ... _15_J tile.
+    FGROUPS_XML = (
+        '<?xml version="1.0"?>\n'
+        '<VOTABLE version="1.3" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">\n'
+        "<RESOURCE>\n"
+        '<TABLE name="Fields"><FIELD name="dummy" datatype="float"/>'
+        "<DATA><TABLEDATA><TR><TD>0</TD></TR></TABLEDATA></DATA></TABLE>\n"
+        '<TABLE name="FGroups">\n'
+        '<FIELD name="AstromSigma_Internal_HighSN" datatype="float" arraysize="2"/>\n'
+        '<FIELD name="AstromSigma_Reference_HighSN" datatype="float" arraysize="2"/>\n'
+        '<FIELD name="AstromCorr_Internal_HighSN" datatype="float"/>\n'
+        '<FIELD name="AstromCorr_Reference_HighSN" datatype="float"/>\n'
+        "<DATA><TABLEDATA><TR>"
+        "<TD>0.0253887 0.0130743</TD><TD>0.0163137 0.0115330</TD>"
+        "<TD>0.137662</TD><TD>0.199442</TD>"
+        "</TR></TABLEDATA></DATA></TABLE>\n"
+        "</RESOURCE>\n"
+        "</VOTABLE>\n"
+    )
+
+    def _write(self, text):
+        fd, path = tempfile.mkstemp(suffix=".xml")
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        self.addCleanup(os.remove, path)
+        return path
+
+    @staticmethod
+    def _expected_r_eff():
+        si = np.array([0.0253887, 0.0130743])
+        sr = np.array([0.0163137, 0.0115330])
+        ci, cr = 0.137662, 0.199442
+        s1 = np.sqrt(si[0] ** 2 + sr[0] ** 2)
+        s2 = np.sqrt(si[1] ** 2 + sr[1] ** 2)
+        cov12 = ci * si[0] * si[1] + cr * sr[0] * sr[1]
+        return cov12 / (s1 * s2)
+
+    def test_reads_effective_correlation(self):
+        path = self._write(self.FGROUPS_XML)
+        r = scamp_xml_radec_correlation(path)
+        self.assertAlmostEqual(r, self._expected_r_eff(), places=6)
+        # Sanity: the measured value for this tile is ~0.158.
+        self.assertAlmostEqual(r, 0.1582, places=3)
+
+    def test_result_is_within_unit_range(self):
+        r = scamp_xml_radec_correlation(self._write(self.FGROUPS_XML))
+        self.assertTrue(-1.0 < r < 1.0)
+
+    def test_missing_file_returns_zero(self):
+        self.assertEqual(
+            scamp_xml_radec_correlation("/nonexistent/path/scamp.xml"), 0.0
+        )
+
+    def test_missing_columns_returns_zero(self):
+        bad = (
+            '<?xml version="1.0"?>\n'
+            '<VOTABLE version="1.3" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">\n'
+            "<RESOURCE>\n"
+            '<TABLE name="Fields"><FIELD name="dummy" datatype="float"/>'
+            "<DATA><TABLEDATA><TR><TD>0</TD></TR></TABLEDATA></DATA></TABLE>\n"
+            '<TABLE name="FGroups"><FIELD name="other" datatype="float"/>'
+            "<DATA><TABLEDATA><TR><TD>1</TD></TR></TABLEDATA></DATA></TABLE>\n"
+            "</RESOURCE>\n"
+            "</VOTABLE>\n"
+        )
+        self.assertEqual(scamp_xml_radec_correlation(self._write(bad)), 0.0)
 
 
 if __name__ == "__main__":

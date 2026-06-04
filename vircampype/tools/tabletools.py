@@ -28,6 +28,7 @@ __all__ = [
     "fill_masked_columns",
     "fits_column_kwargs",
     "convert2public",
+    "scamp_xml_radec_correlation",
     "merge_with_2mass",
     "sextractor_nanify_bad_values",
     "split_table",
@@ -549,6 +550,58 @@ def fill_masked_columns(table: Table, fill_value: int | float):
     return table
 
 
+def scamp_xml_radec_correlation(path_xml: str) -> float:
+    """
+    Read SCAMP's group-level high-S/N RA/Dec astrometric correlation from a
+    ``scamp.xml`` file and return the effective correlation coefficient to apply
+    to the combined per-axis systematic floor (``ASTRMS1``, ``ASTRMS2``) when
+    assembling the source position covariance in :func:`convert2public`.
+
+    SCAMP only writes the cross-axis correlation to the XML metadata (never to the
+    image/header keywords). The internal and reference error components are treated
+    as independent additive covariance contributions, consistent with the existing
+    quadrature-combined diagonal floor ``s_i = sqrt(sig_int_i^2 + sig_ref_i^2)``:
+
+        r_eff = (corr_int * sig_i1 * sig_i2 + corr_ref * sig_r1 * sig_r2) / (s1 * s2)
+
+    with all values taken from the FGroups table (``table_id=1``). Units cancel, so
+    no arcsec/deg conversion is needed. By Cauchy-Schwarz ``|r_eff| <= 1``, so the
+    resulting systematic covariance matrix is positive semi-definite.
+
+    Parameters
+    ----------
+    path_xml : str
+        Path to the SCAMP ``scamp.xml`` output.
+
+    Returns
+    -------
+    float
+        The effective RA/Dec correlation coefficient, clamped to (-0.999, 0.999).
+        Returns ``0.0`` if the file or the required columns are absent (e.g. an older
+        SCAMP version, or a cache-skipped run without XML), so callers fall back to
+        the diagonal-only behavior.
+    """
+    try:
+        fgroups = Table.read(path_xml, format="votable", table_id=1)
+        sig_int = np.ravel(fgroups["AstromSigma_Internal_HighSN"][0]).astype(float)
+        sig_ref = np.ravel(fgroups["AstromSigma_Reference_HighSN"][0]).astype(float)
+        corr_int = float(np.ravel(fgroups["AstromCorr_Internal_HighSN"][0])[0])
+        corr_ref = float(np.ravel(fgroups["AstromCorr_Reference_HighSN"][0])[0])
+    except (FileNotFoundError, OSError, KeyError, IndexError, ValueError):
+        return 0.0
+
+    s1 = np.sqrt(sig_int[0] ** 2 + sig_ref[0] ** 2)
+    s2 = np.sqrt(sig_int[1] ** 2 + sig_ref[1] ** 2)
+    if not (np.isfinite(s1) and np.isfinite(s2)) or s1 <= 0 or s2 <= 0:
+        return 0.0
+
+    cov12 = corr_int * sig_int[0] * sig_int[1] + corr_ref * sig_ref[0] * sig_ref[1]
+    r_eff = float(cov12 / (s1 * s2))
+    if not np.isfinite(r_eff):
+        return 0.0
+    return float(np.clip(r_eff, -0.999, 0.999))
+
+
 def convert2public(
     input_table: Table,
     photerr_internal: float,
@@ -602,6 +655,12 @@ def convert2public(
     data_errpa = np.where(errpa_raw < 0, errpa_raw + 180.0, errpa_raw)
     astrms1 = input_table["ASTRMS1"].value
     astrms2 = input_table["ASTRMS2"].value
+    # Per-source SCAMP RA/Dec correlation coefficient (spatially coadded astrms_corr
+    # map). Optional: older catalogs lack the column, so fall back to 0 (diagonal-only).
+    try:
+        astrms_corr = input_table["ASTRMS_CORR"].value
+    except KeyError:
+        astrms_corr = np.zeros_like(astrms1)
     data_exptime = input_table["EXPTIME"].value
     data_mjd = input_table["MJDEFF"].value
     data_nimg = input_table["NIMG"]
@@ -649,6 +708,12 @@ def convert2public(
     # Add ASTRMS in quadrature (already in mas, aligned with RA/Dec axes)
     cov_ra += astrms1**2
     cov_dec += astrms2**2
+
+    # Add the SCAMP cross-axis (RA/Dec) systematic correlation to the off-diagonal.
+    # astrms_corr is a per-source correlation coefficient in [-1, 1] (weighted coadd of
+    # the per-pawprint astrms_corr map), and cov_ra >= astrms1**2, cov_dec >= astrms2**2,
+    # so the combined covariance stays positive semi-definite (no clamp required).
+    cov_radec += astrms_corr * astrms1 * astrms2
 
     # Re-derive total error ellipse from combined covariance matrix
     trace = cov_ra + cov_dec

@@ -789,6 +789,7 @@ class Pipeline:
             "exptime",
             "astrms1",
             "astrms2",
+            "astrms_corr",
         ]:
             images = self.resampled_statistics(mode=mode)
             images.coadd_statistics_tile(mode=mode)

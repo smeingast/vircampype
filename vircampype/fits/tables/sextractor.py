@@ -215,7 +215,29 @@ class SextractorCatalogs(SourceCatalogs):
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             raise ValueError("Astrometric solution may be crap, please check")
 
-        # Cache .ahead files for future reprocessing
+        # Inject the group-level RA/Dec astrometric correlation into the .ahead headers.
+        # SCAMP reports this cross-axis correlation only in scamp.xml, never in the
+        # headers; writing it as ASTCORR lets it ride the solution (resampling
+        # COPY_KEYWORDS -> per-pawprint astrms_corr map -> spatial coadd -> public
+        # catalog), which is also how mosaics inherit it. Done before caching so the
+        # cached .ahead carry it.
+        radec_correlation = scamp_xml_radec_correlation(path_xml)
+        log.info(
+            f"SCAMP RA/Dec astrometric correlation r_eff = {radec_correlation:.4f}"
+        )
+        for ap in ahead_paths:
+            if not os.path.isfile(ap):
+                continue
+            headers = read_aheaders(ap)
+            for hdr in headers:
+                hdr.set(
+                    "ASTCORR",
+                    radec_correlation,
+                    "RA/Dec astrometric correlation (group r_eff)",
+                )
+            write_aheaders(headers, ap)
+
+        # Cache .ahead files for future reprocessing (now carrying ASTCORR)
         if self.setup.scamp_cache_dir is not None:
             for ap in ahead_paths:
                 if os.path.isfile(ap):
@@ -1541,9 +1563,16 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_astrms2 = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".astrms2.fits"
             )
+            path_astrms_corr = self.paths_full[idx_file].replace(
+                ".full.fits.ctab", ".astrms_corr.fits"
+            )
             path_weight = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".weight.fits"
             )
+
+            # The correlation map is optional (older reductions lack it); fall back to
+            # a zero map so the ASTRMS_CORR column is still written (diagonal-only).
+            has_astrms_corr = os.path.isfile(path_astrms_corr)
 
             # Check if files are available
             if not (
@@ -1587,6 +1616,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     astrms1 = fits.getdata(path_astrms1, idx_hdu_stats + 1)
                     astrms2 = fits.getdata(path_astrms2, idx_hdu_stats + 1)
                     weight = fits.getdata(path_weight, idx_hdu_stats + 1)
+
+                # Correlation map (optional, same HDU layout as the astrms maps)
+                if has_astrms_corr:
+                    try:
+                        astrms_corr = fits.getdata(path_astrms_corr, idx_hdu_stats)
+                    except IndexError:
+                        astrms_corr = fits.getdata(path_astrms_corr, idx_hdu_stats + 1)
+                else:
+                    astrms_corr = np.zeros_like(astrms1)
 
                 # Renormalize weight
                 weight /= np.median(weight)
@@ -1632,10 +1670,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     astrms2[yy_image, xx_image],
                     weight[yy_image, xx_image],
                 )
+                astrms_corr_sources = astrms_corr[yy_image, xx_image]
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
                 mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
                 astrms_sources1[bad], astrms_sources2[bad] = np.nan, np.nan
+                astrms_corr_sources[bad] = np.nan
                 nimg_sources[bad] = 0
 
                 # Make new columns
@@ -1666,6 +1706,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                             format="E",
                             array=astrms_sources2,
                             unit="mas",
+                        ),
+                        fits.Column(
+                            name="ASTRMS_CORR",
+                            format="E",
+                            array=astrms_corr_sources,
                         ),
                     ]
                 )

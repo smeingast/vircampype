@@ -481,6 +481,7 @@ class Setup:
             "mjd.frac": "WEIGHTED",
             "astrms1": "WEIGHTED",
             "astrms2": "WEIGHTED",
+            "astrms_corr": "WEIGHTED",
         }
 
     @property

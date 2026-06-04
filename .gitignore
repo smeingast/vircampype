@@ -20,3 +20,4 @@ __pycache__/
 
 # Claude Code
 .claude/
+session-notes.md

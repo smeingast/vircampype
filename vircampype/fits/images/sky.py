@@ -2818,6 +2818,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             folder_statistics + bn.replace(".fits", ".astrms2.fits")
             for bn in self.basenames
         ]
+        paths_astrms_corr = [
+            folder_statistics + bn.replace(".fits", ".astrms_corr.fits")
+            for bn in self.basenames
+        ]
         paths_weight = [
             folder_statistics + bn.replace(".fits", ".weight.fits")
             for bn in self.basenames
@@ -2866,6 +2870,9 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             hdul_astrms1 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
             hdul_astrms2 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_astrms_corr = fits.HDUList(
+                hdus=[fits.PrimaryHDU(header=hdr_prime.copy())]
+            )
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
             # Read astrometry keywords for all extensions of this file once
@@ -2909,6 +2916,14 @@ class SkyImagesResampled(SkyImagesProcessed):
                 arr_astrms1 = np.full(shape, fill_value=astrms1, dtype=np.float32)
                 arr_astrms2 = np.full(shape, fill_value=astrms2, dtype=np.float32)
 
+                # SCAMP RA/Dec correlation coefficient (group r_eff written into the
+                # .ahead by scamp() and propagated via COPY_KEYWORDS). Safe-read so
+                # older reductions without the keyword fall back to 0 (diagonal-only).
+                astrms_corr = header_original.get("ASTCORR", 0.0)
+                arr_astrms_corr = np.full(
+                    shape, fill_value=astrms_corr, dtype=np.float32
+                )
+
                 # Read weight
                 weight_hdu = fits.getdata(
                     master_weights.paths_full[idx_file], idx_hdu + 1
@@ -2946,6 +2961,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                 hdul_astrms2.append(
                     fits.ImageHDU(data=arr_astrms2, header=header_resized)  # noqa
                 )
+                hdul_astrms_corr.append(
+                    fits.ImageHDU(data=arr_astrms_corr, header=header_resized)  # noqa
+                )
                 hdul_weights.append(
                     fits.ImageHDU(
                         data=arr_weight.astype(np.float32),  # noqa
@@ -2962,6 +2980,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 (hdul_mjd_int, paths_mjd_int[idx_file]),
                 (hdul_astrms1, paths_astrms1[idx_file]),
                 (hdul_astrms2, paths_astrms2[idx_file]),
+                (hdul_astrms_corr, paths_astrms_corr[idx_file]),
                 (hdul_weights, paths_weight[idx_file]),
             ]
             try:
