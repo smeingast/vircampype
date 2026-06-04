@@ -14,7 +14,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction
-- **Catalog building**: per-pawprint and per-tile source catalogs, public ESO Phase 3-compliant output
+- **Catalog building**: per-pawprint and per-tile source catalogs, public ESO Phase 3-compliant output with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
 - **Completeness testing**: artificial star injection/recovery via SkyMaker and PSFEx to measure detection completeness as a function of magnitude
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
@@ -165,7 +165,7 @@ Processes raw science frames through to final co-added products:
 7. **Illumination correction** — variable or constant illumination correction map
 8. **Resampling (SWarp)** — resamples exposures to a common grid
 9. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile
-10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, and MJD maps
+10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
 11. **Source catalogs** — SExtractor source extraction on stacks and tile
 12. **QC plots** — astrometric and photometric diagnostic plots
 13. **QC summary table** — aggregates key metrics from stacks and tile into `qc/qc_summary.ecsv`
@@ -226,7 +226,7 @@ path_pype/
     │   ├── final/                  # Final-calibrated pawprint images
     │   ├── illumcorr/              # Illumination correction maps
     │   ├── resampled/              # Resampled pawprint images
-    │   └── statistics/             # Statistics images (exptime, nimg, astrms, mjd)
+    │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd)
     ├── products/
     │   ├── stacks/                 # Per-offset stack images and catalogs
     │   ├── tile/                   # Final co-added tile image and catalog
