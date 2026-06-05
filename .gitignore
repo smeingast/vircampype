@@ -21,3 +21,4 @@ __pycache__/
 # Claude Code
 .claude/
 session-notes.md
+future-ideas.md
