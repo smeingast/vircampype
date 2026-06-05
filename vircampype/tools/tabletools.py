@@ -13,6 +13,8 @@ from astropy.units import Unit
 from astropy.wcs import WCS, FITSFixedWarning
 from sklearn.neighbors import NearestNeighbors
 
+from vircampype.pipeline.errors import PipelineValueError
+from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.mathtools import (
     convert_position_error,
     find_neighbors_within_distance,
@@ -552,21 +554,40 @@ def fill_masked_columns(table: Table, fill_value: int | float):
 
 def scamp_xml_radec_correlation(path_xml: str) -> float:
     """
-    Read SCAMP's group-level high-S/N RA/Dec astrometric correlation from a
-    ``scamp.xml`` file and return the effective correlation coefficient to apply
-    to the combined per-axis systematic floor (``ASTRMS1``, ``ASTRMS2``) when
-    assembling the source position covariance in :func:`convert2public`.
+    Estimate the effective high-S/N RA/Dec astrometric correlation from a
+    ``scamp.xml`` file and return the coefficient to apply to the combined per-axis
+    systematic floor (``ASTRMS1``, ``ASTRMS2``) when assembling the source position
+    covariance in :func:`convert2public`.
 
-    SCAMP only writes the cross-axis correlation to the XML metadata (never to the
-    image/header keywords). The internal and reference error components are treated
-    as independent additive covariance contributions, consistent with the existing
-    quadrature-combined diagonal floor ``s_i = sqrt(sig_int_i^2 + sig_ref_i^2)``:
+    WARNING / SCAMP BUG WORKAROUND (2026-06)
+    ----------------------------------------
+    SCAMP's *group-level* (FGroups, ``table_id=1``) ``AstromCorr_Internal_HighSN`` and
+    ``AstromCorr_Reference_HighSN`` are computed with a normalization bug: the
+    full-sample covariance numerator is divided by the high-S/N source count, inflating
+    them by ``N_all / N_highSN`` so they routinely exceed 1 (impossible for a Pearson
+    correlation). This corrupts every tile's group value, not just the ones that
+    visibly overflow 1. See ``Scamp_PR2/BUG_REPORT.md`` (src/astrstats.c,
+    astrstats_fgroup). The *per-field* (Fields table, ``table_id=0``)
+    ``AstromCorr_Reference_HighSN`` values are computed correctly and stay in range, so
+    as an interim fix we use their high-S/N-detection-count-weighted mean.
 
-        r_eff = (corr_int * sig_i1 * sig_i2 + corr_ref * sig_r1 * sig_r2) / (s1 * s2)
+    APPROXIMATION: this uses only the *reference* correlation (residuals vs the
+    astrometric reference). SCAMP exposes no valid per-field *internal* high-S/N
+    correlation. In the original two-term formula
+    ``r_eff = (corr_int*si1*si2 + corr_ref*sr1*sr2)/(s1*s2)`` the internal term carries
+    the larger sigma weight, but the sigma weighting (Cauchy-Schwarz factor ~1) makes
+    the combined ``r_eff`` approximately equal to the reference correlation, so adopting
+    the reference correlation alone is a sound interim estimate. ``|r_eff| <= 1`` holds
+    (it is a weighted mean of in-range values), keeping the covariance positive
+    semi-definite.
 
-    with all values taken from the FGroups table (``table_id=1``). Units cancel, so
-    no arcsec/deg conversion is needed. By Cauchy-Schwarz ``|r_eff| <= 1``, so the
-    resulting systematic covariance matrix is positive semi-definite.
+    TODO(scamp-patch): once a patched SCAMP that fixes the group ``AstromCorr_*_HighSN``
+    is deployed (see ``/Users/stefan/Cloud/Temp/Scamp_PR2``), RECONSIDER (do not blindly
+    switch to) the full FGroups two-term formula. The patched group value correlates
+    per-source *mean* residuals (averaged over exposures), whereas this per-field value
+    correlates per-*detection* residuals; they differ (e.g. 0.26 vs 0.50 on the bad tile)
+    and which one is appropriate depends on aligning the correlation with the per-pawprint
+    floor sigmas (``ASTRMS1/2``) actually used on the diagonal in :func:`convert2public`.
 
     Parameters
     ----------
@@ -576,30 +597,36 @@ def scamp_xml_radec_correlation(path_xml: str) -> float:
     Returns
     -------
     float
-        The effective RA/Dec correlation coefficient, clamped to (-0.999, 0.999).
+        The effective RA/Dec correlation coefficient in [-1, 1] (a weighted mean of the
+        in-range per-field values, so it is bounded by construction; no clipping).
         Returns ``0.0`` if the file or the required columns are absent (e.g. an older
         SCAMP version, or a cache-skipped run without XML), so callers fall back to
         the diagonal-only behavior.
     """
     try:
-        fgroups = Table.read(path_xml, format="votable", table_id=1)
-        sig_int = np.ravel(fgroups["AstromSigma_Internal_HighSN"][0]).astype(float)
-        sig_ref = np.ravel(fgroups["AstromSigma_Reference_HighSN"][0]).astype(float)
-        corr_int = float(np.ravel(fgroups["AstromCorr_Internal_HighSN"][0])[0])
-        corr_ref = float(np.ravel(fgroups["AstromCorr_Reference_HighSN"][0])[0])
+        fields = Table.read(path_xml, format="votable", table_id=0)
+        corr = np.array(
+            [np.ravel(x)[0] for x in fields["AstromCorr_Reference_HighSN"]], dtype=float
+        )
+        weights = np.array(
+            [np.ravel(x)[0] for x in fields["NDeg_Reference_HighSN"]], dtype=float
+        )
     except (FileNotFoundError, OSError, KeyError, IndexError, ValueError):
         return 0.0
 
-    s1 = np.sqrt(sig_int[0] ** 2 + sig_ref[0] ** 2)
-    s2 = np.sqrt(sig_int[1] ** 2 + sig_ref[1] ** 2)
-    if not (np.isfinite(s1) and np.isfinite(s2)) or s1 <= 0 or s2 <= 0:
+    # Keep only physically valid, positively-weighted per-field correlations.
+    mask = (
+        np.isfinite(corr) & np.isfinite(weights) & (weights > 0) & (np.abs(corr) <= 1.0)
+    )
+    if not np.any(mask):
         return 0.0
 
-    cov12 = corr_int * sig_int[0] * sig_int[1] + corr_ref * sig_ref[0] * sig_ref[1]
-    r_eff = float(cov12 / (s1 * s2))
+    r_eff = float(np.average(corr[mask], weights=weights[mask]))
     if not np.isfinite(r_eff):
         return 0.0
-    return float(np.clip(r_eff, -0.999, 0.999))
+    # Bounded by construction (weighted mean of values restricted to [-1, 1]); no clip,
+    # consistent with the fail-loud guard in convert2public.
+    return r_eff
 
 
 def convert2public(
@@ -661,6 +688,23 @@ def convert2public(
         astrms_corr = input_table["ASTRMS_CORR"].value
     except KeyError:
         astrms_corr = np.zeros_like(astrms1)
+    # Safeguard: a correlation coefficient must lie in [-1, 1]. Fail loudly (do NOT
+    # silently clip) if any finite value is out of range -- with a correct ASTCORR this
+    # never happens, so an out-of-range value signals a real upstream problem (e.g. the
+    # SCAMP group AstromCorr_*_HighSN bug leaking through). NaNs (bad/edge sources,
+    # filtered later) are ignored; a tiny tolerance absorbs floating-point noise.
+    finite_corr = astrms_corr[np.isfinite(astrms_corr)]
+    if finite_corr.size and np.max(np.abs(finite_corr)) > 1.0 + 1e-6:
+        n_bad = int(np.sum(np.abs(finite_corr) > 1.0 + 1e-6))
+        msg = (
+            f"ASTRMS_CORR outside [-1, 1]: max|corr|={np.max(np.abs(finite_corr)):.4f} "
+            f"in {n_bad} source(s). A correlation coefficient must be in [-1, 1]; this "
+            f"indicates a bad astrometric correlation upstream (e.g. the SCAMP group "
+            f"AstromCorr_*_HighSN normalization bug)."
+        )
+        # Pass the (Borg) logger so the error is written to the pipeline log file, not
+        # just surfaced as a traceback / Pushover notification.
+        raise PipelineValueError(msg, logger=PipelineLog())
     data_exptime = input_table["EXPTIME"].value
     data_mjd = input_table["MJDEFF"].value
     data_nimg = input_table["NIMG"]
