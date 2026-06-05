@@ -153,24 +153,29 @@ class TestTable2BinTableHDU(unittest.TestCase):
 
 
 class TestScampXmlRadecCorrelation(unittest.TestCase):
-    # Minimal 2-table VOTable mirroring a real scamp.xml: table_id=0 is a Fields
-    # stand-in, table_id=1 is the FGroups table the reader consumes. The numbers are
-    # the high-S/N values measured for the CoronaAustralis/vhs P87A ... _15_J tile.
-    FGROUPS_XML = (
+    # Minimal VOTable mirroring a real scamp.xml. After the SCAMP FGroups
+    # AstromCorr_*_HighSN normalization-bug workaround, the reader consumes the
+    # per-field "Fields" table (table_id=0): the NDeg_Reference_HighSN-weighted mean
+    # of the per-field AstromCorr_Reference_HighSN. The FGroups table (table_id=1) is
+    # intentionally ignored because its group value is corrupted (can exceed 1).
+    PER_FIELD_CORR = (0.50, 0.40, 0.60)
+    PER_FIELD_NDEG = (500, 300, 200)
+    FIELDS_XML = (
         '<?xml version="1.0"?>\n'
         '<VOTABLE version="1.3" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">\n'
         "<RESOURCE>\n"
-        '<TABLE name="Fields"><FIELD name="dummy" datatype="float"/>'
-        "<DATA><TABLEDATA><TR><TD>0</TD></TR></TABLEDATA></DATA></TABLE>\n"
-        '<TABLE name="FGroups">\n'
-        '<FIELD name="AstromSigma_Internal_HighSN" datatype="float" arraysize="2"/>\n'
-        '<FIELD name="AstromSigma_Reference_HighSN" datatype="float" arraysize="2"/>\n'
-        '<FIELD name="AstromCorr_Internal_HighSN" datatype="float"/>\n'
+        '<TABLE name="Fields">\n'
         '<FIELD name="AstromCorr_Reference_HighSN" datatype="float"/>\n'
-        "<DATA><TABLEDATA><TR>"
-        "<TD>0.0253887 0.0130743</TD><TD>0.0163137 0.0115330</TD>"
-        "<TD>0.137662</TD><TD>0.199442</TD>"
-        "</TR></TABLEDATA></DATA></TABLE>\n"
+        '<FIELD name="NDeg_Reference_HighSN" datatype="int"/>\n'
+        "<DATA><TABLEDATA>"
+        "<TR><TD>0.50</TD><TD>500</TD></TR>"
+        "<TR><TD>0.40</TD><TD>300</TD></TR>"
+        "<TR><TD>0.60</TD><TD>200</TD></TR>"
+        "</TABLEDATA></DATA></TABLE>\n"
+        # FGroups carries a corrupted >1 value the reader must NOT use.
+        '<TABLE name="FGroups">'
+        '<FIELD name="AstromCorr_Reference_HighSN" datatype="float"/>'
+        "<DATA><TABLEDATA><TR><TD>2.0</TD></TR></TABLEDATA></DATA></TABLE>\n"
         "</RESOURCE>\n"
         "</VOTABLE>\n"
     )
@@ -182,26 +187,28 @@ class TestScampXmlRadecCorrelation(unittest.TestCase):
         self.addCleanup(os.remove, path)
         return path
 
-    @staticmethod
-    def _expected_r_eff():
-        si = np.array([0.0253887, 0.0130743])
-        sr = np.array([0.0163137, 0.0115330])
-        ci, cr = 0.137662, 0.199442
-        s1 = np.sqrt(si[0] ** 2 + sr[0] ** 2)
-        s2 = np.sqrt(si[1] ** 2 + sr[1] ** 2)
-        cov12 = ci * si[0] * si[1] + cr * sr[0] * sr[1]
-        return cov12 / (s1 * s2)
+    @classmethod
+    def _expected_r_eff(cls):
+        c = np.array(cls.PER_FIELD_CORR, dtype=float)
+        w = np.array(cls.PER_FIELD_NDEG, dtype=float)
+        return float(np.average(c, weights=w))
 
-    def test_reads_effective_correlation(self):
-        path = self._write(self.FGROUPS_XML)
+    def test_reads_per_field_weighted_mean(self):
+        path = self._write(self.FIELDS_XML)
         r = scamp_xml_radec_correlation(path)
         self.assertAlmostEqual(r, self._expected_r_eff(), places=6)
-        # Sanity: the measured value for this tile is ~0.158.
-        self.assertAlmostEqual(r, 0.1582, places=3)
+        # (0.50*500 + 0.40*300 + 0.60*200) / 1000 = 0.49
+        self.assertAlmostEqual(r, 0.49, places=6)
+
+    def test_ignores_corrupted_group_value(self):
+        # FGroups AstromCorr_Reference_HighSN is 2.0 (>1, the SCAMP bug); the reader
+        # must ignore it and return the in-range per-field weighted mean.
+        r = scamp_xml_radec_correlation(self._write(self.FIELDS_XML))
+        self.assertLess(r, 1.0)
 
     def test_result_is_within_unit_range(self):
-        r = scamp_xml_radec_correlation(self._write(self.FGROUPS_XML))
-        self.assertTrue(-1.0 < r < 1.0)
+        r = scamp_xml_radec_correlation(self._write(self.FIELDS_XML))
+        self.assertTrue(-1.0 <= r <= 1.0)
 
     def test_missing_file_returns_zero(self):
         self.assertEqual(
