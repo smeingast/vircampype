@@ -225,6 +225,21 @@ class SextractorCatalogs(SourceCatalogs):
         log.info(
             f"SCAMP RA/Dec astrometric correlation r_eff = {radec_correlation:.4f}"
         )
+
+        # High-S/N external (vs-reference) astrometric RMS per axis (degrees). Used as
+        # the per-source systematic floor in build_statistics. SCAMP reports this only in
+        # scamp.xml; the per-detector header ASTRRMS1/2 is the full-sample RMS, which is
+        # dominated by faint calibrators and over-estimates bright-source errors. One
+        # per-pointing pair is written to every detector header. None if unavailable
+        # (older SCAMP / cache-skipped run) -> build_statistics falls back to ASTRRMS1/2.
+        astrrms_hsn = scamp_xml_reference_rms_highsn(path_xml)
+        if astrrms_hsn is not None:
+            log.info(
+                "SCAMP high-S/N external RMS = "
+                f"{astrrms_hsn[0] * 3_600_000:.1f}/"
+                f"{astrrms_hsn[1] * 3_600_000:.1f} mas"
+            )
+
         for ap in ahead_paths:
             if not os.path.isfile(ap):
                 continue
@@ -235,6 +250,17 @@ class SextractorCatalogs(SourceCatalogs):
                     radec_correlation,
                     "RA/Dec astrometric correlation (group r_eff)",
                 )
+                if astrrms_hsn is not None:
+                    hdr.set(
+                        "ASTRMSH1",
+                        astrrms_hsn[0],
+                        "High-S/N external astrom. RMS axis 1 (deg)",
+                    )
+                    hdr.set(
+                        "ASTRMSH2",
+                        astrrms_hsn[1],
+                        "High-S/N external astrom. RMS axis 2 (deg)",
+                    )
             write_aheaders(headers, ap)
 
         # Cache .ahead files for future reprocessing (now carrying ASTCORR)

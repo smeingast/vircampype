@@ -31,6 +31,7 @@ __all__ = [
     "fits_column_kwargs",
     "convert2public",
     "scamp_xml_radec_correlation",
+    "scamp_xml_reference_rms_highsn",
     "merge_with_2mass",
     "sextractor_nanify_bad_values",
     "split_table",
@@ -627,6 +628,68 @@ def scamp_xml_radec_correlation(path_xml: str) -> float:
     # Bounded by construction (weighted mean of values restricted to [-1, 1]); no clip,
     # consistent with the fail-loud guard in convert2public.
     return r_eff
+
+
+def scamp_xml_reference_rms_highsn(path_xml: str) -> tuple[float, float] | None:
+    """
+    Read the per-axis **high-S/N external** astrometric RMS of the **combined image**
+    from a ``scamp.xml`` file, for use as the per-source astrometric systematic floor
+    (``ASTRMS1``, ``ASTRMS2``) in :func:`convert2public`.
+
+    The per-detector header keyword ``ASTRRMS1/2`` is the *full-sample, per-detection*
+    external RMS (residuals of all matched calibrators vs the astrometric reference). It
+    is dominated by faint calibrators' centroid noise and is a *single-exposure* scatter,
+    so applying it as a flat floor over-estimates the position errors of bright sources in
+    the coadd (validated against Gaia DR3 in CrA).
+
+    This returns the **group-level** (FGroups table, ``table_id=1``)
+    ``AstromSigma_Reference_HighSN``: the dispersion of each source's *mean* residual
+    (averaged over all overlapping exposures) about the reference, restricted to bright
+    (high-S/N) calibrators. Because it is both high-S/N (drops the faint-centroid noise)
+    and computed on the cross-exposure mean (so the random part already averages down), it
+    is the closest single value SCAMP provides to the systematic floor a bright coadd
+    source actually experiences. It is therefore a flat per-tile floor that already bakes
+    in the exposure averaging -- do NOT additionally divide it by sqrt(NIMG).
+
+    NOT AFFECTED by the SCAMP ``AstromCorr_*_HighSN`` normalization bug (see
+    :func:`scamp_xml_radec_correlation`): that bug pairs a full-sample *correlation*
+    numerator with the high-S/N count, and is confined to the correlation outputs. The
+    sigma is a separate accumulator that correctly pairs the high-S/N numerator with the
+    high-S/N count at the group level (``src/astrstats.c`` lines 355-357); verified to be
+    byte-identical before and after the bug patch, and to come out *smaller* than the
+    full-sample value (the opposite of the bug's inflation).
+
+    Parameters
+    ----------
+    path_xml : str
+        Path to the SCAMP ``scamp.xml`` output.
+
+    Returns
+    -------
+    tuple[float, float] | None
+        ``(rms_axis1, rms_axis2)`` in **degrees** (matching the ``ASTRRMS1/2`` header
+        convention so downstream math is unit-consistent). Returns ``None`` if the file
+        or required column is absent (e.g. older SCAMP, or a cache-skipped run without
+        XML), so callers skip injection and fall back to the full-sample ``ASTRRMS1/2``.
+    """
+    try:
+        # FGroups (table_id=1) holds one row: the combined-image group statistics.
+        # AstromSigma_Reference_HighSN is a per-axis (naxis,) vector, in arcsec.
+        group = Table.read(path_xml, format="votable", table_id=1)
+        sigma = np.ravel(
+            np.array(group["AstromSigma_Reference_HighSN"][0], dtype=float)
+        )
+    except (FileNotFoundError, OSError, KeyError, IndexError, ValueError):
+        return None
+
+    if sigma.size < 2:
+        return None
+
+    # arcsec -> degrees for the ASTRRMS1/2 convention.
+    rms1, rms2 = float(sigma[0]) / 3600.0, float(sigma[1]) / 3600.0
+    if not (np.isfinite(rms1) and np.isfinite(rms2)) or rms1 <= 0 or rms2 <= 0:
+        return None
+    return rms1, rms2
 
 
 def convert2public(

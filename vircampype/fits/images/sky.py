@@ -2875,9 +2875,13 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
-            # Read astrometry keywords for all extensions of this file once
-            astirms1, astirms2, astrrms1, astrrms2 = self.read_from_data_headers(
-                keywords=["ASTIRMS1", "ASTIRMS2", "ASTRRMS1", "ASTRRMS2"],
+            # Read the full-sample external RMS for all extensions of this file once.
+            # This is the FALLBACK floor; the preferred value is the per-pointing
+            # high-S/N external RMS (ASTRMSH1/2), read per-extension below. Only the
+            # EXTERNAL (vs-reference) RMS is used; see the ASTRMS comment below for why
+            # the internal RMS (ASTIRMS) is no longer read here.
+            astrrms1, astrrms2 = self.read_from_data_headers(
+                keywords=["ASTRRMS1", "ASTRRMS2"],
                 file_index=idx_file,
             )
 
@@ -2907,11 +2911,24 @@ class SkyImagesResampled(SkyImagesProcessed):
                 mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
                 arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
                 arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
-                astrms1 = 3_600_000 * np.sqrt(
-                    astirms1[0][idx_hdu] ** 2 + astrrms1[0][idx_hdu] ** 2
+                # Astrometric systematic floor (EXTERNAL, vs-reference Scamp RMS).
+                # Prefer the HIGH-S/N external RMS (ASTRMSH1/2), a per-pointing value
+                # written into the .ahead by scamp() from scamp.xml; it tracks the
+                # scatter of bright calibrators and so matches what bright sources
+                # actually experience. Safe-read so reductions without the keyword fall
+                # back to the per-detector full-sample external RMS (ASTRRMS1/2).
+                #
+                # The full-sample ASTRRMS is dominated by faint calibrators' centroid
+                # noise and over-estimates bright-source position errors (~2-4x;
+                # validated vs Gaia DR3 in CrA, 2026-06-07). The internal RMS (ASTIRMS)
+                # is no longer used at all: the old floor sqrt(ASTIRMS**2 + ASTRRMS**2)
+                # double-counted the calibrator centroid scatter (ASTIRMS measures
+                # essentially the same scatter as ASTRRMS), a further ~1.4x inflation.
+                astrms1 = 3_600_000 * header_original.get(
+                    "ASTRMSH1", astrrms1[0][idx_hdu]
                 )
-                astrms2 = 3_600_000 * np.sqrt(
-                    astirms2[0][idx_hdu] ** 2 + astrrms2[0][idx_hdu] ** 2
+                astrms2 = 3_600_000 * header_original.get(
+                    "ASTRMSH2", astrrms2[0][idx_hdu]
                 )
                 arr_astrms1 = np.full(shape, fill_value=astrms1, dtype=np.float32)
                 arr_astrms2 = np.full(shape, fill_value=astrms2, dtype=np.float32)
