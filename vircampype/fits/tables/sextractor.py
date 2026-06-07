@@ -268,8 +268,15 @@ class SextractorCatalogs(SourceCatalogs):
             for ap in ahead_paths:
                 if os.path.isfile(ap):
                     rsync_file(ap, self.setup.scamp_cache_dir)
+            # Cache scamp.xml alongside the .ahead so the solution metadata (high-S/N
+            # RMS floor, RA/Dec correlation) travels with the cached solution. Enables a
+            # future "reprocess without re-solving SCAMP" path that re-injects the floor
+            # from the cached XML. The live copy stays in qc/astrometry for diagnostics.
+            if os.path.isfile(path_xml):
+                rsync_file(path_xml, self.setup.scamp_cache_dir)
             log.info(
-                f"Cached {len(ahead_paths)} ahead files to {self.setup.scamp_cache_dir}"
+                f"Cached {len(ahead_paths)} ahead files + scamp.xml to "
+                f"{self.setup.scamp_cache_dir}"
             )
 
         # Print time
