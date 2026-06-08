@@ -232,6 +232,12 @@ vircampype --cluster cluster.yml --requeue
 vircampype --cluster cluster.yml
 ```
 
+A node that is misconfigured (Docker daemon down, image not pulled) fails its
+preflight at dispatch and is reported there, rather than draining the queue into
+`failed/`. If a node instead fails several jobs back-to-back within seconds (for
+example a missing volume mount), its worker trips a circuit breaker and stops
+claiming, leaving the remaining jobs for the healthy nodes.
+
 ### Aborting a batch run
 
 To stop all workers and reset the queue:
@@ -240,12 +246,17 @@ To stop all workers and reset the queue:
 vircampype --cluster cluster.yml --abort
 ```
 
-This kills all vircampype Docker containers on every node and clears the queue.
-To reset the queue without killing containers:
+This kills only the containers belonging to **this** run (they are tagged with
+a per-queue Docker label derived from `queue_dir`) on every node, then clears
+the queue. Other batch runs using the same image but a different `queue_dir`
+are left untouched. To reset the queue without killing containers:
 
 ```bash
 vircampype --cluster cluster.yml --reset-queue
 ```
+
+`--reset-queue` warns if any node still appears to have a live worker, since
+resetting the queue underneath a running worker races it.
 
 ## Command reference
 
@@ -256,7 +267,7 @@ vircampype --cluster cluster.yml --reset-queue
 | `vircampype --cluster X.yml --queue-only` | Populate queue without dispatching workers |
 | `vircampype --cluster X.yml --requeue` | Move all failed jobs back to pending |
 | `vircampype --cluster X.yml --reset-queue` | Remove all queue state and start fresh |
-| `vircampype --cluster X.yml --abort` | Kill all containers on every node + reset queue |
+| `vircampype --cluster X.yml --abort` | Kill this run's containers on every node + reset queue |
 
 ## Notes
 
@@ -266,6 +277,13 @@ The machine where you run `vircampype --cluster` must be listed as a node in
 `cluster.yml` with volume mappings that cover at least `config_dir` and
 `queue_dir`. The cluster code uses these mappings to resolve container paths to
 local host paths. The control machine does not need to run pipeline jobs itself.
+
+For the control machine to be recognised as local (and run its worker directly
+instead of over SSH), its node `host:` should match the machine's own hostname
+(as reported by `hostname`; the short form before the first dot is also
+accepted). If no node host matches, the cluster falls back to matching by
+mount-path existence and prints a warning, which is ambiguous when several
+nodes share the same NAS mount path, so prefer a matching hostname.
 
 ### Logs
 
@@ -278,8 +296,11 @@ cat /mnt/nas/vircampype_queue/logs/worker1.log
 ### Resumability
 
 The vircampype pipeline has built-in checkpointing. If a job is interrupted
-(machine reboots, Docker killed, etc.), the job file stays in `running/`. Move
-it back to `pending/` and re-run — the pipeline resumes from where it stopped.
+(machine reboots, Docker killed, etc.), the job file stays in
+`running/<node>/`. Move it back to `pending/` and re-run to resume from where
+it stopped. (A lock left behind by a crash mid-claim self-heals: the
+worker reaps an orphaned `pending/*.lock` after a few minutes, so it does not
+wedge the node.)
 
 ### Concurrency per node
 

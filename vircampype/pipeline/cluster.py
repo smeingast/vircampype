@@ -14,11 +14,16 @@ Usage (via worker.py entry point)::
     vircampype --cluster cluster.yml --abort        # kill containers + reset
 """
 
+import hashlib
 import os
+import re
+import shlex
 import shutil
+import socket
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -51,16 +56,24 @@ class NodeConfig:
     volumes: list[str]
     setup_overrides: dict[str, str | int | float | bool] = field(default_factory=dict)
 
-    def setup_override_flags(self) -> str:
-        """Return CLI override flags for ``vircampype --setup``."""
-        parts = []
-        for key, value in self.setup_overrides.items():
-            parts.append(f"--{key} {value}")
-        return " ".join(parts)
+    def docker_volume_args(self) -> str:
+        """Return shell-quoted ``-v <vol>`` tokens for a bash array literal.
 
-    def docker_volume_flags(self) -> str:
-        """Return the ``-v`` flags string for ``docker run``."""
-        return " ".join(f"-v {v}" for v in self.volumes)
+        Each token is quoted individually so volume paths containing spaces
+        survive (the worker expands the array with ``"${arr[@]}"``, no
+        unquoted word-splitting).
+        """
+        tokens: list[str] = []
+        for v in self.volumes:
+            tokens.extend(["-v", v])
+        return " ".join(shlex.quote(t) for t in tokens)
+
+    def setup_override_args(self) -> str:
+        """Return shell-quoted ``--key value`` tokens for a bash array literal."""
+        tokens: list[str] = []
+        for key, value in self.setup_overrides.items():
+            tokens.extend([f"--{key}", str(value)])
+        return " ".join(shlex.quote(t) for t in tokens)
 
     def resolve_path(self, container_path: str) -> str | None:
         """Map a container path to a host path via volume mount strings."""
@@ -105,13 +118,23 @@ class ClusterConfig:
         with open(path) as f:
             raw = yaml.safe_load(f)
 
+        if not isinstance(raw, dict):
+            raise ClusterError(f"Cluster config {path} is empty or not a mapping")
+
         for key in ("image", "config_dir", "queue_dir", "nodes"):
             if key not in raw:
                 raise ClusterError(f"Missing required key '{key}' in {path}")
 
+        if not isinstance(raw["nodes"], list) or not raw["nodes"]:
+            raise ClusterError(f"'nodes' must be a non-empty list in {path}")
+
         nodes = []
         for entry in raw["nodes"]:
-            if "host" not in entry or "volumes" not in entry:
+            if (
+                not isinstance(entry, dict)
+                or "host" not in entry
+                or "volumes" not in entry
+            ):
                 raise ClusterError(
                     f"Each node must have 'host' and 'volumes' keys ({path})"
                 )
@@ -119,7 +142,7 @@ class ClusterConfig:
                 NodeConfig(
                     host=entry["host"],
                     volumes=entry["volumes"],
-                    setup_overrides=entry.get("setup_overrides", {}),
+                    setup_overrides=entry.get("setup_overrides", {}) or {},
                 )
             )
 
@@ -129,6 +152,37 @@ class ClusterConfig:
             queue_dir=raw["queue_dir"],
             nodes=nodes,
         )
+
+    def local_node(self) -> "NodeConfig | None":
+        """Identify the node entry for THIS machine by hostname.
+
+        Path existence is ambiguous when several nodes share the same NAS
+        mount path (every node looks "local"), so match on hostname first and
+        only fall back to path existence, with a warning, when nothing
+        matches.
+        """
+        candidates: set[str] = set()
+        for h in (socket.gethostname(), socket.getfqdn()):
+            if h:
+                candidates.add(h.lower())
+                candidates.add(h.lower().split(".")[0])
+
+        for node in self.nodes:
+            h = node.host.lower()
+            if h in candidates or h.split(".")[0] in candidates:
+                return node
+
+        for node in self.nodes:
+            if node.is_local():
+                print(
+                    f"WARNING: no node 'host' matches this machine's hostname "
+                    f"({socket.gethostname()}); falling back to path existence and "
+                    f"treating '{node.host}' as the local node. Add or fix this "
+                    f"machine's node entry to remove the ambiguity.",
+                    file=sys.stderr,
+                )
+                return node
+        return None
 
     def resolve_auto(self, container_path: str) -> tuple[str, NodeConfig]:
         """Resolve a container path using the local node's volumes.
@@ -159,6 +213,16 @@ class ClusterConfig:
 _QUEUE_SUBDIRS = ("pending", "running", "done", "failed", "logs")
 
 
+def _queue_label(queue_dir: str) -> str:
+    """Stable, shell-safe Docker label identifying this queue's containers.
+
+    Derived from the (container-side) queue_dir, which is identical on every
+    node, so ``--abort`` can target only this run's containers instead of
+    every container sharing the image.
+    """
+    return "vircampype.queue=" + hashlib.sha1(queue_dir.encode()).hexdigest()[:16]
+
+
 def queue_setup(config: ClusterConfig) -> None:
     """Populate the job queue from ``*.yml`` configs in the config directory."""
     host_config_dir, _ = config.resolve_auto(config.config_dir)
@@ -174,24 +238,30 @@ def queue_setup(config: ClusterConfig) -> None:
     for sub in _QUEUE_SUBDIRS:
         (queue_path / sub).mkdir(parents=True, exist_ok=True)
 
-    # Collect existing job names across all states.
+    # Collect existing job names across all states. Running jobs live under
+    # running/<node>/<jobname>.job (one subdir per node).
     existing: set[str] = set()
     for sub in ("pending", "done", "failed"):
         for job in (queue_path / sub).glob("*.job"):
             existing.add(job.stem)
-    for job in (queue_path / "running").glob("*.job"):
-        # Running jobs are prefixed: <node>_<jobname>.job
-        name = job.stem
-        if "_" in name:
-            name = name.split("_", 1)[1]
-        existing.add(name)
+    for job in (queue_path / "running").glob("*/*.job"):
+        existing.add(job.stem)
 
-    # Create new job files.
+    # Create new job files. Jobs are identified by the YAML filename stem,
+    # which must be unique across the (recursive) config tree.
     queued = 0
     skipped = 0
+    claimed: dict[str, Path] = {}
     for yml in sorted(config_path.rglob("*.yml")):
         jobname = yml.stem
         relpath = yml.relative_to(config_path)
+        if jobname in claimed:
+            raise ClusterError(
+                f"Duplicate job name '{jobname}' from two configs: "
+                f"'{claimed[jobname]}' and '{relpath}'. Job names (the YAML "
+                f"filename stem) must be unique across {config_path}; rename one."
+            )
+        claimed[jobname] = relpath
         if jobname in existing:
             skipped += 1
             continue
@@ -209,47 +279,56 @@ def queue_setup(config: ClusterConfig) -> None:
     print(f"Total pending: {pending}")
 
 
+# Per-node log line shapes:
+#   [node] 2026-03-30 14:23:01 Processing X   (timestamp after the bracket)
+#   [node] Worker started at 2026-03-30 ...   (timestamp embedded later)
+#   [node] No more jobs. Exiting.             (no timestamp at all)
+# Match any "[node] ..." line and pull a timestamp from anywhere in it so the
+# status panel reports lifecycle lines too, not only per-job lines.
+_LOG_LINE_RE = re.compile(r"^\[(\S+)\]\s+(.*)$")
+_LOG_TS_RE = re.compile(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}")
+
+
 def _parse_log_activity(log_dir: Path) -> dict[str, tuple[str, str]]:
     """Parse log files and return the last activity line per node.
 
     Returns
     -------
     dict
-        ``{node_name: (timestamp, message)}``
+        ``{node_name: (timestamp, message)}`` (timestamp may be "-").
     """
     activity: dict[str, tuple[str, str]] = {}
     for log_file in sorted(log_dir.glob("*.log")):
         node = log_file.stem
-        last_ts, last_msg = "", ""
         try:
             with open(log_file, "rb") as f:
-                # Read last 128 KB to find the last timestamped line
-                # (heartbeat lines can be far from EOF due to verbose output)
+                # Read the last 128 KB to find the last activity line
+                # (heartbeat lines can be far from EOF due to verbose output).
                 f.seek(0, 2)
                 size = f.tell()
                 f.seek(max(0, size - 131072))
                 tail = f.read().decode("utf-8", errors="replace")
-            import re
-
-            for line in tail.splitlines():
-                m = re.match(
-                    r"\[(\S+)\]\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(.*)",
-                    line,
-                )
-                if m:
-                    last_ts = m.group(2)
-                    last_msg = m.group(3)
         except OSError:
-            pass
-        if last_ts:
-            activity[node] = (last_ts, last_msg)
+            continue
+
+        last_ts, last_msg, seen_ts = "", "", ""
+        for line in tail.splitlines():
+            m = _LOG_LINE_RE.match(line)
+            if not m:
+                continue
+            rest = m.group(2).strip()
+            tm = _LOG_TS_RE.search(rest)
+            if tm:
+                seen_ts = tm.group(0)
+                rest = _LOG_TS_RE.sub("", rest, count=1).strip()
+            last_ts, last_msg = seen_ts, rest
+        if last_msg or last_ts:
+            activity[node] = (last_ts or "-", last_msg)
     return activity
 
 
 def queue_status(config: ClusterConfig) -> None:
     """Print the current state of the job queue."""
-    from datetime import datetime
-
     host_queue_dir, _ = config.resolve_auto(config.queue_dir)
     queue_path = Path(host_queue_dir)
 
@@ -266,15 +345,14 @@ def queue_status(config: ClusterConfig) -> None:
     done = _count("done")
     failed = _count("failed")
 
-    # Collect running jobs grouped by node.
+    # Collect running jobs grouped by node (running/<node>/<jobname>.job).
     running_by_node: dict[str, list[tuple[str, float]]] = {}
     running_dir = queue_path / "running"
     now = datetime.now().timestamp()
     if running_dir.is_dir():
-        for job in sorted(running_dir.glob("*.job")):
-            name = job.stem
-            node = name.split("_", 1)[0] if "_" in name else "?"
-            jobname = name.split("_", 1)[1] if "_" in name else name
+        for job in sorted(running_dir.glob("*/*.job")):
+            node = job.parent.name
+            jobname = job.stem
             elapsed = now - job.stat().st_mtime
             running_by_node.setdefault(node, []).append((jobname, elapsed))
 
@@ -283,7 +361,7 @@ def queue_status(config: ClusterConfig) -> None:
 
     # Header
     print("vircampype cluster queue status")
-    print("\u2500" * 40)
+    print("─" * 40)
     print(f"  pending:  {pending:4d}")
     print(f"  running:  {running:4d}")
     print(f"  done:     {done:4d}")
@@ -293,7 +371,7 @@ def queue_status(config: ClusterConfig) -> None:
     # Per-node running jobs with elapsed time
     if running_by_node:
         print(f"\n{'running jobs':}")
-        print("\u2500" * 40)
+        print("─" * 40)
         for node in sorted(running_by_node):
             for jobname, elapsed in running_by_node[node]:
                 mins, secs = divmod(int(elapsed), 60)
@@ -307,7 +385,7 @@ def queue_status(config: ClusterConfig) -> None:
     # Failed job names
     if failed:
         print(f"\n{'failed jobs':}")
-        print("\u2500" * 40)
+        print("─" * 40)
         failed_dir = queue_path / "failed"
         for job in sorted(failed_dir.glob("*.job")):
             print(f"  {job.stem}")
@@ -318,16 +396,45 @@ def queue_status(config: ClusterConfig) -> None:
         activity = _parse_log_activity(log_dir)
         if activity:
             print(f"\n{'last node activity':}")
-            print("\u2500" * 40)
+            print("─" * 40)
             for node in sorted(activity):
                 ts, msg = activity[node]
                 print(f"  {node:12s} {ts}  {msg}")
+
+
+def _active_nodes(queue_path: Path) -> set[str]:
+    """Nodes that appear to have a live worker.
+
+    A worker is considered live if it holds a claimed job under
+    running/<node>/ or has a liveness sentinel logs/<node>.active (created at
+    startup, removed on exit), so an idle/just-started worker is still seen.
+    """
+    nodes: set[str] = set()
+    running_dir = queue_path / "running"
+    if running_dir.is_dir():
+        for job in running_dir.glob("*/*.job"):
+            nodes.add(job.parent.name)
+    logs_dir = queue_path / "logs"
+    if logs_dir.is_dir():
+        for sentinel in logs_dir.glob("*.active"):
+            nodes.add(sentinel.stem)
+    return nodes
 
 
 def queue_reset(config: ClusterConfig) -> None:
     """Remove all queue state (pending/running/done/failed/logs)."""
     host_queue_dir, _ = config.resolve_auto(config.queue_dir)
     queue_path = Path(host_queue_dir)
+
+    active = _active_nodes(queue_path)
+    if active:
+        print(
+            f"WARNING: {len(active)} node(s) may still have a live worker "
+            f"({', '.join(sorted(active))}). Resetting the queue while workers "
+            f"are running races them (they can re-create entries after the wipe). "
+            f"Consider --abort instead, or stop the workers first.",
+            file=sys.stderr,
+        )
 
     removed = 0
     skipped = 0
@@ -362,9 +469,14 @@ def requeue_failed(config: ClusterConfig) -> None:
         print("No failed directory found.")
         return
 
+    pending_dir.mkdir(parents=True, exist_ok=True)
+
     count = 0
     for job in failed_dir.glob("*.job"):
-        shutil.move(str(job), str(pending_dir / job.name))
+        # copy-then-unlink rather than rename: rename/mv is unreliable on
+        # SMB/NAS, which is why the worker uses cp+rm throughout.
+        shutil.copy2(str(job), str(pending_dir / job.name))
+        job.unlink()
         count += 1
 
     if count:
@@ -378,7 +490,8 @@ def requeue_failed(config: ClusterConfig) -> None:
 # ---------------------------------------------------------------------------
 
 # Template for the self-contained bash worker sent to each remote node via SSH.
-# Python placeholders use {braces}; shell variables use $VARIABLE.
+# Python placeholders use {braces}; shell variables use $VARIABLE; literal
+# shell braces are doubled ({{ }}) so str.format leaves them intact.
 # The remote node needs only bash and Docker — no Python or vircampype install.
 _WORKER_SCRIPT_TEMPLATE = r"""#!/usr/bin/env bash
 set -euo pipefail
@@ -393,51 +506,132 @@ done
 set -eu
 
 IMAGE="{image}"
-DOCKER_FLAGS="{docker_flags}"
 NODE_NAME="{node_name}"
-SETUP_OVERRIDES="{setup_overrides}"
+QUEUE_LABEL="{queue_label}"
 PENDING="{queue_dir}/pending"
-RUNNING="{queue_dir}/running"
+RUNNING="{queue_dir}/running/{node_name}"
 DONE_DIR="{queue_dir}/done"
 FAILED_DIR="{queue_dir}/failed"
-LOG_FILE="{queue_dir}/logs/{node_name}.log"
+LOGS_DIR="{queue_dir}/logs"
+LOG_FILE="$LOGS_DIR/{node_name}.log"
+STOP_FILE="$LOGS_DIR/{node_name}.stop"
+ACTIVE_FILE="$LOGS_DIR/{node_name}.active"
 
-mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$(dirname "$LOG_FILE")"
+# Docker volume mounts and per-node setup overrides as arrays so values
+# containing spaces survive (expanded with "${{arr[@]}}", not word-split).
+DOCKER_VOLUMES=({docker_volumes})
+SETUP_OVERRIDES=({setup_overrides})
+
+# A node that fails MAX_FAST_FAILURES jobs in a row, each in under MIN_RUNTIME
+# seconds, is misconfigured; stop claiming so healthy nodes keep the work.
+MAX_FAST_FAILURES=3
+MIN_RUNTIME=60
+
+mkdir -p "$PENDING" "$RUNNING" "$DONE_DIR" "$FAILED_DIR" "$LOGS_DIR"
+
+# Preflight: fail fast (so dispatch reports it) instead of draining the whole
+# queue into failed/ one sub-second failure at a time.
+if ! docker info >/dev/null 2>&1; then
+    echo "[$NODE_NAME] Docker daemon not available on this node" >&2
+    exit 1
+fi
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    echo "[$NODE_NAME] Image '$IMAGE' not present on this node (docker pull it first)" >&2
+    exit 1
+fi
 
 {{
-    echo "[$NODE_NAME] Worker started at $(date '+%Y-%m-%d %H:%M:%S')"
+    # Clear the liveness sentinel on any exit (normal, stop, or signal).
+    trap 'rm -f "$ACTIVE_FILE"' EXIT
+    : > "$ACTIVE_FILE"
 
-    STOP_FILE="{queue_dir}/logs/{node_name}.stop"
+    echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Worker started"
+
+    fast_failures=0
 
     while true; do
-        [[ -f "$STOP_FILE" ]] && {{ echo "[$NODE_NAME] Stop requested. Exiting."; rm -f "$STOP_FILE"; break; }}
+        [[ -f "$STOP_FILE" ]] && {{ echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Stop requested. Exiting."; rm -f "$STOP_FILE"; break; }}
 
-        JOB=$(find "$PENDING" -name "*.job" -print -quit 2>/dev/null) || true
-        [[ -z "$JOB" ]] && {{ echo "[$NODE_NAME] No more jobs. Exiting."; break; }}
+        # Claim the first pending job whose lock we can take.  Skipping locked
+        # candidates (instead of always taking find's first hit) stops one
+        # stale lock from starving the rest of the queue; a clearly orphaned
+        # lock (older than 5 min, since claims take under a second) is reaped.
+        JOB=""
+        while IFS= read -r -d '' candidate; do
+            if [[ -d "$candidate.lock" ]]; then
+                if [[ -n "$(find "$candidate.lock" -prune -mmin +5 2>/dev/null)" ]]; then
+                    rmdir "$candidate.lock" 2>/dev/null || true
+                fi
+                continue
+            fi
+            JOB="$candidate"
+            break
+        done < <(find "$PENDING" -name "*.job" -print0 2>/dev/null)
+
+        if [[ -z "$JOB" ]]; then
+            if [[ -z "$(find "$PENDING" -name "*.job" -print -quit 2>/dev/null)" ]]; then
+                echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') No more jobs. Exiting."
+                break
+            fi
+            # Only locked jobs remain; back off instead of busy-spinning.
+            sleep 5
+            continue
+        fi
 
         JOBNAME=$(basename "$JOB")
 
         mkdir "$JOB.lock" 2>/dev/null || continue
-        cp "$JOB" "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null && rm -f "$JOB" 2>/dev/null || {{
+        RUNFILE="$RUNNING/$JOBNAME"
+        if ! {{ cp "$JOB" "$RUNFILE" 2>/dev/null && rm -f "$JOB" 2>/dev/null; }}; then
+            # Partial claim: drop any half-written running copy and the lock so
+            # the job stays cleanly claimable (no orphaned running entry).
+            rm -f "$RUNFILE" 2>/dev/null || true
             rmdir "$JOB.lock" 2>/dev/null || true
+            sleep 1
             continue
-        }}
+        fi
         rmdir "$JOB.lock" 2>/dev/null || true
 
-        CONFIG_PATH=$(cat "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}")
-        echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Processing ${{JOBNAME%.job}}"
+        CONFIG_PATH=$(cat "$RUNFILE")
+        JOBSTEM="${{JOBNAME%.job}}"
+        echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Processing $JOBSTEM"
 
-        CONTAINER_NAME="vircampype_${{JOBNAME%.job}}"
-        if docker run --rm --name "$CONTAINER_NAME" $DOCKER_FLAGS "$IMAGE" vircampype --setup "$CONFIG_PATH" $SETUP_OVERRIDES; then
-            cp "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$DONE_DIR/$JOBNAME" 2>/dev/null && rm -f "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null || true
-            echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Completed ${{JOBNAME%.job}}"
+        # Docker names allow only [A-Za-z0-9_.-]; sanitise so an odd config
+        # filename cannot turn every run into an instant docker error.
+        CONTAINER_NAME="vircampype_$(printf '%s' "$JOBSTEM" | tr -c 'A-Za-z0-9_.-' '_')"
+
+        run_start=$SECONDS
+        if docker run --rm --name "$CONTAINER_NAME" --label "$QUEUE_LABEL" \
+                ${{DOCKER_VOLUMES[@]+"${{DOCKER_VOLUMES[@]}}"}} \
+                "$IMAGE" vircampype --setup "$CONFIG_PATH" \
+                ${{SETUP_OVERRIDES[@]+"${{SETUP_OVERRIDES[@]}}"}}; then
+            if cp "$RUNFILE" "$DONE_DIR/$JOBNAME" 2>/dev/null; then
+                rm -f "$RUNFILE" 2>/dev/null || true
+            else
+                echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') WARNING: could not move $JOBSTEM to done/ (left in running/)"
+            fi
+            echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Completed $JOBSTEM"
+            fast_failures=0
         else
-            cp "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" "$FAILED_DIR/$JOBNAME" 2>/dev/null && rm -f "$RUNNING/${{NODE_NAME}}_${{JOBNAME}}" 2>/dev/null || true
-            echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') FAILED ${{JOBNAME%.job}}"
+            if cp "$RUNFILE" "$FAILED_DIR/$JOBNAME" 2>/dev/null; then
+                rm -f "$RUNFILE" 2>/dev/null || true
+            else
+                echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') WARNING: could not move $JOBSTEM to failed/ (left in running/)"
+            fi
+            echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') FAILED $JOBSTEM"
+            if (( SECONDS - run_start < MIN_RUNTIME )); then
+                fast_failures=$(( fast_failures + 1 ))
+            else
+                fast_failures=0
+            fi
+            if (( fast_failures >= MAX_FAST_FAILURES )); then
+                echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') ABORT: $fast_failures consecutive fast failures, node likely misconfigured. Exiting."
+                break
+            fi
         fi
     done
 
-    echo "[$NODE_NAME] Worker finished at $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "[$NODE_NAME] $(date '+%Y-%m-%d %H:%M:%S') Worker finished"
 }} >> "$LOG_FILE" 2>&1 &
 disown
 """
@@ -445,28 +639,40 @@ disown
 
 def _build_worker_script(
     image: str,
-    docker_flags: str,
     node_name: str,
     queue_dir: str,
+    queue_label: str,
+    docker_volumes: str = "",
     setup_overrides: str = "",
 ) -> str:
     """Build the self-contained bash worker script for a remote node."""
     return _WORKER_SCRIPT_TEMPLATE.format(
         image=image,
-        docker_flags=docker_flags,
         node_name=node_name,
         queue_dir=queue_dir,
+        queue_label=queue_label,
+        docker_volumes=docker_volumes,
         setup_overrides=setup_overrides,
     )
 
 
+# SSH options: fail fast on missing key auth or an unreachable/sleeping node
+# instead of hanging the (serial) dispatch on a password prompt or TCP connect.
+_SSH_OPTS = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "ServerAliveCountMax=3",
+]
+
+
 def abort(config: ClusterConfig) -> None:
-    """Kill all vircampype Docker containers on every node, then reset the queue."""
-    local_node = None
-    for node in config.nodes:
-        if node.is_local():
-            local_node = node
-            break
+    """Kill this run's Docker containers on every node, then reset the queue."""
+    local_node = config.local_node()
 
     # Step 1: create stop sentinel files so worker loops exit after the
     # current container is killed.  The stop file must exist before the
@@ -483,21 +689,22 @@ def abort(config: ClusterConfig) -> None:
 
     print()
     print("=== Killing containers ===")
+    # Kill only containers labelled for THIS queue, not every container of the
+    # image (other cluster runs may share the host + image).  Avoid xargs -r,
+    # which is not portable to BSD/macOS xargs.
+    label = _queue_label(config.queue_dir)
     kill_cmd = (
-        f"docker ps -q --filter ancestor={config.image} "
-        f"| xargs -r docker kill 2>/dev/null; true"
+        f"ids=$(docker ps -q --filter label={label}); "
+        f'[ -n "$ids" ] && docker kill $ids >/dev/null 2>&1; true'
     )
 
     for node in config.nodes:
         print(f"Killing containers on {node.host}...", end=" ")
         if node is local_node:
-            result = subprocess.run(
-                ["bash", "-c", kill_cmd],
-                capture_output=True,
-            )
+            result = subprocess.run(["bash", "-c", kill_cmd], capture_output=True)
         else:
             result = subprocess.run(
-                ["ssh", node.host, "bash", "-c", repr(kill_cmd)],
+                ["ssh", *_SSH_OPTS, node.host, kill_cmd],
                 capture_output=True,
             )
         if result.returncode == 0:
@@ -518,29 +725,20 @@ def dispatch(config: ClusterConfig) -> None:
     queue_setup(config)
     print()
 
-    # Step 2: start a worker on each node.
-    # Identify the local node (first node whose host paths exist on this machine).
-    # All other nodes are dispatched via SSH, even if they share the same paths.
-    local_node = None
-    for node in config.nodes:
-        if node.is_local():
-            local_node = node
-            break
+    # Identify the local node by hostname (run it via bash; all others via SSH).
+    local_node = config.local_node()
 
     print("=== Starting workers ===")
-    processes: list[tuple[str, subprocess.Popen]] = []
-
-    # Detect nodes that already have a running worker by checking the running
-    # directory for job files prefixed with the node's hostname.
     host_queue_dir, _ = config.resolve_auto(config.queue_dir)
-    running_dir = Path(host_queue_dir) / "running"
-    active_nodes: set[str] = set()
-    if running_dir.is_dir():
-        for job in running_dir.glob("*.job"):
-            name = job.stem
-            if "_" in name:
-                active_nodes.add(name.split("_", 1)[0])
+    queue_path = Path(host_queue_dir)
 
+    # Skip nodes that already have a live worker (claimed job or sentinel).
+    active_nodes = _active_nodes(queue_path)
+
+    queue_label = _queue_label(config.queue_dir)
+
+    # (host, Popen, stdin_bytes_or_None)
+    processes: list[tuple[str, subprocess.Popen, bytes | None]] = []
     for node in config.nodes:
         node_queue_dir = node.resolve_path(config.queue_dir)
         if node_queue_dir is None:
@@ -551,15 +749,16 @@ def dispatch(config: ClusterConfig) -> None:
             continue
 
         if node.host in active_nodes:
-            print(f"Skipping {node.host} (already has running jobs)")
+            print(f"Skipping {node.host} (already has a running worker)")
             continue
 
         script = _build_worker_script(
             image=config.image,
-            docker_flags=node.docker_volume_flags(),
             node_name=node.host,
             queue_dir=node_queue_dir,
-            setup_overrides=node.setup_override_flags(),
+            queue_label=queue_label,
+            docker_volumes=node.docker_volume_args(),
+            setup_overrides=node.setup_override_args(),
         )
 
         log_path = f"{node_queue_dir}/logs/{node.host}.log"
@@ -569,31 +768,42 @@ def dispatch(config: ClusterConfig) -> None:
         if node is local_node:
             proc = subprocess.Popen(
                 ["bash", "-c", script],
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+            processes.append((node.host, proc, None))
         else:
             proc = subprocess.Popen(
-                ["ssh", node.host, "bash", "-s"],
+                ["ssh", *_SSH_OPTS, node.host, "bash", "-s"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            proc.stdin.write(script.encode())
-            proc.stdin.close()
-        processes.append((node.host, proc))
+            processes.append((node.host, proc, script.encode()))
 
-    # Wait for all SSH connections to establish.
+    # Drain stdout/stderr while waiting (communicate avoids a pipe-buffer
+    # deadlock and swallows BrokenPipeError if a node died early).  The worker
+    # backgrounds itself, so each call returns promptly; the timeout is a
+    # backstop for a half-open connection.
     failed_nodes: list[str] = []
-    for host, proc in processes:
-        proc.wait()
+    for host, proc, stdin_bytes in processes:
+        try:
+            _, stderr = proc.communicate(input=stdin_bytes, timeout=60)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            print(f"WARNING: worker dispatch to {host} timed out", file=sys.stderr)
+            failed_nodes.append(host)
+            continue
         if proc.returncode != 0:
-            stderr = proc.stderr.read().decode().strip() if proc.stderr else ""
+            err = stderr.decode().strip() if stderr else ""
             print(
-                f"WARNING: SSH to {host} failed (rc={proc.returncode})", file=sys.stderr
+                f"WARNING: dispatch to {host} failed (rc={proc.returncode})",
+                file=sys.stderr,
             )
-            if stderr:
-                print(f"  {stderr}", file=sys.stderr)
+            if err:
+                print(f"  {err}", file=sys.stderr)
             failed_nodes.append(host)
 
     print()
@@ -606,6 +816,5 @@ def dispatch(config: ClusterConfig) -> None:
         print("All workers dispatched.")
 
     # Print monitoring hint.
-    host_queue_dir, _ = config.resolve_auto(config.queue_dir)
     print("Monitor with: vircampype --cluster <cluster.yml> --status")
     print(f"View logs in: {host_queue_dir}/logs/")
