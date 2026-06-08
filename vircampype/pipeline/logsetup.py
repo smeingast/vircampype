@@ -89,20 +89,51 @@ def _install_file_handler(
     warnings_logger.propagate = False
 
 
+def _console_level(setup) -> int:
+    """Resolve the console handler level (WARNING by default, kept minimal)."""
+    if getattr(setup, "console_log_level", None):
+        return getattr(logging, setup.console_log_level.upper())
+    return logging.WARNING
+
+
+def _install_console_handler(logger: logging.Logger, level: int) -> None:
+    """Attach a console handler (rich on a TTY, plain otherwise).
+
+    Defaults to WARNING and above, so routine INFO/DEBUG never floods the
+    terminal. The minimal INFO shown on the console comes from the messaging
+    banner helpers, not from this handler.
+    """
+    console = get_console()
+    if console.is_terminal:
+        from rich.logging import RichHandler
+
+        handler: logging.Handler = RichHandler(
+            console=console,
+            show_path=False,
+            markup=False,
+            rich_tracebacks=True,
+        )
+    else:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(_FILE_FORMAT, datefmt=_DATE_FORMAT))
+    handler.setLevel(level)
+    logger.addHandler(_own(handler))
+
+
 def configure_logging(setup) -> None:
     """Configure the ``vircampype`` logger from a Setup. Idempotent.
 
-    Attaches a per-run rotating file handler at DEBUG so the file log is an
-    extensive, reconstructable record, and routes Python warnings to the same
-    file. Only handlers previously installed by vircampype are replaced, so a
-    second call (a second pipeline in one process, or a test) reconfigures
-    cleanly without duplicating handlers.
+    Attaches a per-run rotating file handler at DEBUG (extensive, reconstructable
+    file log), a console handler at WARNING and above (minimal terminal), and
+    routes Python warnings to the file only. Only handlers previously installed
+    by vircampype are replaced, so a second call (a second pipeline in one
+    process, or a test) reconfigures cleanly without duplicating handlers.
 
     Parameters
     ----------
     setup : Setup
-        Pipeline setup; provides ``log_level``, ``folders['temp']`` and
-        ``file_log``.
+        Pipeline setup; provides ``log_level``, ``console_log_level``,
+        ``folders['temp']`` and ``file_log``.
     """
     # Preserve the historical raise-on-invalid-level behaviour.
     getattr(logging, setup.log_level.upper())
@@ -113,9 +144,10 @@ def configure_logging(setup) -> None:
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
+    _install_console_handler(logger, _console_level(setup))
+
     if not setup.file_log:
         # No file requested (e.g. a container relying on stdout redirection).
-        # The console handler added in a later phase still applies.
         logging.captureWarnings(True)
         return
 
@@ -129,7 +161,8 @@ def configure_standalone_logging(path_logfile: str) -> None:
 
     Used by the ``--sort`` and ``--cluster`` worker paths, which run before any
     Setup exists, so the top-level handler and any logging they emit reach a
-    real file. Idempotent.
+    real file. Adds the same file (DEBUG) and console (WARNING+) handlers.
+    Idempotent.
 
     Parameters
     ----------
@@ -141,4 +174,5 @@ def configure_standalone_logging(path_logfile: str) -> None:
     _reset_own_handlers((logger, warnings_logger))
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
+    _install_console_handler(logger, logging.WARNING)
     _install_file_handler(logger, warnings_logger, path_logfile)

@@ -70,9 +70,12 @@ class TestLogSetup(unittest.TestCase):
     def test_idempotent_no_duplicate_handlers(self):
         setup = _make_setup(self.tmp)
         configure_logging(setup)
+        first = len(_own_handlers(get_logger()))
         configure_logging(setup)
         configure_logging(setup)
-        self.assertEqual(len(_own_handlers(get_logger())), 1)
+        # Re-configuring must not accumulate handlers (file + console stays put).
+        self.assertEqual(len(_own_handlers(get_logger())), first)
+        self.assertGreaterEqual(first, 1)
 
     def test_invalid_level_raises(self):
         with self.assertRaises(AttributeError):
@@ -106,7 +109,7 @@ class TestLogSetup(unittest.TestCase):
 
     def test_pipelinelog_setup_configures(self):
         PipelineLog(setup=_make_setup(self.tmp))
-        self.assertEqual(len(_own_handlers(get_logger())), 1)
+        self.assertGreaterEqual(len(_own_handlers(get_logger())), 1)
 
 
 if __name__ == "__main__":

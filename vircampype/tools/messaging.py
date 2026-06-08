@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from typing import Sequence
@@ -5,7 +6,14 @@ from typing import Sequence
 import numpy as np
 from astropy.stats import sigma_clipped_stats
 
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.log import PipelineLog
+
+
+def _logger(logger: "PipelineLog | logging.Logger | None" = None):
+    """Return the logger to emit through: the caller's, else the shared one."""
+    return logger if logger is not None else logging.getLogger("vircampype")
+
 
 __all__ = [
     "print_message",
@@ -83,10 +91,8 @@ def print_header(
         if left or right:
             print(f"{left:<55s}{right:>25s}")
 
-    # Log the message
-    log_message = f"Header: {header}\nLeft: {left}\nRight: {right}"
-    if logger:
-        logger.info(log_message)
+    # Always record the section boundary as a single clean INFO line (file).
+    _logger(logger).info(f"=== {header} ===")
 
 
 def print_message(
@@ -115,34 +121,26 @@ def print_message(
         If the message type specified in `kind` is not implemented.
     """
 
-    log_methods = {
-        None: lambda msg: logger.info(msg) if logger else None,
-        "warning": lambda msg: logger.warning(msg) if logger else None,
-        "fail": lambda msg: logger.error(msg) if logger else None,
-        "okblue": lambda msg: logger.info(msg) if logger else None,
-        "okgreen": lambda msg: logger.info(msg) if logger else None,
-    }
+    k = kind.lower() if kind else None
 
-    if kind is None:
-        formatted_message = f"\r{message:<80s}"
-    elif kind.lower() == "warning":
-        formatted_message = f"{BColors.WARNING}\r{message:<80s}{BColors.ENDC}"
-    elif kind.lower() == "fail":
-        formatted_message = f"{BColors.FAIL}\r{message:<80s}{BColors.ENDC}"
-    elif kind.lower() == "okblue":
-        formatted_message = f"{BColors.OKBLUE}\r{message:<80s}{BColors.ENDC}"
-    elif kind.lower() == "okgreen":
-        formatted_message = f"{BColors.OKGREEN}\r{message:<80s}{BColors.ENDC}"
+    if k in (None, "okblue", "okgreen"):
+        # Info-grade: keep the console status line (preserving the in-place
+        # carriage-return / ``end`` behaviour) and also record it at INFO.
+        if k == "okblue":
+            formatted_message = f"{BColors.OKBLUE}\r{message:<80s}{BColors.ENDC}"
+        elif k == "okgreen":
+            formatted_message = f"{BColors.OKGREEN}\r{message:<80s}{BColors.ENDC}"
+        else:
+            formatted_message = f"\r{message:<80s}"
+        print(formatted_message, end=end)
+        _logger(logger).info(message)
+    elif k == "warning":
+        # Single console path for warnings: the logger's WARNING+ handler.
+        _logger(logger).warning(message)
+    elif k == "fail":
+        _logger(logger).error(message)
     else:
-        raise ValueError("Implement more types.")
-
-    # Print the formatted message
-    print(formatted_message, end=end)
-
-    # Log the message
-    log_method = log_methods.get(kind.lower() if kind else None, None)
-    if log_method:
-        log_method(message)
+        raise PipelineValueError(f"Unknown message kind: {kind!r}")
 
 
 def print_start(obj: str = "") -> float:
@@ -163,6 +161,7 @@ def print_start(obj: str = "") -> float:
     print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{obj:^74}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
+    _logger().info(f"=== START {obj} ===")
     return time.time()
 
 
@@ -187,9 +186,7 @@ def print_end(
     print(f"{BColors.OKGREEN}{end_message:^74}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
 
-    # Log the end message
-    if logger:
-        logger.info(end_message)
+    _logger(logger).info(end_message)
 
 
 def message_calibration(
@@ -266,14 +263,11 @@ def check_file_exists(
     """
 
     if os.path.isfile(file_path):
-        if not silent:
-            filename = os.path.basename(file_path)
-            print_message(
-                message=f"{filename} already exists.",
-                kind="warning",
-                end=None,
-                logger=logger,
-            )
+        # A normal checkpoint-resume skip: record at DEBUG (file only), never a
+        # console warning. ``silent`` is retained for signature compatibility.
+        _logger(logger).debug(
+            "%s already exists, skipping", os.path.basename(file_path)
+        )
         return True
     return False
 
