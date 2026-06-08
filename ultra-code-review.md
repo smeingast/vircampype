@@ -1,116 +1,80 @@
 # vircampype pipeline: ultra code review
 
-_Generated 2026-06-08. Assessment only; no behavioural change except the H4 fix noted below._
+_Generated 2026-06-08. Assessment from a literature-grounded multi-agent review of the science/calibration pipeline, with external (codex) double-checking of the high-severity findings. Fixed items are marked and listed at the bottom._
 
 ## Scope and method
 
-Literature-grounded multi-agent review of the **science/calibration pipeline** (not the cluster batch subsystem, reviewed separately). Two passes: (1) reference gathering from the local Papers library plus bounded web search across six topics (VISTA/VIRCAM reduction, flat/sky, astrometry, photometry, resampling/coaddition, extraction/catalogues); (2) one reviewer per pipeline dimension, given the reference digest and reading the real code. Every finding was adversarially verified inside the workflow (correctness + data-product impact). The four high-severity findings were then independently double-checked by an external reviewer (codex) and re-checked by hand against the code.
+Two passes: (1) reference gathering from the local Papers library plus bounded web search across six topics; (2) one reviewer per pipeline dimension reading the real code with that reference digest. Every finding was adversarially verified (correctness + data-product impact); the highs were re-checked by codex and by hand. Cluster batch subsystem and the recently-validated astrometric floor / RADECCORR work are out of scope.
 
-**Counts:** 44 raw findings, 35 confirmed. No criticals. 4 distinct high (one was found by two dimensions), 10 medium (one medium folded into H1), 19 low. Excluded by design (intentional, recently validated): the high-S/N astrometric position-error floor (ASTRMSH1/2) and the per-field SCAMP RADECCORR fix.
+**Counts:** 44 raw, 35 confirmed (no criticals). **5 fixed so far** (2 high + 3 medium, see bottom); **open:** 2 high, 7 medium, 19 low.
 
-Severity: **critical** = silently wrong science across the survey; **high** = significant error in a common regime; **medium** = wrong in edge cases; **low** = minor / hardening.
+Severity: **critical** = silently wrong science survey-wide; **high** = significant error in a common regime; **medium** = wrong in edge cases; **low** = minor / hardening.
 
-## High severity
+## Open - High severity
 
 ### H1. SCAMP solutions accepted on internal RMS only (no external-RMS / match-count gate)
 
 - **Where:** vircampype/fits/tables/sextractor.py:213-216 (sole gate); messaging.py:281-326 (QC prints, never raises); tabletools.py:613 (NDeg_Reference read but unused as a gate)
-- **What:** The only hard post-SCAMP check is `if np.max(xml["AstromSigma_Internal"]*1000) > 100: raise`. It uses only the internal (source-to-source) scatter, never the external/reference RMS vs Gaia, the matched-reference count, or NDeg_Reference. A degenerate / near-identity solution from too few matches has a SMALL internal sigma and passes. `np.max` is not nan-aware, so a no-overlap exposure (NaN) or all-zero sigma also passes. It reads the GROUP table (table_id=1), i.e. one aggregate over all exposures, so a single bad pawprint barely moves it.
+- **What:** The only hard post-SCAMP check is `if np.max(xml["AstromSigma_Internal"]*1000) > 100: raise`. It uses only the internal (source-to-source) scatter, never the external/reference RMS vs Gaia, the matched-reference count, or NDeg_Reference. A degenerate / near-identity solution from too few matches has a SMALL internal sigma and passes. `np.max` is not nan-aware, so a no-overlap exposure (NaN) or all-zero sigma also passes. It reads the GROUP table (table_id=1), one aggregate over all exposures, so a single bad pawprint barely moves it.
 - **Impact:** A sparse-match or internally-consistent-but-absolutely-wrong WCS passes the checkpoint, is cached as .ahead, and propagates into resampling / coadds / public catalog with no error. Bites sparse fields, single-pass regions, and edge exposures.
-- **Reference:** Bertin 2006 (SCAMP): internal vs external RMS are distinct; external RMS catches bad absolute solutions. Astrometry digest pitfall: 'SCAMP succeeds with a degenerate solution.'
-- **Verification:** Workflow: confirmed. Codex: PARTIAL. Codex's correct nuance: the FULLY-unconstrained case (missing ASTRMSH1/2) is now caught later by the build_statistics fail-loud (sky.py:2919-2932), so the gap is narrowed to sparse / degenerate-but-plausible / high-finite-external-RMS solutions, not the empty case. Also folds in the medium duplicate at sextractor.py:213-216 (too-few-matches / NDeg gate).
-- **Status:** OPEN. Suggested: add an external-RMS (AstromSigma_Reference) threshold + a minimum matched-reference / NDeg_Reference gate, per exposure, and make np.max nan-aware (treat NaN as failure).
-
-### H2. Public ELLIPTICITY is computed from the position-ERROR ellipse, not the source shape
-
-- **Where:** vircampype/tools/tabletools.py:741-742, 775 (definition); :981 (survey keep-filter ellipticity > 0); :1028/1052 (published column)
-- **What:** convert2public sets `data_erra = ERRAWIN_WORLD`, `data_errb = ERRBWIN_WORLD`, then `data_ellipticity = 1 - data_errb/data_erra`. ERRAWIN/ERRBWIN are the SExtractor WINDOWED POSITIONAL-ERROR ellipse semi-axes (astrometric centroid uncertainty), NOT the light-profile shape. The true shape (AWIN_WORLD/BWIN_WORLD, and a ready-made ELLIPTICITY = 1 - B_IMAGE/A_IMAGE) is emitted by the 'full' preset (full.param:26-34) and ignored. Because errb <= erra always, the value sits in [0,1] and looks plausible, so the error is silent.
-- **Impact:** Every public-catalog row's ELLIPTICITY reflects centroid error-ellipse anisotropy (driven by S/N and PSF sampling), not morphology. Any morphological / extended-source selection or shape QC on the public catalog uses a meaningless quantity. It is also used in the survey keep-filter, so it affects which rows are published. Survey-wide.
-- **Reference:** SExtractor manual: ELLIPTICITY = 1 - B_IMAGE/A_IMAGE (shape) vs ERRAWIN/ERRBWIN (positional-error ellipse).
-- **Verification:** Workflow: confirmed (found independently by two dimensions). Codex: CONFIRM, with no later substitution of the shape column. Verified directly against the code and full.param.
-- **Status:** FIXED. ELLIPTICITY now uses the windowed source shape `1 - BWIN_WORLD/AWIN_WORLD` (consistent with the WIN-based astrometry), and the survey keep-filter was changed from `> 0.0` to `>= 0.0` so genuinely round sources (ellipticity 0) are kept while NaN is still rejected. Only the public catalog (.ptab) needs regenerating; AWIN/BWIN are already in the existing source .ctab.
+- **Reference:** Bertin 2006 (SCAMP): internal vs external RMS are distinct; external RMS catches bad absolute solutions.
+- **Verification:** Workflow: confirmed. Codex: PARTIAL. Nuance: the fully-unconstrained case (missing ASTRMSH1/2) is now caught later by the build_statistics fail-loud (sky.py:2919-2932), so the gap is narrowed to sparse / degenerate-but-plausible / high-finite-external-RMS solutions.
+- **Status:** OPEN. Suggested: add an external-RMS (AstromSigma_Reference) threshold + a minimum matched-reference / NDeg_Reference gate, per exposure, and make np.max nan-aware.
 
 ### H3. Published flux/mag errors have no correlated-noise inflation after LANCZOS3 resampling
 
-- **Where:** vircampype/tools/tabletools.py:845-859 (magerr path); coadd.yml:57 (RESAMPLING_TYPE LANCZOS3) + RESCALE_WEIGHTS Y; sky.py:2129 (resample kernel); full preset SExtractor run on the resampled coadd
-- **What:** Tiles/stacks are LANCZOS3-resampled, which correlates neighbouring output pixels, so the per-pixel variance from the SWarp weight map and SExtractor's white-noise FLUXERR underestimates the true noise. The published error is `magerr_aper = sqrt(MAGERR_APER**2 + photerr_internal**2)`, where MAGERR_APER comes straight from SExtractor on the resampled coadd. No correlated-noise / RMS inflation factor exists anywhere in the flux-error path (the only covariance code is the astrometric position-error ellipse). RESCALE_WEIGHTS=Y compounds the bias in crowded NIR fields.
-- **Impact:** All MAG_APER/MAG_AUTO *_ERR (and Qflg thresholds keyed on magerr_best, tabletools.py:947) are systematic lower limits, largest for aperture photometry and faint sources where resampling covariance dominates. Biases completeness/quality flags and any chi2 weighting downstream. Survey-wide.
-- **Reference:** resampling-coadd / extraction-catalog digest; SWarp & SExtractor manuals; correlated-noise after Lanczos resampling is a known under-estimation of per-pixel errors.
-- **Verification:** Workflow: confirmed. Codex: CONFIRM (only the fixed floor is added, no inflation). Folds in the low-tier duplicate at tabletools.py:847 and overlaps medium M6 (aperture-correction-interpolation scatter).
+- **Where:** vircampype/tools/tabletools.py:845-859 (magerr path); coadd.yml:57 (RESAMPLING_TYPE LANCZOS3) + RESCALE_WEIGHTS Y; sky.py:2129 (resample kernel)
+- **What:** Tiles/stacks are LANCZOS3-resampled, which correlates neighbouring output pixels, so the per-pixel variance from the SWarp weight map and SExtractor's white-noise FLUXERR underestimates the true noise. The published error is `magerr_aper = sqrt(MAGERR_APER**2 + photerr_internal**2)`, with MAGERR_APER straight from SExtractor on the resampled coadd. No correlated-noise / RMS inflation factor exists anywhere in the flux-error path. RESCALE_WEIGHTS=Y compounds it in crowded fields.
+- **Impact:** All MAG_APER/MAG_AUTO *_ERR (and Qflg thresholds keyed on magerr_best) are systematic lower limits, largest for aperture photometry and faint sources. Biases completeness/quality flags and any chi2 weighting. Survey-wide.
+- **Reference:** resampling-coadd / extraction-catalog digest; SWarp & SExtractor manuals; correlated noise after Lanczos resampling under-estimates per-pixel errors.
+- **Verification:** Workflow: confirmed. Codex: CONFIRM (only the fixed floor is added, no inflation).
 - **Status:** OPEN. Suggested: derive and apply a correlated-noise inflation factor for the resampling kernel/pixel-scale (or measure empty-aperture RMS) before publishing errors; reconsider RESCALE_WEIGHTS in crowded fields.
 
-### H4. Header shelve cache keyed by basename was never invalidated when a product is regenerated
+## Open - Medium severity
 
-- **Where:** vircampype/fits/common.py:165-195 (headers property); dead delete_headers at :336; only commented call at sky.py:2577
-- **What:** FitsFiles.headers cached every HDU header in a persistent shelve keyed PURELY on the file basename, in local_cache_dir/tempdir, with no mtime/size/content check, persisting across runs and instances. The only invalidation method (delete_headers) was dead code. Regenerating a product under the same basename (overwrite=True, a SCAMP re-solve changing .ahead keywords like GAIN/MJD/ASTRMSH/ASTCORR, or a replaced raw) returned the STALE header; '--reset progress' did not clear it (only '--reset cache' did).
-- **Impact:** On any overwrite/regeneration path, stale per-detector GAIN/SATURATE/MJD/astrometric-RMS/WCS were used, silently corrupting Poisson error terms, statistics maps, and the position-error floor. Directly relevant to reprocessing campaigns (matches the 'must clear the shelve on alcyone' operational note).
-- **Reference:** Header-cache staleness hazard: a same key must not map to changed bytes without invalidation.
-- **Verification:** Workflow: confirmed. Codex: CONFIRM (basename-only key; delete_headers dead; only --reset cache clears it). Verified directly.
-- **Status:** FIXED in this change. Cache entries now store a (size, mtime_ns) signature and are validated on read; a regenerated file misses the cache and is re-read. Old bare-list entries upgrade transparently. Verified: unchanged file stays cached, rewritten file is re-read, suite green (256 tests).
-
-## Medium severity
-
-### M1. MASTER-GAIN: no guard against (fvar - dvar) <= 0, producing negative/inf/NaN gain fed to SExtractor survey-wide
-
-- **Where:** vircampype/fits/images/flat.py:921-932
-- **What:** build_master_gain computes gain = ((mf0+mf1)-(md0+md1)) / (fvar - dvar) with no check that the denominator is positive. fvar=(f0-f1).var, dvar=(d0-d1).var. Whenever the flat-pair difference variance does not exceed the dark-pair difference variance (low-illumination or near-equal-level pairs, a noisy/striped detector channel, or a partially saturated flat whose variance is suppressed), fvar-dvar is <= 0, so gain goes negative or, at fvar==dvar, becomes +/-inf. The value is written verbatim into the MASTER-GAIN table (no clamp, no NaN/positivity filter), read back unvalidated in fits/tables/gain.py:18, and at sky.py:815 becomes the per-detector SExtractor GAIN (gain*NDIT) for every science frame matched to that table. rdnoise = gain*sqrt(...) inherits the same sign error. Additionally the gain uses only the first two MJD-sorted frames (file_index 0 and 1) with no check that f0 and f1 share the same illumination level; any lamp/twilight drift inflates var(f0-f1) and biases the gain. Janesick's method (digest: flat-sky gain best-practice) explicitly requires guarding var(F1-F2)-var(D1-D2) <= 0.
-- **Impact:** A single detector/epoch with a degenerate variance difference silently propagates a negative/inf/NaN GAIN into SExtractor for all science frames using that gain table, corrupting the Poisson (FLUX/GAIN) term of FLUXERR/MAGERR for bright sources on that detector (errors NaN, inf, or nonsensically small/negative). Bites in any epoch with weak/poorly-matched gain-flat pairs or a striped channel; the error is silent because nothing validates the gain table before or after use.
-
-### M2. Twilight flat masks saturation AFTER NDIT normalization, so the raw-ADU saturation threshold under-masks saturated/non-linear pixels when NDIT>1
+### M1. Twilight flat masks saturation AFTER NDIT normalization, so the raw-ADU saturation threshold under-masks saturated/non-linear pixels when NDIT>1
 
 - **Where:** vircampype/fits/images/flat.py:121-138
 - **What:** In build_master_twilight_flat the cube is first divided to NDIT=1 (cube.normalize(files.ndit), line 126) and linearized (line 132), and only then is the saturation mask applied via cube.apply_masks(bpm=bpm, mask_above=sat) (line 138) where sat = setup.saturation_levels[d-1]. saturation_levels are absolute raw ADU (full NDIT-summed counts, ~33000-36000). After dividing by NDIT the pixel values are at the per-DIT level, so for NDIT>1 the comparison value > sat is never reached for pixels that were saturated in the raw frame (raw_value/NDIT < sat), and saturated/non-linear pixels leak into the master flat. This is inconsistent with build_master_linearity (flat.py:466) and build_master_gain (flat.py:912-918), which both compare saturation against the RAW (non-normalized) flux, the correct convention.
 - **Impact:** For any twilight-flat sequence acquired with NDIT>1, saturated and strongly non-linear pixels are not rejected from the master flat, biasing the per-pixel flat response (and thus the inter-detector/illumination flat normalization) in the affected regions. No effect when twilight flats are NDIT=1 (the usual VIRCAM case), so it is an edge-case defect rather than survey-wide.
 
-### M3. comp90/comp50 returned even when the completeness curve never crosses 90%/50%
-
-- **Where:** vircampype/tools/completeness.py:333-334 (also 955-957, 1323-1324)
-- **What:** After the logistic fit, the limiting magnitudes are taken as `comp90 = x_fine[np.argmin(np.abs(y_fine - 90))]` and likewise for 50%. argmin-of-absolute-difference always returns a magnitude even when the modelled completeness never actually reaches 90% (shallow/crowded sub-tile saturating below 90%) or stays above it across the whole range. In the never-reaches case it silently returns the magnitude of closest approach (typically the bright edge of the fit range); there is no NaN guard checking that the curve truly crosses the level. The same pattern is duplicated in plot_completeness_tile and save_completeness_results.
-- **Impact:** Per-sub-tile and tile-summary 90%/50% completeness limits (and the FITS COMP90/COMP50 header keywords written to the tile and the completeness map image) can be silently nonsensical in crowded star-forming regions, exactly where VISIONS completeness varies most. The reported survey depth in those regions is unreliable rather than flagged as undefined.
-
-### M4. '--reset progress' does not actually re-run from scratch because overwrite defaults to False
+### M2. '--reset progress' does not actually re-run from scratch because overwrite defaults to False
 
 - **Where:** vircampype/pipeline/worker.py:56-67,185-187; vircampype/pipeline/setup.py:38 (overwrite=False)
 - **What:** The --reset progress help string promises it 'clears checkpoint state so the pipeline re-runs from scratch' (worker.py:59-61). Implementation only does clean_directory(folders['temp']) (worker.py:186), which deletes pipeline_status.p. With the cleared status, process_science walks every step again, but each step's per-file guard is `check_file_exists(...) and not self.setup.overwrite` (e.g. apply_illumination_correction sky.py:619-623, resample sky.py:2162-2166, build_stacks sky.py:2286-2290, process_one_basic sky.py:744-748). Since overwrite defaults to False (setup.py:38), every already-existing product is SKIPPED. So the prior, possibly-buggy products are silently kept and merely re-validated; the headers are re-read (matching the existing files), and only genuinely-missing files get produced. The user-visible contract ('re-runs from scratch') is therefore false unless overwrite=True is also passed.
 - **Impact:** An operator trying to recover from a bad reduction by resetting progress gets the OLD products back, believing they were regenerated. Corrupt intermediate products survive the reset across the survey. Compounds the stale-header-cache finding.
 
-### M5. Pipeline.stacks hard-codes exactly 6 offset positions, contradicting the configurable n_offset_positions
-
-- **Where:** vircampype/pipeline/main.py:376-386 (len(images) != 6); vircampype/pipeline/setup.py:293 (n_offset_positions: int = 6); vircampype/fits/images/sky.py:2260-2263
-- **What:** build_stacks correctly validates the number of stacks against the configurable setup.n_offset_positions (sky.py:2260). But the Pipeline.stacks property (main.py:383) hard-codes `if len(images) != 6: raise PipelineValueError("Stacks incomplete")`. n_offset_positions is a real Setup parameter (setup.py:293) that defaults to 6 but can be set per field. For any survey field configured with a number of offset positions other than 6, build_stacks would produce that many stacks, but every subsequent access to pipeline.stacks (photometry_stacks, build_statistics_stacks via resampled_statistics, classification_stacks, QC steps, build_phase3, build_qc_summary) raises 'Stacks incomplete' and aborts.
-- **Impact:** Silent config trap: any field with non-default offset count cannot complete the stack branch (photometry/QC/phase3) even though the stacks were built correctly. The consistency check is wrong, not the data.
-
-### M6. SCAMP cache-skip marks astrometry complete without verifying the cached .ahead carry the high-S/N RMS floor
+### M3. SCAMP cache-skip marks astrometry complete without verifying the cached .ahead carry the high-S/N RMS floor
 
 - **Where:** vircampype/fits/tables/sextractor.py:124-146 (cache restore + early return); vircampype/pipeline/main.py:25-56 (pipeline_step sets flag on return), 709-723 (calibrate_astrometry)
 - **What:** scamp() restores cached .ahead files from scamp_cache_dir (sextractor.py:126-137) and, if all .ahead headers are then present, returns immediately (sextractor.py:143-146) WITHOUT running the XML QC, without injecting ASTCORR, and crucially without checking that the cached aheaders contain ASTRMSH1/2. The wrapping pipeline_step decorator (main.py:48-54) sets status.astrometry=True on any non-exception return. If the cache predates the high-S/N floor work (the very 'stale .ahead cache' the build_statistics comment at sky.py:2914-2915 warns about), astrometry is marked done, illumination_correction/resample copy those aheaders forward, and the run proceeds until build_statistics raises PipelineValueError on the missing ASTRMSH1/2 (sky.py:2919-2932). That is fail-loud (good), but the failure surfaces many expensive steps later (after IC, resampling) rather than at the astrometry checkpoint, and the astrometry checkpoint is left set True, so a naive re-run skips SCAMP again and re-hits the same late failure.
 - **Impact:** A stale astrometric cache wastes the IC+resample compute and then dead-ends at statistics, with the astrometry checkpoint stuck True so the loop does not self-heal. Bites only on reductions reusing an old scamp_cache_dir.
 
-### M7. Zero-point uncertainty is never propagated into the published per-source MAGERR
+### M4. Zero-point uncertainty is never propagated into the published per-source MAGERR
 
 - **Where:** vircampype/tools/tabletools.py:847; vircampype/fits/tables/sextractor.py:902-918
 - **What:** calibrate_photometry derives zeropoint_err for each magnitude column (sextractor.py:890-902) but writes it ONLY to FITS header keywords (HIERARCH PYPE ZP ERR ...; sextractor.py:915,918). It is never carried as a per-source column and never combined into the calibrated magnitude error. In convert2public the published catalog error is magerr_aper = sqrt(data_magerr_aper**2 + photerr_internal**2) (tabletools.py:847) and then magerr_best is selected from that; the ZP uncertainty term is absent. Note the ZP error itself is also computed loosely (photometry.py:132 uses scipy.stats.sem over the *NaN-masked* diff array, but the sigma-clip-outlier mask from photometry.py:119 was reassigned at line 125 and is not applied to the SEM input, so even the header ZP error includes clipped outliers).
 - **Impact:** Published MAGERR is a lower bound: it omits the systematic ZP-transfer uncertainty (2MASS calibration error, per-tile/per-detector ZP scatter). For bright, high-S/N sources whose Poisson+aperture error is small, the catalog error is dominated by, and missing, the ZP floor, so reported errors understate the true magnitude uncertainty. The internal-photometric floor only partially compensates and is a single survey-wide constant.
 
-### M8. Per-tile ZP fit runs on the full (uncleaned) source table with no FLAG=0 / own-error cut
+### M5. Per-tile ZP fit runs on the full (uncleaned) source table with no FLAG=0 / own-error cut
 
 - **Where:** vircampype/fits/tables/sextractor.py:884-899
 - **What:** The definitive zero points (MAG_APER, MAG_APER_MATCHED, MAG_AUTO) are fit with get_zeropoint using mag1=table[cmag].data on the FULL table, not table_clean. clean_source_table was already run (sextractor.py:737) and produces clean_idx / flux limits (lines 727-745), but those cuts (FLAGS in {0,2}, SNR>=10, FWHM/ellipticity/edge, flux_auto_min/max) are applied only to the apcor-interpolation reference (table_clean), not to the ZP-fitting sample. The only protection is the reference-side magnitude window (mag_limits_ref, e.g. J [12,15.5]) plus the internal 2.5-sigma clip (photometry.py:119). Saturated/blended/poorly-shaped science sources whose 2MASS counterpart happens to fall in the band-limited window can still enter the solution; there is no explicit SExtractor FLAG=0 nor own-catalog MAGERR<0.1 cut on the fitting list.
 - **Impact:** ZP can be pulled by contaminated bright/blended sources in crowded VISIONS star-forming fields (exactly where 2MASS bright stars cluster), biasing the per-tile zero point and hence every calibrated magnitude on that tile. Mitigated, but not eliminated, by the reference magnitude window and sigma-clip; magnitude of bias depends on contamination fraction inside the window.
 
-### M9. Catalog MAGERR omits the aperture-correction interpolation uncertainty and correlated-noise inflation
+### M6. Catalog MAGERR omits the aperture-correction interpolation uncertainty and correlated-noise inflation
 
 - **Where:** vircampype/tools/tabletools.py:847,859; vircampype/fits/tables/sextractor.py:868,854-857
 - **What:** The published aperture magnitude is `MAG_APER_MATCHED_CAL` = MAG_APER + interpolated growth correction MAG_APER_COR_INTERP (sextractor.py:868). The published error is `magerr_aper = sqrt(MAGERR_APER**2 + photerr_internal**2)` (tabletools.py:847) and `magerr_best` is selected at the same aperture index. This propagates only the raw SExtractor aperture error plus the flat internal-error floor; it never adds the spatial-interpolation scatter of the aperture correction, which the pipeline already computes and stores as `MAG_APER_COR_INTERP_STD` (sextractor.py:855) and then discards for error purposes. It also applies no correlated-noise inflation factor for the LANCZOS-resampled tiles. The SExtractor MAGERR_APER itself is the white-noise estimate that the manual states underestimates errors on resampled images.
 - **Impact:** Published MAGERR is a lower bound on the true magnitude uncertainty, most noticeably where the aperture-correction field varies spatially (FWHM gradients across the focal plane) and in resampled coadds where pixel-to-pixel covariance is ignored. Downstream weighting, variability detection, and QFLG assignment (which is keyed directly on magerr_best thresholds, lines 947-949) inherit the optimistic errors.
 
-### M10. Per-plane sky weights 1/bkg_std are not guarded against mmm failure values (sigma = -1.0 or NaN), silently corrupting the weighted master sky
+### M7. Per-plane sky weights 1/bkg_std are not guarded against mmm failure values (sigma = -1.0 or NaN), silently corrupting the weighted master sky
 
 - **Where:** vircampype/fits/images/sky.py:91-102 (weights), with mmm failure returns at vircampype/external/mmm.py:203 (sigma=-1.0), 305 (sigma=np.nan)
 - **What:** In _build_sky_detector the weighted-combine path builds weights = (1/bkg_std)[:,None,None] where bkg_std is the per-plane mmm sigma returned by ImageCube.background_planes(). mmm can return sigma = -1.0 (mmm.py:202-211, 'too few valid sky elements') or sigma = NaN (mmm.py:304-309, 'outlier rejection left too few elements') while still returning a finite skymod, so bkg is finite and the plane is kept. The only weight sanitisation is weights[~np.isfinite(cube.cube)] = 0.0 (line 96), which zeroes weights at pixels masked in the CUBE, not where the WEIGHT itself is bad. A plane with sigma=-1.0 therefore enters np.ma.average (cube.py:858) with a uniform NEGATIVE weight, biasing or even sign-flipping the combined sky on every pixel that frame contributes to; a plane with sigma=NaN propagates NaN into every unmasked pixel of that detector's master sky (np.ma.average does not treat NaN weights as masked). The negative-weight case is fully silent (no NaN, no exception); the NaN case eventually trips the min_valid_pixel_fraction guard in process_raw_final and aborts.
 - **Impact:** Corrupted master-sky flat/shape for affected detector-groups. Negative-weight planes silently bias the sky used as a flat (sky mode, cube /= sky_norm) or as the subtracted sky shape (twilight mode, cube -= sky_norm*sky_level), producing per-detector additive/multiplicative sky errors. Bites whenever an input sky frame has a heavily masked plane (deep source masks in crowded/nebular fields, offset frames over a bright region, or a dead/low-signal detector) so that mmm's acceptance band drops below minsky. Most damaging in the default sky_combine_metric='weighted' configuration.
 
-## Low severity / hardening
+## Open - Low severity / hardening
 
 1. **astrometry** `vircampype/tools/fitstools.py:776-809, vircampype/fits/images/sky.py:1421` - Reference catalog is pre-propagated to the mean epoch but its position errors are not inflated for the propagation baseline  
    Reference position uncertainties fed to SCAMP are slightly under-stated for high-PM stars over multi-year baselines (a few mas for typical EDR3 PM errors, larger for the highest-PM calibrators), giving them marginally too much weight in the astrometric fit and a small bias in the per-exposure distortion solution. Second-order vs the ~70 mas external RMS, but systematic.
@@ -169,9 +133,20 @@ Severity: **critical** = silently wrong science across the survey; **high** = si
 19. **sky** `vircampype/tools/imagetools.py:361, 367-398` - upscale_image(new_size=image.shape) transposes the result for non-square inputs in background_image  
    No effect for square VIRCAM detectors (the only shape that reaches background_image). Would silently transpose the background/noise map (corrupting sky subtraction structure) the moment a non-square array is passed, e.g. a future change to mesh geometry or a non-square cutout.
 
-## Notes
+## Fixed in this review cycle
 
-- Duplicates were merged: ELLIPTICITY (H2) was raised by two dimensions; the SCAMP internal-sigma medium is folded into H1; the LANCZOS correlated-noise low is folded into H3.
+- **[High] Public ELLIPTICITY computed from the position-error ellipse, not the source shape** (`e0a10024`)  
+  vircampype/tools/tabletools.py:775, 988 - Now uses the windowed source shape 1 - BWIN_WORLD/AWIN_WORLD; keep-filter relaxed to >= 0 so round sources survive. Regenerate the .ptab only.
 
-- This review made no code changes other than fixing H4 (header-cache invalidation in fits/common.py). H2 (ellipticity) is left for a science decision; a plain-English breakdown was provided separately.
+- **[High] Header shelve cache keyed by basename was never invalidated on regeneration** (`d17b42d0`)  
+  vircampype/fits/common.py:165-195 - Entries now carry a (size, mtime_ns) signature validated on read; a regenerated file misses the cache and is re-read. Old bare-list entries upgrade transparently.
+
+- **[Medium] MASTER-GAIN divided by a possibly non-positive variance difference** (`733c9cb7`)  
+  vircampype/fits/images/flat.py:921-932 - Detectors with var(flat_diff) - var(dark_diff) <= 0 are set to NaN (with a logged count) instead of yielding a negative/inf GAIN fed to SExtractor.
+
+- **[Medium] comp90/comp50 returned even when the completeness curve never crosses the level** (`5f974ef9`)  
+  vircampype/tools/completeness.py:333-334 and 2 sibling sites - Return NaN when the level lies outside the fitted curve's range, instead of the closest-approach magnitude.
+
+- **[Medium] Pipeline.stacks hard-coded exactly 6 offset positions** (`6c7cc232`)  
+  vircampype/pipeline/main.py:383 - Compare against the configurable setup.n_offset_positions; fields with a non-default offset count no longer abort the stacks branch.
 
