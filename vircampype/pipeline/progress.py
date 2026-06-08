@@ -48,11 +48,14 @@ class _ProgressDriver:
             self._progress = Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
+                # Expand the bar to fill the line so the count + elapsed time
+                # stay pinned to the right edge regardless of description length.
+                BarColumn(bar_width=None),
                 MofNCompleteColumn(),
                 TimeElapsedColumn(),
                 console=get_console(),
                 transient=True,
+                expand=True,
             )
             self._progress.start()
 
