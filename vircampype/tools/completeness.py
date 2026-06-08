@@ -1523,7 +1523,7 @@ def qc_completeness_tile(image_path: str, setup) -> None:
 
     if results:
         print_message(
-            message=f"Generating QC plots and completeness image",
+            message="Generating QC plots and completeness image",
             kind="okblue",
             end="\n",
         )
@@ -1621,10 +1621,11 @@ def qc_completeness_tile(image_path: str, setup) -> None:
 
         # Machine-readable QC record (greppable across the survey).
         if comp50_values or comp90_values:
+            comp50 = comp50_med if comp50_values else float("nan")
+            comp90 = comp90_med if comp90_values else float("nan")
             log.info(
-                "qc completeness comp50_med_mag=%.3f comp90_med_mag=%.3f",
-                comp50_med if comp50_values else float("nan"),
-                comp90_med if comp90_values else float("nan"),
+                f"qc completeness comp50_med_mag={comp50:.3f} "
+                f"comp90_med_mag={comp90:.3f}"
             )
         else:
             log.warning("Completeness: no finite comp50/comp90 values measured")

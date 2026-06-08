@@ -246,9 +246,7 @@ def check_file_exists(
     if os.path.isfile(file_path):
         # A normal checkpoint-resume skip: record at DEBUG (file only), never a
         # console warning. ``silent`` is retained for signature compatibility.
-        _logger(logger).debug(
-            "%s already exists, skipping", os.path.basename(file_path)
-        )
+        _logger(logger).debug(f"{os.path.basename(file_path)} already exists, skipping")
         return True
     return False
 
@@ -299,11 +297,7 @@ def message_qc_astrometry(
 
     # File: a machine-readable logfmt record, greppable by metric key.
     _logger(logger).info(
-        "qc astrometry astrom_sep_mean_mas=%.2f astrom_sep_std_mas=%.2f "
-        "astrom_sep_p5_mas=%.2f astrom_sep_p50_mas=%.2f astrom_sep_p95_mas=%.2f",
-        sep_mean,
-        sep_std,
-        sep_p5,
-        sep_p50,
-        sep_p95,
+        f"qc astrometry astrom_sep_mean_mas={sep_mean:.2f} "
+        f"astrom_sep_std_mas={sep_std:.2f} astrom_sep_p5_mas={sep_p5:.2f} "
+        f"astrom_sep_p50_mas={sep_p50:.2f} astrom_sep_p95_mas={sep_p95:.2f}"
     )

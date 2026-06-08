@@ -200,9 +200,9 @@ def skycoord2header(
 
     # Issue warning (recoverable anomaly that changes the projection)
     if allsky:
+        max_sep = float(np.max(sep.degree))
         log.warning(
-            "Using all-sky projection: max separation %.1f deg exceeds 100",
-            float(np.max(sep.degree)),
+            f"Using all-sky projection: max separation {max_sep:.1f} deg exceeds 100"
         )
 
     # Override projection with allsky data

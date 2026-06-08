@@ -284,16 +284,16 @@ def run_commands_shell_parallel(
                 _decode_stream(result.stdout),
                 _decode_stream(result.stderr),
             )
-            log.debug("ran: %s", cmd)
+            log.debug(f"ran: {cmd}")
             if stdout:
-                log.debug("stdout:\n%s", _truncate_output(stdout))
+                log.debug(f"stdout:\n{_truncate_output(stdout)}")
             if stderr:
-                log.debug("stderr:\n%s", _truncate_output(stderr))
+                log.debug(f"stderr:\n{_truncate_output(stderr)}")
         else:
             # Non-silent: inherit the terminal as before (live output).
             result = subprocess.run(cmd, shell=True, executable=shell_path)
         if result.returncode != 0:
-            log.warning("command exited with code %s: %s", result.returncode, cmd)
+            log.warning(f"command exited with code {result.returncode}: {cmd}")
 
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
         futures = [pool.submit(_run_one, cmd) for cmd in cmds]
@@ -343,13 +343,13 @@ def run_command_shell(
         stderr = result.stderr.decode("latin-1", errors="replace").strip()
 
     # Record the command and its (bounded) output in the file log at DEBUG.
-    log.debug("ran: %s", cmd)
+    log.debug(f"ran: {cmd}")
     if stdout:
-        log.debug("stdout:\n%s", _truncate_output(stdout))
+        log.debug(f"stdout:\n{_truncate_output(stdout)}")
     if stderr:
-        log.debug("stderr:\n%s", _truncate_output(stderr))
+        log.debug(f"stderr:\n{_truncate_output(stderr)}")
     if result.returncode != 0:
-        log.warning("command exited with code %s: %s", result.returncode, cmd)
+        log.warning(f"command exited with code {result.returncode}: {cmd}")
 
     # If not in silent mode, print the output to terminal
     if not silent:

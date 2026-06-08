@@ -45,17 +45,17 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
         def wrapper(self, *args, **kwargs):
             log = logging.getLogger(__name__)
             if guard is not None and getattr(self, guard) is None:
-                log.debug("Skipping %s: guard '%s' is None", message, guard)
+                log.debug(f"Skipping {message}: guard '{guard}' is None")
                 return
             if getattr(self.status, status_attr):
                 # Normal checkpoint-resume skip of a whole stage: INFO, not a
                 # warning (it is expected, not an anomaly).
-                log.info("Skipping %s: already complete", message)
+                log.info(f"Skipping {message}: already complete")
                 return
-            log.info("START %s", message)
+            log.info(f"START {message}")
             method(self, *args, **kwargs)
             self.update_status(**{status_attr: True})
-            log.info("DONE %s (status %s set)", message, status_attr)
+            log.info(f"DONE {message} (status {status_attr} set)")
 
         return wrapper
 
@@ -721,7 +721,8 @@ class Pipeline:
             )
             if (nehdr != nfproc) or (nehdr == 0):
                 raise PipelineValueError(
-                    f"Not enough external headers present ({nehdr}/{nfproc})"
+                    f"Not enough external headers present ({nehdr}/{nfproc})",
+                    logger=self.log,
                 )
         else:
             self.sources_processed_final_scamp.scamp()
@@ -730,9 +731,10 @@ class Pipeline:
     def illumination_correction(self):
         """Derive and apply photometric illumination correction."""
         if not self.status.astrometry:
-            raise ValueError(
+            raise PipelineValueError(
                 "Astrometric calibration has to be "
-                "completed before illumination correction"
+                "completed before illumination correction",
+                logger=self.log,
             )
         self.processed_science_final.sextractor(preset="ic")
         self.sources_processed_illumcorr.build_master_illumination_correction()

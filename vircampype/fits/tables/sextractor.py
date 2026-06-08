@@ -133,9 +133,8 @@ class SextractorCatalogs(SourceCatalogs):
                     n_restored += 1
             if n_restored > 0:
                 log.info(
-                    "Restored %d cached scamp headers from %s",
-                    n_restored,
-                    self.setup.scamp_cache_dir,
+                    f"Restored {n_restored} cached scamp headers "
+                    f"from {self.setup.scamp_cache_dir}"
                 )
 
         # Check for external headers
@@ -657,7 +656,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 check_file_exists(file_path=path_out, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
-                log.info(f"File already exists, skipping")
+                log.info("File already exists, skipping")
                 continue
 
             # Print processing info
@@ -1532,8 +1531,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 message=f"err = {photerr_internal_dict['photerr_internal']:0.4f} mag"
             )
             logging.getLogger(__name__).info(
-                "qc photometry photerr_internal_median_mag=%.4f",
-                photerr_internal_dict["photerr_internal"],
+                "qc photometry photerr_internal_median_mag="
+                f"{photerr_internal_dict['photerr_internal']:.4f}"
             )
             elapsed = time.time() - tstart
             print_message(
@@ -1943,10 +1942,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Machine-readable QC record: cross-detector ZP per file (file log).
             log.info(
-                "qc photometry file=%s zp_median_mag=%.4f zp_scatter_mag=%.4f",
-                self.names[idx_file],
-                float(np.nanmedian(zp_auto)),
-                float(np.nanstd(zp_auto)),
+                f"qc photometry file={self.names[idx_file]} "
+                f"zp_median_mag={float(np.nanmedian(zp_auto)):.4f} "
+                f"zp_scatter_mag={float(np.nanstd(zp_auto)):.4f}"
             )
 
             # Create plot
@@ -2846,7 +2844,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Load current table in HDUList
             with fits.open(self.paths_full[idx_file]) as hdulist_in:
                 filter_name = hdulist_in[0].header[self.setup.keywords.filter_name]
-            log.info(f"Opened current file")
+            log.info("Opened current file")
 
             # Load source tables in current file
             tables_file = self.file2table(file_index=idx_file)
@@ -2910,7 +2908,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 tables_file[tidx] = thstack(
                     [tables_file[tidx], tables_stats[tidx]], join_type="exact"
                 )
-                log.info(f"Stacked source and stats tables")
+                log.info("Stacked source and stats tables")
 
                 # Length of source and classification table must be equal within 0.1%
                 if self.setup.source_classification:
@@ -2967,7 +2965,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     tables_class_file[tidx] = tables_class_file[tidx][good_indices]
 
                     # Interpolate source classification
-                    log.info(f"Interpolating source classification")
+                    log.info("Interpolating source classification")
                     interpolate_classification(
                         tables_file[tidx], tables_class_file[tidx]
                     )

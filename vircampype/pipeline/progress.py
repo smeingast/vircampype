@@ -102,7 +102,7 @@ _driver = _ProgressDriver()
 def report_progress(n_current, n_total, name, d_current=None, d_total=None):
     """Report per-file/per-detector progress (file DEBUG always; bar on a TTY)."""
     detail = f" det {d_current}/{d_total}" if d_total is not None else ""
-    log.debug("processing %s/%s %s%s", n_current, n_total, name, detail)
+    log.debug(f"processing {n_current}/{n_total} {name}{detail}")
 
     if (
         threading.current_thread() is threading.main_thread()
