@@ -144,9 +144,12 @@ class FlatTwilight(FlatImages):
                 low_flux = flux[-1] < self.setup.flat_min_flux
                 if np.any(low_flux):
                     cube.cube[low_flux] = np.nan
-                    log.info(
-                        f"Detector {d}: discarded {low_flux.sum()} planes "
-                        f"with flux < {self.setup.flat_min_flux} ADU"
+                    # Discarding input planes changes the master: surface it.
+                    log.warning(
+                        "Detector %s: discarded %d planes with flux < %s ADU",
+                        d,
+                        int(low_flux.sum()),
+                        self.setup.flat_min_flux,
                     )
 
                 # Scale the cube with the fluxes
@@ -926,9 +929,11 @@ class FlatLampGain(FlatImages):
             denom = fvar - dvar
             bad = denom <= 0
             if np.any(bad):
-                log.info(
-                    f"MASTER-GAIN: {int(np.sum(bad))} detector(s) with "
-                    f"non-positive variance difference; gain set to NaN"
+                # Science-affecting fallback (gain becomes NaN): surface it.
+                log.warning(
+                    "MASTER-GAIN: %d detector(s) with non-positive variance "
+                    "difference; gain set to NaN",
+                    int(np.sum(bad)),
                 )
                 denom[bad] = np.nan
             gain = ((mf0 + mf1) - (md0 + md1)) / denom
@@ -939,12 +944,15 @@ class FlatLampGain(FlatImages):
             # over-estimate of read noise by a factor sqrt(NDIT))
             rdnoise = gain * np.sqrt(dvar / (2 * darks.ndit[0]))
             log.info(
-                f"Gain (e-/ADU): mean={np.nanmean(gain):.3f}, "
-                f"min={np.nanmin(gain):.3f}, max={np.nanmax(gain):.3f}"
-            )
-            log.info(
-                f"Read noise (e-): mean={np.nanmean(rdnoise):.3f}, "
-                f"min={np.nanmin(rdnoise):.3f}, max={np.nanmax(rdnoise):.3f}"
+                "qc gain gain_mean_e_adu=%.3f gain_min_e_adu=%.3f "
+                "gain_max_e_adu=%.3f rdnoise_mean_e=%.3f rdnoise_min_e=%.3f "
+                "rdnoise_max_e=%.3f",
+                np.nanmean(gain),
+                np.nanmin(gain),
+                np.nanmax(gain),
+                np.nanmean(rdnoise),
+                np.nanmin(rdnoise),
+                np.nanmax(rdnoise),
             )
 
             # Make header cards

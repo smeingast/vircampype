@@ -1527,9 +1527,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Dump to file
             pickle.dump(photerr_internal_dict, open(pickle_path, "wb"))
 
-            # Print error
+            # Print error (console headline) + machine-readable QC record (file)
             print_message(
                 message=f"err = {photerr_internal_dict['photerr_internal']:0.4f} mag"
+            )
+            logging.getLogger(__name__).info(
+                "qc photometry photerr_internal_median_mag=%.4f",
+                photerr_internal_dict["photerr_internal"],
             )
             elapsed = time.time() - tstart
             print_message(
@@ -1936,6 +1940,14 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             zperr_auto = self.read_from_data_headers(
                 keywords=["HIERARCH PYPE ZP ERR MAG_AUTO"]
             )[0][idx_file]
+
+            # Machine-readable QC record: cross-detector ZP per file (file log).
+            log.info(
+                "qc photometry file=%s zp_median_mag=%.4f zp_scatter_mag=%.4f",
+                self.names[idx_file],
+                float(np.nanmedian(zp_auto)),
+                float(np.nanstd(zp_auto)),
+            )
 
             # Create plot
             plot_value_detector(

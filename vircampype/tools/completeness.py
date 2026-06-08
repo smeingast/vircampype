@@ -1619,6 +1619,16 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             log.info(f"{msg50} ({len(comp50_values)} sub-tiles)")
             print_message(message=msg50, kind="okblue", end="\n")
 
+        # Machine-readable QC record (greppable across the survey).
+        if comp50_values or comp90_values:
+            log.info(
+                "qc completeness comp50_med_mag=%.3f comp90_med_mag=%.3f",
+                comp50_med if comp50_values else float("nan"),
+                comp90_med if comp90_values else float("nan"),
+            )
+        else:
+            log.warning("Completeness: no finite comp50/comp90 values measured")
+
     print_message(
         message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
         kind="okblue",
