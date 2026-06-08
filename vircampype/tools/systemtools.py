@@ -1,5 +1,6 @@
 import glob
 import importlib
+import logging
 import os
 import re
 import shutil
@@ -36,6 +37,27 @@ __all__ = [
     "make_path_system_tempfile",
     "make_system_tempdir",
 ]
+
+log = logging.getLogger(__name__)
+
+# Bytes of stdout/stderr kept at each end when logging captured tool output.
+_OUTPUT_KEEP = 4000
+
+
+def _truncate_output(text: str, keep: int = _OUTPUT_KEEP) -> str:
+    """Bound captured tool output for logging: keep head + tail, note the gap."""
+    if len(text) <= 2 * keep:
+        return text
+    omitted = len(text) - 2 * keep
+    return f"{text[:keep]}\n... [{omitted} bytes truncated] ...\n{text[-keep:]}"
+
+
+def _decode_stream(raw: bytes) -> str:
+    """Decode subprocess output as UTF-8, falling back to latin-1."""
+    try:
+        return raw.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return raw.decode("latin-1", errors="replace").strip()
 
 
 def make_folder(path: str) -> None:
@@ -247,10 +269,31 @@ def run_commands_shell_parallel(
     shell_path = which(shell)
 
     def _run_one(cmd: str) -> None:
-        kw: dict = dict(shell=True, executable=shell_path)
         if silent:
-            kw.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(cmd, **kw)
+            # Capture instead of discarding (the old DEVNULL): the full output
+            # is recorded in the file log at DEBUG. subprocess.run drains the
+            # pipes internally, so there is no deadlock risk.
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                executable=shell_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            stdout, stderr = (
+                _decode_stream(result.stdout),
+                _decode_stream(result.stderr),
+            )
+            log.debug("ran: %s", cmd)
+            if stdout:
+                log.debug("stdout:\n%s", _truncate_output(stdout))
+            if stderr:
+                log.debug("stderr:\n%s", _truncate_output(stderr))
+        else:
+            # Non-silent: inherit the terminal as before (live output).
+            result = subprocess.run(cmd, shell=True, executable=shell_path)
+        if result.returncode != 0:
+            log.warning("command exited with code %s: %s", result.returncode, cmd)
 
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
         futures = [pool.submit(_run_one, cmd) for cmd in cmds]
@@ -298,6 +341,15 @@ def run_command_shell(
     except UnicodeDecodeError:  # if utf-8 fails, try latin-1
         stdout = result.stdout.decode("latin-1", errors="replace").strip()
         stderr = result.stderr.decode("latin-1", errors="replace").strip()
+
+    # Record the command and its (bounded) output in the file log at DEBUG.
+    log.debug("ran: %s", cmd)
+    if stdout:
+        log.debug("stdout:\n%s", _truncate_output(stdout))
+    if stderr:
+        log.debug("stderr:\n%s", _truncate_output(stderr))
+    if result.returncode != 0:
+        log.warning("command exited with code %s: %s", result.returncode, cmd)
 
     # If not in silent mode, print the output to terminal
     if not silent:
