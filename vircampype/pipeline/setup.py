@@ -39,6 +39,18 @@ class Setup:
     qc_plots: bool = True  # Generate quality control plots
     qc_plot_dpi: int = 300  # DPI for rasterized elements in QC plots
     log_level: str = "info"  # Logging verbosity (debug, info, warning, error)
+    console_log_level: str | None = (
+        None  # Console verbosity (None -> derived from silent)
+    )
+    no_color: bool = False  # Disable ANSI colour on the console
+    force_terminal: bool | None = None  # Force/disable TTY detection (None -> auto)
+    file_log: bool = True  # Write the per-run file log (off in containers using stdout)
+    log_retention: int | None = (
+        None  # Keep at most N pipeline_*.log files (None -> all)
+    )
+    subprocess_strict: bool = (
+        False  # Raise on non-zero external-tool exit (else WARN-only)
+    )
 
     # What to process
     calibrate_pawprints: bool = False  # Run photometric calibration on pawprints

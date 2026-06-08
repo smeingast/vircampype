@@ -22,7 +22,7 @@ dependencies = [
     "pyyaml >= 6.0",
     "joblib >= 1.5",
     "regions >= 0.10",
-    "tqdm >= 4.67",
+    "rich >= 13",
 ]
 
 [project.optional-dependencies]
