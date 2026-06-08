@@ -22,12 +22,18 @@ _LOG_LINE_RE = re.compile(r"^\[(\S+)\]\s+(.*)$")
 _LOG_TS_RE = re.compile(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}")
 
 
-def _make_setup(tmp: str, level: str = "info", file_log: bool = True):
+def _make_setup(
+    tmp: str,
+    level: str = "info",
+    file_log: bool = True,
+    log_retention: int | None = None,
+):
     """Minimal stand-in for Setup with the attributes configure_logging reads."""
     return SimpleNamespace(
         log_level=level,
         folders={"temp": os.path.join(tmp, "")},  # trailing separator
         file_log=file_log,
+        log_retention=log_retention,
     )
 
 
@@ -94,6 +100,20 @@ class TestLogSetup(unittest.TestCase):
 
     def test_get_console_singleton(self):
         self.assertIs(get_console(), get_console())
+
+    def test_log_retention_prunes_old_logs(self):
+        # Pre-create older per-run logs (timestamps sort before the new run).
+        for ts in ("20200101_000001", "20200101_000002", "20200101_000003"):
+            open(os.path.join(self.tmp, f"pipeline_{ts}.log"), "w").close()
+        configure_logging(_make_setup(self.tmp, log_retention=2))
+        remaining = sorted(
+            os.path.basename(p)
+            for p in glob.glob(os.path.join(self.tmp, "pipeline_*.log"))
+        )
+        # Keep the newest 2: the just-created run log + the newest pre-existing.
+        self.assertEqual(len(remaining), 2)
+        self.assertIn("pipeline_20200101_000003.log", remaining)
+        self.assertNotIn("pipeline_20200101_000001.log", remaining)
 
     def test_file_log_false_skips_file(self):
         configure_logging(_make_setup(self.tmp, file_log=False))

@@ -11,7 +11,9 @@ the meantime terminal output is still produced by the messaging helpers.
 """
 
 import datetime
+import glob
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -89,6 +91,24 @@ def _install_file_handler(
     warnings_logger.propagate = False
 
 
+def _prune_old_logs(temp_dir: str, keep: int | None) -> None:
+    """Keep only the newest ``keep`` per-run logs in ``temp_dir`` (and backups).
+
+    Filenames embed a sortable timestamp, so lexicographic order is chronological.
+    No-op when ``keep`` is None or non-positive (unlimited retention).
+    """
+    if not keep or keep <= 0:
+        return
+    base_logs = sorted(glob.glob(os.path.join(temp_dir, "pipeline_*.log")))
+    for stale_base in base_logs[:-keep]:
+        # Remove the base log and any RotatingFileHandler backups (.1, .2, ...).
+        for path in glob.glob(stale_base + "*"):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
 def _console_level(setup) -> int:
     """Resolve the console handler level (WARNING by default, kept minimal)."""
     if getattr(setup, "console_log_level", None):
@@ -154,6 +174,7 @@ def configure_logging(setup) -> None:
     date_string = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     path_logfile = f"{setup.folders['temp']}pipeline_{date_string}.log"
     _install_file_handler(logger, warnings_logger, path_logfile)
+    _prune_old_logs(setup.folders["temp"], getattr(setup, "log_retention", None))
 
 
 def configure_standalone_logging(path_logfile: str) -> None:
