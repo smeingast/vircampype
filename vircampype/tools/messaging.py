@@ -15,6 +15,18 @@ def _logger(logger: "PipelineLog | logging.Logger | None" = None):
     return logger if logger is not None else logging.getLogger("vircampype")
 
 
+def _finalize_progress():
+    """Finalize any live progress bar before a raw stdout print.
+
+    Stage banners/footers print() to stdout; doing so while a rich Live is
+    active would corrupt it. Finalizing first also persists the completed bar
+    and clears the 'finalizing' spinner at the stage boundary.
+    """
+    from vircampype.pipeline.progress import stop_progress
+
+    stop_progress()
+
+
 __all__ = [
     "print_message",
     "print_header",
@@ -65,6 +77,9 @@ def print_header(
     logger : PipelineLog or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
     """
+
+    # New stage: finalize the previous stage's progress bar first.
+    _finalize_progress()
 
     if left is None:
         left = ""
@@ -120,6 +135,7 @@ def print_message(
             formatted_message = f"{BColors.OKGREEN}\r{message:<80s}{BColors.ENDC}"
         else:
             formatted_message = f"\r{message:<80s}"
+        _finalize_progress()
         print(formatted_message, end=end)
         _logger(logger).info(message)
     elif k == "warning":
@@ -146,6 +162,7 @@ def print_start(obj: str = "") -> float:
     float
         The current time in seconds since the Epoch.
     """
+    _finalize_progress()
     print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{obj:^74}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
@@ -170,6 +187,7 @@ def print_end(
     """
     end_message = f"All done in {time.time() - tstart:0.1f}s"
 
+    _finalize_progress()
     print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{end_message:^74}{BColors.ENDC}")
     print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")

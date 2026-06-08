@@ -591,6 +591,11 @@ def mjd2dateobs(mjd: float) -> str:
     return Time(mjd, format="mjd").fits
 
 
+# Warn only once per run about the (benign) RA/DEC->CRVAL fallback; it recurs
+# per file for datasets without ESO TEL TARG keys and would otherwise spam.
+_crval_fallback_warned = False
+
+
 def fix_vircam_headers(
     prime_header: fits.Header, data_headers: list[fits.Header]
 ) -> None:
@@ -629,7 +634,15 @@ def fix_vircam_headers(
         fde = decsign * (float(tde[:2]) + float(tde[2:4]) / 60 + float(tde[4:]) / 3600)
 
     except KeyError:
-        log.warning("Could not find RA/DEC in headers for CRVAL rewrite")
+        global _crval_fallback_warned
+        msg = (
+            "Could not find RA/DEC in headers for CRVAL rewrite (using existing CRVAL)"
+        )
+        if _crval_fallback_warned:
+            log.debug(msg)
+        else:
+            log.warning(f"{msg}; suppressing further occurrences this run")
+            _crval_fallback_warned = True
         fra, fde = None, None
 
     for idx_hdr in range(len(data_headers)):
