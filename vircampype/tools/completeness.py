@@ -330,8 +330,16 @@ def _fit_completeness(
             fit_params = popt
             x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
             y_fine = _logistic(x_fine, *popt)
-            comp90 = x_fine[np.argmin(np.abs(y_fine - 90))]
-            comp50 = x_fine[np.argmin(np.abs(y_fine - 50))]
+            comp90 = (
+                x_fine[np.argmin(np.abs(y_fine - 90))]
+                if y_fine.min() <= 90 <= y_fine.max()
+                else np.nan
+            )
+            comp50 = (
+                x_fine[np.argmin(np.abs(y_fine - 50))]
+                if y_fine.min() <= 50 <= y_fine.max()
+                else np.nan
+            )
     except (RuntimeError, ValueError):
         pass
     return fit_params, comp90, comp50
@@ -952,10 +960,16 @@ def plot_completeness_tile(
             fit_params = popt
             x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
             y_fine = _logistic(x_fine, *popt)
-            idx_90 = np.argmin(np.abs(y_fine - 90))
-            comp90 = x_fine[idx_90]
-            idx_50 = np.argmin(np.abs(y_fine - 50))
-            comp50 = x_fine[idx_50]
+            comp90 = (
+                x_fine[np.argmin(np.abs(y_fine - 90))]
+                if y_fine.min() <= 90 <= y_fine.max()
+                else np.nan
+            )
+            comp50 = (
+                x_fine[np.argmin(np.abs(y_fine - 50))]
+                if y_fine.min() <= 50 <= y_fine.max()
+                else np.nan
+            )
     except (RuntimeError, ValueError):
         pass
 
@@ -1320,8 +1334,16 @@ def save_completeness_results(
             tile_fit = popt.astype(np.float32)
             x_fine = np.arange(mag_range[0], mag_range[1], 0.01)
             y_fine = _logistic(x_fine, *popt)
-            tile_comp90 = x_fine[np.argmin(np.abs(y_fine - 90))]
-            tile_comp50 = x_fine[np.argmin(np.abs(y_fine - 50))]
+            tile_comp90 = (
+                x_fine[np.argmin(np.abs(y_fine - 90))]
+                if y_fine.min() <= 90 <= y_fine.max()
+                else np.nan
+            )
+            tile_comp50 = (
+                x_fine[np.argmin(np.abs(y_fine - 50))]
+                if y_fine.min() <= 50 <= y_fine.max()
+                else np.nan
+            )
     except (RuntimeError, ValueError):
         pass
 
