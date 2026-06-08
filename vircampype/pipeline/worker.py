@@ -17,7 +17,9 @@ Tip (dev install):
 """
 
 import argparse
+import datetime
 import glob
+import logging
 import os
 import sys
 import tempfile
@@ -139,10 +141,18 @@ def _parse_setup_overrides(extra: list[str]) -> dict:
 
 
 def _run_sort(paths: Sequence[str]) -> None:
+    from vircampype.pipeline.logsetup import configure_standalone_logging
     from vircampype.tools.datatools import (
         sort_vircam_calibration,
         sort_vircam_science,
         split_in_science_and_calibration,
+    )
+
+    # No Setup exists on the sort path; configure a standalone log so the
+    # top-level handler and any sort logging reach a real file.
+    date_string = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    configure_standalone_logging(
+        os.path.join(tempfile.gettempdir(), f"vircampype_sort_{date_string}.log")
     )
 
     paths_science, paths_calib = split_in_science_and_calibration(
@@ -229,28 +239,38 @@ def _run_cluster(
 def main(argv: Sequence[str] | None = None) -> int:
     args, extra = _parse_args(argv)
 
-    if args.sort:
-        _run_sort(args.sort)
-        return 0
+    try:
+        if args.sort:
+            _run_sort(args.sort)
+            return 0
 
-    if args.cluster:
-        _run_cluster(
-            cluster_yml=args.cluster,
-            status=args.status,
-            queue_only=args.queue_only,
-            requeue=args.requeue,
-            reset_queue=args.reset_queue,
-            abort_cluster=args.abort,
+        if args.cluster:
+            _run_cluster(
+                cluster_yml=args.cluster,
+                status=args.status,
+                queue_only=args.queue_only,
+                requeue=args.requeue,
+                reset_queue=args.reset_queue,
+                abort_cluster=args.abort,
+            )
+            return 0
+
+        _run_pipeline(
+            setup=args.setup,
+            reset=args.reset,
+            dry_run=args.dry_run,
+            **_parse_setup_overrides(extra),
         )
         return 0
-
-    _run_pipeline(
-        setup=args.setup,
-        reset=args.reset,
-        dry_run=args.dry_run,
-        **_parse_setup_overrides(extra),
-    )
-    return 0
+    except Exception:
+        # The run is aborting: record it once at CRITICAL with the traceback
+        # (lands in the file log when logging is configured), then re-raise so
+        # the plain traceback still reaches stderr and the process exits
+        # non-zero, preserving the existing cluster job-classification contract.
+        logging.getLogger("vircampype").critical(
+            "Unhandled exception; pipeline run aborting", exc_info=True
+        )
+        raise
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 import unittest
+from unittest import mock
 
+from vircampype.pipeline import worker
 from vircampype.pipeline.worker import _parse_setup_overrides
 
 
@@ -52,6 +54,19 @@ class TestParseSetupOverrides(unittest.TestCase):
     def test_unrecognised_argument(self):
         with self.assertRaises(SystemExit):
             _parse_setup_overrides(["not_a_flag", "value"])
+
+
+class TestTopLevelHandler(unittest.TestCase):
+    def test_unhandled_exception_logged_critical_and_reraised(self):
+        with mock.patch.object(worker, "_run_sort", side_effect=RuntimeError("boom")):
+            with self.assertLogs("vircampype", level="CRITICAL") as cm:
+                with self.assertRaises(RuntimeError):
+                    worker.main(["--sort", "foo.fits"])
+        self.assertTrue(any("aborting" in m for m in cm.output))
+
+    def test_success_returns_zero(self):
+        with mock.patch.object(worker, "_run_sort", return_value=None):
+            self.assertEqual(worker.main(["--sort", "foo.fits"]), 0)
 
 
 if __name__ == "__main__":

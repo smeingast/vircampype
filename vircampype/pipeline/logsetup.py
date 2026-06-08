@@ -15,7 +15,13 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-__all__ = ["LOGGER_NAME", "configure_logging", "get_console", "get_logger"]
+__all__ = [
+    "LOGGER_NAME",
+    "configure_logging",
+    "configure_standalone_logging",
+    "get_console",
+    "get_logger",
+]
 
 LOGGER_NAME = "vircampype"
 _FILE_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
@@ -47,8 +53,44 @@ def _own(handler: logging.Handler) -> logging.Handler:
     return handler
 
 
+def _reset_own_handlers(loggers) -> None:
+    """Remove and close handlers previously installed by vircampype.
+
+    Removes from every given logger before closing, so a record can never be
+    emitted to a half-closed handler during reconfiguration.
+    """
+    stale: list[logging.Handler] = []
+    for owner in loggers:
+        for handler in list(owner.handlers):
+            if getattr(handler, "_vircampype", False):
+                owner.removeHandler(handler)
+                if handler not in stale:
+                    stale.append(handler)
+    for handler in stale:
+        handler.close()
+
+
+def _install_file_handler(
+    logger: logging.Logger, warnings_logger: logging.Logger, path_logfile: str
+) -> None:
+    """Attach a rotating DEBUG file handler and route warnings to it (file-only)."""
+    Path(path_logfile).touch()
+    formatter = logging.Formatter(_FILE_FORMAT, datefmt=_DATE_FORMAT)
+    file_handler = RotatingFileHandler(
+        path_logfile, maxBytes=_FILE_MAX_BYTES, backupCount=_FILE_BACKUPS
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(_own(file_handler))
+
+    # Route Python warnings to the file log only (never the console).
+    logging.captureWarnings(True)
+    warnings_logger.addHandler(file_handler)
+    warnings_logger.propagate = False
+
+
 def configure_logging(setup) -> None:
-    """Configure the ``vircampype`` logger. Idempotent and safe to call again.
+    """Configure the ``vircampype`` logger from a Setup. Idempotent.
 
     Attaches a per-run rotating file handler at DEBUG so the file log is an
     extensive, reconstructable record, and routes Python warnings to the same
@@ -67,19 +109,7 @@ def configure_logging(setup) -> None:
 
     logger = get_logger()
     warnings_logger = logging.getLogger("py.warnings")
-
-    # Idempotent: remove handlers we installed previously (from both loggers)
-    # before closing them, so nothing logs to a closed handler in between.
-    stale: list[logging.Handler] = []
-    for owner in (logger, warnings_logger):
-        for handler in list(owner.handlers):
-            if getattr(handler, "_vircampype", False):
-                owner.removeHandler(handler)
-                if handler not in stale:
-                    stale.append(handler)
-    for handler in stale:
-        handler.close()
-
+    _reset_own_handlers((logger, warnings_logger))
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
@@ -91,17 +121,24 @@ def configure_logging(setup) -> None:
 
     date_string = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     path_logfile = f"{setup.folders['temp']}pipeline_{date_string}.log"
-    Path(path_logfile).touch()
+    _install_file_handler(logger, warnings_logger, path_logfile)
 
-    formatter = logging.Formatter(_FILE_FORMAT, datefmt=_DATE_FORMAT)
-    file_handler = RotatingFileHandler(
-        path_logfile, maxBytes=_FILE_MAX_BYTES, backupCount=_FILE_BACKUPS
-    )
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(_own(file_handler))
 
-    # Route Python warnings to the file log only (never the console).
-    logging.captureWarnings(True)
-    warnings_logger.addHandler(file_handler)
-    warnings_logger.propagate = False
+def configure_standalone_logging(path_logfile: str) -> None:
+    """Configure the ``vircampype`` logger for a Setup-less entry path.
+
+    Used by the ``--sort`` and ``--cluster`` worker paths, which run before any
+    Setup exists, so the top-level handler and any logging they emit reach a
+    real file. Idempotent.
+
+    Parameters
+    ----------
+    path_logfile : str
+        Destination file for the standalone log.
+    """
+    logger = get_logger()
+    warnings_logger = logging.getLogger("py.warnings")
+    _reset_own_handlers((logger, warnings_logger))
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    _install_file_handler(logger, warnings_logger, path_logfile)
