@@ -1,3 +1,4 @@
+import logging
 import time
 import warnings
 
@@ -7,7 +8,6 @@ from astropy.stats import sigma_clipped_stats
 
 from vircampype.data.cube import ImageCube
 from vircampype.fits.images.common import FitsImages, MasterImages
-from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.miscellaneous import *
@@ -25,7 +25,7 @@ class DarkImages(FitsImages):
         print_header(header="MASTER-DARK", silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building master darks from {self.n_files} files:\n{self.basenames2log}"
         )

@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 import warnings
@@ -11,7 +12,6 @@ from astropy.table import Table
 from astropy.time import Time
 
 from vircampype import __version__
-from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import add_float_to_header, mjd2dateobs
 from vircampype.tools.mathtools import centroid_sphere, clipped_median
 from vircampype.tools.messaging import *
@@ -41,7 +41,7 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
 
     # Processing info
     print_header(header="PHASE 3 STACKS", silent=setup.silent, right=None)
-    log = PipelineLog()
+    log = logging.getLogger(__name__)
     log.info(
         f"Building phase 3 stacks for {len(stacks_images)} stack(s):\n{stacks_images.basenames2log}"
     )
@@ -588,7 +588,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
 
     # Processing info
     print_header(header="PHASE 3 TILE", silent=setup.silent, right=None)
-    log = PipelineLog()
+    log = logging.getLogger(__name__)
     tstart = time.time()
 
     # There can be only one file in the current instance

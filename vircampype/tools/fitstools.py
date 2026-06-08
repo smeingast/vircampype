@@ -1,3 +1,4 @@
+import logging
 import os.path
 import re
 import time
@@ -11,7 +12,6 @@ from astropy.io.fits.verify import VerifyWarning
 from astropy.table import Table
 from astropy.time import Time
 
-from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.misc import *
 from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.messaging import print_header, print_message
@@ -609,7 +609,7 @@ def fix_vircam_headers(
     data_headers : list[fits.Header]
         Extension headers, one per detector. Modified in place.
     """
-    log = PipelineLog()
+    log = logging.getLogger(__name__)
 
     try:
         tra = str(prime_header["HIERARCH ESO TEL TARG ALPHA"])
@@ -1257,7 +1257,7 @@ def build_qc_summary(
         left=None,
         right=None,
     )
-    log = PipelineLog()
+    log = logging.getLogger(__name__)
     tstart = time.time()
 
     kw = {

@@ -22,7 +22,6 @@ from vircampype.external.mmm import mmm
 from vircampype.fits.images.common import FitsImages, MasterImages
 from vircampype.miscellaneous.sourcemasks import SourceMasks
 from vircampype.pipeline.errors import *
-from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.astromatic import SextractorSetup, SwarpSetup
 from vircampype.tools.fitstools import *
 from vircampype.tools.imagetools import upscale_image
@@ -271,7 +270,7 @@ class SkyImages(FitsImages):
         """
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
 
         # Load Sextractor setup
         sxs = SextractorSetup(setup=self.setup)
@@ -442,7 +441,7 @@ class SkyImages(FitsImages):
     def build_class_star_library(self):
         """Train and apply a star/galaxy classifier from PSF and aperture photometry."""
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building class star library for {self.n_files} files")
 
         # Processing info
@@ -590,7 +589,7 @@ class SkyImages(FitsImages):
         """Applies illumination correction to images."""
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Applying illumination correction to {self.n_files} files")
 
         # Processing info
@@ -729,7 +728,7 @@ def _process_one_basic_file(
 ):
     """Process a single raw science file through basic calibration and write to disk."""
     setup = files.setup
-    log = PipelineLog()
+    log = logging.getLogger(__name__)
 
     # Create output path
     outpath = (
@@ -885,7 +884,7 @@ class SkyImagesRaw(SkyImages):
         )
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Processing {self.n_files} basic raw files")
         tstart = time.time()
 
@@ -962,7 +961,7 @@ class SkyImagesProcessed(SkyImages):
 
     def __build_additional_masks(self) -> dict:
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building additional source masks for {self.n_files} files")
 
         # Create empty mask list for any additional masks
@@ -1040,7 +1039,7 @@ class SkyImagesProcessed(SkyImages):
         )
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building source masks for {self.n_files} files")
         tstart = time.time()
 
@@ -1278,7 +1277,7 @@ class SkyImagesProcessed(SkyImages):
         print_header(header="MASTER-PHOTOMETRY", right=None, silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building master photometry catalog for {self.n_files} files")
         tstart = time.time()
 
@@ -1353,7 +1352,7 @@ class SkyImagesProcessed(SkyImages):
         print_header(header="MASTER-ASTROMETRY", right=None, silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building master astrometry catalog for {self.n_files} files")
         tstart = time.time()
 
@@ -1476,7 +1475,7 @@ class SkyImagesProcessed(SkyImages):
         print_header(header="MASTER-SKY", right=None, silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building master sky from {self.n_files} files")
         tstart = time.time()
 
@@ -1600,7 +1599,7 @@ class SkyImagesProcessed(SkyImages):
         )
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Processing {self.n_files} final raw files")
         tstart = time.time()
 
@@ -1775,7 +1774,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         """Build a static master sky from sigma-clipped median of all frames."""
         # Processing info
         print_header(header="MASTER-SKY-STATIC", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         tstart = time.time()
 
         # Check compatibility
@@ -1893,7 +1892,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Processing info
         print_header(header="MASTER-WEIGHT-IMAGE", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building master weight images from {self.n_files} files")
         tstart = time.time()
 
@@ -2024,7 +2023,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         """Build the WCS header for the coadded tile from detector footprints."""
         # Processing info
         print_header(header="TILE-HEADER", right=None, silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building coadd header from {len(self)} files")
         tstart = time.time()
 
@@ -2112,7 +2111,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
 
         # Processing info
         print_header(header="RESAMPLING", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Resampling {self.n_files} files")
         tstart = time.time()
 
@@ -2245,7 +2244,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         print_header(
             header="CREATING STACKS", silent=self.setup.silent, left=None, right=None
         )
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building stacks from {self.n_files} resampled files")
         tstart = time.time()
 
@@ -2587,7 +2586,7 @@ class SkyImagesResampled(SkyImagesProcessed):
     def build_tile(self):
         """Coadd all resampled pawprints into a single deep tile via SWarp."""
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
 
         # Processing info
         print_header(
@@ -2785,7 +2784,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         print_header(
             header="IMAGE STATISTICS", silent=self.setup.silent, left=None, right=None
         )
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building image statistics for {self.n_files} files")
         tstart = time.time()
 
@@ -3027,7 +3026,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             left=None,
             right=None,
         )
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         tstart = time.time()
 
         # Split based on OFFSET ID
@@ -3164,7 +3163,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             left=None,
             right=None,
         )
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         tstart = time.time()
 
         # Construct output path

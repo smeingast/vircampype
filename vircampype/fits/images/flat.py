@@ -1,3 +1,4 @@
+import logging
 import time
 import warnings
 
@@ -11,7 +12,6 @@ from vircampype.external.mmm import mmm
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.common import FitsImages, MasterImages
 from vircampype.fits.tables.gain import MasterGain
-from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.fitstools import *
 from vircampype.tools.mathtools import *
 from vircampype.tools.messaging import *
@@ -42,7 +42,7 @@ class FlatTwilight(FlatImages):
         print_header(header="MASTER-FLAT", right=None, silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building master twilight flats from {self.n_files} files:\n{self.basenames2log}"
         )
@@ -284,7 +284,7 @@ class FlatTwilight(FlatImages):
         )
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building master weight maps from {self.n_files} files:\n{self.basenames2log}"
         )
@@ -388,7 +388,7 @@ class FlatLampLin(FlatImages):
         print_header(header="MASTER-LINEARITY", silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building master linearity from {self.n_files} files:\n{self.basenames2log}"
         )
@@ -673,7 +673,7 @@ class FlatLampCheck(FlatImages):
         print_header(header="MASTER-BPM", silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building master BPMs from {self.n_files} files:\n{self.basenames2log}"
         )
@@ -837,7 +837,7 @@ class FlatLampGain(FlatImages):
         print_header(header="MASTER-GAIN", right=None, silent=self.setup.silent)
 
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building master gain table from {self.n_files} files:\n{self.basenames2log}"
         )

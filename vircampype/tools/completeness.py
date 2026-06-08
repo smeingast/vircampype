@@ -4,6 +4,7 @@ This module provides functions that orchestrate external tools (SExtractor,
 PSFEx, SkyMaker) on sub-tiles to estimate source-detection completeness.
 """
 
+import logging
 import os
 import time
 import warnings
@@ -1482,7 +1483,6 @@ def qc_completeness_tile(image_path: str, setup) -> None:
 
     """
 
-    from vircampype.pipeline.log import PipelineLog
     from vircampype.tools.messaging import check_file_exists, print_header
 
     print_header(
@@ -1603,7 +1603,7 @@ def qc_completeness_tile(image_path: str, setup) -> None:
                     "Max 50% completeness (mag)",
                 )
 
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         if comp90_values:
             msg90 = (
                 f"Completeness 90%: median={comp90_med:.2f} "

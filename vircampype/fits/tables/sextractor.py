@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import time
@@ -18,7 +19,6 @@ from sklearn.neighbors import KernelDensity, NearestNeighbors
 
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
-from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.astromatic import *
 from vircampype.tools.fitstools import *
 from vircampype.tools.imagetools import *
@@ -101,7 +101,7 @@ class SextractorCatalogs(SourceCatalogs):
 
     def scamp(self):
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
 
         # Processing info
         print_header(header="SCAMP", silent=self.setup.silent)
@@ -381,7 +381,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             right=None,
             silent=self.setup.silent,
         )
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Building illumination correction from {self.n_files} files:\n{self.basenames2log}"
         )
@@ -634,7 +634,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
     def calibrate_photometry(self):
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
 
         # Processing info
         print_header(header="PHOTOMETRY", silent=self.setup.silent, right=None)
@@ -959,7 +959,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Processing info
         print_header(header="QC ASTROMETRY 1D", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Generating QC astrometry 1D plots for {len(self)} files")
         tstart = time.time()
 
@@ -1161,7 +1161,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         # Processing info
         print_header(header="QC ASTROMETRY 2D", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Generating QC astrometry 2D plots for {len(self)} files")
         tstart = time.time()
 
@@ -1505,7 +1505,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 left=None,
                 right=None,
             )
-            log = PipelineLog()
+            log = logging.getLogger(__name__)
             tstart = time.time()
 
             # Determine photometric statistics
@@ -1550,7 +1550,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="STATISTICS TABLES", silent=self.setup.silent, right=None)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Building statistics tables for {self.n_files} files")
         tstart = time.time()
 
@@ -1787,7 +1787,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             left=None,
             right=None,
         )
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         tstart = time.time()
 
         # Create output path
@@ -1907,7 +1907,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PHOTOMETRY ZP", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Generating QC photometry ZP plots for {self.n_files} files")
         tstart = time.time()
 
@@ -1968,7 +1968,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PHOTOMETRY REFERENCE 1D", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Generating QC photometry reference 1D plots for {len(self)} files")
         tstart = time.time()
 
@@ -2158,7 +2158,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PHOTOMETRY REFERENCE 2D", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(
             f"Generating QC photometry reference 2D plots for {self.n_files} files"
         )
@@ -2368,7 +2368,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PSF 2D", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Generating QC PSF 2D plots for {self.n_files} files")
         tstart = time.time()
 
@@ -2593,7 +2593,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
         # Processing info
         print_header(header="QC PSF 1D", silent=self.setup.silent)
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
         log.info(f"Generating QC PSF 1D plots for {self.n_files} files")
         tstart = time.time()
 
@@ -2751,7 +2751,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
     def build_public_catalog(self, photerr_internal: float):
         # Fetch log
-        log = PipelineLog()
+        log = logging.getLogger(__name__)
 
         # Processing info
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)

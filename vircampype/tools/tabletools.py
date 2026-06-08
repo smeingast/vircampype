@@ -1,3 +1,4 @@
+import logging
 import warnings
 from typing import Callable, Generator
 
@@ -14,7 +15,6 @@ from astropy.wcs import WCS, FITSFixedWarning
 from sklearn.neighbors import NearestNeighbors
 
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.pipeline.log import PipelineLog
 from vircampype.tools.mathtools import (
     convert_position_error,
     find_neighbors_within_distance,
@@ -767,7 +767,7 @@ def convert2public(
         )
         # Pass the (Borg) logger so the error is written to the pipeline log file, not
         # just surfaced as a traceback / Pushover notification.
-        raise PipelineValueError(msg, logger=PipelineLog())
+        raise PipelineValueError(msg, logger=logging.getLogger(__name__))
     data_exptime = input_table["EXPTIME"].value
     data_mjd = input_table["MJDEFF"].value
     data_nimg = input_table["NIMG"]
