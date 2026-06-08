@@ -923,7 +923,15 @@ class FlatLampGain(FlatImages):
             # Calculate gain
             mf0, mf1 = f0.background_planes()[0], f1.background_planes()[0]
             md0, md1 = d0.background_planes()[0], d1.background_planes()[0]
-            gain = ((mf0 + mf1) - (md0 + md1)) / (fvar - dvar)
+            denom = fvar - dvar
+            bad = denom <= 0
+            if np.any(bad):
+                log.info(
+                    f"MASTER-GAIN: {int(np.sum(bad))} detector(s) with "
+                    f"non-positive variance difference; gain set to NaN"
+                )
+                denom[bad] = np.nan
+            gain = ((mf0 + mf1) - (md0 + md1)) / denom
 
             # Calculate readout noise (divide dvar by 2*NDIT, not 2: in DCR mode
             # each of NDIT reads is independent, so Var(D0-D1) = 2*NDIT*σ²/G²
