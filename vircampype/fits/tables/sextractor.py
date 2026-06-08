@@ -132,8 +132,10 @@ class SextractorCatalogs(SourceCatalogs):
                     log.info(f"Restored cached ahead file: {os.path.basename(ap)}")
                     n_restored += 1
             if n_restored > 0:
-                print(
-                    f"Restored {n_restored} cached scamp headers from {self.setup.scamp_cache_dir}"
+                log.info(
+                    "Restored %d cached scamp headers from %s",
+                    n_restored,
+                    self.setup.scamp_cache_dir,
                 )
 
         # Check for external headers
@@ -141,7 +143,6 @@ class SextractorCatalogs(SourceCatalogs):
 
         # If already available, skip
         if np.sum(ehdrs) == len(self):
-            print(f"All {len(self)} scamp .ahead headers already present, skipping")
             log.info("All scamp .ahead headers already present, skipping")
             return
 
@@ -454,9 +455,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 header = files.image_headers[0][idx_hdr]
 
                 # Clean table
-                __verbose = False
-                if __verbose:
-                    print(files.paths_full)
                 tab = clean_source_table(
                     table=tab,
                     image_header=header,

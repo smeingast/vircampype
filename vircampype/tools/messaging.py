@@ -313,7 +313,16 @@ def message_qc_astrometry(
     )
     colored_message = f"{color}\n{common_message}{BColors.ENDC}"
 
-    # Print and log message
+    # Console: the colored human-readable QC block (unchanged).
     print(colored_message, end="\n")
-    if logger:
-        logger.info(common_message)
+
+    # File: a machine-readable logfmt record, greppable by metric key.
+    _logger(logger).info(
+        "qc astrometry astrom_sep_mean_mas=%.2f astrom_sep_std_mas=%.2f "
+        "astrom_sep_p5_mas=%.2f astrom_sep_p50_mas=%.2f astrom_sep_p95_mas=%.2f",
+        sep_mean,
+        sep_std,
+        sep_p5,
+        sep_p50,
+        sep_p95,
+    )

@@ -1,8 +1,8 @@
 import functools
 import glob
 import json
+import logging
 import os.path
-import sys
 import time
 
 from vircampype.fits.images.common import FitsImages
@@ -43,15 +43,19 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
     def decorator(method):
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
+            log = logging.getLogger(__name__)
             if guard is not None and getattr(self, guard) is None:
+                log.debug("Skipping %s: guard '%s' is None", message, guard)
                 return
             if getattr(self.status, status_attr):
-                print_message(
-                    message=f"{message} already done", kind="warning", end=None
-                )
+                # Normal checkpoint-resume skip of a whole stage: INFO, not a
+                # warning (it is expected, not an anomaly).
+                log.info("Skipping %s: already complete", message)
                 return
+            log.info("START %s", message)
             method(self, *args, **kwargs)
             self.update_status(**{status_attr: True})
+            log.info("DONE %s (status %s set)", message, status_attr)
 
         return wrapper
 

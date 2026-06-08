@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from astropy import wcs
 from astropy.coordinates import ICRS, AltAz, EarthLocation, Galactic, SkyCoord
@@ -6,6 +8,8 @@ from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, wcs_to_celestial_frame
 
 from vircampype.tools.mathtools import *
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "header_reset_wcs",
@@ -194,10 +198,12 @@ def skycoord2header(
     sep = skycoord.separation(skycoord_centroid)
     allsky = True if np.max(sep.degree) > 100 else False
 
-    # Issue warning
-    if silent is False:
-        if allsky:
-            print("Warning. Using allsky projection!")
+    # Issue warning (recoverable anomaly that changes the projection)
+    if allsky:
+        log.warning(
+            "Using all-sky projection: max separation %.1f deg exceeds 100",
+            float(np.max(sep.degree)),
+        )
 
     # Override projection with allsky data
     if allsky:
