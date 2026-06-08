@@ -28,7 +28,7 @@ Severity: **critical** = silently wrong science across the survey; **high** = si
 - **Impact:** Every public-catalog row's ELLIPTICITY reflects centroid error-ellipse anisotropy (driven by S/N and PSF sampling), not morphology. Any morphological / extended-source selection or shape QC on the public catalog uses a meaningless quantity. It is also used in the survey keep-filter, so it affects which rows are published. Survey-wide.
 - **Reference:** SExtractor manual: ELLIPTICITY = 1 - B_IMAGE/A_IMAGE (shape) vs ERRAWIN/ERRBWIN (positional-error ellipse).
 - **Verification:** Workflow: confirmed (found independently by two dimensions). Codex: CONFIRM, with no later substitution of the shape column. Verified directly against the code and full.param.
-- **Status:** OPEN. Fix is a science choice (which shape column to publish); see the plain-English breakdown provided separately. NOT changed in this pass per request.
+- **Status:** FIXED. ELLIPTICITY now uses the windowed source shape `1 - BWIN_WORLD/AWIN_WORLD` (consistent with the WIN-based astrometry), and the survey keep-filter was changed from `> 0.0` to `>= 0.0` so genuinely round sources (ellipticity 0) are kept while NaN is still rejected. Only the public catalog (.ptab) needs regenerating; AWIN/BWIN are already in the existing source .ctab.
 
 ### H3. Published flux/mag errors have no correlated-noise inflation after LANCZOS3 resampling
 

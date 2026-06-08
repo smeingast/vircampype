@@ -772,7 +772,9 @@ def convert2public(
     data_mjd = input_table["MJDEFF"].value
     data_nimg = input_table["NIMG"]
     data_fwhm = input_table["FWHM_WORLD"].value
-    data_ellipticity = 1 - data_errb / data_erra
+    data_awin = input_table["AWIN_WORLD"].value
+    data_bwin = input_table["BWIN_WORLD"].value
+    data_ellipticity = 1 - data_bwin / data_awin
     data_sflg = input_table["FLAGS"]
     data_snr_win = input_table["SNR_WIN"]
     data_flags_weight = input_table["FLAGS_WEIGHT"]
@@ -978,7 +980,7 @@ def convert2public(
         & (data_mjd[idx_survey] > 0.0)
         & (data_exptime[idx_survey] > 0.0)
         & (data_fwhm[idx_survey] > 0.0)
-        & (data_ellipticity[idx_survey] > 0.0)
+        & (data_ellipticity[idx_survey] >= 0.0)
     )[0]
 
     # Apply final index
