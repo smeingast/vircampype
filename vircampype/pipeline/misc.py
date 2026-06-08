@@ -1,10 +1,8 @@
-from typing import Dict
-
 __all__ = ["Borg", "useless_primary_keywords", "useless_extension_keywords"]
 
 
 class Borg:
-    _shared_state: Dict = {}
+    _shared_state: dict = {}
 
     def __init__(self):
         """Borg pattern to allow shared state (Monostate pattern)."""
