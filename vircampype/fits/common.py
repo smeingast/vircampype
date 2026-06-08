@@ -162,33 +162,64 @@ class FitsFiles:
 
     _headers = None
 
+    @staticmethod
+    def _file_signature(path: str) -> tuple[int, int] | None:
+        """Return a ``(size, mtime_ns)`` signature for validating the header cache.
+
+        Returns None if the file cannot be stat'd, which is treated as a cache
+        miss (the file is then read directly, as before).
+        """
+        try:
+            st = os.stat(path)
+        except OSError:
+            return None
+        return (st.st_size, st.st_mtime_ns)
+
     @property
     def headers(self):
-        """All FITS headers, lazily loaded and cached via shelve database."""
+        """All FITS headers, lazily loaded and cached via shelve database.
+
+        Entries are keyed by basename but validated against the file's
+        ``(size, mtime)`` signature. A product regenerated under the same
+        basename (e.g. ``overwrite=True``, or a SCAMP re-solve that rewrites the
+        merged ``.ahead``/header keywords such as GAIN/MJD/ASTRMSH/ASTCORR)
+        therefore misses the cache and is re-read, instead of silently returning
+        the stale header. Old bare-list entries fail the format check and are
+        transparently re-read and upgraded.
+        """
         # Check if already determined
         if self._headers is not None:
             return self._headers
 
-        # Split into cached and missing, preserving original order
-        cached_indices, missing_indices = [], []
+        # Current on-disk signatures; a mismatch invalidates the cached entry.
+        signatures = [self._file_signature(p) for p in self.paths_full]
+
+        # Split into reusable and missing/stale, preserving original order.
+        missing_indices = []
         with shelve.open(self._path_header_db) as db:
             for idx, key in enumerate(self.basenames):
-                if key in db:
-                    cached_indices.append(idx)
-                else:
+                entry = db.get(key)
+                if not (
+                    isinstance(entry, dict)
+                    and entry.get("sig") is not None
+                    and entry["sig"] == signatures[idx]
+                ):
                     missing_indices.append(idx)
 
-            # Read missing files in parallel and write back to shelve
+            # Read missing/stale files in parallel and write back to shelve
             if missing_indices:
                 missing_paths = [self.paths_full[i] for i in missing_indices]
                 new_headers = Parallel(n_jobs=self.setup.n_jobs, prefer="threads")(
                     delayed(read_fits_headers)(p) for p in missing_paths
                 )
                 for idx, fileheaders in zip(missing_indices, new_headers):
-                    db[self.basenames[idx]] = fileheaders
+                    db[self.basenames[idx]] = {
+                        "sig": signatures[idx],
+                        "headers": fileheaders,
+                    }
 
             # Assemble in original order
-            headers = [db[self.basenames[i]] for i in range(self.n_files)]
+            headers = [db[self.basenames[i]]["headers"] for i in range(self.n_files)]
 
         # Return all headers
         self._headers = headers
