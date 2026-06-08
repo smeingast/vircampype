@@ -222,21 +222,14 @@ def message_calibration(
         Logger instance to use for logging the messages. If None, no logging is done.
     """
 
-    if not silent:
-        n_current_str = f"{n_current}/{n_total}"
-        name_str = os.path.basename(name)
-        if (d_current is not None) and (d_total is not None):
-            d_current_str = f"{d_current}/{d_total}"
-            message = (
-                f"\r{n_current_str:<8.8s} {name_str:^62.62s} {d_current_str:>8.8s}"
-            )
-        else:
-            message = f"\r{n_current_str:<10.10s} {name_str:>69.69s}"
+    if silent:
+        return
 
-        # Print and log message
-        print(message, end=end)
-        if logger:
-            logger.info(message)
+    # Drive a rich progress bar (main thread + TTY) and a DEBUG file line.
+    # ``end`` and ``logger`` are retained for signature compatibility only.
+    from vircampype.pipeline.progress import report_progress
+
+    report_progress(n_current, n_total, os.path.basename(name), d_current, d_total)
 
 
 def check_file_exists(

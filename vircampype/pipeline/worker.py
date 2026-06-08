@@ -263,14 +263,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
     except Exception:
-        # The run is aborting: record it once at CRITICAL with the traceback
+        # Stop any live progress bar first so the traceback renders cleanly,
+        # then record the aborting run once at CRITICAL with the traceback
         # (lands in the file log when logging is configured), then re-raise so
         # the plain traceback still reaches stderr and the process exits
         # non-zero, preserving the existing cluster job-classification contract.
+        from vircampype.pipeline.progress import stop_progress
+
+        stop_progress()
         logging.getLogger("vircampype").critical(
             "Unhandled exception; pipeline run aborting", exc_info=True
         )
         raise
+    finally:
+        from vircampype.pipeline.progress import stop_progress
+
+        stop_progress()
 
 
 if __name__ == "__main__":
