@@ -22,7 +22,6 @@ __all__ = [
     "check_file_exists",
     "print_end",
     "print_start",
-    "print_colors_shell",
     "message_qc_astrometry",
 ]
 
@@ -41,17 +40,6 @@ class BColors:
     ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
-
-
-def print_colors_shell():
-    """Prints color examples in terminal based on above class."""
-    print(BColors.HEADER + "HEADER" + BColors.ENDC)
-    print(BColors.OKBLUE + "OKBLUE" + BColors.ENDC)
-    print(BColors.OKGREEN + "OKGREEN" + BColors.ENDC)
-    print(BColors.WARNING + "WARNING" + BColors.ENDC)
-    print(BColors.FAIL + "FAIL" + BColors.ENDC)
-    print(BColors.ENDC + "ENDC" + BColors.ENDC)
-    print(BColors.UNDERLINE + "UNDERLINE" + BColors.ENDC)
 
 
 def print_header(
