@@ -2875,16 +2875,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
-            # Read the full-sample external RMS for all extensions of this file once.
-            # This is the FALLBACK floor; the preferred value is the per-pointing
-            # high-S/N external RMS (ASTRMSH1/2), read per-extension below. Only the
-            # EXTERNAL (vs-reference) RMS is used; see the ASTRMS comment below for why
-            # the internal RMS (ASTIRMS) is no longer read here.
-            astrrms1, astrrms2 = self.read_from_data_headers(
-                keywords=["ASTRRMS1", "ASTRRMS2"],
-                file_index=idx_file,
-            )
-
             # Loop over extensions
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
                 # Read header
@@ -2911,25 +2901,35 @@ class SkyImagesResampled(SkyImagesProcessed):
                 mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
                 arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
                 arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
-                # Astrometric systematic floor (EXTERNAL, vs-reference Scamp RMS).
-                # Prefer the HIGH-S/N external RMS (ASTRMSH1/2), a per-pointing value
-                # written into the .ahead by scamp() from scamp.xml; it tracks the
-                # scatter of bright calibrators and so matches what bright sources
-                # actually experience. Safe-read so reductions without the keyword fall
-                # back to the per-detector full-sample external RMS (ASTRRMS1/2).
+                # Astrometric systematic floor: the HIGH-S/N external (vs-reference)
+                # Scamp RMS (ASTRMSH1/2), a per-pointing value written into the .ahead
+                # by scamp() from scamp.xml; it tracks the scatter of bright calibrators
+                # and so matches what bright sources actually experience.
                 #
-                # The full-sample ASTRRMS is dominated by faint calibrators' centroid
-                # noise and over-estimates bright-source position errors (~2-4x;
-                # validated vs Gaia DR3 in CrA, 2026-06-07). The internal RMS (ASTIRMS)
-                # is no longer used at all: the old floor sqrt(ASTIRMS**2 + ASTRRMS**2)
-                # double-counted the calibrator centroid scatter (ASTIRMS measures
-                # essentially the same scatter as ASTRRMS), a further ~1.4x inflation.
-                astrms1 = 3_600_000 * header_original.get(
-                    "ASTRMSH1", astrrms1[0][idx_hdu]
-                )
-                astrms2 = 3_600_000 * header_original.get(
-                    "ASTRMSH2", astrrms2[0][idx_hdu]
-                )
+                # No fallback, by design. If ASTRMSH1/2 is absent the solution predates
+                # the high-S/N floor (or its SCAMP cache is stale). The only other floor
+                # in the header is the full-sample ASTRRMS, which is dominated by faint
+                # calibrators and over-estimates bright-source position errors ~2-4x
+                # (validated vs Gaia DR3 in CrA, 2026-06-07); silently substituting it
+                # would mix two incompatible error scales across the survey. Fail loud
+                # instead, so the solution gets re-run / the stale .ahead cache cleared.
+                # (The internal RMS ASTIRMS is never used: the old floor
+                # sqrt(ASTIRMS**2 + ASTRRMS**2) double-counted the calibrator centroid
+                # scatter, a further ~1.4x inflation.)
+                try:
+                    astrms1 = 3_600_000 * header_original["ASTRMSH1"]
+                    astrms2 = 3_600_000 * header_original["ASTRMSH2"]
+                except KeyError as e:
+                    raise PipelineValueError(
+                        logger=log,
+                        message=(
+                            f"High-S/N external astrometric RMS {e} missing from the "
+                            f"resampled header of {self.paths_full[idx_file]!r}; "
+                            "refusing to fall back to the inflated full-sample "
+                            "ASTRRMS. Re-run SCAMP or clear the stale .ahead cache "
+                            "so ASTRMSH1/2 is written."
+                        ),
+                    ) from e
                 arr_astrms1 = np.full(shape, fill_value=astrms1, dtype=np.float32)
                 arr_astrms2 = np.full(shape, fill_value=astrms2, dtype=np.float32)
 
