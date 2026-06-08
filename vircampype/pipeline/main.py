@@ -380,7 +380,7 @@ class Pipeline:
         images = Stacks(file_paths=self._paths_stacks, setup=self.setup)
 
         # Consistency check
-        if len(images) != 6:
+        if len(images) != self.setup.n_offset_positions:
             raise PipelineValueError("Stacks incomplete")
 
         return images
