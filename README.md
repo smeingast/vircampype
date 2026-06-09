@@ -26,7 +26,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 ## Requirements
 
 ### Python
-Python 3.13 or later is required. Python dependencies are declared in `pyproject.toml` and include numpy, scipy, astropy, scikit-learn, scikit-image, matplotlib, astroquery, pyyaml, joblib, regions, tqdm, and pillow.
+Python 3.13 or later is required. Python dependencies are declared in `pyproject.toml` and include numpy, scipy, astropy, scikit-learn, scikit-image, matplotlib, astroquery, pyyaml, joblib, regions, rich, and pillow.
 
 ### External tools
 The following tools must be installed and available in `PATH`:
@@ -243,6 +243,12 @@ path_pype/
             ├── tiles/
             └── psf/
 ```
+
+---
+
+## Logging
+
+Each run writes a verbose, timestamped log to `path_pype/<name>/temp/pipeline_<timestamp>.log` at DEBUG level, including captured external-tool output, so a run is reconstructable from the file alone. The console stays minimal: a live progress bar on a terminal plus real warnings and errors (no progress codes are written when output is redirected). Set `log_retention: <N>` to keep only the newest N per-run logs, or `file_log: false` to skip the per-run file and rely on stdout (for example in a container that redirects to a node log).
 
 ---
 
