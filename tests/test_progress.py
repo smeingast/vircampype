@@ -1,9 +1,10 @@
 """Tests for rich progress routing (Phase 8). Asserts the file-side DEBUG line;
 the live bar itself is TTY-only and not asserted here."""
 
+import io
 import unittest
 
-from vircampype.pipeline.progress import report_progress, stop_progress
+from vircampype.pipeline.progress import report_progress, stop_progress, track
 from vircampype.tools.messaging import message_calibration
 
 _LOGGER = "vircampype.pipeline.progress"
@@ -36,6 +37,140 @@ class TestProgress(unittest.TestCase):
     def test_stop_progress_idempotent(self):
         stop_progress()
         stop_progress()  # must not raise
+
+    def test_track_off_tty_is_noop(self):
+        # The test stdout is not a TTY, so the bar never starts even with a
+        # label; the yielded advance callable must still be safe to call.
+        from vircampype.pipeline import progress
+
+        with track("Source detection", total=2) as advance:
+            advance()
+            advance()
+        self.assertIsNone(progress._driver._progress)
+
+    def test_track_without_label_is_noop(self):
+        with track(None, total=3) as advance:
+            advance()  # must not raise
+
+    def test_driver_batch_task_lifecycle(self):
+        # Drive the determinate-bar path directly against a forced-terminal
+        # console writing to a buffer (no real terminal is touched).
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup, progress
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=80)
+        try:
+            driver = progress._ProgressDriver()
+            task = driver.start_task("batch", total=3)
+            for _ in range(3):
+                driver.advance_task(task)
+            self.assertEqual(driver._task(task).completed, 3)
+            driver.finish_task(task)
+            self.assertIn("finished_at", driver._task(task).fields)
+            driver.finalize()
+            self.assertIsNone(driver._progress)
+        finally:
+            logsetup._console = saved
+
+    def test_track_live_path_advances_to_total(self):
+        # Exercise track()'s LIVE branch (not just the no-op): a forced-terminal
+        # console makes _can_drive_live() true, so a real bar is driven.
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup, progress
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=80)
+        try:
+            with track("batch", total=3) as advance:
+                advance()
+                advance()
+                advance()
+                self.assertEqual(progress._driver._progress.tasks[-1].completed, 3)
+            # After exit the bar persists, completed, with a finish clock stamped.
+            last = progress._driver._progress.tasks[-1]
+            self.assertEqual(last.description, "batch")
+            self.assertEqual(last.completed, 3)
+            self.assertIn("finished_at", last.fields)
+        finally:
+            stop_progress()
+            logsetup._console = saved
+
+    def test_finalizing_spinner_has_no_bar_or_count(self):
+        # The indeterminate "finalizing" task (total=None) must render with the
+        # spinner + label only: no bar, no M/N count, no timer.
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup, progress
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=80)
+        try:
+            p = progress._ProgressDriver()._build()
+            p.add_task("finalizing", total=None)
+            cap = Console(width=80)
+            with cap.capture() as c:
+                cap.print(p.get_renderable())
+            rendered = c.get()
+            self.assertIn("finalizing", rendered)
+            self.assertNotIn("━", rendered)  # no bar
+            self.assertNotIn("?", rendered)  # no "0/?"
+            self.assertNotIn("/", rendered)  # no M/N count
+            self.assertNotIn(":", rendered)  # no timer (icon + label only)
+        finally:
+            logsetup._console = saved
+
+    def test_named_spinner_keeps_timer_without_bar(self):
+        # A named spinner (show_elapsed, e.g. SCAMP) shows the elapsed timer but
+        # no bar and no count.
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup, progress
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=80)
+        try:
+            p = progress._ProgressDriver()._build()
+            p.add_task("SCAMP", total=None, show_elapsed=True)
+            cap = Console(width=80)
+            with cap.capture() as c:
+                cap.print(p.get_renderable())
+            rendered = c.get()
+            self.assertIn("SCAMP", rendered)
+            self.assertNotIn("━", rendered)  # no bar
+            self.assertNotIn("/", rendered)  # no M/N count
+            self.assertIn(":", rendered)  # elapsed timer present
+        finally:
+            logsetup._console = saved
+
+    def test_spinner_is_adjacent_to_short_label(self):
+        # Regression: with a long-filename task present, a short label's spinner
+        # must still sit right after the label, not be pushed out to the shared
+        # text-column width (which aligns with the long filename).
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup, progress
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=100)
+        try:
+            p = progress._ProgressDriver()._build()
+            long_task = p.add_task("A" * 50, total=30)  # long, animating
+            p.update(long_task, completed=5)
+            p.add_task("finalizing", total=None)
+            cap = Console(width=100)
+            with cap.capture() as c:
+                cap.print(p.get_renderable())
+            fin_line = next(ln for ln in c.get().splitlines() if "finalizing" in ln)
+            spin_idx = next(
+                i for i, ch in enumerate(fin_line) if 0x2800 <= ord(ch) <= 0x28FF
+            )
+            # Right after "finalizing " (11 chars), not out at the ~50-col mark.
+            self.assertLess(spin_idx, 14)
+        finally:
+            logsetup._console = saved
 
 
 if __name__ == "__main__":

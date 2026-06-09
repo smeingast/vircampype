@@ -242,7 +242,11 @@ def cmd_prepend_libraries(cmd: str) -> str:
 
 
 def run_commands_shell_parallel(
-    cmds, n_jobs: int = 1, shell: str = "bash", silent: bool = True
+    cmds,
+    n_jobs: int = 1,
+    shell: str = "bash",
+    silent: bool = True,
+    label: str | None = None,
 ):
     """
     Runs a list of shell commands in parallel using a thread pool.
@@ -260,6 +264,10 @@ def run_commands_shell_parallel(
         Shell name. Default is 'zsh'.
     silent : bool, optional
         Whether or not to print information about the process. Default is True.
+    label : str | None, optional
+        If set (and ``silent``), render a determinate progress bar with this
+        description, advanced as each command completes. No-op off a TTY / off
+        the main thread. A non-silent batch inherits the terminal, so no bar.
 
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -295,14 +303,24 @@ def run_commands_shell_parallel(
         if result.returncode != 0:
             log.warning(f"command exited with code {result.returncode}: {cmd}")
 
-    with ThreadPoolExecutor(max_workers=n_jobs) as pool:
+    # Drive a determinate progress bar from this (main) thread as each command
+    # finishes. Only when output is captured (silent): a non-silent batch
+    # inherits the terminal and its live output would fight a bar.
+    from vircampype.pipeline.progress import track
+
+    bar_label = label if silent else None
+    with (
+        ThreadPoolExecutor(max_workers=n_jobs) as pool,
+        track(bar_label, len(cmds)) as advance,
+    ):
         futures = [pool.submit(_run_one, cmd) for cmd in cmds]
         for f in as_completed(futures):
             f.result()
+            advance()
 
 
 def run_command_shell(
-    cmd: str, shell: str = "bash", silent: bool = False
+    cmd: str, shell: str = "bash", silent: bool = False, label: str | None = None
 ) -> tuple[str, str]:
     """
     Runs a single shell command in the specified shell.
@@ -315,6 +333,9 @@ def run_command_shell(
         Shell executable name. Default is 'zsh'.
     silent : bool
         Whether to run silently.
+    label : str | None, optional
+        If set, show an animated spinner with this description while the command
+        runs (e.g. SCAMP, the tile coadd). No-op off a TTY / off the main thread.
 
     Returns
     ----------
@@ -325,14 +346,19 @@ def run_command_shell(
     # Append dynamic libraries
     cmd = cmd_prepend_libraries(cmd)
 
-    # Run
-    result = subprocess.run(
-        cmd,
-        shell=True,
-        executable=which(shell),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    # Animate a spinner while the (single, long) command runs. Its output is
+    # captured here and only printed after completion, so the spinner never
+    # collides with live tool output.
+    from vircampype.pipeline.progress import spinner, stop_progress
+
+    with spinner(label):
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            executable=which(shell),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     # Decode the command output
     try:
@@ -353,6 +379,11 @@ def run_command_shell(
 
     # If not in silent mode, print the output to terminal
     if not silent:
+        # A spinner (label set) leaves the rich Live active, and rich redirects
+        # stdout while it is. Finalize it first so the tool output prints to the
+        # real stdout, as before, rather than being re-routed onto the console.
+        if label is not None:
+            stop_progress()
         if stdout:
             print(stdout)
         if stderr:

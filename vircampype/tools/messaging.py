@@ -27,6 +27,17 @@ def _finalize_progress():
     stop_progress()
 
 
+def _banner_width() -> int:
+    """Width for banner rules: the live console width, so banners line up with
+    the progress bars (which expand to the same console). Off a TTY this is
+    rich's default 80, preserving the previous fixed-width banners in cluster /
+    redirected runs.
+    """
+    from vircampype.pipeline.logsetup import get_console
+
+    return get_console().width
+
+
 __all__ = [
     "print_message",
     "print_header",
@@ -81,18 +92,16 @@ def print_header(
     # New stage: finalize the previous stage's progress bar first.
     _finalize_progress()
 
-    if left is None:
-        left = ""
-
-    if right is None:
-        right = ""
-
     if not silent:
+        width = _banner_width()
+        left = left or ""
+        right = right or ""
         print()
         print(f"{BColors.HEADER}{header}{BColors.ENDC}")
-        print(f"{'‾' * 80}")
+        print("‾" * width)
         if left or right:
-            print(f"{left:<55s}{right:>25s}")
+            left_width = max(len(left), width - len(right))
+            print(f"{left:<{left_width}s}{right}")
 
     # Always record the section boundary as a single clean INFO line (file).
     _logger(logger).info(f"=== {header} ===")
@@ -163,9 +172,10 @@ def print_start(obj: str = "") -> float:
         The current time in seconds since the Epoch.
     """
     _finalize_progress()
-    print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
-    print(f"{BColors.OKGREEN}{obj:^74}{BColors.ENDC}")
-    print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
+    width = _banner_width()
+    print(f"{BColors.OKGREEN}{'_' * width}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{obj:^{width}}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾' * width}{BColors.ENDC}")
     _logger().info(f"=== START {obj} ===")
     return time.time()
 
@@ -188,9 +198,10 @@ def print_end(
     end_message = f"All done in {time.time() - tstart:0.1f}s"
 
     _finalize_progress()
-    print(f"{BColors.OKGREEN}{'_' * 80}{BColors.ENDC}")
-    print(f"{BColors.OKGREEN}{end_message:^74}{BColors.ENDC}")
-    print(f"{BColors.OKGREEN}{'‾' * 80}{BColors.ENDC}")
+    width = _banner_width()
+    print(f"{BColors.OKGREEN}{'_' * width}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{end_message:^{width}}{BColors.ENDC}")
+    print(f"{BColors.OKGREEN}{'‾' * width}{BColors.ENDC}")
 
     _logger(logger).info(end_message)
 
@@ -202,11 +213,9 @@ def message_calibration(
     d_current: int | None = None,
     d_total: int | None = None,
     silent: bool = False,
-    end: str = "",
-    logger: PipelineLog | None = None,
 ) -> None:
     """
-    Prints the calibration message for image processing.
+    Report progress for a files-by-detectors processing loop.
 
     Parameters
     ----------
@@ -217,22 +226,17 @@ def message_calibration(
     name : str
         Output filename.
     d_current : int | None, optional
-        Current detector index in the loop.
+        Current detector index. If None, no inner (per-detector) bar is shown.
     d_total : int | None, optional
-        Total number of detectors to process.
+        Total detectors. If None, no inner (per-detector) bar is shown.
     silent : bool, optional
         If set, nothing will be printed.
-    end : str, optional
-        End of line. Default is an empty string.
-    logger : PipelineLog or None, optional
-        Logger instance to use for logging the messages. If None, no logging is done.
     """
 
     if silent:
         return
 
     # Drive a rich progress bar (main thread + TTY) and a DEBUG file line.
-    # ``end`` and ``logger`` are retained for signature compatibility only.
     from vircampype.pipeline.progress import report_progress
 
     report_progress(n_current, n_total, os.path.basename(name), d_current, d_total)

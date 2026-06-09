@@ -1039,7 +1039,9 @@ class Pipeline:
         if fz_files:
             cmds = [f"funpack -F {f}" for f in fz_files]
             n_jobs = min(self.setup.n_jobs, 2)
-            run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, silent=True)
+            run_commands_shell_parallel(
+                cmds=cmds, n_jobs=n_jobs, silent=True, label="Decompressing"
+            )
 
         self.update_status(archive=False)
 

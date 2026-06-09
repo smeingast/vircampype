@@ -697,7 +697,7 @@ def compress_images(
     flags = "-D -Y " if delete_originals else ""
     cmds = [f"{fpack} {flags}-q {q} {x}" for x in images]
     cmds = [c for c, d in zip(cmds, done) if not d]
-    run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs)
+    run_commands_shell_parallel(cmds=cmds, n_jobs=n_jobs, label="Compressing")
 
 
 def make_gaia_refcat(

@@ -140,6 +140,22 @@ def _install_console_handler(logger: logging.Logger, level: int) -> None:
     logger.addHandler(_own(handler))
 
 
+def _setup_logger_handlers(
+    console_level: int,
+) -> tuple[logging.Logger, logging.Logger]:
+    """Reset vircampype handlers, pin the logger at DEBUG with no propagation,
+    and install the console handler. Returns ``(logger, warnings_logger)`` for
+    the caller to attach the file handler. Shared by both entry points.
+    """
+    logger = get_logger()
+    warnings_logger = logging.getLogger("py.warnings")
+    _reset_own_handlers((logger, warnings_logger))
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    _install_console_handler(logger, console_level)
+    return logger, warnings_logger
+
+
 def configure_logging(setup) -> None:
     """Configure the ``vircampype`` logger from a Setup. Idempotent.
 
@@ -158,13 +174,7 @@ def configure_logging(setup) -> None:
     # Preserve the historical raise-on-invalid-level behaviour.
     getattr(logging, setup.log_level.upper())
 
-    logger = get_logger()
-    warnings_logger = logging.getLogger("py.warnings")
-    _reset_own_handlers((logger, warnings_logger))
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-
-    _install_console_handler(logger, _console_level(setup))
+    logger, warnings_logger = _setup_logger_handlers(_console_level(setup))
 
     if not setup.file_log:
         # No file requested (e.g. a container relying on stdout redirection).
@@ -190,10 +200,5 @@ def configure_standalone_logging(path_logfile: str) -> None:
     path_logfile : str
         Destination file for the standalone log.
     """
-    logger = get_logger()
-    warnings_logger = logging.getLogger("py.warnings")
-    _reset_own_handlers((logger, warnings_logger))
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    _install_console_handler(logger, logging.WARNING)
+    logger, warnings_logger = _setup_logger_handlers(logging.WARNING)
     _install_file_handler(logger, warnings_logger, path_logfile)

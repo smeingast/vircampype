@@ -249,7 +249,12 @@ def build_psf_models(
             kind="okblue",
             end="\n",
         )
-        run_commands_shell_parallel(cmds=sex_cmds, silent=True, n_jobs=setup.n_jobs_sex)
+        run_commands_shell_parallel(
+            cmds=sex_cmds,
+            silent=True,
+            n_jobs=setup.n_jobs_sex,
+            label="PSF source detection",
+        )
     else:
         print_message(
             message=f"SExtractor catalogs already exist for all {n_tiles} sub-tiles",
@@ -288,7 +293,7 @@ def build_psf_models(
             end="\n",
         )
         run_commands_shell_parallel(
-            cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs_sex
+            cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs_sex, label="PSF modeling"
         )
 
     n_valid = sum(1 for p in psf_paths if os.path.isfile(p))

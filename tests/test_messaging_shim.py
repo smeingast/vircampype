@@ -1,6 +1,8 @@
 """Tests that messaging helpers route through logging by severity (Phase 5)."""
 
+import io
 import unittest
+from contextlib import redirect_stdout
 
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.messaging import (
@@ -60,6 +62,25 @@ class TestMessagingShim(unittest.TestCase):
         with self.assertLogs(_LOGGER, level="INFO") as cm:
             print_end(tstart=t0_for_end())
         self.assertTrue(any("All done in" in m for m in cm.output))
+
+    def test_banner_rule_uses_console_width(self):
+        # The banner rule spans the live console width (matches the bars), not a
+        # hardcoded 80, so on a wider terminal it lines up with the progress bar.
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=120)
+        try:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                print_header("STAGE", silent=False)
+            rule_lines = [ln for ln in buf.getvalue().splitlines() if set(ln) == {"‾"}]
+            self.assertTrue(rule_lines)
+            self.assertEqual(len(rule_lines[0]), 120)
+        finally:
+            logsetup._console = saved
 
 
 def t0_for_end() -> float:

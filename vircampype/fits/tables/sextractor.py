@@ -204,7 +204,7 @@ class SextractorCatalogs(SourceCatalogs):
         wait_for_no_process(executable="scamp", poll_s=2.0, timeout_s=1800)
 
         # Run Scamp
-        stdout, stderr = run_command_shell(cmd, silent=False)
+        stdout, stderr = run_command_shell(cmd, silent=False, label="SCAMP")
 
         # Add stdout and stderr to log
         log.info(f"Scamp stdout:\n{stdout}")

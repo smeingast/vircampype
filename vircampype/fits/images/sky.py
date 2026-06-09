@@ -393,7 +393,10 @@ class SkyImages(FitsImages):
 
         # Run Sextractor
         run_commands_shell_parallel(
-            cmds=cmds, silent=True, n_jobs=self.setup.n_jobs_sex
+            cmds=cmds,
+            silent=True,
+            n_jobs=self.setup.n_jobs_sex,
+            label="Source detection",
         )
 
         # Add some keywords to primary header
@@ -1932,7 +1935,9 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             # Run MaxiMask in parallel
             if len(cmds) > 0:
                 print_message(f"Running MaxiMask on {len(cmds)} files with 2 threads")
-            run_commands_shell_parallel(cmds=cmds, n_jobs=2, silent=True)
+            run_commands_shell_parallel(
+                cmds=cmds, n_jobs=2, silent=True, label="MaxiMask"
+            )
 
             # Put masks into FitsImages object
             masks = FitsImages(setup=self.setup, file_paths=paths_masks)
@@ -2651,7 +2656,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
 
             # Run Swarp
-            _, stderr = run_command_shell(cmd=cmd, silent=True)
+            _, stderr = run_command_shell(cmd=cmd, silent=True, label="Coadding tile")
 
             # Wait to ensure file is written
             time.sleep(self.setup.swarp_post_sleep)
