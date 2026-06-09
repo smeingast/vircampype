@@ -1,7 +1,12 @@
+import logging
+
+import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.units import Unit
 from astroquery.vizier import Vizier
+
+from vircampype.pipeline.errors import PipelineValueError
 
 # Define objects in this module
 __all__ = [
@@ -10,6 +15,60 @@ __all__ = [
     "cutout_2mass",
     "cutout_gaia",
 ]
+
+
+def _query_vizier_first_table(
+    v,
+    skycoord: SkyCoord,
+    radius: float,
+    catalog: str,
+    name: str,
+) -> Table:
+    """
+    Run a Vizier cone search and return the first result table.
+
+    Wraps ``Vizier.query_region`` so that a query that raises (e.g. the
+    CDS/Vizier server timing out or not responding) or that returns no table
+    is logged and re-raised as a clear :class:`PipelineValueError`, instead of
+    surfacing as an opaque ``IndexError`` on the ``[0]`` index.
+
+    Parameters
+    ----------
+    v : Vizier
+        Configured Vizier instance.
+    skycoord : SkyCoord
+        Centre of the cone search.
+    radius : float
+        Cone-search radius in degrees.
+    catalog : str
+        Vizier catalog identifier (e.g. ``"I/355/gaiadr3"``).
+    name : str
+        Human-readable catalog name for log/error messages.
+
+    Returns
+    -------
+    Table
+        The first table of the query result.
+    """
+    log = logging.getLogger(__name__)
+    try:
+        result = v.query_region(skycoord, radius=radius * Unit("deg"), catalog=catalog)
+    except Exception as e:
+        raise PipelineValueError(
+            f"{name} Vizier query failed (catalog '{catalog}', "
+            f"radius {radius:.3f} deg): {e!r}",
+            logger=log,
+        ) from e
+
+    if result is None or len(result) == 0:
+        raise PipelineValueError(
+            f"{name} Vizier query returned no table (catalog '{catalog}', "
+            f"radius {radius:.3f} deg); the CDS/Vizier server may not have "
+            f"responded. Retry, or set a local catalog to skip the download.",
+            logger=log,
+        )
+
+    return result[0]
 
 
 def download_2mass(skycoord: SkyCoord, radius: float) -> Table:
@@ -37,10 +96,10 @@ def download_2mass(skycoord: SkyCoord, radius: float) -> Table:
         row_limit=-1,
     )
 
-    # Submit query
-    result = v.query_region(
-        skycoord, radius=radius * Unit("deg"), catalog="II/246/out"
-    )[0]
+    # Submit query (raises a clear, logged error if CDS returns no table)
+    result = _query_vizier_first_table(
+        v, skycoord, radius, catalog="II/246/out", name="2MASS"
+    )
     del result.meta["description"]
     result.meta["NAME"] = "2MASS"
 
@@ -67,19 +126,19 @@ def download_gaia(skycoord: SkyCoord, radius: float) -> Table:
     Returns
     -------
     Table
-        Astropy Table with Gaia EDR3 data. Columns are renamed to lowercase
+        Astropy Table with Gaia DR3 data. Columns are renamed to lowercase
         (``ra``, ``dec``, ``pmra``, ``pmdec``, ``flux``, etc.).
     """
 
     # Setup for Vizier
-    v = Vizier(columns=["*"], catalog="I/350/gaiaedr3", row_limit=-1)
+    v = Vizier(columns=["*"], catalog="I/355/gaiadr3", row_limit=-1)
 
-    # Submit query
-    result = v.query_region(
-        skycoord, radius=radius * Unit("deg"), catalog="I/350/gaiaedr3"
-    )[0]
+    # Submit query (raises a clear, logged error if CDS returns no table)
+    result = _query_vizier_first_table(
+        v, skycoord, radius, catalog="I/355/gaiadr3", name="Gaia DR3"
+    )
     del result.meta["description"]
-    result.meta["NAME"] = "Gaia EDR3"
+    result.meta["NAME"] = "Gaia DR3"
 
     # Rename columns
     result.rename_column("RA_ICRS", "ra")
@@ -94,10 +153,20 @@ def download_gaia(skycoord: SkyCoord, radius: float) -> Table:
     result.rename_column("pmDE", "pmdec")
     result.rename_column("e_pmDE", "pmdec_error")
     result.rename_column("Gmag", "mag")
-    result.rename_column("e_Gmag", "mag_error")
     result.rename_column("FG", "flux")
     result.rename_column("e_FG", "flux_error")
     result.rename_column("RUWE", "ruwe")
+
+    # Gaia DR3's default VizieR view (I/355/gaiadr3) has no e_Gmag column, so
+    # derive the G-band magnitude error from the flux S/N (the standard
+    # 1.0857 * dF/F; identical to the value make_gaia_refcat writes). Work on
+    # plain ndarrays: masked/zero-flux entries become NaN/inf (not Vizier fill
+    # values) so the downstream isfinite() keep-cut rejects them, and the result
+    # carries no spurious flux unit.
+    flux = np.asarray(np.ma.filled(result["flux"], np.nan), dtype=float)
+    flux_error = np.asarray(np.ma.filled(result["flux_error"], np.nan), dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result["mag_error"] = 1.0857 * flux_error / flux
 
     return result
 
