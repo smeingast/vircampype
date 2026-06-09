@@ -22,3 +22,6 @@ __pycache__/
 .claude/
 session-notes.md
 future-ideas.md
+
+# Local-only dev tools
+compare_reductions.py
