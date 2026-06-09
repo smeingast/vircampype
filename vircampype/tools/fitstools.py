@@ -14,7 +14,7 @@ from astropy.time import Time
 
 from vircampype.pipeline.misc import *
 from vircampype.tools.mathtools import clipped_median
-from vircampype.tools.messaging import print_header, print_message
+from vircampype.tools.messaging import check_file_exists, print_header, print_message
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
@@ -1301,6 +1301,20 @@ def build_qc_summary(
     log = logging.getLogger(__name__)
     tstart = time.time()
 
+    # Skip if the summary already exists
+    path_out = os.path.join(setup.folders["qc"], "qc_summary.ecsv")
+    if (
+        check_file_exists(file_path=path_out, silent=setup.silent)
+        and not setup.overwrite
+    ):
+        print_message(
+            message=f"{os.path.basename(path_out)} already exists, skipping",
+            kind="warning",
+            end=None,
+            logger=log,
+        )
+        return path_out
+
     kw = {
         "filter_keyword": setup.keywords.filter_name,
         "mag_saturation": setup.reference_mag_lo,
@@ -1359,7 +1373,6 @@ def build_qc_summary(
 
     # Build and write table
     qc_table = Table(rows=rows)
-    path_out = os.path.join(setup.folders["qc"], "qc_summary.ecsv")
     qc_table.write(path_out, format="ascii.ecsv", overwrite=True)
 
     print_message(
