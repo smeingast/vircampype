@@ -777,14 +777,18 @@ def make_gaia_refcat(
     Table
         Output catalogue table (also written to *path_ldac_out*).
     """
-    # Clean data
+    # Clean data. The proper-motion errors are required finite too, since they
+    # are propagated into the warped position errors below (a finite pm with a
+    # masked/NaN pm error would otherwise turn ra_error/dec_error into NaN).
     keep = (
         np.isfinite(table_in[key_ra])
         & np.isfinite(table_in[key_dec])
         & np.isfinite(table_in[key_gflux])
         & np.isfinite(table_in[key_gflux_error])
         & np.isfinite(table_in[key_pmra])
+        & np.isfinite(table_in[key_pmra_error])
         & np.isfinite(table_in[key_pmdec])
+        & np.isfinite(table_in[key_pmdec_error])
         & (table_in[key_ruwe] < ruwe_max)
     )
     table_in = table_in[keep]
@@ -798,23 +802,43 @@ def make_gaia_refcat(
         obstime=Time(epoch_in, format="decimalyear"),
     )
 
-    # Apply space motion if an output epoch is requested
-    if epoch_out is not None:
+    # Default to the input epoch (no proper-motion warp) when none is requested.
+    if epoch_out is None:
+        epoch_out = epoch_in
+
+    # Baseline between the Gaia catalog epoch and the output (observation) epoch,
+    # in years. Zero when no warp is applied.
+    dt = epoch_out - epoch_in
+
+    # Apply space motion when warping to a different epoch.
+    if dt != 0:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             sc = sc.apply_space_motion(
                 new_obstime=Time(epoch_out, format="decimalyear")
             )
-    else:
-        epoch_out = epoch_in
 
     # Create output table
     table_out = Table()
 
+    # Propagate the proper-motion uncertainty over the warp baseline into the
+    # position errors: warping shifts each position by mu*dt, which carries an
+    # uncertainty sigma_mu*dt that adds in quadrature to the catalog-epoch
+    # position error. Gaia ra_error and pmra share the alpha* = alpha*cos(dec)
+    # basis (and apply_space_motion uses pm_ra_cosdec=pmra), so the per-axis
+    # quadrature add is convention-consistent; dt=0 (no warp) leaves the errors
+    # unchanged. The same-axis position<->PM covariance (ra_pmra_corr /
+    # dec_pmdec_corr) is not in DR3's default Vizier view and is neglected.
     table_out["ra"] = sc.ra.degree
-    table_out["ra_error"] = table_in[key_ra_error].value / 3_600_000
+    table_out["ra_error"] = (
+        np.hypot(table_in[key_ra_error].value, dt * table_in[key_pmra_error].value)
+        / 3_600_000
+    )
     table_out["dec"] = sc.dec.degree
-    table_out["dec_error"] = table_in[key_dec_error].value / 3_600_000
+    table_out["dec_error"] = (
+        np.hypot(table_in[key_dec_error].value, dt * table_in[key_pmdec_error].value)
+        / 3_600_000
+    )
     table_out["pmra"] = table_in[key_pmra].value
     table_out["pmra_error"] = table_in[key_pmra_error].value
     table_out["pmdec"] = table_in[key_pmdec].value
