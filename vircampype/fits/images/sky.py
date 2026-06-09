@@ -1438,6 +1438,7 @@ class SkyImagesProcessed(SkyImages):
                     key_pmdec="pmdec",
                     key_pmdec_error="pmdec_error",
                     key_ruwe="ruwe",
+                    ruwe_max=self.setup.gaia_ruwe_max,
                     key_gmag="mag",
                     key_gflux="flux",
                     key_gflux_error="flux_error",

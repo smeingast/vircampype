@@ -714,6 +714,7 @@ def make_gaia_refcat(
     key_pmdec: str = "pmdec",
     key_pmdec_error: str = "pmdec_error",
     key_ruwe: str = "ruwe",
+    ruwe_max: float = 1.5,
     key_gmag: str = "mag",
     key_gflux: str = "flux",
     key_gflux_error: str = "flux_error",
@@ -723,8 +724,8 @@ def make_gaia_refcat(
     Build an astrometric reference catalogue in LDAC format from Gaia data.
 
     Sources with non-finite positions, fluxes, or proper motions, or with
-    RUWE >= 1.5, are removed. Coordinates are optionally propagated to a
-    target epoch via proper motion before writing.
+    RUWE >= ``ruwe_max``, are removed. Coordinates are optionally propagated
+    to a target epoch via proper motion before writing.
 
     Parameters
     ----------
@@ -757,6 +758,9 @@ def make_gaia_refcat(
         ``"pmdec_error"``.
     key_ruwe : str, optional
         Column name for RUWE. Default is ``"ruwe"``.
+    ruwe_max : float, optional
+        Maximum RUWE; sources with ``RUWE >= ruwe_max`` are removed.
+        Default is ``1.5``.
     key_gmag : str, optional
         Column name for G-band magnitude. Default is ``"mag"``.
     key_gflux : str, optional
@@ -781,7 +785,7 @@ def make_gaia_refcat(
         & np.isfinite(table_in[key_gflux_error])
         & np.isfinite(table_in[key_pmra])
         & np.isfinite(table_in[key_pmdec])
-        & (table_in[key_ruwe] < 1.5)
+        & (table_in[key_ruwe] < ruwe_max)
     )
     table_in = table_in[keep]
 
