@@ -19,6 +19,7 @@ from sklearn.neighbors import KernelDensity, NearestNeighbors
 
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.astromatic import *
 from vircampype.tools.fitstools import *
 from vircampype.tools.imagetools import *
@@ -146,10 +147,22 @@ class SextractorCatalogs(SourceCatalogs):
             return
 
         # Load astrometric reference
-        astrefact_name = self.get_master_astrometry().paths_full[0]
+        master_astrometry = self.get_master_astrometry()
+        astrefact_name = master_astrometry.paths_full[0]
 
         # Add to log
         log.info(f"Astrometric reference: {astrefact_name}")
+
+        # Stored EPOCH must match exposures mean epoch.
+        if self.setup.warp_gaia:
+            mjd = self.read_from_image_headers([self.setup.keywords.date_mjd])
+            data_epoch = Time(np.mean(mjd[0]), format="mjd").decimalyear
+            if abs(master_astrometry.epoch - data_epoch) > 0.01:
+                raise PipelineValueError(
+                    f"MASTER-ASTROMETRY epoch ({master_astrometry.epoch:.4f} yr) does "
+                    f"not match exposures epoch ({data_epoch:.4f} yr)",
+                    logger=log,
+                )
 
         # Load Scamp setup
         scs = ScampSetup(setup=self.setup)
