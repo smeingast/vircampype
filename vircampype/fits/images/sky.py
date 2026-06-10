@@ -292,11 +292,17 @@ class SkyImages(FitsImages):
         path_tables_clean = []
         indices_to_process = []
         for idx, pt in enumerate(self.paths_source_tables(preset=preset)):
-            if self.setup.overwrite or not os.path.isfile(pt):
-                if not self.setup.overwrite:
-                    check_file_exists(file_path=pt, silent=silent)
-                path_tables_clean.append(pt)
-                indices_to_process.append(idx)
+            if not self.setup.overwrite and check_file_exists(
+                file_path=pt, silent=silent
+            ):
+                continue
+            path_tables_clean.append(pt)
+            indices_to_process.append(idx)
+        log.info(
+            f"Source detection (preset '{preset}'): creating "
+            f"{len(indices_to_process)}/{len(self)} catalogs "
+            f"({len(self) - len(indices_to_process)} skipped as existing)"
+        )
 
         # Set some common variables
         kwargs_yml = dict(
@@ -1067,6 +1073,7 @@ class SkyImagesProcessed(SkyImages):
 
         # Check if all files exist and return if they do
         if all([check_file_exists(file_path=oo, silent=False) for oo in outpaths]):
+            print_elapsed(tstart, logger=log)
             return
 
         use_noisechisel = self.setup.source_mask_method.lower() == "noisechisel"
@@ -1795,6 +1802,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             check_file_exists(file_path=outpath, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
+            print_elapsed(tstart, logger=log)
             return
 
         # Instantiate output
@@ -2044,6 +2052,7 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             and not self.setup.overwrite
         ):
             log.info("File already exists, skipping")
+            print_elapsed(tstart, logger=log)
             return
 
         # Fix VIRCAM headers if set (necessary for building field headers from raw data)
@@ -3185,6 +3194,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             and not self.setup.overwrite
         ):
             log.info("File already exists, skipping")
+            print_elapsed(tstart, logger=log)
             return
 
         # Generate temporary coadd and coadd weight names on local disk

@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 from typing import List, Optional, Tuple
@@ -12,6 +13,8 @@ __all__ = [
     "sort_vircam_science",
     "sort_by_passband",
 ]
+
+log = logging.getLogger(__name__)
 
 
 def split_in_science_and_calibration(
@@ -65,6 +68,11 @@ def split_in_science_and_calibration(
     paths_science = [paths_files[i] for i in idx_science]
     paths_calib = [paths_files[i] for i in idx_calib]
 
+    log.info(
+        f"Classified {len(paths_science)} SCIENCE and {len(paths_calib)} CALIB "
+        f"files (of {len(paths_files)})"
+    )
+
     # Return
     return paths_science, paths_calib
 
@@ -98,7 +106,9 @@ def sort_vircam_calibration(paths_calib: List[str]) -> Optional[List[str]]:
     make_folder(path=path_folder)
 
     # Move files to calibration directory
+    log.info(f"Moving {len(paths_calib)} calibration files to {path_folder}")
     for p in paths_calib:
+        log.debug(f"Moving {p} -> {path_folder}")
         shutil.move(p, path_folder)
 
     return [f"{path_folder}{os.path.basename(p)}" for p in paths_calib]
@@ -149,7 +159,12 @@ def sort_vircam_science(paths_science: List[str]) -> Optional[List[str]]:
     paths_move = [f"{d}{o}/{f}" for d, o, f in zip(paths_dirs, obj, file_names)]
 
     # Move files to folders
+    log.info(
+        f"Moving {len(paths_science)} science files into {len(uobj)} object "
+        f"folder(s): {', '.join(uobj)}"
+    )
     for po, pm in zip(paths_science, paths_move):
+        log.debug(f"Moving {po} -> {pm}")
         shutil.move(po, pm)
 
     return paths_move
@@ -181,10 +196,15 @@ def sort_by_passband(paths: List[str]) -> None:
     ]
 
     # Loop over files and sort into subdirectories
+    log.info(
+        f"Sorting {len(paths)} files into passband subfolders: "
+        f"{', '.join(sorted(set(passbands)))}"
+    )
     for pp, dd, pb in zip(paths, directories, passbands):
         # Make directories
         make_folder(f"{dd}{pb}")
 
         # Move files
         outname = f"{dd}{pb}/{os.path.basename(pp)}"
+        log.debug(f"Moving {pp} -> {outname}")
         shutil.move(pp, outname)

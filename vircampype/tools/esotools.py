@@ -612,6 +612,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
     ]
     if np.sum(check) == 3 and not setup.overwrite:
         log.info("File already exists, skipping")
+        print_elapsed(tstart, logger=log)
         return
 
     # Status message

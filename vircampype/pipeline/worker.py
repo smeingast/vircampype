@@ -18,6 +18,7 @@ Tip (dev install):
 
 import argparse
 import datetime
+import fnmatch
 import glob
 import logging
 import os
@@ -160,6 +161,9 @@ def _run_sort(paths: Sequence[str]) -> None:
     )
     sort_vircam_calibration(paths_calib=paths_calib)
     sort_vircam_science(paths_science=paths_science)
+    print(
+        f"Sorted {len(paths_calib)} calibration and {len(paths_science)} science files."
+    )
 
 
 def _run_pipeline(
@@ -169,10 +173,11 @@ def _run_pipeline(
     **setup_overrides,
 ) -> None:
     from vircampype.pipeline.main import Pipeline
-    from vircampype.tools.systemtools import clean_directory, remove_directory
+    from vircampype.tools.systemtools import remove_directory, remove_file
 
     pipeline = Pipeline(setup=setup, **setup_overrides)
     _set_console_title(pipeline.setup.name)
+    log = logging.getLogger(__name__)
 
     if dry_run:
         print(f"Setup '{pipeline.setup.name}' validated successfully.")
@@ -184,16 +189,32 @@ def _run_pipeline(
         for path in glob.glob(os.path.join(cache_dir, "vircampype_headers_*")):
             os.remove(path)
             removed += 1
+        log.info(f"Reset 'cache': removed {removed} header cache file(s)")
         print(f"Removed {removed} cached header file(s) from {cache_dir}")
         return
 
     if reset == "all":
-        folders = pipeline.setup.folders
-        remove_directory(folders["object"])
+        path_object = pipeline.setup.folders["object"]
+        # WARNING reaches the console; the file record dies with the tree.
+        log.warning(f"Reset 'all': removing output folder {path_object}")
+        remove_directory(path_object)
         return
 
     if reset == "progress":
-        clean_directory(pipeline.setup.folders["temp"])
+        # Keep pipeline_*.log so the reset itself stays on record (and the
+        # live log handler keeps writing to a valid file).
+        temp_dir = pipeline.setup.folders["temp"]
+        paths_remove = [
+            p
+            for p in glob.glob(os.path.join(temp_dir, "*"))
+            if not fnmatch.fnmatch(os.path.basename(p), "pipeline_*.log*")
+        ]
+        log.warning(
+            f"Reset 'progress': removing {len(paths_remove)} file(s) from "
+            f"{temp_dir} (pipeline logs kept)"
+        )
+        for p in paths_remove:
+            remove_file(p)
         return
 
     if "calibration" in pipeline.setup.name.lower():

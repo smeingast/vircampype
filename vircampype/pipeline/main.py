@@ -18,7 +18,7 @@ from vircampype.tools.fitstools import (
     combine_mjd_images,
     compress_images,
 )
-from vircampype.tools.messaging import print_end, print_message, print_start
+from vircampype.tools.messaging import print_end, print_stage_skip, print_start
 from vircampype.tools.systemtools import *
 
 
@@ -49,8 +49,11 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
                 return
             if getattr(self.status, status_attr):
                 # Normal checkpoint-resume skip of a whole stage: INFO, not a
-                # warning (it is expected, not an anomaly).
+                # warning (it is expected, not an anomaly). One console line so
+                # resumed runs list every stage instead of omitting it.
                 log.info(f"Skipping {message}: already complete")
+                if not self.setup.silent:
+                    print_stage_skip(message)
                 return
             log.info(f"START {message}")
             method(self, *args, **kwargs)
@@ -904,9 +907,13 @@ class Pipeline:
         """Build a QC summary table aggregating key metrics from stacks and tile."""
 
         if self.status.qc_summary:
-            print_message(
-                message="QC SUMMARY TABLE already done", kind="warning", end=None
+            # Routine checkpoint skip: same treatment as the decorated stages
+            # (INFO record + console line), not a warning.
+            logging.getLogger(__name__).info(
+                "Skipping QC SUMMARY TABLE: already complete"
             )
+            if not self.setup.silent:
+                print_stage_skip("QC SUMMARY TABLE")
             return
 
         stacks = catalogs = tile = tile_cat = None
@@ -987,27 +994,29 @@ class Pipeline:
     def shallow_clean(self):
         """Remove intermediate processing steps,
         but leave the most important files in the directory tree."""
-
-        # Clean illumination correction directory
-        clean_directory(self.setup.folders["illumcorr"])
-
-        # Clean basic processed directory
-        clean_directory(self.setup.folders["processed_basic"])
-
-        # Clean final processed directory
-        clean_directory(self.setup.folders["processed_final"], pattern="*.fits")
-        clean_directory(self.setup.folders["processed_final"], pattern="*.fits.tab")
-        clean_directory(self.setup.folders["processed_final"], pattern="*.ahead")
-
-        # Clean resampled pawprint images and catalogs
-        clean_directory(self.setup.folders["resampled"])
-
-        # Clean per-pawprint statistics images
-        clean_directory(self.setup.folders["statistics"])
+        log = logging.getLogger(__name__)
+        targets = [
+            (self.setup.folders["illumcorr"], "*"),
+            (self.setup.folders["processed_basic"], "*"),
+            (self.setup.folders["processed_final"], "*.fits"),
+            (self.setup.folders["processed_final"], "*.fits.tab"),
+            (self.setup.folders["processed_final"], "*.ahead"),
+            (self.setup.folders["resampled"], "*"),
+            (self.setup.folders["statistics"], "*"),
+        ]
+        for path, pattern in targets:
+            n_removed = clean_directory(path, pattern=pattern)
+            log.info(f"Cleaned {path} (pattern '{pattern}'): {n_removed} files")
 
     def deep_clean(self):
         """Runs a shallow clean followed by deleting the pipeline status"""
         self.shallow_clean()
+        # WARNING so the removal of the status (and the run logs in temp,
+        # including the live one) is visible on the console and on record.
+        logging.getLogger(__name__).warning(
+            f"Deep clean: removing pipeline status and logs from "
+            f"{self.setup.folders['temp']}"
+        )
         clean_directory(self.setup.folders["temp"])
 
     @pipeline_step("archive", message="ARCHIVING")

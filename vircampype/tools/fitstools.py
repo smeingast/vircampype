@@ -14,7 +14,12 @@ from astropy.time import Time
 
 from vircampype.pipeline.misc import *
 from vircampype.tools.mathtools import clipped_median
-from vircampype.tools.messaging import check_file_exists, print_header, print_message
+from vircampype.tools.messaging import (
+    check_file_exists,
+    print_elapsed,
+    print_header,
+    print_message,
+)
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
@@ -1307,12 +1312,13 @@ def build_qc_summary(
         check_file_exists(file_path=path_out, silent=setup.silent)
         and not setup.overwrite
     ):
+        # Routine checkpoint skip: info-grade, not a warning.
         print_message(
             message=f"{os.path.basename(path_out)} already exists, skipping",
-            kind="warning",
             end=None,
             logger=log,
         )
+        print_elapsed(tstart, logger=log)
         return path_out
 
     kw = {

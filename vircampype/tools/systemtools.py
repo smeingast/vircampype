@@ -525,7 +525,7 @@ def remove_directory(path_folder: str) -> None:
         pass
 
 
-def clean_directory(directorypath: str, pattern: str = "*") -> None:
+def clean_directory(directorypath: str, pattern: str = "*") -> int:
     """
     Function to remove files in a directory, following a name pattern.
 
@@ -538,12 +538,15 @@ def clean_directory(directorypath: str, pattern: str = "*") -> None:
 
     Returns
     -------
-    None
+    int
+        Number of matched files (removal is attempted for each).
     """
     if not directorypath.endswith("/"):
         directorypath = directorypath + "/"
-    for f in glob.glob(directorypath + pattern):
+    files = glob.glob(directorypath + pattern)
+    for f in files:
         remove_file(f)
+    return len(files)
 
 
 def notify_pushover(

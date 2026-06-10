@@ -144,6 +144,7 @@ class SextractorCatalogs(SourceCatalogs):
         # If already available, skip
         if np.sum(ehdrs) == len(self):
             log.info("All scamp .ahead headers already present, skipping")
+            print_elapsed(tstart, logger=log)
             return
 
         # Load astrometric reference
@@ -1814,6 +1815,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             check_file_exists(file_path=outpath, silent=self.setup.silent)
             and not self.setup.overwrite
         ):
+            print_elapsed(tstart, logger=log)
             return
 
         # Get internal photometric error stats

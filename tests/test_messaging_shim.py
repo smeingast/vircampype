@@ -7,9 +7,11 @@ from contextlib import redirect_stdout
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.messaging import (
     check_file_exists,
+    print_elapsed,
     print_end,
     print_header,
     print_message,
+    print_stage_skip,
     print_start,
 )
 
@@ -52,6 +54,19 @@ class TestMessagingShim(unittest.TestCase):
 
     def test_check_file_exists_false_no_log(self):
         self.assertFalse(check_file_exists("/no/such/file_xyz.fits"))
+
+    def test_print_elapsed_prints_and_logs_info(self):
+        buf = io.StringIO()
+        with self.assertLogs(_LOGGER, level="INFO") as cm, redirect_stdout(buf):
+            print_elapsed(t0_for_end())
+        self.assertIn("-> Elapsed time:", buf.getvalue())
+        self.assertTrue(any("Elapsed time" in m for m in cm.output))
+
+    def test_print_stage_skip_prints_console_line(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            print_stage_skip("MASTER-FLAT")
+        self.assertIn("MASTER-FLAT - already complete", buf.getvalue())
 
     def test_print_start_returns_float_and_logs(self):
         with self.assertLogs(_LOGGER, level="INFO"):

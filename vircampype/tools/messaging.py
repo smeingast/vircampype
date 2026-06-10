@@ -43,7 +43,9 @@ __all__ = [
     "print_header",
     "message_calibration",
     "check_file_exists",
+    "print_elapsed",
     "print_end",
+    "print_stage_skip",
     "print_start",
     "message_qc_astrometry",
 ]
@@ -204,6 +206,46 @@ def print_end(
     print(f"{BColors.OKGREEN}{'‾' * width}{BColors.ENDC}")
 
     _logger(logger).info(end_message)
+
+
+def print_elapsed(
+    tstart: float,
+    logger: PipelineLog | None = None,
+) -> None:
+    """
+    Print the standard per-stage elapsed-time footer.
+
+    Parameters
+    ----------
+    tstart : float
+        Stage start time in seconds since the Epoch (from ``time.time()``).
+    logger : PipelineLog or None, optional
+        Logger instance to use for logging the messages. If None, the shared
+        logger is used.
+    """
+    print_message(
+        message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+        kind="okblue",
+        end="\n",
+        logger=logger,
+    )
+
+
+def print_stage_skip(header: str) -> None:
+    """
+    Print a one-line console notice for a checkpoint-skipped pipeline stage.
+
+    The file-log record is written by the caller (the pipeline_step decorator
+    logs the skip at INFO); this helper only provides the console line so a
+    resumed run lists every stage instead of silently omitting completed ones.
+
+    Parameters
+    ----------
+    header : str
+        Stage name (the pipeline_step message).
+    """
+    _finalize_progress()
+    print(f"{BColors.OKGREEN}✓ {header} - already complete{BColors.ENDC}")
 
 
 def message_calibration(
