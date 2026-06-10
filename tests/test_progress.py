@@ -4,7 +4,7 @@ the live bar itself is TTY-only and not asserted here."""
 import io
 import unittest
 
-from vircampype.pipeline.progress import report_progress, stop_progress, track
+from vircampype.pipeline.progress import monitor, report_progress, stop_progress, track
 from vircampype.tools.messaging import message_calibration
 
 _LOGGER = "vircampype.pipeline.progress"
@@ -54,6 +54,40 @@ class TestProgress(unittest.TestCase):
     def test_track_without_label_is_noop(self):
         with track(None, total=3) as advance:
             advance()  # must not raise
+
+    def test_monitor_off_tty_is_noop(self):
+        from vircampype.pipeline import progress
+
+        with monitor("Coadding tile", total=1000) as set_completed:
+            set_completed(500)  # must not raise
+        self.assertIsNone(progress._driver._progress)
+
+    def test_monitor_without_label_or_total_is_noop(self):
+        with monitor(None, total=100) as set_completed:
+            set_completed(50)
+        with monitor("x", total=0) as set_completed:
+            set_completed(50)
+
+    def test_monitor_live_path_scales_to_percent(self):
+        # The monitor scales absolute values (bytes) to a 0-100 percent task.
+        from rich.console import Console
+
+        from vircampype.pipeline import logsetup, progress
+
+        saved = logsetup._console
+        logsetup._console = Console(file=io.StringIO(), force_terminal=True, width=80)
+        try:
+            with monitor("Coadding tile", total=2000) as set_completed:
+                set_completed(500)
+                task = progress._driver._progress.tasks[-1]
+                self.assertEqual(task.total, 100)
+                self.assertEqual(task.completed, 25.0)
+                set_completed(4000)  # over-shoot clamps at 100
+                self.assertEqual(task.completed, 100.0)
+            self.assertIn("finished_at", task.fields)
+        finally:
+            stop_progress()
+            logsetup._console = saved
 
     def test_driver_batch_task_lifecycle(self):
         # Drive the determinate-bar path directly against a forced-terminal

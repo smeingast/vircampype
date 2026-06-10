@@ -29,7 +29,7 @@ import threading
 
 from vircampype.pipeline.logsetup import get_console
 
-__all__ = ["report_progress", "spinner", "stop_progress", "track"]
+__all__ = ["monitor", "report_progress", "spinner", "stop_progress", "track"]
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +90,11 @@ class _ProgressDriver:
             def render(self, task):
                 if task.total is None:
                     return Text("")
+                # Byte-monitor tasks show a percentage, not raw counts.
+                if task.fields.get("percent"):
+                    return Text(
+                        f"{int(task.completed):d}%", style="progress.percentage"
+                    )
                 return super().render(task)
 
         class _ElapsedOrClockColumn(ProgressColumn):
@@ -208,13 +213,13 @@ class _ProgressDriver:
         """Current wall-clock time as HH:MM:SS (the finish stamp on a done bar)."""
         return datetime.datetime.now().strftime("%H:%M:%S")
 
-    def start_task(self, description, total):
+    def start_task(self, description, total, **fields):
         """Add a standalone task (determinate bar, or a 1-step spinner) and
         return its id. Used by the shell-command batch stages, which run between
         the ``message_calibration`` loops, so they share the one live display.
         """
         self._prepare()
-        return self._progress.add_task(description, total=total)
+        return self._progress.add_task(description, total=total, **fields)
 
     def start_spinner(self, description):
         """Add an indeterminate spinner (icon + label + elapsed; no bar/count).
@@ -229,6 +234,11 @@ class _ProgressDriver:
         """Advance a batch task by one finished command."""
         if self._progress is not None and task_id is not None:
             self._progress.advance(task_id, 1)
+
+    def set_task(self, task_id, completed):
+        """Set a task's absolute completion (the byte-monitor path)."""
+        if self._progress is not None and task_id is not None:
+            self._progress.update(task_id, completed=completed)
 
     def finish_task(self, task_id):
         """Stamp the finish clock and keep the bar rendered.
@@ -321,6 +331,29 @@ def track(label, total):
     task = _driver.start_task(label, total)
     try:
         yield lambda: _driver.advance_task(task)
+    finally:
+        _driver.finish_task(task)
+
+
+@contextlib.contextmanager
+def monitor(label, total):
+    """Percentage bar driven by absolute ``completed`` values (e.g. bytes
+    written to an output file while an external command runs).
+
+    Yields a one-arg ``set_completed(value)`` callable taking values in the
+    same units as ``total``; the display is scaled to percent. Like
+    :func:`track`, it is a no-op that renders nothing - while still yielding a
+    working callable - when ``label`` is None, ``total`` is falsy, off the
+    main thread, in a worker process, or off a TTY.
+    """
+    if label is None or not total or not _can_drive_live():
+        yield lambda completed: None
+        return
+    task = _driver.start_task(label, total=100, percent=True)
+    try:
+        yield lambda completed: _driver.set_task(
+            task, min(100.0 * completed / total, 100.0)
+        )
     finally:
         _driver.finish_task(task)
 

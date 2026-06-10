@@ -2268,6 +2268,23 @@ class SkyImagesProcessedOffset(SkyImagesProcessed):
         )
 
 
+def _swarp_progress_kwargs(setup, paths: list[str]) -> dict:
+    """Byte-based progress kwargs for a SWarp coadd onto the tile grid.
+
+    Expected size = image + weight as float32 on the tile geometry. Returns an
+    empty dict (run_command_shell then falls back to the spinner) if the coadd
+    header is unavailable. For the statistics coadds the geometry is derived by
+    SWarp from the inputs, so the total is an estimate; the bar clamps below
+    100% until the command exits either way.
+    """
+    try:
+        hdr = fits.Header.fromtextfile(setup.path_coadd_header)
+        total = 2 * hdr["NAXIS1"] * hdr["NAXIS2"] * 4
+    except (OSError, KeyError):
+        return {}
+    return {"progress_paths": paths, "progress_total_bytes": total}
+
+
 class SkyImagesResampled(SkyImagesProcessed):
     """Resampled pawprint images on the common tile grid."""
 
@@ -2686,8 +2703,13 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Construct commands for swarping
             cmd = f"{sws.bin} '@{path_list}' -c '{sws.default_config}' {ss}"
 
-            # Run Swarp
-            _, stderr = run_command_shell(cmd=cmd, silent=True, label="Coadding tile")
+            # Run Swarp (percentage bar from the growing output files)
+            _, stderr = run_command_shell(
+                cmd=cmd,
+                silent=True,
+                label="Coadding tile",
+                **_swarp_progress_kwargs(self.setup, [path_coadd_tmp, path_weight_tmp]),
+            )
 
             # Wait to ensure file is written
             time.sleep(self.setup.swarp_post_sleep)
@@ -3262,9 +3284,14 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Construct commands for source extraction
         cmd = f"{sws.bin} @{path_temp_images} -c {sws.default_config} {ss}"
 
-        # Run Swarp
-        print_message(message=f"Coadding {os.path.basename(outpath_final)}")
-        run_command_shell(cmd=cmd, silent=True)
+        # Run Swarp (percentage bar from the growing output files; the bar
+        # label replaces the old dangling "Coadding ..." status line)
+        run_command_shell(
+            cmd=cmd,
+            silent=True,
+            label=f"Coadding {os.path.basename(outpath_final)}",
+            **_swarp_progress_kwargs(self.setup, [outpath_temp, outpath_temp_weight]),
+        )
 
         # Move temp to final
         shutil.move(outpath_temp, outpath_final)

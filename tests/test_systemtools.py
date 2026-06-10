@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+
 from vircampype.tools.systemtools import *
 
 
@@ -51,6 +52,22 @@ class TestUtilityFunctions(unittest.TestCase):
             os.makedirs(test_path)
             remove_directory(test_path)
             self.assertFalse(os.path.exists(test_path))
+
+    def test_run_command_shell_progress_branch(self):
+        # Exercises the byte-monitor branch (Popen + temp-file output capture);
+        # the bar itself is a no-op off-TTY, but output and exit handling must
+        # match the spinner branch.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            grown = os.path.join(temp_dir, "out.bin")
+            stdout, stderr = run_command_shell(
+                cmd=f"printf xxxxx > {grown}; echo done; echo oops 1>&2",
+                silent=True,
+                label="Test",
+                progress_paths=[grown],
+                progress_total_bytes=5,
+            )
+        self.assertEqual(stdout, "done")
+        self.assertEqual(stderr, "oops")
 
     def test_clean_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:

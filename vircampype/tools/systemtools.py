@@ -322,7 +322,12 @@ def run_commands_shell_parallel(
 
 
 def run_command_shell(
-    cmd: str, shell: str = "bash", silent: bool = False, label: str | None = None
+    cmd: str,
+    shell: str = "bash",
+    silent: bool = False,
+    label: str | None = None,
+    progress_paths: list[str] | None = None,
+    progress_total_bytes: int | None = None,
 ) -> tuple[str, str]:
     """
     Runs a single shell command in the specified shell.
@@ -338,6 +343,12 @@ def run_command_shell(
     label : str | None, optional
         If set, show an animated spinner with this description while the command
         runs (e.g. SCAMP, the tile coadd). No-op off a TTY / off the main thread.
+    progress_paths : list[str] | None, optional
+        Output files the command grows while it runs (e.g. the SWarp coadd and
+        its weight). Together with ``progress_total_bytes``, their summed size
+        drives a percentage bar instead of the indeterminate spinner.
+    progress_total_bytes : int | None, optional
+        Expected final size of ``progress_paths`` combined, in bytes.
 
     Returns
     ----------
@@ -348,27 +359,59 @@ def run_command_shell(
     # Append dynamic libraries
     cmd = cmd_prepend_libraries(cmd)
 
-    # Animate a spinner while the (single, long) command runs. Its output is
-    # captured here and only printed after completion, so the spinner never
-    # collides with live tool output.
-    from vircampype.pipeline.progress import spinner, stop_progress
+    from vircampype.pipeline.progress import monitor, spinner, stop_progress
 
-    with spinner(label):
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            executable=which(shell),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+    if progress_paths and progress_total_bytes:
+        # Byte-monitor path: watch the growing output files and render a
+        # percentage bar. Output goes to temp FILES (nothing drains pipes
+        # during the poll loop, so PIPE would deadlock on chatty tools) and is
+        # read back afterwards for the same DEBUG record as the spinner path.
+        # The bar is clamped below 100% while the command runs: the size is a
+        # best-effort proxy (pre-allocation or an estimated total must never
+        # show a full bar before the command exits).
+        with (
+            tempfile.TemporaryFile() as fout,
+            tempfile.TemporaryFile() as ferr,
+            monitor(label, progress_total_bytes) as set_completed,
+        ):
+            process = subprocess.Popen(
+                cmd, shell=True, executable=which(shell), stdout=fout, stderr=ferr
+            )
+            ceiling = int(progress_total_bytes * 0.99)
+            while process.poll() is None:
+                size = sum(
+                    os.path.getsize(p) for p in progress_paths if os.path.isfile(p)
+                )
+                set_completed(min(size, ceiling))
+                time.sleep(0.5)
+            if process.returncode == 0:
+                set_completed(progress_total_bytes)
+            fout.seek(0)
+            ferr.seek(0)
+            stdout_raw, stderr_raw = fout.read(), ferr.read()
+        returncode = process.returncode
+    else:
+        # Animate a spinner while the (single, long) command runs. Its output
+        # is captured here and only printed after completion, so the spinner
+        # never collides with live tool output.
+        with spinner(label):
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                executable=which(shell),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        stdout_raw, stderr_raw = result.stdout, result.stderr
+        returncode = result.returncode
 
     # Decode the command output
     try:
-        stdout = result.stdout.decode("utf-8").strip()
-        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        stdout = stdout_raw.decode("utf-8").strip()
+        stderr = stderr_raw.decode("utf-8", errors="replace").strip()
     except UnicodeDecodeError:  # if utf-8 fails, try latin-1
-        stdout = result.stdout.decode("latin-1", errors="replace").strip()
-        stderr = result.stderr.decode("latin-1", errors="replace").strip()
+        stdout = stdout_raw.decode("latin-1", errors="replace").strip()
+        stderr = stderr_raw.decode("latin-1", errors="replace").strip()
 
     # Record the command and its (bounded) output in the file log at DEBUG.
     log.debug(f"ran: {cmd}")
@@ -376,8 +419,8 @@ def run_command_shell(
         log.debug(f"stdout:\n{_truncate_output(stdout)}")
     if stderr:
         log.debug(f"stderr:\n{_truncate_output(stderr)}")
-    if result.returncode != 0:
-        log.warning(f"command exited with code {result.returncode}: {cmd}")
+    if returncode != 0:
+        log.warning(f"command exited with code {returncode}: {cmd}")
 
     # If not in silent mode, print the output to terminal
     if not silent:
