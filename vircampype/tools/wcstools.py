@@ -218,7 +218,7 @@ def skycoord2header(
         ctype1 = f"GLON{proj_code:->4}"
         ctype2 = f"GLAT{proj_code:->4}"
     else:
-        raise ValueError(f"Frame {skycoord.frame:s} not supported")
+        raise ValueError(f"Frame {skycoord.frame.name} not supported")
 
     # Set CDELT in each axis (negative for longitude/x)
     cdelt1, cdelt2 = -cdelt, cdelt

@@ -40,6 +40,10 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
+# Poll interval (s) for the byte-monitor progress branch of run_command_shell;
+# a module constant so tests can shrink the real-time wait.
+_PROGRESS_POLL_INTERVAL = 0.5
+
 # Bytes of stdout/stderr kept at each end when logging captured tool output.
 _OUTPUT_KEEP = 4000
 
@@ -383,7 +387,7 @@ def run_command_shell(
                     os.path.getsize(p) for p in progress_paths if os.path.isfile(p)
                 )
                 set_completed(min(size, ceiling))
-                time.sleep(0.5)
+                time.sleep(_PROGRESS_POLL_INTERVAL)
             if process.returncode == 0:
                 set_completed(progress_total_bytes)
             fout.seek(0)

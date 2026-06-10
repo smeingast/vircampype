@@ -6,6 +6,7 @@ import numpy as np
 from astropy import wcs
 from astropy.convolution import (
     Box2DKernel,
+    CustomKernel,
     Gaussian1DKernel,
     Gaussian2DKernel,
     Kernel2D,

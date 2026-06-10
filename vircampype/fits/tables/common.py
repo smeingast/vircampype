@@ -221,7 +221,6 @@ class FitsTables(FitsFiles):
 
         """
         with fits.open(self.paths_full[idx_file]) as f:
-
             # Read file
             data_hdus = [f[hdu].data for hdu in self.iter_data_hdu[idx_file]]
 

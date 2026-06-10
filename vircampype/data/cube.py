@@ -888,10 +888,9 @@ class ImageCube(object):
 
         """
 
-        # If we have a float or integer
-        if (isinstance(norm, (int, np.integer))) | (
-            isinstance(norm, (int, np.floating))
-        ):
+        # If we have a float or integer (a plain Python float previously fell
+        # through to the unsupported-type error despite the documented API)
+        if isinstance(norm, (int, np.integer, float, np.floating)):
             self.cube /= norm
 
         # If we have an array...

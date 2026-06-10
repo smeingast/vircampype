@@ -148,12 +148,11 @@ def sort_vircam_science(paths_science: List[str]) -> Optional[List[str]]:
     # Identify unique objects
     uobj = sorted(list(set(obj)))
 
-    # Get current working directory
-    cwd = f"{os.getcwd()}/"
-
-    # Make folders
-    for uo in uobj:
-        make_folder(path=f"{cwd}{uo}")
+    # Make folders next to each file (where the move targets point; creating
+    # them under the current working directory broke --sort when run from
+    # elsewhere)
+    for d, o in sorted(set(zip(paths_dirs, obj))):
+        make_folder(path=f"{d}{o}")
 
     # Construct output paths
     paths_move = [f"{d}{o}/{f}" for d, o, f in zip(paths_dirs, obj, file_names)]

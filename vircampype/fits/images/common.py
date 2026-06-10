@@ -204,13 +204,13 @@ class FitsImages(FitsFiles):
         if n_ndit_min is not None:
             if len(set(self.ndit)) < n_ndit_min:
                 raise ValueError(
-                    f"Found {len(set(self.dit)):0g} different NDITs; min = {n_ndit_min:0g}"
+                    f"Found {len(set(self.ndit)):0g} different NDITs; min = {n_ndit_min:0g}"
                 )
 
         if n_ndit_max is not None:
             if len(set(self.ndit)) > n_ndit_max:
                 raise ValueError(
-                    f"Found {len(set(self.dit)):0g} different NDITs; max = {n_ndit_max:0g}"
+                    f"Found {len(set(self.ndit)):0g} different NDITs; max = {n_ndit_max:0g}"
                 )
 
         # Check filters
@@ -222,7 +222,7 @@ class FitsImages(FitsFiles):
         if n_filter_max is not None:
             if len(set(self.passband)) > n_filter_max:
                 raise ValueError(
-                    f"Found {len(set(self.passband)):0g} different filters; max = {n_filter_min:0g}"
+                    f"Found {len(set(self.passband)):0g} different filters; max = {n_filter_max:0g}"
                 )
 
     _dtypes = None

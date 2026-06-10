@@ -1204,12 +1204,14 @@ def tile_fits(
                     tile_path = str(out_dir / tile_name)
 
                     write_tile = overwrite or not os.path.isfile(tile_path)
+                    # Defined here (not in the branch below): the weight check
+                    # needs it too, also when the image tile gets (re)written.
+                    expected_shape = (y1 - y0, x1 - x0)
 
                     # Verify existing tile matches expected geometry
                     if not write_tile:
                         with fits.open(tile_path) as existing:
                             eh = existing[0].header
-                            expected_shape = (y1 - y0, x1 - x0)
                             existing_ok = (
                                 eh.get("NAXIS1") == expected_shape[1]
                                 and eh.get("NAXIS2") == expected_shape[0]
