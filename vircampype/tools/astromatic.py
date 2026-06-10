@@ -75,29 +75,28 @@ def read_aheaders(path: str):
 
     # Open file
     with open(path, "r") as file:
-        # Read textfile
-        data = file.read()
+        lines = file.read().splitlines()
 
-    # Split into HDUs
-    hdus = data.split("END")
-
-    # Loop over HDUs
-    for hdu in hdus:
-        # Skip if empty or only whitespace
-        if not hdu.strip():
+    # Parse line-wise; an HDU ends at an END-only line. Splitting the raw text
+    # on the SUBSTRING "END" (the previous approach) silently corrupted any
+    # header whose card VALUE contains it (e.g. OBJECT = 'BENDER'). A value
+    # can never produce a line that strips to exactly "END".
+    cards = []
+    for line in lines:
+        if line.strip() == "END":
+            if cards:
+                headers.append(fits.Header(cards))
+            cards = []
             continue
+        if not line.strip():
+            continue
+        card = fits.Card.fromstring(line)
+        card.verify(option="silentfix+ignore")
+        if not card.is_blank:
+            cards.append(card)
 
-        # Create cards
-        cards = [fits.Card.fromstring(x) for x in hdu.split("\n")]
-
-        # Verify cards
-        for c in cards:
-            c.verify(option="silentfix+ignore")
-
-        # Clean cards
-        cards = [c for c in cards if not c.is_blank]
-
-        # Create header from cards
+    # Trailing cards without a closing END (defensive; scamp always writes it)
+    if cards:
         headers.append(fits.Header(cards))
 
     # Return list of headers

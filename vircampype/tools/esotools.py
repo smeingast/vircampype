@@ -1132,7 +1132,7 @@ def _make_phase3_columns(data: Union[np.recarray, Table]):
         **fits_column_kwargs["errminmaj"],
     )
     col_errmin = fits.Column(
-        name="ERMIN",
+        name="ERRMIN",
         array=data["ERRBWIN_WORLD"] * 3_600_000,
         **fits_column_kwargs["errminmaj"],
     )
