@@ -1,8 +1,9 @@
 import unittest
-import numpy as np
 
-from astropy.units import Unit
+import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.units import Unit
+
 from vircampype.tools.miscellaneous import *
 
 
@@ -45,13 +46,14 @@ class TestFunctions(unittest.TestCase):
 
     def test_write_list(self):
         import os
+        import tempfile
 
-        test_file = "test_list.txt"
-        test_list = ["a", "b", "c"]
-        write_list(test_file, test_list)
-        with open(test_file, "r") as f:
-            lines = [line.strip() for line in f.readlines()]
-        os.remove(test_file)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = os.path.join(tmpdir, "test_list.txt")
+            test_list = ["a", "b", "c"]
+            write_list(test_file, test_list)
+            with open(test_file, "r") as f:
+                lines = [line.strip() for line in f.readlines()]
 
         self.assertEqual(lines, test_list)
 

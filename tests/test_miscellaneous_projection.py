@@ -1,11 +1,12 @@
 import unittest
-from astropy.io import fits
+
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
+
 from vircampype.miscellaneous.projection import Projection
 
 
 class TestProjection(unittest.TestCase):
-
     def setUp(self):
         self.header = fits.Header()
         self.header["CTYPE1"] = "RA---TAN"

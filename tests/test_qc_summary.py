@@ -57,8 +57,6 @@ def _make_catalog(path, n_sources=200, zp=23.5, zp_err=0.02, n_ext=2):
         flux = rng.uniform(50, 5000, n_sources).astype(np.float32)
         flux_err = rng.uniform(1, 100, n_sources).astype(np.float32)
         snr = flux / flux_err
-        # Set some sources to SNR ~ 5 for maglim computation
-        target = (snr > 4.0) & (snr < 6.0)
         mag_cal = rng.uniform(18, 20, n_sources).astype(np.float32)
         fwhm = rng.uniform(0.0002, 0.0004, n_sources).astype(np.float64)
         ellip = rng.uniform(0.02, 0.15, n_sources).astype(np.float32)

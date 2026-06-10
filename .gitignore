@@ -25,3 +25,6 @@ future-ideas.md
 
 # Local-only dev tools
 compare_reductions.py
+
+# Coverage
+.coverage

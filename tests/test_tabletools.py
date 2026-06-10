@@ -9,6 +9,7 @@ from astropy.table.column import MaskedColumn
 from vircampype.tools.tabletools import (
     fill_masked_columns,
     scamp_xml_radec_correlation,
+    scamp_xml_reference_rms_highsn,
     sextractor_nanify_bad_values,
     split_table,
     table2bintablehdu,
@@ -228,6 +229,82 @@ class TestScampXmlRadecCorrelation(unittest.TestCase):
             "</VOTABLE>\n"
         )
         self.assertEqual(scamp_xml_radec_correlation(self._write(bad)), 0.0)
+
+    def test_out_of_range_field_value_is_excluded(self):
+        # A per-field |corr| > 1 (the SCAMP normalization-bug leak path this
+        # function exists to block) must be excluded from the weighted mean
+        # even when it carries a huge weight.
+        xml = (
+            '<?xml version="1.0"?>\n'
+            '<VOTABLE version="1.3" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">\n'
+            "<RESOURCE>\n"
+            '<TABLE name="Fields">\n'
+            '<FIELD name="AstromCorr_Reference_HighSN" datatype="float"/>\n'
+            '<FIELD name="NDeg_Reference_HighSN" datatype="int"/>\n'
+            "<DATA><TABLEDATA>"
+            "<TR><TD>0.40</TD><TD>100</TD></TR>"
+            "<TR><TD>1.50</TD><TD>100000</TD></TR>"
+            "</TABLEDATA></DATA></TABLE>\n"
+            '<TABLE name="FGroups">'
+            '<FIELD name="AstromCorr_Reference_HighSN" datatype="float"/>'
+            "<DATA><TABLEDATA><TR><TD>0.5</TD></TR></TABLEDATA></DATA></TABLE>\n"
+            "</RESOURCE>\n"
+            "</VOTABLE>\n"
+        )
+        self.assertAlmostEqual(
+            scamp_xml_radec_correlation(self._write(xml)), 0.40, places=6
+        )
+
+
+class TestScampXmlReferenceRmsHighsn(unittest.TestCase):
+    """The high-S/N external RMS reader feeding the ASTRMS1/2 floor (Path A)."""
+
+    def _write(self, text):
+        fd, path = tempfile.mkstemp(suffix=".xml")
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        self.addCleanup(os.remove, path)
+        return path
+
+    @staticmethod
+    def _xml(sigma_cell, arraysize='arraysize="2"'):
+        # Table selection is positional: Fields first, FGroups second.
+        return (
+            '<?xml version="1.0"?>\n'
+            '<VOTABLE version="1.3" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">\n'
+            "<RESOURCE>\n"
+            '<TABLE name="Fields"><FIELD name="dummy" datatype="float"/>'
+            "<DATA><TABLEDATA><TR><TD>0</TD></TR></TABLEDATA></DATA></TABLE>\n"
+            '<TABLE name="FGroups">\n'
+            f'<FIELD name="AstromSigma_Reference_HighSN" datatype="double" '
+            f"{arraysize}/>\n"
+            f"<DATA><TABLEDATA><TR><TD>{sigma_cell}</TD></TR></TABLEDATA></DATA>"
+            "</TABLE>\n"
+            "</RESOURCE>\n"
+            "</VOTABLE>\n"
+        )
+
+    def test_reads_fgroups_sigma_in_degrees(self):
+        path = self._write(self._xml("0.036 0.072"))
+        result = scamp_xml_reference_rms_highsn(path)
+        self.assertIsNotNone(result)
+        self.assertEqual(result, (0.036 / 3600.0, 0.072 / 3600.0))
+
+    def test_missing_file_returns_none(self):
+        self.assertIsNone(scamp_xml_reference_rms_highsn("/nonexistent/scamp.xml"))
+
+    def test_nonpositive_sigma_returns_none(self):
+        self.assertIsNone(
+            scamp_xml_reference_rms_highsn(self._write(self._xml("0.0 0.072")))
+        )
+        self.assertIsNone(
+            scamp_xml_reference_rms_highsn(self._write(self._xml("-0.01 0.072")))
+        )
+
+    def test_scalar_sigma_returns_none(self):
+        # A single value (size < 2) cannot provide per-axis floors.
+        path = self._write(self._xml("0.036", arraysize=""))
+        self.assertIsNone(scamp_xml_reference_rms_highsn(path))
 
 
 if __name__ == "__main__":

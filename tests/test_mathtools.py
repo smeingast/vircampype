@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 from astropy.coordinates import SkyCoord
+
 from vircampype.tools.mathtools import (
     apply_along_axes,
     apply_sigma_clip,

@@ -6,7 +6,6 @@ from vircampype.pipeline.status import PipelineStatus
 
 
 class TestPipelineStatus(unittest.TestCase):
-
     def test_update(self):
         status = PipelineStatus()
         self.assertFalse(status.master_bpm)
@@ -15,9 +14,7 @@ class TestPipelineStatus(unittest.TestCase):
 
     def test_reset(self):
         status = PipelineStatus(
-            master_bpm=True,
-            processed_raw_basic=True,
-            photometry_pawprints=True
+            master_bpm=True, processed_raw_basic=True, photometry_pawprints=True
         )
         status.reset()
         self.assertFalse(status.master_bpm)
@@ -26,9 +23,7 @@ class TestPipelineStatus(unittest.TestCase):
 
     def test_save_and_read(self):
         status = PipelineStatus(
-            master_bpm=True,
-            processed_raw_basic=True,
-            photometry_pawprints=True
+            master_bpm=True, processed_raw_basic=True, photometry_pawprints=True
         )
 
         # Save status to temporary file
@@ -46,5 +41,5 @@ class TestPipelineStatus(unittest.TestCase):
         os.remove(f.name)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
