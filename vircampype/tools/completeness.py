@@ -790,6 +790,9 @@ def run_completeness(
             delayed(measure_completeness)(tile_info=tile, **kwargs)
             for tile in valid_tiles
         )
+        # Create the bar at 0/N right away: the first sub-tile result can take
+        # many minutes, and the task would otherwise only appear when it lands.
+        message_calibration(n_current=0, n_total=n_valid, name="completeness sub-tiles")
         raw_results = []
         for idx, res in enumerate(result_gen):
             message_calibration(
