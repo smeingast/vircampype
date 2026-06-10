@@ -921,14 +921,18 @@ class Pipeline:
             try:
                 stacks = self.stacks
                 catalogs = self.sources_stacks_cal
-            except Exception:
-                pass
+            except Exception as e:
+                logging.getLogger(__name__).warning(
+                    f"QC summary: stacks unavailable ({e}); section skipped"
+                )
         if self.setup.build_tile:
             try:
                 tile = self.tile
                 tile_cat = self.sources_tile_cal
-            except Exception:
-                pass
+            except Exception as e:
+                logging.getLogger(__name__).warning(
+                    f"QC summary: tile unavailable ({e}); section skipped"
+                )
 
         result = build_qc_summary(
             setup=self.setup,

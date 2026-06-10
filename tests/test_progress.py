@@ -30,9 +30,12 @@ class TestProgress(unittest.TestCase):
             )
         self.assertTrue(any("2/5" in m and "det 3/16" in m for m in cm.output))
 
-    def test_silent_message_calibration_emits_nothing(self):
-        with self.assertNoLogs(_LOGGER, level="DEBUG"):
+    def test_silent_message_calibration_keeps_file_trace(self):
+        # silent suppresses only the live bar; the DEBUG file record is always
+        # written so quiet runs stay reconstructable from the log.
+        with self.assertLogs(_LOGGER, level="DEBUG") as cm:
             message_calibration(n_current=1, n_total=3, name="x.fits", silent=True)
+        self.assertTrue(any("1/3" in m and "x.fits" in m for m in cm.output))
 
     def test_stop_progress_idempotent(self):
         stop_progress()

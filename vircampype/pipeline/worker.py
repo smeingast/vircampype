@@ -240,6 +240,14 @@ def _run_cluster(
         queue_status,
         requeue_failed,
     )
+    from vircampype.pipeline.logsetup import configure_standalone_logging
+
+    # No Setup exists on the cluster path; configure a standalone log so the
+    # top-level handler and any cluster logging reach a real file.
+    date_string = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    configure_standalone_logging(
+        os.path.join(tempfile.gettempdir(), f"vircampype_cluster_{date_string}.log")
+    )
 
     config = ClusterConfig.load(cluster_yml)
 

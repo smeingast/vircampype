@@ -15,7 +15,24 @@ skip notice via `print_stage_skip`), P1.1b-lite (elapsed footer added to all 8 e
 branches via new `print_elapsed`; full decorator-owned banner/elapsed NOT yet done), P1.4
 (source-detection skip-logging inversion), P1.6 (`--sort`/`--reset`/`shallow_clean` logging;
 `--reset progress` now keeps `pipeline_*.log*`; `clean_directory` returns counts), P2.6
-(QC-summary skips demoted from WARNING, both sites). OPEN — P1.2, P1.3, P1.5 and the rest.
+(QC-summary skips demoted from WARNING, both sites).
+
+**Status (2026-06-10, second fix round, codex-double-checked):** IMPLEMENTED — P1.5-mostly
+(joblib `verbose=10` dropped; completeness progress driven from the parent via
+`return_as="generator_unordered"`; worker-side per-command DEBUG capture is still lost in loky
+children — remaining known gap), P2.4 (BASIC RAW PROCESSING bar driven from the main thread),
+P2.5-lite (`message_qc_astrometry` finalizes the live bar; rich rendering still open), P2.7
+(MASTER-SKY per-group progress + `Written:`), P2.8 (`tile_fits` logging), P2.9 (NoiseChisel batch
+captured + bar; `ran:` recorded for non-silent batches too), P2.10 (`--cluster` standalone log
+bootstrap; cluster.py print()-mirroring still open), P2.11 (completeness fallback warnings +
+empty-results warning), P2.12 (QC-summary collection exceptions logged), P2.13 (NDIT=1 fallback
+WARNING), P2.15 (`rsync_file` logged + captured), P2.16 (`silent` no longer suppresses the
+DEBUG file trace), P2.19 (`file_log=False` warnings → console handler), P2.20 (file handler on
+the root logger for third-party records), P3.10 (stale logsetup docstring), P3.15 (`read_yml`).
+
+OPEN — P1.2 (one banner per stage), P1.3 (single output stream), P2.1-P2.3 (BColors/`\r`/captions
+modernization), P2.14 (astromatic provenance), P2.17/P2.18 (knob semantics — needs a decision),
+and most P3 polish.
 
 ---
 

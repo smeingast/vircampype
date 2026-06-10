@@ -272,16 +272,21 @@ def message_calibration(
     d_total : int | None, optional
         Total detectors. If None, no inner (per-detector) bar is shown.
     silent : bool, optional
-        If set, nothing will be printed.
+        If set, the live progress bar is suppressed. The DEBUG file record is
+        always written, so quiet runs stay reconstructable from the log.
     """
-
-    if silent:
-        return
 
     # Drive a rich progress bar (main thread + TTY) and a DEBUG file line.
     from vircampype.pipeline.progress import report_progress
 
-    report_progress(n_current, n_total, os.path.basename(name), d_current, d_total)
+    report_progress(
+        n_current,
+        n_total,
+        os.path.basename(name),
+        d_current,
+        d_total,
+        display=not silent,
+    )
 
 
 def check_file_exists(
@@ -356,7 +361,9 @@ def message_qc_astrometry(
     )
     colored_message = f"{color}\n{common_message}{BColors.ENDC}"
 
-    # Console: the colored human-readable QC block (unchanged).
+    # Console: the colored human-readable QC block (unchanged). Finalize any
+    # live progress bar first, like every other raw stdout print path.
+    _finalize_progress()
     print(colored_message, end="\n")
 
     # File: a machine-readable logfmt record, greppable by metric key.

@@ -143,8 +143,8 @@ def read_yml(path_yml: str) -> dict:
         try:
             return yaml.full_load(stream)
         except yaml.YAMLError as exc:
-            print(exc)
-            raise ValueError(f"Could not read YAML file at {path_yml}.")
+            log.error(f"Could not parse YAML file {path_yml}: {exc}")
+            raise ValueError(f"Could not read YAML file at {path_yml}.") from exc
 
 
 def yml2config(path_yml: str, skip=None, **kwargs) -> str:
@@ -277,6 +277,9 @@ def run_commands_shell_parallel(
     shell_path = which(shell)
 
     def _run_one(cmd: str) -> None:
+        # The command line itself is always recorded, also for non-silent
+        # batches whose output is not captured.
+        log.debug(f"ran: {cmd}")
         if silent:
             # Capture instead of discarding (the old DEVNULL): the full output
             # is recorded in the file log at DEBUG. subprocess.run drains the
@@ -292,7 +295,6 @@ def run_commands_shell_parallel(
                 _decode_stream(result.stdout),
                 _decode_stream(result.stderr),
             )
-            log.debug(f"ran: {cmd}")
             if stdout:
                 log.debug(f"stdout:\n{_truncate_output(stdout)}")
             if stderr:
@@ -454,7 +456,17 @@ def rsync_file(src: str, dst: str) -> None:
     # Use original strings to preserve trailing slashes (rsync semantics:
     # trailing slash on src means "copy contents", no slash means "copy dir")
     cmd = ["rsync", "-a", "--checksum", "--", src, dst]
-    subprocess.run(cmd, check=True)
+    log.debug(f"ran: {' '.join(cmd)}")
+    result = subprocess.run(cmd, capture_output=True)
+    if result.returncode != 0:
+        stderr = _decode_stream(result.stderr)
+        log.warning(
+            f"rsync exited with code {result.returncode}: {src} -> {dst}\n"
+            f"{_truncate_output(stderr)}"
+        )
+        raise subprocess.CalledProcessError(
+            result.returncode, cmd, output=result.stdout, stderr=result.stderr
+        )
 
 
 def copy_file(a: str, b: str) -> None:

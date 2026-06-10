@@ -1149,10 +1149,15 @@ def tile_fits(
         Number of tiles that were newly written (0 when all existed already).
 
     """
+    log = logging.getLogger(__name__)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     tile_size_pix = int(round(tile_size_arcmin * 60.0 / pixel_scale_arcsec))
+    log.info(
+        f"Tiling {os.path.basename(image_path)} into ~{tile_size_arcmin}' "
+        f"sub-tiles -> {out_dir}"
+    )
 
     with fits.open(image_path, memmap=True) as hdul:
         data = hdul[0].data
@@ -1265,6 +1270,10 @@ def tile_fits(
         if weight_data is not None:
             whdul.close()
 
+    log.info(
+        f"Tiled {os.path.basename(image_path)} into {len(tiles)} sub-tiles "
+        f"({n_written} newly written)"
+    )
     return tiles, n_written
 
 

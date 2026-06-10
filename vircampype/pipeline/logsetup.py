@@ -6,8 +6,10 @@ reconstructable from the file) and ``propagate=False`` so records never reach
 the root logger. Python warnings are routed to the same file via
 :func:`logging.captureWarnings`, and deliberately kept off the console.
 
-A console handler (WARNING and above) is added in a later migration phase; in
-the meantime terminal output is still produced by the messaging helpers.
+A console handler (WARNING and above; rich on a TTY) keeps the terminal
+minimal - routine terminal output comes from the messaging helpers. When no
+file log is requested (``file_log=False``), captured warnings are routed to
+the console handler instead, so they are never silently dropped.
 """
 
 import datetime
@@ -85,6 +87,12 @@ def _install_file_handler(
     file_handler.setFormatter(formatter)
     logger.addHandler(_own(file_handler))
 
+    # Also attach to the root logger so third-party log records (astropy,
+    # matplotlib, joblib, ...) land in the file log. vircampype's own records
+    # do not duplicate (propagate=False), and third-party DEBUG/INFO chatter
+    # is filtered by the root logger's default WARNING level.
+    logging.getLogger().addHandler(file_handler)
+
     # Route Python warnings to the file log only (never the console).
     logging.captureWarnings(True)
     warnings_logger.addHandler(file_handler)
@@ -149,7 +157,7 @@ def _setup_logger_handlers(
     """
     logger = get_logger()
     warnings_logger = logging.getLogger("py.warnings")
-    _reset_own_handlers((logger, warnings_logger))
+    _reset_own_handlers((logger, warnings_logger, logging.getLogger()))
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
     _install_console_handler(logger, console_level)
@@ -177,8 +185,14 @@ def configure_logging(setup) -> None:
     logger, warnings_logger = _setup_logger_handlers(_console_level(setup))
 
     if not setup.file_log:
-        # No file requested (e.g. a container relying on stdout redirection).
+        # No file requested (e.g. a container relying on stdout redirection):
+        # route captured warnings to the console handler so they are not
+        # silently dropped (there is no file to keep them off the console for).
         logging.captureWarnings(True)
+        warnings_logger.propagate = False
+        for handler in logger.handlers:
+            if getattr(handler, "_vircampype", False):
+                warnings_logger.addHandler(handler)
         return
 
     date_string = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

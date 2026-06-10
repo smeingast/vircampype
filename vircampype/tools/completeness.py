@@ -346,8 +346,8 @@ def _fit_completeness(
                 if y_fine.min() <= 50 <= y_fine.max()
                 else np.nan
             )
-    except (RuntimeError, ValueError):
-        pass
+    except (RuntimeError, ValueError) as e:
+        logging.getLogger(__name__).debug(f"Completeness logistic fit failed: {e}")
     return fit_params, comp90, comp50
 
 
@@ -528,7 +528,11 @@ def measure_completeness(
             [orig_data["XWIN_IMAGE"], orig_data["YWIN_IMAGE"]]
         )
         orig_tree = cKDTree(orig_coords)
-    except (OSError, IndexError, KeyError):
+    except (OSError, IndexError, KeyError) as e:
+        logging.getLogger(__name__).warning(
+            f"Completeness: could not read original-image catalog ({e}); "
+            f"false-match filtering disabled for this sub-tile"
+        )
         orig_tree = None
 
     # all_completeness[si][sj] is a list of per-iteration completeness arrays
@@ -590,7 +594,11 @@ def measure_completeness(
                 det_data = cat_hdul[2].data
             det_x = det_data["XWIN_IMAGE"]
             det_y = det_data["YWIN_IMAGE"]
-        except (OSError, IndexError, KeyError):
+        except (OSError, IndexError, KeyError) as e:
+            logging.getLogger(__name__).warning(
+                f"Completeness: could not read detection catalog ({e}); "
+                f"recording 0% recovery for this iteration"
+            )
             for si in range(n_sub_x):
                 for sj in range(n_sub_y):
                     all_completeness[si][sj].append(np.zeros(n_mag))
@@ -773,10 +781,23 @@ def run_completeness(
     if n_jobs > 1:
         from joblib import Parallel, delayed
 
-        raw_results = Parallel(n_jobs=n_jobs, prefer="processes", verbose=10)(
+        # Consume completions as a generator so progress (bar + DEBUG trace)
+        # is reported from the main process: loky worker records never reach
+        # the file log, and joblib's verbose output would bypass logging.
+        result_gen = Parallel(
+            n_jobs=n_jobs, prefer="processes", return_as="generator_unordered"
+        )(
             delayed(measure_completeness)(tile_info=tile, **kwargs)
             for tile in valid_tiles
         )
+        raw_results = []
+        for idx, res in enumerate(result_gen):
+            message_calibration(
+                n_current=idx + 1,
+                n_total=n_valid,
+                name="completeness sub-tiles",
+            )
+            raw_results.append(res)
     else:
         raw_results = []
         for idx, tile in enumerate(valid_tiles):
@@ -1634,6 +1655,13 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             )
         else:
             log.warning("Completeness: no finite comp50/comp90 values measured")
+    else:
+        # A completely failed analysis would otherwise end silently (and the
+        # pipeline checkpoint still marks the stage complete).
+        log.warning(
+            "Completeness analysis produced no results (no valid sub-tiles); "
+            "no QC products written"
+        )
 
     print_message(
         message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",

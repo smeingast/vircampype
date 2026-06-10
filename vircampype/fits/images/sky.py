@@ -755,16 +755,6 @@ def _process_one_basic_file(
     ):
         return
 
-    # Print processing info
-    message_calibration(
-        n_current=idx_file + 1,
-        n_total=files.n_files,
-        name=outpath,
-        d_current=None,
-        d_total=None,
-        silent=setup.silent,
-    )
-
     # Read science file into cube
     cube = files.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
@@ -922,8 +912,17 @@ class SkyImagesRaw(SkyImages):
                         file_index=idx_file, dtype=np.float32
                     )
 
-        # Process files in parallel (threads backend: FITS I/O releases the GIL)
-        Parallel(n_jobs=self.setup.n_jobs_basic, prefer="threads")(
+        # Process files in parallel (threads backend: FITS I/O releases the GIL).
+        # The progress bar is driven from this (main) thread as files complete;
+        # the workers run off the main thread, where a live bar cannot be drawn
+        # (the per-file trace is in the file log via _process_one_basic_file).
+        from vircampype.pipeline.progress import track
+
+        results = Parallel(
+            n_jobs=self.setup.n_jobs_basic,
+            prefer="threads",
+            return_as="generator_unordered",
+        )(
             delayed(_process_one_basic_file)(
                 idx_file,
                 self,
@@ -936,6 +935,10 @@ class SkyImagesRaw(SkyImages):
             )
             for idx_file in range(self.n_files)
         )
+        bar_label = None if self.setup.silent else "Basic processing"
+        with track(bar_label, self.n_files) as advance:
+            for _ in results:
+                advance()
 
         # Print time
         elapsed = time.time() - tstart
@@ -1207,8 +1210,14 @@ class SkyImagesProcessed(SkyImages):
             log.info(
                 f"Running {len(all_cmds)} noisechisel commands across all detectors"
             )
+            # silent=True captures the commands and their output into the file
+            # log at DEBUG (the commands run with -q, so nothing is lost from
+            # the terminal) and enables the batch progress bar.
             run_commands_shell_parallel(
-                cmds=all_cmds, silent=False, n_jobs=self.setup.n_jobs
+                cmds=all_cmds,
+                silent=True,
+                n_jobs=self.setup.n_jobs,
+                label="NoiseChisel",
             )
 
         # ---- Phase 3: Collect noisechisel results and post-process ----
@@ -1520,6 +1529,17 @@ class SkyImagesProcessed(SkyImages):
                 f"MJD_{files.mjd_mean:0.4f}."
                 f"FIL_{files.passband[0]}.fits"
             )
+
+            # Print processing info
+            message_calibration(
+                n_current=fidx,
+                n_total=len(split),
+                name=outpath,
+                d_current=None,
+                d_total=None,
+                silent=self.setup.silent,
+            )
+
             # Check if the file is already there and skip if it is
             if check_file_exists(file_path=outpath, silent=self.setup.silent):
                 continue
@@ -1585,6 +1605,7 @@ class SkyImagesProcessed(SkyImages):
             master_cube.write_mef(
                 path=outpath, prime_header=hdr_prime, data_headers=data_headers
             )
+            log.info(f"Written: {outpath}")
 
             # QC plot
             if self.setup.qc_plots:

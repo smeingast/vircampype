@@ -1,3 +1,4 @@
+import logging
 import os
 
 import numpy as np
@@ -61,6 +62,12 @@ class FitsImages(FitsFiles):
                 keywords=[self.setup.keywords.ndit]
             )[0]
         except KeyError:
+            # NDIT scales dark/flat/read-noise calibration, so a silently
+            # wrong assumption must at least be on record.
+            logging.getLogger(__name__).warning(
+                f"NDIT keyword '{self.setup.keywords.ndit}' not found; "
+                f"assuming NDIT=1 for {self.n_files} file(s)"
+            )
             self._ndit = [1] * self.n_files
 
         return self._ndit

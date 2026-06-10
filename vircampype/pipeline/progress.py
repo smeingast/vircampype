@@ -276,12 +276,18 @@ def _can_drive_live() -> bool:
     )
 
 
-def report_progress(n_current, n_total, name, d_current=None, d_total=None):
-    """Report per-file/per-detector progress (file DEBUG always; bar on a TTY)."""
+def report_progress(
+    n_current, n_total, name, d_current=None, d_total=None, display=True
+):
+    """Report per-file/per-detector progress (file DEBUG always; bar on a TTY).
+
+    ``display=False`` suppresses only the live bar (quiet mode); the DEBUG file
+    record is written regardless.
+    """
     detail = f" det {d_current}/{d_total}" if d_total is not None else ""
     log.debug(f"processing {n_current}/{n_total} {name}{detail}")
 
-    if _can_drive_live():
+    if display and _can_drive_live():
         _driver.update(n_current, n_total, name, d_current, d_total)
 
 
