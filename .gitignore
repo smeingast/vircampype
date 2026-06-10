@@ -28,3 +28,7 @@ compare_reductions.py
 
 # Coverage
 .coverage
+
+# Test-audit working files (Resilio-synced, not tracked)
+test-audit-full.json
+test-audit-digest.txt
