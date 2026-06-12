@@ -1136,9 +1136,11 @@ class SkyImagesProcessed(SkyImages):
                     aa, bb = disk((sy, sx), ss, shape=(naxis2, naxis1))
                     mask_additional.cube[idx_file][aa, bb] = True
 
-            # Preprocessing: mask, background, flat/sky, outliers, destripe
-            cube_masked = cube_raw.copy()
+            # Preprocessing: mask, background, flat/sky, outliers, destripe.
+            # cube_raw is not used again after this point, so consume it as
+            # the masked working copy instead of allocating a third cube.
             cube_raw_temp = cube_raw.copy()
+            cube_masked = cube_raw
 
             # Apply BPM and additional masks
             cube_masked.apply_masks(bpm=bpm)

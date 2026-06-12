@@ -879,6 +879,17 @@ class ImageCube(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
             warnings.filterwarnings("ignore", r"Mean of empty slice")
+            if axis == 0 and self.cube.ndim == 3:
+                # Every metric used here (nanmedian/nanmean/clipped_*) reduces
+                # per pixel along the stack, so row banding is bitwise
+                # identical to a one-shot call but caps the metric's internal
+                # temporaries (np.nanmedian materializes ~3x the cube) at
+                # band size.
+                bands = [
+                    metric(self.cube[:, r0 : r0 + 256, :], axis=0)
+                    for r0 in range(0, self.shape[1], 256)
+                ]
+                return np.concatenate(bands, axis=0).astype(dtype=dtype, copy=False)
             return metric(self.cube, axis=axis).astype(dtype=dtype, copy=False)
 
     def normalize(self, norm):
