@@ -204,6 +204,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `local_cache_dir` | `null` | Local directory for temp files, header cache, and SWarp swap (default: system temp) |
+| `path_scratch` | `null` | Local scratch directory for intermediate image generations (`processing/basic`, `final`, `illumcorr`, `resampled`, and completeness temporaries). Masters, statistics, products, QC, and `temp/` (status + logs) stay under `path_pype`. Recommended when `path_pype` is on network storage; if the scratch tree of a partially processed target is lost, restart it with `--reset progress` |
 | `source_classification` | `false` | Run star/galaxy classification (requires multi-seeing SExtractor fork) |
 | `classification_n_seeing` | `32` | Number of SEEING_FWHM grid points for classification |
 | `classification_seeing_step_warn` | `0.05` | Warn if classification FWHM step exceeds this value (arcsec) |
@@ -243,6 +244,13 @@ path_pype/
             ├── tiles/
             └── psf/
 ```
+
+With `path_scratch` set, the intermediate generations (`processing/basic`,
+`processing/final`, `processing/illumcorr`, `processing/resampled`) and the
+completeness temporaries move to `<path_scratch>/<name>/...` instead, while
+everything else (masters, statistics, products, QC, status, and logs) remains
+under `path_pype`. Scratch contents are not cleaned up automatically; remove
+`<path_scratch>/<name>` once a target is fully processed.
 
 ---
 
