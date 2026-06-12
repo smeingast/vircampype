@@ -7,6 +7,7 @@ get_master_* lookup relies on.
 import os
 import shelve
 import tempfile
+import time
 import unittest
 import unittest.mock
 
@@ -101,6 +102,33 @@ class TestHeaderCache(CollectionTestCase):
             entry = db["old.fits"]
         self.assertIsInstance(entry, dict)
         self.assertIsNotNone(entry.get("sig"))
+
+
+class TestHeaderDbSweep(CollectionTestCase):
+    def test_sweep_removes_only_stale_header_dbs(self):
+        import vircampype.fits.common as fits_common
+
+        # Setup normalizes local_cache_dir to <dir>/<name>/ — use that value.
+        cache_dir = self.setup.local_cache_dir
+        os.makedirs(cache_dir, exist_ok=True)
+        stale = os.path.join(cache_dir, "vircampype_headers_deadbeef0000")
+        fresh = os.path.join(cache_dir, "vircampype_headers_cafecafe0000")
+        other = os.path.join(cache_dir, "unrelated.txt")
+        for p in (stale, fresh, other):
+            with open(p, "w") as f:
+                f.write("x")
+        old = time.time() - (fits_common._HEADER_DB_MAX_AGE_DAYS + 1) * 86400
+        os.utime(stale, (old, old))
+        os.utime(other, (old, old))
+
+        # The sweep runs once per base dir per process; force a fresh sweep.
+        fits_common._swept_header_db_dirs.discard(cache_dir)
+        path = write_fits(self.path("a.fits"), **{MJD: 57000.0})
+        FitsFiles(setup=self.setup, file_paths=[path])._path_header_db
+
+        self.assertFalse(os.path.exists(stale))  # old shelve removed
+        self.assertTrue(os.path.exists(fresh))  # recent shelve kept
+        self.assertTrue(os.path.exists(other))  # non-shelve files untouched
 
 
 class TestFitsImagesProperties(CollectionTestCase):

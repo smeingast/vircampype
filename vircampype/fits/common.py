@@ -1,9 +1,11 @@
 import glob
 import hashlib
 import json
+import logging
 import os
 import shelve
 import tempfile
+import time
 
 import numpy as np
 from astropy.time import Time
@@ -11,6 +13,34 @@ from joblib import Parallel, delayed
 
 from vircampype.pipeline.setup import Setup
 from vircampype.tools.fitstools import read_fits_headers
+
+# Header shelve caches are keyed by pipeline temp-folder hash, so a worker
+# box accumulates one per reduced tile and nothing ever removes them
+# (17 GB of stale shelves observed). Sweep anything untouched for two weeks
+# (mtime updates on every write; live reductions touch theirs constantly),
+# once per base directory per process.
+_HEADER_DB_MAX_AGE_DAYS = 14.0
+_swept_header_db_dirs: set[str] = set()
+
+
+def _sweep_stale_header_dbs(base_dir: str) -> None:
+    """Remove header shelve files in ``base_dir`` older than the retention age."""
+    if base_dir in _swept_header_db_dirs:
+        return
+    _swept_header_db_dirs.add(base_dir)
+    cutoff = time.time() - _HEADER_DB_MAX_AGE_DAYS * 86400
+    n_removed = 0
+    for path in glob.glob(os.path.join(base_dir, "vircampype_headers_*")):
+        try:
+            if os.path.getmtime(path) < cutoff:
+                os.remove(path)
+                n_removed += 1
+        except OSError:
+            pass
+    if n_removed > 0:
+        logging.getLogger(__name__).info(
+            f"Removed {n_removed} stale header cache file(s) from {base_dir}"
+        )
 
 
 class FitsFiles:
@@ -158,6 +188,7 @@ class FitsFiles:
         # multiple containers access the same pipeline temp directory.
         path_hash = hashlib.md5(self.setup.folders["temp"].encode()).hexdigest()[:12]
         base = self.setup.local_cache_dir or tempfile.gettempdir()
+        _sweep_stale_header_dbs(base)
         return os.path.join(base, f"vircampype_headers_{path_hash}")
 
     _headers = None
