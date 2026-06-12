@@ -284,6 +284,7 @@ def run_commands_shell_parallel(
         # The command line itself is always recorded, also for non-silent
         # batches whose output is not captured.
         log.debug(f"ran: {cmd}")
+        stderr = ""
         if silent:
             # Capture instead of discarding (the old DEVNULL): the full output
             # is recorded in the file log at DEBUG. subprocess.run drains the
@@ -307,7 +308,10 @@ def run_commands_shell_parallel(
             # Non-silent: inherit the terminal as before (live output).
             result = subprocess.run(cmd, shell=True, executable=shell_path)
         if result.returncode != 0:
-            log.warning(f"command exited with code {result.returncode}: {cmd}")
+            log.warning(
+                f"command exited with code {result.returncode}: {cmd}"
+                + (f"\n{_truncate_output(stderr)}" if stderr else "")
+            )
 
     # Drive a determinate progress bar from this (main) thread as each command
     # finishes. Only when output is captured (silent): a non-silent batch
@@ -332,6 +336,7 @@ def run_command_shell(
     label: str | None = None,
     progress_paths: list[str] | None = None,
     progress_total_bytes: int | None = None,
+    raise_on_error: bool = False,
 ) -> tuple[str, str]:
     """
     Runs a single shell command in the specified shell.
@@ -353,11 +358,19 @@ def run_command_shell(
         drives a percentage bar instead of the indeterminate spinner.
     progress_total_bytes : int | None, optional
         Expected final size of ``progress_paths`` combined, in bytes.
+    raise_on_error : bool, optional
+        If True, raise ``subprocess.CalledProcessError`` (carrying stdout and
+        stderr) on a non-zero exit code instead of only logging a warning.
 
     Returns
     ----------
     tuple
         The stdout and stderr of the command.
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If ``raise_on_error`` is set and the command exits non-zero.
     """
 
     # Append dynamic libraries
@@ -424,7 +437,18 @@ def run_command_shell(
     if stderr:
         log.debug(f"stderr:\n{_truncate_output(stderr)}")
     if returncode != 0:
-        log.warning(f"command exited with code {returncode}: {cmd}")
+        log.warning(
+            f"command exited with code {returncode}: {cmd}"
+            + (f"\n{_truncate_output(stderr)}" if stderr else "")
+        )
+        if raise_on_error:
+            # Finalize a live spinner/bar first so the traceback prints
+            # cleanly instead of fighting the rich Live display.
+            if label is not None:
+                stop_progress()
+            raise subprocess.CalledProcessError(
+                returncode, cmd, output=stdout, stderr=stderr
+            )
 
     # If not in silent mode, print the output to terminal
     if not silent:

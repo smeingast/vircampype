@@ -1,6 +1,7 @@
 """Tests for subprocess output capture + logging (Phase 4 of the logging overhaul)."""
 
 import io
+import subprocess
 import unittest
 
 from vircampype.tools.systemtools import run_command_shell, run_commands_shell_parallel
@@ -29,6 +30,24 @@ class TestSubprocessCapture(unittest.TestCase):
         with self.assertLogs(_LOGGER, level="WARNING") as cm:
             run_commands_shell_parallel(["exit 5"], n_jobs=1, silent=True)
         self.assertTrue(any("code 5" in m for m in cm.output))
+
+    def test_run_command_shell_raise_on_error(self):
+        with self.assertRaises(subprocess.CalledProcessError) as ctx:
+            run_command_shell("echo oops >&2; exit 3", silent=True, raise_on_error=True)
+        self.assertEqual(ctx.exception.returncode, 3)
+        self.assertIn("oops", ctx.exception.stderr)
+
+    def test_nonzero_warning_includes_stderr(self):
+        with self.assertLogs(_LOGGER, level="WARNING") as cm:
+            run_command_shell("echo boom >&2; exit 9", silent=True)
+        self.assertTrue(any("boom" in m for m in cm.output))
+
+    def test_parallel_nonzero_warning_includes_stderr(self):
+        with self.assertLogs(_LOGGER, level="WARNING") as cm:
+            run_commands_shell_parallel(
+                ["echo pboom >&2; exit 4"], n_jobs=1, silent=True
+            )
+        self.assertTrue(any("pboom" in m for m in cm.output))
 
     def test_run_command_shell_label_still_captures(self):
         # A progress label must not change capture/logging behaviour (the bar

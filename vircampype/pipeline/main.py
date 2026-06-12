@@ -74,6 +74,9 @@ def _notify_on_completion(method):
         try:
             method(self, *args, **kwargs)
         except Exception as e:
+            # When the pipeline is driven externally (not via worker.py), this
+            # is the only place the failure can reach the file log.
+            logging.getLogger(__name__).exception("Pipeline processing failed")
             self._notify_pushover(f"Failed with {type(e).__name__}: {e}")
             raise
         elapsed = time.time() - t0
