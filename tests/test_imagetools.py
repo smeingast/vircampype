@@ -44,6 +44,34 @@ class TestInterpolateImage(unittest.TestCase):
         self.assertTrue(np.isfinite(result[5, 5]))
         self.assertTrue(np.isfinite(result[15, 15]))
 
+    def test_matches_astropy_convolve_asymmetric_kernel(self):
+        # The gather-based interpolation must reproduce astropy's
+        # convolve(boundary="extend") at the NaN positions, including the
+        # kernel FLIP (convolution, not correlation) and edge clipping.
+        import warnings
+
+        from astropy.convolution import CustomKernel, convolve
+
+        rng = np.random.default_rng(3)
+        data = rng.normal(100, 5, (16, 16)).astype(np.float32)
+        data[8, 8] = np.nan
+        data[0, 0] = np.nan  # corner: exercises the extend boundary
+        kernel = np.array([[0.0, 1.0, 0.0], [0.5, 2.0, 0.25], [0.0, 0.5, 0.0]])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            conv = convolve(data, kernel=CustomKernel(kernel), boundary="extend")
+        reference = data.copy()
+        reference[8, 8] = conv[8, 8]
+        reference[0, 0] = conv[0, 0]
+        result = interpolate_image(data, kernel=kernel, max_bad_neighbors=None)
+        np.testing.assert_array_equal(result, reference)
+
+    def test_even_kernel_rejected(self):
+        data = np.ones((10, 10))
+        data[5, 5] = np.nan
+        with self.assertRaises(ValueError):
+            interpolate_image(data, kernel=np.ones((2, 3)), max_bad_neighbors=None)
+
 
 class TestChopImage(unittest.TestCase):
     def test_no_overlap(self):

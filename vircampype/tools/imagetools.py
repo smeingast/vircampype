@@ -6,7 +6,6 @@ import numpy as np
 from astropy import wcs
 from astropy.convolution import (
     Box2DKernel,
-    CustomKernel,
     Gaussian1DKernel,
     Gaussian2DKernel,
     Kernel2D,
@@ -113,19 +112,50 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     # Set kernel
     if kernel is None:
         kernel = Gaussian2DKernel(1)
+    if isinstance(kernel, Kernel2D):
+        kernel_array = kernel.array
     elif isinstance(kernel, np.ndarray):
-        kernel = CustomKernel(kernel)  # noqa
+        kernel_array = kernel
     else:
-        if not isinstance(kernel, Kernel2D):
-            raise ValueError("Supplied kernel not supported")
+        raise ValueError("Supplied kernel not supported")
+    if (kernel_array.shape[0] % 2 == 0) or (kernel_array.shape[1] % 2 == 0):
+        # astropy.convolution also rejects even-sized kernels (no center px)
+        raise ValueError("Kernel dimensions must be odd")
+    # convolve() flips the kernel (convolution, not correlation); flip here
+    # too so asymmetric kernels keep the historical orientation.
+    kernel_array = kernel_array[::-1, ::-1]
 
-    # Convolve
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        conv = convolve(array, kernel=kernel, boundary="extend")
-
-    # Fill interpolated NaNs in
-    array[nans] = conv[nans]
+    # Compute the interpolation values only at the NaN positions instead of
+    # convolving the full frame (only ~1-2% of the pixels are consumed; the
+    # full astropy convolve costs ~20x more). This replicates
+    # convolve(array, kernel, boundary="extend") with its default
+    # nan_treatment="interpolate"/normalize_kernel=True at those pixels:
+    # a kernel-weighted mean over the finite neighbors, renormalized by the
+    # sum of their weights, with out-of-frame neighbors clipped to the edge.
+    # Verified to produce float32-identical results on real frames.
+    n_rows, n_cols = array.shape
+    k_rows, k_cols = kernel_array.shape
+    all_row, all_col = np.where(nans)
+    off_row = np.arange(k_rows) - k_rows // 2
+    off_col = np.arange(k_cols) - k_cols // 2
+    # Chunked so the (N, k, k) gather stays bounded even for heavily masked
+    # frames; values are assigned only after ALL chunks are gathered, so
+    # every pixel sees the original (pre-fill) neighbors, like the one-shot
+    # convolution did.
+    filled = []
+    for c0 in range(0, all_row.size, 1_000_000):
+        idx_row = all_row[c0 : c0 + 1_000_000]
+        idx_col = all_col[c0 : c0 + 1_000_000]
+        neigh_row = np.clip(idx_row[:, None] + off_row[None, :], 0, n_rows - 1)
+        neigh_col = np.clip(idx_col[:, None] + off_col[None, :], 0, n_cols - 1)
+        vals = array[neigh_row[:, :, None], neigh_col[:, None, :]].astype(np.float64)
+        finite = np.isfinite(vals)
+        weights = np.broadcast_to(kernel_array, vals.shape)
+        num = np.where(finite, vals * weights, 0.0).sum(axis=(1, 2))
+        den = np.where(finite, weights, 0.0).sum(axis=(1, 2))
+        with np.errstate(invalid="ignore", divide="ignore"):
+            filled.append(num / den)
+    array[all_row, all_col] = np.concatenate(filled) if filled else []
 
     # Fill skipped NaNs back in
     if nans_skipped is not None:

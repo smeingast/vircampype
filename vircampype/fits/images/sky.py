@@ -1640,6 +1640,11 @@ class SkyImagesProcessed(SkyImages):
         master_sky = self.get_master_sky()
         master_source_mask = self.get_master_source_mask()
 
+        # The matched master-sky collection repeats the same file for every
+        # input within a sky window; cache the last-read cube (it is only
+        # ever read in the loop below) instead of re-reading it per file.
+        sky_norm_path, sky_norm = None, None
+
         # Loop over files and apply calibration
         for idx_file in range(self.n_files):
             # Create output path
@@ -1668,8 +1673,10 @@ class SkyImagesProcessed(SkyImages):
             # Read file into cube
             cube = self.file2cube(file_index=idx_file, hdu_index=None, dtype=np.float32)
 
-            # Read master sky flat
-            sky_norm = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+            # Read master sky flat (cached across files with the same master)
+            if master_sky.paths_full[idx_file] != sky_norm_path:
+                sky_norm = master_sky.file2cube(file_index=idx_file, dtype=np.float32)
+                sky_norm_path = master_sky.paths_full[idx_file]
 
             # Read source mask once (reused for sky subtraction, destriping,
             # and background subtraction)

@@ -1106,58 +1106,24 @@ class ImageCube(object):
 
     def interpolate_nan(self):
         """
-        Interpolates NaNs for each plane in the cube. Interpolation is (for performance
-        reasons) kept very simple, where the original image is convolved with a given
-        kernel and the NaNs are then replace with the convolved pixel values.
+        Interpolates NaNs for each plane in the cube. NaN pixels are replaced
+        with a kernel-weighted mean of their finite neighbors (computed only
+        at the NaN positions — see interpolate_image).
+
+        Plain per-plane loop: the previous chop+thread dispatch bought nothing
+        (astropy's convolve holds the GIL) and made the skipped-pixel median
+        fill depend on the chunking, i.e. the output depended on n_jobs.
 
         """
 
         # Hardcoded Kernel
         kernel = Gaussian2DKernel(self.setup.interpolate_nan_kernel_sigma)
-
-        # Overlap is half the kernel size
-        overlap = int(np.ceil(np.max(kernel.shape) / 2))
-
-        # Always chop along the longer axis
-        chop_ax = 0 if self.shape[1] > self.shape[2] else 1
-
-        # Chop all planes upfront
-        npieces = self.setup.n_jobs * 2
-        all_chopped = []  # flat list of chunks
-        all_locations = []  # one location array per plane
-        for plane in self:
-            chopped, loc = chop_image(
-                array=plane,
-                npieces=npieces,
-                axis=chop_ax,
-                overlap=overlap,
-            )
-            all_chopped.extend(chopped)
-            all_locations.append(loc)
-
-        # Interpolate all chunks in a single parallel call
         max_bad = self.setup.interpolate_max_bad_neighbors
-        if self.setup.n_jobs == 1:
-            all_results = [interpolate_image(ch, kernel, max_bad) for ch in all_chopped]
-        else:
-            # threads: astropy convolution is compiled C, releases GIL
-            with Parallel(n_jobs=self.setup.n_jobs, prefer="threads") as parallel:
-                all_results = parallel(
-                    delayed(interpolate_image)(ch, kernel, max_bad)
-                    for ch in all_chopped
-                )
 
-        # Merge results back into each plane
-        offset = 0
-        for idx, plane in enumerate(self):
-            n = npieces
-            plane[:] = merge_chopped(
-                arrays=all_results[offset : offset + n],
-                locations=all_locations[idx],
-                axis=chop_ax,
-                overlap=overlap,
+        for plane in self:
+            plane[:] = interpolate_image(
+                plane, kernel=kernel, max_bad_neighbors=max_bad
             )
-            offset += n
 
     def replace_nan(self, value):
         """

@@ -202,6 +202,37 @@ class TestFitsImagesProperties(CollectionTestCase):
             images.check_compatibility(n_files_min=3)
 
 
+class TestFitsTablesColumns(CollectionTestCase):
+    def test_get_columns_reads_duplicated_paths_once(self):
+        # Same dedup contract as FitsImages.hdu2cube: matched master-table
+        # collections (e.g. get_master_gain) repeat one physical file per
+        # input file; read it once, but keep all returned entries independent.
+        from astropy.table import Table
+
+        from vircampype.fits.tables.common import FitsTables
+
+        path = self.path("gain.fits.tab")
+        os.makedirs(self.data_dir, exist_ok=True)
+        Table({"gain": [4.2, 4.3], "rdnoise": [20.0, 21.0]}).write(path, format="fits")
+
+        tables = FitsTables(setup=self.setup, file_paths=[path, path, path])
+        tables.headers  # warm the header cache so only data reads are counted
+        real_open = fits.open
+        with unittest.mock.patch(
+            "vircampype.fits.tables.common.fits.open",
+            side_effect=real_open,
+        ) as mocked:
+            cols = tables.get_columns(column_name="gain")
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(len(cols), 3)
+        for entry in cols:
+            np.testing.assert_array_equal(entry[0], [4.2, 4.3])
+        # Duplicate slots must be independent objects (no shared mutation)
+        cols[1][0][0] = -1.0
+        self.assertEqual(cols[0][0][0], 4.2)
+        self.assertEqual(cols[2][0][0], 4.2)
+
+
 class TestMatching(CollectionTestCase):
     def test_split_lag_groups_by_time_gap(self):
         f1 = write_fits(self.path("f1.fits"), **{MJD: 57000.0})

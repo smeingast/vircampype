@@ -1,7 +1,9 @@
 # =========================================================================== #
 # Import
+import numpy as np
 from astropy.io import fits
 from astropy.table import Table
+
 from vircampype.fits.common import FitsFiles
 
 
@@ -170,12 +172,22 @@ class FitsTables(FitsFiles):
         iterable
         """
 
+        # Read each distinct path once; collections matched via match_mjd
+        # (e.g. get_master_gain) repeat the same physical file once per input
+        # file. Duplicate slots receive copies so all entries stay independent,
+        # exactly as with per-file reads.
+        cache = {}
         data_files = []
         for file, dhus in zip(self.paths_full, self.iter_data_hdu):
+            key = (file, tuple(dhus))
+            if key in cache:
+                data_files.append([np.array(c) for c in cache[key]])
+                continue
             data_hdus = []
             with fits.open(file) as f:
                 for hdu in dhus:
                     data_hdus.append(f[hdu].data[column_name])
+            cache[key] = data_hdus
             data_files.append(data_hdus)
 
         return data_files
