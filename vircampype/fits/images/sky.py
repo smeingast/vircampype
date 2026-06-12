@@ -1,4 +1,3 @@
-import copy
 import gc
 import glob
 import logging
@@ -121,6 +120,122 @@ def _build_sky_detector(d, files, master_mask, master_bpm, setup):
         )
 
     return collapsed.astype(np.float32), hdr, bkg, bkg_std
+
+
+def _apply_illumcorr_one_file(idx_file, files, illumcor, sourcemasks):
+    """Apply the illumination correction to a single file and write to disk.
+
+    Parameters
+    ----------
+    idx_file : int
+        Index of the file to process.
+    files : SkyImages
+        Collection holding the input files.
+    illumcor : MasterImages
+        Matched illumination-correction masters (one per file).
+    sourcemasks : MasterImages
+        Matched source masks (one per file).
+
+    """
+
+    setup = files.setup
+    log = logging.getLogger(__name__)
+
+    # Create output path
+    outpath = f"{setup.folders['illumcorr']}{files.names[idx_file]}.ic.fits"
+
+    log.info(
+        f"Processing file {idx_file + 1}/{files.n_files}: {os.path.basename(outpath)}"
+    )
+
+    # Check for ahead file
+    path_ahead = files.paths_full[idx_file].replace(".fits", ".ahead")
+    path_ahead_sf = outpath.replace(".fits", ".ahead")
+    if not os.path.isfile(path_ahead):
+        log.error(f"External header not found: {path_ahead}")
+        raise ValueError("External header not found")
+
+    # Check if the file is already there and skip if it is
+    if (
+        check_file_exists(file_path=outpath, silent=setup.silent)
+        and not setup.overwrite
+    ):
+        return
+
+    # Read data
+    cube_self = files.file2cube(file_index=idx_file)
+    cube_flat = illumcor.file2cube(file_index=idx_file)
+    cube_mask = sourcemasks.file2cube(file_index=idx_file)
+
+    # Modify read noise, gain, and saturation keywords in headers
+    data_headers = []
+    for idx_hdr in range(len(files.headers_data[idx_file])):
+        # Load current header
+        hdr = files.headers_data[idx_file][idx_hdr]
+
+        # Modification factor is mean for the current illumination correction
+        mod = np.median(cube_flat[idx_hdr])
+
+        # Add modification factor
+        hdr.set(
+            "HIERARCH PYPE IC FACTOR",
+            value=np.round(mod, 3),
+            comment="Median IC modification factor",
+        )
+
+        # Adapt keywords
+        keywords = [
+            setup.keywords.rdnoise,
+            setup.keywords.gain,
+            setup.keywords.saturate,
+        ]
+        mod_func = [np.divide, np.multiply, np.divide]
+        for kw, func in zip(keywords, mod_func):
+            # Read comment
+            comment = files.headers_data[idx_file][idx_hdr].comments[kw]
+
+            # First save old keyword
+            hdr.set(
+                f"HIERARCH PYPE BACKUP {kw}",
+                value=hdr[kw],
+                comment="Value before IC",
+            )
+
+            # Now add new keyword and delete old one
+            hdr.set(
+                kw,
+                value=func(files.headers_data[idx_file][idx_hdr][kw], mod),
+                comment=comment,
+            )
+
+        # Save headers
+        data_headers.append(hdr)
+
+    # Copy self for background mask
+    cube_self_copy = cube_self.copy()
+    cube_self_copy.apply_masks(sources=cube_mask)
+    background = cube_self_copy.background(
+        mesh_size=setup.ic_background_mesh_size, mesh_filtersize=3
+    )[0]
+
+    # Apply background
+    cube_self -= background
+
+    # Normalize
+    cube_self /= cube_flat
+    background /= np.median(cube_flat, axis=(1, 2))[:, np.newaxis, np.newaxis]
+
+    # Add background back in
+    cube_self += background
+
+    # Write back to disk
+    cube_self.write_mef(
+        outpath,
+        prime_header=files.headers_primary[idx_file],
+        data_headers=data_headers,
+    )
+    # Copy aheader for swarping
+    copy_file(path_ahead, path_ahead_sf)
 
 
 class SkyImages(FitsImages):
@@ -612,109 +727,29 @@ class SkyImages(FitsImages):
         illumcor = self.get_master_illumination_correction()
         sourcemasks = self.get_master_source_mask()
 
-        # Loop over self
-        for idx_file in range(self.n_files):
-            # Create output path
-            outpath = f"{self.setup.folders['illumcorr']}{self.names[idx_file]}.ic.fits"
+        # Warm the shared lazy caches (headers/dtypes) so the worker threads
+        # only ever read them.
+        for collection in (self, illumcor, sourcemasks):
+            collection.headers_data, collection.dtypes  # noqa: B018
 
-            # Check for ahead file
-            path_ahead = self.paths_full[idx_file].replace(".fits", ".ahead")
-            path_ahead_sf = outpath.replace(".fits", ".ahead")
-            if not os.path.isfile(path_ahead):
-                log.error(f"External header not found: {path_ahead}")
-                raise ValueError("External header not found")
+        # Process files in parallel (threads backend, same pattern and memory
+        # knob as basic processing: the numpy work releases the GIL, FITS I/O
+        # serializes). The progress bar is driven from this (main) thread;
+        # the per-file trace is in the file log via _apply_illumcorr_one_file.
+        from vircampype.pipeline.progress import track
 
-            # Check if the file is already there and skip if it is
-            if (
-                check_file_exists(file_path=outpath, silent=self.setup.silent)
-                and not self.setup.overwrite
-            ):
-                continue
-
-            # Print processing info
-            message_calibration(
-                n_current=idx_file + 1,
-                n_total=self.n_files,
-                name=outpath,
-                d_current=None,
-                d_total=None,
-                silent=self.setup.silent,
-            )
-
-            # Read data
-            cube_self = self.file2cube(file_index=idx_file)
-            cube_flat = illumcor.file2cube(file_index=idx_file)
-            cube_mask = sourcemasks.file2cube(file_index=idx_file)
-
-            # Modify read noise, gain, and saturation keywords in headers
-            data_headers = []
-            for idx_hdr in range(len(self.headers_data[idx_file])):
-                # Load current header
-                hdr = self.headers_data[idx_file][idx_hdr]
-
-                # Modification factor is mean for the current illumination correction
-                mod = np.median(cube_flat[idx_hdr])
-
-                # Add modification factor
-                hdr.set(
-                    "HIERARCH PYPE IC FACTOR",
-                    value=np.round(mod, 3),
-                    comment="Median IC modification factor",
-                )
-
-                # Adapt keywords
-                keywords = [
-                    self.setup.keywords.rdnoise,
-                    self.setup.keywords.gain,
-                    self.setup.keywords.saturate,
-                ]
-                mod_func = [np.divide, np.multiply, np.divide]
-                for kw, func in zip(keywords, mod_func):
-                    # Read comment
-                    comment = self.headers_data[idx_file][idx_hdr].comments[kw]
-
-                    # First save old keyword
-                    hdr.set(
-                        f"HIERARCH PYPE BACKUP {kw}",
-                        value=hdr[kw],
-                        comment="Value before IC",
-                    )
-
-                    # Now add new keyword and delete old one
-                    hdr.set(
-                        kw,
-                        value=func(self.headers_data[idx_file][idx_hdr][kw], mod),
-                        comment=comment,
-                    )
-
-                # Save headers
-                data_headers.append(hdr)
-
-            # Copy self for background mask
-            cube_self_copy = copy.deepcopy(cube_self)
-            cube_self_copy.apply_masks(sources=cube_mask)
-            background = cube_self_copy.background(
-                mesh_size=self.setup.ic_background_mesh_size, mesh_filtersize=3
-            )[0]
-
-            # Apply background
-            cube_self -= background
-
-            # Normalize
-            cube_self /= cube_flat
-            background /= np.median(cube_flat, axis=(1, 2))[:, np.newaxis, np.newaxis]
-
-            # Add background back in
-            cube_self += background
-
-            # Write back to disk
-            cube_self.write_mef(
-                outpath,
-                prime_header=self.headers_primary[idx_file],
-                data_headers=data_headers,
-            )
-            # Copy aheader for swarping
-            copy_file(path_ahead, path_ahead_sf)
+        results = Parallel(
+            n_jobs=self.setup.n_jobs_basic,
+            prefer="threads",
+            return_as="generator_unordered",
+        )(
+            delayed(_apply_illumcorr_one_file)(idx_file, self, illumcor, sourcemasks)
+            for idx_file in range(self.n_files)
+        )
+        bar_label = None if self.setup.silent else "Illumination correction"
+        with track(bar_label, self.n_files) as advance:
+            for _ in results:
+                advance()
 
         # Print time
         elapsed = time.time() - tstart

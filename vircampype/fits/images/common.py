@@ -240,6 +240,11 @@ class FitsImages(FitsFiles):
 
         """
 
+        # Check if already determined (also makes the warmed cache safe to
+        # read from worker threads while per-file headers are being modified)
+        if self._dtypes is not None:
+            return self._dtypes
+
         # Get bitpix keyword
         bitpix = [x[0] for x in self.read_from_data_headers(keywords=["BITPIX"])[0]]
 
