@@ -20,15 +20,12 @@ __pycache__/
 
 # Claude Code
 .claude/
-session-notes.md
-future-ideas.md
+
+# Claude working docs (session journal, reviews, audits; Resilio-synced, not tracked)
+doc/
 
 # Local-only dev tools
 compare_reductions.py
 
 # Coverage
 .coverage
-
-# Test-audit working files (Resilio-synced, not tracked)
-test-audit-full.json
-test-audit-digest.txt
