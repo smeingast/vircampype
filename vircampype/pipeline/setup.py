@@ -110,6 +110,12 @@ class Setup:
     local_cache_dir: str | None = (
         None  # Local temp directory for intermediate files (default: system temp)
     )
+    path_scratch: str | None = (
+        None  # Local scratch for intermediate image generations (basic/final/
+        # illumcorr/resampled + completeness temp). Masters, statistics,
+        # products, QC, and temp (status + logs) stay under path_pype.
+        # Default None keeps everything under path_pype as before.
+    )
 
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"  # Photometric reference catalog
@@ -396,6 +402,10 @@ class Setup:
             self.local_cache_dir = os.path.join(self.local_cache_dir, self.name, "")
             os.makedirs(self.local_cache_dir, exist_ok=True)
 
+        # Normalize the local scratch path (trailing slash, like path_pype)
+        if self.path_scratch is not None:
+            self.path_scratch = os.path.join(self.path_scratch, "")
+
         # Set keywords
         self.keywords = HeaderKeywords()
 
@@ -668,6 +678,25 @@ class Setup:
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
         self.folders["phase3"] = f"{self.folders['object']}products/phase3/"
+
+        # Tier-1 local scratch: the intermediate image generations (and the
+        # transient completeness sub-tiles) move to a local disk, while
+        # masters, statistics, products, QC, and temp (pipeline status +
+        # logs) stay under path_pype — the NAS in production. Same-machine
+        # resume is unaffected; a mid-chain resume without the scratch tree
+        # is caught by check_scratch_tree in pipeline/main.py.
+        if self.path_scratch is not None:
+            scratch_object = f"{self.path_scratch}{self.name}/"
+            self.folders["processed_basic"] = f"{scratch_object}processing/basic/"
+            self.folders["processed_final"] = f"{scratch_object}processing/final/"
+            self.folders["resampled"] = f"{scratch_object}processing/resampled/"
+            self.folders["illumcorr"] = f"{scratch_object}processing/illumcorr/"
+            self.folders["temp_completeness_tiles"] = (
+                f"{scratch_object}temp/completeness/tiles/"
+            )
+            self.folders["temp_completeness_psf"] = (
+                f"{scratch_object}temp/completeness/psf/"
+            )
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""

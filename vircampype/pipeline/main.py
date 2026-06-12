@@ -65,6 +65,46 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
     return decorator
 
 
+def check_scratch_tree(setup, status):
+    """Guard a mid-chain resume against a missing local scratch tree.
+
+    With ``path_scratch`` set, the intermediate image generations live on a
+    local disk while the pipeline status lives under ``path_pype``. If the
+    status says intermediate stages are done but the scratch tree is gone
+    (tile resumed on a different machine, scratch wiped), the run would skip
+    "done" stages whose outputs no longer exist and fail confusingly further
+    down. Fail loud with instructions instead.
+
+    A completed tile whose scratch was cleaned up deliberately does not
+    trigger: once all scratch-consuming stages are done, a re-invocation
+    skips through without touching scratch files.
+    """
+    if setup.path_scratch is None:
+        return
+    producers = [
+        status.processed_raw_basic,
+        status.processed_raw_final,
+        status.illumcorr,
+        status.resampled,
+    ]
+    consumers_done = [status.resampled, status.statistics_resampled]
+    if setup.calibrate_pawprints:
+        consumers_done.append(status.photometry_pawprints)
+    if setup.build_stacks:
+        consumers_done.append(status.stacks)
+    if setup.build_tile:
+        consumers_done.append(status.tile)
+    scratch_object = f"{setup.path_scratch}{setup.name}/"
+    if any(producers) and not all(consumers_done) and not os.path.isdir(scratch_object):
+        raise PipelineValueError(
+            f"Pipeline status reports intermediate stages as completed, but the "
+            f"scratch tree '{scratch_object}' does not exist (resumed on a "
+            f"different machine, or scratch was removed). Re-run with "
+            f"--reset-progress to restart this reduction from the raw data, "
+            f"or restore the scratch tree."
+        )
+
+
 def _notify_on_completion(method):
     """Decorator that times a pipeline processor and sends a Pushover notification."""
 
@@ -1100,6 +1140,9 @@ class Pipeline:
     @_notify_on_completion
     def process_science(self):
         """Sequentially process science data."""
+
+        # Fail loud on a mid-chain resume without the local scratch tree
+        check_scratch_tree(setup=self.setup, status=self.status)
 
         # Basic processing
         self.process_raw_basic()
