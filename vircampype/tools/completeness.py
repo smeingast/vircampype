@@ -292,8 +292,11 @@ def build_psf_models(
             kind="okblue",
             end="\n",
         )
+        # Full parallelism: unlike full-frame SExtractor (n_jobs_sex is a
+        # memory knob), these PSFEx runs are single-threaded, CPU-bound, and
+        # operate on small bright-star catalogs.
         run_commands_shell_parallel(
-            cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs_sex, label="PSF modeling"
+            cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs, label="PSF modeling"
         )
 
     n_valid = sum(1 for p in psf_paths if os.path.isfile(p))
