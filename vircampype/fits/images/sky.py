@@ -87,12 +87,13 @@ def _build_sky_detector(d, files, master_mask, master_bpm, setup):
         sigma_iter=setup.sky_sigma_iter,
     )
 
-    # Create weights if needed
+    # Create weights if needed; one scalar weight per plane suffices —
+    # masked (non-finite) pixels are excluded by np.ma inside flatten, so
+    # materializing a full-size weight cube zeroed at those pixels is
+    # equivalent (verified bitwise) and only costs memory.
     if setup.sky_combine_metric == "weighted":
         metric = "weighted"
-        weights = np.empty_like(cube.cube)
-        weights[:] = (1 / bkg_std)[:, np.newaxis, np.newaxis]
-        weights[~np.isfinite(cube.cube)] = 0.0
+        weights = 1 / bkg_std
     else:
         metric = string2func(setup.sky_combine_metric)
         weights = None

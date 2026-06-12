@@ -73,13 +73,16 @@ def apply_sigma_clip(
         warnings.filterwarnings("ignore", category=RuntimeWarning)
 
         for _ in range(sigma_iter):
-            # Calculate standard deviation
+            # Calculate standard deviation and center; the center is computed
+            # once per iteration (both clip limits see identical data since
+            # the masking assignment only happens after both comparisons).
             std = np.nanstd(data, axis=axis)
+            center = center_metric(data, axis=axis)
 
             # find values outside limits and set to NaN
             data[
-                (data > center_metric(data, axis=axis) + sigma_level * std)
-                | (data < center_metric(data, axis=axis) - sigma_level * std)
+                (data > center + sigma_level * std)
+                | (data < center - sigma_level * std)
             ] = np.nan
 
     # Return the clipped array

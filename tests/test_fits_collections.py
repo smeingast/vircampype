@@ -8,6 +8,7 @@ import os
 import shelve
 import tempfile
 import unittest
+import unittest.mock
 
 import numpy as np
 from astropy.io import fits
@@ -133,6 +134,29 @@ class TestFitsImagesProperties(CollectionTestCase):
         cube = images.file2cube(file_index=0)
         self.assertEqual(cube.shape, (2, 3, 4))
         self.assertEqual(cube[1].sum(), 132.0)
+
+    def test_hdu2cube_reads_duplicated_paths_once(self):
+        # Collections matched via match_mjd (every get_master_* lookup) repeat
+        # the same master file once per input file; hdu2cube must read each
+        # distinct file only once while keeping the per-slot plane assignment.
+        data_a = np.full((2, 2), 1.0, dtype=np.float32)
+        data_b = np.full((2, 2), 2.0, dtype=np.float32)
+        a = write_fits(self.path("a.fits"), data=data_a, **{MJD: 57000.0})
+        b = write_fits(self.path("b.fits"), data=data_b, **{MJD: 57001.0})
+
+        images = FitsImages(setup=self.setup, file_paths=[a, b, a, a])
+        images.headers  # warm the header cache so only data reads are counted
+        real_open = fits.open
+        with unittest.mock.patch(
+            "vircampype.fits.images.common.fits.open",
+            side_effect=real_open,
+        ) as mocked:
+            cube = images.hdu2cube(hdu_index=0)
+        self.assertEqual(mocked.call_count, 2)
+        # Constructor sorts paths: [a, a, a, b]
+        np.testing.assert_array_equal(cube.cube[0], data_a)
+        np.testing.assert_array_equal(cube.cube[2], data_a)
+        np.testing.assert_array_equal(cube.cube[3], data_b)
 
     def test_check_compatibility_filter_max_message(self):
         # Regression: the n_filter_max branch previously formatted None

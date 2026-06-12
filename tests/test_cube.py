@@ -199,6 +199,37 @@ class TestImageCube(unittest.TestCase):
         with self.assertRaises(ValueError):
             cube.flatten(metric="weighted", weights=self.make_cube([[[1.0]]]))
 
+    def test_flatten_weighted_1d_weights_match_full_cube(self):
+        # One scalar weight per plane must be equivalent to the full-size
+        # weight cube zeroed at non-finite pixels (the pre-fix call-site
+        # pattern in _build_sky_detector / build_master_flat).
+        rng = np.random.default_rng(7)
+        data = rng.normal(size=(3, 300, 4)).astype(np.float32)
+        data[:, rng.random((300, 4)) < 0.2] = np.nan  # incl. all-NaN pixels
+        data[0, 0, 0] = np.nan  # partially masked pixel
+        w1d = np.array([3.0, 1.0, 2.0])
+        cube = ImageCube(setup=self.setup, cube=data.copy())
+        flat_1d = cube.flatten(metric="weighted", weights=w1d)
+
+        full = np.empty_like(data)
+        full[:] = w1d[:, np.newaxis, np.newaxis]
+        full[~np.isfinite(data)] = 0.0
+        flat_full = ImageCube(setup=self.setup, cube=data.copy()).flatten(
+            metric="weighted", weights=full
+        )
+        # 300 rows also crosses the 256-row band boundary inside flatten
+        np.testing.assert_array_equal(flat_1d, flat_full)
+
+        # All-NaN pixels collapse to NaN; valid pixels to the weighted mean
+        self.assertTrue(np.isnan(flat_1d).any())
+        valid = np.isfinite(data).all(axis=0)
+        self.assertFalse(np.isnan(flat_1d[valid]).any())
+
+    def test_flatten_weighted_1d_weights_length_mismatch(self):
+        cube = self.make_cube([[[2.0]], [[4.0]]])
+        with self.assertRaises(ValueError):
+            cube.flatten(metric="weighted", weights=np.array([1.0, 2.0, 3.0]))
+
     def test_mad(self):
         cube = self.make_cube([[[1.0]], [[2.0]], [[9.0]]])
         # median = 2, |x - 2| = [1, 0, 7] -> mad = 1

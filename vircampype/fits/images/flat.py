@@ -163,12 +163,13 @@ class FlatTwilight(FlatImages):
                     sigma_iter=self.setup.flat_sigma_iter,
                 )
 
-                # Create weights if needed
+                # Create weights if needed; one scalar weight per plane —
+                # non-finite pixels are excluded by np.ma inside flatten, so
+                # a full-size weight cube zeroed there is equivalent
+                # (verified bitwise) and only costs memory.
                 if self.setup.flat_metric == "weighted":
                     metric = "weighted"
-                    weights = np.empty_like(cube.cube)
-                    weights[:] = flux[-1][:, np.newaxis, np.newaxis]
-                    weights[~np.isfinite(cube.cube)] = 0.0
+                    weights = flux[-1]
                 else:
                     metric = string2func(self.setup.flat_metric)
                     weights = None

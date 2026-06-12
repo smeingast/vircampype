@@ -499,61 +499,50 @@ class ImageCube(object):
     # =========================================================================== #
     # Masking
     # =========================================================================== #
+    def _mask_extremum(self, find_position):
+        """
+        Masks the extreme (min or max) pixel value along the stack with NaN.
+
+        Works in row bands: the per-pixel argmin/argmax is independent across
+        pixels, so banding is exact while capping the nanargmin/nanargmax and
+        boolean-index temporaries at band size instead of cube size.
+
+        Parameters
+        ----------
+        find_position : callable
+            np.nanargmin or np.nanargmax.
+
+        """
+
+        plane_index = np.arange(self.cube.shape[0]).reshape((len(self), 1, 1))
+        for r0 in range(0, self.cube.shape[1], 256):
+            band = self.cube[:, r0 : r0 + 256, :]
+
+            # Columns that are NaN in every plane break nanarg*; set them to a
+            # finite value temporarily and restore the NaNs afterwards.
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="All-NaN slice encountered")
+                bad = ~np.isfinite(np.nanmax(band, axis=0))
+            if bad.any():
+                band[:, bad] = 1
+            else:
+                bad = None
+
+            # Find extremum position and replace with NaN
+            pos = np.expand_dims(find_position(band, axis=0), axis=0)
+            band[plane_index == pos] = np.nan
+
+            # In case we replaced bad columns, put back the NaNs
+            if bad is not None:
+                band[:, bad] = np.nan
+
     def _mask_max(self):
-        """
-        Masks the maximum pixel value in the stack with NaN
-
-        Returns
-        -------
-
-        """
-
-        # Create cube with bad columns and set the columns to a finite value temporarily
-        if np.sum(self.bad_columns) > 0:
-            bad = np.empty_like(self.cube, dtype=bool)
-            bad[:] = self.bad_columns[np.newaxis, :, :]
-            self.cube[bad] = 1
-        else:
-            bad = None
-
-        # Find maximum and replace with NaN
-        pos_max = np.expand_dims(np.nanargmax(self.cube, axis=0), axis=0)
-        pos_max_idx = (
-            np.arange(self.cube.shape[0]).reshape((len(self), 1, 1)) == pos_max
-        )
-        self.cube[pos_max_idx] = np.nan
-
-        # In case we replaced bad columns, put back the NaNs
-        if bad is not None:
-            self.cube[bad] = np.nan
+        """Masks the maximum pixel value in the stack with NaN."""
+        self._mask_extremum(find_position=np.nanargmax)
 
     def _mask_min(self):
-        """
-        Masks the minimum pixel value in the stack with NaN
-
-        Returns
-        -------
-
-        """
-
-        # Create cube with bad columns and set the columns to a finite value temporarily
-        if np.sum(self.bad_columns) > 0:
-            bad = np.empty_like(self.cube, dtype=bool)
-            bad[:] = self.bad_columns[np.newaxis, :, :]
-            self.cube[bad] = 1
-        else:
-            bad = None
-
-        # Find minimum and replace with NaN
-        pos_min = np.expand_dims(np.nanargmin(self.cube, axis=0), axis=0)
-        pos_min_idx = (
-            np.arange(self.cube.shape[0]).reshape((len(self), 1, 1)) == pos_min
-        )
-        self.cube[pos_min_idx] = np.nan
-
-        # In case we replaced bad columns, put back the NaNs
-        if bad is not None:
-            self.cube[bad] = np.nan
+        """Masks the minimum pixel value in the stack with NaN."""
+        self._mask_extremum(find_position=np.nanargmin)
 
     def _mask_below(self, value):
         """
@@ -627,14 +616,19 @@ class ImageCube(object):
 
         """
 
-        # Perform sigma clipping along first axis
-        self.cube = apply_sigma_clip(
-            data=self.cube,
-            sigma_level=sigma_level,
-            sigma_iter=sigma_iter,
-            center_metric=center_metric,
-            axis=0,
-        )
+        # Perform sigma clipping along the first axis, in row bands: the
+        # per-pixel statistics are independent, so banding is bitwise
+        # identical to one-shot clipping but caps the nanstd/nanmedian
+        # temporaries at band size instead of cube size. apply_sigma_clip
+        # masks in place through the band views.
+        for r0 in range(0, self.cube.shape[1], 256):
+            apply_sigma_clip(
+                data=self.cube[:, r0 : r0 + 256, :],
+                sigma_level=sigma_level,
+                sigma_iter=sigma_iter,
+                center_metric=center_metric,
+                axis=0,
+            )
 
     def apply_masks(
         self,
@@ -829,41 +823,57 @@ class ImageCube(object):
 
         """
 
-        # # In case a weighted average should be calculated (only possible with a
-        # masked array)
-        # if weights is not None:
-        #
-        #     # Weights must match input data
-        #     if self.shape != weights.shape:
-        #         raise ValueError("Weights don't match input")
-        #
-        #     # Calculate weighted average
-        #     flat = np.ma.average(np.ma.masked_invalid(self.cube), axis=axis,
-        #     weights=weights)
-        #     """:type : np.ma.MaskedArray"""
-        #
-        #     # Fill NaNs back in and return
-        #     with warnings.catch_warnings():
-        #         warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
-        #         return flat.filled(fill_value=np.nan).astype(dtype=dtype, copy=False)
-
         # In case a weighted average should be calculated (only possible with a masked
         # array)
         if (weights is not None) and (metric == "weighted"):
-            # Weights must match input data
-            if self.shape != weights.shape:
+            # Weights are either one scalar per plane (broadcast along the
+            # collapse axis by np.ma.average) or a full-size cube. Per-plane
+            # weights are cast to the cube dtype so the accumulation happens
+            # in the same precision as with a full-size weight cube of cube
+            # dtype (the historical call-site pattern) — keeps results
+            # bitwise identical.
+            if isinstance(weights, ImageCube):
+                weights = weights.cube
+            weights = np.asarray(weights)
+            if weights.ndim == 1:
+                if weights.shape[0] != self.shape[axis]:
+                    raise ValueError("Weights don't match input")
+                weights = weights.astype(self.cube.dtype, copy=False)
+            elif self.shape != weights.shape:
                 raise ValueError("Weights don't match input")
 
-            # Calculate weighted average
-            flat = np.ma.average(  # noqa
-                np.ma.masked_invalid(self.cube), axis=axis, weights=weights
-            )
-            """:type : np.ma.MaskedArray"""
+            # Off-axis collapse keeps the one-shot path (no pipeline caller
+            # uses it; kept for API compatibility).
+            if axis != 0:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", r"All-NaN (slice|axis) encountered"
+                    )
+                    flat = np.ma.average(
+                        np.ma.masked_invalid(self.cube), axis=axis, weights=weights
+                    )
+                    return flat.filled(fill_value=np.nan).astype(
+                        dtype=dtype, copy=False
+                    )
 
-            # Fill NaNs back in and return
+            # Calculate weighted average in row bands: the reduction is
+            # per-pixel, so banding is bitwise-identical to one-shot
+            # np.ma.average but caps the float64/mask temporaries at band
+            # size instead of cube size (np.ma.average materializes ~6x the
+            # input otherwise; measured 3.2 -> 0.9 GB peak per detector).
+            flat = np.empty(self.shape[1:], dtype=np.float64)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
-                return flat.filled(fill_value=np.nan).astype(dtype=dtype, copy=False)
+                for r0 in range(0, self.shape[1], 256):
+                    sl = slice(r0, r0 + 256)
+                    band_weights = weights if weights.ndim == 1 else weights[:, sl, :]
+                    band = np.ma.average(
+                        np.ma.masked_invalid(self.cube[:, sl, :]),
+                        axis=0,
+                        weights=band_weights,
+                    )
+                    flat[sl] = band.filled(fill_value=np.nan)
+            return flat.astype(dtype=dtype, copy=False)
 
         # Just flatten
         with warnings.catch_warnings():
