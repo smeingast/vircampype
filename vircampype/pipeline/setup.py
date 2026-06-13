@@ -108,13 +108,17 @@ class Setup:
     )
     scamp_cache_dir: str | None = None  # Directory for caching SCAMP .ahead files
     local_cache_dir: str | None = (
-        None  # Local temp directory for intermediate files (default: system temp)
+        None  # Base for disposable temp + caches (header shelves, resampling/
+        # stacks/stats temp, completeness sub-tiles). Defaults under path_scratch
+        # (<path_scratch>/cache) when that is set, else the system temp dir.
+        # Safe to delete between runs (re-derived); not guarded on resume.
     )
     path_scratch: str | None = (
-        None  # Local scratch for intermediate image generations (basic/final/
-        # illumcorr/resampled + completeness temp). Masters, statistics,
-        # products, QC, and temp (status + logs) stay under path_pype.
-        # Default None keeps everything under path_pype as before.
+        None  # Local scratch for the DURABLE intermediate image generations
+        # (basic/final/illumcorr/resampled). When set, local_cache_dir also
+        # defaults under it so one knob routes all local data; masters,
+        # statistics, products, QC, and temp (status + logs) stay under
+        # path_pype. Default None keeps everything under path_pype as before.
     )
 
     # Photometry
@@ -397,14 +401,19 @@ class Setup:
             self.scamp_cache_dir = os.path.join(self.scamp_cache_dir, self.name, "")
             os.makedirs(self.scamp_cache_dir, exist_ok=True)
 
+        # Normalize the local scratch path (trailing slash, like path_pype). One
+        # knob routes all local data: when path_scratch is set, the disposable
+        # temp/cache base (local_cache_dir) defaults to <path_scratch>/cache, so
+        # the operator only sets one path. An explicit local_cache_dir still wins.
+        if self.path_scratch is not None:
+            self.path_scratch = os.path.join(self.path_scratch, "")
+            if self.local_cache_dir is None:
+                self.local_cache_dir = os.path.join(self.path_scratch, "cache")
+
         # Set up local cache directory for intermediate/temporary files
         if self.local_cache_dir is not None:
             self.local_cache_dir = os.path.join(self.local_cache_dir, self.name, "")
             os.makedirs(self.local_cache_dir, exist_ok=True)
-
-        # Normalize the local scratch path (trailing slash, like path_pype)
-        if self.path_scratch is not None:
-            self.path_scratch = os.path.join(self.path_scratch, "")
 
         # Set keywords
         self.keywords = HeaderKeywords()
@@ -668,35 +677,31 @@ class Setup:
         self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
         self.folders["qc_completeness"] = f"{self.folders['qc']}completeness/"
         self.folders["qc_psf"] = f"{self.folders['qc']}psf/"
+        # Transient completeness sub-tiles are disposable temp: route them with
+        # the local cache base when one is configured (incl. the path_scratch
+        # auto-default), else path_pype/temp. Both bases carry a trailing slash.
+        _completeness_temp = self.local_cache_dir or self.folders["temp"]
         self.folders["temp_completeness_tiles"] = (
-            f"{self.folders['temp']}completeness/tiles/"
+            f"{_completeness_temp}completeness/tiles/"
         )
-        self.folders["temp_completeness_psf"] = (
-            f"{self.folders['temp']}completeness/psf/"
-        )
+        self.folders["temp_completeness_psf"] = f"{_completeness_temp}completeness/psf/"
         self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
         self.folders["phase3"] = f"{self.folders['object']}products/phase3/"
 
-        # Tier-1 local scratch: the intermediate image generations (and the
-        # transient completeness sub-tiles) move to a local disk, while
-        # masters, statistics, products, QC, and temp (pipeline status +
-        # logs) stay under path_pype — the NAS in production. Same-machine
-        # resume is unaffected; a mid-chain resume without the scratch tree
-        # is caught by check_scratch_tree in pipeline/main.py.
+        # Tier-1 local scratch: the DURABLE intermediate image generations move
+        # to a local disk, while masters, statistics, products, QC, and temp
+        # (pipeline status + logs) stay under path_pype — the NAS in production.
+        # Disposable temp/caches follow local_cache_dir (which defaults under
+        # path_scratch above). Same-machine resume is unaffected; a mid-chain
+        # resume whose outputs are gone is caught by check_scratch_tree.
         if self.path_scratch is not None:
             scratch_object = f"{self.path_scratch}{self.name}/"
             self.folders["processed_basic"] = f"{scratch_object}processing/basic/"
             self.folders["processed_final"] = f"{scratch_object}processing/final/"
             self.folders["resampled"] = f"{scratch_object}processing/resampled/"
             self.folders["illumcorr"] = f"{scratch_object}processing/illumcorr/"
-            self.folders["temp_completeness_tiles"] = (
-                f"{scratch_object}temp/completeness/tiles/"
-            )
-            self.folders["temp_completeness_psf"] = (
-                f"{scratch_object}temp/completeness/psf/"
-            )
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""
@@ -771,10 +776,42 @@ class Setup:
         if isinstance(dd["additional_source_masks"], SourceMasks):
             dd["additional_source_masks"] = dd["additional_source_masks"].name
 
-        # Remove path attributes and folder setup
-        del dd["path_data"]
-        del dd["path_pype"]
-        del dd["folders"]
+        # Keep input-data provenance paths as their BASENAME: headers record
+        # which reference catalog / projection / detection image was used,
+        # without leaking the machine-local directory layout.
+        for key in (
+            "local_gaia_catalog",
+            "local_2mass_catalog",
+            "projection",
+            "sex_detection_image_path",
+        ):
+            val = dd.get(key)
+            if isinstance(val, str) and os.path.isabs(val):
+                dd[key] = os.path.basename(val.rstrip("/"))
+
+        # Drop machine-local *location* roots entirely (output/scratch/cache/
+        # master dirs are worker-box specific and carry no provenance value).
+        for key in (
+            "path_data",
+            "path_pype",
+            "path_scratch",
+            "local_cache_dir",
+            "scamp_cache_dir",
+            "path_master_common",
+            "path_master_object",
+            "folders",
+        ):
+            del dd[key]
+
+        # Backstop: drop any remaining absolute-path value, so a path-location
+        # field added later cannot silently start leaking into headers (the way
+        # path_scratch did). Provenance paths above are basenamed first, so they
+        # survive this filter.
+        dd = {
+            key: val
+            for key, val in dd.items()
+            if not (isinstance(val, str) and os.path.isabs(val))
+        }
 
         # Return
         return dd
