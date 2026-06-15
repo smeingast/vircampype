@@ -65,76 +65,6 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
     return decorator
 
 
-def check_scratch_tree(setup, status, scratch_outputs):
-    """Guard a mid-chain resume against missing local-scratch outputs.
-
-    With ``path_scratch`` set, the intermediate image generations live on a
-    local disk while the pipeline status lives under ``path_pype``. If the
-    status says a scratch-resident producer stage is done but its output files
-    are gone (tile resumed on a different machine, scratch wiped), the run
-    would skip that "done" stage and fail confusingly much further down. Fail
-    loud with a --reset-progress instruction instead.
-
-    The check is on the actual stage OUTPUT FILES, not on the scratch
-    directory: ``Setup.__post_init__`` -> ``__create_folder_tree`` recreates
-    the (empty) scratch folder tree on every invocation, so a directory
-    existence test would always pass and the guard would never fire. Checking
-    for the expected output files survives that recreation and also catches a
-    partially-wiped tree.
-
-    A completed tile whose scratch was cleaned up deliberately does not
-    trigger: once every scratch-consuming stage is done, the function returns
-    before inspecting any outputs.
-
-    Parameters
-    ----------
-    setup : Setup
-        Pipeline setup (uses ``path_scratch`` and the build flags).
-    status : PipelineStatus
-        Checkpoint flags.
-    scratch_outputs : dict[str, list[str]]
-        Maps a producer status-flag name (e.g. ``"resampled"``) to the list of
-        output file paths that stage writes onto scratch. Only the entries
-        whose flag is set are checked.
-    """
-    if setup.path_scratch is None:
-        return
-
-    # Once every scratch-consuming stage is done, the scratch tree may be gone
-    # safely (deliberate cleanup of a completed tile): skip the check.
-    consumers_done = [status.resampled, status.statistics_resampled]
-    if setup.calibrate_pawprints:
-        consumers_done.append(status.photometry_pawprints)
-    if setup.build_stacks:
-        consumers_done.append(status.stacks)
-    if setup.build_tile:
-        consumers_done.append(status.tile)
-    if all(consumers_done):
-        return
-
-    # Expected outputs of every scratch-resident producer stage marked done.
-    expected = [
-        path
-        for flag, paths in scratch_outputs.items()
-        if getattr(status, flag)
-        for path in paths
-    ]
-    if not expected:
-        return
-
-    missing = [path for path in expected if not os.path.isfile(path)]
-    if missing:
-        scratch_object = f"{setup.path_scratch}{setup.name}/"
-        raise PipelineValueError(
-            f"Pipeline status reports intermediate stages as completed, but "
-            f"{len(missing)} of {len(expected)} expected scratch output file(s) "
-            f"are missing (e.g. '{missing[0]}') — the local scratch tree "
-            f"'{scratch_object}' was removed, or this tile was resumed on a "
-            f"different machine. Re-run with --reset-progress to restart this "
-            f"reduction from the raw data, or restore the scratch tree."
-        )
-
-
 def _notify_on_completion(method):
     """Decorator that times a pipeline processor and sends a Pushover notification."""
 
@@ -1170,28 +1100,6 @@ class Pipeline:
     @_notify_on_completion
     def process_science(self):
         """Sequentially process science data."""
-
-        # Fail loud on a mid-chain resume whose local-scratch outputs are gone
-        # (status says a scratch-resident stage is done but its files are
-        # missing). Only build the path lists when scratch routing is active.
-        if self.setup.path_scratch is not None:
-            check_scratch_tree(
-                setup=self.setup,
-                status=self.status,
-                scratch_outputs={
-                    "processed_raw_basic": (
-                        self._paths_processed_basic_science
-                        + (
-                            self._paths_processed_basic_offset
-                            if self.raw_offset is not None
-                            else []
-                        )
-                    ),
-                    "processed_raw_final": self._paths_processed_science_final,
-                    "illumcorr": self._paths_illumination_corrected,
-                    "resampled": self._paths_resampled,
-                },
-            )
 
         # Basic processing
         self.process_raw_basic()

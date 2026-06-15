@@ -1,7 +1,7 @@
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from astropy.io import fits
 from joblib import cpu_count
@@ -109,16 +109,9 @@ class Setup:
     scamp_cache_dir: str | None = None  # Directory for caching SCAMP .ahead files
     local_cache_dir: str | None = (
         None  # Base for disposable temp + caches (header shelves, resampling/
-        # stacks/stats temp, completeness sub-tiles). Defaults under path_scratch
-        # (<path_scratch>/cache) when that is set, else the system temp dir.
-        # Safe to delete between runs (re-derived); not guarded on resume.
-    )
-    path_scratch: str | None = (
-        None  # Local scratch for the DURABLE intermediate image generations
-        # (basic/final/illumcorr/resampled). When set, local_cache_dir also
-        # defaults under it so one knob routes all local data; masters,
-        # statistics, products, QC, and temp (status + logs) stay under
-        # path_pype. Default None keeps everything under path_pype as before.
+        # stacks/stats temp, completeness sub-tiles). Default None uses the
+        # system temp dir at the use sites. Safe to delete between runs
+        # (re-derived); not guarded on resume.
     )
 
     # Photometry
@@ -401,15 +394,6 @@ class Setup:
             self.scamp_cache_dir = os.path.join(self.scamp_cache_dir, self.name, "")
             os.makedirs(self.scamp_cache_dir, exist_ok=True)
 
-        # Normalize the local scratch path (trailing slash, like path_pype). One
-        # knob routes all local data: when path_scratch is set, the disposable
-        # temp/cache base (local_cache_dir) defaults to <path_scratch>/cache, so
-        # the operator only sets one path. An explicit local_cache_dir still wins.
-        if self.path_scratch is not None:
-            self.path_scratch = os.path.join(self.path_scratch, "")
-            if self.local_cache_dir is None:
-                self.local_cache_dir = os.path.join(self.path_scratch, "cache")
-
         # Set up local cache directory for intermediate/temporary files
         if self.local_cache_dir is not None:
             self.local_cache_dir = os.path.join(self.local_cache_dir, self.name, "")
@@ -638,18 +622,39 @@ class Setup:
 
         # If given as string, load YML (kwargs override YAML values)
         if isinstance(setup, str):
-            return cls(**{**read_yml(path_yml=setup), **kwargs})
+            params = {**read_yml(path_yml=setup), **kwargs}
+            cls._reject_obsolete_keys(params)
+            return cls(**params)
 
         # If given as Setup instance, just return it again
         if isinstance(setup, cls):
             return setup
 
         elif isinstance(setup, dict):
+            cls._reject_obsolete_keys(setup)
             return cls(**setup)
 
         # If something else was provided
         else:
             raise ValueError("Please provide a pipeline setup")
+
+    # Setup keys that were removed; loading a config that still sets one of
+    # these fails loud (with guidance) instead of an opaque dataclass TypeError.
+    _obsolete_keys: ClassVar[dict[str, str]] = {
+        "path_scratch": (
+            "'path_scratch' was removed: the pipeline no longer routes durable "
+            "intermediates to a separate scratch disk. Drop it from your setup; "
+            "use 'local_cache_dir' to keep disposable temp/caches off network "
+            "storage."
+        ),
+    }
+
+    @classmethod
+    def _reject_obsolete_keys(cls, params: dict) -> None:
+        """Raise a clear error if a loaded setup still sets a removed key."""
+        for key, hint in cls._obsolete_keys.items():
+            if key in params:
+                raise PipelineValueError(f"Obsolete setup parameter {hint}")
 
     def __add_folder_tree(self):
         """Adds pipeline folder tree to setup."""
@@ -678,8 +683,8 @@ class Setup:
         self.folders["qc_completeness"] = f"{self.folders['qc']}completeness/"
         self.folders["qc_psf"] = f"{self.folders['qc']}psf/"
         # Transient completeness sub-tiles are disposable temp: route them with
-        # the local cache base when one is configured (incl. the path_scratch
-        # auto-default), else path_pype/temp. Both bases carry a trailing slash.
+        # the local cache base when one is configured, else path_pype/temp. Both
+        # bases carry a trailing slash.
         _completeness_temp = self.local_cache_dir or self.folders["temp"]
         self.folders["temp_completeness_tiles"] = (
             f"{_completeness_temp}completeness/tiles/"
@@ -689,19 +694,6 @@ class Setup:
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
         self.folders["phase3"] = f"{self.folders['object']}products/phase3/"
-
-        # Tier-1 local scratch: the DURABLE intermediate image generations move
-        # to a local disk, while masters, statistics, products, QC, and temp
-        # (pipeline status + logs) stay under path_pype — the NAS in production.
-        # Disposable temp/caches follow local_cache_dir (which defaults under
-        # path_scratch above). Same-machine resume is unaffected; a mid-chain
-        # resume whose outputs are gone is caught by check_scratch_tree.
-        if self.path_scratch is not None:
-            scratch_object = f"{self.path_scratch}{self.name}/"
-            self.folders["processed_basic"] = f"{scratch_object}processing/basic/"
-            self.folders["processed_final"] = f"{scratch_object}processing/final/"
-            self.folders["resampled"] = f"{scratch_object}processing/resampled/"
-            self.folders["illumcorr"] = f"{scratch_object}processing/illumcorr/"
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""
@@ -794,7 +786,6 @@ class Setup:
         for key in (
             "path_data",
             "path_pype",
-            "path_scratch",
             "local_cache_dir",
             "scamp_cache_dir",
             "path_master_common",
@@ -804,9 +795,8 @@ class Setup:
             del dd[key]
 
         # Backstop: drop any remaining absolute-path value, so a path-location
-        # field added later cannot silently start leaking into headers (the way
-        # path_scratch did). Provenance paths above are basenamed first, so they
-        # survive this filter.
+        # field added later cannot silently start leaking into headers.
+        # Provenance paths above are basenamed first, so they survive this filter.
         dd = {
             key: val
             for key, val in dd.items()
