@@ -128,7 +128,7 @@ class Setup:
     phot_interp_kernel_k: int = (
         10  # Number of nearest neighbors for photometric interpolation
     )
-    photometric_error_floor: float = 0.005  # Minimum photometric error (mag)
+    photometric_error_floor: float = 0.01  # Minimum photometric error (mag)
     catalog_download_radius_factor: float = (
         1.1  # Enlargement factor for catalog download radius
     )
