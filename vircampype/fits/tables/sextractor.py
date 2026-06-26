@@ -825,6 +825,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     for data, weights, dis in zip(
                         nn_data_chunks, nn_weights_chunks, nn_dis_chunks
                     ):
+                        # Copy: chunks are views into the shared nn_weights, reused
+                        # per par; don't let one par's zeroing leak into the next.
+                        weights = weights.copy()
                         # Replicate weights to third dimension if required
                         if data.ndim == 3:
                             weights = np.repeat(
