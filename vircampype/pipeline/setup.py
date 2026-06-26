@@ -108,10 +108,8 @@ class Setup:
     )
     scamp_cache_dir: str | None = None  # Directory for caching SCAMP .ahead files
     local_cache_dir: str | None = (
-        None  # Base for disposable temp + caches (header shelves, resampling/
-        # stacks/stats temp, completeness sub-tiles). Default None uses the
-        # system temp dir at the use sites. Safe to delete between runs
-        # (re-derived); not guarded on resume.
+        None  # Base for disposable temp + caches; None -> system temp dir.
+        # Safe to delete between runs (re-derived); not guarded on resume.
     )
 
     # Astrometric position-error floor (self-calibrated)
@@ -729,9 +727,8 @@ class Setup:
         self.folders["qc_illumcorr"] = f"{self.folders['qc']}illumcorr/"
         self.folders["qc_completeness"] = f"{self.folders['qc']}completeness/"
         self.folders["qc_psf"] = f"{self.folders['qc']}psf/"
-        # Transient completeness sub-tiles are disposable temp: route them with
-        # the local cache base when one is configured, else path_pype/temp. Both
-        # bases carry a trailing slash.
+        # Transient completeness sub-tiles are disposable temp: local cache base
+        # if configured, else path_pype/temp. Both bases carry a trailing slash.
         _completeness_temp = self.local_cache_dir or self.folders["temp"]
         self.folders["temp_completeness_tiles"] = (
             f"{_completeness_temp}completeness/tiles/"

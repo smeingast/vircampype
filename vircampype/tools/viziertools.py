@@ -157,12 +157,9 @@ def download_gaia(skycoord: SkyCoord, radius: float) -> Table:
     result.rename_column("e_FG", "flux_error")
     result.rename_column("RUWE", "ruwe")
 
-    # Gaia DR3's default VizieR view (I/355/gaiadr3) has no e_Gmag column, so
-    # derive the G-band magnitude error from the flux S/N (the standard
-    # 1.0857 * dF/F; identical to the value make_gaia_refcat writes). Work on
-    # plain ndarrays: masked/zero-flux entries become NaN/inf (not Vizier fill
-    # values) so the downstream isfinite() keep-cut rejects them, and the result
-    # carries no spurious flux unit.
+    # Gaia DR3's VizieR view has no e_Gmag; derive the G-band error from flux
+    # S/N (standard 1.0857 * dF/F). Plain ndarrays make masked/zero-flux entries
+    # NaN/inf (not Vizier fill values) so the downstream isfinite() cut drops them.
     flux = np.asarray(np.ma.filled(result["flux"], np.nan), dtype=float)
     flux_error = np.asarray(np.ma.filled(result["flux_error"], np.nan), dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):

@@ -286,9 +286,8 @@ def run_commands_shell_parallel(
         log.debug(f"ran: {cmd}")
         stderr = ""
         if silent:
-            # Capture instead of discarding (the old DEVNULL): the full output
-            # is recorded in the file log at DEBUG. subprocess.run drains the
-            # pipes internally, so there is no deadlock risk.
+            # Capture to the DEBUG file log; subprocess.run drains the pipes,
+            # so PIPE can't deadlock.
             result = subprocess.run(
                 cmd,
                 shell=True,
@@ -452,9 +451,8 @@ def run_command_shell(
 
     # If not in silent mode, print the output to terminal
     if not silent:
-        # A spinner (label set) leaves the rich Live active, and rich redirects
-        # stdout while it is. Finalize it first so the tool output prints to the
-        # real stdout, as before, rather than being re-routed onto the console.
+        # Spinner (label set) leaves rich Live active, redirecting stdout;
+        # finalize it first so tool output prints to the real stdout.
         if label is not None:
             stop_progress()
         if stdout:

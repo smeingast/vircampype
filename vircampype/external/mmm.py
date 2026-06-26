@@ -169,9 +169,8 @@ def mmm(
     sigma = np.sqrt(sumsq / (maximm - minimm) - skymn**2)  # sigma
     skymn = skymn + skymid  # Add median which was subtracted off earlier
 
-    #    If mean is less than the mode, then the contamination is slight, and the
-    #    mean value is what we really want.
-    #    skymod =  (skymed < skymn) ? 3.*skymed - 2.*skymn : skymn
+    #    If mean is less than the mode, contamination is slight and the mean is
+    #    what we want.
     if skymed < skymn:
         skymod = 3.0 * skymed - 2.0 * skymn
     else:
@@ -315,11 +314,9 @@ def mmm(
         sigma = float(np.sqrt(var))
         skymn = skymn + skymid
 
-        #  Determine a more robust median by averaging the central 20% of pixels.
-        #  Estimate the median using the mean of the central 20 percent of sky
-        #  values.   Be careful to include a perfectly symmetric sample of pixels about
-        #  the median, whether the total number is even or odd within the acceptance
-        #  interval
+        #  Robust median: mean of the central 20% of sky values.  Keep the sample
+        #  symmetric about the median whether the count is even or odd within the
+        #  acceptance interval.
 
         center = (minimm + 1 + maximm) / 2.0
         side = np.round(0.2 * (maximm - minimm)) / 2.0 + 0.25

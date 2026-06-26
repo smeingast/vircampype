@@ -33,7 +33,6 @@ def find_fits_fz_files(root_dir: str) -> Generator[Path, None, None]:
     Path
         Path to each matching ``.FZ`` file.
     """
-    # Walk the directory tree alphabetically
     for dirpath, dirnames, filenames in sorted_walk(root_dir):
         for fname in sorted(filenames):
             if fname.endswith(".FZ") and len(fname) == 11:
@@ -58,7 +57,6 @@ def sorted_walk(root_dir: str) -> Generator[tuple, None, None]:
         A 3-tuple ``(dirpath, dirnames, filenames)`` where *dirpath* is a
         string, and *dirnames* / *filenames* are sorted lists of names.
     """
-    # Generator that walks the directory tree alphabetically
     root = Path(root_dir)
     dirs = [root]
     while dirs:
@@ -134,16 +132,13 @@ def main(root_dir: str) -> None:
         If a target filename already exists at the destination path.
     """
     for path in find_fits_fz_files(root_dir):
-        # Read the FITS header to get the ARCFILE value
         arcfile = fits.getheader(path)["ARCFILE"]
 
-        # Parse the ARCFILE value to create the new filename
         new_fname = parse_arcfile(arcfile)
 
         # Add .fz extension back
         new_fname += ".fz"
 
-        # Create the new path with the same directory
         new_path = path.with_name(new_fname)
         if path.resolve() != new_path.resolve():
             print(f"Renaming:\n  {path}\n  -> {new_path}")

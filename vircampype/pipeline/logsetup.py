@@ -87,10 +87,9 @@ def _install_file_handler(
     file_handler.setFormatter(formatter)
     logger.addHandler(_own(file_handler))
 
-    # Also attach to the root logger so third-party log records (astropy,
-    # matplotlib, joblib, ...) land in the file log. vircampype's own records
-    # do not duplicate (propagate=False), and third-party DEBUG/INFO chatter
-    # is filtered by the root logger's default WARNING level.
+    # Also attach to the root logger so third-party records (astropy,
+    # matplotlib, joblib, ...) land in the file. No duplication: our records
+    # have propagate=False; third-party DEBUG/INFO is filtered by root's WARNING.
     logging.getLogger().addHandler(file_handler)
 
     # Route Python warnings to the file log only (never the console).
@@ -185,9 +184,8 @@ def configure_logging(setup) -> None:
     logger, warnings_logger = _setup_logger_handlers(_console_level(setup))
 
     if not setup.file_log:
-        # No file requested (e.g. a container relying on stdout redirection):
-        # route captured warnings to the console handler so they are not
-        # silently dropped (there is no file to keep them off the console for).
+        # No file: route captured warnings to the console so they are not
+        # silently dropped.
         logging.captureWarnings(True)
         warnings_logger.propagate = False
         for handler in logger.handlers:

@@ -292,9 +292,8 @@ def build_psf_models(
             kind="okblue",
             end="\n",
         )
-        # Full parallelism: unlike full-frame SExtractor (n_jobs_sex is a
-        # memory knob), these PSFEx runs are single-threaded, CPU-bound, and
-        # operate on small bright-star catalogs.
+        # Full parallelism: these PSFEx runs are single-threaded and lightweight,
+        # unlike full-frame SExtractor where n_jobs_sex is a memory knob.
         run_commands_shell_parallel(
             cmds=psfex_cmds, silent=True, n_jobs=setup.n_jobs, label="PSF modeling"
         )
@@ -508,10 +507,8 @@ def measure_completeness(
     combined_path = base + ".combined.fits"
     det_cat_path = base + ".det.cat"
 
-    # Run SExtractor on the original (uninjected) image to build a catalog of
-    # real sources.  This is used to filter out false matches: a detection near
-    # an injected position that already existed in the original image is not a
-    # true recovery.
+    # Catalog of real sources in the original (uninjected) image, used below to
+    # reject false matches (detections that pre-existed near injected positions).
     orig_cat_path = base + ".orig.cat"
     weight_arg_orig = f"-WEIGHT_IMAGE {weight_path}" if weight_path else ""
     orig_cmd = (

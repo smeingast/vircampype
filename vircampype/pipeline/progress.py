@@ -56,11 +56,10 @@ class _ProgressDriver:
         from rich.table import Column
         from rich.text import Text
 
-        # The spinner rides inside the description cell, right after the label,
-        # so it sits next to the text on every row - short label or long filename
-        # - while the text stays flush left. Finished tasks drop the spinner (but
-        # keep its width, so the columns to the right do not jump). no_wrap keeps
-        # a long filename + spinner on one line (the flex bar shrinks instead).
+        # The spinner rides inside the description cell, right after the label, so
+        # it sits next to short labels and long filenames alike. Finished tasks
+        # drop the spinner but keep its width, so columns to the right do not jump.
+        # no_wrap keeps a long filename + spinner on one line (flex bar shrinks).
         class _LabelColumn(ProgressColumn):
             def __init__(self):
                 super().__init__(table_column=Column(no_wrap=True))

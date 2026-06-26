@@ -1115,11 +1115,8 @@ def _make_phase3_columns(
 
     """
 
-    # Read aperture / auto magnitudes and add the internal photometric error floor
-    # in quadrature (matching convert2public). The per-source ZPC zero-point
-    # correction was removed from the pipeline, so the *_ZPC_INTERP terms no longer
-    # exist; the published error is the SExtractor magnitude error with the floor,
-    # not its square root (the old np.sqrt(MAGERR) was dimensionally wrong).
+    # Add the internal photometric error floor in quadrature (matching convert2public);
+    # the published error is the SExtractor mag error itself, not its square root.
     mag_aper = data["MAG_APER_MATCHED_CAL"]
     magerr_aper = np.sqrt(data["MAGERR_APER"] ** 2 + photometric_error_floor**2)
 

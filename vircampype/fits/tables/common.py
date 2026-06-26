@@ -172,10 +172,8 @@ class FitsTables(FitsFiles):
         iterable
         """
 
-        # Read each distinct path once; collections matched via match_mjd
-        # (e.g. get_master_gain) repeat the same physical file once per input
-        # file. Duplicate slots receive copies so all entries stay independent,
-        # exactly as with per-file reads.
+        # Read each distinct path once; match_mjd collections repeat the same
+        # physical file, so duplicate slots get copies to stay independent.
         cache = {}
         data_files = []
         for file, dhus in zip(self.paths_full, self.iter_data_hdu):

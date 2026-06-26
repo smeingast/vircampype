@@ -361,8 +361,7 @@ def message_qc_astrometry(
     )
     colored_message = f"{color}\n{common_message}{BColors.ENDC}"
 
-    # Console: the colored human-readable QC block (unchanged). Finalize any
-    # live progress bar first, like every other raw stdout print path.
+    # Console: colored human-readable QC block. Finalize the live progress bar first.
     _finalize_progress()
     print(colored_message, end="\n")
 

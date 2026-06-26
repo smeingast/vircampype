@@ -77,10 +77,8 @@ def read_aheaders(path: str):
     with open(path, "r") as file:
         lines = file.read().splitlines()
 
-    # Parse line-wise; an HDU ends at an END-only line. Splitting the raw text
-    # on the SUBSTRING "END" (the previous approach) silently corrupted any
-    # header whose card VALUE contains it (e.g. OBJECT = 'BENDER'). A value
-    # can never produce a line that strips to exactly "END".
+    # Parse line-wise; an HDU ends at an END-only line. Match the exact line,
+    # not the substring "END" (a card VALUE like OBJECT='BENDER' contains it).
     cards = []
     for line in lines:
         if line.strip() == "END":

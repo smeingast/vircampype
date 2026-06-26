@@ -125,23 +125,19 @@ def interpolate_image(data, kernel=None, max_bad_neighbors=None):
     # too so asymmetric kernels keep the historical orientation.
     kernel_array = kernel_array[::-1, ::-1]
 
-    # Compute the interpolation values only at the NaN positions instead of
-    # convolving the full frame (only ~1-2% of the pixels are consumed; the
-    # full astropy convolve costs ~20x more). This replicates
-    # convolve(array, kernel, boundary="extend") with its default
-    # nan_treatment="interpolate"/normalize_kernel=True at those pixels:
-    # a kernel-weighted mean over the finite neighbors, renormalized by the
-    # sum of their weights, with out-of-frame neighbors clipped to the edge.
-    # Verified to produce float32-identical results on real frames.
+    # Compute interpolation values only at NaN positions, not over the full
+    # frame (~1-2% of pixels vs ~20x cost for astropy convolve). Replicates
+    # convolve(array, kernel, boundary="extend", nan_treatment="interpolate",
+    # normalize_kernel=True): kernel-weighted mean over finite neighbors,
+    # renormalized by their weight sum, out-of-frame neighbors edge-clipped.
     n_rows, n_cols = array.shape
     k_rows, k_cols = kernel_array.shape
     all_row, all_col = np.where(nans)
     off_row = np.arange(k_rows) - k_rows // 2
     off_col = np.arange(k_cols) - k_cols // 2
-    # Chunked so the (N, k, k) gather stays bounded even for heavily masked
-    # frames; values are assigned only after ALL chunks are gathered, so
-    # every pixel sees the original (pre-fill) neighbors, like the one-shot
-    # convolution did.
+    # Chunked to bound the (N, k, k) gather on heavily masked frames. Assign
+    # only after all chunks are gathered, so every pixel sees its original
+    # (pre-fill) neighbors.
     filled = []
     for c0 in range(0, all_row.size, 1_000_000):
         idx_row = all_row[c0 : c0 + 1_000_000]
@@ -859,8 +855,6 @@ def source_mask(
             mask_large[aa, bb] = 1
 
     # Find those sources outside the given thresholds and set to 0
-    # bad_sources = (sizes < minarea) | (sizes > maxarea)
-    # if maxarea is not None else sizes < minarea
     bad_sources = (
         (sizes < min_area) | (sizes > max_area)
         if max_area is not None

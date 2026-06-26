@@ -484,8 +484,7 @@ class ImageCube(object):
             ]
         )
 
-        # Prepend PrimaryHDU and write via local temp to avoid many small
-        # NAS writes; a single large sequential copy is much faster.
+        # Prepend PrimaryHDU and write via local temp: avoids many small NAS writes.
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
         path_temp = make_path_system_tempfile(
             suffix=".fits", base_dir=self.setup.local_cache_dir
@@ -616,11 +615,8 @@ class ImageCube(object):
 
         """
 
-        # Perform sigma clipping along the first axis, in row bands: the
-        # per-pixel statistics are independent, so banding is bitwise
-        # identical to one-shot clipping but caps the nanstd/nanmedian
-        # temporaries at band size instead of cube size. apply_sigma_clip
-        # masks in place through the band views.
+        # Sigma-clip the first axis in row bands: per-pixel stats keep it
+        # bitwise identical to one-shot but cap temporaries at band size.
         for r0 in range(0, self.cube.shape[1], 256):
             apply_sigma_clip(
                 data=self.cube[:, r0 : r0 + 256, :],
@@ -826,12 +822,9 @@ class ImageCube(object):
         # In case a weighted average should be calculated (only possible with a masked
         # array)
         if (weights is not None) and (metric == "weighted"):
-            # Weights are either one scalar per plane (broadcast along the
-            # collapse axis by np.ma.average) or a full-size cube. Per-plane
-            # weights are cast to the cube dtype so the accumulation happens
-            # in the same precision as with a full-size weight cube of cube
-            # dtype (the historical call-site pattern) — keeps results
-            # bitwise identical.
+            # Weights are one scalar per plane (broadcast by np.ma.average) or
+            # a full-size cube. Per-plane weights are cast to cube dtype so the
+            # accumulation matches a full-size weight cube — bitwise identical.
             if isinstance(weights, ImageCube):
                 weights = weights.cube
             weights = np.asarray(weights)
@@ -856,11 +849,9 @@ class ImageCube(object):
                         dtype=dtype, copy=False
                     )
 
-            # Calculate weighted average in row bands: the reduction is
-            # per-pixel, so banding is bitwise-identical to one-shot
-            # np.ma.average but caps the float64/mask temporaries at band
-            # size instead of cube size (np.ma.average materializes ~6x the
-            # input otherwise; measured 3.2 -> 0.9 GB peak per detector).
+            # Weighted average in row bands: per-pixel reduction stays
+            # bitwise-identical to one-shot np.ma.average but caps temporaries
+            # at band size (~6x input; 3.2 -> 0.9 GB per detector).
             flat = np.empty(self.shape[1:], dtype=np.float64)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
@@ -880,11 +871,9 @@ class ImageCube(object):
             warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
             warnings.filterwarnings("ignore", r"Mean of empty slice")
             if axis == 0 and self.cube.ndim == 3:
-                # Every metric used here (nanmedian/nanmean/clipped_*) reduces
-                # per pixel along the stack, so row banding is bitwise
-                # identical to a one-shot call but caps the metric's internal
-                # temporaries (np.nanmedian materializes ~3x the cube) at
-                # band size.
+                # Metrics here (nanmedian/nanmean/clipped_*) reduce per pixel,
+                # so row banding is bitwise identical to one-shot but caps the
+                # metric's temporaries (np.nanmedian materializes ~3x) at band size.
                 bands = [
                     metric(self.cube[:, r0 : r0 + 256, :], axis=0)
                     for r0 in range(0, self.shape[1], 256)
@@ -909,8 +898,7 @@ class ImageCube(object):
 
         """
 
-        # If we have a float or integer (a plain Python float previously fell
-        # through to the unsupported-type error despite the documented API)
+        # If we have a float or integer
         if isinstance(norm, (int, np.integer, float, np.floating)):
             self.cube /= norm
 

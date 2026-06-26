@@ -499,10 +499,8 @@ class FitsImages(FitsFiles):
         # Create empty numpy cube
         cube = np.empty((self.n_files, header["NAXIS2"], header["NAXIS1"]), dtype=dtype)
 
-        # Fill cube with data; collections matched via match_mjd (e.g. the
-        # get_master_* methods) repeat the same physical file once per input
-        # file, so read each distinct path only once and copy its plane into
-        # all slots that reference it.
+        # Matched collections (match_mjd) repeat the same physical file across
+        # slots, so read each distinct path once and copy into the rest.
         path_slots = {}
         for idx, path in enumerate(self.paths_full):
             path_slots.setdefault(path, []).append(idx)

@@ -898,18 +898,15 @@ def convert2public(
     errpa_raw = input_table["ERRTHETAWIN_SKY"].value
     astrms1 = input_table["ASTRMS1"].value
     astrms2 = input_table["ASTRMS2"].value
-    # Per-source RA/Dec correlation coefficient (self-calibrated ASTRMS_CORR column
-    # written by build_statistics_tables). Optional: older catalogs lack the column,
-    # so fall back to 0 (diagonal-only).
+    # Per-source RA/Dec correlation (ASTRMS_CORR, from build_statistics_tables);
+    # older catalogs lack it, so fall back to 0 (diagonal-only).
     try:
         astrms_corr = input_table["ASTRMS_CORR"].value
     except KeyError:
         astrms_corr = np.zeros_like(astrms1)
-    # Safeguard: a correlation coefficient must lie in [-1, 1]. Fail loudly (do NOT
-    # silently clip) if any finite value is out of range -- with a correct ASTCORR this
-    # never happens, so an out-of-range value signals a real upstream problem (e.g. the
-    # SCAMP group AstromCorr_*_HighSN bug leaking through). NaNs (bad/edge sources,
-    # filtered later) are ignored; a tiny tolerance absorbs floating-point noise.
+    # A correlation coefficient must lie in [-1, 1]. Fail loud rather than silently
+    # clip: an out-of-range value signals a real upstream problem (e.g. the SCAMP
+    # group AstromCorr_*_HighSN bug). NaNs are ignored; the tolerance absorbs float noise.
     finite_corr = astrms_corr[np.isfinite(astrms_corr)]
     if finite_corr.size and np.max(np.abs(finite_corr)) > 1.0 + 1e-6:
         n_bad = int(np.sum(np.abs(finite_corr) > 1.0 + 1e-6))
@@ -969,10 +966,9 @@ def convert2public(
     cov_ra += astrms1**2
     cov_dec += astrms2**2
 
-    # Add the SCAMP cross-axis (RA/Dec) systematic correlation to the off-diagonal.
-    # astrms_corr is a per-source correlation coefficient in [-1, 1] (the
-    # self-calibrated ASTRMS_CORR column), and cov_ra >= astrms1**2, cov_dec >= astrms2**2,
-    # so the combined covariance stays positive semi-definite (no clamp required).
+    # Add the SCAMP cross-axis (RA/Dec) correlation to the off-diagonal. Since
+    # |astrms_corr| <= 1 and cov_ra >= astrms1**2, cov_dec >= astrms2**2, the combined
+    # covariance stays positive semi-definite (no clamp required).
     cov_radec += astrms_corr * astrms1 * astrms2
 
     # Re-derive total error ellipse from combined covariance matrix

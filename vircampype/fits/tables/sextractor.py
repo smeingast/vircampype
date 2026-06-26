@@ -228,8 +228,7 @@ class SextractorCatalogs(SourceCatalogs):
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
             # Remove the .ahead SCAMP just wrote, so a rerun re-solves instead of
-            # the early-skip silently reusing this rejected solution. (The cache is
-            # written only after the gate passes, so it is unaffected.)
+            # silently reusing this rejected solution.
             for ap in ahead_paths:
                 remove_file(ap)
             raise ValueError("Astrometric solution may be crap, please check")
@@ -239,7 +238,6 @@ class SextractorCatalogs(SourceCatalogs):
         # headers; writing it as ASTCORR lets it ride the solution (resampling
         # COPY_KEYWORDS propagates it into the resampled-pawprint headers, where
         # build_statistics_tile reads it as the flat-SCAMP correlation fallback).
-        # Done before caching so the cached .ahead carry it.
         radec_correlation = scamp_xml_radec_correlation(path_xml)
         log.info(
             f"SCAMP RA/Dec astrometric correlation r_eff = {radec_correlation:.4f}"
@@ -288,9 +286,8 @@ class SextractorCatalogs(SourceCatalogs):
                 if os.path.isfile(ap):
                     rsync_file(ap, self.setup.scamp_cache_dir)
             # Cache scamp.xml alongside the .ahead so the solution metadata (high-S/N
-            # RMS floor, RA/Dec correlation) travels with the cached solution. Enables a
-            # future "reprocess without re-solving SCAMP" path that re-injects the floor
-            # from the cached XML. The live copy stays in qc/astrometry for diagnostics.
+            # RMS floor, RA/Dec correlation) travels with the cached solution. The live
+            # copy stays in qc/astrometry for diagnostics.
             if os.path.isfile(path_xml):
                 rsync_file(path_xml, self.setup.scamp_cache_dir)
             log.info(
@@ -1618,8 +1615,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             )
 
             # Per-tile flat-SCAMP floor scalar (mas, mas, correlation): the value
-            # the self-calibration shrinks toward / returns where Gaia is too
-            # sparse. Replaces the old per-pawprint .astrms*.fits map sampling.
+            # the self-calibration shrinks toward / returns where Gaia is too sparse.
             astrms1_flat, astrms2_flat, astrms_corr_flat = astrms_fallback
 
             # Check if files are available
@@ -1684,8 +1680,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     | (yy_image < 0)
                 )
 
-                # Just to be sort of safe,
-                # let's say we can't have more than 5% of sources outside the edges
+                # Guard: no more than 5% of sources may fall outside the edges
                 if sum(bad) / len(bad) > 0.05:
                     raise ValueError(
                         f"Too many sources are close to the image edge ({sum(bad)}/{len(bad)}). "
@@ -1702,12 +1697,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     nimg[yy_image, xx_image],
                 )
                 weight_sources = weight[yy_image, xx_image]
-                # Safety guard: the self-calibrated floor (crossmatch + cell-binned
-                # map + per-source lookup) runs in a single in-memory pass, so its
-                # peak RAM scales linearly with the source count. Fail loud before
-                # any large allocation rather than risk an OOM on a huge mosaic;
-                # raise astrms_self_max_sources on a big-RAM machine, or chunk the
-                # per-source evaluation in _self_calibrate_astrms.
+                # Guard against OOM: the self-calibrated floor runs in a single
+                # in-memory pass, so peak RAM scales with the source count; fail loud
+                # before the large allocation.
                 n_src = len(table_hdu)
                 if n_src > self.setup.astrms_self_max_sources:
                     raise PipelineValueError(
@@ -1721,7 +1713,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     )
                 # Flat-SCAMP floor broadcast to every source. The self-calibration
                 # below overwrites it; it survives only as the sparse-Gaia fallback
-                # / shrink target (identical to the old constant per-pawprint map).
+                # / shrink target.
                 astrms_sources1 = np.full(n_src, astrms1_flat, dtype=float)
                 astrms_sources2 = np.full(n_src, astrms2_flat, dtype=float)
                 astrms_corr_sources = np.full(n_src, astrms_corr_flat, dtype=float)

@@ -86,10 +86,8 @@ def _build_sky_detector(d, files, master_mask, master_bpm, setup):
         sigma_iter=setup.sky_sigma_iter,
     )
 
-    # Create weights if needed; one scalar weight per plane suffices —
-    # masked (non-finite) pixels are excluded by np.ma inside flatten, so
-    # materializing a full-size weight cube zeroed at those pixels is
-    # equivalent (verified bitwise) and only costs memory.
+    # One scalar weight per plane suffices: flatten's np.ma excludes the
+    # masked (non-finite) pixels, so a full-size zeroed weight cube is equivalent.
     if setup.sky_combine_metric == "weighted":
         metric = "weighted"
         weights = 1 / bkg_std
@@ -732,10 +730,8 @@ class SkyImages(FitsImages):
         for collection in (self, illumcor, sourcemasks):
             collection.headers_data, collection.dtypes  # noqa: B018
 
-        # Process files in parallel (threads backend, same pattern and memory
-        # knob as basic processing: the numpy work releases the GIL, FITS I/O
-        # serializes). The progress bar is driven from this (main) thread;
-        # the per-file trace is in the file log via _apply_illumcorr_one_file.
+        # Process files in parallel (threads backend: numpy releases the GIL,
+        # FITS I/O serializes). Progress bar driven from this (main) thread.
         from vircampype.pipeline.progress import track
 
         results = Parallel(
@@ -949,9 +945,7 @@ class SkyImagesRaw(SkyImages):
                     )
 
         # Process files in parallel (threads backend: FITS I/O releases the GIL).
-        # The progress bar is driven from this (main) thread as files complete;
-        # the workers run off the main thread, where a live bar cannot be drawn
-        # (the per-file trace is in the file log via _process_one_basic_file).
+        # Progress bar driven from the main thread (a live bar can't be drawn off it).
         from vircampype.pipeline.progress import track
 
         results = Parallel(
@@ -1679,9 +1673,8 @@ class SkyImagesProcessed(SkyImages):
         master_sky = self.get_master_sky()
         master_source_mask = self.get_master_source_mask()
 
-        # The matched master-sky collection repeats the same file for every
-        # input within a sky window; cache the last-read cube (it is only
-        # ever read in the loop below) instead of re-reading it per file.
+        # The matched master-sky collection repeats the same file across a sky
+        # window; cache the last-read cube instead of re-reading it per file.
         sky_norm_path, sky_norm = None, None
 
         # Loop over files and apply calibration
@@ -3001,11 +2994,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
                 arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
                 arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
-                # NB: the astrometric floor is NO LONGER carried as a per-pawprint
-                # statistics image. It is self-calibrated on the coadded tile vs Gaia
-                # in build_statistics_tables; the flat-SCAMP fallback there reads the
-                # ASTRMSH1/2/ASTCORR header scalar (Pipeline._astrms_flat_scalar)
-                # rather than coadding a constant image. (See build_statistics_tile.)
+                # Astrometric floor is self-calibrated on the coadded tile vs Gaia
+                # in build_statistics_tables, not carried as a per-pawprint image.
 
                 # Read weight
                 weight_hdu = fits.getdata(
@@ -3179,11 +3169,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     cmd=cmd, shell="bash", silent=True, raise_on_error=True
                 )
 
-            # Create MEF image. paths_temp_stacks is already in detector order
-            # (appended while iterating iter_data_hdu above); do NOT sort it -- the
-            # temp names are random UUIDs, so sorting would scramble the
-            # detector->extension mapping. (build_stacks can sort because it uses
-            # deterministic stack_{idx:02d} names where sorted() preserves order.)
+            # Create MEF image. paths_temp_stacks is already in detector order;
+            # do NOT sort it -- the temp names are random UUIDs, so sorting would
+            # scramble the detector->extension mapping.
             make_mef_image(
                 paths_input=paths_temp_stacks,
                 overwrite=self.setup.overwrite,
@@ -3287,8 +3275,7 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Construct commands for source extraction
         cmd = f"{sws.bin} @{path_temp_images} -c {sws.default_config} {ss}"
 
-        # Run Swarp (percentage bar from the growing output files; the bar
-        # label replaces the old dangling "Coadding ..." status line)
+        # Run Swarp (percentage bar from the growing output files)
         run_command_shell(
             cmd=cmd,
             silent=True,

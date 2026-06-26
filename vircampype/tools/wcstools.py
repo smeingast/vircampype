@@ -487,8 +487,7 @@ def _canonicalize_rotation(
         r_try = (r + 180.0) % 360.0
         hdr_try = make_hdr(r_try)
 
-        # Re-apply HARD (1) and (2) to the candidate, then check if it still
-        # achieves CD1_1 < 0.
+        # Re-apply HARD (1)/(2), then check CD1_1 < 0 still holds.
         r_try, hdr_try = ensure_long_axis_y(r_try, hdr_try)
         r_try, hdr_try = ensure_north_up(r_try, hdr_try)
 

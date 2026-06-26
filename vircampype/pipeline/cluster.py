@@ -815,6 +815,5 @@ def dispatch(config: ClusterConfig) -> None:
     else:
         print("All workers dispatched.")
 
-    # Print monitoring hint.
     print("Monitor with: vircampype --cluster <cluster.yml> --status")
     print(f"View logs in: {host_queue_dir}/logs/")

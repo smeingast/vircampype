@@ -120,15 +120,12 @@ class FlatTwilight(FlatImages):
                 lcff = master_linearity.hdu2coeff(hdu_index=d)
                 sat = self.setup.saturation_levels[d - 1]
 
-                # Scale data to NDIT=1 (each DIT starts from a fresh reset in DCR
-                # mode, so non-linearity is at the per-DIT level; normalise first so
-                # the signal level matches the NDIT=1 linearity calibration frames)
+                # Scale to NDIT=1: each DIT resets in DCR mode, so non-linearity is
+                # per-DIT; match the NDIT=1 linearity calibration frames.
                 cube.normalize(files.ndit)
 
-                # Linearize (use DIT, not DIT×NDIT: after NDIT normalisation the
-                # signal represents one DIT integration, matching the NDIT=1
-                # calibration frames; the reset-overhead factor kk = 1.0011/DIT
-                # is only correct at the per-DIT level)
+                # Linearize with DIT, not DIT×NDIT: after NDIT normalisation the
+                # signal is one DIT integration; kk = 1.0011/DIT only holds per-DIT.
                 cube.linearize(coeff=lcff, texptime=files.dit_norm)
 
                 # Subtract master dark
@@ -163,10 +160,8 @@ class FlatTwilight(FlatImages):
                     sigma_iter=self.setup.flat_sigma_iter,
                 )
 
-                # Create weights if needed; one scalar weight per plane —
-                # non-finite pixels are excluded by np.ma inside flatten, so
-                # a full-size weight cube zeroed there is equivalent
-                # (verified bitwise) and only costs memory.
+                # One scalar weight per plane; non-finite pixels are excluded by
+                # np.ma inside flatten, so a zeroed full-size cube is equivalent.
                 if self.setup.flat_metric == "weighted":
                     metric = "weighted"
                     weights = flux[-1]
@@ -213,7 +208,7 @@ class FlatTwilight(FlatImages):
             # And the global flat field coefficients
             coeff_global = np.mean(flux_normed, axis=1)
 
-            # Finally, I apply the global coefficients to the normed master flat
+            # Apply the global coefficients to the normed master flat
             master_flat.scale_planes(scales=coeff_global)
 
             # Make primary header
@@ -751,12 +746,10 @@ class FlatLampCheck(FlatImages):
                     mask_above=1 + self.setup.bpm_rel_threshold,
                 )
 
-                # Count how many bad pixels there are in the stack and normalize to the
-                # number of input images
+                # Count bad pixels per stack, normalized to the number of input images
                 nbad_pix = np.sum(~np.isfinite(cube.cube), axis=0) / files.n_files
 
-                # Get those pixels where the number of bad pixels is greater than the
-                # given input threshold
+                # Flag pixels above the bad-fraction threshold
                 bpm = np.array(nbad_pix >= self.setup.bpm_frac, dtype=np.uint8)
 
                 # Make header cards
@@ -936,10 +929,8 @@ class FlatLampGain(FlatImages):
                 denom[bad] = np.nan
             gain = ((mf0 + mf1) - (md0 + md1)) / denom
 
-            # Calculate readout noise (divide dvar by 2*NDIT, not 2: in DCR mode
-            # each of NDIT reads is independent, so Var(D0-D1) = 2*NDIT*σ²/G²
-            # and σ_read = G * sqrt(dvar / (2*NDIT)); omitting NDIT gives an
-            # over-estimate of read noise by a factor sqrt(NDIT))
+            # Read noise: divide dvar by 2*NDIT, not 2 — in DCR mode the NDIT reads
+            # are independent, so σ_read = G * sqrt(dvar / (2*NDIT)).
             rdnoise = gain * np.sqrt(dvar / (2 * darks.ndit[0]))
             log.info(
                 f"qc gain gain_mean_e_adu={np.nanmean(gain):.3f} "

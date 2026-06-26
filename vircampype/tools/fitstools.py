@@ -782,9 +782,8 @@ def make_gaia_refcat(
     Table
         Output catalogue table (also written to *path_ldac_out*).
     """
-    # Clean data. The proper-motion errors are required finite too, since they
-    # are propagated into the warped position errors below (a finite pm with a
-    # masked/NaN pm error would otherwise turn ra_error/dec_error into NaN).
+    # Clean data. PM errors must be finite too: they propagate into the warped
+    # position errors below (a NaN pm error would turn ra/dec_error into NaN).
     keep = (
         np.isfinite(table_in[key_ra])
         & np.isfinite(table_in[key_dec])
@@ -811,8 +810,7 @@ def make_gaia_refcat(
     if epoch_out is None:
         epoch_out = epoch_in
 
-    # Baseline between the Gaia catalog epoch and the output (observation) epoch,
-    # in years. Zero when no warp is applied.
+    # Warp baseline in years (Gaia epoch -> output epoch); 0 when no warp.
     dt = epoch_out - epoch_in
 
     # Apply space motion when warping to a different epoch.
@@ -1181,9 +1179,8 @@ def tile_fits(
 
         tiles = []
         n_written = 0
-        # Per-sub-tile progress bar: this is minutes of memmap I/O on a
-        # multi-GB tile that was previously console-silent. Main-thread only
-        # caller; no-op off a TTY.
+        # Per-sub-tile progress bar for minutes of memmap I/O. Main-thread
+        # caller only; no-op off a TTY.
         from vircampype.pipeline.progress import track
 
         with track(
@@ -1204,8 +1201,7 @@ def tile_fits(
                     tile_path = str(out_dir / tile_name)
 
                     write_tile = overwrite or not os.path.isfile(tile_path)
-                    # Defined here (not in the branch below): the weight check
-                    # needs it too, also when the image tile gets (re)written.
+                    # Defined here: the weight check below needs it too.
                     expected_shape = (y1 - y0, x1 - x0)
 
                     # Verify existing tile matches expected geometry

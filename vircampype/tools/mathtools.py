@@ -73,9 +73,8 @@ def apply_sigma_clip(
         warnings.filterwarnings("ignore", category=RuntimeWarning)
 
         for _ in range(sigma_iter):
-            # Calculate standard deviation and center; the center is computed
-            # once per iteration (both clip limits see identical data since
-            # the masking assignment only happens after both comparisons).
+            # std and center computed per-iteration before any masking,
+            # so both clip limits see identical data.
             std = np.nanstd(data, axis=axis)
             center = center_metric(data, axis=axis)
 

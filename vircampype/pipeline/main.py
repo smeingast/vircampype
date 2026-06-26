@@ -48,9 +48,8 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
                 log.debug(f"Skipping {message}: guard '{guard}' is None")
                 return
             if getattr(self.status, status_attr):
-                # Normal checkpoint-resume skip of a whole stage: INFO, not a
-                # warning (it is expected, not an anomaly). One console line so
-                # resumed runs list every stage instead of omitting it.
+                # Expected resume skip: INFO not warning; one console line per
+                # stage.
                 log.info(f"Skipping {message}: already complete")
                 if not self.setup.silent:
                     print_stage_skip(message)
@@ -939,8 +938,7 @@ class Pipeline:
         """Build a QC summary table aggregating key metrics from stacks and tile."""
 
         if self.status.qc_summary:
-            # Routine checkpoint skip: same treatment as the decorated stages
-            # (INFO record + console line), not a warning.
+            # Routine checkpoint skip: INFO + console line, not a warning.
             logging.getLogger(__name__).info(
                 "Skipping QC SUMMARY TABLE: already complete"
             )

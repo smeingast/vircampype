@@ -14,11 +14,9 @@ from joblib import Parallel, delayed
 from vircampype.pipeline.setup import Setup
 from vircampype.tools.fitstools import read_fits_headers
 
-# Header shelve caches are keyed by pipeline temp-folder hash, so a worker
-# box accumulates one per reduced tile and nothing ever removes them
-# (17 GB of stale shelves observed). Sweep anything untouched for two weeks
-# (mtime updates on every write; live reductions touch theirs constantly),
-# once per base directory per process.
+# Header shelve caches accumulate (one per tile, hash-keyed, never removed);
+# sweep anything untouched for two weeks. mtime updates on every write, so
+# live reductions keep theirs fresh.
 _HEADER_DB_MAX_AGE_DAYS = 14.0
 _swept_header_db_dirs: set[str] = set()
 
