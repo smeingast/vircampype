@@ -5,7 +5,7 @@ from typing import Callable, Generator
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy.stats import sigma_clipped_stats
+from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.table import QTable, Table
 from astropy.table import vstack as table_vstack
 from astropy.table.column import MaskedColumn
@@ -29,6 +29,8 @@ __all__ = [
     "remove_duplicates_wcs",
     "fill_masked_columns",
     "fits_column_kwargs",
+    "centroid_covariance_radec_mas2",
+    "estimate_astrms_floor",
     "convert2public",
     "scamp_xml_radec_correlation",
     "scamp_xml_reference_rms_highsn",
@@ -692,6 +694,159 @@ def scamp_xml_reference_rms_highsn(path_xml: str) -> tuple[float, float] | None:
     return rms1, rms2
 
 
+def centroid_covariance_radec_mas2(
+    erra_world_deg: np.ndarray,
+    errb_world_deg: np.ndarray,
+    errtheta_sky_deg: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Build the per-source centroid position covariance in the RA/Dec frame.
+
+    Converts a SExtractor windowed error ellipse (``ERRAWIN_WORLD``,
+    ``ERRBWIN_WORLD`` in degrees, ``ERRTHETAWIN_SKY`` in degrees) into the
+    RA/Dec covariance elements in mas^2. The position angle is remapped from
+    SExtractor's ``[-90, 90]`` convention to ``[0, 180)`` (the 2MASS
+    convention) before use.
+
+    This is the single source of truth for the centroid covariance: the same
+    term is added to the per-source position errors in :func:`convert2public`
+    and subtracted from the residual variance when self-calibrating the
+    astrometric floor (:func:`estimate_astrms_floor`), so the two can never
+    drift apart.
+
+    Parameters
+    ----------
+    erra_world_deg : np.ndarray
+        Semi-major axis of the error ellipse (``ERRAWIN_WORLD``), degrees.
+    errb_world_deg : np.ndarray
+        Semi-minor axis of the error ellipse (``ERRBWIN_WORLD``), degrees.
+    errtheta_sky_deg : np.ndarray
+        Position angle of the error ellipse (``ERRTHETAWIN_SKY``), degrees.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        ``(cov_ra, cov_dec, cov_radec)`` in mas^2.
+    """
+    erra_mas = erra_world_deg * 3_600_000
+    errb_mas = errb_world_deg * 3_600_000
+    # SExtractor values are from -90 to +90; remap to [0, 180) to match 2MASS
+    errpa = np.where(errtheta_sky_deg < 0, errtheta_sky_deg + 180.0, errtheta_sky_deg)
+    theta_rad = np.deg2rad(errpa)
+    cos_t = np.cos(theta_rad)
+    sin_t = np.sin(theta_rad)
+    cov_ra = cos_t**2 * errb_mas**2 + sin_t**2 * erra_mas**2
+    cov_dec = sin_t**2 * errb_mas**2 + cos_t**2 * erra_mas**2
+    cov_radec = cos_t * sin_t * (erra_mas**2 - errb_mas**2)
+    return cov_ra, cov_dec, cov_radec
+
+
+def estimate_astrms_floor(
+    dr_alpha_mas: np.ndarray,
+    dr_delta_mas: np.ndarray,
+    cov_ra_mas2: np.ndarray,
+    cov_dec_mas2: np.ndarray,
+    cov_radec_mas2: np.ndarray,
+    var_gaia_ra_mas2: np.ndarray,
+    var_gaia_dec_mas2: np.ndarray,
+    sigma: float = 3.0,
+) -> tuple[float, float, float, int]:
+    """
+    Estimate the per-axis astrometric systematic floor by excess variance.
+
+    On a clean, bright, floor-dominated sample (selected by the caller), the
+    residual scatter vs (epoch-warped) Gaia in excess of the known per-source
+    centroid and Gaia-reference variance is the systematic floor:
+
+        floor_a^2 = max(0, <dr_a^2> - <cov_centroid_a + var_gaia_a>)
+
+    per axis ``a`` in ``{alpha* = dRA*cos(dec), delta}``. Mismatch outliers are
+    rejected by sigma-clipping the (symmetric) per-axis residuals -- not
+    ``dr^2``, whose right skew would bias the clipped variance low and
+    under-estimate the floor -- then the floor is the survivor variance (about
+    the subtracted mean offset) in excess of the mean known per-source variance.
+    The off-diagonal is the analogous excess cross-term, returned as a
+    correlation coefficient.
+
+    The same estimator over *all* magnitudes returns ~0 (per-source centroid
+    errors already explain the faint scatter), so the excess is a pure
+    bright-end effect: the caller MUST pass a bright/floor-dominated sample
+    only, never the full magnitude range.
+
+    Parameters
+    ----------
+    dr_alpha_mas, dr_delta_mas : np.ndarray
+        Signed per-axis residuals vs warped Gaia (alpha* = dRA*cos(dec)), mas.
+    cov_ra_mas2, cov_dec_mas2, cov_radec_mas2 : np.ndarray
+        Per-source centroid covariance (mas^2), e.g. from
+        :func:`centroid_covariance_radec_mas2`.
+    var_gaia_ra_mas2, var_gaia_dec_mas2 : np.ndarray
+        Per-source Gaia reference variance (mas^2); negligible at the bright end.
+    sigma : float, optional
+        Sigma-clipping threshold for the robust means. Default 3.0.
+
+    Returns
+    -------
+    tuple[float, float, float, int]
+        ``(floor_alpha_mas, floor_delta_mas, corr_coeff, n_used)``. The floors
+        are ``nan`` when the sample is empty/all-nan, so the caller can step
+        down to a fallback; ``corr_coeff`` is clamped to ``[-1, 1]`` and is
+        ``0.0`` when either floor is ~0. ``n_used`` is the jointly-finite count.
+    """
+    finite = (
+        np.isfinite(dr_alpha_mas)
+        & np.isfinite(dr_delta_mas)
+        & np.isfinite(cov_ra_mas2)
+        & np.isfinite(cov_dec_mas2)
+    )
+    if not np.any(finite):
+        return np.nan, np.nan, 0.0, 0
+
+    da = dr_alpha_mas[finite]
+    dd = dr_delta_mas[finite]
+    var_a = cov_ra_mas2[finite] + var_gaia_ra_mas2[finite]
+    var_d = cov_dec_mas2[finite] + var_gaia_dec_mas2[finite]
+    var_ad = cov_radec_mas2[finite]
+
+    # Reject mismatches/outliers by sigma-clipping the (symmetric) per-axis
+    # residuals -- NOT dr^2, whose right skew would bias the clipped variance
+    # low and under-estimate the floor (the dangerous direction). Survivors are
+    # the sources kept on BOTH axes.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        keep = ~np.ma.getmaskarray(
+            sigma_clip(da, sigma=sigma, maxiters=5)
+        ) & ~np.ma.getmaskarray(sigma_clip(dd, sigma=sigma, maxiters=5))
+    n_used = int(np.sum(keep))
+    if n_used == 0:
+        return np.nan, np.nan, 0.0, 0
+
+    da, dd = da[keep], dd[keep]
+    var_a, var_d, var_ad = var_a[keep], var_d[keep], var_ad[keep]
+
+    # Excess variance about the (subtracted) mean offset: the systematic floor is
+    # the survivor scatter in excess of the known per-source centroid + Gaia
+    # variance. Subtracting the mean keeps a small astrometric offset out of the
+    # variance (and the correlation).
+    da = da - float(np.mean(da))
+    dd = dd - float(np.mean(dd))
+    floor_alpha2 = max(0.0, float(np.mean(da**2) - np.mean(var_a)))
+    floor_delta2 = max(0.0, float(np.mean(dd**2) - np.mean(var_d)))
+    floor_alpha = float(np.sqrt(floor_alpha2))
+    floor_delta = float(np.sqrt(floor_delta2))
+
+    # Off-diagonal: excess cross-term -> correlation coefficient in [-1, 1]
+    # (0 when either floor is ~0, to avoid an ill-defined denominator).
+    excess_radec = float(np.mean(da * dd) - np.mean(var_ad))
+    denom = np.sqrt(floor_alpha2 * floor_delta2)
+    if denom <= 0 or not np.isfinite(excess_radec):
+        corr = 0.0
+    else:
+        corr = float(np.clip(excess_radec / denom, -1.0, 1.0))
+
+    return floor_alpha, floor_delta, corr, n_used
+
+
 def convert2public(
     input_table: Table,
     photerr_internal: float,
@@ -740,13 +895,12 @@ def convert2public(
     # data_mag_aper_matched_cal_zpc = table["MAG_APER_MATCHED_CAL_ZPC_INTERP"].value
     data_erra = input_table["ERRAWIN_WORLD"].value
     data_errb = input_table["ERRBWIN_WORLD"].value
-    # Sextractor values are from -90 to +90; remap to [0, 180] to match 2MASS
     errpa_raw = input_table["ERRTHETAWIN_SKY"].value
-    data_errpa = np.where(errpa_raw < 0, errpa_raw + 180.0, errpa_raw)
     astrms1 = input_table["ASTRMS1"].value
     astrms2 = input_table["ASTRMS2"].value
-    # Per-source SCAMP RA/Dec correlation coefficient (spatially coadded astrms_corr
-    # map). Optional: older catalogs lack the column, so fall back to 0 (diagonal-only).
+    # Per-source RA/Dec correlation coefficient (self-calibrated ASTRMS_CORR column
+    # written by build_statistics_tables). Optional: older catalogs lack the column,
+    # so fall back to 0 (diagonal-only).
     try:
         astrms_corr = input_table["ASTRMS_CORR"].value
     except KeyError:
@@ -804,23 +958,20 @@ def convert2public(
         )
     )
 
-    # Build SExtractor error ellipse covariance matrix in RA/Dec frame (all in mas)
-    erra_mas = data_erra * 3_600_000
-    errb_mas = data_errb * 3_600_000
-    theta_rad = np.deg2rad(data_errpa)
-    cos_t = np.cos(theta_rad)
-    sin_t = np.sin(theta_rad)
-    cov_ra = cos_t**2 * errb_mas**2 + sin_t**2 * erra_mas**2
-    cov_dec = sin_t**2 * errb_mas**2 + cos_t**2 * erra_mas**2
-    cov_radec = cos_t * sin_t * (erra_mas**2 - errb_mas**2)
+    # Build SExtractor error ellipse covariance matrix in RA/Dec frame (mas^2).
+    # Shared with the astrometric-floor self-calibration so the subtracted term
+    # (estimate_astrms_floor) and the re-added term here are one source of truth.
+    cov_ra, cov_dec, cov_radec = centroid_covariance_radec_mas2(
+        data_erra, data_errb, errpa_raw
+    )
 
     # Add ASTRMS in quadrature (already in mas, aligned with RA/Dec axes)
     cov_ra += astrms1**2
     cov_dec += astrms2**2
 
     # Add the SCAMP cross-axis (RA/Dec) systematic correlation to the off-diagonal.
-    # astrms_corr is a per-source correlation coefficient in [-1, 1] (weighted coadd of
-    # the per-pawprint astrms_corr map), and cov_ra >= astrms1**2, cov_dec >= astrms2**2,
+    # astrms_corr is a per-source correlation coefficient in [-1, 1] (the
+    # self-calibrated ASTRMS_CORR column), and cov_ra >= astrms1**2, cov_dec >= astrms2**2,
     # so the combined covariance stays positive semi-definite (no clamp required).
     cov_radec += astrms_corr * astrms1 * astrms2
 

@@ -197,6 +197,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `subtract_background` | `true` | Subtract 2D background model |
 | `flat_type` | `twilight` | Flat field type: `twilight` or `sky` |
 | `scamp_mode` | `loose` | SCAMP mode: `loose` or `fix_focalplane` |
+| `astrms_self_build_map` | `true` | The bright-star astrometric position-error floor is self-measured on the co-added tile vs epoch-warped Gaia (replacing the over-estimated flat SCAMP `ASTRMSH` floor, ~2–2.5× too large at the bright end); sparse/cloud fields fall back to the SCAMP floor automatically. This knob toggles the smooth spatial floor map (`false` = a single scalar floor per tile). Advanced `astrms_self_*` knobs tune the clean sample, surface fit, and fallback |
 | `illumination_correction_mode` | `variable` | IC mode: `variable` or `constant` |
 | `source_mask_method` | `noisechisel` | Source masking: `noisechisel` or `built-in` |
 | `resampling_kernel` | `lanczos3` | SWarp resampling kernel |

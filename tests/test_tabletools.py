@@ -7,6 +7,8 @@ from astropy.table import Table
 from astropy.table.column import MaskedColumn
 
 from vircampype.tools.tabletools import (
+    centroid_covariance_radec_mas2,
+    estimate_astrms_floor,
     fill_masked_columns,
     scamp_xml_radec_correlation,
     scamp_xml_reference_rms_highsn,
@@ -305,6 +307,169 @@ class TestScampXmlReferenceRmsHighsn(unittest.TestCase):
         # A single value (size < 2) cannot provide per-axis floors.
         path = self._write(self._xml("0.036", arraysize=""))
         self.assertIsNone(scamp_xml_reference_rms_highsn(path))
+
+
+class TestCentroidCovarianceRadec(unittest.TestCase):
+    def test_matches_convert2public_inline_formula(self):
+        # The helper must reproduce the exact inline formula convert2public used
+        # before the refactor (otherwise the floor that is subtracted and the
+        # floor that is re-added would drift apart).
+        rng = np.random.default_rng(0)
+        erra = rng.uniform(1e-7, 1e-6, 500)  # deg
+        errb = rng.uniform(1e-7, 1e-6, 500)  # deg
+        errtheta = rng.uniform(-90.0, 90.0, 500)  # deg
+
+        cov_ra, cov_dec, cov_radec = centroid_covariance_radec_mas2(
+            erra, errb, errtheta
+        )
+
+        # Reference: the pre-refactor inline math (with the [-90, 90) -> [0, 180) remap)
+        errpa = np.where(errtheta < 0, errtheta + 180.0, errtheta)
+        erra_mas = erra * 3_600_000
+        errb_mas = errb * 3_600_000
+        theta = np.deg2rad(errpa)
+        c, s = np.cos(theta), np.sin(theta)
+        ref_ra = c**2 * errb_mas**2 + s**2 * erra_mas**2
+        ref_dec = s**2 * errb_mas**2 + c**2 * erra_mas**2
+        ref_radec = c * s * (erra_mas**2 - errb_mas**2)
+
+        np.testing.assert_array_equal(cov_ra, ref_ra)
+        np.testing.assert_array_equal(cov_dec, ref_dec)
+        np.testing.assert_array_equal(cov_radec, ref_radec)
+
+    def test_theta_negative_remap(self):
+        # theta = -45 must be remapped to +135 and give identical covariance.
+        erra = np.array([5e-7])
+        errb = np.array([2e-7])
+        c1 = centroid_covariance_radec_mas2(erra, errb, np.array([-45.0]))
+        c2 = centroid_covariance_radec_mas2(erra, errb, np.array([135.0]))
+        for a, b in zip(c1, c2):
+            np.testing.assert_allclose(a, b)
+
+    def test_axis_aligned_zero_offdiag(self):
+        # theta = 0 and theta = 90 are axis-aligned: zero cross-covariance.
+        erra = np.array([5e-7, 5e-7])
+        errb = np.array([2e-7, 2e-7])
+        _, _, cov_radec = centroid_covariance_radec_mas2(
+            erra, errb, np.array([0.0, 90.0])
+        )
+        np.testing.assert_allclose(cov_radec, 0.0, atol=1e-9)
+
+
+class TestEstimateAstrmsFloor(unittest.TestCase):
+    @staticmethod
+    def _zeros(n):
+        return np.zeros(n)
+
+    def test_floor_dominated_recovers_injected(self):
+        rng = np.random.default_rng(1)
+        n = 20000
+        floor_a, floor_d = 4.0, 4.5  # mas
+        cov = 0.25  # tiny centroid variance (mas^2), sigma = 0.5 mas
+        cov_ra = np.full(n, cov)
+        cov_dec = np.full(n, cov)
+        da = rng.normal(0.0, np.sqrt(floor_a**2 + cov), n)
+        dd = rng.normal(0.0, np.sqrt(floor_d**2 + cov), n)
+        fa, fd, corr, n_used = estimate_astrms_floor(
+            da, dd, cov_ra, cov_dec, self._zeros(n), self._zeros(n), self._zeros(n)
+        )
+        self.assertAlmostEqual(fa, floor_a, delta=0.3)
+        self.assertAlmostEqual(fd, floor_d, delta=0.3)
+        self.assertGreater(n_used, 0.9 * n)
+
+    def test_all_mags_excess_near_zero(self):
+        # When dr is fully explained by the centroid variance (no systematic
+        # floor), the excess clips to ~0 -- this is why the floor must be
+        # estimated on bright/floor-dominated stars only.
+        rng = np.random.default_rng(2)
+        n = 20000
+        cov = 9.0  # centroid variance (mas^2), sigma = 3 mas
+        cov_ra = np.full(n, cov)
+        cov_dec = np.full(n, cov)
+        da = rng.normal(0.0, np.sqrt(cov), n)
+        dd = rng.normal(0.0, np.sqrt(cov), n)
+        fa, fd, _, _ = estimate_astrms_floor(
+            da, dd, cov_ra, cov_dec, self._zeros(n), self._zeros(n), self._zeros(n)
+        )
+        self.assertLess(fa, 1.0)
+        self.assertLess(fd, 1.0)
+
+    def test_centroid_subtraction_removes_bias(self):
+        # Subtracting the centroid variance must recover the true floor; not
+        # subtracting it over-estimates.
+        rng = np.random.default_rng(3)
+        n = 20000
+        floor = 3.5
+        cov = 9.0
+        cov_ra = np.full(n, cov)
+        cov_dec = np.full(n, cov)
+        da = rng.normal(0.0, np.sqrt(floor**2 + cov), n)
+        dd = rng.normal(0.0, np.sqrt(floor**2 + cov), n)
+        fa_sub, _, _, _ = estimate_astrms_floor(
+            da, dd, cov_ra, cov_dec, self._zeros(n), self._zeros(n), self._zeros(n)
+        )
+        fa_nosub, _, _, _ = estimate_astrms_floor(
+            da,
+            dd,
+            self._zeros(n),
+            self._zeros(n),
+            self._zeros(n),
+            self._zeros(n),
+            self._zeros(n),
+        )
+        self.assertAlmostEqual(fa_sub, floor, delta=0.3)
+        self.assertLess(abs(fa_sub - floor), abs(fa_nosub - floor))
+
+    def test_corr_clamped_to_unit(self):
+        rng = np.random.default_rng(4)
+        n = 20000
+        floor = 4.0
+        base = rng.normal(0.0, floor, n)
+        da = base + rng.normal(0.0, 0.01, n)
+        dd = base + rng.normal(0.0, 0.01, n)  # near-perfectly correlated
+        _, _, corr, _ = estimate_astrms_floor(
+            da,
+            dd,
+            self._zeros(n),
+            self._zeros(n),
+            self._zeros(n),
+            self._zeros(n),
+            self._zeros(n),
+        )
+        self.assertLessEqual(abs(corr), 1.0)
+        self.assertGreater(corr, 0.5)
+
+    def test_zero_floor_gives_zero_corr(self):
+        # No systematic floor -> correlation is set to 0 (no ill-defined denom).
+        rng = np.random.default_rng(5)
+        n = 5000
+        cov = 9.0
+        cov_ra = np.full(n, cov)
+        cov_dec = np.full(n, cov)
+        da = rng.normal(0.0, np.sqrt(cov), n)
+        dd = rng.normal(0.0, np.sqrt(cov), n)
+        _, _, corr, _ = estimate_astrms_floor(
+            da, dd, cov_ra, cov_dec, self._zeros(n), self._zeros(n), self._zeros(n)
+        )
+        self.assertEqual(corr, 0.0)
+
+    def test_empty_sample_returns_nan(self):
+        # Empty/all-nan input must return nan floors (the caller steps down the
+        # fallback ladder), NOT raise.
+        empty = np.array([])
+        fa, fd, corr, n_used = estimate_astrms_floor(
+            empty, empty, empty, empty, empty, empty, empty
+        )
+        self.assertTrue(np.isnan(fa))
+        self.assertTrue(np.isnan(fd))
+        self.assertEqual(corr, 0.0)
+        self.assertEqual(n_used, 0)
+
+        n = 10
+        nan = np.full(n, np.nan)
+        fa, fd, corr, n_used = estimate_astrms_floor(nan, nan, nan, nan, nan, nan, nan)
+        self.assertTrue(np.isnan(fa))
+        self.assertEqual(n_used, 0)
 
 
 if __name__ == "__main__":

@@ -232,9 +232,9 @@ class SextractorCatalogs(SourceCatalogs):
         # Inject the group-level RA/Dec astrometric correlation into the .ahead headers.
         # SCAMP reports this cross-axis correlation only in scamp.xml, never in the
         # headers; writing it as ASTCORR lets it ride the solution (resampling
-        # COPY_KEYWORDS -> per-pawprint astrms_corr map -> spatial coadd -> public
-        # catalog), which is also how mosaics inherit it. Done before caching so the
-        # cached .ahead carry it.
+        # COPY_KEYWORDS propagates it into the resampled-pawprint headers, where
+        # build_statistics_tile reads it as the flat-SCAMP correlation fallback).
+        # Done before caching so the cached .ahead carry it.
         radec_correlation = scamp_xml_radec_correlation(path_xml)
         log.info(
             f"SCAMP RA/Dec astrometric correlation r_eff = {radec_correlation:.4f}"
@@ -1559,7 +1559,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Get median error of those
         return photerr_internal_dict
 
-    def build_statistics_tables(self):
+    def build_statistics_tables(self, astrms_fallback):
         # Import
         from vircampype.fits.images.common import FitsImages
 
@@ -1605,30 +1605,20 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_nimg = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".nimg.fits"
             )
-            path_astrms1 = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".astrms1.fits"
-            )
-            path_astrms2 = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".astrms2.fits"
-            )
-            path_astrms_corr = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".astrms_corr.fits"
-            )
             path_weight = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".weight.fits"
             )
 
-            # The correlation map is optional (older reductions lack it); fall back to
-            # a zero map so the ASTRMS_CORR column is still written (diagonal-only).
-            has_astrms_corr = os.path.isfile(path_astrms_corr)
+            # Per-tile flat-SCAMP floor scalar (mas, mas, correlation): the value
+            # the self-calibration shrinks toward / returns where Gaia is too
+            # sparse. Replaces the old per-pawprint .astrms*.fits map sampling.
+            astrms1_flat, astrms2_flat, astrms_corr_flat = astrms_fallback
 
             # Check if files are available
             if not (
                 os.path.isfile(path_mjd)
                 and os.path.isfile(path_exptime)
                 and os.path.isfile(path_nimg)
-                and os.path.isfile(path_astrms1)
-                and os.path.isfile(path_astrms2)
             ):
                 raise ValueError("Matches for image statistics not found")
 
@@ -1641,8 +1631,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Loop over extensions
             # TODO: Can this be replace with image_mjdeff.iter_data_hdu[0]?
-            for idx_hdu_self, idx_hdu_stats in zip(
-                self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0])
+            # enumerate gives idx_hdu_position (0-based loop position) used to
+            # index self.skycoord/self.image_headers, which are keyed by HDU-loop
+            # position, NOT by the raw FITS HDU number idx_hdu_self.
+            for idx_hdu_position, (idx_hdu_self, idx_hdu_stats) in enumerate(
+                zip(self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0]))
             ):
                 # Read table
                 table_hdu = self.filehdu2table(
@@ -1654,25 +1647,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats)
-                    astrms1 = fits.getdata(path_astrms1, idx_hdu_stats)
-                    astrms2 = fits.getdata(path_astrms2, idx_hdu_stats)
                     weight = fits.getdata(path_weight, idx_hdu_stats)
                 except IndexError:
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
-                    astrms1 = fits.getdata(path_astrms1, idx_hdu_stats + 1)
-                    astrms2 = fits.getdata(path_astrms2, idx_hdu_stats + 1)
                     weight = fits.getdata(path_weight, idx_hdu_stats + 1)
-
-                # Correlation map (optional, same HDU layout as the astrms maps)
-                if has_astrms_corr:
-                    try:
-                        astrms_corr = fits.getdata(path_astrms_corr, idx_hdu_stats)
-                    except IndexError:
-                        astrms_corr = fits.getdata(path_astrms_corr, idx_hdu_stats + 1)
-                else:
-                    astrms_corr = np.zeros_like(astrms1)
 
                 # Renormalize weight
                 weight /= np.median(weight)
@@ -1713,18 +1693,61 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     exptime[yy_image, xx_image],
                     nimg[yy_image, xx_image],
                 )
-                astrms_sources1, astrms_sources2, weight_sources = (
-                    astrms1[yy_image, xx_image],
-                    astrms2[yy_image, xx_image],
-                    weight[yy_image, xx_image],
-                )
-                astrms_corr_sources = astrms_corr[yy_image, xx_image]
+                weight_sources = weight[yy_image, xx_image]
+                # Safety guard: the self-calibrated floor (crossmatch + surface fit
+                # + per-source evaluation) runs in a single in-memory pass, so its
+                # peak RAM scales linearly with the source count. Fail loud before
+                # any large allocation rather than risk an OOM on a huge mosaic;
+                # raise astrms_self_max_sources on a big-RAM machine, or chunk the
+                # per-source evaluation in _self_calibrate_astrms.
+                n_src = len(table_hdu)
+                if n_src > self.setup.astrms_self_max_sources:
+                    raise PipelineValueError(
+                        f"{n_src:,} sources in {self.paths_full[idx_file]!r} exceeds "
+                        f"astrms_self_max_sources "
+                        f"({self.setup.astrms_self_max_sources:,}); the self-calibrated "
+                        "astrometric floor is computed in a single in-memory pass and "
+                        "would risk a RAM blow-up. Raise the knob if this machine has "
+                        "the memory, or chunk the per-source evaluation.",
+                        logger=log,
+                    )
+                # Flat-SCAMP floor broadcast to every source. The self-calibration
+                # below overwrites it; it survives only as the sparse-Gaia fallback
+                # / shrink target (identical to the old constant per-pawprint map).
+                astrms_sources1 = np.full(n_src, astrms1_flat, dtype=float)
+                astrms_sources2 = np.full(n_src, astrms2_flat, dtype=float)
+                astrms_corr_sources = np.full(n_src, astrms_corr_flat, dtype=float)
                 # Mask bad sources
                 bad &= weight_sources < 0.0001
                 mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
                 astrms_sources1[bad], astrms_sources2[bad] = np.nan, np.nan
                 astrms_corr_sources[bad] = np.nan
                 nimg_sources[bad] = 0
+
+                # Self-calibrate the astrometric floor on the coadded tile vs
+                # epoch-warped Gaia, overwriting the flat-SCAMP scalar. Any failure
+                # (sparse Gaia, missing epoch, legacy master, ...) is logged and
+                # keeps the flat-SCAMP floor -- it never aborts the tile.
+                try:
+                    (
+                        astrms_sources1,
+                        astrms_sources2,
+                        astrms_corr_sources,
+                    ) = self._self_calibrate_astrms(
+                        idx_file=idx_file,
+                        idx_hdu_position=idx_hdu_position,
+                        table_hdu=table_hdu,
+                        bad=bad,
+                        astrms_sources1=astrms_sources1,
+                        astrms_sources2=astrms_sources2,
+                        astrms_corr_sources=astrms_corr_sources,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        f"Astrometric floor self-calibration failed for "
+                        f"{self.paths_full[idx_file]!r} (HDU {idx_hdu_self}); "
+                        f"keeping the flat-SCAMP floor. Reason: {exc}"
+                    )
 
                 # Make new columns
                 new_cols = fits.ColDefs(
@@ -1781,6 +1804,328 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             end="\n",
             logger=log,
         )
+
+    def _self_calibrate_astrms(
+        self,
+        idx_file,
+        idx_hdu_position,
+        table_hdu,
+        bad,
+        astrms_sources1,
+        astrms_sources2,
+        astrms_corr_sources,
+    ):
+        """
+        Self-measure the astrometric position-error floor and overwrite the
+        flat-SCAMP ``ASTRMS1/2/CORR`` arrays for one (tile) HDU.
+
+        Crossmatches the coadded source catalog to epoch-warped Gaia, measures
+        the per-axis excess-variance floor (and a real RA/Dec correlation) on a
+        clean, bright, floor-dominated sample, and -- when the measurement is
+        trustworthy -- replaces the SCAMP floor with it. A sparse-Gaia fallback
+        ladder keeps the flat-SCAMP value whenever the measurement is too thin or
+        non-positive, so a cloud field never yields a zero/garbage/NaN floor (the
+        worst case is exactly today's behavior). When enabled, the optional
+        spatial map adds the real ~1 mas of local structure as a bounded
+        perturbation around the global floor.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray, np.ndarray]
+            The (possibly overwritten) ``(astrms1, astrms2, astrms_corr)`` arrays
+            in mas, with the existing bad-source NaN mask re-applied.
+        """
+        log = logging.getLogger(__name__)
+        setup = self.setup
+
+        # --- Crossmatch the tile catalog to epoch-warped Gaia (mirrors
+        # plot_qc_astrometry_2d) ---
+        sc_master = self.get_master_astrometry().skycoord[0][0]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            sc_master_matched = sc_master.apply_space_motion(
+                new_obstime=self.time_obs[idx_file]
+            )
+        sc_file = self.skycoord[idx_file][idx_hdu_position]
+        i1, sep, _ = sc_file.match_to_catalog_sky(sc_master_matched)
+        matched = sep.arcsec < setup.astrms_self_match_radius
+
+        # Signed per-axis residuals in mas (alpha* = dRA * cos(dec) at the source).
+        gaia = sc_master_matched[i1]
+        cos_dec = np.cos(np.deg2rad(sc_file.dec.deg))
+        dr_alpha = (sc_file.ra.deg - gaia.ra.deg) * cos_dec * 3_600_000
+        dr_delta = (sc_file.dec.deg - gaia.dec.deg) * 3_600_000
+
+        # Per-source centroid covariance (mas^2) -- the SAME formula re-added in
+        # convert2public, so the subtracted and added terms cannot drift.
+        cov_ra, cov_dec, cov_radec = centroid_covariance_radec_mas2(
+            np.asarray(table_hdu["ERRAWIN_WORLD"], dtype=float),
+            np.asarray(table_hdu["ERRBWIN_WORLD"], dtype=float),
+            np.asarray(table_hdu["ERRTHETAWIN_SKY"], dtype=float),
+        )
+
+        # Gaia reference variance (mas^2); negligible at the bright end, 0 if a
+        # legacy master lacks the per-source error columns.
+        try:
+            master = self.get_master_astrometry()
+            ra_err = np.asarray(master.get_columns("ra_error")[0][0], dtype=float)
+            dec_err = np.asarray(master.get_columns("dec_error")[0][0], dtype=float)
+            var_gaia_ra = (ra_err[i1] * 3_600_000) ** 2
+            var_gaia_dec = (dec_err[i1] * 3_600_000) ** 2
+        except (KeyError, IndexError, TypeError):
+            var_gaia_ra = np.zeros_like(dr_alpha)
+            var_gaia_dec = np.zeros_like(dr_alpha)
+
+        # --- Clean, bright, floor-dominated sample ---
+        image_header = self.image_headers[idx_file][idx_hdu_position]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FITSFixedWarning)
+            pixscale_arcsec = (
+                np.sqrt(np.abs(np.linalg.det(WCS(image_header).pixel_scale_matrix)))
+                * 3600.0
+            )
+        clean = clean_source_table(
+            table_hdu,
+            image_header=image_header,
+            return_filter=True,
+            min_snr=setup.astrms_self_min_snr,
+            max_ellipticity=setup.astrms_self_max_ellipticity,
+            nndis_limit=setup.astrms_self_isolation_arcsec / pixscale_arcsec,
+        )[1]
+        centroid_sigma = np.sqrt(0.5 * (cov_ra + cov_dec))
+        sample = (
+            clean
+            & matched
+            & np.isfinite(dr_alpha)
+            & np.isfinite(dr_delta)
+            & np.isfinite(cov_ra)
+            & np.isfinite(cov_dec)
+            & (centroid_sigma < setup.astrms_self_max_centroid_sigma)
+        )
+
+        # --- Global scalar floor (the validated, robust core) ---
+        floor1, floor2, corr, n_used = estimate_astrms_floor(
+            dr_alpha[sample],
+            dr_delta[sample],
+            cov_ra[sample],
+            cov_dec[sample],
+            cov_radec[sample],
+            var_gaia_ra[sample],
+            var_gaia_dec[sample],
+            sigma=setup.astrms_self_sigma_clip,
+        )
+
+        # Sparse-Gaia / failed-measurement rung: too few clean matches, or a
+        # non-positive / non-finite floor -> keep the flat-SCAMP value for the
+        # whole product. Never write a zero/tiny floor: that would UNDER-estimate
+        # the public errors, the opposite and more dangerous failure mode.
+        if (
+            n_used < setup.astrms_self_min_n_global
+            or not (np.isfinite(floor1) and np.isfinite(floor2))
+            or floor1 <= 0.0
+            or floor2 <= 0.0
+        ):
+            log.info(
+                f"Astrometric floor self-calibration for {self.names[idx_file]}: "
+                f"insufficient/failed measurement (n={n_used}, "
+                f"floor=({floor1:.3g}, {floor2:.3g}) mas) -> keeping flat-SCAMP floor."
+            )
+            return astrms_sources1, astrms_sources2, astrms_corr_sources
+
+        # Representative flat-SCAMP floor (constant per tile) used as the shrink
+        # target and where the spatial map is thin.
+        scamp1 = float(np.nanmedian(astrms_sources1))
+        scamp2 = float(np.nanmedian(astrms_sources2))
+        scamp_corr = float(np.nanmedian(astrms_corr_sources))
+        scamp1 = scamp1 if np.isfinite(scamp1) else floor1
+        scamp2 = scamp2 if np.isfinite(scamp2) else floor2
+        scamp_corr = scamp_corr if np.isfinite(scamp_corr) else 0.0
+
+        # Shrink a thin global measurement toward the flat-SCAMP value (continuous
+        # in N: w -> 1 for large, well-sampled tiles), so a noisy 30-100 source
+        # measurement is damped rather than trusted outright.
+        w = n_used / (n_used + setup.astrms_self_shrink_n)
+        g1 = float(np.sqrt(w * floor1**2 + (1.0 - w) * scamp1**2))
+        g2 = float(np.sqrt(w * floor2**2 + (1.0 - w) * scamp2**2))
+        gcorr = float(np.clip(w * corr + (1.0 - w) * scamp_corr, -1.0, 1.0))
+
+        n_src = len(dr_alpha)
+        new1 = np.full(n_src, g1, dtype=float)
+        new2 = np.full(n_src, g2, dtype=float)
+        new_corr = np.full(n_src, gcorr, dtype=float)
+
+        # --- Optional spatial map: a bounded perturbation around the global ---
+        if setup.astrms_self_build_map:
+            try:
+                new1, new2, new_corr = self._astrms_floor_map(
+                    table_hdu=table_hdu,
+                    sample=sample,
+                    dr_alpha=dr_alpha,
+                    dr_delta=dr_delta,
+                    cov_ra=cov_ra,
+                    cov_dec=cov_dec,
+                    cov_radec=cov_radec,
+                    var_gaia_ra=var_gaia_ra,
+                    var_gaia_dec=var_gaia_dec,
+                    g1=g1,
+                    g2=g2,
+                    gcorr=gcorr,
+                    scamp1=scamp1,
+                    scamp2=scamp2,
+                )
+            except Exception as exc:
+                log.warning(
+                    f"Astrometric floor spatial map failed for "
+                    f"{self.names[idx_file]}; using the global scalar floor. "
+                    f"Reason: {exc}"
+                )
+                new1 = np.full(n_src, g1, dtype=float)
+                new2 = np.full(n_src, g2, dtype=float)
+                new_corr = np.full(n_src, gcorr, dtype=float)
+
+        # Re-apply the pre-existing bad-source NaN mask so downstream NaN handling
+        # in convert2public is unchanged.
+        new1[bad] = np.nan
+        new2[bad] = np.nan
+        new_corr[bad] = np.nan
+
+        log.info(
+            f"Astrometric floor self-calibrated for {self.names[idx_file]}: "
+            f"global floor ({g1:.2f}, {g2:.2f}) mas, corr {gcorr:+.3f}, "
+            f"N={n_used} clean bright matches (flat-SCAMP was "
+            f"{scamp1:.2f}, {scamp2:.2f} mas"
+            f"{'; + spatial map' if setup.astrms_self_build_map else ''})."
+        )
+        return (
+            new1.astype(astrms_sources1.dtype),
+            new2.astype(astrms_sources2.dtype),
+            new_corr.astype(astrms_corr_sources.dtype),
+        )
+
+    def _astrms_floor_map(
+        self,
+        table_hdu,
+        sample,
+        dr_alpha,
+        dr_delta,
+        cov_ra,
+        cov_dec,
+        cov_radec,
+        var_gaia_ra,
+        var_gaia_dec,
+        g1,
+        g2,
+        gcorr,
+        scamp1,
+        scamp2,
+    ):
+        """
+        Build a SMOOTH spatial floor field by (1) binning the clean sample into a
+        coarse grid and forming a ROBUST per-cell floor^2 from many sources, then
+        (2) fitting a gentle low-order 2D polynomial surface through those stable
+        cell means.
+
+        A single source's squared residual ``da^2`` is a 1-DOF (~100% noise)
+        estimate of the local floor^2, so interpolating per-source proxies
+        directly produces a noise-dominated, blobby map. Averaging ~hundreds of
+        sources per cell first makes each cell a stable floor estimate; the
+        low-order surface then captures only the genuine smooth (PSF /
+        optical-axis-driven) variation. Per-axis floors are bounded to
+        ``[0.5*global, flat-SCAMP]`` (the self-measured floor should never exceed
+        SCAMP's conservative value) and the correlation to ``[-1, 1]`` (PSD
+        backstop).
+        """
+        xx = np.asarray(table_hdu["XWIN_IMAGE"], dtype=float)
+        yy = np.asarray(table_hdu["YWIN_IMAGE"], dtype=float)
+        sx, sy = xx[sample], yy[sample]
+
+        # Mean-subtracted residuals + per-source known variance on the sample.
+        da = dr_alpha[sample] - float(np.mean(dr_alpha[sample]))
+        dd = dr_delta[sample] - float(np.mean(dr_delta[sample]))
+        cov_a = cov_ra[sample] + var_gaia_ra[sample]
+        cov_d = cov_dec[sample] + var_gaia_dec[sample]
+        cov_x = cov_radec[sample]
+
+        xlo, xhi = float(np.min(xx)), float(np.max(xx))
+        ylo, yhi = float(np.min(yy)), float(np.max(yy))
+
+        # STEP 1 -- bin into a coarse grid; per cell form a robust floor^2 as the
+        # clipped variance of the residuals minus the mean known variance (per
+        # axis), and a robust mean cross-covariance. Averaging ~hundreds of
+        # sources per cell turns the ~100%-noise per-source estimate into a stable
+        # one BEFORE any fit -- this is what stops the field chasing per-source
+        # noise (the cause of the old blobby kernel map).
+        nb = max(3, int(np.sqrt(sx.size / 150.0)))
+        ix = np.clip(np.digitize(sx, np.linspace(xlo, xhi, nb + 1)) - 1, 0, nb - 1)
+        iy = np.clip(np.digitize(sy, np.linspace(ylo, yhi, nb + 1)) - 1, 0, nb - 1)
+        cell = iy * nb + ix
+        cx, cy, cn, c1, c2, cc = [], [], [], [], [], []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for cid in np.unique(cell):
+                m = cell == cid
+                if int(np.sum(m)) < 20:
+                    continue
+                cx.append(float(np.mean(sx[m])))
+                cy.append(float(np.mean(sy[m])))
+                cn.append(float(np.sum(m)))
+                c1.append(
+                    sigma_clipped_stats(da[m], sigma=3.0)[2] ** 2
+                    - float(np.mean(cov_a[m]))
+                )
+                c2.append(
+                    sigma_clipped_stats(dd[m], sigma=3.0)[2] ** 2
+                    - float(np.mean(cov_d[m]))
+                )
+                cc.append(sigma_clipped_stats(da[m] * dd[m] - cov_x[m], sigma=3.0)[0])
+        cx, cy, cn = np.asarray(cx), np.asarray(cy), np.asarray(cn)
+        c1, c2, cc = np.asarray(c1), np.asarray(c2), np.asarray(cc)
+
+        # STEP 2 -- fit a gentle low-order surface through the (now stable) cell
+        # means, weighted by cell population. Degree 2 captures the smooth
+        # optical-axis-driven trend without edge oscillation.
+        def _norm(a, lo, hi):
+            return 2.0 * (a - lo) / (hi - lo) - 1.0 if hi > lo else np.zeros_like(a)
+
+        degree = 2 if cx.size >= 8 else 1 if cx.size >= 4 else 0
+
+        def _design(u, v):
+            return np.column_stack(
+                [u**i * v ** (d - i) for d in range(degree + 1) for i in range(d + 1)]
+            )
+
+        a_all = _design(_norm(xx, xlo, xhi), _norm(yy, ylo, yhi))
+        n_terms = a_all.shape[1]
+
+        def _fit_eval(cvals, fallback):
+            ok = np.isfinite(cvals) & np.isfinite(cx) & np.isfinite(cy)
+            if int(np.sum(ok)) < n_terms:
+                return np.full(xx.shape, fallback, dtype=float)
+            af = _design(_norm(cx[ok], xlo, xhi), _norm(cy[ok], ylo, yhi))
+            rw = np.sqrt(cn[ok])
+            coef = np.linalg.lstsq(af * rw[:, None], cvals[ok] * rw, rcond=None)[0]
+            return a_all @ coef
+
+        s1 = _fit_eval(c1, g1**2)
+        s2 = _fit_eval(c2, g2**2)
+        sc = _fit_eval(cc, gcorr * g1 * g2)
+
+        # Per-source floors from the smooth surfaces, bounded to
+        # [0.5*global, flat-SCAMP].
+        new1 = np.sqrt(np.clip(s1, (0.5 * g1) ** 2, max(scamp1, 0.5 * g1) ** 2))
+        new2 = np.sqrt(np.clip(s2, (0.5 * g2) ** 2, max(scamp2, 0.5 * g2) ** 2))
+
+        # Correlation from the smooth cross / auto surfaces, clamped to [-1, 1].
+        denom = new1 * new2
+        with np.errstate(divide="ignore", invalid="ignore"):
+            new_corr = np.where(denom > 1e-6, sc / denom, gcorr)
+        new_corr = np.clip(new_corr, -1.0, 1.0)
+
+        # Guard any non-finite surface value with the global scalar.
+        new1 = np.where(np.isfinite(new1), new1, g1)
+        new2 = np.where(np.isfinite(new2), new2, g2)
+        new_corr = np.where(np.isfinite(new_corr), new_corr, gcorr)
+        return new1, new2, new_corr
 
     def paths_qc_plots(self, paths, prefix=""):
         if paths is None:

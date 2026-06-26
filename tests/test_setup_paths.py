@@ -116,5 +116,38 @@ class TestObsoleteKeys(unittest.TestCase):
         self.assertEqual(setup.name, "TestSetup")
 
 
+class TestAstrmsSelfCalibrateDefaults(unittest.TestCase):
+    """Lock the self-calibrated astrometric-floor knob defaults (guards against
+    accidental drift, and confirms the master switch ships TRUE)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_defaults(self):
+        s = make_test_setup(self._tmp.name)
+        # Spatial map ships ON by default.
+        self.assertIs(s.astrms_self_build_map, True)
+        # Sample / kernel / ladder defaults.
+        self.assertEqual(s.astrms_self_match_radius, 0.5)
+        self.assertEqual(s.astrms_self_min_snr, 20)
+        self.assertEqual(s.astrms_self_max_centroid_sigma, 2.0)
+        self.assertEqual(s.astrms_self_max_ellipticity, 0.2)
+        self.assertEqual(s.astrms_self_isolation_arcsec, 5.0)
+        self.assertEqual(s.astrms_self_min_n_global, 30)
+        self.assertEqual(s.astrms_self_min_n_cell, 10)
+        self.assertEqual(s.astrms_self_sigma_clip, 3.0)
+        self.assertEqual(s.astrms_self_kernel_sigma_arcmin, 10.0)
+        self.assertEqual(s.astrms_self_shrink_n, 50)
+        self.assertEqual(s.astrms_self_max_sources, 50_000_000)
+
+    def test_knobs_serialize_to_headers(self):
+        # Non-path scalars: they must survive to_dict (which strips only paths)
+        # so they are written into product headers as provenance.
+        d = make_test_setup(self._tmp.name).to_dict
+        self.assertIn("astrms_self_build_map", d)
+        self.assertIn("astrms_self_min_n_global", d)
+
+
 if __name__ == "__main__":
     unittest.main()

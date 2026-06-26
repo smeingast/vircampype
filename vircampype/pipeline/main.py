@@ -791,18 +791,45 @@ class Pipeline:
                 path_file_a=pmi, path_file_b=pmf, path_file_out=pmc, overwrite=True
             )
 
+    def _astrms_flat_scalar(self) -> tuple[float, float, float]:
+        """Conservative flat-SCAMP astrometric floor fallback (mas, mas, corr).
+
+        Reads the high-S/N external SCAMP RMS ``ASTRMSH1/2`` -- a per-field *group*
+        scalar that ``scamp()`` writes into the ``.ahead`` and resampling propagates
+        into the resampled-pawprint headers -- and returns
+        ``(3.6e6 * max(ASTRMSH1), 3.6e6 * max(ASTRMSH2), 0.0)``. The max over
+        contributing pawprints reproduces the old constant per-pawprint astrms map
+        for a single-field tile and stays conservative across a mosaic's
+        heterogeneous SCAMP groups; the correlation fallback is 0 (diagonal-only).
+        This is only the fallback/shrink target -- the self-calibration overwrites
+        it wherever it has enough Gaia stars. Fail-loud if ``ASTRMSH1/2`` is absent
+        (solution predates the high-S/N floor, or the ``.ahead`` cache is stale).
+        """
+        import math
+
+        try:
+            a1, a2 = self.resampled.read_from_data_headers(["ASTRMSH1", "ASTRMSH2"])
+        except KeyError as e:
+            raise PipelineValueError(
+                f"High-S/N external astrometric RMS {e} missing from the resampled "
+                "pawprint headers; refusing to fall back to an inflated floor. "
+                "Re-run SCAMP or clear the stale .ahead cache so ASTRMSH1/2 is written.",
+                logger=self.log,
+            ) from e
+        v1 = [v for f in a1 for v in f if v is not None and math.isfinite(v)]
+        v2 = [v for f in a2 for v in f if v is not None and math.isfinite(v)]
+        if not v1 or not v2 or max(v1) <= 0 or max(v2) <= 0:
+            raise PipelineValueError(
+                "High-S/N external astrometric RMS (ASTRMSH1/2) is non-finite or "
+                "non-positive in the resampled-pawprint headers; re-run SCAMP.",
+                logger=self.log,
+            )
+        return 3_600_000 * max(v1), 3_600_000 * max(v2), 0.0
+
     @pipeline_step("statistics_tile", message="TILE STATISTICS")
     def build_statistics_tile(self):
         """Coadd statistics images for the tile and build statistics tables."""
-        for mode in [
-            "mjd.int",
-            "mjd.frac",
-            "nimg",
-            "exptime",
-            "astrms1",
-            "astrms2",
-            "astrms_corr",
-        ]:
+        for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
             images = self.resampled_statistics(mode=mode)
             images.coadd_statistics_tile(mode=mode)
         # Combine MJD data
@@ -813,7 +840,9 @@ class Pipeline:
             overwrite=True,
         )
 
-        self.sources_tile_cal.build_statistics_tables()
+        self.sources_tile_cal.build_statistics_tables(
+            astrms_fallback=self._astrms_flat_scalar()
+        )
 
     # =========================================================================== #
     # Classification

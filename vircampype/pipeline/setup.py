@@ -114,6 +114,39 @@ class Setup:
         # (re-derived); not guarded on resume.
     )
 
+    # Astrometric position-error floor (self-calibrated)
+    # The ASTRMS1/2/CORR columns in the .stats table are an excess-variance floor
+    # measured on the coadded tile vs epoch-warped Gaia (build_statistics_tables);
+    # where Gaia is too sparse it falls back to the flat SCAMP ASTRMSH header
+    # scalar. The flat SCAMP floor over-estimates true position errors ~2-2.5x;
+    # this self-measures them (~3-4 mas/axis) instead.
+    astrms_self_build_map: bool = (
+        True  # Build a smooth spatial floor map (False = scalar per-tile floor)
+    )
+    astrms_self_match_radius: float = 0.5  # Gaia crossmatch keep radius (arcsec)
+    astrms_self_min_snr: int | float = (
+        20  # Min SNR_WIN for the bright floor-dominated sample
+    )
+    astrms_self_max_centroid_sigma: float = (
+        2.0  # Max per-source centroid sigma for the floor-dominated sample (mas)
+    )
+    astrms_self_max_ellipticity: float = (
+        0.2  # Max ellipticity for the clean floor sample
+    )
+    astrms_self_isolation_arcsec: float = (
+        5.0  # Min neighbor distance for the isolated floor sample (arcsec)
+    )
+    astrms_self_min_n_global: int = 30  # Min clean Gaia matches field-wide before measuring (else flat-SCAMP fallback)
+    astrms_self_min_n_cell: int = 10  # Min kernel-neighbor matches before trusting the local map value over the global floor
+    astrms_self_sigma_clip: float = (
+        3.0  # Sigma threshold for the clipped-mean floor estimators
+    )
+    astrms_self_kernel_sigma_arcmin: float = (
+        10.0  # Gaussian kernel sigma for the spatial floor map (arcmin)
+    )
+    astrms_self_shrink_n: int = 50  # Sample size for shrinking a thin global measurement toward the flat-SCAMP value
+    astrms_self_max_sources: int = 50_000_000  # Hard cap on per-product source count for the (single-pass, in-memory) self-cal floor; raise on big-RAM machines or chunk
+
     # Photometry
     phot_reference_catalog: Literal["2MASS"] = "2MASS"  # Photometric reference catalog
     local_2mass_catalog: str | None = (
@@ -494,9 +527,6 @@ class Setup:
             "exptime": "SUM",
             "mjd.int": "WEIGHTED",
             "mjd.frac": "WEIGHTED",
-            "astrms1": "WEIGHTED",
-            "astrms2": "WEIGHTED",
-            "astrms_corr": "WEIGHTED",
         }
 
     @property

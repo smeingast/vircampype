@@ -2925,18 +2925,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             folder_statistics + bn.replace(".fits", ".mjd.int.fits")
             for bn in self.basenames
         ]
-        paths_astrms1 = [
-            folder_statistics + bn.replace(".fits", ".astrms1.fits")
-            for bn in self.basenames
-        ]
-        paths_astrms2 = [
-            folder_statistics + bn.replace(".fits", ".astrms2.fits")
-            for bn in self.basenames
-        ]
-        paths_astrms_corr = [
-            folder_statistics + bn.replace(".fits", ".astrms_corr.fits")
-            for bn in self.basenames
-        ]
         paths_weight = [
             folder_statistics + bn.replace(".fits", ".weight.fits")
             for bn in self.basenames
@@ -2983,11 +2971,6 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdul_mjd_frac = fits.HDUList(
                 hdus=[fits.PrimaryHDU(header=hdr_prime.copy())]
             )
-            hdul_astrms1 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
-            hdul_astrms2 = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
-            hdul_astrms_corr = fits.HDUList(
-                hdus=[fits.PrimaryHDU(header=hdr_prime.copy())]
-            )
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
 
             # Loop over extensions
@@ -3016,45 +2999,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                 mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
                 arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
                 arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
-                # Astrometric systematic floor: the HIGH-S/N external (vs-reference)
-                # Scamp RMS (ASTRMSH1/2), a per-pointing value written into the .ahead
-                # by scamp() from scamp.xml; it tracks the scatter of bright calibrators
-                # and so matches what bright sources actually experience.
-                #
-                # No fallback, by design. If ASTRMSH1/2 is absent the solution predates
-                # the high-S/N floor (or its SCAMP cache is stale). The only other floor
-                # in the header is the full-sample ASTRRMS, which is dominated by faint
-                # calibrators and over-estimates bright-source position errors ~2-4x
-                # (validated vs Gaia DR3 in CrA, 2026-06-07); silently substituting it
-                # would mix two incompatible error scales across the survey. Fail loud
-                # instead, so the solution gets re-run / the stale .ahead cache cleared.
-                # (The internal RMS ASTIRMS is never used: the old floor
-                # sqrt(ASTIRMS**2 + ASTRRMS**2) double-counted the calibrator centroid
-                # scatter, a further ~1.4x inflation.)
-                try:
-                    astrms1 = 3_600_000 * header_original["ASTRMSH1"]
-                    astrms2 = 3_600_000 * header_original["ASTRMSH2"]
-                except KeyError as e:
-                    raise PipelineValueError(
-                        logger=log,
-                        message=(
-                            f"High-S/N external astrometric RMS {e} missing from the "
-                            f"resampled header of {self.paths_full[idx_file]!r}; "
-                            "refusing to fall back to the inflated full-sample "
-                            "ASTRRMS. Re-run SCAMP or clear the stale .ahead cache "
-                            "so ASTRMSH1/2 is written."
-                        ),
-                    ) from e
-                arr_astrms1 = np.full(shape, fill_value=astrms1, dtype=np.float32)
-                arr_astrms2 = np.full(shape, fill_value=astrms2, dtype=np.float32)
-
-                # SCAMP RA/Dec correlation coefficient (group r_eff written into the
-                # .ahead by scamp() and propagated via COPY_KEYWORDS). Safe-read so
-                # older reductions without the keyword fall back to 0 (diagonal-only).
-                astrms_corr = header_original.get("ASTCORR", 0.0)
-                arr_astrms_corr = np.full(
-                    shape, fill_value=astrms_corr, dtype=np.float32
-                )
+                # NB: the astrometric floor is NO LONGER carried as a per-pawprint
+                # statistics image. It is self-calibrated on the coadded tile vs Gaia
+                # in build_statistics_tables; the flat-SCAMP fallback there reads the
+                # ASTRMSH1/2/ASTCORR header scalar (Pipeline._astrms_flat_scalar)
+                # rather than coadding a constant image. (See build_statistics_tile.)
 
                 # Read weight
                 weight_hdu = fits.getdata(
@@ -3087,15 +3036,6 @@ class SkyImagesResampled(SkyImagesProcessed):
                 hdul_mjd_int.append(
                     fits.ImageHDU(data=arr_mjd_int, header=header_resized)  # noqa
                 )
-                hdul_astrms1.append(
-                    fits.ImageHDU(data=arr_astrms1, header=header_resized)  # noqa
-                )
-                hdul_astrms2.append(
-                    fits.ImageHDU(data=arr_astrms2, header=header_resized)  # noqa
-                )
-                hdul_astrms_corr.append(
-                    fits.ImageHDU(data=arr_astrms_corr, header=header_resized)  # noqa
-                )
                 hdul_weights.append(
                     fits.ImageHDU(
                         data=arr_weight.astype(np.float32),  # noqa
@@ -3110,9 +3050,6 @@ class SkyImagesResampled(SkyImagesProcessed):
                 (hdul_exptime, paths_exp[idx_file]),
                 (hdul_mjd_frac, paths_mjd_frac[idx_file]),
                 (hdul_mjd_int, paths_mjd_int[idx_file]),
-                (hdul_astrms1, paths_astrms1[idx_file]),
-                (hdul_astrms2, paths_astrms2[idx_file]),
-                (hdul_astrms_corr, paths_astrms_corr[idx_file]),
                 (hdul_weights, paths_weight[idx_file]),
             ]
             try:
@@ -3369,8 +3306,6 @@ class SkyImagesResampled(SkyImagesProcessed):
         elif "exptime" in mode.lower():
             convert_bitpix_image(path=outpath_final, new_type=np.float32)
         elif "mjd" in mode.lower():
-            convert_bitpix_image(path=outpath_final, new_type=np.float32)
-        elif "astrms" in mode.lower():
             convert_bitpix_image(path=outpath_final, new_type=np.float32)
         else:
             raise ValueError
