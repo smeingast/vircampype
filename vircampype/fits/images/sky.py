@@ -1060,7 +1060,9 @@ class SkyImagesProcessed(SkyImages):
                 bright_galaxies = bright_galaxies[indices]
                 additional_masks["ra"].extend(bright_galaxies.ra_deg)
                 additional_masks["dec"].extend(bright_galaxies.dec_deg)
-                additional_masks["size"].extend(bright_galaxies.size_deg)
+                # size_pix (not size_deg): disk() takes a pixel radius, like the
+                # 2MASS and manual-mask paths.
+                additional_masks["size"].extend(bright_galaxies.size_pix())
 
         # Add manual source masks
         if self.setup.additional_source_masks is not None:
