@@ -3177,9 +3177,13 @@ class SkyImagesResampled(SkyImagesProcessed):
                     cmd=cmd, shell="bash", silent=True, raise_on_error=True
                 )
 
-            # Create MEF image
+            # Create MEF image. paths_temp_stacks is already in detector order
+            # (appended while iterating iter_data_hdu above); do NOT sort it -- the
+            # temp names are random UUIDs, so sorting would scramble the
+            # detector->extension mapping. (build_stacks can sort because it uses
+            # deterministic stack_{idx:02d} names where sorted() preserves order.)
             make_mef_image(
-                paths_input=sorted(paths_temp_stacks),
+                paths_input=paths_temp_stacks,
                 overwrite=self.setup.overwrite,
                 path_output=path_stack,
                 primeheader=None,
