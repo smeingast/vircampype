@@ -1720,8 +1720,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 astrms_sources1 = np.full(n_src, astrms1_flat, dtype=float)
                 astrms_sources2 = np.full(n_src, astrms2_flat, dtype=float)
                 astrms_corr_sources = np.full(n_src, astrms_corr_flat, dtype=float)
-                # Mask bad sources
-                bad &= weight_sources < 0.0001
+                # Mark bad: off-image (above) OR on a dead/no-coverage pixel.
+                bad |= weight_sources < 0.0001
                 mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
                 astrms_sources1[bad], astrms_sources2[bad] = np.nan, np.nan
                 astrms_corr_sources[bad] = np.nan
