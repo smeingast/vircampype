@@ -614,6 +614,7 @@ class Pipeline:
         return images
 
     def _paths_statistics_stacks(self, mode):
+        # DEAD CODE: only used by build_statistics_stacks (unused).
         return [p.replace(".fits", f".{mode}.fits") for p in self._paths_stacks]
 
     def _path_statistics_tile(self, mode):
@@ -776,7 +777,10 @@ class Pipeline:
 
     @pipeline_step("statistics_stacks", message="STACKS STATISTICS")
     def build_statistics_stacks(self):
-        """Coadd statistics images for stacks and combine MJD maps."""
+        """DEAD CODE: not called from process_science; stack statistics are unused.
+
+        Coadd statistics images for stacks and combine MJD maps.
+        """
         for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
             images = self.resampled_statistics(mode=mode)
             images.coadd_statistics_stacks(mode=mode)
