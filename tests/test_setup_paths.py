@@ -111,6 +111,16 @@ class TestObsoleteKeys(unittest.TestCase):
         self.assertIn("path_scratch", msg)
         self.assertIn("local_cache_dir", msg)
 
+    def test_removed_astrms_map_knob_raises_clear_error(self):
+        # The old surface-fit/kernel knobs are gone; a config still setting one
+        # must fail loud (not an opaque dataclass TypeError).
+        params = {**self._base_params(), "astrms_self_kernel_sigma_arcmin": 10.0}
+        with self.assertRaises(PipelineValueError) as ctx:
+            Setup.load_pipeline_setup(params)
+        msg = str(ctx.exception)
+        self.assertIn("astrms_self_kernel_sigma_arcmin", msg)
+        self.assertIn("astrms_self_cell_arcmin", msg)
+
     def test_clean_config_still_loads(self):
         setup = Setup.load_pipeline_setup(self._base_params())
         self.assertEqual(setup.name, "TestSetup")
@@ -135,10 +145,12 @@ class TestAstrmsSelfCalibrateDefaults(unittest.TestCase):
         self.assertEqual(s.astrms_self_max_ellipticity, 0.2)
         self.assertEqual(s.astrms_self_isolation_arcsec, 5.0)
         self.assertEqual(s.astrms_self_min_n_global, 30)
-        self.assertEqual(s.astrms_self_min_n_cell, 10)
         self.assertEqual(s.astrms_self_sigma_clip, 3.0)
-        self.assertEqual(s.astrms_self_kernel_sigma_arcmin, 10.0)
         self.assertEqual(s.astrms_self_shrink_n, 50)
+        # Fixed-cell + 3x3-median spatial map.
+        self.assertEqual(s.astrms_self_cell_arcmin, 10.0)
+        self.assertEqual(s.astrms_self_cell_min_n, 50)
+        self.assertEqual(s.astrms_self_cell_min_neff, 150)
         self.assertEqual(s.astrms_self_max_sources, 50_000_000)
 
     def test_knobs_serialize_to_headers(self):

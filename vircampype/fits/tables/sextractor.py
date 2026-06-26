@@ -1694,8 +1694,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     nimg[yy_image, xx_image],
                 )
                 weight_sources = weight[yy_image, xx_image]
-                # Safety guard: the self-calibrated floor (crossmatch + surface fit
-                # + per-source evaluation) runs in a single in-memory pass, so its
+                # Safety guard: the self-calibrated floor (crossmatch + cell-binned
+                # map + per-source lookup) runs in a single in-memory pass, so its
                 # peak RAM scales linearly with the source count. Fail loud before
                 # any large allocation rather than risk an OOM on a huge mosaic;
                 # raise astrms_self_max_sources on a big-RAM machine, or chunk the
@@ -1826,8 +1826,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         ladder keeps the flat-SCAMP value whenever the measurement is too thin or
         non-positive, so a cloud field never yields a zero/garbage/NaN floor (the
         worst case is exactly today's behavior). When enabled, the optional
-        spatial map adds the real ~1 mas of local structure as a bounded
-        perturbation around the global floor.
+        spatial map replaces the scalar with an edge-preserving fixed-cell + 3x3
+        median field that keeps the real per-detector/per-tile floor structure
+        (see :meth:`_astrms_floor_map`).
 
         Returns
         -------
@@ -1850,7 +1851,12 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         i1, sep, _ = sc_file.match_to_catalog_sky(sc_master_matched)
         matched = sep.arcsec < setup.astrms_self_match_radius
 
-        # Signed per-axis residuals in mas (alpha* = dRA * cos(dec) at the source).
+        # Signed per-axis residuals in mas. The RA axis is the true-angle
+        # coordinate alpha* = dRA * cos(dec): multiplying by cos(dec) puts it in
+        # the same on-sky angular frame as the Dec axis AND as the SExtractor
+        # centroid covariance (ERRAWIN/ERRBWIN are on-sky arcs), so the
+        # excess-variance subtraction floor^2 = <dr^2> - <known var> is consistent
+        # per axis.
         gaia = sc_master_matched[i1]
         cos_dec = np.cos(np.deg2rad(sc_file.dec.deg))
         dr_alpha = (sc_file.ra.deg - gaia.ra.deg) * cos_dec * 3_600_000
@@ -1954,10 +1960,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         new2 = np.full(n_src, g2, dtype=float)
         new_corr = np.full(n_src, gcorr, dtype=float)
 
-        # --- Optional spatial map: a bounded perturbation around the global ---
+        # --- Optional spatial map: an edge-preserving fixed-cell + 3x3 median
+        # floor field around the global scalar ---
         if setup.astrms_self_build_map:
             try:
-                new1, new2, new_corr = self._astrms_floor_map(
+                new1, new2, new_corr, diag = self._astrms_floor_map(
                     table_hdu=table_hdu,
                     sample=sample,
                     dr_alpha=dr_alpha,
@@ -1972,6 +1979,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     gcorr=gcorr,
                     scamp1=scamp1,
                     scamp2=scamp2,
+                    pixscale_arcsec=pixscale_arcsec,
                 )
             except Exception as exc:
                 log.warning(
@@ -1982,6 +1990,21 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 new1 = np.full(n_src, g1, dtype=float)
                 new2 = np.full(n_src, g2, dtype=float)
                 new_corr = np.full(n_src, gcorr, dtype=float)
+            else:
+                # QC plot of the applied floor map. The diagnostic grids are a
+                # byproduct of the map actually applied, so plotting them here
+                # (build time) avoids recompute drift; a plot failure must never
+                # break the floor itself.
+                if setup.qc_plots:
+                    try:
+                        self.plot_qc_astrms_floor_map(
+                            name=self.names[idx_file], diag=diag
+                        )
+                    except Exception as exc:
+                        log.warning(
+                            f"Astrometric floor-map QC plot failed for "
+                            f"{self.names[idx_file]}: {exc}"
+                        )
 
         # Re-apply the pre-existing bad-source NaN mask so downstream NaN handling
         # in convert2public is unchanged.
@@ -2018,114 +2041,390 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         gcorr,
         scamp1,
         scamp2,
+        pixscale_arcsec,
     ):
         """
-        Build a SMOOTH spatial floor field by (1) binning the clean sample into a
-        coarse grid and forming a ROBUST per-cell floor^2 from many sources, then
-        (2) fitting a gentle low-order 2D polynomial surface through those stable
-        cell means.
+        Build an EDGE-PRESERVING spatial floor field on fixed-size cells.
 
-        A single source's squared residual ``da^2`` is a 1-DOF (~100% noise)
-        estimate of the local floor^2, so interpolating per-source proxies
-        directly produces a noise-dominated, blobby map. Averaging ~hundreds of
-        sources per cell first makes each cell a stable floor estimate; the
-        low-order surface then captures only the genuine smooth (PSF /
-        optical-axis-driven) variation. Per-axis floors are bounded to
-        ``[0.5*global, flat-SCAMP]`` (the self-measured floor should never exceed
-        SCAMP's conservative value) and the correlation to ``[-1, 1]`` (PSD
-        backstop).
+        A mosaic is a patchwork of independently SCAMP-solved tiles, so the
+        astrometric floor is *discontinuous* at detector/tile edges; a smooth
+        global surface (the old degree-2 polynomial) blurs those steps into a
+        bland gradient. This builds the field on cells of a fixed angular size
+        (``astrms_self_cell_arcmin`` ~ one VIRCAM detector), forms a robust
+        per-cell floor^2 from the clean bright sample, then applies a 3x3
+        ``nanmedian`` -- a nonlinear, edge-preserving smoother that denoises
+        within a flat detector while keeping the steps between detectors. One
+        setting works for a single 1.6 deg tile and a 6 deg mosaic alike.
+
+        Pipeline (all in variance space until the final sqrt):
+          1. fixed cells from the coadd pixel scale; per cell with
+             >= ``astrms_self_cell_min_n`` clean stars, floor^2 = clipped-var of
+             the (mean-subtracted) residuals minus the mean known per-source
+             variance (centroid + Gaia), plus a robust cross-covariance;
+          2. 3x3 nanmedian over SUPPORTED cells only (fallback/global values
+             never enter the median);
+          3. footprint-aware fill: interior holes close to support get a linear
+             interpolation; wide holes / outside-footprint cells fall back to the
+             global scalar (never bridge chip gaps or separate pawprints);
+          4. conservatism guard: a below-global cell is only trusted where its 3x3
+             window holds >= ``astrms_self_cell_min_neff`` stars, else it is raised
+             to the global floor; per-axis variance clipped to
+             ``[(0.5*global)^2, flat-SCAMP^2]``;
+          5. correlation shrunk toward the global value by window support (harder
+             than the variances) and clipped to ``[-0.95, 0.95]`` -- which keeps
+             ``cross^2 < var1*var2`` (PSD) for the 2x2 floor covariance;
+          6. each source takes its own cell's value (nearest-cell, piecewise
+             constant -- NOT bilinear, which would smear the very edges we
+             preserve: this is an error model, not an image product).
+
+        Residuals are alpha* = dRA*cos(dec) and delta, in the same true-angle
+        frame as the centroid/Gaia covariances (cos(dec) applied upstream).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray, np.ndarray, dict]
+            ``(new1, new2, new_corr, diag)`` -- the per-source floors (mas, mas,
+            correlation) and a dict of diagnostic grids for the QC plot.
         """
+        from scipy.interpolate import griddata
+        from scipy.ndimage import convolve, distance_transform_edt, generic_filter
+
+        setup = self.setup
+        cell_arcmin = setup.astrms_self_cell_arcmin
+        min_n = setup.astrms_self_cell_min_n
+        neff_min = setup.astrms_self_cell_min_neff
+        # Interior holes within this many cells of real support get interpolated;
+        # anything further (wide dead zones, chip gaps, gaps between pawprints) is
+        # left for the global fallback. A method internal, not an operator knob.
+        max_interp_cells = 2.0
+
         xx = np.asarray(table_hdu["XWIN_IMAGE"], dtype=float)
         yy = np.asarray(table_hdu["YWIN_IMAGE"], dtype=float)
-        sx, sy = xx[sample], yy[sample]
-
-        # Mean-subtracted residuals + per-source known variance on the sample.
-        da = dr_alpha[sample] - float(np.mean(dr_alpha[sample]))
-        dd = dr_delta[sample] - float(np.mean(dr_delta[sample]))
-        cov_a = cov_ra[sample] + var_gaia_ra[sample]
-        cov_d = cov_dec[sample] + var_gaia_dec[sample]
-        cov_x = cov_radec[sample]
-
-        xlo, xhi = float(np.min(xx)), float(np.max(xx))
-        ylo, yhi = float(np.min(yy)), float(np.max(yy))
-
-        # STEP 1 -- bin into a coarse grid; per cell form a robust floor^2 as the
-        # clipped variance of the residuals minus the mean known variance (per
-        # axis), and a robust mean cross-covariance. Averaging ~hundreds of
-        # sources per cell turns the ~100%-noise per-source estimate into a stable
-        # one BEFORE any fit -- this is what stops the field chasing per-source
-        # noise (the cause of the old blobby kernel map).
-        nb = max(3, int(np.sqrt(sx.size / 150.0)))
-        ix = np.clip(np.digitize(sx, np.linspace(xlo, xhi, nb + 1)) - 1, 0, nb - 1)
-        iy = np.clip(np.digitize(sy, np.linspace(ylo, yhi, nb + 1)) - 1, 0, nb - 1)
-        cell = iy * nb + ix
-        cx, cy, cn, c1, c2, cc = [], [], [], [], [], []
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            for cid in np.unique(cell):
-                m = cell == cid
-                if int(np.sum(m)) < 20:
-                    continue
-                cx.append(float(np.mean(sx[m])))
-                cy.append(float(np.mean(sy[m])))
-                cn.append(float(np.sum(m)))
-                c1.append(
-                    sigma_clipped_stats(da[m], sigma=3.0)[2] ** 2
-                    - float(np.mean(cov_a[m]))
-                )
-                c2.append(
-                    sigma_clipped_stats(dd[m], sigma=3.0)[2] ** 2
-                    - float(np.mean(cov_d[m]))
-                )
-                cc.append(sigma_clipped_stats(da[m] * dd[m] - cov_x[m], sigma=3.0)[0])
-        cx, cy, cn = np.asarray(cx), np.asarray(cy), np.asarray(cn)
-        c1, c2, cc = np.asarray(c1), np.asarray(c2), np.asarray(cc)
-
-        # STEP 2 -- fit a gentle low-order surface through the (now stable) cell
-        # means, weighted by cell population. Degree 2 captures the smooth
-        # optical-axis-driven trend without edge oscillation.
-        def _norm(a, lo, hi):
-            return 2.0 * (a - lo) / (hi - lo) - 1.0 if hi > lo else np.zeros_like(a)
-
-        degree = 2 if cx.size >= 8 else 1 if cx.size >= 4 else 0
-
-        def _design(u, v):
-            return np.column_stack(
-                [u**i * v ** (d - i) for d in range(degree + 1) for i in range(d + 1)]
+        finite_xy = np.isfinite(xx) & np.isfinite(yy)
+        if (
+            not np.any(finite_xy)
+            or not np.isfinite(pixscale_arcsec)
+            or pixscale_arcsec <= 0
+        ):
+            raise ValueError(
+                "astrms floor map: no finite source coordinates or bad pixel scale"
             )
 
-        a_all = _design(_norm(xx, xlo, xhi), _norm(yy, ylo, yhi))
-        n_terms = a_all.shape[1]
+        # Extent spans ALL sources so the grid covers the whole catalog footprint,
+        # not just the clean sample. The sample (clean bright sources) drives the
+        # per-cell estimates.
+        xlo, xhi = float(np.min(xx[finite_xy])), float(np.max(xx[finite_xy]))
+        ylo, yhi = float(np.min(yy[finite_xy])), float(np.max(yy[finite_xy]))
+        if not (xhi > xlo and yhi > ylo):
+            raise ValueError("astrms floor map: degenerate source coordinate extent")
 
-        def _fit_eval(cvals, fallback):
-            ok = np.isfinite(cvals) & np.isfinite(cx) & np.isfinite(cy)
-            if int(np.sum(ok)) < n_terms:
-                return np.full(xx.shape, fallback, dtype=float)
-            af = _design(_norm(cx[ok], xlo, xhi), _norm(cy[ok], ylo, yhi))
-            rw = np.sqrt(cn[ok])
-            coef = np.linalg.lstsq(af * rw[:, None], cvals[ok] * rw, rcond=None)[0]
-            return a_all @ coef
+        smask = sample & finite_xy
+        sx, sy = xx[smask], yy[smask]
+        # Mean-subtracted residuals + per-source known variance (centroid + Gaia)
+        # on the clean sample.
+        da = dr_alpha[smask] - float(np.mean(dr_alpha[smask]))
+        dd = dr_delta[smask] - float(np.mean(dr_delta[smask]))
+        cov_a = cov_ra[smask] + var_gaia_ra[smask]
+        cov_d = cov_dec[smask] + var_gaia_dec[smask]
+        cov_x = cov_radec[smask]
 
-        s1 = _fit_eval(c1, g1**2)
-        s2 = _fit_eval(c2, g2**2)
-        sc = _fit_eval(cc, gcorr * g1 * g2)
+        # STEP 1 -- fixed-size cells from the coadd pixel scale (one cell =
+        # cell_arcmin on a side ~ one detector at 10').
+        cell_px = cell_arcmin * 60.0 / pixscale_arcsec
+        nbx = max(3, int(np.ceil((xhi - xlo) / cell_px)))
+        nby = max(3, int(np.ceil((yhi - ylo) / cell_px)))
+        xe = np.linspace(xlo, xhi, nbx + 1)
+        ye = np.linspace(ylo, yhi, nby + 1)
 
-        # Per-source floors from the smooth surfaces, bounded to
-        # [0.5*global, flat-SCAMP].
-        new1 = np.sqrt(np.clip(s1, (0.5 * g1) ** 2, max(scamp1, 0.5 * g1) ** 2))
-        new2 = np.sqrt(np.clip(s2, (0.5 * g2) ** 2, max(scamp2, 0.5 * g2) ** 2))
+        ix = np.clip(np.digitize(sx, xe) - 1, 0, nbx - 1)
+        iy = np.clip(np.digitize(sy, ye) - 1, 0, nby - 1)
+        cell_var1 = np.full((nby, nbx), np.nan)
+        cell_var2 = np.full((nby, nbx), np.nan)
+        cell_cross = np.full((nby, nbx), np.nan)
+        cell_n = np.zeros((nby, nbx))
+        flat = iy * nbx + ix
+        sclip = setup.astrms_self_sigma_clip
+        zero = np.zeros_like(da)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for cid in np.unique(flat):
+                m = flat == cid
+                j, i = divmod(int(cid), nbx)
+                n = int(np.sum(m))
+                cell_n[j, i] = n
+                if n < min_n:
+                    continue
+                # Per-cell floor via the SAME excess-variance estimator as the
+                # global floor (estimate_astrms_floor): sigma-clip the residuals,
+                # then subtract the mean known variance over the SURVIVORS only
+                # (not the full cell), so high-error outliers cannot bias the floor
+                # low. cov_a/cov_d already fold in the Gaia variance, so the Gaia
+                # term is passed as zero. var1/var2/cross share support by
+                # construction (all written together for cells with >= min_n).
+                f1, f2, rho, _ = estimate_astrms_floor(
+                    da[m],
+                    dd[m],
+                    cov_a[m],
+                    cov_d[m],
+                    cov_x[m],
+                    zero[m],
+                    zero[m],
+                    sigma=sclip,
+                )
+                if not (np.isfinite(f1) and np.isfinite(f2)):
+                    continue
+                cell_var1[j, i] = f1**2
+                cell_var2[j, i] = f2**2
+                cell_cross[j, i] = rho * f1 * f2
 
-        # Correlation from the smooth cross / auto surfaces, clamped to [-1, 1].
-        denom = new1 * new2
+        # STEP 2 -- 3x3 nanmedian over supported cells only (all-NaN windows stay
+        # NaN; fallback/global values never enter the median).
+        def _nanmedian3(grid):
+            return generic_filter(
+                grid,
+                lambda w: np.nanmedian(w) if np.any(np.isfinite(w)) else np.nan,
+                size=3,
+                mode="constant",
+                cval=np.nan,
+            )
+
+        # The median DENOISES each measured cell (pools its measured neighbours);
+        # it must NOT dilate the footprint. A cell with no own measurement must
+        # not become "supported" just because a single neighbour was measured --
+        # that would let a below-global value escape the conservatism guard at a
+        # cell with no local evidence. Restrict the median output to genuinely
+        # measured cells; the rest are filled (interp / global) downstream.
+        measured = np.isfinite(cell_var1)  # == isfinite(cell_var2/cell_cross)
+        sm_var1 = np.where(measured, _nanmedian3(cell_var1), np.nan)
+        sm_var2 = np.where(measured, _nanmedian3(cell_var2), np.nan)
+        sm_cross = np.where(measured, _nanmedian3(cell_cross), np.nan)
+        supported = measured  # == isfinite(sm_var1) after the restriction
+
+        # Effective window support: sum of the clean-star counts of the MEASURED
+        # cells in each 3x3 window (unmeasured cells lend no trust even if they
+        # hold stars). Used by the conservatism guard and the correlation shrink.
+        n_supported = np.where(measured, cell_n, 0.0)
+        neff = convolve(n_supported, np.ones((3, 3)), mode="constant", cval=0.0)
+
+        # STEP 3 -- footprint-aware fill. Linearly interpolate only interior holes
+        # within max_interp_cells of real support; griddata-linear never
+        # extrapolates beyond the convex hull, and the distance gate prevents
+        # bridging wide holes / chip gaps / separate pawprints.
+        dist = distance_transform_edt(~supported)
+        interior = (~supported) & (dist <= max_interp_cells)
+        gy, gx = np.mgrid[0:nby, 0:nbx]
+
+        def _fill(grid):
+            out = grid.copy()
+            if int(np.sum(supported)) >= 4 and np.any(interior):
+                out[interior] = griddata(
+                    np.column_stack([gx[supported], gy[supported]]),
+                    grid[supported],
+                    np.column_stack([gx[interior], gy[interior]]),
+                    method="linear",
+                )
+            return out
+
+        fill_var1 = _fill(sm_var1)
+        fill_var2 = _fill(sm_var2)
+        fill_cross = _fill(sm_cross)
+
+        # STEP 4 -- per-axis finalize in variance space, then sqrt.
+        def _finalize_axis(fill_var, g, scamp):
+            v = np.where(np.isfinite(fill_var), fill_var, g**2)  # unfilled -> global
+            # A spuriously LOW cell can survive the median in sparse regions: only
+            # accept a below-global floor where the window has strong support.
+            weak_below = (neff < neff_min) & (v < g**2)
+            v = np.where(weak_below, g**2, v)
+            lo = (0.5 * g) ** 2
+            hi = max(scamp, 0.5 * g) ** 2  # ensure hi >= lo even if scamp < 0.5*g
+            return np.sqrt(np.clip(v, lo, hi))
+
+        grid_a1 = _finalize_axis(fill_var1, g1, scamp1)
+        grid_a2 = _finalize_axis(fill_var2, g2, scamp2)
+
+        # STEP 5 -- correlation: convert the smoothed cross-cov to a coefficient
+        # via the FINAL per-cell variances, shrink toward the global value by
+        # window support (harder than the variances, which are not per-cell
+        # shrunk), and clip to [-0.95, 0.95] (=> |rho| < 1 => PSD covariance).
+        cross = np.where(np.isfinite(fill_cross), fill_cross, gcorr * g1 * g2)
+        denom = grid_a1 * grid_a2
         with np.errstate(divide="ignore", invalid="ignore"):
-            new_corr = np.where(denom > 1e-6, sc / denom, gcorr)
-        new_corr = np.clip(new_corr, -1.0, 1.0)
+            rho_local = np.where(denom > 1e-6, cross / denom, gcorr)
+        w_corr = neff / (neff + neff_min)
+        rho = w_corr * rho_local + (1.0 - w_corr) * gcorr
+        grid_corr = np.clip(np.where(np.isfinite(rho), rho, gcorr), -0.95, 0.95)
 
-        # Guard any non-finite surface value with the global scalar.
-        new1 = np.where(np.isfinite(new1), new1, g1)
-        new2 = np.where(np.isfinite(new2), new2, g2)
-        new_corr = np.where(np.isfinite(new_corr), new_corr, gcorr)
-        return new1, new2, new_corr
+        # STEP 6 -- nearest-cell (piecewise-constant) per-source lookup. A source
+        # with a non-finite coordinate would digitize to an edge cell and pick up
+        # an arbitrary value, so fall those (and any non-finite lookup) back to the
+        # conservative global scalar.
+        ix_all = np.clip(np.digitize(xx, xe) - 1, 0, nbx - 1)
+        iy_all = np.clip(np.digitize(yy, ye) - 1, 0, nby - 1)
+        new1 = grid_a1[iy_all, ix_all]
+        new2 = grid_a2[iy_all, ix_all]
+        new_corr = grid_corr[iy_all, ix_all]
+        new1 = np.where(np.isfinite(new1) & finite_xy, new1, g1)
+        new2 = np.where(np.isfinite(new2) & finite_xy, new2, g2)
+        new_corr = np.where(np.isfinite(new_corr) & finite_xy, new_corr, gcorr)
+
+        # Diagnostic grids for the QC plot. mask: 0 = global fallback,
+        # 1 = interpolated, 2 = measured.
+        mask = np.zeros((nby, nbx), dtype=int)
+        mask[np.isfinite(fill_var1) & ~supported] = 1
+        mask[supported] = 2
+        diag = {
+            "extent": (xlo, xhi, ylo, yhi),
+            "map1": grid_a1,
+            "map2": grid_a2,
+            "corr": grid_corr,
+            "n": cell_n,
+            "raw1": np.sqrt(np.clip(cell_var1, 0.0, None)),
+            "mask": mask,
+            "g1": g1,
+            "g2": g2,
+            "gcorr": gcorr,
+            "scamp1": scamp1,
+            "scamp2": scamp2,
+            "cell_arcmin": cell_arcmin,
+        }
+        return new1, new2, new_corr, diag
+
+    def plot_qc_astrms_floor_map(self, name, diag):
+        """
+        QC figure for the self-calibrated astrometric floor map.
+
+        Renders the per-cell parameter grids produced by :meth:`_astrms_floor_map`
+        on the coadd pixel grid with a LOCKED aspect ratio (true-to-scale), so the
+        edge-preserving structure can be inspected directly. Top row: the applied
+        ASTRMS1 / ASTRMS2 / ASTRMS_CORR maps; bottom row: the per-cell clean-star
+        count, the raw (pre-median) floor, and the support/interp/fallback mask.
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import BoundaryNorm, ListedColormap
+
+        log = logging.getLogger(__name__)
+        outpath = f"{self.setup.folders['qc_astrometry']}{name}_astr_floormap.pdf"
+        if (
+            check_file_exists(file_path=outpath, silent=self.setup.silent)
+            and not self.setup.overwrite
+        ):
+            log.info("File already exists, skipping")
+            return
+
+        extent = diag["extent"]
+        # Shared mas scale for the two axes + the raw floor, so raw vs smoothed and
+        # axis 1 vs axis 2 are directly comparable.
+        finite_mas = np.concatenate(
+            [
+                diag["map1"][np.isfinite(diag["map1"])].ravel(),
+                diag["map2"][np.isfinite(diag["map2"])].ravel(),
+            ]
+        )
+        if finite_mas.size:
+            vmin_mas, vmax_mas = np.nanpercentile(finite_mas, [2, 98])
+        else:
+            vmin_mas, vmax_mas = 0.0, 1.0
+        clim = float(max(0.05, np.nanmax(np.abs(diag["corr"]))))  # symmetric corr
+
+        fig, axes = plt.subplots(2, 3, figsize=(18, 11))
+
+        def _panel(ax, img, title, cmap, vmin, vmax, label):
+            im = ax.imshow(
+                img,
+                origin="lower",
+                extent=extent,
+                aspect="equal",
+                rasterized=True,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+            )
+            ax.set_title(title)
+            ax.set_xlabel("X (pix)")
+            ax.set_ylabel("Y (pix)")
+            cb = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+            cb.set_label(label)
+            return im
+
+        _panel(
+            axes[0, 0],
+            diag["map1"],
+            f"ASTRMS1 (global {diag['g1']:.2f}, SCAMP {diag['scamp1']:.2f} mas)",
+            "inferno",
+            vmin_mas,
+            vmax_mas,
+            "mas",
+        )
+        _panel(
+            axes[0, 1],
+            diag["map2"],
+            f"ASTRMS2 (global {diag['g2']:.2f}, SCAMP {diag['scamp2']:.2f} mas)",
+            "inferno",
+            vmin_mas,
+            vmax_mas,
+            "mas",
+        )
+        _panel(
+            axes[0, 2],
+            diag["corr"],
+            f"ASTRMS_CORR (global {diag['gcorr']:+.3f})",
+            "RdBu_r",
+            -clim,
+            clim,
+            "correlation",
+        )
+        _panel(
+            axes[1, 0],
+            np.where(diag["n"] > 0, diag["n"], np.nan),
+            "N stars / cell",
+            "viridis",
+            0,
+            None,
+            "N",
+        )
+        _panel(
+            axes[1, 1],
+            diag["raw1"],
+            "raw floor1 (pre-median)",
+            "inferno",
+            vmin_mas,
+            vmax_mas,
+            "mas",
+        )
+        # Support/interp/fallback mask as a discrete 3-colour panel.
+        mask_cmap = ListedColormap(["#d9d9d9", "#6baed6", "#08519c"])
+        mask_norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], mask_cmap.N)
+        im_mask = axes[1, 2].imshow(
+            diag["mask"],
+            origin="lower",
+            extent=extent,
+            aspect="equal",
+            cmap=mask_cmap,
+            norm=mask_norm,
+            rasterized=True,
+        )
+        axes[1, 2].set_title("cell support")
+        axes[1, 2].set_xlabel("X (pix)")
+        axes[1, 2].set_ylabel("Y (pix)")
+        cb = plt.colorbar(
+            im_mask, ax=axes[1, 2], ticks=[0, 1, 2], fraction=0.046, pad=0.04
+        )
+        cb.ax.set_yticklabels(["global", "interp", "measured"])
+
+        fig.suptitle(
+            f"{name}  -  astrometric floor map "
+            f"({diag['cell_arcmin']:g}' cells + 3x3 median)",
+            y=0.99,
+        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="tight_layout : falling back to Agg renderer"
+            )
+            fig.tight_layout()
+            fig.savefig(outpath, bbox_inches="tight", dpi=self.setup.qc_plot_dpi)
+        plt.close("all")
+        log.info(f"Written: {outpath}")
 
     def paths_qc_plots(self, paths, prefix=""):
         if paths is None:

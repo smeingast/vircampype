@@ -137,14 +137,21 @@ class Setup:
         5.0  # Min neighbor distance for the isolated floor sample (arcsec)
     )
     astrms_self_min_n_global: int = 30  # Min clean Gaia matches field-wide before measuring (else flat-SCAMP fallback)
-    astrms_self_min_n_cell: int = 10  # Min kernel-neighbor matches before trusting the local map value over the global floor
     astrms_self_sigma_clip: float = (
         3.0  # Sigma threshold for the clipped-mean floor estimators
     )
-    astrms_self_kernel_sigma_arcmin: float = (
-        10.0  # Gaussian kernel sigma for the spatial floor map (arcmin)
-    )
     astrms_self_shrink_n: int = 50  # Sample size for shrinking a thin global measurement toward the flat-SCAMP value
+    # Spatial floor map (fixed-size cells + edge-preserving 3x3 median). The floor
+    # is discontinuous at detector/tile edges (a mosaic is a patchwork of
+    # independently SCAMP-solved tiles), so a fixed angular cell (~one detector) +
+    # a nonlinear median preserves those steps where a smooth surface blurs them.
+    astrms_self_cell_arcmin: float = (
+        10.0  # Map cell size (arcmin; ~one VIRCAM detector)
+    )
+    astrms_self_cell_min_n: int = (
+        50  # Min clean stars per cell to measure its floor (else the cell is filled)
+    )
+    astrms_self_cell_min_neff: int = 150  # Min stars in the 3x3 window to accept a below-global cell floor (conservatism guard)
     astrms_self_max_sources: int = 50_000_000  # Hard cap on per-product source count for the (single-pass, in-memory) self-cal floor; raise on big-RAM machines or chunk
 
     # Photometry
@@ -676,6 +683,16 @@ class Setup:
             "intermediates to a separate scratch disk. Drop it from your setup; "
             "use 'local_cache_dir' to keep disposable temp/caches off network "
             "storage."
+        ),
+        "astrms_self_kernel_sigma_arcmin": (
+            "'astrms_self_kernel_sigma_arcmin' was removed: the astrometric floor "
+            "map no longer smooths with a Gaussian kernel. Drop it; the map now "
+            "uses fixed-size cells ('astrms_self_cell_arcmin') + a 3x3 median."
+        ),
+        "astrms_self_min_n_cell": (
+            "'astrms_self_min_n_cell' was removed: the astrometric floor map no "
+            "longer uses per-source kernel neighbours. Drop it; the per-cell "
+            "minimum is now 'astrms_self_cell_min_n'."
         ),
     }
 
