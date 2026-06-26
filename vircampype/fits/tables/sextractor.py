@@ -227,6 +227,11 @@ class SextractorCatalogs(SourceCatalogs):
         # Some basic QC on XML
         xml = Table.read(path_xml, format="votable", table_id=1)
         if np.max(xml["AstromSigma_Internal"].data.ravel() * 1000) > 100:
+            # Remove the .ahead SCAMP just wrote, so a rerun re-solves instead of
+            # the early-skip silently reusing this rejected solution. (The cache is
+            # written only after the gate passes, so it is unaffected.)
+            for ap in ahead_paths:
+                remove_file(ap)
             raise ValueError("Astrometric solution may be crap, please check")
 
         # Inject the group-level RA/Dec astrometric correlation into the .ahead headers.
