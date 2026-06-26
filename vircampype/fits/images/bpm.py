@@ -4,7 +4,7 @@ from vircampype.tools.plottools import *
 
 class MasterBadPixelMask(MasterImages):
     def __init__(self, setup, file_paths=None):
-        super(MasterImages, self).__init__(setup=setup, file_paths=file_paths)
+        super().__init__(setup=setup, file_paths=file_paths)
 
     @property
     def bpmfracs(self):
