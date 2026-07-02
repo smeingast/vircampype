@@ -33,6 +33,15 @@ from vircampype.tools.systemtools import *
 from vircampype.tools.tabletools import *
 
 
+def _strip_flxscale_from_ahead(path_ahead: str) -> None:
+    """Remove SCAMP's FLXSCALE=0 cards (SOLVE_PHOTOM N): SWarp's default
+    FSCALE_KEYWORD is FLXSCALE and would multiply images by zero."""
+    headers = read_aheaders(path_ahead)
+    for hdr in headers:
+        hdr.remove("FLXSCALE", ignore_missing=True, remove_all=True)
+    write_aheaders(headers, path_ahead)
+
+
 class SextractorCatalogs(SourceCatalogs):
     def __init__(self, setup, file_paths=None, **kwargs):
         super(SextractorCatalogs, self).__init__(
@@ -143,6 +152,9 @@ class SextractorCatalogs(SourceCatalogs):
 
         # If already available, skip
         if np.sum(ehdrs) == len(self):
+            # Headers from pre-strip runs may still carry FLXSCALE=0
+            for ap in ahead_paths:
+                _strip_flxscale_from_ahead(ap)
             log.info("All scamp .ahead headers already present, skipping")
             print_elapsed(tstart, logger=log)
             return
@@ -262,6 +274,8 @@ class SextractorCatalogs(SourceCatalogs):
                 continue
             headers = read_aheaders(ap)
             for hdr in headers:
+                # SCAMP writes FLXSCALE=0 with SOLVE_PHOTOM N; drop the trap
+                hdr.remove("FLXSCALE", ignore_missing=True, remove_all=True)
                 hdr.set(
                     "ASTCORR",
                     radec_correlation,
