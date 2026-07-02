@@ -19,7 +19,7 @@ from sklearn.neighbors import KernelDensity, NearestNeighbors
 
 from vircampype.data.cube import ImageCube
 from vircampype.fits.tables.sources import SourceCatalogs
-from vircampype.pipeline.errors import PipelineValueError
+from vircampype.pipeline.errors import PipelineFileNotFoundError, PipelineValueError
 from vircampype.tools.astromatic import *
 from vircampype.tools.fitstools import *
 from vircampype.tools.imagetools import *
@@ -1619,12 +1619,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             astrms1_flat, astrms2_flat, astrms_corr_flat = astrms_fallback
 
             # Check if files are available
-            if not (
-                os.path.isfile(path_mjd)
-                and os.path.isfile(path_exptime)
-                and os.path.isfile(path_nimg)
-            ):
-                raise ValueError("Matches for image statistics not found")
+            missing = [
+                p
+                for p in (path_mjd, path_exptime, path_nimg, path_weight)
+                if not os.path.isfile(p)
+            ]
+            if missing:
+                raise PipelineFileNotFoundError(
+                    f"Statistics images not found: {', '.join(missing)}", logger=log
+                )
 
             # Instantiate
             image_mjdeff = FitsImages(file_paths=path_mjd, setup=self.setup)
