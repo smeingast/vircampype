@@ -1152,8 +1152,8 @@ class ImageCube(object):
         # Build mask for each plane in parallel (loky: Python-heavy regionprops loops)
         with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
             mp = parallel(
-                delayed(source_mask)(a, b, c, d, e)
-                for a, b, c, d, e in zip(
+                delayed(source_mask)(a, b, c, d, e, f)
+                for a, b, c, d, e, f in zip(
                     self.cube,
                     repeat(self.setup.mask_sources_thresh),
                     repeat(self.setup.mask_sources_min_area),
