@@ -64,6 +64,23 @@ def _decode_stream(raw: bytes) -> str:
         return raw.decode("latin-1", errors="replace").strip()
 
 
+def _clean_captured_output(text: str) -> str:
+    """Render captured tool output as a terminal would display it: astromatic
+    progress updates overwrite in place (cursor-up ESC[1A prefix or a carriage
+    return), so keep only each final state, then strip all ANSI codes."""
+    lines: list[str] = []
+    for raw_line in text.split("\n"):
+        line = raw_line.rsplit("\r", 1)[-1]
+        if line.startswith("\x1b[1A") and lines:
+            lines.pop()
+        # Stray ESC bytes survive remove_ansi_codes only in incomplete
+        # sequences (tool killed mid-write); drop them too.
+        line = remove_ansi_codes(line).replace("\x1b", "").rstrip()
+        if line:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def make_folder(path: str) -> None:
     """
     Creates a folder at the specified path.
@@ -296,8 +313,8 @@ def run_commands_shell_parallel(
                 stderr=subprocess.PIPE,
             )
             stdout, stderr = (
-                _decode_stream(result.stdout),
-                _decode_stream(result.stderr),
+                _clean_captured_output(_decode_stream(result.stdout)),
+                _clean_captured_output(_decode_stream(result.stderr)),
             )
             if stdout:
                 log.debug(f"stdout:\n{_truncate_output(stdout)}")
@@ -421,13 +438,14 @@ def run_command_shell(
         stdout_raw, stderr_raw = result.stdout, result.stderr
         returncode = result.returncode
 
-    # Decode the command output
+    # Decode the command output and collapse in-place progress updates
     try:
         stdout = stdout_raw.decode("utf-8").strip()
         stderr = stderr_raw.decode("utf-8", errors="replace").strip()
     except UnicodeDecodeError:  # if utf-8 fails, try latin-1
         stdout = stdout_raw.decode("latin-1", errors="replace").strip()
         stderr = stderr_raw.decode("latin-1", errors="replace").strip()
+    stdout, stderr = _clean_captured_output(stdout), _clean_captured_output(stderr)
 
     # Record the command and its (bounded) output in the file log at DEBUG.
     log.debug(f"ran: {cmd}")
@@ -461,7 +479,7 @@ def run_command_shell(
             print(stderr)
 
     # Return command outputs (stdout and stderr)
-    return remove_ansi_codes(stdout), remove_ansi_codes(stderr)
+    return stdout, stderr
 
 
 def get_resource_path(package: str, resource: str) -> str:
