@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from vircampype.pipeline.log import PipelineLog
+import logging
 
 __all__ = [
     "PipelineError",
@@ -19,11 +16,11 @@ class PipelineError(Exception):
     ----------
     message : str
         The error message to log and display.
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
     """
 
-    def __init__(self, message: str, logger: "PipelineLog | None" = None) -> None:
+    def __init__(self, message: str, logger: logging.Logger | None = None) -> None:
         super().__init__(message)
         if logger is not None:
             logger.error(message)

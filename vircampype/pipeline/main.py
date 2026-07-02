@@ -7,7 +7,7 @@ import time
 
 from vircampype.fits.images.common import FitsImages
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.pipeline.log import PipelineLog
+from vircampype.pipeline.logsetup import configure_logging, get_logger
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
 from vircampype.tools.astromatic import verify_sextractor_multi_seeing
@@ -104,7 +104,8 @@ class Pipeline:
         self.setup = Setup.load_pipeline_setup(setup, **kwargs)
 
         # Start logging
-        self.log = PipelineLog(setup=self.setup)
+        configure_logging(self.setup)
+        self.log = get_logger()
 
         self.log.info("Initializing Pipeline")
         self.log.info(f"Pipeline setup: {json.dumps(self.setup.to_dict, indent=4)}")

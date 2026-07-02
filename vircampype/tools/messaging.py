@@ -7,10 +7,9 @@ import numpy as np
 from astropy.stats import sigma_clipped_stats
 
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.pipeline.log import PipelineLog
 
 
-def _logger(logger: "PipelineLog | logging.Logger | None" = None):
+def _logger(logger: logging.Logger | None = None):
     """Return the logger to emit through: the caller's, else the shared one."""
     return logger if logger is not None else logging.getLogger("vircampype")
 
@@ -72,7 +71,7 @@ def print_header(
     silent: bool = True,
     left: str = "File",
     right: str = "Extension",
-    logger: PipelineLog | None = None,
+    logger: logging.Logger | None = None,
 ) -> None:
     """
     Prints a helper message with optional logging.
@@ -87,7 +86,7 @@ def print_header(
         Left side of print message. Default is 'File'.
     right : str, optional
         Right side of print message. Default is 'Extension'.
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
     """
 
@@ -113,7 +112,7 @@ def print_message(
     message: str,
     kind: str | None = None,
     end: str | None = "",
-    logger: PipelineLog | None = None,
+    logger: logging.Logger | None = None,
 ):
     """
     Generic message printer with optional logging.
@@ -126,7 +125,7 @@ def print_message(
         Type of message (e.g., 'warning', 'fail', 'okblue', 'okgreen').
     end : str, optional
         End character for the print function.
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
 
     Raises
@@ -184,7 +183,7 @@ def print_start(obj: str = "") -> float:
 
 def print_end(
     tstart: float,
-    logger: PipelineLog | None = None,
+    logger: logging.Logger | None = None,
 ) -> None:
     """
     Prints an end message indicating completion time and logs the message
@@ -194,7 +193,7 @@ def print_end(
     ----------
     tstart : float
         The start time in seconds since the Epoch.
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
     """
     end_message = f"All done in {time.time() - tstart:0.1f}s"
@@ -210,7 +209,7 @@ def print_end(
 
 def print_elapsed(
     tstart: float,
-    logger: PipelineLog | None = None,
+    logger: logging.Logger | None = None,
 ) -> None:
     """
     Print the standard per-stage elapsed-time footer.
@@ -219,7 +218,7 @@ def print_elapsed(
     ----------
     tstart : float
         Stage start time in seconds since the Epoch (from ``time.time()``).
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, the shared
         logger is used.
     """
@@ -292,7 +291,7 @@ def message_calibration(
 def check_file_exists(
     file_path: str,
     silent: bool = True,
-    logger: PipelineLog | None = None,
+    logger: logging.Logger | None = None,
 ) -> bool:
     """
     Helper method to check if a file already exists.
@@ -303,7 +302,7 @@ def check_file_exists(
         Path to file.
     silent : bool, optional
         Whether a warning message should be printed if the file exists.
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
 
     Returns
@@ -322,7 +321,7 @@ def check_file_exists(
 
 def message_qc_astrometry(
     separation: Sequence[float],
-    logger: PipelineLog | None = None,
+    logger: logging.Logger | None = None,
 ) -> None:
     """
     Prints and logs an astrometry QC message.
@@ -331,7 +330,7 @@ def message_qc_astrometry(
     ----------
     separation : Sequence[float]
         Separation quantity.
-    logger : PipelineLog or None, optional
+    logger : logging.Logger or None, optional
         Logger instance to use for logging the messages. If None, no logging is done.
 
     Returns
