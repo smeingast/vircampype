@@ -916,7 +916,7 @@ def convert2public(
             f"indicates a bad astrometric correlation upstream (e.g. the SCAMP group "
             f"AstromCorr_*_HighSN normalization bug)."
         )
-        # Pass the (Borg) logger so the error is written to the pipeline log file, not
+        # Pass the logger so the error is written to the pipeline log file, not
         # just surfaced as a traceback / Pushover notification.
         raise PipelineValueError(msg, logger=logging.getLogger(__name__))
     data_exptime = input_table["EXPTIME"].value

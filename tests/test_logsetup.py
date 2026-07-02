@@ -8,7 +8,6 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 
-from vircampype.pipeline.log import PipelineLog
 from vircampype.pipeline.logsetup import (
     LOGGER_NAME,
     configure_logging,
@@ -119,17 +118,6 @@ class TestLogSetup(unittest.TestCase):
         configure_logging(_make_setup(self.tmp, file_log=False))
         get_logger().info("not written to a file")
         self.assertEqual(glob.glob(os.path.join(self.tmp, "pipeline_*.log")), [])
-
-    def test_pipelinelog_shim_delegates(self):
-        configure_logging(_make_setup(self.tmp))
-        log = PipelineLog()
-        with self.assertLogs(LOGGER_NAME, level="WARNING") as cm:
-            log.warning("via the shim")
-        self.assertTrue(any("via the shim" in m for m in cm.output))
-
-    def test_pipelinelog_setup_configures(self):
-        PipelineLog(setup=_make_setup(self.tmp))
-        self.assertGreaterEqual(len(_own_handlers(get_logger())), 1)
 
 
 if __name__ == "__main__":
