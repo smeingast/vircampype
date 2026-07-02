@@ -149,7 +149,7 @@ class Setup:
     astrms_self_cell_min_n: int = (
         50  # Min clean stars per cell to measure its floor (else the cell is filled)
     )
-    astrms_self_cell_min_neff: int = 150  # Min stars in the 3x3 window to accept a below-global cell floor (conservatism guard)
+    astrms_self_cell_min_neff: int = 50  # Min stars in a 3x3 window to trust a below-global or above-SCAMP cell floor
     astrms_self_max_sources: int = 50_000_000  # Hard cap on per-product source count for the (single-pass, in-memory) self-cal floor; raise on big-RAM machines or chunk
 
     # Photometry

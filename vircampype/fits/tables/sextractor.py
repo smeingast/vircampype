@@ -2068,8 +2068,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
              global scalar (never bridge chip gaps or separate pawprints);
           4. conservatism guard: a below-global cell is only trusted where its 3x3
              window holds >= ``astrms_self_cell_min_neff`` stars, else it is raised
-             to the global floor; per-axis variance clipped to
-             ``[(0.5*global)^2, flat-SCAMP^2]``;
+             to the global floor; variance clipped to ``[(0.5*global)^2,
+             max(flat-SCAMP, global)^2]``, with well-supported cells allowed up
+             to a 2x sanity ceiling (seam floors can exceed flat-SCAMP);
           5. correlation shrunk toward the global value by window support (harder
              than the variances) and clipped to ``[-0.95, 0.95]`` -- which keeps
              ``cross^2 < var1*var2`` (PSD) for the 2x2 floor covariance;
@@ -2237,7 +2238,11 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             weak_below = (neff < neff_min) & (v < g**2)
             v = np.where(weak_below, g**2, v)
             lo = (0.5 * g) ** 2
-            hi = max(scamp, 0.5 * g) ** 2  # ensure hi >= lo even if scamp < 0.5*g
+            # Ceiling: weak cells cap at max(scamp, global); well-supported cells
+            # may exceed it (real at mosaic seams), up to a 2x sanity bound.
+            hi_weak = max(scamp, g) ** 2
+            hi_strong = (2.0 * max(scamp, g)) ** 2
+            hi = np.where(neff >= neff_min, hi_strong, hi_weak)
             return np.sqrt(np.clip(v, lo, hi))
 
         grid_a1 = _finalize_axis(fill_var1, g1, scamp1)

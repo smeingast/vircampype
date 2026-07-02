@@ -150,7 +150,7 @@ class TestAstrmsSelfCalibrateDefaults(unittest.TestCase):
         # Fixed-cell + 3x3-median spatial map.
         self.assertEqual(s.astrms_self_cell_arcmin, 10.0)
         self.assertEqual(s.astrms_self_cell_min_n, 50)
-        self.assertEqual(s.astrms_self_cell_min_neff, 150)
+        self.assertEqual(s.astrms_self_cell_min_neff, 50)
         self.assertEqual(s.astrms_self_max_sources, 50_000_000)
 
     def test_knobs_serialize_to_headers(self):
