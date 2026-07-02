@@ -1859,7 +1859,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # per axis.
         gaia = sc_master_matched[i1]
         cos_dec = np.cos(np.deg2rad(sc_file.dec.deg))
-        dr_alpha = (sc_file.ra.deg - gaia.ra.deg) * cos_dec * 3_600_000
+        # (x + 180) % 360 - 180: wrap-safe signed dRA for fields straddling RA=0.
+        dra_deg = (sc_file.ra.deg - gaia.ra.deg + 180.0) % 360.0 - 180.0
+        dr_alpha = dra_deg * cos_dec * 3_600_000
         dr_delta = (sc_file.dec.deg - gaia.dec.deg) * 3_600_000
 
         # Per-source centroid covariance (mas^2) -- the SAME formula re-added in
