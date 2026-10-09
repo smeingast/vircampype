@@ -6,8 +6,10 @@ import numpy as np
 from astropy.table import Table
 from astropy.table.column import MaskedColumn
 
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.tabletools import (
     centroid_covariance_radec_mas2,
+    convert2public,
     estimate_astrms_floor,
     fill_masked_columns,
     scamp_xml_radec_correlation,
@@ -474,3 +476,124 @@ class TestEstimateAstrmsFloor(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _public_input_table(n: int = 400, seed: int = 3) -> Table:
+    """Minimal synthetic merged table (VISIONS + a few 2MASS rows) for convert2public."""
+    rng = np.random.default_rng(seed)
+    apertures = [3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    na = len(apertures)
+    mag = rng.uniform(14.0, 19.5, n)
+    growth = np.linspace(0.5, 0.0, na)  # brighter in larger apertures
+    mag_cal = mag[:, None] + growth[None, :]
+    magerr = (0.002 * 10 ** (0.4 * (mag - 14.0)))[:, None] * np.sqrt(
+        np.array(apertures) / 3.0
+    )[None, :]
+    flux = 10 ** (-0.4 * (mag_cal - 25.0))
+    survey = np.array(["VISIONS"] * n, dtype="U7")
+    survey[:10] = "2MASS"
+    t = Table()
+    t["ALPHAWIN_SKY"] = rng.uniform(280.0, 281.0, n)
+    t["DELTAWIN_SKY"] = rng.uniform(-37.0, -36.0, n)
+    t["FLUX_APER"] = flux.astype(np.float32)
+    t["FLUX_AUTO"] = flux[:, -1].astype(np.float32)
+    t["MAGERR_APER"] = magerr.astype(np.float32)
+    t["MAG_APER_MATCHED"] = mag_cal.astype(np.float32)
+    t["MAG_APER_MATCHED_CAL"] = mag_cal.astype(np.float32)
+    t["ERRAWIN_WORLD"] = np.full(n, 2e-6)
+    t["ERRBWIN_WORLD"] = np.full(n, 1e-6)
+    t["ERRTHETAWIN_SKY"] = rng.uniform(-80.0, 80.0, n)
+    t["ASTRMS1"] = np.full(n, 5.0)
+    t["ASTRMS2"] = np.full(n, 6.0)
+    t["EXPTIME"] = np.full(n, 60.0)
+    t["MJDEFF"] = np.full(n, 58000.0)
+    t["NIMG"] = np.full(n, 4)
+    t["FWHM_WORLD"] = np.full(n, 0.8 / 3600)
+    t["AWIN_WORLD"] = np.full(n, 0.5 / 3600)
+    t["BWIN_WORLD"] = np.full(n, 0.45 / 3600)
+    t["FLAGS"] = np.zeros(n, dtype=np.int16)
+    t["SNR_WIN"] = np.full(n, 50.0)
+    t["FLAGS_WEIGHT"] = np.zeros(n, dtype=np.int16)
+    t["BACKGROUND"] = np.zeros(n)
+    t["SURVEY"] = survey
+    t["ISOAREA_IMAGE"] = rng.uniform(5.0, 40.0, n)
+    t["CLASS_STAR_INTERP"] = np.full(n, 0.9)
+    t["MAG_2MASS"] = np.full(n, 10.0)
+    t["MAGERR_2MASS"] = np.full(n, 0.02)
+    t["ERRMAJ_2MASS"] = np.full(n, 0.06)
+    t["ERRMIN_2MASS"] = np.full(n, 0.06)
+    t["ERRPA_2MASS"] = np.full(n, 10.0)
+    t["MJD_2MASS"] = np.full(n, 51000.0)
+    t["QFLG_2MASS"] = np.array(["A"] * n)
+    return t, apertures
+
+
+class TestConvert2PublicMagerrScale(unittest.TestCase):
+    """Correlated-noise MAGERR inflation in the public-catalog conversion."""
+
+    @staticmethod
+    def _run(scale=None):
+        t, apertures = _public_input_table()
+        return (
+            t,
+            apertures,
+            convert2public(
+                t.copy(),
+                photerr_internal=0.01,
+                apertures=apertures,
+                mag_saturation=11.0,
+                survey_name="VISIONS",
+                magerr_scale=scale,
+            ),
+        )
+
+    def test_none_matches_legacy_formula(self):
+        # magerr_scale=None must reproduce the uninflated legacy error exactly.
+        t, apertures, out = self._run(None)
+        vis = np.asarray(out["SURVEY"]) == "VISIONS"
+        ap = np.asarray(out["APERTURE"].value)[vis]
+        idx = np.searchsorted(apertures, ap)
+        # Map each output row back to its input row through the (unique) RA.
+        ra_in = np.asarray(t["ALPHAWIN_SKY"])
+        row = np.searchsorted(np.sort(ra_in), np.asarray(out["RA"].value)[vis])
+        row = np.argsort(ra_in)[row]
+        legacy = np.sqrt(np.asarray(t["MAGERR_APER"])[row, idx] ** 2 + 0.01**2)
+        np.testing.assert_array_equal(
+            np.asarray(out["MAGERR"].value)[vis], legacy.astype(np.float32)
+        )
+
+    def test_unit_scale_matches_none(self):
+        # kappa = 1 gives the legacy catalogue (the inflated branch computes in
+        # float64, so MAGERR may differ by one float32 ulp; None is the
+        # bit-identical path, see test_none_matches_legacy_formula).
+        _, apertures, ref = self._run(None)
+        _, _, out = self._run(np.ones(len(apertures)))
+        for col in ("MAG", "QFLG", "APERTURE", "RAERR", "ID"):
+            np.testing.assert_array_equal(np.asarray(out[col]), np.asarray(ref[col]))
+        np.testing.assert_allclose(
+            np.asarray(out["MAGERR"].value), np.asarray(ref["MAGERR"].value), rtol=3e-7
+        )
+
+    def test_inflation_applied_per_aperture_before_floor(self):
+        _, apertures, ref = self._run(None)
+        kappa = np.linspace(1.0, 1.3, len(apertures))
+        _, _, out = self._run(kappa)
+        vis = np.asarray(out["SURVEY"]) == "VISIONS"
+        idx = np.searchsorted(apertures, np.asarray(out["APERTURE"].value)[vis])
+        e0 = np.asarray(ref["MAGERR"].value, dtype=float)[vis]
+        e1 = np.asarray(out["MAGERR"].value, dtype=float)[vis]
+        expected = np.sqrt(kappa[idx] ** 2 * (e0**2 - 0.01**2) + 0.01**2)
+        np.testing.assert_allclose(e1, expected, rtol=2e-6, atol=2e-7)
+        # 2MASS rows keep their own errors
+        np.testing.assert_array_equal(
+            np.asarray(out["MAGERR"])[~vis], np.asarray(ref["MAGERR"])[~vis]
+        )
+        # larger errors can only demote the quality flag (A -> B ...)
+        order = {"A": 0, "B": 1, "C": 2, "D": 3, "X": 4}
+        q0 = np.array([order[q] for q in np.asarray(ref["QFLG"])])
+        q1 = np.array([order[q] for q in np.asarray(out["QFLG"])])
+        self.assertTrue(np.all(q1 >= q0))
+
+    def test_wrong_length_raises(self):
+        with self.assertRaises(PipelineValueError):
+            self._run(np.ones(3))

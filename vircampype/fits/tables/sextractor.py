@@ -14,6 +14,7 @@ from astropy.table import hstack as thstack
 from astropy.table import vstack as tvstack
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
+from astropy.wcs.utils import proj_plane_pixel_scales
 from joblib import Parallel, delayed
 from sklearn.neighbors import KernelDensity, NearestNeighbors
 
@@ -3440,6 +3441,31 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             logger=log,
         )
 
+    def _public_magerr_scale(self, header: fits.Header) -> tuple[np.ndarray, float]:
+        """Per-aperture MAGERR inflation for the public catalog of one coadd.
+
+        The resampling ratio is the coadd pixel scale (from ``header``, the
+        tile/mosaic weight header) over ``setup.native_pixel_scale``.
+
+        Returns
+        -------
+        tuple[np.ndarray, float]
+            Inflation factor per entry of ``setup.apertures`` and the scale ratio.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FITSFixedWarning)
+            scale_out = float(np.mean(proj_plane_pixel_scales(WCS(header)))) * 3600.0
+        scale_ratio = scale_out / self.setup.native_pixel_scale
+        factor = aperture_error_inflation(
+            diameters=self.setup.apertures,
+            kernel=self.setup.resampling_kernel,
+            scale_ratio=scale_ratio,
+            noise_scale=self.setup.photometric_error_noise_scale,
+            background_beta=self.setup.photometric_error_background_beta,
+            background_dmax=self.setup.photometric_error_background_dmax,
+        )
+        return factor, scale_ratio
+
     def build_public_catalog(self, photerr_internal: float):
         # Fetch log
         log = logging.getLogger(__name__)
@@ -3532,6 +3558,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             # Load source tables in current file
             tables_file = self.file2table(file_index=idx_file)
             log.info(f"Loaded {len(tables_file)} input tables")
+            cnoise_ratio: list[float] = []  # out/in pixel scale per extension
 
             # Load stats tables
             tables_stats = statstables.file2table(file_index=idx_file)
@@ -3677,6 +3704,19 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     survey_name=self.setup.survey_name,
                 )
 
+                # Correlated-noise inflation of the aperture errors (per aperture)
+                magerr_scale = None
+                if self.setup.photometric_error_correlated_noise:
+                    magerr_scale, scale_ratio = self._public_magerr_scale(weight_hdr)
+                    cnoise_ratio.append(scale_ratio)
+                    log.info(
+                        f"Correlated-noise MAGERR inflation "
+                        f"({self.setup.resampling_kernel}, scale ratio "
+                        f"{scale_ratio:.4f}, c={self.setup.photometric_error_noise_scale}, "
+                        f"beta={self.setup.photometric_error_background_beta}): "
+                        f"{np.array2string(magerr_scale, precision=3)}"
+                    )
+
                 # Convert to public format
                 log.info("Converting to public format")
                 log.info(f"Length before conversion: {len(tables_file[tidx])}")
@@ -3686,6 +3726,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     apertures=self.setup.apertures,
                     mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
                     survey_name=self.setup.survey_name,
+                    magerr_scale=magerr_scale,
                 )
                 log.info(f"Length after conversion: {len(tables_file[tidx])}")
 
@@ -3700,6 +3741,39 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 decimals=4,
             )
             phdr["FILTER"] = filter_name
+            if self.setup.photometric_error_correlated_noise:
+                phdr["PHOTCNK"] = (
+                    self.setup.resampling_kernel,
+                    "MAGERR correlated-noise: resampling kernel",
+                )
+                add_float_to_header(
+                    header=phdr,
+                    key="PHOTCNR",
+                    value=float(np.mean(cnoise_ratio)),
+                    comment="MAGERR correlated-noise: out/in pixel scale",
+                    decimals=4,
+                )
+                add_float_to_header(
+                    header=phdr,
+                    key="PHOTCNC",
+                    value=self.setup.photometric_error_noise_scale,
+                    comment="MAGERR correlated-noise: noise scale c",
+                    decimals=4,
+                )
+                add_float_to_header(
+                    header=phdr,
+                    key="PHOTCNB",
+                    value=self.setup.photometric_error_background_beta,
+                    comment="MAGERR correlated-noise: background beta",
+                    decimals=5,
+                )
+                add_float_to_header(
+                    header=phdr,
+                    key="PHOTCND",
+                    value=self.setup.photometric_error_background_dmax,
+                    comment="MAGERR correlated-noise: beta cap diameter (px)",
+                    decimals=2,
+                )
 
             # Create output file
             log.info("Creating TableHDU")

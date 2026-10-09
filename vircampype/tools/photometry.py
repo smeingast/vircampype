@@ -1,11 +1,18 @@
 import warnings
+from functools import lru_cache
 
 import numpy as np
 from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.units import Unit
 from scipy.stats import sem
 
-__all__ = ["get_zeropoint", "vega2ab", "get_default_extinction"]
+__all__ = [
+    "get_zeropoint",
+    "vega2ab",
+    "get_default_extinction",
+    "resampling_noise_correlation",
+    "aperture_error_inflation",
+]
 
 
 def get_zeropoint(
@@ -224,3 +231,203 @@ def get_default_extinction(passband: str) -> float:
         return dextinct["ks"]
 
     raise ValueError(f"passband {passband!r} not supported")
+
+
+# SWarp interpolation kernels: half-width (taps per side) of each kernel.
+_SWARP_KERNEL_HALF_WIDTH = {
+    "nearest": 1,
+    "bilinear": 1,
+    "lanczos2": 2,
+    "lanczos3": 3,
+    "lanczos4": 4,
+}
+
+
+def _swarp_kernel_weights(
+    pos: np.ndarray, kernel: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Interpolation weights SWarp applies at input positions ``pos`` (pixels).
+
+    Mirrors SWarp ``src/interpolate.c``: separable kernels, Lanczos weights
+    normalised to unit sum (``make_kernel``). Returns the first input tap index
+    per position and a ``(len(pos), n_taps)`` weight array.
+    """
+    if kernel == "nearest":
+        return np.round(pos).astype(int), np.ones((pos.size, 1))
+    a = _SWARP_KERNEL_HALF_WIDTH[kernel]
+    j0 = np.floor(pos).astype(int) - a + 1
+    x = pos[:, None] - (j0[:, None] + np.arange(2 * a)[None, :])
+    if kernel == "bilinear":
+        w = np.clip(1.0 - np.abs(x), 0.0, None)
+    else:
+        w = np.sinc(x) * np.sinc(x / a)
+        w[np.abs(x) >= a] = 0.0
+    w /= w.sum(axis=1, keepdims=True)
+    return j0, w
+
+
+def _resampling_matrix(n_out: int, x0: float, ratio: float, kernel: str):
+    """1-D resampling matrix ``W[k, j]``: output pixel ``k`` sits at input
+    coordinate ``x0 + k * ratio`` and receives ``sum_j W[k, j] * input[j]``."""
+    a = _SWARP_KERNEL_HALF_WIDTH[kernel]
+    pos = x0 + np.arange(n_out) * ratio + a + 1  # keep every tap at j >= 0
+    j0, w = _swarp_kernel_weights(pos, kernel)
+    n_in = int(np.ceil(pos.max())) + a + 2
+    out = np.zeros((n_out, n_in))
+    cols = j0[:, None] + np.arange(w.shape[1])[None, :]
+    out[np.repeat(np.arange(n_out), w.shape[1]), cols.ravel()] = w.ravel()
+    return out
+
+
+def _circular_aperture(n: int, diameter: float, cx: float, cy: float, subpix: int):
+    """Fractional-area weights of a circular aperture on an ``n x n`` pixel grid."""
+    s = (np.arange(n * subpix) + 0.5) / subpix
+    inside = (s[None, :] - cx) ** 2 + (s[:, None] - cy) ** 2 <= (0.5 * diameter) ** 2
+    return inside.reshape(n, subpix, n, subpix).mean(axis=(1, 3))
+
+
+@lru_cache(maxsize=32)
+def _resampling_noise_correlation_cached(
+    diameters: tuple[float, ...], kernel: str, scale_ratio: float, n_phase: int
+) -> tuple[float, ...]:
+    phases = (np.arange(n_phase) + 0.5) / n_phase
+    offsets = (np.arange(3) - 1) / 3.0  # aperture centring within an output pixel
+
+    # Phase-averaged per-pixel variance, as measured by SExtractor on the image
+    # (background-RMS meshes span many beat periods of the sampling phase).
+    _, w = _swarp_kernel_weights(
+        np.linspace(0.0, 1.0, 1024, endpoint=False) + 10, kernel
+    )
+    pix_var_1d = float(np.mean(np.sum(w**2, axis=1)))
+
+    out = []
+    for diameter in diameters:
+        n = int(np.ceil(diameter)) + 4
+        mats = [_resampling_matrix(n, x0, scale_ratio, kernel) for x0 in phases]
+        num, den = 0.0, 0.0
+        for dx in offsets:
+            for dy in offsets:
+                ap = _circular_aperture(n, diameter, 0.5 * n + dx, 0.5 * n + dy, 10)
+                area = ap.sum()
+                for wy in mats:
+                    left = wy.T @ ap
+                    for wx in mats:
+                        num += np.sum((left @ wx) ** 2)
+                        den += area * pix_var_1d**2
+        out.append(float(np.sqrt(num / den)))
+    return tuple(out)
+
+
+def resampling_noise_correlation(
+    diameters: list[float] | np.ndarray,
+    kernel: str = "lanczos3",
+    scale_ratio: float = 1.0,
+    n_phase: int = 6,
+) -> np.ndarray:
+    """
+    Aperture-error inflation caused by the noise correlation of SWarp resampling.
+
+    SWarp interpolates each input frame onto the output grid with a separable
+    kernel. The interpolation correlates neighbouring output pixels and lowers
+    their individual variance, so SExtractor's white-noise aperture error
+    (``FLUXERR_APER``: measured per-pixel variance times aperture area)
+    under-estimates the true variance of the aperture sum. For white input
+    noise the exact ratio is
+
+        kappa(D)^2 = < || W_y^T A W_x ||_F^2 > / ( sum(A) * <sum_j W_kj^2>^2 )
+
+    with ``W`` the 1-D resampling matrices, ``A`` the fractional-pixel circular
+    aperture of diameter ``D`` and ``<.>`` the average over sampling phase and
+    aperture centring. The expectation does not depend on the number of
+    co-added frames (numerator and denominator average identically).
+
+    Parameters
+    ----------
+    diameters : list[float] | np.ndarray
+        Aperture diameters in output pixels (SExtractor ``PHOT_APERTURES``).
+    kernel : str, optional
+        SWarp ``RESAMPLING_TYPE`` (``nearest``, ``bilinear``, ``lanczos2``,
+        ``lanczos3``, ``lanczos4``). Default ``lanczos3``.
+    scale_ratio : float, optional
+        Output / input pixel scale (e.g. 1/3" / 0.337" for VIRCAM tiles).
+    n_phase : int, optional
+        Sampling phases per axis in the deterministic phase average.
+
+    Returns
+    -------
+    np.ndarray
+        Multiplicative inflation factor for each diameter (dimensionless).
+    """
+    kernel = kernel.lower()
+    if kernel not in _SWARP_KERNEL_HALF_WIDTH:
+        raise ValueError(f"Unsupported resampling kernel '{kernel}'")
+    if scale_ratio <= 0:
+        raise ValueError("scale_ratio must be positive")
+    diameters = tuple(float(d) for d in np.atleast_1d(diameters))
+    return np.array(
+        _resampling_noise_correlation_cached(
+            diameters, kernel, round(float(scale_ratio), 4), int(n_phase)
+        )
+    )
+
+
+def aperture_error_inflation(
+    diameters: list[float] | np.ndarray,
+    kernel: str = "lanczos3",
+    scale_ratio: float = 1.0,
+    noise_scale: float = 1.0,
+    background_beta: float = 0.0,
+    background_dmax: float | None = None,
+) -> np.ndarray:
+    """
+    Per-aperture factor that turns SExtractor's ``MAGERR_APER`` into a realistic error.
+
+        kappa(D)^2 = noise_scale^2 * kappa_resamp(D)^2
+                     + background_beta * pi * min(D, background_dmax)^2 / 4
+
+    ``kappa_resamp`` is the resampling noise correlation
+    (:func:`resampling_noise_correlation`). ``background_beta`` adds noise that is
+    coherent over the aperture (background-estimation error and sky structure on
+    aperture scales, absent from ``FLUXERR_APER``); its variance grows with the
+    aperture area squared, i.e. ``beta * area`` relative to the white-noise term.
+    ``noise_scale`` rescales the per-pixel noise as a whole. Both are calibrated
+    empirically from repeat measurements (see ``doc/correlated-noise-magerr.md``).
+    The background term is held constant beyond ``background_dmax`` (the largest
+    calibrated aperture): large apertures are used for bright, Poisson- and
+    floor-dominated sources, where an area-growing term is neither measurable
+    nor physical (the factor multiplies the whole ``MAGERR_APER``, including the
+    source Poisson term).
+
+    Parameters
+    ----------
+    diameters : list[float] | np.ndarray
+        Aperture diameters in output pixels.
+    kernel : str, optional
+        SWarp resampling kernel. Default ``lanczos3``.
+    scale_ratio : float, optional
+        Output / input pixel scale. Default 1.0.
+    noise_scale : float, optional
+        Multiplicative per-pixel noise calibration ``c``. Default 1.0.
+    background_beta : float, optional
+        Coherent-background variance per pixel^2, in units of the per-pixel
+        variance. Default 0.0.
+    background_dmax : float | None, optional
+        Aperture diameter (pixels) beyond which the background term stops
+        growing. ``None`` (default) = no cap.
+
+    Returns
+    -------
+    np.ndarray
+        Inflation factor for each diameter.
+    """
+    if noise_scale <= 0 or background_beta < 0:
+        raise ValueError("noise_scale must be > 0 and background_beta >= 0")
+    diameters = np.atleast_1d(np.asarray(diameters, dtype=float))
+    kappa = resampling_noise_correlation(
+        diameters, kernel=kernel, scale_ratio=scale_ratio
+    )
+    d_bkg = (
+        diameters if background_dmax is None else np.minimum(diameters, background_dmax)
+    )
+    area = np.pi * d_bkg**2 / 4.0
+    return np.sqrt(noise_scale**2 * kappa**2 + background_beta * area)

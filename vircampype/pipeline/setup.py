@@ -167,6 +167,23 @@ class Setup:
         10  # Number of nearest neighbors for photometric interpolation
     )
     photometric_error_floor: float = 0.01  # Minimum photometric error (mag)
+    # Correlated-noise inflation of the published aperture-magnitude errors (public
+    # catalog only): MAGERR = sqrt(kappa(D)^2 * MAGERR_APER^2 + floor^2) with
+    # kappa(D)^2 = noise_scale^2 * kappa_resamp(D)^2 + beta * pi min(D, dmax)^2 / 4, where
+    # kappa_resamp is the SWarp-kernel noise correlation (resampling_kernel,
+    # coadd/native pixel scale). False reproduces the uninflated errors exactly.
+    # Defaults calibrated on VISIONS H repeats (doc/correlated-noise-magerr.md).
+    photometric_error_correlated_noise: bool = True
+    photometric_error_noise_scale: float = 1.0  # Per-pixel noise calibration c
+    photometric_error_background_beta: float = (
+        0.0084  # Coherent-background variance per px^2 (units of pixel variance)
+    )
+    photometric_error_background_dmax: float = (
+        8.0  # Aperture diameter (px) beyond which the beta term is held constant
+    )
+    native_pixel_scale: float = (
+        0.337  # Native detector pixel scale (arcsec) entering the resampling ratio
+    )
     catalog_download_radius_factor: float = (
         1.1  # Enlargement factor for catalog download radius
     )

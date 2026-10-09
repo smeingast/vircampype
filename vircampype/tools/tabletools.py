@@ -853,6 +853,7 @@ def convert2public(
     apertures: list,
     mag_saturation: float,
     survey_name: str,
+    magerr_scale: np.ndarray | None = None,
 ):
     """
     Convert the internal pipeline source catalog to a public-release format.
@@ -869,11 +870,18 @@ def convert2public(
         Internal photometric error floor (mag) added in quadrature to the
         aperture magnitude errors.
     apertures : List
-        List of aperture radii (pixels) used during SExtractor photometry.
+        List of aperture diameters (pixels) used during SExtractor photometry.
     mag_saturation : float
         Bright-star saturation limit (mag, Vega).
     survey_name : str
         Name of the main survey (e.g. ``"VISIONS"``).
+    magerr_scale : np.ndarray | None, optional
+        Per-aperture multiplicative inflation of ``MAGERR_APER`` (one factor per
+        entry of ``apertures``) for correlated noise, applied before the floor:
+        ``sqrt((magerr_scale * MAGERR_APER)**2 + photerr_internal**2)``. See
+        :func:`vircampype.tools.photometry.aperture_error_inflation`. ``None``
+        (default) leaves ``MAGERR_APER`` unscaled (bit-identical to the legacy
+        output). The inflated error also drives ``QFLG``.
 
     Returns
     -------
@@ -993,7 +1001,21 @@ def convert2public(
 
     # Read and clean aperture magnitudes, add internal photometric error
     mag_aper = data_mag_aper_matched_cal  # (+ data_mag_aper_matched_cal_zpc)
-    magerr_aper = np.sqrt(data_magerr_aper**2 + photerr_internal**2)
+    if magerr_scale is None:
+        magerr_aper = np.sqrt(data_magerr_aper**2 + photerr_internal**2)
+    else:
+        # Correlated-noise inflation of SExtractor's white-noise aperture errors
+        # (per aperture), then the floor in quadrature.
+        magerr_scale = np.asarray(magerr_scale, dtype=float).reshape(1, -1)
+        if magerr_scale.shape[1] != data_magerr_aper.shape[1]:
+            raise PipelineValueError(
+                f"magerr_scale has {magerr_scale.shape[1]} entries but the table "
+                f"has {data_magerr_aper.shape[1]} apertures",
+                logger=logging.getLogger(__name__),
+            )
+        magerr_aper = np.sqrt(
+            (magerr_scale * data_magerr_aper) ** 2 + photerr_internal**2
+        )
 
     # Compute best default magnitude (match aperture to source area)
     rr = (2 * np.sqrt(data_isoarea_image / np.pi)).reshape(-1, 1)
