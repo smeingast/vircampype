@@ -146,10 +146,10 @@ Each node only needs Docker and SSH access — no Python or vircampype install r
 ### Calibration (`process_calibration`)
 Processes a set of raw calibration frames and produces master calibration files:
 
-1. **Master bad pixel mask** — from lamp flat frames
-2. **Master linearity** — per-channel non-linearity correction table from lamp flats (16 readout channels per detector)
-3. **Master dark** — median-combined dark current frames
-4. **Master gain table** — per-detector gain and read noise
+1. **Master bad pixel mask** — unstable pixels from lamp flat frames, plus pixels with excess noise in pairs of linearity darks
+2. **Master linearity** — per-channel non-linearity correction table from lamp flats (16 readout channels per detector), fitted on robust per-channel levels up to a fraction of the saturation level
+3. **Master dark** — min/max-rejected mean of dark frames
+4. **Master gain table** — per-detector gain and read noise from robust (MAD-based) per-channel variances
 5. **Master twilight flat** — normalised twilight flat fields
 6. **Master weight map** — per-detector global weight images
 
@@ -193,6 +193,9 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `build_phase3` | `false` | Build ESO Phase 3 products |
 | `build_public_catalog` | `false` | Build public source catalog |
 | `build_completeness` | `false` | Run completeness analysis on tile |
+| `bpm_noise_mask` | `true` | Add pixels with excess temporal noise (from pairs of linearity darks) to the master bad pixel mask |
+| `bpm_noise_threshold` | `5` | Noise threshold for the bad pixel mask, in units of the readout-channel median noise |
+| `linearity_fit_fraction` | `0.85` | Fit the per-channel linearity only on levels below this fraction of the detector saturation level |
 | `destripe` | `true` | Apply destriping correction |
 | `subtract_background` | `true` | Subtract 2D background model |
 | `flat_type` | `twilight` | Flat field type: `twilight` or `sky` |
