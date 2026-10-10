@@ -635,7 +635,9 @@ class Pipeline:
     @pipeline_step("master_bpm", message="MASTER-BPM", guard="flat_lamp_check")
     def build_master_bpm(self):
         """Build master bad-pixel mask from lamp-check flats and darks."""
-        self.flat_lamp_check.build_master_bpm(darks=self.dark_check)
+        self.flat_lamp_check.build_master_bpm(
+            darks=self.dark_check, darks_noise=self.dark_lin
+        )
 
     @pipeline_step("master_dark", message="MASTER-DARK", guard="dark_all")
     def build_master_dark(self):

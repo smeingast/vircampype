@@ -209,6 +209,10 @@ class Setup:
     bpm_rel_threshold: int | float = 0.04  # Relative threshold for bad pixel detection
     bpm_frac: int | float = 0.2  # Fraction of frames a pixel must be bad to be flagged
     bpm_n_min: int = 3  # Min number of BPM frames per group
+    bpm_noise_mask: bool = True  # Also flag noisy pixels from DARK,LINEARITY pairs
+    bpm_noise_threshold: int | float = (
+        5  # Flag pixels with pair noise > threshold x readout-channel median
+    )
 
     # Darks
     dark_max_lag: int | float = 1  # Max time lag (days) between dark input frames
@@ -231,6 +235,9 @@ class Setup:
     )
     linearity_reference_adu: int | float = (
         10000  # Reference flux level (ADU) for non-linearity characterization
+    )
+    linearity_fit_fraction: float = (
+        0.85  # Fraction of detector saturation level up to which the fit uses data
     )
 
     # Flats

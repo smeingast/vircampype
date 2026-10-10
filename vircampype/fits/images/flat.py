@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
 from vircampype.data.cube import ImageCube
-from vircampype.external.mmm import mmm
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.common import FitsImages, MasterImages
 from vircampype.fits.tables.gain import MasterGain
@@ -17,6 +16,133 @@ from vircampype.tools.mathtools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.plottools import *
+
+
+def robust_variance(data: np.ndarray) -> float:
+    """
+    Outlier-robust variance estimate, (1.4826 * MAD)^2, ignoring NaNs. Returns NaN
+    if there are no finite pixels.
+    """
+    data = np.asarray(data, dtype=np.float64)
+    med = np.nanmedian(data)
+    if not np.isfinite(med):
+        return np.nan
+    mad = np.nanmedian(np.abs(data - med))
+    return float((1.4826 * mad) ** 2)
+
+
+def robust_gain_rdnoise(
+    f0: np.ndarray,
+    f1: np.ndarray,
+    d0: np.ndarray,
+    d1: np.ndarray,
+    ndit: int = 1,
+    n_channels: int = 16,
+) -> tuple[float, float, np.ndarray]:
+    """
+    Outlier-robust gain (e-/ADU) and read noise (e-) of one detector from a pair of
+    flats (f0, f1) and a pair of darks (d0, d1). Masked pixels must be NaN.
+
+    The second flat is scaled to the level of the first to remove lamp mismatch,
+    f1' = d1 + k * (f1 - d1) with k = median(f0 - d0) / median(f1 - d1). Variances
+    of the difference images are the robust (1.4826 * MAD)^2. Gain and read noise are
+    computed per readout channel (``n_channels`` equal-width blocks along x) and the
+    median over channels is returned. After scaling, the flat difference variance
+    corresponds to a signal of S0 + k^2 * S1 = (1 + k) * S0 (= 2 * S0 for matched
+    lamps), so gain = (1 + k) * S0 / (var_flat - var_dark).
+    Read noise follows the 2 * NDIT convention.
+
+    Returns
+    -------
+    tuple
+        Detector gain, detector read noise, and the per-channel gains.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        s0, s1 = np.nanmedian(f0 - d0), np.nanmedian(f1 - d1)
+        scale = (
+            s0 / s1
+            if np.isfinite(s0) and np.isfinite(s1) and s0 > 0 and s1 > 0
+            else np.nan
+        )
+        f1s = d1 + scale * (f1 - d1)
+
+        width = f0.shape[1] // n_channels
+        gains = np.full(n_channels, np.nan)
+        rdnoises = np.full(n_channels, np.nan)
+        for ch in range(n_channels):
+            sl = np.s_[:, ch * width : (ch + 1) * width]
+            fvar = robust_variance(f0[sl] - f1s[sl])
+            dvar = robust_variance(d0[sl] - d1[sl])
+            sig = np.nanmedian(f0[sl] - d0[sl])
+            # Read-noise variance in the flat difference is (1 + k^2 + (1-k)^2) * R,
+            # the dark difference holds 2 * R
+            denom = fvar - 0.5 * (1 + scale**2 + (1 - scale) ** 2) * dvar
+            if np.isfinite(denom) and denom > 0 and sig > 0:
+                gains[ch] = (1.0 + scale) * sig / denom
+                rdnoises[ch] = gains[ch] * np.sqrt(dvar / (2 * ndit))
+        if np.all(np.isnan(gains)):
+            return np.nan, np.nan, gains
+        return float(np.nanmedian(gains)), float(np.nanmedian(rdnoises)), gains
+
+
+def closest_group(groups: list, mjd: float, max_lag: float):
+    """
+    Return the group whose mean MJD is closest to ``mjd``, or None if the
+    difference exceeds ``max_lag`` (days).
+    """
+    if not groups:
+        return None
+    diffs = [abs(g.mjd_mean - mjd) for g in groups]
+    idx = int(np.argmin(diffs))
+    return groups[idx] if diffs[idx] <= max_lag else None
+
+
+def pair_noise_mask(
+    cube: np.ndarray,
+    dit: list[float],
+    mjd: list[float],
+    threshold: float,
+    n_channels: int = 16,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """
+    Flag pixels with excess temporal noise from pairs of same-DIT dark frames.
+
+    Frames with identical DIT are paired in time order; per pixel the noise is
+    estimated as 1.4826 * median(|a - b|) / sqrt(2) over all pairs (robust against
+    cosmic rays). Pixels whose noise exceeds ``threshold`` times the median noise of
+    their readout channel (``n_channels`` equal-width channels along x) are flagged.
+
+    Returns
+    -------
+    tuple
+        Boolean mask, per-pixel noise image, and the number of pairs used.
+    """
+    dit = np.round(np.asarray(dit, dtype=float), 3)
+    mjd = np.asarray(mjd, dtype=float)
+
+    # Build same-DIT pairs (consecutive in time)
+    pairs = []
+    for d in np.unique(dit):
+        idx = np.flatnonzero(dit == d)
+        idx = idx[np.argsort(mjd[idx])]
+        pairs.extend(zip(idx[0::2], idx[1::2]))
+    if len(pairs) < 3:
+        return np.zeros(cube.shape[1:], dtype=bool), None, len(pairs)
+
+    # Robust temporal noise from pair differences
+    diffs = np.stack([cube[a] - cube[b] for a, b in pairs]) / np.sqrt(2)
+    noise = 1.4826 * np.nanmedian(np.abs(diffs), axis=0)
+
+    # Compare to per-channel median noise
+    mask = np.zeros(noise.shape, dtype=bool)
+    channel_width = noise.shape[1] // n_channels
+    for ch in range(n_channels):
+        x0, x1 = ch * channel_width, (ch + 1) * channel_width
+        ch_med = np.nanmedian(noise[:, x0:x1])
+        mask[:, x0:x1] = noise[:, x0:x1] > threshold * ch_med
+
+    return mask, noise, len(pairs)
 
 
 class FlatImages(FitsImages):
@@ -373,6 +499,51 @@ class FlatTwilight(FlatImages):
         )
 
 
+def robust_level(data: np.ndarray, sigma: float = 5.0, maxiters: int = 5) -> float:
+    """
+    Sigma-clipped median of the finite values in ``data`` (MAD-based clipping).
+    Unlike a sky-mode estimator (mmm) this is stable for the broad, skewed pixel
+    distributions of lamp flats. Returns NaN if there are no finite values.
+    """
+    d = np.asarray(data, dtype=np.float64).ravel()
+    d = d[np.isfinite(d)]
+    if d.size == 0:
+        return np.nan
+    med = np.median(d)
+    for _ in range(maxiters):
+        std = 1.4826 * np.median(np.abs(d - med))
+        if std <= 0:
+            break
+        keep = np.abs(d - med) <= sigma * std
+        if keep.all():
+            break
+        d = d[keep]
+        med = np.median(d)
+    return float(med)
+
+
+def linearity_fit_points(
+    texptime: np.ndarray,
+    flux: np.ndarray,
+    satlevel: float,
+    fraction: float,
+    min_distinct: int = 4,
+) -> tuple[np.ndarray, bool]:
+    """
+    Boolean mask of ramp points used for the per-channel linearity fit: finite
+    flux strictly below ``fraction`` x ``satlevel``. If that leaves fewer than
+    ``min_distinct`` distinct exposure times, fall back to the plain saturation
+    cut (flux <= ``satlevel``). Returns the mask and a flag that is True on fallback.
+    """
+    texptime = np.asarray(texptime, dtype=np.float64)
+    flux = np.asarray(flux, dtype=np.float64)
+    finite = np.isfinite(flux)
+    mask = finite & (flux < fraction * satlevel)
+    if np.unique(texptime[mask]).size < min_distinct:
+        return finite & (flux <= satlevel), True
+    return mask, False
+
+
 class FlatLampLin(FlatImages):
     def __init__(self, setup, file_paths=None):
         super(FlatLampLin, self).__init__(setup=setup, file_paths=file_paths)
@@ -452,8 +623,9 @@ class FlatLampLin(FlatImages):
                 # Mask bad pixels
                 cube_flat.apply_masks(bpm=cube_bpm)
 
-                # Determine detector-level flux (kept for QC table columns)
-                flux, flux_err = cube_flat.background_planes()
+                # Determine detector-level flux (kept for QC table columns); same
+                # robust estimator as the per-channel fluxes below
+                flux = np.array([robust_level(plane) for plane in cube_flat.cube])
 
                 # Grab saturation level and exposure times
                 satlevel = self.setup.saturation_levels[idx_hdu - 1]
@@ -470,19 +642,33 @@ class FlatLampLin(FlatImages):
                 cards_coeff, cards_poly = [], []
                 channel_nl10000 = []
                 ref_adu = self.setup.linearity_reference_adu
+                ch_npts, ch_at_bound = [], []
 
                 for ch in range(n_channels):
                     x0, x1 = ch * channel_width, (ch + 1) * channel_width
 
-                    # Measure per-channel flux for each plane
+                    # Measure per-channel flux for each plane (sigma-clipped
+                    # median; the mmm sky mode is erratic on lamp flats)
                     ch_flux = np.array(
-                        [mmm(plane[:, x0:x1])[0] for plane in cube_flat.cube]
+                        [robust_level(plane[:, x0:x1]) for plane in cube_flat.cube]
                     )
 
-                    # Per-channel saturation mask
-                    ch_saturated = ch_flux > satlevel
-                    ch_flux_clean = ch_flux[~ch_saturated]
-                    ch_texptime_clean = texptime[~ch_saturated]
+                    # Select fit points below a fraction of the saturation level
+                    ch_use, fell_back = linearity_fit_points(
+                        texptime,
+                        ch_flux,
+                        satlevel,
+                        self.setup.linearity_fit_fraction,
+                    )
+                    if fell_back:
+                        log.warning(
+                            f"Detector {idx_hdu} channel {ch}: fewer than 4 "
+                            f"exposure times below the fit cap; using saturation "
+                            f"cut only"
+                        )
+                    ch_flux_clean = ch_flux[ch_use]
+                    ch_texptime_clean = texptime[ch_use]
+                    ch_npts.append(int(ch_use.sum()))
 
                     # Fit per-channel linearity
                     ch_coeff, _ = curve_fit(  # noqa
@@ -492,6 +678,13 @@ class FlatLampLin(FlatImages):
                         p0=[1, -1, -0.001],
                         bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]),
                     )
+
+                    # Record coefficients pinned at a bound (b1 >= 1, b2 <= 0)
+                    if (
+                        ch_coeff[0] <= 1 + 1e-6
+                        or ch_coeff[1] / ch_coeff[0] ** 2 >= -1e-12
+                    ):
+                        ch_at_bound.append(ch)
 
                     # Compute normalized final coefficients
                     ch_coeff_norm = [
@@ -540,6 +733,18 @@ class FlatLampLin(FlatImages):
                                 comment=f"Poly coeff ch{ch} order{cidx}",
                             )
                         )
+
+                # Log fit cap and per-channel point counts
+                log.info(
+                    f"Detector {idx_hdu}: linearity fit cap "
+                    f"{self.setup.linearity_fit_fraction * satlevel:.0f} ADU, "
+                    f"points per channel: " + " ".join(str(n) for n in ch_npts)
+                )
+                if ch_at_bound:
+                    log.warning(
+                        f"Detector {idx_hdu}: linearity coefficient at fit bound "
+                        f"(b1=1 or b2=0) in channel(s) {ch_at_bound}"
+                    )
 
                 # Detector-level NL10000 as mean across channels (for QC)
                 nl10000 = float(np.nanmean(channel_nl10000))
@@ -663,8 +868,11 @@ class FlatLampCheck(FlatImages):
     # =========================================================================== #
     # Master Bad Pixel Mask
     # =========================================================================== #
-    def build_master_bpm(self, darks):
-        """Builds a Bad pixel mask from image data."""
+    def build_master_bpm(self, darks, darks_noise=None):
+        """
+        Builds a bad pixel mask from lamp check flats (temporal flicker) and,
+        optionally, from same-DIT dark pairs (excess noise; ``darks_noise``).
+        """
 
         # Processing info
         print_header(header="MASTER-BPM", silent=self.setup.silent)
@@ -679,6 +887,16 @@ class FlatLampCheck(FlatImages):
         # Split files based on maximum time lag is set
         split = self.split_lag(max_lag=self.setup.bpm_max_lag)
         log.info(f"Number of BPM groups: {len(split)}")
+
+        # Dark pairs (DARK,LINEARITY) for the noise criterion
+        split_noise = []
+        if self.setup.bpm_noise_mask:
+            if darks_noise is None:
+                log.warning("No DARK,LINEARITY frames; skipping BPM noise criterion")
+            else:
+                split_noise = darks_noise.split_lag(
+                    max_lag=self.setup.linearity_max_lag
+                )
 
         # Now loop through separated files and build Masterbpm
         for files, idx_print in zip(split, range(1, len(split) + 1)):
@@ -705,6 +923,15 @@ class FlatLampCheck(FlatImages):
             # Find corresponding dark file
             master_dark = files.match_mjd(match_to=darks, max_lag=1)
             log.info(f"Matched dark: {master_dark.basenames2log}")
+
+            # Find dark pairs of the same calibration block
+            noise_darks = closest_group(
+                split_noise, files.mjd_mean, max_lag=self.setup.linearity_max_lag / 24
+            )
+            if noise_darks is not None:
+                log.info(f"Noise darks:\n{noise_darks.basenames2log}")
+            elif split_noise:
+                log.warning("No noise darks matched to BPM group; skipping noise mask")
 
             # Instantiate output
             master_bpm = ImageCube(setup=self.setup)
@@ -750,16 +977,49 @@ class FlatLampCheck(FlatImages):
                 nbad_pix = np.sum(~np.isfinite(cube.cube), axis=0) / files.n_files
 
                 # Flag pixels above the bad-fraction threshold
-                bpm = np.array(nbad_pix >= self.setup.bpm_frac, dtype=np.uint8)
+                bpm = nbad_pix >= self.setup.bpm_frac
+
+                # Flag pixels with excess temporal noise in dark pairs
+                nbad_noise = 0
+                if noise_darks is not None:
+                    mask_noise, _, npairs = pair_noise_mask(
+                        cube=noise_darks.hdu2cube(hdu_index=d, dtype=np.float32).cube,
+                        dit=noise_darks.dit,
+                        mjd=noise_darks.mjd,
+                        threshold=self.setup.bpm_noise_threshold,
+                    )
+                    if npairs < 3:
+                        log.warning(
+                            f"Detector {d}: only {npairs} same-DIT dark pairs; "
+                            f"skipping noise criterion"
+                        )
+                    else:
+                        log.info(
+                            f"Detector {d}: {int(np.sum(mask_noise))} noisy pixels "
+                            f"from {npairs} dark pairs "
+                            f"({int(np.sum(mask_noise & ~bpm))} new)"
+                        )
+                    nbad_noise = int(np.sum(mask_noise))
+                    bpm |= mask_noise
+                bpm = bpm.astype(np.uint8)
 
                 # Make header cards
                 cards = make_cards(
-                    keywords=["HIERARCH PYPE NBADPIX", "HIERARCH PYPE BADFRAC"],
+                    keywords=[
+                        "HIERARCH PYPE NBADPIX",
+                        "HIERARCH PYPE BADFRAC",
+                        "HIERARCH PYPE NBADPIX NOISE",
+                    ],
                     values=[
                         int(np.sum(bpm)),
                         np.round(np.sum(bpm) / bpm.size, decimals=5),
+                        nbad_noise,
                     ],
-                    comments=["Number of bad pixels", "Fraction of bad pixels"],
+                    comments=[
+                        "Number of bad pixels",
+                        "Fraction of bad pixels",
+                        "Number of pixels flagged by noise",
+                    ],
                 )
                 data_headers.append(fits.Header(cards=cards))
 
@@ -912,26 +1172,32 @@ class FlatLampGain(FlatImages):
                     f1.cube[idx_hdu] > self.setup.saturation_levels[idx_hdu]
                 ] = np.nan
 
-            # Get variance in difference images
-            fvar, dvar = (f0 - f1).var(axis=(1, 2)), (d0 - d1).var(axis=(1, 2))
-
-            # Calculate gain
-            mf0, mf1 = f0.background_planes()[0], f1.background_planes()[0]
-            md0, md1 = d0.background_planes()[0], d1.background_planes()[0]
-            denom = fvar - dvar
-            bad = denom <= 0
-            if np.any(bad):
-                # Science-affecting fallback (gain becomes NaN): surface it.
-                log.warning(
-                    f"MASTER-GAIN: {int(np.sum(bad))} detector(s) with "
-                    f"non-positive variance difference; gain set to NaN"
+            # Robust per-detector gain and read noise (median over readout channels)
+            n_det = f0.cube.shape[0]
+            gain, rdnoise = np.full(n_det, np.nan), np.full(n_det, np.nan)
+            for i in range(n_det):
+                gain[i], rdnoise[i], gch = robust_gain_rdnoise(
+                    f0.cube[i],
+                    f1.cube[i],
+                    d0.cube[i],
+                    d1.cube[i],
+                    ndit=darks.ndit[0],
                 )
-                denom[bad] = np.nan
-            gain = ((mf0 + mf1) - (md0 + md1)) / denom
+                if not np.isfinite(gain[i]):
+                    # Science-affecting fallback (gain becomes NaN): surface it.
+                    log.warning(
+                        f"MASTER-GAIN: detector {i + 1} has non-positive variance "
+                        f"difference in all channels; gain set to NaN"
+                    )
+                    continue
+                gmed = np.nanmedian(gch)
+                scatter = np.nanmedian(np.abs(gch - gmed)) / gmed
+                if scatter > 0.1:
+                    log.warning(
+                        f"MASTER-GAIN: detector {i + 1} channel gains scatter by "
+                        f"{100 * scatter:.1f}% (MAD/median) > 10%"
+                    )
 
-            # Read noise: divide dvar by 2*NDIT, not 2 — in DCR mode the NDIT reads
-            # are independent, so σ_read = G * sqrt(dvar / (2*NDIT)).
-            rdnoise = gain * np.sqrt(dvar / (2 * darks.ndit[0]))
             log.info(
                 f"qc gain gain_mean_e_adu={np.nanmean(gain):.3f} "
                 f"gain_min_e_adu={np.nanmin(gain):.3f} "
