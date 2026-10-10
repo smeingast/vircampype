@@ -402,7 +402,7 @@ class MasterLinearity(MasterTables):
 
                 # Annotate non-linearity and detector ID
                 ax.annotate(
-                    f"NL$_{{10000}}$ (TEXP=2s)$={np.round(nl10000[idx], decimals=2)}%",
+                    f"NL$_{{10000}}$ (TEXP=2s) = {np.round(nl10000[idx], decimals=2)}%",
                     xy=(0.03, 0.96),
                     xycoords="axes fraction",
                     ha="left",
