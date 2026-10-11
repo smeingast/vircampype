@@ -121,3 +121,35 @@ class TestWaitForProcessSlot(unittest.TestCase):
         from vircampype.tools.systemtools import _count_running
 
         self.assertEqual(_count_running("definitely-not-a-binary-xyz123"), 0)
+
+
+class TestMoveFile(unittest.TestCase):
+    def test_same_filesystem_rename_overwrites(self):
+        with tempfile.TemporaryDirectory() as d:
+            src, dst = os.path.join(d, "a.fits"), os.path.join(d, "sub", "b.fits")
+            with open(src, "w") as f:
+                f.write("new")
+            os.makedirs(os.path.dirname(dst))
+            with open(dst, "w") as f:
+                f.write("old")
+            move_file(src, dst)
+            self.assertFalse(os.path.exists(src))
+            with open(dst) as f:
+                self.assertEqual(f.read(), "new")
+
+    def test_cross_device_falls_back_to_rsync(self):
+        import errno
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as d:
+            src, dst = os.path.join(d, "a.fits"), os.path.join(d, "new", "b.fits")
+            with open(src, "w") as f:
+                f.write("data")
+            exdev = OSError(errno.EXDEV, "cross-device link")
+            with mock.patch(
+                "vircampype.tools.systemtools.os.replace", side_effect=exdev
+            ):
+                move_file(src, dst)
+            with open(dst) as f:
+                self.assertEqual(f.read(), "data")
+            self.assertTrue(os.path.exists(src))  # caller removes the temp file

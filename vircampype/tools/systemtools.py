@@ -1,3 +1,4 @@
+import errno
 import glob
 import importlib
 import logging
@@ -24,6 +25,7 @@ __all__ = [
     "run_command_shell",
     "get_resource_path",
     "rsync_file",
+    "move_file",
     "copy_file",
     "remove_file",
     "remove_directory",
@@ -554,6 +556,30 @@ def rsync_file(src: str, dst: str) -> None:
         raise subprocess.CalledProcessError(
             result.returncode, cmd, output=result.stdout, stderr=result.stderr
         )
+
+
+def move_file(src: str, dst: str) -> None:
+    """
+    Move a finished temp file into place, overwriting ``dst``.
+
+    On the same filesystem this is an atomic rename (no second write of the data);
+    across filesystems (e.g. local temp -> NAS) it falls back to ``rsync_file``,
+    i.e. one bulk copy. The caller removes ``src`` in the fallback case.
+
+    Parameters
+    ----------
+    src : str
+        Source file path.
+    dst : str
+        Destination file path (not a directory).
+    """
+    Path(dst).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.replace(src, dst)
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+        rsync_file(src, dst)
 
 
 def copy_file(a: str, b: str) -> None:

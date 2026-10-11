@@ -23,8 +23,8 @@ from vircampype.tools.messaging import (
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
+    move_file,
     remove_file,
-    rsync_file,
     run_commands_shell_parallel,
     which,
 )
@@ -319,7 +319,7 @@ def make_mef_image(
     path_temp = make_path_system_tempfile(suffix=".fits", base_dir=cache_dir)
     try:
         hdulist.writeto(path_temp, overwrite=True)
-        rsync_file(path_temp, path_output)
+        move_file(path_temp, path_output)
     finally:
         remove_file(path_temp)
 

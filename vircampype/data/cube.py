@@ -484,14 +484,15 @@ class ImageCube(object):
             ]
         )
 
-        # Prepend PrimaryHDU and write via local temp: avoids many small NAS writes.
+        # Prepend PrimaryHDU and write via local temp: avoids many small NAS writes
+        # (moved into place: a rename on the same disk, one bulk copy to a NAS).
         hdulist.insert(0, fits.PrimaryHDU(header=prime_header))
         path_temp = make_path_system_tempfile(
             suffix=".fits", base_dir=self.setup.local_cache_dir
         )
         try:
             hdulist.writeto(fileobj=path_temp, overwrite=True)
-            rsync_file(path_temp, path)
+            move_file(path_temp, path)
         finally:
             remove_file(path_temp)
 

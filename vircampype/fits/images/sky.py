@@ -3035,7 +3035,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                     )
                 )
 
-            # Write all statistics to local temp, then copy to NAS in bulk
+            # Write all statistics to local temp, then move them into place
             tmpdir_stats = make_system_tempdir(base_dir=self.setup.local_cache_dir)
             stats_map = [
                 (hdul_nimg, paths_nimg[idx_file]),
@@ -3048,8 +3048,8 @@ class SkyImagesResampled(SkyImagesProcessed):
                 for hdul, final_path in stats_map:
                     tmp_path = tmpdir_stats + os.path.basename(final_path)
                     hdul.writeto(tmp_path, overwrite=True)
-                # tmpdir_stats has trailing slash so rsync copies contents
-                rsync_file(tmpdir_stats, folder_statistics)
+                for _, final_path in stats_map:
+                    move_file(tmpdir_stats + os.path.basename(final_path), final_path)
             finally:
                 remove_directory(tmpdir_stats)
 
