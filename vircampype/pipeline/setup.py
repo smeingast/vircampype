@@ -95,6 +95,9 @@ class Setup:
     set_saturation_levels: str = (
         "default"  # Saturation level preset ('default' or 'sv')
     )
+    saturation_override: dict[int, int | float] | None = (
+        None  # Per-detector levels (ADU) replacing the preset, e.g. {10: 22000}
+    )
 
     # Astrometry
     warp_gaia: bool = True  # Propagate Gaia proper motions to observation epoch
@@ -439,6 +442,18 @@ class Setup:
         else:
             self.n_jobs_swarp = min(self.n_jobs_swarp, self.n_jobs)
 
+        # Validate saturation overrides (detector number 1-16 -> positive ADU)
+        if self.saturation_override is not None:
+            for det, level in self.saturation_override.items():
+                if not (isinstance(det, int) and 1 <= det <= 16):
+                    raise PipelineValueError(
+                        f"saturation_override: invalid detector {det!r} (1-16)"
+                    )
+                if not (isinstance(level, (int, float)) and level > 0):
+                    raise PipelineValueError(
+                        f"saturation_override: invalid level {level!r} for detector {det}"
+                    )
+
         # Validate local catalog paths
         if self.local_gaia_catalog is not None:
             if not os.path.isfile(self.local_gaia_catalog):
@@ -538,15 +553,18 @@ class Setup:
 
     @property
     def saturation_levels(self) -> list[int | float]:
-        """Returns the saturation level for a given detector."""
+        """Returns the saturation level for each detector (preset + overrides)."""
         if self.set_saturation_levels == "default":
-            return self.__default_saturation_levels
+            levels = list(self.__default_saturation_levels)
         elif self.set_saturation_levels == "sv":
-            return self.__sv_saturation_levels
+            levels = list(self.__sv_saturation_levels)
         else:
             raise PipelineValueError(
                 "Saturation levels not set correctly. Only 'default' or 'sv' allowed."
             )
+        for det, level in (self.saturation_override or {}).items():
+            levels[det - 1] = float(level)
+        return levels
 
     @property
     def image_statistics_combine_type(self) -> dict:
@@ -886,6 +904,8 @@ class Setup:
         for key, val in self.to_dict.items():
             if isinstance(val, tuple):
                 val = str(val)
+            elif isinstance(val, dict):
+                val = ",".join(f"{k}:{v:g}" for k, v in val.items())
             elif isinstance(val, Projection):
                 val = val.name
             elif isinstance(val, SourceMasks):
