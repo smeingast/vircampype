@@ -226,9 +226,9 @@ class SextractorCatalogs(SourceCatalogs):
         # Add scamp command to log
         log.info(f"Scamp command: {cmd}")
 
-        # Wait for any other scamp instances to finish
-        log.info("Waiting for other scamp instances to finish...")
-        wait_for_no_process(executable="scamp", poll_s=2.0, timeout_s=1800)
+        # At most two SCAMP runs per machine (parallel tiles queue here)
+        log.info("Waiting for a free scamp slot (max 2 running)...")
+        wait_for_process_slot(executable="scamp", max_running=2, timeout_s=7200)
 
         # Run Scamp
         stdout, stderr = run_command_shell(cmd, silent=False, label="SCAMP")

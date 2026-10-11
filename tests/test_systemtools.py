@@ -91,3 +91,33 @@ class TestUtilityFunctions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWaitForProcessSlot(unittest.TestCase):
+    def test_waits_until_below_limit(self):
+        import vircampype.tools.systemtools as st
+
+        counts = iter([2, 2, 1])
+        orig = st._count_running
+        st._count_running = lambda executable: next(counts)
+        try:
+            wait_for_process_slot("scamp", max_running=2, poll_s=0)
+            self.assertIsNone(next(counts, None))  # polled exactly three times
+        finally:
+            st._count_running = orig
+
+    def test_timeout(self):
+        import vircampype.tools.systemtools as st
+
+        orig = st._count_running
+        st._count_running = lambda executable: 5
+        try:
+            with self.assertRaises(TimeoutError):
+                wait_for_process_slot("scamp", max_running=2, poll_s=0, timeout_s=0)
+        finally:
+            st._count_running = orig
+
+    def test_count_running_unknown_executable(self):
+        from vircampype.tools.systemtools import _count_running
+
+        self.assertEqual(_count_running("definitely-not-a-binary-xyz123"), 0)

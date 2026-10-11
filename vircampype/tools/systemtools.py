@@ -33,7 +33,7 @@ __all__ = [
     "make_executable",
     "cmd_prepend_libraries",
     "remove_ansi_codes",
-    "wait_for_no_process",
+    "wait_for_process_slot",
     "make_path_system_tempfile",
     "make_system_tempdir",
 ]
@@ -738,9 +738,9 @@ def remove_ansi_codes(s: str) -> str:
     return ansi_escape.sub("", s)
 
 
-def _any_process_running(executable: str) -> bool:
+def _count_running(executable: str) -> int:
     """
-    Check whether a process with the given executable name is currently running.
+    Count running processes with the given executable name.
 
     Parameters
     ----------
@@ -749,30 +749,37 @@ def _any_process_running(executable: str) -> bool:
 
     Returns
     -------
-    bool
-        `True` if at least one matching process exists, otherwise `False`.
+    int
+        Number of matching processes.
     """
     cp = subprocess.run(
         ["pgrep", "-x", executable],
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
+        text=True,
         check=False,
     )
-    return cp.returncode == 0
+    return len(cp.stdout.split())
 
 
-def wait_for_no_process(
+def wait_for_process_slot(
     executable: str,
+    max_running: int = 1,
     poll_s: float = 2.0,
     timeout_s: float | None = None,
 ):
     """
-    Wait until no process with the given executable name is running.
+    Wait until fewer than `max_running` processes with the given name are running.
+
+    A polling throttle, not a strict lock: callers that poll at the same moment
+    can both start, so the limit may briefly be exceeded by one.
 
     Parameters
     ----------
     executable : str
         Executable name to match exactly (as in `pgrep -x`, e.g. `"scamp"`).
+    max_running : int, optional
+        Number of instances allowed to run at once. Default is 1.
     poll_s : float, optional
         Seconds between checks. Default is 2.0.
     timeout_s : float | None, optional
@@ -784,10 +791,11 @@ def wait_for_no_process(
         If the timeout is exceeded.
     """
     t0 = time.time()
-    while _any_process_running(executable):
+    while _count_running(executable) >= max_running:
         if timeout_s is not None and (time.time() - t0) > timeout_s:
             raise TimeoutError(
-                f"Timed out waiting for other {executable} processes to finish."
+                f"Timed out waiting for a free {executable} slot "
+                f"(max {max_running} running)."
             )
         time.sleep(poll_s)
 
