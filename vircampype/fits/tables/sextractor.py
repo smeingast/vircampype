@@ -547,7 +547,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     )
                 else:
                     grid_zp = np.full(
-                        (header["NAXIS1"], header["NAXIS2"]),
+                        (header["NAXIS2"], header["NAXIS1"]),
                         fill_value=zp_all[0],
                         dtype=np.float32,
                     )
@@ -818,11 +818,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     f"k={self.setup.phot_interp_kernel_k})"
                 )
                 log.info("Computing weights for nearest neighbors")
-                nn_weights = (
-                    np.exp(-0.5 * (nn_dis / kernel_std_pix) ** 2)
-                    / table["MAGERR_AUTO"][:, np.newaxis] ** 2
-                )
-                nn_weights[np.isnan(nn_weights)] = 0
+                # Distance kernel times the neighbours' S/N (1/MAGERR rather than
+                # 1/MAGERR**2 so that the few brightest stars do not dominate)
+                nn_err = np.asarray(table_clean["MAGERR_AUTO"])[nn_idx]
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    nn_weights = np.exp(-0.5 * (nn_dis / kernel_std_pix) ** 2) / nn_err
+                nn_weights[(nn_err <= 0) | ~np.isfinite(nn_weights)] = 0
 
                 # Split matrices at same indices as table
                 nn_dis_chunks = np.split(nn_dis, np.cumsum(len_table_chunks)[:-1])
@@ -870,16 +871,18 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         max_dists.append(np.nanmax(dis, axis=1))
 
                         # Compute weighted average and standard deviation
-                        vals.append(np.average(data, axis=1, weights=weights))
-                        vals_std.append(
-                            np.sqrt(
-                                np.average(
-                                    (data - vals[-1][:, np.newaxis]) ** 2,
-                                    axis=1,
-                                    weights=weights,
+                        # (NaN where no neighbour carries weight)
+                        wsum = np.sum(weights, axis=1)
+                        with np.errstate(divide="ignore", invalid="ignore"):
+                            mean = np.sum(data * weights, axis=1) / wsum
+                            var = (
+                                np.sum(
+                                    weights * (data - mean[:, np.newaxis]) ** 2, axis=1
                                 )
+                                / wsum
                             )
-                        )
+                        vals.append(mean)
+                        vals_std.append(np.sqrt(var))
 
                     # Flatten lists and add to table
                     table[f"{par}_INTERP"] = np.concatenate(vals).astype(np.float32)
@@ -1513,7 +1516,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Compute internal phot error
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
-            _, phot_median, phot_err = sigma_clipped_stats(matched_phot, axis=1)
+            _, phot_median, phot_err = sigma_clipped_stats(
+                matched_phot, axis=1, std_ddof=1
+            )
             _, photerr_median, _ = sigma_clipped_stats(matched_photerr, axis=1)
 
         # Return
@@ -1543,7 +1548,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             phot_median, phot_err, photerr_median = self._photerr_internal_all()
 
             # Get the 5% brightest sources
-            good = phot_median >= self.setup.reference_mag_lo
+            mag_lo = self.get_master_photometry()[0].mag_lim_lo(
+                passband=self.passband[0][0]
+            )
+            good = phot_median >= mag_lo
             idx_bright = phot_median[good] < np.percentile(phot_median[good], 5)
 
             # Determine interal photometric error
@@ -1688,7 +1696,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 xx, yy = wcs_stats.wcs_world2pix(
                     table_hdu[self.key_ra], table_hdu[self.key_dec], 0
                 )
-                xx_image, yy_image = xx.astype(int), yy.astype(int)
+                xx_image, yy_image = (
+                    np.floor(xx + 0.5).astype(int),
+                    np.floor(yy + 0.5).astype(int),
+                )
 
                 # Mark bad data
                 bad = (
@@ -1756,6 +1767,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                         idx_hdu_position=idx_hdu_position,
                         table_hdu=table_hdu,
                         bad=bad,
+                        mjdeff_sources=mjdeff_sources,
                         astrms_sources1=astrms_sources1,
                         astrms_sources2=astrms_sources2,
                         astrms_corr_sources=astrms_corr_sources,
@@ -1829,6 +1841,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         idx_hdu_position,
         table_hdu,
         bad,
+        mjdeff_sources,
         astrms_sources1,
         astrms_sources2,
         astrms_corr_sources,
@@ -1869,18 +1882,32 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         i1, sep, _ = sc_file.match_to_catalog_sky(sc_master_matched)
         matched = sep.arcsec < setup.astrms_self_match_radius
 
+        # Residuals are taken against the matched Gaia stars moved to each
+        # source's own effective epoch (MJDEFF): a multi-epoch coadd position sits
+        # at the weighted mean epoch, not at the first exposure's MJD-OBS. Sources
+        # without a finite MJDEFF (no coverage) keep NaN residuals and so drop out
+        # of the sample below.
+        valid = matched & np.isfinite(mjdeff_sources)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            gaia = sc_master[i1[valid]].apply_space_motion(
+                new_obstime=Time(mjdeff_sources[valid], format="mjd", scale="utc")
+            )
+        sc_valid = sc_file[valid]
+
         # Signed per-axis residuals in mas. The RA axis is the true-angle
         # coordinate alpha* = dRA * cos(dec): multiplying by cos(dec) puts it in
         # the same on-sky angular frame as the Dec axis AND as the SExtractor
         # centroid covariance (ERRAWIN/ERRBWIN are on-sky arcs), so the
         # excess-variance subtraction floor^2 = <dr^2> - <known var> is consistent
         # per axis.
-        gaia = sc_master_matched[i1]
-        cos_dec = np.cos(np.deg2rad(sc_file.dec.deg))
+        cos_dec = np.cos(np.deg2rad(sc_valid.dec.deg))
         # (x + 180) % 360 - 180: wrap-safe signed dRA for fields straddling RA=0.
-        dra_deg = (sc_file.ra.deg - gaia.ra.deg + 180.0) % 360.0 - 180.0
-        dr_alpha = dra_deg * cos_dec * 3_600_000
-        dr_delta = (sc_file.dec.deg - gaia.dec.deg) * 3_600_000
+        dra_deg = (sc_valid.ra.deg - gaia.ra.deg + 180.0) % 360.0 - 180.0
+        dr_alpha = np.full(len(sc_file), np.nan)
+        dr_delta = np.full(len(sc_file), np.nan)
+        dr_alpha[valid] = dra_deg * cos_dec * 3_600_000
+        dr_delta[valid] = (sc_valid.dec.deg - gaia.dec.deg) * 3_600_000
 
         # Per-source centroid covariance (mas^2) -- the SAME formula re-added in
         # convert2public, so the subtracted and added terms cannot drift.

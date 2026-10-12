@@ -11,6 +11,7 @@ from vircampype.data.cube import ImageCube
 from vircampype.fits.images.bpm import MasterBadPixelMask
 from vircampype.fits.images.common import FitsImages, MasterImages
 from vircampype.fits.tables.gain import MasterGain
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.fitstools import *
 from vircampype.tools.mathtools import *
 from vircampype.tools.messaging import *
@@ -261,12 +262,15 @@ class FlatTwilight(FlatImages):
                 cube.apply_masks(bpm=bpm, mask_above=sat)
 
                 # Determine flux for each plane of the cube
-                flux.append(cube.background_planes()[0])
+                flux_measured = cube.background_planes()[0]
+                flux.append(flux_measured.copy())
 
-                # Discard planes with flux below minimum threshold
-                low_flux = flux[-1] < self.setup.flat_min_flux
+                # Discard planes with flux below minimum threshold (NaN in the cube and
+                # in the flux used for the exposure scale and the global coefficients)
+                low_flux = flux_measured < self.setup.flat_min_flux
                 if np.any(low_flux):
                     cube.cube[low_flux] = np.nan
+                    flux[-1][low_flux] = np.nan
                     # Discarding input planes changes the master: surface it.
                     log.warning(
                         f"Detector {d}: discarded {int(low_flux.sum())} planes "
@@ -290,7 +294,7 @@ class FlatTwilight(FlatImages):
                 # np.ma inside flatten, so a zeroed full-size cube is equivalent.
                 if self.setup.flat_metric == "weighted":
                     metric = "weighted"
-                    weights = flux[-1]
+                    weights = np.nan_to_num(flux[-1])
                 else:
                     metric = string2func(self.setup.flat_metric)
                     weights = None
@@ -308,7 +312,7 @@ class FlatTwilight(FlatImages):
                                 f"HIERARCH PYPE FLAT MJD {cidx}",
                             ],
                             values=[
-                                np.round(flux[-1][cidx], 3),
+                                np.round(flux_measured[cidx], 3),
                                 np.round(files.mjd[cidx], 5),
                             ],
                             comments=["Measured flux (ADU)", "MJD of measured flux"],
@@ -322,17 +326,21 @@ class FlatTwilight(FlatImages):
             # Convert to array
             flux = np.array(flux)
 
-            # Determine exposure scale
-            scale_exposure = np.mean(flux, axis=0)
+            # Determine exposure scale (discarded planes are NaN and drop out)
+            scale_exposure = np.nanmean(flux, axis=0)
 
             # Norm fluxes
             flux_normed = flux / scale_exposure
 
             # Now we can determine the flat field error
-            flat_error = np.std(flux_normed, axis=1)
+            flat_error = np.nanstd(flux_normed, axis=1)
 
             # And the global flat field coefficients
-            coeff_global = np.mean(flux_normed, axis=1)
+            coeff_global = np.nanmean(flux_normed, axis=1)
+            if not np.all(np.isfinite(coeff_global)):
+                raise PipelineValueError(
+                    f"Non-finite master flat coefficients: {coeff_global}"
+                )
 
             # Apply the global coefficients to the normed master flat
             master_flat.scale_planes(scales=coeff_global)
@@ -576,6 +584,10 @@ class FlatLampLin(FlatImages):
             # different exposure times and same NDIT)
             sflats.check_compatibility(n_hdu_max=1, n_dit_min=5, n_ndit_max=1)
 
+            # The fit model assumes single reads (NDIT = 1), as in ESO's recipe
+            if set(sflats.ndit) != {1}:
+                raise ValueError("Linearity sequence must have NDIT = 1")
+
             # Create Master name
             outpath = (
                 f"{sflats.setup.folders['master_common']}"
@@ -678,6 +690,25 @@ class FlatLampLin(FlatImages):
                         p0=[1, -1, -0.001],
                         bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]),
                     )
+
+                    # One generous outlier pass (e.g. a lamp flicker frame): drop
+                    # points beyond 5 sigma (MAD) of the residuals and refit
+                    res = ch_flux_clean - linearity_fitfunc(
+                        ch_texptime_clean, *ch_coeff
+                    )
+                    mad = 1.4826 * np.median(np.abs(res - np.median(res)))
+                    good = np.abs(res - np.median(res)) <= 5 * mad
+                    if mad > 0 and 4 <= good.sum() < len(good):
+                        ch_texptime_clean = ch_texptime_clean[good]
+                        ch_flux_clean = ch_flux_clean[good]
+                        ch_npts[-1] = int(good.sum())
+                        ch_coeff, _ = curve_fit(  # noqa
+                            linearity_fitfunc,
+                            ch_texptime_clean,
+                            ch_flux_clean,
+                            p0=[1, -1, -0.001],
+                            bounds=([1, -np.inf, -np.inf], [np.inf, 0, np.inf]),
+                        )
 
                     # Record coefficients pinned at a bound (b1 >= 1, b2 <= 0)
                     if (

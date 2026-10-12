@@ -1049,14 +1049,14 @@ class ImageCube(object):
         nbad = np.sum(masks, axis=2)
 
         # Identify rows with more than 50% masked pixels
-        bad_rows = nbad > (nbad.shape[1] * self.setup.destripe_bad_row_fraction)
+        bad_rows = nbad > (self.shape[2] * self.setup.destripe_bad_row_fraction)
 
         # Count number of bad rows in each plane
         nbad_rows = np.sum(bad_rows, axis=1)
 
         # Identify bad planes as those that have more than 1/3 bad rows
         bad_planes = nbad_rows > (
-            self.shape[2] * self.setup.destripe_bad_plane_fraction
+            self.shape[1] * self.setup.destripe_bad_plane_fraction
         )
 
         cube_destripe_avg = self.copy()

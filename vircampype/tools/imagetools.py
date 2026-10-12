@@ -16,7 +16,6 @@ from astropy.coordinates import SkyCoord
 from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from astropy.stats import sigma_clipped_stats
-from astropy.utils.exceptions import AstropyUserWarning
 from astropy.wcs.utils import wcs_to_celestial_frame
 from scipy.interpolate import SmoothBivariateSpline, UnivariateSpline
 from scipy.ndimage import binary_closing, generate_binary_structure, median_filter
@@ -385,9 +384,9 @@ def background_image(image, mesh_size, mesh_filtersize=3):
     bg_std = convolve(bg_std, kernel=Gaussian2DKernel(1), boundary="extend")
 
     # Return upscaled data
-    return upscale_image(bg, new_size=image.shape), upscale_image(  # noqa
+    return upscale_image(bg, new_size=image.shape[::-1]), upscale_image(  # noqa
         bg_std,
-        new_size=image.shape,  # noqa
+        new_size=image.shape[::-1],  # noqa
     )
 
 
@@ -717,6 +716,14 @@ def destripe_helper(array, mask=None, smooth=False):
     -------
     np.ndarray
         1-D array of estimated row stripe values (zero-meaned).
+
+    Notes
+    -----
+    The row profile itself is never sigma-clipped: on the profile a strong stripe
+    and a bad row are indistinguishable, so any such clip removes exactly the
+    strongest stripes from the correction. Rows are instead rejected only when the
+    row statistic failed (mmm sigma not finite or <= 0) and are then interpolated
+    from their neighbours.
     """
 
     # Copy array
@@ -729,17 +736,14 @@ def destripe_helper(array, mask=None, smooth=False):
         if mask is not None:
             array_copy[mask > 0] = np.nan
 
-        # Compute sky values in each row
-        med_destripe = np.array([mmm(v, minsky=10)[0] for v in array_copy])
+        # Compute sky mode and sigma in each row
+        row_stats = [mmm(v, minsky=10) for v in array_copy]
+        med_destripe = np.array([s[0] for s in row_stats], dtype=float)
+        sig_destripe = np.array([s[1] for s in row_stats], dtype=float)
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*Input data contains invalid values.*",
-                category=AstropyUserWarning,
-                module=r"astropy\.stats\.sigma_clipping",
-            )
-            med_destripe = astropy_sigma_clip(med_destripe).filled(np.nan)
+        # Reject only rows where the row statistic failed
+        bad_rows = ~(np.isfinite(sig_destripe) & (sig_destripe > 0))
+        med_destripe[bad_rows] = np.nan
 
         # Interpolate NaNs until there are none.
         ii = 0
@@ -753,12 +757,14 @@ def destripe_helper(array, mask=None, smooth=False):
             if ii > 100:
                 raise ValueError("Destriping failed")
 
-        # Apply smoothing if set
+        # Remove the large-scale variation along y if set. The smoothing budget is
+        # tied to the profile variance so that FITPACK always returns the
+        # least-squares cubic (an absolute budget makes the spline follow the
+        # stripes once their RMS exceeds it and the correction then cancels).
         if smooth:
             yy = np.arange(len(med_destripe))  # noqa
-            med_destripe_interp = UnivariateSpline(
-                yy, med_destripe, k=3, s=100 * len(yy)
-            )(yy)
+            ss = 2 * np.sum((med_destripe - np.mean(med_destripe)) ** 2)
+            med_destripe_interp = UnivariateSpline(yy, med_destripe, k=3, s=ss)(yy)
             med_destripe -= med_destripe_interp
 
         # Return stripe pattern

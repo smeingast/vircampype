@@ -8,9 +8,83 @@ from vircampype.tools.photometry import (
     aperture_error_inflation,
     get_default_extinction,
     get_zeropoint,
+    limiting_magnitude,
     resampling_noise_correlation,
+    saturation_magnitude,
     vega2ab,
 )
+
+
+class _FakeSetup:
+    apertures = [3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    resampling_kernel = "lanczos3"
+    coadd_pixel_scale = 1 / 3
+    native_pixel_scale = 0.337
+    photometric_error_noise_scale = 1.0
+    photometric_error_background_beta = 0.0084
+    photometric_error_background_dmax = 8.0
+
+
+def _make_catalog(n=100, fwhm=2.7, mag_bright=9.5):
+    from astropy.table import Table
+
+    rng = np.random.default_rng(3)
+    t = Table()
+    t["CLASS_STAR"] = np.full(n, 0.95)
+    t["FLAGS"] = np.zeros(n, dtype=int)
+    t["SNR_WIN"] = np.full(n, 200.0)
+    t["FWHM_IMAGE"] = rng.normal(fwhm, 0.05, n)
+    t["MAG_AUTO_CAL"] = np.linspace(mag_bright, 16.0, n)
+    # A brighter but saturation-flagged star must not set the saturation limit
+    t["FLAGS"][0] = 4
+    t["MAG_AUTO_CAL"][0] = mag_bright - 1.0
+    return t
+
+
+class TestLimitingAndSaturationMagnitude(unittest.TestCase):
+    def test_limiting_magnitude_matches_noise_formula(self):
+        from astropy.io import fits
+
+        setup = _FakeSetup()
+        table = _make_catalog()
+        hdr = fits.Header()
+        zps = [24.0, 24.44, 24.65, 24.77, 24.84, 24.89]
+        for i, zp in enumerate(zps):
+            hdr[f"HIERARCH PYPE ZP MAG_APER {i}"] = zp
+        backsig = 5.72
+        result = limiting_magnitude(table, hdr, backsig, setup)
+        # 1.35 x 2.7 px = 3.6 px -> aperture index 1 (4 px)
+        kappa = aperture_error_inflation(
+            [4.0],
+            kernel="lanczos3",
+            scale_ratio=setup.coadd_pixel_scale / setup.native_pixel_scale,
+            noise_scale=1.0,
+            background_beta=0.0084,
+            background_dmax=8.0,
+        )[0]
+        expected = 24.44 - 2.5 * np.log10(5 * kappa * backsig * np.sqrt(np.pi * 4.0))
+        self.assertAlmostEqual(result, expected, places=6)
+        self.assertAlmostEqual(result, 19.36, delta=0.05)
+
+    def test_limiting_magnitude_nan_without_stars_or_keywords(self):
+        from astropy.io import fits
+
+        setup = _FakeSetup()
+        table = _make_catalog()
+        self.assertTrue(np.isnan(limiting_magnitude(table, fits.Header(), 5.0, setup)))
+        table["CLASS_STAR"] = 0.1
+        hdr = fits.Header()
+        hdr["HIERARCH PYPE ZP MAG_APER 1"] = 24.4
+        self.assertTrue(np.isnan(limiting_magnitude(table, hdr, 5.0, setup)))
+
+    def test_saturation_magnitude_brightest_unflagged_star(self):
+        table = _make_catalog(mag_bright=9.5)
+        # Row 0 is brighter but flagged; row 1 is the brightest clean star
+        self.assertAlmostEqual(
+            saturation_magnitude(table), float(table["MAG_AUTO_CAL"][1]), places=6
+        )
+        table["CLASS_STAR"] = 0.1
+        self.assertTrue(np.isnan(saturation_magnitude(table)))
 
 
 class TestVega2AB(unittest.TestCase):
@@ -94,6 +168,46 @@ class TestGetZeropoint(unittest.TestCase):
             sc1, mag1, sc2, mag2, magerr1=magerr1, magerr2=magerr2, method="weighted"
         )
         self.assertAlmostEqual(float(zp), 3.0, delta=0.1)
+
+    def test_weighted_error_excludes_clipped_outliers(self):
+        # The ZP error must be the SEM of the kept sample, not of all matches:
+        # 5 % gross outliers used to inflate it by several times.
+        rng = np.random.default_rng(7)
+        n = 300
+        ra = 10.0 + rng.uniform(-0.01, 0.01, n)
+        dec = 20.0 + rng.uniform(-0.01, 0.01, n)
+        sc = SkyCoord(ra=ra * Unit("deg"), dec=dec * Unit("deg"))
+        sigma = 0.03  # scatter of the per-star ZP differences
+        mag1 = 15.0 + rng.normal(0, 0.001, n)
+        mag2 = mag1 + 25.0 + rng.normal(0, sigma, n)
+        mag2[:15] += rng.uniform(0.5, 1.0, 15)  # outliers
+        magerr = np.full(n, sigma)
+
+        zp, zp_err = get_zeropoint(
+            sc, mag1, sc, mag2, magerr1=magerr, magerr2=magerr, method="weighted"
+        )
+        self.assertAlmostEqual(float(zp), 25.0, delta=0.01)
+        self.assertLess(float(zp_err), 1.5 * sigma / np.sqrt(n - 15))
+        self.assertGreater(float(zp_err), 0.5 * sigma / np.sqrt(n))
+
+    def test_weighted_ignores_nan_reference_error(self):
+        rng = np.random.default_rng(8)
+        n = 50
+        ra = 10.0 + rng.uniform(-0.001, 0.001, n)
+        dec = 20.0 + rng.uniform(-0.001, 0.001, n)
+        sc = SkyCoord(ra=ra * Unit("deg"), dec=dec * Unit("deg"))
+        mag1 = 15.0 + rng.normal(0, 0.01, n)
+        mag2 = mag1 + 3.0
+        magerr1 = np.full(n, 0.02)
+        magerr2 = np.full(n, 0.02)
+        magerr2[3] = np.nan
+        magerr2[4] = 0.0
+
+        zp, zp_err = get_zeropoint(
+            sc, mag1, sc, mag2, magerr1=magerr1, magerr2=magerr2, method="weighted"
+        )
+        self.assertTrue(np.isfinite(float(zp)) and np.isfinite(float(zp_err)))
+        self.assertAlmostEqual(float(zp), 3.0, delta=0.01)
 
     def test_weighted_without_errors_raises(self):
         sc = SkyCoord(ra=[10.0] * Unit("deg"), dec=[20.0] * Unit("deg"))

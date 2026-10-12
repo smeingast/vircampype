@@ -431,17 +431,26 @@ def linearize_data(data, coeff, texptime, reset_read_overhead):
     else:
         raise ValueError(f"Order '{order}' not supported")
 
-    # Select closest value from the real roots
-    data_lin = (
-        np.nanmin(np.abs([r - coeff[0] + coeff_copy[0] for r in roots]), axis=0)
-        + data.ravel()
-    ).reshape(data.shape)
+    # Select the real root closest to the measured value, keeping its sign: the
+    # correction may go either way (e.g. for a superlinear channel fit), so the
+    # root itself is returned rather than |root - data| + data.
+    roots = np.array(roots, dtype=float).reshape(len(roots), -1)
+    dist = np.abs(roots - data.ravel())
+    # (a clearly negative root is never physical for non-negative data: c0 = 0,
+    # b1 >= 1; the 1 ADU tolerance keeps the ~0 root of data ~ 0)
+    dist[~np.isfinite(dist) | (roots < -1)] = np.inf
+    idx = np.argmin(dist, axis=0)
+    data_lin = np.take_along_axis(roots, idx[np.newaxis, :], axis=0)[0]
+    data_lin = data_lin.reshape(data.shape)
 
-    # Mask too large values
-    data_lin[data_lin > 65536] = np.nan
+    # Clamp to the ADC limit instead of producing NaN (as the ESO pipeline does),
+    # both for too large values and for pixels without a real root
+    data_lin[~np.isfinite(data_lin) | (data_lin < -1)] = 65535.0
+    data_lin[data_lin > 65535.0] = 65535.0
 
-    # Reset negative values just in case
+    # Reset negative values just in case, and keep NaN input as NaN
     data_lin[data < 0] = data[data < 0]
+    data_lin[~np.isfinite(data)] = data[~np.isfinite(data)]
 
     return data_lin
 

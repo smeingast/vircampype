@@ -88,9 +88,16 @@ def _build_sky_detector(d, files, master_mask, master_bpm, setup):
 
     # One scalar weight per plane suffices: flatten's np.ma excludes the
     # masked (non-finite) pixels, so a full-size zeroed weight cube is equivalent.
+    # The planes were normalised by their level, so their noise is std/level and
+    # the inverse-variance weight is (level/std)^2. Planes without a valid noise
+    # estimate (mmm failure: NaN or -1) get zero weight instead of poisoning the
+    # combination.
     if setup.sky_combine_metric == "weighted":
         metric = "weighted"
-        weights = 1 / bkg_std
+        valid = np.isfinite(bkg_std) & (bkg_std > 0) & np.isfinite(bkg) & (bkg > 0)
+        weights = np.where(valid, (bkg / np.where(valid, bkg_std, 1.0)) ** 2, 0.0)
+        if not np.any(weights > 0):
+            raise ValueError(f"No valid sky noise estimate for detector {d}")
     else:
         metric = string2func(setup.sky_combine_metric)
         weights = None
@@ -182,12 +189,8 @@ def _apply_illumcorr_one_file(idx_file, files, illumcor, sourcemasks):
         )
 
         # Adapt keywords
-        keywords = [
-            setup.keywords.rdnoise,
-            setup.keywords.gain,
-            setup.keywords.saturate,
-        ]
-        mod_func = [np.divide, np.multiply, np.divide]
+        keywords = [setup.keywords.gain, setup.keywords.saturate]
+        mod_func = [np.multiply, np.divide]
         for kw, func in zip(keywords, mod_func):
             # Read comment
             comment = files.headers_data[idx_file][idx_hdr].comments[kw]
@@ -608,8 +611,12 @@ class SkyImages(FitsImages):
             # Get percentiles image quality measurements
             fwhms = np.array(flat_list([x["FWHM_IMAGE"] for x in fcs]))
             fwhm_percentiles = np.percentile(fwhms, [0.5, 99.5])
-            fwhm_lo = round_decimals_down(fwhm_percentiles[0] / 3, decimals=3)
-            fwhm_hi = round_decimals_up(fwhm_percentiles[1] / 3, decimals=3)
+            fwhm_lo = round_decimals_down(
+                fwhm_percentiles[0] * self.setup.coadd_pixel_scale, decimals=3
+            )
+            fwhm_hi = round_decimals_up(
+                fwhm_percentiles[1] * self.setup.coadd_pixel_scale, decimals=3
+            )
 
             # Determine FWHM range
             n_seeing = self.setup.classification_n_seeing
@@ -843,7 +850,9 @@ def _process_one_basic_file(
     # Add stuff to data headers
     for idx_hdu, dhdr in enumerate(hdrs_data):
         gain = master_gain.gain[idx_file][idx_hdu] * files.ndit_norm[idx_file]
-        rdnoise = master_gain.rdnoise[idx_file][idx_hdu]
+        rdnoise = master_gain.rdnoise[idx_file][idx_hdu] * np.sqrt(
+            files.ndit_norm[idx_file]
+        )
 
         # Grab other parameters
         offseti, noffsets, chipid = (
@@ -854,6 +863,29 @@ def _process_one_basic_file(
         photstab = offseti + noffsets * (chipid - 1)
         dextinct = get_default_extinction(passband=files.passband[idx_file])
 
+        # Saturation level in the units of the processed data: the raw per-DIT
+        # preset goes through the same linearisation as the data (smallest value
+        # over the readout channels, i.e. the least-corrected one) and is divided
+        # by the detector's median flat. Falls back to the preset if the inversion
+        # fails. The sky level is subtracted later in process_raw_final.
+        sat_raw = float(setup.saturation_levels[idx_hdu])
+        cff = lcff[idx_hdu]
+        cff = cff if isinstance(cff[0], list) else [cff]
+        sat_vals = [
+            linearize_data(
+                data=np.array([sat_raw]),
+                coeff=np.asarray(c, dtype=float),
+                texptime=float(files.dit[idx_file]),
+                reset_read_overhead=1.0011,
+            )[0]
+            for c in cff
+        ]
+        sat_vals = [v for v in sat_vals if np.isfinite(v)]
+        sat_lin = min(sat_vals) if sat_vals else sat_raw
+        if setup.flat_type == "twilight":
+            flat_plane = flat_cache[master_flat.paths_full[idx_file]].cube[idx_hdu]
+            sat_lin /= np.nanmedian(flat_plane)
+
         # Add stuff to header
         dhdr.set(setup.keywords.gain, value=np.round(gain, 3), comment="Gain (e-/ADU)")
         dhdr.set(
@@ -863,7 +895,7 @@ def _process_one_basic_file(
         )
         dhdr.set(
             setup.keywords.saturate,
-            value=setup.saturation_levels[idx_hdu],
+            value=np.round(sat_lin, 3),
             comment="Saturation level (ADU)",
         )
         dhdr.set("NOFFSETS", value=noffsets, comment="Total number of offsets")
@@ -1797,10 +1829,25 @@ class SkyImagesProcessed(SkyImages):
                 # Make new header for current HDU
                 hdr = self.headers_data[idx_file][idx_hdu].copy()
 
+                # Carry the saturation level through the sky subtraction (and the
+                # background-model subtraction) applied to the data above
+                sat = float(hdr[self.setup.keywords.saturate])
+                if self.setup.flat_type == "twilight":
+                    sat -= float(sky_level[idx_hdu])
+                else:
+                    sat /= float(np.nanmedian(sky_norm.cube[idx_hdu]))
+                if self.setup.subtract_background:
+                    sat -= float(sky[idx_hdu])
+                hdr.set(
+                    self.setup.keywords.saturate,
+                    value=np.round(sat, 3),
+                    comment="Saturation level (ADU)",
+                )
+
                 hdr.set(
                     "SKY",
                     value=np.round(sky[idx_hdu], 3),
-                    comment="Original sky value (ADU)",
+                    comment="Measured background after sky/flat correction (ADU)",
                 )
                 hdr.set(
                     "SKYSIG",
@@ -2043,6 +2090,11 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             master_weight = master_weights.file2cube(file_index=idx_file)
             master_mask = master_source_masks.file2cube(file_index=idx_file)
             cube = self.file2cube(file_index=idx_file)
+
+            # Zero the weight wherever the science frame has no value (e.g. master
+            # sky NaN where all sky frames were masked). SWarp does not treat NaN
+            # data as bad: with non-zero weight it becomes 0 ADU at full weight.
+            master_weight.cube[~np.isfinite(cube.cube)] = 0
 
             # Apply MaxiMask to image if set for better background determination
             if isinstance(masks, FitsImages):
@@ -2472,7 +2524,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     hdul[0].header.set("OSKY", value=np.round(sky, 3))
                     skysig = np.mean(list(zip(*cpkw_dict["SKYSIG"]))[idx_iter_hdu])
                     hdul[0].header.set("OSKYSIG", value=np.round(skysig, 3))
-                    backmod, backsig, backskew = mmm(hdul[0].data)
+                    # Exclude uncovered pixels (SWarp writes exactly 0 there)
+                    stack_data = hdul[0].data
+                    backmod, backsig, backskew = mmm(stack_data[stack_data != 0])
                     hdul[0].header.set(
                         "BACKMOD", value=np.round(backmod, 3), comment="Background mode"
                     )
@@ -2835,13 +2889,15 @@ class SkyImagesResampled(SkyImagesProcessed):
                 # Load coadd
                 coadd = hdul_tile[0].data
 
-                # Use a max of 50_000_000 pixels for sky calculation
+                # Use a max of 50_000_000 pixels for sky calculation and exclude
+                # uncovered pixels (SWarp writes exactly 0 there)
                 if coadd.size > self.setup.mmm_max_pixels:
-                    backmod, backsig, backskew = mmm(
-                        coadd[:: coadd.size // self.setup.mmm_max_pixels]
-                    )
+                    coadd_sub = coadd.ravel()[
+                        :: coadd.size // self.setup.mmm_max_pixels
+                    ]
                 else:
-                    backmod, backsig, backskew = mmm(coadd)
+                    coadd_sub = coadd.ravel()
+                backmod, backsig, backskew = mmm(coadd_sub[coadd_sub != 0])
                 log.info(f"Background mode: {backmod:.3f}")
                 log.info(f"Background sigma: {backsig:.3f}")
                 log.info(f"Background skew: {backskew:.3f}")
@@ -2899,8 +2955,18 @@ class SkyImagesResampled(SkyImagesProcessed):
         log.info(f"Building image statistics for {self.n_files} files")
         tstart = time.time()
 
-        # Find weights
+        # Find weights. For resampled frames this resolves to the local
+        # SWarp-resampled *.weight.fits sidecars (the per-image weights in the
+        # frame's own geometry), not to the global master weight.
         master_weights = self.get_master_weight_global()
+
+        # Reference MJD subtracted from the integer plane: SWarp writes float32, and
+        # the weighted mean of raw integer MJDs (~5.8e4) is quantised to 337 s when a
+        # set straddles UT midnight. Small offsets (0, 1, 2, ...) average exactly.
+        # combine_mjd_images adds the reference back (read from MJDREF).
+        mjd_ref = float(np.floor(np.min(self.mjd)))
+        if not np.isfinite(mjd_ref):
+            raise PipelineValueError(f"Non-finite MJD reference: {mjd_ref}")
 
         # Create temporary output paths
         folder_statistics = self.setup.folders["statistics"]
@@ -2958,6 +3024,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             hdr_prime["OFFSET_I"] = self.read_from_prime_headers(keywords=["OFFSET_I"])[
                 0
             ][idx_file]
+            hdr_prime["MJDREF"] = (mjd_ref, "Reference MJD subtracted from mjd.int")
 
             # Create output HDULists
             hdul_nimg = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
@@ -2992,7 +3059,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     dtype=np.float32,
                 )
                 mjd_frac, mjd_int = np.modf(self.mjd[idx_file])
-                arr_mjd_int = np.full(shape, fill_value=mjd_int, dtype=np.float32)
+                arr_mjd_int = np.full(
+                    shape, fill_value=mjd_int - mjd_ref, dtype=np.float32
+                )
                 arr_mjd_frac = np.full(shape, fill_value=mjd_frac, dtype=np.float32)
                 # Astrometric floor is self-calibrated on the coadded tile vs Gaia
                 # in build_statistics_tables, not carried as a per-pawprint image.

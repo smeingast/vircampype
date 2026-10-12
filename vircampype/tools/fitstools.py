@@ -13,7 +13,6 @@ from astropy.table import Table
 from astropy.time import Time
 
 from vircampype.pipeline.misc import *
-from vircampype.tools.mathtools import clipped_median
 from vircampype.tools.messaging import (
     check_file_exists,
     print_elapsed,
@@ -21,6 +20,7 @@ from vircampype.tools.messaging import (
     print_message,
 )
 from vircampype.tools.miscellaneous import *
+from vircampype.tools.photometry import limiting_magnitude, saturation_magnitude
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
     move_file,
@@ -903,14 +903,22 @@ def fits2ldac(path_in: str, path_out: str, extension: int = 1) -> None:
 
 
 def combine_mjd_images(
-    path_file_a: str, path_file_b: str, path_file_out: str, overwrite: bool = False
+    path_file_a: str,
+    path_file_b: str,
+    path_file_out: str,
+    *,
+    offset: float,
+    overwrite: bool = False,
 ) -> None:
     """
-    Sum the pixel data of two MJD FITS images, preserving headers from file A.
+    Sum the pixel data of two MJD FITS images plus a constant offset, preserving
+    headers from file A.
 
     Both files must have identical structure (same number of HDUs and
     matching extension types). Pixel arrays are cast to ``float64`` before
-    summation.
+    summation. The offset is the reference MJD that was subtracted from the
+    integer plane when the statistics images were built (``MJDREF``); it is
+    written to the primary header of the output.
 
     Parameters
     ----------
@@ -920,6 +928,8 @@ def combine_mjd_images(
         Path to the second FITS file; only its pixel data is used.
     path_file_out : str
         Output path for the combined FITS file.
+    offset : float
+        Constant added to every pixel (the reference MJD).
     overwrite : bool, optional
         Overwrite an existing output file. Default is ``False``.
 
@@ -941,11 +951,12 @@ def combine_mjd_images(
             elif da.ndim == 2:
                 hdul_o.append(
                     fits.ImageHDU(
-                        data=da.astype(np.float64) + db.astype(np.float64),
+                        data=da.astype(np.float64) + db.astype(np.float64) + offset,
                         header=hdu_a.header,
                     )
                 )
 
+        hdul_o[0].header["MJDREF"] = (offset, "Reference MJD added to the planes")
         hdul_o.writeto(path_file_out, overwrite=overwrite)
 
 
@@ -954,7 +965,7 @@ def build_qc_summary_row(
     catalog_path: str,
     product_type: str,
     filter_keyword: str,
-    mag_saturation: float,
+    setup,
 ) -> dict:
     """Extract QC metrics for a single product (stack or tile).
 
@@ -968,8 +979,9 @@ def build_qc_summary_row(
         Either ``"stack"`` or ``"tile"``.
     filter_keyword : str
         FITS keyword for the filter name (e.g. ``"HIERARCH ESO INS FILT1 NAME"``).
-    mag_saturation : float
-        Saturation magnitude from the setup.
+    setup : Setup
+        Pipeline setup (apertures and error-model constants for the limiting
+        magnitude).
 
     Returns
     -------
@@ -985,6 +997,8 @@ def build_qc_summary_row(
         ncombine = phdr.get("NCOMBINE", 0)
         astirms = phdr.get("ASTIRMS", np.nan)
         astrrms = phdr.get("ASTRRMS", np.nan)
+        backsigs = [h.header["BACKSIG"] for h in hdul_img if "BACKSIG" in h.header]
+        backsig = float(np.nanmedian(backsigs)) if backsigs else np.nan
 
     with fits.open(catalog_path) as hdul_cat:
         # Determine data extensions (skip primary if multi-extension)
@@ -996,7 +1010,8 @@ def build_qc_summary_row(
         zp_err_values = []
         fwhm_all = []
         ellip_all = []
-        mag_snr5 = []
+        maglim_all = []
+        magsat_all = []
 
         for ext in ext_range:
             hdr = hdul_cat[ext].header
@@ -1022,14 +1037,12 @@ def build_qc_summary_row(
                     ellip_all.append(data["ELLIPTICITY_INTERP"])
                 except KeyError:
                     pass
-                try:
-                    fa = data["FLUX_AUTO"]
-                    fa_err = data["FLUXERR_AUTO"]
-                    snr = fa / fa_err
-                    good = (snr > 4.0) & (snr < 6.0)
-                    mag_snr5.append(data["MAG_AUTO_CAL"][good])
-                except KeyError:
-                    pass
+                maglim_all.append(
+                    limiting_magnitude(
+                        table=data, catalog_header=hdr, backsig=backsig, setup=setup
+                    )
+                )
+                magsat_all.append(saturation_magnitude(table=data))
 
     # Aggregate ZP
     zp_arr = np.array(zp_values) if zp_values else np.array([np.nan])
@@ -1049,11 +1062,11 @@ def build_qc_summary_row(
     else:
         ellipticity = np.nan
 
-    # Magnitude limit
-    if mag_snr5:
-        maglim = float(clipped_median(np.concatenate(mag_snr5)))
-    else:
-        maglim = np.nan
+    # Limiting and saturation magnitudes (same definitions as the Phase 3 headers)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        maglim = float(np.nanmedian(maglim_all)) if maglim_all else np.nan
+        mag_saturation = float(np.nanmin(magsat_all)) if magsat_all else np.nan
 
     return {
         "name": name,
@@ -1070,7 +1083,9 @@ def build_qc_summary_row(
         "psf_fwhm": round(psf_fwhm, 3) if not np.isnan(psf_fwhm) else np.nan,
         "ellipticity": round(ellipticity, 3) if not np.isnan(ellipticity) else np.nan,
         "maglim": round(maglim, 3) if not np.isnan(maglim) else np.nan,
-        "mag_saturation": mag_saturation,
+        "mag_saturation": round(mag_saturation, 3)
+        if not np.isnan(mag_saturation)
+        else np.nan,
         "comp90": np.nan,
         "comp50": np.nan,
     }
@@ -1339,7 +1354,7 @@ def build_qc_summary(
 
     kw = {
         "filter_keyword": setup.keywords.filter_name,
-        "mag_saturation": setup.reference_mag_lo,
+        "setup": setup,
     }
     rows = []
 

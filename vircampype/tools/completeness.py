@@ -11,7 +11,7 @@ import warnings
 
 import numpy as np
 from astropy.io import fits
-from scipy.ndimage import zoom
+from scipy.ndimage import map_coordinates
 from scipy.optimize import curve_fit
 from scipy.spatial import cKDTree
 
@@ -79,8 +79,14 @@ def _psfex_to_fits(psf_model_path: str) -> str:
         psf_2d = psf_cube[0]  # zeroth-order component
 
     # Resample from oversampled grid to native pixel scale
+    # (point-sample the model at the native pixel centres with the exact 1/samp
+    # scale; scipy's zoom maps the grid by (N_in-1)/(N_out-1) and narrows the PSF)
     if psf_samp < 1.0:
-        psf_2d = zoom(psf_2d, psf_samp, order=3)
+        c_in = psf_2d.shape[0] // 2  # PSFEx model origin
+        half = int(np.floor(c_in * psf_samp))
+        coords = c_in + (np.arange(2 * half + 1) - half) / psf_samp
+        yy, xx = np.meshgrid(coords, coords, indexing="ij")
+        psf_2d = map_coordinates(psf_2d, [yy, xx], order=3, mode="constant")
 
     psf_2d = psf_2d / psf_2d.sum()  # normalise
     fits.writeto(out_path, psf_2d.astype(np.float32), overwrite=True)
@@ -360,6 +366,7 @@ def measure_completeness(
     mag_range: tuple[float, float] = (17.0, 22.5),
     mag_bin: float = 0.25,
     n_stars: int = 200,
+    zp: float | None = None,
 ) -> list[dict] | None:
     """
     Measure source-detection completeness for a single sub-tile.
@@ -430,8 +437,10 @@ def measure_completeness(
     if valid_fraction < 0.5:
         return None
 
-    # Get the zero point from the header
-    zp = header.get("HIERARCH PYPE ZP MAG_AUTO", setup.target_zp)
+    # Zero point for the injected stars (the tile catalogue ZP, see
+    # qc_completeness_tile)
+    if zp is None:
+        zp = setup.target_zp
 
     # Setup tool wrappers
     sxs = SextractorSetup(setup=setup)
@@ -696,6 +705,7 @@ def run_completeness(
     setup,
     tiles_dir: str,
     psf_dir: str,
+    zp: float | None = None,
 ) -> list[dict]:
     """
     Run the full completeness analysis on a tile image.
@@ -766,6 +776,7 @@ def run_completeness(
 
     kwargs = dict(
         setup=setup,
+        zp=zp,
         iterations=setup.completeness_iterations,
         mag_range=(setup.completeness_mag_lo, setup.completeness_mag_hi),
         mag_bin=setup.completeness_mag_bin,
@@ -1542,12 +1553,32 @@ def qc_completeness_tile(image_path: str, setup) -> None:
     if os.path.isfile(weight_glob):
         weight_path = weight_glob
 
+    # Zero point for the injected (unit-sum PSF) stars: the tile catalogue's
+    # aperture-matched ZP (= Phase 3 PHOTZP). The image header carries no ZP.
+    zp = setup.target_zp
+    path_cat = image_path.replace(".fits", ".full.fits.ctab")
+    try:
+        hdr_cat = fits.getheader(path_cat, 2)
+        zps = [
+            hdr_cat[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx}"]
+            for idx in range(len(setup.apertures))
+        ]
+        if not np.isfinite(np.mean(zps)):
+            raise ValueError(f"non-finite ZP {zps}")
+        zp = float(np.mean(zps))
+    except Exception as e:
+        logging.getLogger(__name__).warning(
+            f"Completeness: no ZP from {path_cat} ({e}); "
+            f"using target_zp = {setup.target_zp}"
+        )
+
     results = run_completeness(
         image_path=image_path,
         weight_path=weight_path,
         setup=setup,
         tiles_dir=setup.folders["temp_completeness_tiles"],
         psf_dir=setup.folders["temp_completeness_psf"],
+        zp=zp,
     )
 
     if results:

@@ -537,13 +537,32 @@ class TestCombineMJDImages(unittest.TestCase):
                 paths[name] = os.path.join(tmpdir, name)
                 hdus.writeto(paths[name])
             path_out = os.path.join(tmpdir, "out.fits")
-            combine_mjd_images(paths["a.fits"], paths["b.fits"], path_out)
+            combine_mjd_images(paths["a.fits"], paths["b.fits"], path_out, offset=0.0)
             with fits.open(path_out) as hdul:
                 self.assertEqual(len(hdul), 2)
                 self.assertEqual(hdul[1].data.dtype.kind, "f")
                 self.assertEqual(hdul[1].data.dtype.itemsize, 8)
                 np.testing.assert_array_equal(hdul[1].data, data_a + data_b)
                 self.assertEqual(hdul[1].header["MYKEY"], "fileA")
+                self.assertEqual(hdul[0].header["MJDREF"], 0.0)
+
+    def test_offset_restores_full_mjd(self):
+        # Integer plane holds (mjd_int - ref) as float32 means, frac plane the
+        # fractional day; adding the reference must give the exact MJD in float64.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ref = 57850.0
+            data_int = np.array([[0.0, 0.6]], dtype=np.float32)  # 0.4*0 + 0.6*1
+            data_frac = np.array([[0.25, 0.75]], dtype=np.float32)
+            pa, pb = os.path.join(tmpdir, "a.fits"), os.path.join(tmpdir, "b.fits")
+            fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data=data_int)]).writeto(pa)
+            fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data=data_frac)]).writeto(pb)
+            path_out = os.path.join(tmpdir, "out.fits")
+            combine_mjd_images(pa, pb, path_out, offset=ref)
+            with fits.open(path_out) as hdul:
+                np.testing.assert_allclose(
+                    hdul[1].data, [[57850.25, 57851.35]], rtol=0, atol=1e-6
+                )
+                self.assertEqual(hdul[0].header["MJDREF"], ref)
 
 
 if __name__ == "__main__":

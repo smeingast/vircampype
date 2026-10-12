@@ -20,6 +20,7 @@ from vircampype.tools.mathtools import (
     fraction2float,
     get_nearest_neighbors,
     linearity_fitfunc,
+    linearize_data,
     meshgrid,
     round_decimals_down,
     round_decimals_up,
@@ -140,6 +141,68 @@ class TestLinearityFitfunc(unittest.TestCase):
         # Check result scales approximately linearly
         ratio = result[1] / result[0]
         self.assertAlmostEqual(ratio, 2.0, delta=0.1)
+
+
+def _nonlinear_response(x, coeff, texptime, overhead=1.0011):
+    """Forward model inverted by linearize_data: sum_j a_j f_j x^j."""
+    kk = overhead / texptime
+    j = np.arange(len(coeff))
+    f = (1 + kk) ** j - kk**j
+    return sum(c * fj * x**jj for c, fj, jj in zip(coeff, f, j))
+
+
+class TestLinearizeData(unittest.TestCase):
+    def test_sublinear_exact_inversion(self):
+        coeff = np.array([0.0, 1.0, -1e-6, -1e-11])
+        true = np.linspace(10, 40000, 50)
+        data = _nonlinear_response(true, coeff, 10.0)
+        lin = linearize_data(data, coeff, 10.0, 1.0011)
+        np.testing.assert_allclose(lin, true, rtol=1e-8)
+
+    def test_superlinear_correction_keeps_its_sign(self):
+        # The correction must go downward here; the old |root - data| + data
+        # applied it upward with twice the size.
+        for coeff in ([0.0, 1.0, 0.0, 2e-12], [0.0, 1.0, 0.0, 1e-11]):
+            coeff = np.array(coeff)
+            true = np.array([2000.0, 10000.0, 25000.0, 30000.0])
+            data = _nonlinear_response(true, coeff, 10.0)
+            self.assertTrue(np.all(data > true))
+            lin = linearize_data(data, coeff, 10.0, 1.0011)
+            np.testing.assert_allclose(lin, true, rtol=1e-8)
+
+    def test_quadratic_path(self):
+        coeff = np.array([0.0, 1.0, -2e-6])
+        true = np.linspace(10, 40000, 20)
+        data = _nonlinear_response(true, coeff, 5.0)
+        lin = linearize_data(data, coeff, 5.0, 1.0011)
+        np.testing.assert_allclose(lin, true, rtol=1e-8)
+
+    def test_clamped_to_adc_limit_instead_of_nan(self):
+        coeff = np.array([0.0, 1.0, -1e-6, -1e-11])
+        data = _nonlinear_response(np.array([70000.0]), coeff, 10.0)
+        lin = linearize_data(data, coeff, 10.0, 1.0011)
+        self.assertEqual(lin[0], 65535.0)
+
+    def test_nan_and_negative_passthrough(self):
+        coeff = np.array([0.0, 1.0, -1e-6, -1e-11])
+        data = np.array([np.nan, -5.0, 1000.0])
+        lin = linearize_data(data, coeff, 10.0, 1.0011)
+        self.assertTrue(np.isnan(lin[0]))
+        self.assertEqual(lin[1], -5.0)
+        self.assertTrue(np.isfinite(lin[2]))
+
+    def test_above_turnover_clamped_not_negative_root(self):
+        # Above the polynomial's maximum the only real root is large and negative
+        coeff = np.array([0.0, 1.02, -2e-6, -1e-11])
+        lin = linearize_data(np.array([0.0, 65535.0]), coeff, 5.0, 1.0011)
+        self.assertAlmostEqual(lin[0], 0.0)
+        self.assertEqual(lin[1], 65535.0)
+
+    def test_scalar_input(self):
+        # build_master_linearity passes numpy scalars
+        coeff = np.array([0.0, 1.0, -1e-6, -1e-11])
+        lin = linearize_data(np.float64(10000.0), coeff, 10.0, 1.0011)
+        self.assertTrue(np.isfinite(lin))
 
 
 class TestEstimateBackground(unittest.TestCase):

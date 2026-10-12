@@ -1,3 +1,4 @@
+import logging
 import warnings
 from functools import lru_cache
 
@@ -12,6 +13,8 @@ __all__ = [
     "get_default_extinction",
     "resampling_noise_correlation",
     "aperture_error_inflation",
+    "limiting_magnitude",
+    "saturation_magnitude",
 ]
 
 
@@ -97,6 +100,10 @@ def get_zeropoint(
         raise ValueError(
             "No matched sources found in reference catalog for ZP determination!"
         )
+    if len(mag_ref) < 5:
+        logging.getLogger(__name__).warning(
+            f"Only {len(mag_ref)} matched reference star(s) for ZP determination"
+        )
 
     # Compute ZP for each source
     mag_diff = (mag_ref - mag_cal.T).T
@@ -122,20 +129,20 @@ def get_zeropoint(
             mag_err_ref = mag_err_ref[idx_ref]
             mag_err_cal = mag_err_cal[idx_sci]
 
-            # Sigma clip mag_diff array and set weights of outliers to 0
-            mask = sigma_clip(mag_diff, sigma=2.5, maxiters=5, axis=0).mask
+            # Sigma clip mag_diff array
+            clipped = sigma_clip(mag_diff, sigma=2.5, maxiters=5, axis=0).mask
             err_tot = np.sqrt(mag_err_ref**2 + mag_err_cal.T**2)
             weights = (1 / err_tot**2).T.copy()
-            weights[mask] = 0.0
 
-            # Make sure data and weights do not contain NaNs
-            mask = np.isnan(mag_diff) | np.isnan(mag_err_cal)
-            mag_diff[mask], weights[mask] = 0.0, 0.0
+            # Exclude clipped sources and sources with NaN data or unusable
+            # errors (NaN or zero in either catalog) from both the ZP and its error
+            bad = clipped | np.isnan(mag_diff) | ~np.isfinite(weights)
+            mag_diff[bad], weights[bad] = 0.0, 0.0
 
             # Compute weighted average
             zp = np.average(mag_diff, weights=weights, axis=0)
             temp = mag_diff.copy()
-            temp[mask] = np.nan
+            temp[bad] = np.nan
             zp_err = sem(temp, nan_policy="omit", axis=0)
 
             """ I experimented with lots of options to compute the ZP error, including 
@@ -163,7 +170,7 @@ def get_zeropoint(
             kwargs = dict(s=30, lw=0, alpha=1, rasterized=True)
             ax.scatter(mag_ref, mag_diff, fc="crimson", **kwargs)
             if method.lower() == "weighted":
-                ax.scatter(mag_ref[~mask], mag_diff[~mask], fc="green", **kwargs)
+                ax.scatter(mag_ref[~bad], mag_diff[~bad], fc="green", **kwargs)
             ax.axhline(zp, c="black")
             plt.show()
 
@@ -431,3 +438,96 @@ def aperture_error_inflation(
     )
     area = np.pi * d_bkg**2 / 4.0
     return np.sqrt(noise_scale**2 * kappa**2 + background_beta * area)
+
+
+def _bright_point_sources(table, snr_min: float = 50.0) -> np.ndarray:
+    """Boolean mask of clean, well-measured point sources in a SExtractor table."""
+    return (
+        (table["CLASS_STAR"] > 0.8)
+        & (table["FLAGS"] == 0)
+        & (table["SNR_WIN"] > snr_min)
+        & np.isfinite(table["FWHM_IMAGE"])
+    )
+
+
+def limiting_magnitude(table, catalog_header, backsig, setup, nsigma: float = 5.0):
+    """
+    Point-source limiting magnitude from the background noise (ESO definition).
+
+    The limit is the magnitude of a point source whose flux in the fixed aperture
+    closest to 1.35 x FWHM (the optimal aperture for a Gaussian PSF) equals
+    ``nsigma`` times the aperture noise. The per-pixel background RMS ``backsig``
+    is scaled to the aperture area and inflated by the correlated-noise factor of
+    the resampling kernel. The per-aperture zero point ``PYPE ZP MAG_APER j``
+    converts the aperture flux to a total magnitude because it already contains
+    the mean aperture correction. Classification is only used for the bright stars
+    that define the FWHM, so the result does not depend on the unreliable
+    CLASS_STAR of faint sources.
+
+    Parameters
+    ----------
+    table : fits.FITS_rec | Table
+        Calibrated source catalog (needs CLASS_STAR, FLAGS, SNR_WIN, FWHM_IMAGE).
+    catalog_header : fits.Header
+        Catalog extension header with the ``PYPE ZP MAG_APER j`` keywords.
+    backsig : float
+        Background RMS per pixel of the image (ADU).
+    setup : Setup
+        Pipeline setup (apertures, resampling kernel, error-model constants).
+    nsigma : float, optional
+        Detection threshold in units of the aperture noise.
+
+    Returns
+    -------
+    float
+        Limiting magnitude (Vega), NaN if it cannot be determined.
+
+    """
+    try:
+        stars = _bright_point_sources(table)
+        if np.sum(stars) < 5:
+            return np.nan
+        fwhm = float(np.nanmedian(table["FWHM_IMAGE"][stars]))
+        apertures = np.asarray(setup.apertures, dtype=float)
+        idx = int(np.argmin(np.abs(apertures - 1.35 * fwhm)))
+        zp = float(catalog_header[f"HIERARCH PYPE ZP MAG_APER {idx}"])
+    except (KeyError, ValueError, TypeError):
+        return np.nan
+    kappa = aperture_error_inflation(
+        diameters=[apertures[idx]],
+        kernel=setup.resampling_kernel,
+        scale_ratio=setup.coadd_pixel_scale / setup.native_pixel_scale,
+        noise_scale=setup.photometric_error_noise_scale,
+        background_beta=setup.photometric_error_background_beta,
+        background_dmax=setup.photometric_error_background_dmax,
+    )[0]
+    noise = nsigma * kappa * backsig * np.sqrt(np.pi * (apertures[idx] / 2) ** 2)
+    if not (np.isfinite(noise) and noise > 0):
+        return np.nan
+    return float(zp - 2.5 * np.log10(noise))
+
+
+def saturation_magnitude(table):
+    """
+    Saturation limit: the calibrated total magnitude (MAG_AUTO_CAL) of the
+    brightest unflagged point source. Sources brighter than this are saturated
+    or otherwise flagged.
+
+    Parameters
+    ----------
+    table : fits.FITS_rec | Table
+        Calibrated source catalog (needs CLASS_STAR, FLAGS, MAG_AUTO_CAL).
+
+    Returns
+    -------
+    float
+        Saturation magnitude (Vega), NaN without clean point sources.
+
+    """
+    try:
+        stars = (table["CLASS_STAR"] > 0.8) & (table["FLAGS"] == 0)
+        mags = np.asarray(table["MAG_AUTO_CAL"][stars], dtype=float)
+    except (KeyError, ValueError, TypeError):
+        return np.nan
+    mags = mags[np.isfinite(mags)]
+    return float(np.min(mags)) if len(mags) else np.nan

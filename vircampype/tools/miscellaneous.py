@@ -212,10 +212,8 @@ def skycoord2visionsid(skycoord):
     sign = ["-" if np.sign(dec) < 0.0 else "+" for dec in skycoord.dec.degree]
 
     # Construct id
-    id1 = np.around(skycoord.ra.degree, decimals=6)
-    id2 = np.around(skycoord.dec.degree, decimals=6) / np.sign(
-        np.around(skycoord.dec.degree, decimals=6)
-    )
+    id1 = np.around(skycoord.ra.degree, decimals=6) % 360
+    id2 = np.abs(np.around(skycoord.dec.degree, decimals=6))
 
     # Return string
     return [f"{ra:0>10.6f}{s}{dec:0>9.6f}" for ra, s, dec in zip(id1, sign, id2)]

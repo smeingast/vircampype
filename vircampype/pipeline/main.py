@@ -2,6 +2,7 @@ import functools
 import glob
 import json
 import logging
+import math
 import os.path
 import time
 
@@ -794,8 +795,34 @@ class Pipeline:
             self._paths_statistics_stacks(mode="mjd.eff"),
         ):
             combine_mjd_images(
-                path_file_a=pmi, path_file_b=pmf, path_file_out=pmc, overwrite=True
+                path_file_a=pmi,
+                path_file_b=pmf,
+                path_file_out=pmc,
+                offset=self._statistics_mjd_ref(),
+                overwrite=True,
             )
+
+    def _statistics_mjd_ref(self) -> float:
+        """Reference MJD encoded in the per-pawprint mjd.int statistics images.
+
+        Read back from the files actually written so the decoder follows the
+        encoder; a set built with different references (or without MJDREF) fails.
+        """
+        try:
+            refs = self.resampled_statistics(mode="mjd.int").read_from_prime_headers(
+                keywords=["MJDREF"]
+            )[0]
+        except KeyError as exc:
+            raise PipelineValueError(
+                "MJDREF missing in the statistics images; rebuild them "
+                "(remove the statistics folder or set overwrite)"
+            ) from exc
+        refs = set(float(r) for r in refs)
+        if len(refs) != 1 or not math.isfinite(next(iter(refs))):
+            raise PipelineValueError(
+                f"Inconsistent MJDREF in statistics images: {sorted(refs)}"
+            )
+        return refs.pop()
 
     def _astrms_flat_scalar(self) -> tuple[float, float, float]:
         """Conservative flat-SCAMP astrometric floor fallback (mas, mas, corr).
@@ -843,6 +870,7 @@ class Pipeline:
             path_file_a=self._path_statistics_tile(mode="mjd.int"),
             path_file_b=self._path_statistics_tile(mode="mjd.frac"),
             path_file_out=self._path_statistics_tile(mode="mjd.eff"),
+            offset=self._statistics_mjd_ref(),
             overwrite=True,
         )
 
@@ -1013,13 +1041,11 @@ class Pipeline:
             build_phase3_stacks(
                 stacks_images=self.stacks,
                 stacks_catalogs=self.sources_stacks_cal,
-                mag_saturation=self.setup.reference_mag_lo,
             )
         if self.setup.build_tile:
             build_phase3_tile(
                 tile_image=self.tile,
                 tile_catalog=self.sources_tile_cal,
-                mag_saturation=self.setup.reference_mag_lo,
                 pawprint_images=self.resampled,
             )
 

@@ -44,6 +44,17 @@ class TestFunctions(unittest.TestCase):
             ["010.684580+41.269170", "083.696300+22.012500"],
         )
 
+    def test_skycoord2visionsid_edges(self):
+        # |dec| below the rounding step (was "nan") and RA rounding up to 360
+        skycoord = SkyCoord(
+            ra=[83.5, 359.9999999, 120.0] * Unit("deg"),
+            dec=[3e-7, -2e-7, -12.5] * Unit("deg"),
+        )
+        self.assertEqual(
+            skycoord2visionsid(skycoord),
+            ["083.500000+00.000000", "000.000000-00.000000", "120.000000-12.500000"],
+        )
+
     def test_write_list(self):
         import os
         import tempfile

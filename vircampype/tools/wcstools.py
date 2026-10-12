@@ -337,10 +337,12 @@ def resize_header(header, factor):
         header["CD2_2"] / tfactor2,
     )
 
-    # Scale CRPIX
+    # Scale CRPIX (FITS pixel centres are at integers, pixel edges at half-integers;
+    # a resize maps the image edges onto each other, so the 0.5 offset must be
+    # removed before and restored after scaling)
     header_out["CRPIX1"], header_out["CRPIX2"] = (
-        header["CRPIX1"] * tfactor1,
-        header["CRPIX2"] * tfactor2,
+        (header["CRPIX1"] - 0.5) * tfactor1 + 0.5,
+        (header["CRPIX2"] - 0.5) * tfactor2 + 0.5,
     )
 
     # Return new header

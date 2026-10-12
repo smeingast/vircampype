@@ -1,13 +1,29 @@
 import os
+import shutil
 import tempfile
 import unittest
 
 import numpy as np
 from astropy.io import fits
 
+from vircampype.pipeline.setup import Setup
 from vircampype.tools.fitstools import build_qc_summary_row
 
 FILTER_KW = "HIERARCH ESO INS FILT1 NAME"
+
+
+def _make_setup(tmpdir):
+    """Minimal Setup rooted in a temporary directory."""
+    path_data = os.path.join(tmpdir, "data")
+    os.makedirs(path_data, exist_ok=True)
+    return Setup(
+        name="TestSetup",
+        path_data=path_data,
+        path_pype=os.path.join(tmpdir, "pype"),
+        path_master_common=os.path.join(tmpdir, "master"),
+        n_jobs=1,
+    )
+
 
 EXPECTED_KEYS = {
     "name",
@@ -56,7 +72,6 @@ def _make_catalog(path, n_sources=200, zp=23.5, zp_err=0.02, n_ext=2):
     def _make_table_hdu(zp_val, zp_err_val):
         flux = rng.uniform(50, 5000, n_sources).astype(np.float32)
         flux_err = rng.uniform(1, 100, n_sources).astype(np.float32)
-        snr = flux / flux_err
         mag_cal = rng.uniform(18, 20, n_sources).astype(np.float32)
         fwhm = rng.uniform(0.0002, 0.0004, n_sources).astype(np.float64)
         ellip = rng.uniform(0.02, 0.15, n_sources).astype(np.float32)
@@ -94,14 +109,14 @@ class TestBuildQcSummaryRowStack(unittest.TestCase):
             catalog_path=self.cat_path,
             product_type="stack",
             filter_keyword=FILTER_KW,
-            mag_saturation=10.5,
+            setup=_make_setup(self.tmpdir),
         )
 
     def tearDown(self):
         for f in [self.img_path, self.cat_path]:
             if os.path.exists(f):
                 os.remove(f)
-        os.rmdir(self.tmpdir)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_all_keys_present(self):
         self.assertEqual(set(self.row.keys()), EXPECTED_KEYS)
@@ -142,8 +157,8 @@ class TestBuildQcSummaryRowStack(unittest.TestCase):
         self.assertGreater(self.row["ellipticity"], 0.0)
         self.assertLess(self.row["ellipticity"], 1.0)
 
-    def test_mag_saturation(self):
-        self.assertEqual(self.row["mag_saturation"], 10.5)
+    def test_mag_saturation_nan_without_point_sources(self):
+        self.assertTrue(np.isnan(self.row["mag_saturation"]))
 
 
 class TestBuildQcSummaryRowTile(unittest.TestCase):
@@ -160,14 +175,14 @@ class TestBuildQcSummaryRowTile(unittest.TestCase):
             catalog_path=self.cat_path,
             product_type="tile",
             filter_keyword=FILTER_KW,
-            mag_saturation=9.0,
+            setup=_make_setup(self.tmpdir),
         )
 
     def tearDown(self):
         for f in [self.img_path, self.cat_path]:
             if os.path.exists(f):
                 os.remove(f)
-        os.rmdir(self.tmpdir)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_type(self):
         self.assertEqual(self.row["type"], "tile")
@@ -204,14 +219,14 @@ class TestBuildQcSummaryRowMissingKeys(unittest.TestCase):
             catalog_path=self.cat_path,
             product_type="stack",
             filter_keyword=FILTER_KW,
-            mag_saturation=11.0,
+            setup=_make_setup(self.tmpdir),
         )
 
     def tearDown(self):
         for f in [self.img_path, self.cat_path]:
             if os.path.exists(f):
                 os.remove(f)
-        os.rmdir(self.tmpdir)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_all_keys_present(self):
         self.assertEqual(set(self.row.keys()), EXPECTED_KEYS)

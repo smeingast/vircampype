@@ -105,10 +105,30 @@ class TestResizeHeader(unittest.TestCase):
         self.assertEqual(resized["NAXIS2"], 50)
 
     def test_crpix_scales(self):
+        # Edges map onto edges: CRPIX' = (CRPIX - 0.5) * f + 0.5
         hdr = _make_tan_header(naxis1=100, naxis2=100)
         resized = resize_header(hdr, factor=2)
-        self.assertAlmostEqual(resized["CRPIX1"], hdr["CRPIX1"] * 2, places=5)
-        self.assertAlmostEqual(resized["CRPIX2"], hdr["CRPIX2"] * 2, places=5)
+        self.assertAlmostEqual(
+            resized["CRPIX1"], (hdr["CRPIX1"] - 0.5) * 2 + 0.5, places=5
+        )
+        self.assertAlmostEqual(
+            resized["CRPIX2"], (hdr["CRPIX2"] - 0.5) * 2 + 0.5, places=5
+        )
+
+    def test_image_centre_preserved(self):
+        # The sky position at the image centre must not move when resizing
+        hdr = _make_tan_header(naxis1=100, naxis2=80)
+        for factor in (2, 0.5, 0.3):
+            resized = resize_header(hdr, factor=factor)
+            w_in, w_out = header2wcs(hdr), header2wcs(resized)
+            c_in = w_in.all_pix2world(
+                hdr["NAXIS1"] / 2 + 0.5, hdr["NAXIS2"] / 2 + 0.5, 1
+            )
+            c_out = w_out.all_pix2world(
+                resized["NAXIS1"] / 2 + 0.5, resized["NAXIS2"] / 2 + 0.5, 1
+            )
+            self.assertAlmostEqual(c_in[0], c_out[0], places=8)
+            self.assertAlmostEqual(c_in[1], c_out[1], places=8)
 
     def test_preserves_crval(self):
         hdr = _make_tan_header()

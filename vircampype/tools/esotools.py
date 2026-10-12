@@ -21,7 +21,7 @@ from vircampype.tools.tabletools import fits_column_kwargs
 __all__ = ["build_phase3_stacks", "build_phase3_tile"]
 
 
-def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
+def build_phase3_stacks(stacks_images, stacks_catalogs):
     """
     Converts the calibrated source catalogs to a phase 3 compliant standard.
 
@@ -31,8 +31,6 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
         Input stack images.
     stacks_catalogs : PhotometricCalibratedSextractorCatalogs
         Input stack source catalogs.
-    mag_saturation : int, float
-        Saturation limit.
 
     """
 
@@ -125,14 +123,14 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
                 hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
                 image_or_catalog="image",
                 passband=passband,
-                mag_saturation=mag_saturation,
+                setup=setup,
             )
             hdr_hdu_ctg = _make_extension_header_stack(
                 hdu_stk=hdul_stk_pipe[idx_hdu_stk],
                 hdu_ctg=hdul_ctg_pipe[idx_hdu_ctg],
                 image_or_catalog="catalog",
                 passband=passband,
-                mag_saturation=mag_saturation,
+                setup=setup,
             )
             # Get table colums from pipeline catalog
             tabledata = stacks_catalogs.filehdu2table(
@@ -201,6 +199,45 @@ def build_phase3_stacks(stacks_images, stacks_catalogs, mag_saturation):
         end="\n",
         logger=log,
     )
+
+
+def _add_magnitude_limits(header, mag_lim, mag_saturation, passband):
+    """Write MAGLIM/ABMAGLIM and MAGSAT/ABMAGSAT (Vega and AB); skips NaN values."""
+    log = logging.getLogger(__name__)
+    if np.isfinite(mag_lim):
+        add_float_to_header(
+            header=header,
+            key="MAGLIM",
+            value=mag_lim,
+            decimals=3,
+            comment="5-sigma point-source limiting magnitude (Vega)",
+        )
+        add_float_to_header(
+            header=header,
+            key="ABMAGLIM",
+            value=vega2ab(mag=mag_lim, passband=passband),
+            decimals=3,
+            comment="5-sigma point-source limiting magnitude (AB)",
+        )
+    else:
+        log.warning("Limiting magnitude undetermined; MAGLIM/ABMAGLIM not written")
+    if np.isfinite(mag_saturation):
+        add_float_to_header(
+            header=header,
+            key="MAGSAT",
+            value=mag_saturation,
+            decimals=3,
+            comment="Saturation limit (Vega)",
+        )
+        add_float_to_header(
+            header=header,
+            key="ABMAGSAT",
+            value=vega2ab(mag=mag_saturation, passband=passband),
+            decimals=3,
+            comment="Saturation limit (AB)",
+        )
+    else:
+        log.warning("Saturation magnitude undetermined; MAGSAT/ABMAGSAT not written")
 
 
 def _make_prime_header_stack(
@@ -383,9 +420,7 @@ def _make_prime_header_stack(
     return hdr
 
 
-def _make_extension_header_stack(
-    hdu_stk, hdu_ctg, image_or_catalog, passband, mag_saturation
-):
+def _make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband, setup):
     """
     Build an extension FITS header for a Phase-3 stack image or catalog HDU.
 
@@ -404,8 +439,9 @@ def _make_extension_header_stack(
         are written.
     passband : str
         Passband name used for the Vega→AB magnitude conversion.
-    mag_saturation : float
-        Saturation limit in Vega magnitudes.
+    setup : Setup
+        Pipeline setup (apertures and error-model constants for the limiting
+        magnitude).
 
     Returns
     -------
@@ -468,7 +504,10 @@ def _make_extension_header_stack(
 
     # Get means and total error
     zp_avg = np.mean(zps)
-    zperr_tot = np.sqrt(np.std(zps) ** 2 + np.mean(zperrs) ** 2)
+    # Systematic floor (calibration scale, spatial residuals) in quadrature
+    zperr_tot = np.sqrt(
+        np.std(zps) ** 2 + np.mean(zperrs) ** 2 + setup.photometric_error_floor**2
+    )
 
     # Add ZP and ZP err
     if image_or_catalog == "image":
@@ -529,39 +568,16 @@ def _make_extension_header_stack(
             comment="Uncertainty of the photometric zeropoint (auto)",
         )
 
-    # Determine magnitude limit
-    fa = hdu_ctg.data["FLUX_AUTO"].T
-    fa_err = hdu_ctg.data["FLUXERR_AUTO"].T
-    good = (fa / fa_err > 4.0) & (fa / fa_err < 6.0)
-    mag_lim = clipped_median(hdu_ctg.data["MAG_AUTO_CAL"][good])
-    add_float_to_header(
-        header=hdr_out,
-        key="MAGLIM",
-        value=mag_lim,
-        decimals=3,
-        comment="5-sigma limiting Vega magnitude",
+    # Limiting magnitude (5-sigma point source from the background noise) and
+    # saturation limit (brightest unflagged point source)
+    mag_lim = limiting_magnitude(
+        table=hdu_ctg.data,
+        catalog_header=hdu_ctg.header,
+        backsig=hdu_stk.header["BACKSIG"],
+        setup=setup,
     )
-    add_float_to_header(
-        header=hdr_out,
-        key="ABMAGLIM",
-        value=vega2ab(mag_lim, passband=passband),
-        decimals=3,
-        comment="5-sigma limiting AB magnitude",
-    )
-    add_float_to_header(
-        header=hdr_out,
-        key="MAGSAT",
-        value=mag_saturation,
-        decimals=3,
-        comment="Estimated saturation limit (Vega)",
-    )
-    add_float_to_header(
-        header=hdr_out,
-        key="ABMAGSAT",
-        decimals=3,
-        comment="Estimated saturation limit (AB)",
-        value=vega2ab(mag=mag_saturation, passband=passband),
-    )
+    mag_saturation = saturation_magnitude(table=hdu_ctg.data)
+    _add_magnitude_limits(hdr_out, mag_lim, mag_saturation, passband)
 
     # Set shape parameters
     fwhm = np.nanmean(hdu_ctg.data["FWHM_WORLD_INTERP"]) * 3600
@@ -585,7 +601,7 @@ def _make_extension_header_stack(
     return hdr_out
 
 
-def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation):
+def build_phase3_tile(tile_image, tile_catalog, pawprint_images):
     # Grab setup
     setup = tile_image.setup
 
@@ -632,7 +648,7 @@ def build_phase3_tile(tile_image, tile_catalog, pawprint_images, mag_saturation)
         hdul_catalog=hdul_catalog_in,
         hdul_pawprints=hdul_pawprints,
         passband=passband,
-        mag_saturation=mag_saturation,
+        setup=setup,
     )
 
     # Add weight association to tile image
@@ -740,7 +756,7 @@ def _make_tile_headers(
     hdul_catalog: fits.HDUList,
     hdul_pawprints: List,
     passband: str,
-    mag_saturation: float,
+    setup,
     **kwargs,
 ):
     """
@@ -760,8 +776,9 @@ def _make_tile_headers(
         List of pipeline pawprint HDULists used to build the tile.
     passband : str
         Passband name (e.g. ``"J"``, ``"H"``, ``"Ks"``).
-    mag_saturation : float
-        Saturation limit in Vega magnitudes.
+    setup : Setup
+        Pipeline setup (apertures and error-model constants for the limiting
+        magnitude).
     **kwargs
         Extra keyword/value pairs appended to the output headers.
 
@@ -791,13 +808,22 @@ def _make_tile_headers(
     njitter = phdr_first_pawprint["NJITTER"]
     noffsets = phdr_first_pawprint["NOFFSETS"]
 
-    # Approximate mag limit
-    snr = hdul_catalog[2].data["SNR_WIN"].T
-    good = (snr > 4.5) & (snr < 5.5)
-    mag_lim = clipped_median(hdul_catalog[2].data["MAG_AUTO_CAL"][good])
+    # Limiting magnitude (5-sigma point source from the background noise) and
+    # saturation limit (brightest unflagged point source)
+    mag_lim = limiting_magnitude(
+        table=hdul_catalog[2].data,
+        catalog_header=e2hdr_ctg_in,
+        backsig=phdr_tile_in["BACKSIG"],
+        setup=setup,
+    )
+    mag_saturation = saturation_magnitude(table=hdul_catalog[2].data)
 
     # PSF
-    stars = hdul_catalog[2].data["CLASS_STAR"] > 0.8
+    stars = (
+        (hdul_catalog[2].data["CLASS_STAR"] > 0.8)
+        & (hdul_catalog[2].data["FLAGS"] == 0)
+        & (hdul_catalog[2].data["SNR_WIN"] > 50)
+    )
     psf_fwhm = clipped_median(hdul_catalog[2].data["FWHM_WORLD"][stars] * 3600)
     ellipticity = clipped_median(hdul_catalog[2].data["ELLIPTICITY"][stars])
 
@@ -813,7 +839,10 @@ def _make_tile_headers(
 
     # Get means and total error
     zp_avg = np.mean(zps)
-    zperr_tot = np.sqrt(np.std(zps) ** 2 + np.mean(zperrs) ** 2)
+    # Systematic floor (calibration scale, spatial residuals) in quadrature
+    zperr_tot = np.sqrt(
+        np.std(zps) ** 2 + np.mean(zperrs) ** 2 + setup.photometric_error_floor**2
+    )
 
     # Write unique keywords into primary image header
     phdr_tile_out.set("BUNIT", value="adu", comment="Physical unit of the array values")
@@ -1024,36 +1053,7 @@ def _make_tile_headers(
     # Common keywords between primary tile and catalog extension
     for hdr in [phdr_tile_out, ehdr_ctg_out]:
         hdr.set("PHOTSYS", value="VEGA", comment="Photometric system")
-        add_float_to_header(
-            header=hdr,
-            key="MAGLIM",
-            value=mag_lim,
-            decimals=3,
-            comment="Estimated magnitude limit (Vega, 5-sigma)",
-        )
-        add_float_to_header(
-            header=hdr,
-            key="ABMAGLIM",
-            value=vega2ab(mag=mag_lim, passband=passband),
-            decimals=3,
-            comment="Estimated magnitude limit (AB, 5-sigma)",
-        )
-
-        # Mag limits stats
-        add_float_to_header(
-            header=hdr,
-            key="MAGSAT",
-            value=mag_saturation,
-            decimals=3,
-            comment="Estimated saturation limit (Vega)",
-        )
-        add_float_to_header(
-            header=hdr,
-            key="ABMAGSAT",
-            decimals=3,
-            comment="Estimated saturation limit (AB)",
-            value=vega2ab(mag=mag_saturation, passband=passband),
-        )
+        _add_magnitude_limits(hdr, mag_lim, mag_saturation, passband)
 
         # PSF stats
         add_float_to_header(

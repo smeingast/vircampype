@@ -273,7 +273,7 @@ class MasterLinearity(MasterTables):
             plot_value_detector(
                 values=nl,
                 path=path,
-                ylabel="Non-linearity @10000ADU/TEXP=2 (%)",
+                ylabel="Non-linearity @10000ADU (%)",
                 axis_size=axis_size,
                 hlines=[0],
                 dpi=self.setup.qc_plot_dpi,
@@ -402,7 +402,7 @@ class MasterLinearity(MasterTables):
 
                 # Annotate non-linearity and detector ID
                 ax.annotate(
-                    f"NL$_{{10000}}$ (TEXP=2s) = {np.round(nl10000[idx], decimals=2)}%",
+                    f"NL$_{{10000}}$ = {np.round(nl10000[idx], decimals=2)}%",
                     xy=(0.03, 0.96),
                     xycoords="axes fraction",
                     ha="left",

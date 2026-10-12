@@ -5,10 +5,68 @@ import numpy as np
 from vircampype.tools.imagetools import (
     chop_image,
     coordinate_array,
+    destripe_helper,
     interpolate_image,
     merge_chopped,
     tile_image,
 )
+
+
+class TestDestripeHelper(unittest.TestCase):
+    """Synthetic stripe profiles through destripe_helper (smooth=True)."""
+
+    NY, NX = 2048, 256
+    SIGMA_PIX = 5.0
+
+    def _frame(self, rng, stripes):
+        frame = rng.normal(1000.0, self.SIGMA_PIX, (self.NY, self.NX))
+        return frame + stripes[:, np.newaxis]
+
+    def test_strong_burst_is_removed(self):
+        # A 15-row 20 ADU burst on a 2 ADU RMS profile: the old profile
+        # sigma-clip left ~19 ADU of it in the image.
+        rng = np.random.default_rng(3)
+        stripes = rng.normal(0.0, 2.0, self.NY)
+        stripes[1000:1015] += 20.0
+        pattern = destripe_helper(self._frame(rng, stripes), smooth=True)
+        residual = stripes - stripes.mean() - pattern
+        self.assertLess(np.abs(residual[1000:1015]).mean(), 2.0)
+        self.assertLess(np.std(residual), 1.0)
+
+    def test_strong_continuous_stripes_are_removed(self):
+        # 30 ADU RMS band-limited stripes: the old absolute spline budget
+        # followed them and removed only ~10 % of the stripe power.
+        from scipy.ndimage import gaussian_filter1d
+
+        rng = np.random.default_rng(4)
+        stripes = gaussian_filter1d(rng.normal(0.0, 1.0, self.NY), 6)
+        stripes *= 30.0 / stripes.std()
+        # The smoothing removes the cubic trend of the profile by design, so
+        # compare against the stripes with their own cubic trend removed.
+        yy = np.arange(self.NY)
+        stripes_hp = stripes - np.polyval(np.polyfit(yy, stripes, 3), yy)
+        pattern = destripe_helper(self._frame(rng, stripes), smooth=True)
+        residual = stripes_hp - stripes_hp.mean() - pattern
+        self.assertGreater(1.0 - np.std(residual) / np.std(stripes_hp), 0.95)
+
+    def test_gradient_is_not_treated_as_stripe(self):
+        # A smooth 40 ADU gradient along y must stay out of the correction.
+        rng = np.random.default_rng(5)
+        stripes = rng.normal(0.0, 2.0, self.NY)
+        gradient = np.linspace(-20.0, 20.0, self.NY)
+        pattern = destripe_helper(self._frame(rng, stripes + gradient), smooth=True)
+        leak = pattern - (stripes - stripes.mean())
+        self.assertLess(np.abs(np.polyfit(np.arange(self.NY), leak, 1)[0]), 1e-3)
+        self.assertLess(np.std(leak), 1.0)
+
+    def test_failed_rows_are_interpolated(self):
+        rng = np.random.default_rng(6)
+        stripes = rng.normal(0.0, 2.0, self.NY)
+        frame = self._frame(rng, stripes)
+        frame[500:503] = np.nan  # rows with no valid pixels -> mmm fails
+        pattern = destripe_helper(frame, smooth=True)
+        self.assertTrue(np.all(np.isfinite(pattern)))
+        self.assertAlmostEqual(np.median(pattern), 0.0, places=6)
 
 
 class TestInterpolateImage(unittest.TestCase):
