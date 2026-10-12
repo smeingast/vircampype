@@ -147,7 +147,7 @@ Each node only needs Docker and SSH access — no Python or vircampype install r
 Processes a set of raw calibration frames and produces master calibration files:
 
 1. **Master bad pixel mask** — unstable pixels from lamp flat frames, plus pixels with excess noise in pairs of linearity darks
-2. **Master linearity** — per-channel non-linearity correction table from lamp flats (16 readout channels per detector), fitted on robust per-channel levels up to a fraction of the saturation level
+2. **Master linearity** — per-channel non-linearity correction table from lamp flats (16 readout channels per detector), fitted on robust per-channel levels up to a fraction of the saturation level, with one 5-sigma outlier-rejection pass (sequences must have NDIT = 1)
 3. **Master dark** — min/max-rejected mean of dark frames
 4. **Master gain table** — per-detector gain and read noise from robust (MAD-based) per-channel variances
 5. **Master twilight flat** — normalised twilight flat fields
