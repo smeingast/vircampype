@@ -510,8 +510,8 @@ def limiting_magnitude(table, catalog_header, backsig, setup, nsigma: float = 5.
 def saturation_magnitude(table):
     """
     Saturation limit: the calibrated total magnitude (MAG_AUTO_CAL) of the
-    brightest unflagged point source. Sources brighter than this are saturated
-    or otherwise flagged.
+    10th brightest unflagged point source (NaN if there are fewer than 10).
+    Sources brighter than this are mostly saturated or otherwise flagged.
 
     Parameters
     ----------
@@ -521,7 +521,7 @@ def saturation_magnitude(table):
     Returns
     -------
     float
-        Saturation magnitude (Vega), NaN without clean point sources.
+        Saturation magnitude (Vega), NaN with fewer than 10 clean point sources.
 
     """
     try:
@@ -529,5 +529,7 @@ def saturation_magnitude(table):
         mags = np.asarray(table["MAG_AUTO_CAL"][stars], dtype=float)
     except (KeyError, ValueError, TypeError):
         return np.nan
-    mags = mags[np.isfinite(mags)]
-    return float(np.min(mags)) if len(mags) else np.nan
+    # The 10th brightest instead of the brightest, so that a few saturated stars
+    # that SExtractor did not flag do not set the limit
+    mags = np.sort(mags[np.isfinite(mags)])
+    return float(mags[9]) if len(mags) >= 10 else np.nan

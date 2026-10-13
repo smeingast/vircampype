@@ -15,6 +15,7 @@ __all__ = [
     "apply_sigma_clip",
     "linearize_data",
     "linearize_data_channels",
+    "linearity_turnover",
     "apply_along_axes",
     "ceil_value",
     "floor_value",
@@ -453,6 +454,42 @@ def linearize_data(data, coeff, texptime, reset_read_overhead):
     data_lin[~np.isfinite(data)] = data[~np.isfinite(data)]
 
     return data_lin
+
+
+def linearity_turnover(coeff, texptime, reset_read_overhead):
+    """
+    Raw value at which the forward linearity model turns over (first maximum).
+
+    Above this value the inversion is no longer physical (for a cubic,
+    ``linearize_data`` typically clamps to 65535). At short DIT the
+    reset-read-overhead factors move the turnover down, possibly below the
+    detector's saturation preset.
+
+    Parameters
+    ----------
+    coeff : list[floats], ndarray
+        Linearity coefficients (same convention as ``linearize_data``).
+    texptime : int, float
+        Exposure time (DIT).
+    reset_read_overhead : float
+        Reset-read-overhead in seconds.
+
+    Returns
+    -------
+    float
+        Raw value of the first maximum of the forward model, ``inf`` if the
+        model keeps increasing.
+
+    """
+    coeff = np.asarray(coeff, dtype=float)
+    kk = reset_read_overhead / texptime
+    j = np.arange(len(coeff))
+    poly = np.polynomial.Polynomial(coeff * ((1 + kk) ** j - kk**j))
+    crit = poly.deriv().roots()
+    crit = crit[np.isreal(crit)].real
+    # Keep maxima only (the model decreases just past them, not at an inflection)
+    crit = crit[(crit > 0) & (poly(1.001 * crit) < poly(crit))]
+    return float(poly(crit.min())) if len(crit) else np.inf
 
 
 def linearize_data_channels(data, channel_coeffs, texptime, reset_read_overhead):

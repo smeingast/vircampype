@@ -564,6 +564,18 @@ class TestCombineMJDImages(unittest.TestCase):
                 )
                 self.assertEqual(hdul[0].header["MJDREF"], ref)
 
+    def test_uncovered_pixels_stay_zero(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data_int = np.array([[0.0, 0.0, 3.0]], dtype=np.float32)
+            data_frac = np.array([[0.0, 0.5, 0.0]], dtype=np.float32)
+            pa, pb = os.path.join(tmpdir, "a.fits"), os.path.join(tmpdir, "b.fits")
+            fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data=data_int)]).writeto(pa)
+            fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data=data_frac)]).writeto(pb)
+            path_out = os.path.join(tmpdir, "out.fits")
+            combine_mjd_images(pa, pb, path_out, offset=59000.0)
+            with fits.open(path_out) as hdul:
+                np.testing.assert_array_equal(hdul[1].data, [[0.0, 59000.5, 59003.0]])
+
 
 if __name__ == "__main__":
     unittest.main()

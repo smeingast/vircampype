@@ -785,6 +785,8 @@ class Pipeline:
 
         Coadd statistics images for stacks and combine MJD maps.
         """
+        # Check MJDREF before coadding, so a mixed set fails before writing
+        mjd_ref = self._statistics_mjd_ref()
         for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
             images = self.resampled_statistics(mode=mode)
             images.coadd_statistics_stacks(mode=mode)
@@ -798,7 +800,7 @@ class Pipeline:
                 path_file_a=pmi,
                 path_file_b=pmf,
                 path_file_out=pmc,
-                offset=self._statistics_mjd_ref(),
+                offset=mjd_ref,
                 overwrite=True,
             )
 
@@ -862,6 +864,8 @@ class Pipeline:
     @pipeline_step("statistics_tile", message="TILE STATISTICS")
     def build_statistics_tile(self):
         """Coadd statistics images for the tile and build statistics tables."""
+        # Check MJDREF before coadding, so a mixed set fails before writing
+        mjd_ref = self._statistics_mjd_ref()
         for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
             images = self.resampled_statistics(mode=mode)
             images.coadd_statistics_tile(mode=mode)
@@ -870,7 +874,7 @@ class Pipeline:
             path_file_a=self._path_statistics_tile(mode="mjd.int"),
             path_file_b=self._path_statistics_tile(mode="mjd.frac"),
             path_file_out=self._path_statistics_tile(mode="mjd.eff"),
-            offset=self._statistics_mjd_ref(),
+            offset=mjd_ref,
             overwrite=True,
         )
 

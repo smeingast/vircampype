@@ -867,20 +867,26 @@ def _process_one_basic_file(
         # preset goes through the same linearisation as the data (smallest value
         # over the readout channels, i.e. the least-corrected one) and is divided
         # by the detector's median flat. Falls back to the preset if the inversion
-        # fails. The sky level is subtracted later in process_raw_final.
+        # fails or clamps in all channels. The sky level is subtracted later in process_raw_final.
+        # At short DIT the model can turn over below the preset; pixels above the
+        # turnover are clamped to 65535, so the preset is capped at 97 % of the
+        # turnover per channel to keep SATURATE below the clamped values.
         sat_raw = float(setup.saturation_levels[idx_hdu])
+        dit = float(files.dit[idx_file])
         cff = lcff[idx_hdu]
         cff = cff if isinstance(cff[0], list) else [cff]
         sat_vals = [
             linearize_data(
-                data=np.array([sat_raw]),
+                data=np.array(
+                    [min(sat_raw, 0.97 * linearity_turnover(c, dit, 1.0011))]
+                ),
                 coeff=np.asarray(c, dtype=float),
-                texptime=float(files.dit[idx_file]),
+                texptime=dit,
                 reset_read_overhead=1.0011,
             )[0]
             for c in cff
         ]
-        sat_vals = [v for v in sat_vals if np.isfinite(v)]
+        sat_vals = [v for v in sat_vals if np.isfinite(v) and v < 65535.0]
         sat_lin = min(sat_vals) if sat_vals else sat_raw
         if setup.flat_type == "twilight":
             flat_plane = flat_cache[master_flat.paths_full[idx_file]].cube[idx_hdu]
@@ -2963,10 +2969,11 @@ class SkyImagesResampled(SkyImagesProcessed):
         # Reference MJD subtracted from the integer plane: SWarp writes float32, and
         # the weighted mean of raw integer MJDs (~5.8e4) is quantised to 337 s when a
         # set straddles UT midnight. Small offsets (0, 1, 2, ...) average exactly.
-        # combine_mjd_images adds the reference back (read from MJDREF).
-        mjd_ref = float(np.floor(np.min(self.mjd)))
-        if not np.isfinite(mjd_ref):
-            raise PipelineValueError(f"Non-finite MJD reference: {mjd_ref}")
+        # combine_mjd_images adds the reference back (read from MJDREF). The
+        # reference is fixed survey-wide so that mosaics can combine statistics
+        # of tiles from different nights; |MJD - 59000| < 4096 d (2009-2031)
+        # keeps the float32 error across UT midnight <= 10.5 s.
+        mjd_ref = 59000.0
 
         # Create temporary output paths
         folder_statistics = self.setup.folders["statistics"]

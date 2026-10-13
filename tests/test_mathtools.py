@@ -20,6 +20,7 @@ from vircampype.tools.mathtools import (
     fraction2float,
     get_nearest_neighbors,
     linearity_fitfunc,
+    linearity_turnover,
     linearize_data,
     meshgrid,
     round_decimals_down,
@@ -203,6 +204,38 @@ class TestLinearizeData(unittest.TestCase):
         coeff = np.array([0.0, 1.0, -1e-6, -1e-11])
         lin = linearize_data(np.float64(10000.0), coeff, 10.0, 1.0011)
         self.assertTrue(np.isfinite(lin))
+
+
+class TestLinearityTurnover(unittest.TestCase):
+    def test_turnover_is_model_maximum(self):
+        coeff = np.array([0.0, 1.0, -1e-5, -1e-10])
+        turn = linearity_turnover(coeff, 2.0, 1.0011)
+        x = np.linspace(0, 1e5, 200001)
+        self.assertAlmostEqual(
+            turn, np.max(_nonlinear_response(x, coeff, 2.0)), delta=1e-3
+        )
+
+    def test_saturation_below_turnover_is_not_clamped(self):
+        # At short DIT the model turns over below a 33000 ADU preset
+        coeff = np.array([0.0, 1.0, -1e-5, -1e-10])
+        turn = linearity_turnover(coeff, 2.0, 1.0011)
+        self.assertLess(turn, 33000.0)
+        sat = linearize_data(np.array([0.97 * turn]), coeff, 2.0, 1.0011)[0]
+        self.assertLess(sat, 65535.0)
+        # Pixels above the turnover are clamped, i.e. above that level
+        above = linearize_data(np.array([1.01 * turn]), coeff, 2.0, 1.0011)[0]
+        self.assertEqual(above, 65535.0)
+
+    def test_monotonic_model_has_no_turnover(self):
+        coeff = np.array([0.0, 1.0, 0.0, 2e-12])
+        self.assertEqual(linearity_turnover(coeff, 10.0, 1.0011), np.inf)
+        coeff = np.array([0.0, 1.0, 1e-6])
+        self.assertEqual(linearity_turnover(coeff, 10.0, 1.0011), np.inf)
+
+    def test_stationary_inflection_is_not_a_turnover(self):
+        # f'(x) = 1 - 2e-4 x + 1e-8 x^2 = (1 - 1e-4 x)^2 >= 0 (kk = 0)
+        coeff = np.array([0.0, 1.0, -1e-4, 1e-8 / 3])
+        self.assertEqual(linearity_turnover(coeff, 1e9, 0.0), np.inf)
 
 
 class TestEstimateBackground(unittest.TestCase):

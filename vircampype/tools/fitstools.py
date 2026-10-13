@@ -919,6 +919,7 @@ def combine_mjd_images(
     summation. The offset is the reference MJD that was subtracted from the
     integer plane when the statistics images were built (``MJDREF``); it is
     written to the primary header of the output.
+    Pixels that are 0 in both planes (no coverage) stay 0.
 
     Parameters
     ----------
@@ -949,12 +950,10 @@ def combine_mjd_images(
             if (da is None) and (db is None):
                 hdul_o.append(hdu_a)
             elif da.ndim == 2:
-                hdul_o.append(
-                    fits.ImageHDU(
-                        data=da.astype(np.float64) + db.astype(np.float64) + offset,
-                        header=hdu_a.header,
-                    )
-                )
+                mjd = da.astype(np.float64) + db.astype(np.float64) + offset
+                # Pixels without coverage (both planes 0) stay 0, not the offset
+                mjd[(da == 0) & (db == 0)] = 0.0
+                hdul_o.append(fits.ImageHDU(data=mjd, header=hdu_a.header))
 
         hdul_o[0].header["MJDREF"] = (offset, "Reference MJD added to the planes")
         hdul_o.writeto(path_file_out, overwrite=overwrite)

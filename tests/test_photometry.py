@@ -77,12 +77,19 @@ class TestLimitingAndSaturationMagnitude(unittest.TestCase):
         hdr["HIERARCH PYPE ZP MAG_APER 1"] = 24.4
         self.assertTrue(np.isnan(limiting_magnitude(table, hdr, 5.0, setup)))
 
-    def test_saturation_magnitude_brightest_unflagged_star(self):
+    def test_saturation_magnitude_tenth_brightest_unflagged_star(self):
         table = _make_catalog(mag_bright=9.5)
-        # Row 0 is brighter but flagged; row 1 is the brightest clean star
+        # Row 0 is brighter but flagged; rows 1-99 are clean, sorted by magnitude
         self.assertAlmostEqual(
-            saturation_magnitude(table), float(table["MAG_AUTO_CAL"][1]), places=6
+            saturation_magnitude(table), float(table["MAG_AUTO_CAL"][10]), places=6
         )
+        # A few unflagged (saturated) stars far brighter do not set the limit
+        table["MAG_AUTO_CAL"][1:4] = 7.0
+        self.assertAlmostEqual(
+            saturation_magnitude(table), float(table["MAG_AUTO_CAL"][10]), places=6
+        )
+        # Fewer than 10 clean stars: undefined
+        self.assertTrue(np.isnan(saturation_magnitude(table[:5])))
         table["CLASS_STAR"] = 0.1
         self.assertTrue(np.isnan(saturation_magnitude(table)))
 

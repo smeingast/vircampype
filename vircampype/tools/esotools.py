@@ -569,7 +569,7 @@ def _make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband, s
         )
 
     # Limiting magnitude (5-sigma point source from the background noise) and
-    # saturation limit (brightest unflagged point source)
+    # saturation limit (10th brightest unflagged point source)
     mag_lim = limiting_magnitude(
         table=hdu_ctg.data,
         catalog_header=hdu_ctg.header,
@@ -809,7 +809,7 @@ def _make_tile_headers(
     noffsets = phdr_first_pawprint["NOFFSETS"]
 
     # Limiting magnitude (5-sigma point source from the background noise) and
-    # saturation limit (brightest unflagged point source)
+    # saturation limit (10th brightest unflagged point source)
     mag_lim = limiting_magnitude(
         table=hdul_catalog[2].data,
         catalog_header=e2hdr_ctg_in,
