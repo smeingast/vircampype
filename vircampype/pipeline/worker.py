@@ -8,8 +8,6 @@ Usage examples:
     python vircam_worker.py --reset cache --setup /path/to/setup.yml
     python vircam_worker.py --reset all --setup /path/to/setup.yml
     python vircam_worker.py --sort /path/to/files/*fits
-    python vircam_worker.py --cluster /path/to/cluster.yml
-    python vircam_worker.py --cluster /path/to/cluster.yml --status
 
 Tip (dev install):
     Either install `vircampype` or add the project root to PYTHONPATH, e.g.
@@ -71,43 +69,6 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         help="Validate setup (check all paths exist) without processing.",
-        action="store_true",
-    )
-
-    # Cluster batch options.
-    cluster_group = parser.add_argument_group(
-        "cluster options", "Batch processing across multiple nodes via SSH + Docker."
-    )
-    cluster_group.add_argument(
-        "--cluster",
-        help="Run cluster batch operations using a cluster.yml config.",
-        type=str,
-        default=None,
-        metavar="CLUSTER_YML",
-    )
-    cluster_group.add_argument(
-        "--status",
-        help="Show cluster queue status.",
-        action="store_true",
-    )
-    cluster_group.add_argument(
-        "--queue-only",
-        help="Populate the job queue without dispatching workers.",
-        action="store_true",
-    )
-    cluster_group.add_argument(
-        "--requeue",
-        help="Move all failed jobs back to pending.",
-        action="store_true",
-    )
-    cluster_group.add_argument(
-        "--reset-queue",
-        help="Remove all queue state and start fresh.",
-        action="store_true",
-    )
-    cluster_group.add_argument(
-        "--abort",
-        help="Kill all running containers on every node and reset the queue.",
         action="store_true",
     )
 
@@ -223,65 +184,12 @@ def _run_pipeline(
         pipeline.process_science()
 
 
-def _run_cluster(
-    cluster_yml: str,
-    status: bool,
-    queue_only: bool,
-    requeue: bool,
-    reset_queue: bool,
-    abort_cluster: bool,
-) -> None:
-    from vircampype.pipeline.cluster import (
-        ClusterConfig,
-        abort,
-        dispatch,
-        queue_reset,
-        queue_setup,
-        queue_status,
-        requeue_failed,
-    )
-    from vircampype.pipeline.logsetup import configure_standalone_logging
-
-    # No Setup exists on the cluster path; configure a standalone log so the
-    # top-level handler and any cluster logging reach a real file.
-    date_string = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    configure_standalone_logging(
-        os.path.join(tempfile.gettempdir(), f"vircampype_cluster_{date_string}.log")
-    )
-
-    config = ClusterConfig.load(cluster_yml)
-
-    if status:
-        queue_status(config)
-    elif abort_cluster:
-        abort(config)
-    elif reset_queue:
-        queue_reset(config)
-    elif queue_only:
-        queue_setup(config)
-    elif requeue:
-        requeue_failed(config)
-    else:
-        dispatch(config)
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     args, extra = _parse_args(argv)
 
     try:
         if args.sort:
             _run_sort(args.sort)
-            return 0
-
-        if args.cluster:
-            _run_cluster(
-                cluster_yml=args.cluster,
-                status=args.status,
-                queue_only=args.queue_only,
-                requeue=args.requeue,
-                reset_queue=args.reset_queue,
-                abort_cluster=args.abort,
-            )
             return 0
 
         _run_pipeline(

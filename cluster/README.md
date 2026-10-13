@@ -1,325 +1,94 @@
-# Cluster Job Queue for vircampype
+# Running vircampype on several machines
 
-A lightweight batch system for running vircampype across multiple machines using
-Docker and a shared NAS. No job scheduler, no database, no extra dependencies —
-just a shared filesystem and SSH.
+`vircampype-cluster` runs a folder of pipeline configs on several machines. The job
+queue is a folder on the shared NAS, and each machine runs one job after the other in
+Docker. There is no scheduler and no database, and the worker machines only need SSH
+and Docker.
 
-## How it works
+## Requirements
 
-Each vircampype YAML config file is an independent unit of work. The system uses
-a directory on the NAS as a job queue:
+On every worker machine (Linux or macOS):
 
-```
-<queue_dir>/
-    pending/     <- YAML configs waiting to be processed
-    running/     <- currently being processed (one file per active job)
-    done/        <- successfully completed
-    failed/      <- failed (inspect and re-queue if needed)
-    logs/        <- per-node worker logs
-```
+- Docker, running. On a Mac, Docker Desktop must be started and its memory limit
+  (Settings > Resources) should match what the pipeline needs.
+- The NAS mounted.
+- SSH login from the control machine without a password (`ssh mini` must just work).
+  On a Mac, enable Remote Login.
 
-Each worker node loops: atomically claim the next pending job -> run it inside a
-Docker container -> move the job to `done/` or `failed/` -> repeat. Faster
-machines automatically process more jobs. When no pending jobs remain, workers
-exit.
-
-Job claiming uses `mkdir` as an atomic lock, which is safe on all filesystems
-including SMB/CIFS.
-
-## Prerequisites
-
-On **every worker machine** (Linux or macOS):
-
-1. **Docker** installed and running
-2. **NAS mounted** (SMB, NFS, or any protocol — the mount path can differ per machine)
-3. **Docker image pulled**: `docker pull smeingast/vircampype`
-4. **SSH access** from your control machine (key-based, so `ssh worker1` works
-   without a password prompt)
-
-On the **control machine** (where you run `vircampype --cluster`):
-
-- vircampype installed (`pip install vircampype` or development install)
-- SSH key-based login to each worker node
-
-Note: Remote worker nodes only need bash and Docker — no Python, no vircampype
-install, and no access to the cluster config.
-
-**Windows is not supported as a worker node.** Docker Desktop on Windows cannot
-reliably bind-mount network paths. Use WSL (Windows Subsystem for Linux) instead
-— install Docker inside WSL, mount the NAS there, and treat the WSL instance as
-a regular Linux node.
+On the control machine: `pip install vircampype` (or a development install), which
+provides the `vircampype-cluster` command, and the NAS mounted.
 
 ## Configuration
 
-Everything is defined in a single YAML file (`cluster.yml`). Copy
-`cluster.yml.template` as a starting point. You can create multiple cluster YAML
-files for different batch runs.
+Copy `cluster.yml.template` and edit it:
 
 ```yaml
-# cluster.yml — example configuration
+image: smeingast/vircampype:2.7.0      # pin a version: every node runs the same code
+nas: /Volumes/visions                  # NAS root on this machine
+configs: /Volumes/visions/configs/CrA  # every *.yml below is one job
+queue: /Volumes/visions/queue/CrA      # created automatically
 
-# Docker image to use
-image: smeingast/vircampype
-
-# Directory containing pipeline YAML configs to process.
-# Every *.yml file in this directory becomes a job in the queue.
-# Container-side path (must be covered by a volume mount below).
-config_dir: /data/configs
-
-# Queue directory for job tracking (pending/running/done/failed).
-# Created automatically.
-# Container-side path (must be covered by a volume mount below).
-queue_dir: /data/queue
-
-# Worker nodes.
-# host:    SSH hostname (reachable from the control machine)
-# volumes: Docker volume mounts (host_path:container_path)
 nodes:
-  - host: worker1
-    volumes:
-      - /mnt/nas/raw:/data/raw
-      - /mnt/nas/output:/data/output
-      - /mnt/nas/configs:/data/configs
-      - /mnt/nas/vircampype_queue:/data/queue
-
-  - host: worker2
-    volumes:
-      - /mnt/nas/raw:/data/raw
-      - /mnt/nas/output:/data/output
-      - /mnt/nas/configs:/data/configs
-      - /mnt/nas/vircampype_queue:/data/queue
-    setup_overrides:
-      n_jobs: 4
+  local:                               # this machine
+  mini:                                # SSH target, NAS mounted at the same path
+  tycho:                               # Linux box
+    nas: /mnt/visions                  # NAS mounted elsewhere on this node
+    scratch: /scratch/vircampype       # fast local disk for temporary files
+    n_jobs: 16                         # fewer parallel jobs on this node
 ```
 
-### Volume mapping rule
+The containers see the NAS at the same path as the control machine (`/Volumes/visions`
+here), whatever its mount point on the node. Your pipeline configs therefore keep
+their normal paths and still run directly on the control machine. The one rule is that
+everything a config refers to must lie under `nas`. `check` tests this for every config.
 
-**Every path the pipeline reads or writes must be accessible inside the Docker
-container.** This includes `config_dir` and `queue_dir` from `cluster.yml`, but
-also all paths in your pipeline YAML configs:
+If the data live on several shares, give `nas` as a list (`nas: [/Volumes/visions,
+/Volumes/visions_zid]`) and, on nodes that mount them elsewhere, a list of the same
+length in the same order.
 
-- `path_data` — raw input data
-- `path_pype` — pipeline output
-- `path_master_common` — shared master calibrations
-- `path_master_object` — object-specific calibrations (if set)
-- `projection` — projection header files
-- `additional_source_masks` — mask region files (if set)
-- `scamp_cache_dir` — SCAMP astrometric cache (if set)
+Per node you can set `nas`, `scratch` and `n_jobs` (or another `n_jobs_*` key). Without
+`scratch`, temporary files go into the container. On a Mac that is the Docker Desktop
+disk, which can fill up. Do not set `local_cache_dir` in the configs; `scratch` sets it.
 
-If these paths point to different locations on the NAS (or different NAS
-shares), each one needs its own volume mount. **If the pipeline fails with
-"file not found", a missing volume mount is the most likely cause.**
-
-The `volumes` list for each node maps host directories to container directories:
-
-```
-host_path:container_path
-```
-
-The container path (right side) is the same on every node — it matches what the
-configs expect. The host path (left side) depends on where the NAS is mounted
-on that machine.
-
-### Per-node setup overrides
-
-Each node can optionally override pipeline setup parameters via
-`setup_overrides`. These are passed as CLI flags to `vircampype --setup` and
-take precedence over the values in the pipeline YAML configs. This is useful for
-tuning resource usage per machine — for example, fewer parallel jobs on a node
-with less RAM:
-
-```yaml
-nodes:
-  - host: big-machine
-    volumes: [...]
-    # Uses n_jobs from the pipeline YAML (default)
-
-  - host: small-machine
-    volumes: [...]
-    setup_overrides:
-      n_jobs: 4
-```
-
-Any pipeline setup parameter can be overridden this way.
-
-## Workflow
-
-### Step 1: Create your cluster config
-
-Copy `cluster.yml.template`, adapt it for your setup. Put all the pipeline YAML
-configs you want to process into a single directory on the NAS and point
-`config_dir` at it (using the container-side path).
-
-### Step 2: Verify volume mounts (recommended)
-
-Before launching a full batch, test that a single config works inside Docker
-on one of your nodes:
+## Use
 
 ```bash
-docker run --rm \
-    -v /mnt/nas/raw:/data/raw \
-    -v /mnt/nas/output:/data/output \
-    -v /mnt/nas/configs:/data/configs \
-    smeingast/vircampype \
-    vircampype --dry-run --setup /data/configs/field_1.yml
+vircampype-cluster check   cluster.yml    # test every node: SSH, Docker, memory, image, NAS, one dry run
+vircampype-cluster start   cluster.yml    # queue new configs and start a worker on every node
+vircampype-cluster status  cluster.yml    # jobs per state, running jobs, last log line of failed jobs
+vircampype-cluster stop    cluster.yml    # workers exit after their current job
+vircampype-cluster kill    cluster.yml    # stop now; the killed jobs go back to pending
+vircampype-cluster requeue cluster.yml    # failed jobs back to pending
+vircampype-cluster reset   cluster.yml    # empty the queue (logs are kept)
 ```
 
-The `--dry-run` flag validates all paths without processing anything. If it
-prints `Setup 'field_1' validated successfully.`, the volume mounts are correct.
+Run `check` first. It prints one line per node with the CPUs and memory Docker sees
+there. Its dry run creates the output folder of one config, as a real run would. `start` can be run again at any time: it adds configs that are new to the queue
+and starts workers on nodes where none is running.
 
-### Step 3: Launch
+Each node runs one job at a time and uses `n_jobs` cores for it. A node stops taking
+jobs after three failures in a row, so a misconfigured node cannot drain the queue.
+Look at the logs, fix the cause, then run `start` again.
 
-```bash
-# Set up the queue and start workers on all nodes — one command
-vircampype --cluster cluster.yml
-```
+## Logs
 
-Or just populate the queue first:
+- `<queue>/logs/jobs/<job>.log`: the full output of each job; repeated attempts are appended.
+- `<queue>/logs/<node>.log`: what each worker did and when.
+- The pipeline's own detailed log is in the job's output folder (`temp/pipeline_*.log`).
 
-```bash
-# Populate the queue without starting workers
-vircampype --cluster cluster.yml --queue-only
+## When something goes wrong
 
-# Then dispatch when ready
-vircampype --cluster cluster.yml
-```
+- **A job failed:** `status` shows the last log line. Fix the cause, then run `requeue`
+  and `start`. The pipeline resumes where it stopped.
+- **A machine crashed or rebooted:** run `start` again. The new worker on that machine
+  puts its interrupted job back into the queue.
+- **A machine is gone for good:** its job stays in `running/`. Run
+  `vircampype-cluster requeue cluster.yml running` once you are sure it is down.
+  Otherwise the job runs twice.
+- **Exit 137 in a job log:** the job was killed, usually because it ran out of memory.
+  Lower `n_jobs` for that node or raise the Docker memory limit.
 
-### Step 4: Monitor progress
+Macs do not go to sleep while a job runs (`caffeinate`), but a closed MacBook lid
+still wins. Use desktop Macs or keep the lid open.
 
-```bash
-vircampype --cluster cluster.yml --status
-```
-
-Output:
-
-```
-vircampype cluster queue status
-────────────────────────────────────────
-  pending:    62
-  running:     4
-  done:       30
-  failed:      2
-  total:      98
-
-running jobs
-────────────────────────────────────────
-  worker1      MyRegion_wide_1_1_A  (12m34s)
-  worker1      MyRegion_wide_2_3_B  (5m02s)
-  worker2      MyRegion_wide_3_1_C  (1h07m)
-  worker2      MyRegion_wide_4_2_D  (42m18s)
-
-failed jobs
-────────────────────────────────────────
-  MyRegion_wide_5_1_E
-  MyRegion_wide_6_2_F
-
-last node activity
-────────────────────────────────────────
-  worker1      2026-03-30 14:23:01  Completed MyRegion_wide_1_1_A
-  worker2      2026-03-30 14:19:45  Processing MyRegion_wide_3_1_C
-```
-
-### Step 5: Handle failures (if any)
-
-Failed jobs land in the queue's `failed/` directory. Since the pipeline has
-built-in checkpointing, re-queuing a failed job resumes from where it stopped.
-
-```bash
-# Requeue all failed jobs
-vircampype --cluster cluster.yml --requeue
-
-# Then dispatch again to process them
-vircampype --cluster cluster.yml
-```
-
-A node that is misconfigured (Docker daemon down, image not pulled) fails its
-preflight at dispatch and is reported there, rather than draining the queue into
-`failed/`. If a node instead fails several jobs back-to-back within seconds (for
-example a missing volume mount), its worker trips a circuit breaker and stops
-claiming, leaving the remaining jobs for the healthy nodes.
-
-### Aborting a batch run
-
-To stop all workers and reset the queue:
-
-```bash
-vircampype --cluster cluster.yml --abort
-```
-
-This kills only the containers belonging to **this** run (they are tagged with
-a per-queue Docker label derived from `queue_dir`) on every node, then clears
-the queue. Other batch runs using the same image but a different `queue_dir`
-are left untouched. To reset the queue without killing containers:
-
-```bash
-vircampype --cluster cluster.yml --reset-queue
-```
-
-`--reset-queue` warns if any node still appears to have a live worker, since
-resetting the queue underneath a running worker races it.
-
-## Command reference
-
-| Command | Description |
-|---------|-------------|
-| `vircampype --cluster X.yml` | Populate queue + dispatch workers to all nodes |
-| `vircampype --cluster X.yml --status` | Show queue status, per-node activity, and failed jobs |
-| `vircampype --cluster X.yml --queue-only` | Populate queue without dispatching workers |
-| `vircampype --cluster X.yml --requeue` | Move all failed jobs back to pending |
-| `vircampype --cluster X.yml --reset-queue` | Remove all queue state and start fresh |
-| `vircampype --cluster X.yml --abort` | Kill this run's containers on every node + reset queue |
-
-## Notes
-
-### Control machine
-
-The machine where you run `vircampype --cluster` must be listed as a node in
-`cluster.yml` with volume mappings that cover at least `config_dir` and
-`queue_dir`. The cluster code uses these mappings to resolve container paths to
-local host paths. The control machine does not need to run pipeline jobs itself.
-
-For the control machine to be recognised as local (and run its worker directly
-instead of over SSH), its node `host:` should match the machine's own hostname
-(as reported by `hostname`; the short form before the first dot is also
-accepted). If no node host matches, the cluster falls back to matching by
-mount-path existence and prints a warning, which is ambiguous when several
-nodes share the same NAS mount path, so prefer a matching hostname.
-
-### Logs
-
-Worker logs are written to `<queue_dir>/logs/<node>.log` on the NAS:
-
-```bash
-cat /mnt/nas/vircampype_queue/logs/worker1.log
-```
-
-### Resumability
-
-The vircampype pipeline has built-in checkpointing. If a job is interrupted
-(machine reboots, Docker killed, etc.), the job file stays in
-`running/<node>/`. Move it back to `pending/` and re-run to resume from where
-it stopped. (A lock left behind by a crash mid-claim self-heals: the
-worker reaps an orphaned `pending/*.lock` after a few minutes, so it does not
-wedge the node.)
-
-### Concurrency per node
-
-Each worker processes one job at a time. The pipeline itself uses parallelism
-internally via `n_jobs` in the YAML config.
-
-### Adding/removing nodes
-
-Edit `cluster.yml` and re-run `vircampype --cluster cluster.yml`. Running
-workers are not affected — they finish their current jobs and keep pulling from
-the queue. New nodes start pulling immediately.
-
-### Multiple batch runs
-
-Create separate `cluster.yml` files with different `queue_dir` values:
-
-```bash
-vircampype --cluster ophiuchus_wide.yml
-vircampype --cluster corona_australis.yml
-```
-
-Each uses its own queue directory, so they don't interfere with each other.
+Windows is not supported as a worker. Use WSL with Docker inside it instead.

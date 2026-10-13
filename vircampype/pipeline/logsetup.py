@@ -202,7 +202,7 @@ def configure_logging(setup) -> None:
 def configure_standalone_logging(path_logfile: str) -> None:
     """Configure the ``vircampype`` logger for a Setup-less entry path.
 
-    Used by the ``--sort`` and ``--cluster`` worker paths, which run before any
+    Used by the ``--sort`` worker path, which runs before any
     Setup exists, so the top-level handler and any logging they emit reach a
     real file. Adds the same file (DEBUG) and console (WARNING+) handlers.
     Idempotent.

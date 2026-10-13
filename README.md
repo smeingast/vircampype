@@ -19,7 +19,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
 - **Checkpoint system**: interrupted runs resume from the last completed step
-- **Cluster batch processing**: distribute jobs across multiple machines via SSH + Docker using a shared NAS (see [`cluster/README.md`](cluster/README.md))
+- **Cluster batch processing**: run many configs on several machines via SSH + Docker using a shared NAS (`vircampype-cluster`) (see [`cluster/README.md`](cluster/README.md))
 
 ---
 
@@ -129,15 +129,15 @@ python vircampype/pipeline/worker.py --dry-run --setup /path/to/setup.yml
 
 ### 4. Cluster batch processing (optional)
 
-To process many configs across multiple machines, use the cluster batch system:
+To process many configs on several machines (SSH + Docker + a shared NAS):
 
 ```bash
-vircampype --cluster cluster.yml              # queue + dispatch to all nodes
-vircampype --cluster cluster.yml --status     # monitor progress
-vircampype --cluster cluster.yml --abort      # stop all workers and reset
+vircampype-cluster check  cluster.yml    # test every node first
+vircampype-cluster start  cluster.yml    # queue the configs and start the workers
+vircampype-cluster status cluster.yml    # monitor progress
 ```
 
-Each node only needs Docker and SSH access — no Python or vircampype install required. See [`cluster/README.md`](cluster/README.md) for full setup instructions.
+Worker machines only need Docker and SSH. See [`cluster/README.md`](cluster/README.md) for full setup instructions.
 
 ---
 

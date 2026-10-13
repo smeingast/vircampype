@@ -25,6 +25,10 @@ dependencies = [
     "rich >= 13",
 ]
 
+[project.scripts]
+vircampype = "vircampype.pipeline.worker:main"
+vircampype-cluster = "vircampype.pipeline.cluster:main"
+
 [project.optional-dependencies]
 dev = ["pytest >= 8.4", "ruff"]
 
