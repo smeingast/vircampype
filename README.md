@@ -196,7 +196,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `bpm_noise_mask` | `true` | Add pixels with excess temporal noise (from pairs of linearity darks) to the master bad pixel mask |
 | `bpm_noise_threshold` | `5` | Noise threshold for the bad pixel mask, in units of the readout-channel median noise |
 | `linearity_fit_fraction` | `0.85` | Fit the per-channel linearity only on levels below this fraction of the detector saturation level |
-| `saturation_override` | `null` | Per-detector saturation levels in ADU that replace the preset (`set_saturation_levels`), e.g. `{10: 22000, 12: 20000}`. Used by the linearity fit cap, twilight masks, gain and the science `SATURATE` keyword |
+| `saturation_override` | `null` | Per-detector saturation levels in ADU that replace the preset (`set_saturation_levels`), e.g. `{10: 22000, 12: 20000}`. Used by the linearity fit cap, twilight masks, gain and the science `SATURATE` keyword (capped below the linearity turnover at short DIT) |
 | `destripe` | `true` | Apply destriping correction |
 | `subtract_background` | `true` | Subtract 2D background model |
 | `flat_type` | `twilight` | Flat field type: `twilight` or `sky` |
