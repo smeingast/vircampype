@@ -863,22 +863,25 @@ def _process_one_basic_file(
         photstab = offseti + noffsets * (chipid - 1)
         dextinct = get_default_extinction(passband=files.passband[idx_file])
 
-        # Saturation level in the units of the processed data: the raw per-DIT
-        # preset goes through the same linearisation as the data (smallest value
-        # over the readout channels, i.e. the least-corrected one) and is divided
-        # by the detector's median flat. Falls back to the preset if the inversion
-        # fails or clamps in all channels. The sky level is subtracted later in process_raw_final.
-        # At short DIT the model can turn over below the preset; pixels above the
-        # turnover are clamped to 65535, so the preset is capped at 97 % of the
-        # turnover per channel to keep SATURATE below the clamped values.
-        sat_raw = float(setup.saturation_levels[idx_hdu])
+        # Saturation level in the units of the processed data. The presets are
+        # full-well levels (raw ADU). The charge collected during the reset-read
+        # overhead (1.0011 s) is in the well but removed by CDS, so a pixel
+        # saturates at a raw level of preset * DIT / (DIT + 1.0011) (DIT 2 s: 0.67,
+        # 5 s: 0.83). At short DIT the linearity model can also turn over below
+        # that; pixels above the turnover are clamped to 65535. The lower of the
+        # two, with a 3 % margin, goes through the same linearisation as the data
+        # (smallest value over the readout channels) and is divided by the
+        # detector's median flat. Falls back to the scaled preset if the inversion
+        # fails or clamps in all channels. The sky level is subtracted later in
+        # process_raw_final.
         dit = float(files.dit[idx_file])
+        sat_raw = float(setup.saturation_levels[idx_hdu]) * dit / (dit + 1.0011)
         cff = lcff[idx_hdu]
         cff = cff if isinstance(cff[0], list) else [cff]
         sat_vals = [
             linearize_data(
                 data=np.array(
-                    [min(sat_raw, 0.97 * linearity_turnover(c, dit, 1.0011))]
+                    [0.97 * min(sat_raw, linearity_turnover(c, dit, 1.0011))]
                 ),
                 coeff=np.asarray(c, dtype=float),
                 texptime=dit,
@@ -887,7 +890,7 @@ def _process_one_basic_file(
             for c in cff
         ]
         sat_vals = [v for v in sat_vals if np.isfinite(v) and v < 65535.0]
-        sat_lin = min(sat_vals) if sat_vals else sat_raw
+        sat_lin = min(sat_vals) if sat_vals else 0.97 * sat_raw
         if setup.flat_type == "twilight":
             flat_plane = flat_cache[master_flat.paths_full[idx_file]].cube[idx_hdu]
             sat_lin /= np.nanmedian(flat_plane)
