@@ -569,14 +569,14 @@ def _make_extension_header_stack(hdu_stk, hdu_ctg, image_or_catalog, passband, s
         )
 
     # Limiting magnitude (5-sigma point source from the background noise) and
-    # saturation limit (10th brightest unflagged point source)
+    # saturation limit (the 2MASS bright limit of the photometric calibration)
     mag_lim = limiting_magnitude(
         table=hdu_ctg.data,
         catalog_header=hdu_ctg.header,
         backsig=hdu_stk.header["BACKSIG"],
         setup=setup,
     )
-    mag_saturation = saturation_magnitude(table=hdu_ctg.data)
+    mag_saturation = saturation_magnitude(table=hdu_ctg.data, header=hdu_ctg.header)
     _add_magnitude_limits(hdr_out, mag_lim, mag_saturation, passband)
 
     # Set shape parameters
@@ -809,14 +809,16 @@ def _make_tile_headers(
     noffsets = phdr_first_pawprint["NOFFSETS"]
 
     # Limiting magnitude (5-sigma point source from the background noise) and
-    # saturation limit (10th brightest unflagged point source)
+    # saturation limit (the 2MASS bright limit of the photometric calibration)
     mag_lim = limiting_magnitude(
         table=hdul_catalog[2].data,
         catalog_header=e2hdr_ctg_in,
         backsig=phdr_tile_in["BACKSIG"],
         setup=setup,
     )
-    mag_saturation = saturation_magnitude(table=hdul_catalog[2].data)
+    mag_saturation = saturation_magnitude(
+        table=hdul_catalog[2].data, header=e2hdr_ctg_in
+    )
 
     # PSF
     stars = (

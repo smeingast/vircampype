@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 from astropy.units import Unit
 
 from vircampype.tools.photometry import (
@@ -92,6 +93,17 @@ class TestLimitingAndSaturationMagnitude(unittest.TestCase):
         self.assertTrue(np.isnan(saturation_magnitude(table[:5])))
         table["CLASS_STAR"] = 0.1
         self.assertTrue(np.isnan(saturation_magnitude(table)))
+
+    def test_saturation_magnitude_is_the_bright_limit(self):
+        table = _make_catalog(mag_bright=9.5)
+        hdr = fits.Header()
+        hdr["HIERARCH PYPE REFMAG LO"] = 11.25
+        self.assertEqual(saturation_magnitude(table, header=hdr), 11.25)
+        self.assertAlmostEqual(
+            saturation_magnitude(table, header=fits.Header()),
+            float(table["MAG_AUTO_CAL"][10]),
+            places=6,
+        )
 
 
 class TestVega2AB(unittest.TestCase):

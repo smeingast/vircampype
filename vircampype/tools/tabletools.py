@@ -1266,7 +1266,7 @@ def merge_with_2mass(
     """
     Merge a pipeline source table with 2MASS bright-star replacements.
 
-    Removes pipeline detections near bright or saturated 2MASS stars and
+    Removes pipeline detections near 2MASS stars brighter than *mag_limit* and
     inserts the corresponding 2MASS catalogue entries, so that the output
     table has reliable photometry across the full dynamic range.
 
@@ -1324,19 +1324,9 @@ def merge_with_2mass(
     mag_2mass_clean = table_2mass_clean[key_mag_2mass]
     magerr_2mass_clean = table_2mass_clean[f"e_{key_mag_2mass}"]
 
-    # Find bright sources
+    # Bright sources: purely by magnitude. The saturation flag (FLAGS & 4) is
+    # conservative and stays in the catalog as a warning, but does not trigger it.
     idx_2mass_bright = np.where(mag_2mass < mag_limit)[0]
-
-    # Also add sources that were flagged by Sextractor
-    sidx = (table["FLAGS"] == 4) | (table["FLAGS"] == 6)
-    skycoord_sat = skycoord[sidx]
-    idx_2mass_sat, dis_2mass_sat, _ = skycoord_sat.match_to_catalog_sky(
-        skycoord_2mass, nthneighbor=1
-    )
-    idx_2mass_sat = idx_2mass_sat[dis_2mass_sat < 0.5 * Unit("arcsec")]
-
-    # Merge and keep only unique
-    idx_2mass_bright = np.unique(np.concatenate([idx_2mass_bright, idx_2mass_sat]))
 
     # Extract bright and saturated sources
     skycoord_2mass_bright = skycoord_2mass[idx_2mass_bright]

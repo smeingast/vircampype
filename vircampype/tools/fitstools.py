@@ -1041,7 +1041,7 @@ def build_qc_summary_row(
                         table=data, catalog_header=hdr, backsig=backsig, setup=setup
                     )
                 )
-                magsat_all.append(saturation_magnitude(table=data))
+                magsat_all.append(saturation_magnitude(table=data, header=hdr))
 
     # Aggregate ZP
     zp_arr = np.array(zp_values) if zp_values else np.array([np.nan])

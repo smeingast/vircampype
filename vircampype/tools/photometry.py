@@ -508,23 +508,28 @@ def limiting_magnitude(table, catalog_header, backsig, setup, nsigma: float = 5.
     return float(zp - 2.5 * np.log10(noise))
 
 
-def saturation_magnitude(table):
+def saturation_magnitude(table, header=None):
     """
-    Saturation limit: the calibrated total magnitude (MAG_AUTO_CAL) of the
-    10th brightest unflagged point source (NaN if there are fewer than 10).
-    Sources brighter than this are mostly saturated or otherwise flagged.
+    Saturation limit: the 2MASS bright limit used for the photometric calibration
+    (HIERARCH PYPE REFMAG LO in the catalog header), where the photometry starts to
+    depart from 2MASS. Catalogs without that keyword fall back to the calibrated total
+    magnitude (MAG_AUTO_CAL) of the 10th brightest unflagged point source.
 
     Parameters
     ----------
     table : fits.FITS_rec | Table
         Calibrated source catalog (needs CLASS_STAR, FLAGS, MAG_AUTO_CAL).
+    header : fits.Header, optional
+        Header of the calibrated catalog extension.
 
     Returns
     -------
     float
-        Saturation magnitude (Vega), NaN with fewer than 10 clean point sources.
+        Saturation magnitude (Vega), NaN if undetermined.
 
     """
+    if header is not None and "HIERARCH PYPE REFMAG LO" in header:
+        return float(header["HIERARCH PYPE REFMAG LO"])
     try:
         stars = (table["CLASS_STAR"] > 0.8) & (table["FLAGS"] == 0)
         mags = np.asarray(table["MAG_AUTO_CAL"][stars], dtype=float)
