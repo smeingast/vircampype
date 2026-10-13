@@ -50,10 +50,9 @@ def _as_list(nas) -> list[str]:
 
 
 def _root(path: str, roots: list[str]) -> int | None:
-    """Index of the NAS root that contains ``path``, None if none does."""
-    return next(
-        (i for i, r in enumerate(roots) if path == r or path.startswith(r + "/")), None
-    )
+    """Index of the (longest) NAS root that contains ``path``, None if none does."""
+    hits = [i for i, r in enumerate(roots) if path == r or path.startswith(r + "/")]
+    return max(hits, key=lambda i: len(roots[i]), default=None)
 
 
 @dataclass
