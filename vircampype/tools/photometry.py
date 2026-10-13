@@ -15,6 +15,7 @@ __all__ = [
     "aperture_error_inflation",
     "limiting_magnitude",
     "saturation_magnitude",
+    "reference_bright_limit",
 ]
 
 
@@ -533,3 +534,83 @@ def saturation_magnitude(table):
     # that SExtractor did not flag do not set the limit
     mags = np.sort(mags[np.isfinite(mags)])
     return float(mags[9]) if len(mags) >= 10 else np.nan
+
+
+def reference_bright_limit(
+    mag_instr,
+    mag_ref,
+    mag_lo,
+    mag_hi,
+    bin_width=0.25,
+    tol=0.02,
+    n_min=30,
+    n_plateau=100,
+    margin=0.25,
+    max_shift=2.5,
+):
+    """
+    Data-driven bright limit for the photometric reference stars.
+
+    The offset between instrumental and reference magnitudes is flat as long as
+    the stars are not saturated or non-linear; the zero point is only a constant.
+    Starting at the configured bright limit, 0.25 mag bins are walked towards
+    brighter stars until the median offset departs from the plateau (median
+    offset for reference magnitudes ``[mag_lo + 0.5, min(mag_lo + 2, mag_hi))``)
+    by more than ``tol`` or a bin has fewer than ``n_min`` stars. The limit is the
+    faint edge of that bin plus ``margin``. It never becomes fainter than
+    ``mag_lo`` and never brighter than ``mag_lo - max_shift + margin``.
+
+    Parameters
+    ----------
+    mag_instr : array_like
+        Instrumental magnitudes of the matched stars (any constant offset).
+    mag_ref : array_like
+        Reference (2MASS) magnitudes of the same stars.
+    mag_lo, mag_hi : float
+        Configured bright and faint limits.
+    bin_width, tol, n_min, n_plateau, margin, max_shift : float, int
+        Bin width (mag), allowed departure (mag), minimum stars per bin and in the
+        plateau, safety margin (mag) and maximum shift from ``mag_lo`` (mag).
+
+    Returns
+    -------
+    tuple[float, dict]
+        Bright limit and details for logging (source 'auto' or 'setup', the
+        walked bins as (bright edge, n, offset), and whether a bin inside
+        ``[mag_lo, mag_lo + 0.5)`` already departs from the plateau).
+
+    """
+    mag_instr = np.asarray(mag_instr, dtype=float)
+    mag_ref = np.asarray(mag_ref, dtype=float)
+    good = np.isfinite(mag_instr) & np.isfinite(mag_ref)
+    dm, mref = mag_instr[good] - mag_ref[good], mag_ref[good]
+
+    win = (mref >= mag_lo + 0.5) & (mref < min(mag_lo + 2.0, mag_hi))
+    info = dict(source="setup", n_plateau=int(win.sum()), bins=[], too_bright=False)
+    if win.sum() < n_plateau:
+        return float(mag_lo), info
+    dm = dm - np.median(dm[win])
+
+    def _bin(lo):
+        sel = (mref >= lo) & (mref < lo + bin_width)
+        n = int(sel.sum())
+        return n, float(np.median(dm[sel])) if n else np.nan
+
+    # The configured limit itself may already be too bright
+    for lo in (mag_lo, mag_lo + bin_width):
+        n, off = _bin(lo)
+        info["too_bright"] |= bool(n >= n_min and abs(off) > tol)
+
+    # Walk towards brighter magnitudes
+    edge = mag_lo
+    for k in range(round(max_shift / bin_width)):
+        edge = mag_lo - k * bin_width
+        n, off = _bin(edge - bin_width)
+        info["bins"].append((round(edge - bin_width, 3), n, off))
+        if n < n_min or not abs(off) <= tol:
+            break
+    else:
+        edge = mag_lo - max_shift
+
+    info.update(source="auto", limit_raw=float(edge))
+    return float(min(mag_lo, edge + margin)), info

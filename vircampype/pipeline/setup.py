@@ -162,6 +162,9 @@ class Setup:
     )
     reference_mag_lo: int | float = None  # Bright magnitude cut for reference stars
     reference_mag_hi: int | float = None  # Faint magnitude cut for reference stars
+    reference_mag_lo_auto: bool = (
+        True  # Brighten the bright cut from the data (never fainter)
+    )
     target_zp: float = 25.0  # Target photometric zero point (mag)
     illumination_correction_mode: Literal["variable", "constant"] = (
         "variable"  # Illumination correction mode

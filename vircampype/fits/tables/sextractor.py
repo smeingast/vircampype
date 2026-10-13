@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import pickle
@@ -16,6 +17,7 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from astropy.wcs.utils import proj_plane_pixel_scales
 from joblib import Parallel, delayed
+from scipy.ndimage import median as ndimage_median
 from sklearn.neighbors import KernelDensity, NearestNeighbors
 
 from vircampype.data.cube import ImageCube
@@ -514,7 +516,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     skycoord2=skycoord_master,
                     mag2=mag_master,
                     magerr2=magerr_master,
-                    mag_limits_ref=master_phot.mag_lim(passband=passband),
+                    # IC runs before the data-driven bright limit exists
+                    mag_limits_ref=master_phot.mag_lim_setup(passband=passband),
                     method=method,
                 )
 
@@ -660,6 +663,101 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             logger=log,
         )
 
+    def resolve_reference_mag_lo(self, master_phot, table_master, passband):
+        """
+        Determine the data-driven bright limit of the reference stars once per run.
+
+        Point sources of all catalogues in self (all SExtractor flags, so that the
+        saturation knee stays visible) are matched to the cleaned 2MASS table; the
+        largest-aperture magnitude is compared with 2MASS after removing each
+        table's own zero point. Repeat measurements of a 2MASS star are combined.
+        The result is written to ``master_phot.path_mag_lo_auto`` and from then
+        on returned by ``master_phot.mag_lim``.
+        """
+        log = logging.getLogger(__name__)
+        if not self.setup.reference_mag_lo_auto:
+            return
+        if master_phot.mag_lo_auto(passband) is not None:
+            log.info(f"Reference bright limit: {master_phot.mag_lim(passband)[0]}")
+            return
+
+        mag_lo, mag_hi = master_phot.mag_lim_setup(passband)
+        passband_2mass = master_phot.translate_passband(passband)
+        sc_master = SkyCoord(
+            table_master[master_phot.key_ra],
+            table_master[master_phot.key_dec],
+            unit="deg",
+        )
+        mag_master = np.asarray(table_master[passband_2mass], dtype=float)
+
+        dm_all, idx_all = [], []
+        for idx_file in range(self.n_files):
+            for table in self.file2table(file_index=idx_file):
+                mag = np.asarray(table["MAG_APER"][:, -1], dtype=float)
+                ra = np.asarray(table[self.key_ra], dtype=float)
+                dec = np.asarray(table[self.key_dec], dtype=float)
+                use = (table["CLASS_STAR"] > 0.8) & np.isfinite(mag) & (mag < 50)
+                use &= np.isfinite(ra) & np.isfinite(dec)
+                if use.sum() == 0:
+                    continue
+                sc = SkyCoord(ra[use], dec[use], unit="deg")
+                idx, d2d, _ = sc.match_to_catalog_sky(sc_master)
+                m = d2d.arcsec < 1.0
+                dm, idx = mag[use][m] - mag_master[idx[m]], idx[m]
+                # Remove this table's zero point (median in the plateau window)
+                win = (mag_master[idx] >= mag_lo + 0.5) & (
+                    mag_master[idx] < min(mag_lo + 2.0, mag_hi)
+                )
+                if win.sum() < 5:
+                    continue
+                dm_all.append(dm - np.median(dm[win]))
+                idx_all.append(idx)
+
+        # One median offset per 2MASS star
+        if dm_all:
+            dm_all, idx_all = np.concatenate(dm_all), np.concatenate(idx_all)
+            ustar, inv = np.unique(idx_all, return_inverse=True)
+            dm_star = np.array(
+                ndimage_median(dm_all, labels=inv, index=np.arange(len(ustar)))
+            )
+            mag_star = mag_master[ustar]
+        else:
+            dm_star, mag_star = np.array([]), np.array([])
+
+        limit, info = reference_bright_limit(
+            mag_instr=dm_star + mag_star,
+            mag_ref=mag_star,
+            mag_lo=mag_lo,
+            mag_hi=mag_hi,
+        )
+        bins = " ".join(
+            f"{b:.2f}:{1000 * o:+.0f}({n})" for b, n, o in info["bins"] if n
+        )
+        log.info(
+            f"Reference bright limit: {limit:.2f} ({info['source']}; setup {mag_lo}, "
+            f"{len(mag_star)} stars, plateau {info['n_plateau']}); "
+            f"offsets mmag(n) per bin: {bins}"
+        )
+        if info["too_bright"]:
+            log.warning(
+                f"Stars just fainter than the setup bright limit ({mag_lo}) already "
+                f"deviate from 2MASS by > 20 mmag; consider a fainter reference_mag_lo"
+            )
+        with open(master_phot.path_mag_lo_auto, "w") as f:
+            json.dump(
+                dict(
+                    passband=passband_2mass,
+                    mag_lim_setup=[mag_lo, mag_hi],
+                    mag_lo=limit,
+                    source=info["source"],
+                    n_stars=len(mag_star),
+                    too_bright=info["too_bright"],
+                    bins=info["bins"],
+                ),
+                f,
+                indent=1,
+            )
+
     def calibrate_photometry(self):
         # Fetch log
         log = logging.getLogger(__name__)
@@ -675,6 +773,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         table_master = master_phot.file2table(file_index=0)[0][mkeep]
         log.info(f"Master photometry: {master_phot.paths_full[0]}")
         log.info(f"Master photometry: {len(table_master)} sources")
+
+        # Data-driven bright limit (once per run, used by mag_lim from now on)
+        self.resolve_reference_mag_lo(
+            master_phot=master_phot,
+            table_master=table_master,
+            passband=self.passband[0],
+        )
 
         # Loop over files
         for idx_file in range(self.n_files):
@@ -953,6 +1058,19 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Replace HDU once after all ZPs are computed
                 table_hdulist[tidx_hdu] = table2bintablehdu(table)
+
+                # Record the reference magnitude range used for the ZPs
+                for key, val in zip(
+                    ["HIERARCH PYPE REFMAG LO", "HIERARCH PYPE REFMAG HI"],
+                    master_phot.mag_lim(passband),
+                ):
+                    add_float_to_header(
+                        header=table_hdulist[tidx_hdu].header,
+                        key=key,
+                        value=val,
+                        comment="2MASS reference magnitude limit (mag)",
+                        decimals=2,
+                    )
 
                 # Add all accumulated ZP info to header
                 log.info("Adding ZP info to header")

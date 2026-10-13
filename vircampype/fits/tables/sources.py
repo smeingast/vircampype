@@ -1,4 +1,6 @@
-from typing import List, Tuple
+import json
+import os
+from typing import List
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -194,9 +196,9 @@ class MasterPhotometry2Mass(MasterPhotometry):
         else:
             raise ValueError(f"Passband '{passband}' not defined")
 
-    def mag_lim(self, passband: str) -> Tuple[float, float]:
+    def mag_lim_setup(self, passband: str) -> tuple[float, float]:
         """
-        Fetches magnitude limits in setup.
+        Magnitude limits from the setup (or the band defaults if not set).
 
         Parameters
         ----------
@@ -226,6 +228,54 @@ class MasterPhotometry2Mass(MasterPhotometry):
             return 11.0, 14.5
         else:
             raise ValueError(f"Passband '{passband}' not available")
+
+    @property
+    def path_mag_lo_auto(self) -> str:
+        """Run-level file holding the data-driven bright limit."""
+        return os.path.join(self.setup.folders["temp"], "reference_mag_lo.json")
+
+    def mag_lo_auto(self, passband: str) -> float | None:
+        """
+        Data-driven bright limit of this run (see ``reference_bright_limit``).
+
+        Returns None if it is disabled, not determined yet, or was determined
+        for another passband or other setup limits.
+        """
+        if not self.setup.reference_mag_lo_auto:
+            return None
+        try:
+            with open(self.path_mag_lo_auto) as f:
+                d = json.load(f)
+            if d["passband"] != self.translate_passband(passband) or list(
+                d["mag_lim_setup"]
+            ) != list(self.mag_lim_setup(passband)):
+                return None
+            return float(d["mag_lo"])
+        except (FileNotFoundError, ValueError, KeyError, TypeError):
+            # Missing or unreadable: determined (again) by the next calibration
+            return None
+
+    def mag_lim(self, passband: str) -> tuple[float, float]:
+        """
+        Magnitude limits for the photometric reference stars.
+
+        The setup limits, with the bright limit replaced by the data-driven one
+        once it has been determined for this run (photometric calibration).
+
+        Parameters
+        ----------
+        passband : str
+            The passband for which to fetch the magnitude limits.
+
+        Returns
+        -------
+        tuple
+            Tuple with lower and upper magnitude limits.
+
+        """
+        mag_lo, mag_hi = self.mag_lim_setup(passband)
+        mag_lo_auto = self.mag_lo_auto(passband)
+        return (mag_lo if mag_lo_auto is None else mag_lo_auto), mag_hi
 
     def mag_lim_lo(self, passband) -> float:
         """

@@ -161,7 +161,7 @@ Processes raw science frames through to final co-added products:
 3. **Master sky** — constructs sky frames from a sliding window of exposures
 4. **Final raw processing** — sky subtraction, destriping, background subtraction, NaN interpolation
 5. **Astrometry (SCAMP)** — astrometric calibration against Gaia DR3
-6. **Photometry (2MASS)** — photometric zero-point calibration
+6. **Photometry (2MASS)** — photometric zero-point calibration, with a data-driven bright limit for the reference stars
 7. **Illumination correction** — variable or constant illumination correction map
 8. **Resampling (SWarp)** — resamples exposures to a common grid
 9. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile
@@ -212,6 +212,8 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `native_pixel_scale` | `0.337` | Native detector pixel scale (arcsec) used for the resampling ratio |
 | `local_gaia_catalog` | `null` | Path to local Gaia FITS catalog (skip Vizier download) |
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
+| `reference_mag_lo` / `reference_mag_hi` | `null` | Bright and faint 2MASS magnitude limits for the reference stars (band defaults if unset) |
+| `reference_mag_lo_auto` | `true` | Move the bright limit brighter where the data show no saturation or non-linearity: the offset to 2MASS of point sources in the first calibrated products is checked in 0.25 mag bins and the limit stops 0.25 mag before a 20 mmag departure (at most 2.25 mag brighter, never fainter than `reference_mag_lo`). Used for the zero points, the public-catalogue 2MASS replacement and QC (the illumination correction runs earlier and keeps the setup limit); stored in `temp/reference_mag_lo.json` and the catalogue headers (`PYPE REFMAG LO`) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `local_cache_dir` | `null` | Local directory for disposable temp (header cache, SWarp swap, completeness sub-tiles). Default `null` uses the system temp dir for caches/swap and `path_pype/<name>/temp` for completeness |
 | `source_classification` | `false` | Run star/galaxy classification (requires multi-seeing SExtractor fork) |
