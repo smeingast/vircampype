@@ -597,3 +597,64 @@ class TestConvert2PublicMagerrScale(unittest.TestCase):
     def test_wrong_length_raises(self):
         with self.assertRaises(PipelineValueError):
             self._run(np.ones(3))
+
+
+class TestConvert2PublicFlags(unittest.TestCase):
+    """CFLG/QFLG semantics of the public catalogue."""
+
+    @staticmethod
+    def _run(modify):
+        t, apertures = _public_input_table()
+        modify(t)
+        out = convert2public(
+            t.copy(),
+            photerr_internal=0.01,
+            apertures=apertures,
+            mag_saturation=11.0,
+            survey_name="VISIONS",
+        )
+        # map output rows back to input rows through the (unique) RA
+        ra_in = np.asarray(t["ALPHAWIN_SKY"])
+        ra_out = np.asarray(out["RA"].value)
+        row = {r: i for i, r in enumerate(ra_in)}
+        return t, out, {row[r]: j for j, r in enumerate(ra_out) if r in row}
+
+    def test_saturation_alone_is_not_fatal(self):
+        def mod(t):
+            t["FLAGS"][20:30] = 4  # saturated
+            t["FLAGS"][30:40] = 7  # saturated + neighbours + deblended
+        t, out, m = self._run(mod)
+        for i in range(20, 40):
+            j = m[i]
+            self.assertFalse(bool(out["CFLG"][j]))
+            self.assertEqual(int(out["CFLG_REASON"][j]), 0)
+            self.assertNotEqual(out["QFLG"][j], "X")
+            self.assertEqual(int(out["SFLG"][j]), int(t["FLAGS"][i]))
+
+    def test_fatal_sextractor_bits_force_x(self):
+        def mod(t):
+            for k, f in enumerate((8, 12, 16, 32, 64, 128)):
+                t["FLAGS"][20 + k] = f
+        _, out, m = self._run(mod)
+        for k in range(6):
+            j = m[20 + k]
+            self.assertTrue(bool(out["CFLG"][j]))
+            self.assertEqual(out["QFLG"][j], "X")
+            self.assertTrue(int(out["CFLG_REASON"][j]) & 16)
+
+    def test_nan_snr_and_flux_are_flagged(self):
+        def mod(t):
+            t["SNR_WIN"][20] = np.nan
+            t["FLUX_AUTO"][21] = np.nan
+        _, out, m = self._run(mod)
+        self.assertTrue(int(out["CFLG_REASON"][m[20]]) & 4)
+        self.assertTrue(int(out["CFLG_REASON"][m[21]]) & 2)
+        self.assertEqual(out["QFLG"][m[20]], "X")
+        self.assertEqual(out["QFLG"][m[21]], "X")
+
+    def test_2mass_rows_have_no_reason(self):
+        _, out, _ = self._run(lambda t: None)
+        is2m = np.asarray(out["SURVEY"]) == "2MASS"
+        self.assertGreater(int(is2m.sum()), 0)
+        np.testing.assert_array_equal(np.asarray(out["CFLG_REASON"])[is2m], 0)
+        self.assertFalse(np.any(np.asarray(out["CFLG"])[is2m]))

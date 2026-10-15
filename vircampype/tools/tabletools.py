@@ -56,6 +56,12 @@ fits_column_kwargs = dict(
 )
 
 
+# SExtractor FLAGS bits that make a public-catalogue measurement unusable (CFLG bit 16):
+# 8 truncated, 16 aperture data corrupted, 32 isophotal data corrupted, 64/128 memory
+# overflow. 1 (neighbours), 2 (deblended) and 4 (saturated pixel) are informational.
+SFLG_FATAL = 8 | 16 | 32 | 64 | 128
+
+
 def clean_source_table(
     table,
     image_header=None,
@@ -1038,20 +1044,25 @@ def convert2public(
         fil_magaper = np.nanmin(mag_aper, axis=1) < mag_saturation
         cflg[fil_magaper] = True
         cflg_reason[fil_magaper] += 1
-    # Bad flux measurement
-    fil_flux_auto = data_flux_auto < 0.01
+    # Bad flux measurement. Tests are written NaN-aware ("not good" rather than
+    # "bad"): sextractor_nanify_bad_values turns values <= 0 into NaN upstream.
+    fil_flux_auto = ~(np.asarray(data_flux_auto) >= 0.01)
     cflg[fil_flux_auto] = True
     cflg_reason[fil_flux_auto] += 2
     # Bad SNR
-    fil_snr = data_snr_win <= 0
+    fil_snr = ~(np.asarray(data_snr_win) > 0)
     cflg[fil_snr] = True
     cflg_reason[fil_snr] += 4
     # Bad number of images
     fil_nimg = data_nimg < 1
     cflg[fil_nimg] = True
     cflg_reason[fil_nimg] += 8
-    # Bad sextractor flags
-    fil_sflg = data_sflg >= 4
+    # Bad sextractor flags: truncated (8), corrupted aperture/isophotal data
+    # (16, 32) and memory overflows (64, 128). Saturation (4) is not fatal: the
+    # SATURATE level is conservative and those measurements are as good as
+    # unsaturated ones (cross-epoch tests, v2.7.0 CrA); it stays visible in SFLG.
+    # Blending (1, 2) stays visible in SFLG as well.
+    fil_sflg = (np.asarray(data_sflg).astype(np.int64) & SFLG_FATAL) > 0
     cflg[fil_sflg] = True
     cflg_reason[fil_sflg] += 16
     # Bad weight flag
@@ -1063,7 +1074,7 @@ def convert2public(
     cflg[fil_fwhm] = True
     cflg_reason[fil_fwhm] += 64
     # Bad MJD
-    fil_mjd = data_mjd < 0
+    fil_mjd = ~(np.asarray(data_mjd) > 0)
     cflg[fil_mjd] = True
     cflg_reason[fil_mjd] += 128
     # Bad class star
@@ -1071,7 +1082,11 @@ def convert2public(
     cflg[fil_cls] = True  # CLASS_STAR must have worked in sextractor
     cflg_reason[fil_cls] += 256
 
-    # Clean bad growth magnitudes
+    # Growth-curve outliers (bit 512): sources MORE concentrated than point sources
+    # of the same magnitude, i.e. the aperture-matched 3 px magnitude is brighter
+    # than the 4 px one by more than 0.05 mag and 3 sigma (sharp artefacts such as
+    # hot pixels or cosmic-ray residuals). Extended emission is caught by the
+    # nebula filter below (bit 1024), not by this test.
     growth = data_mag_aper_matched_cal[:, 0] - data_mag_aper_matched_cal[:, 1]
     mag_min, mag_max = np.nanmin(mag_best), np.nanmax(mag_best)
     mag_range = np.arange(mag_min, mag_max + 0.25, 0.25)
@@ -1103,7 +1118,9 @@ def convert2public(
     cflg[fil_growth] = True
     cflg_reason[fil_growth] += 512
 
-    # Nebula filter from VISION
+    # Nebula filter (bit 1024): extended emission / nebulous knots - high local
+    # background relative to the 3 px aperture flux, a growth from 3 to 4 px of
+    # at least 0.2 mag and a non-stellar classification
     fil_neb = (
         (data_background / data_flux_aper[:, 0] > 0.02)
         & (data_mag_aper_matched[:, 0] - data_mag_aper_matched[:, 1] >= 0.2)
@@ -1112,12 +1129,12 @@ def convert2public(
     cflg[fil_neb] = True
     cflg_reason[fil_neb] += 1024
 
-    # Construct quality flag
+    # Construct quality flag (fatal SExtractor flags are part of CFLG)
     qflg = np.full(len(input_table), fill_value="X", dtype=str)
-    qflg[(data_sflg < 4) & ~cflg] = "D"
-    qflg[(magerr_best < 0.21714) & (data_sflg < 4) & ~cflg] = "C"
-    qflg[(magerr_best < 0.15510) & (data_sflg < 4) & ~cflg] = "B"
-    qflg[(magerr_best < 0.10857) & (data_sflg < 4) & ~cflg] = "A"
+    qflg[~cflg] = "D"
+    qflg[(magerr_best < 0.21714) & ~cflg] = "C"
+    qflg[(magerr_best < 0.15510) & ~cflg] = "B"
+    qflg[(magerr_best < 0.10857) & ~cflg] = "A"
 
     # Copy values from merged 2MASS columns
     mag_best[idx_2mass] = data_mag_2mass[idx_2mass]
@@ -1133,6 +1150,7 @@ def convert2public(
     aper_best[idx_2mass] = np.nan
     data_sflg[idx_2mass] = 0
     cflg[idx_2mass] = False
+    cflg_reason[idx_2mass] = 0  # placeholder NIMG/CLS/... of 2MASS rows must not leave reasons
     qflg[idx_2mass] = data_qflg_2mass[idx_2mass]
 
     # Final cleaning of VISIONS sources to kick out useless rows
@@ -1141,7 +1159,7 @@ def convert2public(
         & (data_erra_tot[idx_survey] < 1000)
         & (data_errb_tot[idx_survey] > 0.0)
         & (data_errb_tot[idx_survey] < 1000)
-        & (data_errpa[idx_survey] > 0.0)
+        & (data_errpa[idx_survey] >= 0.0)
         & (mag_best[idx_survey] > 0.0)
         & (mag_best[idx_survey] < 50.0)
         & (magerr_best[idx_survey] > 0.0)
@@ -1324,8 +1342,8 @@ def merge_with_2mass(
     mag_2mass_clean = table_2mass_clean[key_mag_2mass]
     magerr_2mass_clean = table_2mass_clean[f"e_{key_mag_2mass}"]
 
-    # Bright sources: purely by magnitude. The saturation flag (FLAGS & 4) is
-    # conservative and stays in the catalog as a warning, but does not trigger it.
+    # Bright sources: purely by magnitude. The saturation flag (FLAGS & 4) does
+    # not trigger the replacement; it stays visible in SFLG (not fatal for QFLG).
     idx_2mass_bright = np.where(mag_2mass < mag_limit)[0]
 
     # Extract bright and saturated sources
