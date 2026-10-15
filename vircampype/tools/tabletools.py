@@ -1149,8 +1149,11 @@ def convert2public(
     data_mjd[idx_2mass] = data_mjd_2mass[idx_2mass]
     aper_best[idx_2mass] = np.nan
     data_sflg[idx_2mass] = 0
-    cflg[idx_2mass] = False
-    cflg_reason[idx_2mass] = 0  # placeholder NIMG/CLS/... of 2MASS rows must not leave reasons
+    # 2MASS rows: placeholder NIMG/CLS/... must not leave reasons; bright stars whose
+    # 2MASS entry failed the quality purge (QFLG_2MASS "X") are unusable (2048)
+    failed_2mass = np.asarray(data_qflg_2mass)[idx_2mass] == "X"
+    cflg[idx_2mass] = failed_2mass
+    cflg_reason[idx_2mass] = np.where(failed_2mass, 2048, 0)
     qflg[idx_2mass] = data_qflg_2mass[idx_2mass]
 
     # Final cleaning of VISIONS sources to kick out useless rows
@@ -1339,8 +1342,6 @@ def merge_with_2mass(
 
     # Read 2MASS magnitudes
     mag_2mass = table_2mass[key_mag_2mass]
-    mag_2mass_clean = table_2mass_clean[key_mag_2mass]
-    magerr_2mass_clean = table_2mass_clean[f"e_{key_mag_2mass}"]
 
     # Bright sources: purely by magnitude. The saturation flag (FLAGS & 4) does
     # not trigger the replacement; it stays visible in SFLG (not fatal for QFLG).
@@ -1358,8 +1359,23 @@ def merge_with_2mass(
     # Normalize weight
     weight_image_norm = weight_image / np.nanmean(weight_image)
 
+    def _mean_weight_cross(ra_deg, dec_deg):
+        """Mean normalised weight over the pixel and its 4 neighbours (in bounds)."""
+        xw, yw = wcs_weight.wcs_world2pix(ra_deg, dec_deg, 0)
+        xi, yi = np.asarray(xw).astype(int), np.asarray(yw).astype(int)
+        ny, nx = weight_image_norm.shape
+        total = np.zeros(len(xi), dtype=float)
+        count = np.zeros(len(xi), dtype=int)
+        for dx, dy in zip([0, -1, 0, 1, 0], [0, 0, -1, 0, 1]):
+            x, y = xi + dx, yi + dy
+            ok = (x >= 0) & (y >= 0) & (x < nx) & (y < ny)
+            total[ok] += weight_image_norm[y[ok], x[ok]]
+            count[ok] += 1
+        return np.where(count > 0, total / np.maximum(count, 1), 0.0)
+
     # Keep only those from 2MASS that are within footprint
     keep_bright = wcs_weight.footprint_contains(skycoord_2mass_bright)
+    idx_2mass_bright = idx_2mass_bright[keep_bright]
     skycoord_2mass_bright = skycoord_2mass_bright[keep_bright]
     mag_2mass_bright = mag_2mass_bright[keep_bright]
 
@@ -1411,33 +1427,48 @@ def merge_with_2mass(
         idx_temp_clean = idx_temp_clean[keep]
 
         # Keep only those with non-0 weights
-        xw, yw = wcs_weight.wcs_world2pix(
-            skycoord_2mass_clean.ra[idx_temp_clean],
-            skycoord_2mass_clean.dec[idx_temp_clean],
-            0,
+        weight_temp = _mean_weight_cross(
+            skycoord_2mass_clean.ra.degree[idx_temp_clean],
+            skycoord_2mass_clean.dec.degree[idx_temp_clean],
         )
-
-        # Extract weights around current pixel
-        weight_temp = np.full_like(yw, fill_value=0.0)
-        norm = 0
-        for xi, yi in zip([0, -1, 0, 1, 0], [0, 0, -1, 0, 1]):
-            try:
-                weight_temp += weight_image_norm[
-                    yw.astype(int) + yi, xw.astype(int) + xi
-                ]
-                norm += 1
-            except IndexError:
-                pass
-        if norm > 0:
-            weight_temp /= norm
-
         idx_temp_clean = idx_temp_clean[weight_temp > 0.0001]
         if len(idx_temp_clean) > 0:
             idx_2mass_near_bright.extend(idx_temp_clean)
 
     # Only keep unique sources
     idx_self_near_bright = np.unique(idx_self_near_bright)
-    idx_2mass_near_bright = np.unique(idx_2mass_near_bright)
+    idx_2mass_near_bright = np.unique(idx_2mass_near_bright).astype(int)
+
+    # Bright stars whose own 2MASS entry fails the quality purge are not in the
+    # clean replacement set; their survey detections are removed above, so without
+    # a row they would vanish from the catalogue. Add them as their own 2MASS row,
+    # flagged unusable (QFLG_2MASS "X"; convert2public sets CFLG and reason 2048).
+    if len(idx_2mass_bright) > 0 and len(skycoord_2mass_clean) > 0:
+        _, sep_clean, _ = skycoord_2mass_bright.match_to_catalog_sky(
+            skycoord_2mass_clean
+        )
+        in_clean = sep_clean.arcsec < 0.1
+    else:
+        in_clean = np.zeros(len(idx_2mass_bright), dtype=bool)
+    idx_2mass_failed = idx_2mass_bright[~in_clean]
+    if len(idx_2mass_failed) > 0:
+        weight_failed = _mean_weight_cross(
+            skycoord_2mass.ra.degree[idx_2mass_failed],
+            skycoord_2mass.dec.degree[idx_2mass_failed],
+        )
+        idx_2mass_failed = idx_2mass_failed[weight_failed > 0.0001]
+    idx_2mass_failed = np.asarray(idx_2mass_failed, dtype=int)
+
+    def _replacement(col):
+        """Column values of the replacement rows: clean neighbours, then failed stars."""
+        return np.concatenate(
+            [
+                np.asarray(table_2mass_clean[col])[idx_2mass_near_bright],
+                np.asarray(table_2mass[col])[idx_2mass_failed],
+            ]
+        )
+
+    n_replacement = len(idx_2mass_near_bright) + len(idx_2mass_failed)
 
     # Remove bad sources from self
     table.remove_rows(idx_self_near_bright)  # noqa
@@ -1463,7 +1494,7 @@ def merge_with_2mass(
     for cc in table.itercols():
         # Determine shape of array
         shape = list(table[cc.name].shape)
-        shape[0] = len(idx_2mass_near_bright)
+        shape[0] = n_replacement
 
         if cc.dtype.kind == "f":
             table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=np.nan)
@@ -1478,15 +1509,30 @@ def merge_with_2mass(
 
     # Fill table
     table_new["SURVEY"] = "2MASS"
-    table_new["QFLG_2MASS"] = table_2mass_clean["QFLG_PB"][idx_2mass_near_bright]
-    table_new[key_ra] = skycoord_2mass_clean[idx_2mass_near_bright].ra.degree
-    table_new[key_dec] = skycoord_2mass_clean[idx_2mass_near_bright].dec.degree
-    table_new["MAG_2MASS"] = mag_2mass_clean[idx_2mass_near_bright]
-    table_new["MAGERR_2MASS"] = magerr_2mass_clean[idx_2mass_near_bright]
-    table_new["ERRMAJ_2MASS"] = table_2mass_clean["errMaj"][idx_2mass_near_bright]
-    table_new["ERRMIN_2MASS"] = table_2mass_clean["errMin"][idx_2mass_near_bright]
-    table_new["ERRPA_2MASS"] = table_2mass_clean["errPA"][idx_2mass_near_bright]
-    mjd2mass = Time(table_2mass_clean["JD"][idx_2mass_near_bright], format="jd").mjd
+    table_new["QFLG_2MASS"] = np.concatenate(
+        [
+            np.asarray(table_2mass_clean["QFLG_PB"])[idx_2mass_near_bright],
+            np.full(len(idx_2mass_failed), fill_value="X"),
+        ]
+    )
+    table_new[key_ra] = np.concatenate(
+        [
+            skycoord_2mass_clean.ra.degree[idx_2mass_near_bright],
+            skycoord_2mass.ra.degree[idx_2mass_failed],
+        ]
+    )
+    table_new[key_dec] = np.concatenate(
+        [
+            skycoord_2mass_clean.dec.degree[idx_2mass_near_bright],
+            skycoord_2mass.dec.degree[idx_2mass_failed],
+        ]
+    )
+    table_new["MAG_2MASS"] = _replacement(key_mag_2mass)
+    table_new["MAGERR_2MASS"] = _replacement(f"e_{key_mag_2mass}")
+    table_new["ERRMAJ_2MASS"] = _replacement("errMaj")
+    table_new["ERRMIN_2MASS"] = _replacement("errMin")
+    table_new["ERRPA_2MASS"] = _replacement("errPA")
+    mjd2mass = Time(_replacement("JD"), format="jd").mjd
     table_new["MJD_2MASS"] = mjd2mass * Unit("d")
 
     # Stack tables and return

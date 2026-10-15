@@ -652,9 +652,82 @@ class TestConvert2PublicFlags(unittest.TestCase):
         self.assertEqual(out["QFLG"][m[20]], "X")
         self.assertEqual(out["QFLG"][m[21]], "X")
 
+    def test_failed_2mass_row_is_x(self):
+        def mod(t):
+            t["QFLG_2MASS"][0] = "X"
+        _, out, m = self._run(mod)
+        j = m[0]
+        self.assertEqual(out["SURVEY"][j], "2MASS")
+        self.assertTrue(bool(out["CFLG"][j]))
+        self.assertEqual(int(out["CFLG_REASON"][j]), 2048)
+        self.assertEqual(out["QFLG"][j], "X")
+        # the other 2MASS rows stay clean
+        is2m = np.asarray(out["SURVEY"]) == "2MASS"
+        self.assertEqual(int(np.asarray(out["CFLG"])[is2m].sum()), 1)
+
     def test_2mass_rows_have_no_reason(self):
         _, out, _ = self._run(lambda t: None)
         is2m = np.asarray(out["SURVEY"]) == "2MASS"
         self.assertGreater(int(is2m.sum()), 0)
         np.testing.assert_array_equal(np.asarray(out["CFLG_REASON"])[is2m], 0)
         self.assertFalse(np.any(np.asarray(out["CFLG"])[is2m]))
+
+
+class TestMergeWith2massBrightStars(unittest.TestCase):
+    """Bright 2MASS stars that fail the quality purge must not vanish."""
+
+    @staticmethod
+    def _setup():
+        from astropy.io import fits as _fits
+        from astropy.wcs import WCS as _WCS
+
+        from vircampype.tools.tabletools import merge_with_2mass
+
+        n = 200
+        hdr = _fits.Header()
+        hdr.update(
+            NAXIS=2, NAXIS1=n, NAXIS2=n, CTYPE1="RA---TAN", CTYPE2="DEC--TAN",
+            CRVAL1=280.0, CRVAL2=-37.0, CRPIX1=n / 2, CRPIX2=n / 2,
+            CD1_1=-1 / 3600, CD1_2=0.0, CD2_1=0.0, CD2_2=1 / 3600,
+        )
+        weight = np.ones((n, n), dtype=np.float32)
+        w = _WCS(hdr)
+        # 2MASS: 0 = bright, passes purge; 1 = bright, fails purge; 2 = faint, clean
+        # 3 = bright, fails purge, outside the covered area (zero weight)
+        weight[:, 180:] = 0.0
+        ra, dec = w.wcs_pix2world([50, 120, 60, 190], [50, 120, 60, 100], 0)
+        t2 = Table()
+        t2["RAJ2000"], t2["DEJ2000"] = ra, dec
+        t2["Hmag"] = np.array([9.0, 9.5, 14.0, 9.2])
+        t2["e_Hmag"] = np.array([0.02, np.nan, 0.05, 0.03])
+        t2["errMaj"] = np.full(4, 0.06)
+        t2["errMin"] = np.full(4, 0.06)
+        t2["errPA"] = np.full(4, 10.0)
+        t2["JD"] = np.full(4, 2451000.5)
+        t2["QFLG_PB"] = np.array(["A", "E", "A", "U"])
+        clean = t2[[0, 2]]
+        # survey detections: one on each bright star, one far away
+        sra, sdec = w.wcs_pix2world([50, 120, 20], [50, 120, 20], 0)
+        ts = Table()
+        ts["ALPHAWIN_SKY"], ts["DELTAWIN_SKY"] = sra, sdec
+        ts["FLUX_AUTO"] = np.ones(3, dtype=np.float32)
+        out = merge_with_2mass(
+            table=ts, weight_image=weight, weight_header=hdr, table_2mass=t2,
+            table_2mass_clean=clean, mag_limit=12.0, key_ra="ALPHAWIN_SKY",
+            key_dec="DELTAWIN_SKY", key_mag_2mass="Hmag", key_ra_2mass="RAJ2000",
+            key_dec_2mass="DEJ2000", survey_name="VISIONS",
+        )
+        return out, t2
+
+    def test_failed_bright_star_added_as_x(self):
+        out, _ = self._setup()
+        survey = np.asarray(out["SURVEY"])
+        self.assertEqual(int((survey == "VISIONS").sum()), 1)  # only the far source
+        is2m = survey == "2MASS"
+        q = list(np.asarray(out["QFLG_2MASS"])[is2m])
+        # clean bright star replaced by itself, failed one added as X,
+        # failed star in the zero-weight area not added
+        self.assertEqual(sorted(q), ["A", "X"])
+        mag = np.asarray(out["MAG_2MASS"])[is2m]
+        self.assertAlmostEqual(float(mag[np.array(q) == "X"][0]), 9.5, places=5)
+        self.assertAlmostEqual(float(mag[np.array(q) == "A"][0]), 9.0, places=5)
