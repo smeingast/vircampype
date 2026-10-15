@@ -1345,7 +1345,12 @@ def merge_with_2mass(
 
     # Bright sources: purely by magnitude. The saturation flag (FLAGS & 4) does
     # not trigger the replacement; it stays visible in SFLG (not fatal for QFLG).
-    idx_2mass_bright = np.where(mag_2mass < mag_limit)[0]
+    # 2MASS upper limits ('U') and non-detections ('X') in this band are not
+    # measurements and do not define bright stars (QFLG_PB = per-band ph_qual).
+    is_measured = np.full(len(table_2mass), fill_value=True)
+    if "QFLG_PB" in table_2mass.colnames:
+        is_measured = ~np.isin(np.asarray(table_2mass["QFLG_PB"]), ["U", "X"])
+    idx_2mass_bright = np.where((mag_2mass < mag_limit) & is_measured)[0]
 
     # Extract bright and saturated sources
     skycoord_2mass_bright = skycoord_2mass[idx_2mass_bright]
@@ -1362,7 +1367,7 @@ def merge_with_2mass(
     def _mean_weight_cross(ra_deg, dec_deg):
         """Mean normalised weight over the pixel and its 4 neighbours (in bounds)."""
         xw, yw = wcs_weight.wcs_world2pix(ra_deg, dec_deg, 0)
-        xi, yi = np.asarray(xw).astype(int), np.asarray(yw).astype(int)
+        xi, yi = np.rint(xw).astype(int), np.rint(yw).astype(int)
         ny, nx = weight_image_norm.shape
         total = np.zeros(len(xi), dtype=float)
         count = np.zeros(len(xi), dtype=int)
@@ -1436,7 +1441,7 @@ def merge_with_2mass(
             idx_2mass_near_bright.extend(idx_temp_clean)
 
     # Only keep unique sources
-    idx_self_near_bright = np.unique(idx_self_near_bright)
+    idx_self_near_bright = np.unique(idx_self_near_bright).astype(int)
     idx_2mass_near_bright = np.unique(idx_2mass_near_bright).astype(int)
 
     # Bright stars whose own 2MASS entry fails the quality purge are not in the

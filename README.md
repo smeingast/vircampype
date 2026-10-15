@@ -265,6 +265,34 @@ needed and are safe to delete between runs.
 
 ---
 
+## Public catalogue flags
+
+`*.full.fits.ptab` (built when `build_public_catalog` is set) carries three flag columns:
+
+- `SFLG`: SExtractor `FLAGS` unchanged (0 for 2MASS rows). Bits 1 (neighbours), 2 (deblended) and 4 (saturated
+  pixel) are informational; bits 8-128 (truncated, corrupted data, memory overflow) are fatal (`CFLG_REASON` 16).
+  For the most precise photometry/astrometry use `SFLG == 0` (or `SFLG & 1 == 0` if deblended sources are fine).
+- `CFLG` (bool) is True if any `CFLG_REASON` bit is set; `CFLG_REASON` (sum of bits):
+
+  | bit | meaning |
+  |---|---|
+  | 1 | brightest aperture magnitude brighter than the bright limit (`PYPE REFMAG LO`) |
+  | 2 | `FLUX_AUTO` not >= 0.01 (incl. non-positive / NaN) |
+  | 4 | `SNR_WIN` not > 0 (incl. NaN) |
+  | 8 | `NIMG` < 1 |
+  | 16 | fatal SExtractor flag (bits 8-128) |
+  | 32 | `FLAGS_WEIGHT` > 0 (zero-weight pixels in the footprint) |
+  | 64 | `FWHM_WORLD` <= 0.2 arcsec |
+  | 128 | `MJDEFF` not > 0 (such rows are removed by the final row cut, so it never appears) |
+  | 256 | no source classification (`CLASS_STAR_INTERP` NaN) |
+  | 512 | growth-curve outlier: more concentrated than point sources of the same magnitude (3 px vs 4 px aperture-matched magnitude) |
+  | 1024 | nebula: high local background relative to the 3 px flux, growth 3->4 px >= 0.2 mag, non-stellar |
+  | 2048 | 2MASS row of a bright star whose 2MASS entry fails the quality purge (MAGERR may be NaN) |
+
+- `QFLG`: A/B/C/D for `MAGERR` < 0.10857 / 0.15510 / 0.21714 / otherwise (S/N 10/7/5, as 2MASS) when `CFLG` is
+  False; X when `CFLG` is True. 2MASS rows (`SURVEY` = "2MASS") replace survey detections around stars brighter
+  than the bright limit; they carry the 2MASS `ph_qual` letter (A-D) of the band, or X (bit 2048).
+
 ## Logging
 
 Each run writes a verbose, timestamped log to `path_pype/<name>/temp/pipeline_<timestamp>.log` at DEBUG level, including captured external-tool output, so a run is reconstructable from the file alone. The console stays minimal: a live progress bar on a terminal plus real warnings and errors (no progress codes are written when output is redirected). Set `log_retention: <N>` to keep only the newest N per-run logs, or `file_log: false` to skip the per-run file and rely on stdout (for example in a container that redirects to a node log).

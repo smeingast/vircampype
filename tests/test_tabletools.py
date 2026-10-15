@@ -731,3 +731,41 @@ class TestMergeWith2massBrightStars(unittest.TestCase):
         mag = np.asarray(out["MAG_2MASS"])[is2m]
         self.assertAlmostEqual(float(mag[np.array(q) == "X"][0]), 9.5, places=5)
         self.assertAlmostEqual(float(mag[np.array(q) == "A"][0]), 9.0, places=5)
+
+    def test_upper_limit_does_not_clean(self):
+        # a 2MASS 'U' entry (upper limit) brighter than the limit must neither
+        # remove survey detections nor be added as a row
+        from astropy.io import fits as _fits
+        from astropy.wcs import WCS as _WCS
+
+        from vircampype.tools.tabletools import merge_with_2mass
+
+        n = 100
+        hdr = _fits.Header()
+        hdr.update(
+            NAXIS=2, NAXIS1=n, NAXIS2=n, CTYPE1="RA---TAN", CTYPE2="DEC--TAN",
+            CRVAL1=280.0, CRVAL2=-37.0, CRPIX1=n / 2, CRPIX2=n / 2,
+            CD1_1=-1 / 3600, CD1_2=0.0, CD2_1=0.0, CD2_2=1 / 3600,
+        )
+        w = _WCS(hdr)
+        ra, dec = w.wcs_pix2world([30, 0.3], [30, 50], 0)  # 2nd: just inside the edge
+        t2 = Table()
+        t2["RAJ2000"], t2["DEJ2000"] = ra, dec
+        t2["Hmag"] = np.array([9.0, 9.0])
+        t2["e_Hmag"] = np.array([np.nan, 0.02])
+        for c, v in (("errMaj", 0.06), ("errMin", 0.06), ("errPA", 0.0), ("JD", 2451000.5)):
+            t2[c] = np.full(2, v)
+        t2["QFLG_PB"] = np.array(["U", "E"])
+        ts = Table()
+        ts["ALPHAWIN_SKY"], ts["DELTAWIN_SKY"] = w.wcs_pix2world([30, 70], [30, 70], 0)
+        ts["FLUX_AUTO"] = np.ones(2, dtype=np.float32)
+        out = merge_with_2mass(
+            table=ts, weight_image=np.ones((n, n), dtype=np.float32), weight_header=hdr,
+            table_2mass=t2, table_2mass_clean=t2[np.array([], dtype=int)], mag_limit=12.0,
+            key_ra="ALPHAWIN_SKY", key_dec="DELTAWIN_SKY", key_mag_2mass="Hmag",
+            key_ra_2mass="RAJ2000", key_dec_2mass="DEJ2000", survey_name="VISIONS",
+        )
+        survey = np.asarray(out["SURVEY"])
+        self.assertEqual(int((survey == "VISIONS").sum()), 2)  # nothing removed by U
+        # the failed 'E' star at the edge is added once, as X
+        self.assertEqual(list(np.asarray(out["QFLG_2MASS"])[survey == "2MASS"]), ["X"])
