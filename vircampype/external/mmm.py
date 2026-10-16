@@ -744,12 +744,22 @@ def mmm_batch(
         (a few 1e-7 of the sky level), and a sample lying within that rounding
         of a cut can be classified differently; such decisions follow the
         float64 result and are rare (none seen on real rows or tiles, ~1e-4
-        of adversarial fuzz rows with tiny sigma at high levels).
+        of adversarial fuzz rows with tiny sigma at high levels). Integer
+        input beyond ~2**53 / n differs because the reference's int64 sums
+        overflow there. float16 and complex input are rejected.
+
+    Notes
+    -----
+    Memory: about 20 bytes per element of a chunk. For ``axis`` other than the
+    last on a non-contiguous layout the input is additionally copied once in
+    full (``moveaxis`` + ``reshape``); 2-D input with ``axis=1`` is a view.
     """
     data = np.asarray(data)
     if data.ndim == 0:
         raise ValueError("mmm_batch needs at least a 1-D input")
-    if data.dtype.kind not in "fiub":
+    if data.dtype.kind not in "fiub" or data.dtype == np.float16:
+        # complex is meaningless; float16 cannot be matched to rounding because
+        # the reference sums float16 slices (cast to float32 first).
         raise TypeError(f"mmm_batch does not support dtype {data.dtype}")
     if minsky < 1:
         raise ValueError("mmm_batch needs minsky >= 1")

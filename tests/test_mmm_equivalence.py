@@ -544,6 +544,14 @@ class TestValidation(unittest.TestCase):
             mmm_batch(X, minsky=0)
         with self.assertRaises(TypeError):
             mmm_batch(X.astype(complex))
+        with self.assertRaises(TypeError):
+            mmm_batch(X.astype(np.float16))
+        # the scalar path still follows the reference for float16
+        self.assertTrue(
+            _same_triplet(
+                mmm(X[0].astype(np.float16)), mmm_reference(X[0].astype(np.float16))
+            )
+        )
         with self.assertRaises(np.exceptions.AxisError):
             mmm_batch(X, axis=2)
         with self.assertRaises(np.exceptions.AxisError):
