@@ -1,33 +1,39 @@
-"""Equivalence of the vectorised MMM with the original (reference) implementation.
+"""Equivalence of ``vircampype.tools.mmmtools`` with the original MMM port.
 
-Three layers:
+The oracle is the untouched original, ``vircampype.external.mmm.mmm``. Three
+layers:
 
-* ``mmm`` (scalar) must be bit-identical to ``mmm_reference`` (same values, same
+* ``mmmtools.mmm`` (scalar) must be bit-identical to the oracle (same values, same
   NaN/-1 failure codes, same return types) on randomised and adversarial inputs.
-* ``mmm_batch`` must agree with ``mmm`` slice by slice to float rounding. The batch
-  keeps its running sums in float64 where the reference uses float32 partial sums
-  for float32 input, so the tolerance scales with the sky level (a few 1e-7
-  relative) and is tight (1e-9) for float64 and exact for integer input.
-* Regression tests for every edge case and failure path, and for the behaviour of
-  the two pipeline callers (``destripe_helper``, ``background_image``).
+* ``mmm_batch`` must agree with the scalar slice by slice to float rounding, with
+  component-specific tolerances (mode: relative to the sky level; sigma: relative
+  to sigma plus the data resolution at that level; skew: the mode tolerance over
+  max(1, sigma)); exact for integer input. Wherever the scalar succeeds the batch
+  must succeed (failed batch slices are recomputed with the scalar).
+* Regression tests for every edge case and failure path, and for the two pipeline
+  callers (``destripe_helper``, ``background_image``) with the ``vectorized_mmm``
+  flag off (original code path, external ``mmm``) and on.
 """
 
 import unittest
 import warnings
+from unittest import mock
 
 import numpy as np
 
-from vircampype.external.mmm import (
+from vircampype.external.mmm import mmm as mmm_reference
+from vircampype.tools import imagetools
+from vircampype.tools.imagetools import background_image, destripe_helper
+from vircampype.tools.mmmtools import (
     _lower_bound,
     _row_searchsorted,
+    _scalar_cheaper,
     _segment_sums,
     _upper_bound,
+    batch_is_vectorised,
     mmm,
     mmm_batch,
-    mmm_reference,
-    skymode,
 )
-from vircampype.tools.imagetools import background_image, destripe_helper
 
 
 def _same_triplet(a, b):
@@ -180,6 +186,25 @@ class TestScalarBehaviour(unittest.TestCase):
         with self.assertRaises((ValueError, IndexError)):
             mmm_reference(x, highbad=140.0)
 
+    def test_highbad_zero_is_a_level_and_none_false_are_unset(self):
+        """The one intentional deviation: highbad=0 is a valid level (the
+        reference tests it for truth, so 0 meant unset)."""
+        rng = np.random.default_rng(29)
+        x = rng.normal(-1.0, 1.0, 2000)
+        x[:50] = 0.5  # plateau above zero
+        unset = mmm_reference(x)
+        self.assertTrue(_same_triplet(mmm(x), unset))
+        self.assertTrue(_same_triplet(mmm(x, highbad=None), unset))
+        self.assertTrue(_same_triplet(mmm(x, highbad=False), unset))
+        zero = mmm(x, highbad=0)
+        self.assertTrue(_same_triplet(zero, mmm(x, highbad=0.0)))
+        self.assertTrue(_same_triplet(zero, mmm(x, highbad=1e-12)))
+        self.assertFalse(_same_triplet(zero, unset))
+        for a, b in zip(mmm_batch(np.tile(x, (20, 1)), highbad=0), zero):
+            np.testing.assert_allclose(a, b, rtol=1e-12, atol=1e-12)
+        with self.assertRaises(ValueError):
+            mmm(x, highbad=True)
+
     def test_nan_false_without_nonfinite_matches_reference(self):
         rng = np.random.default_rng(7)
         x = rng.normal(100.0, 5.0, 500)
@@ -197,11 +222,6 @@ class TestScalarBehaviour(unittest.TestCase):
 
     def test_list_input(self):
         self.assertAlmostEqual(mmm(list(range(100)))[0], 49.5, delta=1.0)
-
-    def test_skymode(self):
-        rng = np.random.default_rng(9)
-        x = rng.normal(100.0, 5.0, 500)
-        self.assertEqual(skymode(x), mmm(x)[0])
 
     def test_searchsorted_compares_in_promoted_dtype(self):
         """The closed forms rely on float32 arrays being searched with float64 cuts
@@ -311,30 +331,65 @@ class TestBatchHelpers(unittest.TestCase):
 class TestBatchEquivalence(unittest.TestCase):
     """``mmm_batch`` agrees with the scalar ``mmm`` slice by slice."""
 
-    def _tolerance(self, ref, dtype):
-        level = np.abs(ref[:, 0]) + np.where(np.isfinite(ref[:, 1]), ref[:, 1], 0.0)
-        rel = 1e-9 if dtype != np.float32 else 2e-6
-        tol = rel * (level + 1.0)
-        return np.stack([tol, tol, tol / np.maximum(1.0, np.abs(ref[:, 1]))], 1)
+    @staticmethod
+    def _tolerance(ref, dtype):
+        """Component-specific tolerances for (mode, sigma, skew).
 
-    def _check_block(self, X, **kwargs):
+        The batch and the reference differ by the rounding of the data dtype
+        (float32 partial sums in the reference), so the mode tolerance is a few
+        tens of data ulps at the sky level; sigma is compared relative to itself
+        plus a few data ulps at the level (it cannot be determined better than
+        that from data quantised at the ulp); skew inherits the mode tolerance
+        over max(1, sigma).
+        """
+        eps = np.finfo(np.float32 if dtype == np.float32 else np.float64).eps
+        sigma = np.where(np.isfinite(ref[:, 1]), np.abs(ref[:, 1]), 0.0)
+        level = np.abs(ref[:, 0]) + sigma
+        tol_mod = 32 * eps * level + 1e-300
+        tol_sig = 1e-4 * sigma + 8 * eps * level + 1e-300
+        tol_skew = 2 * tol_mod / np.maximum(1.0, sigma) + 1e-300
+        return np.stack([tol_mod, tol_sig, tol_skew], 1)
+
+    @staticmethod
+    def _failed(res):
+        return ~(np.isfinite(res[:, 1]) & (res[:, 1] >= 0.0))
+
+    def _check_block(self, X, max_flips=0, **kwargs):
+        """Batch vs scalar on a block.
+
+        Wherever the scalar succeeds the batch succeeds; a batch failure is
+        exactly the scalar's; successful rows agree within the component
+        tolerances. ``max_flips`` rows may differ by a window decision (data
+        quantised at the dtype resolution); those must still be sane estimates.
+        """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             got = np.stack(mmm_batch(X, axis=1, **kwargs), 1)
             ref = np.array([mmm(row, **kwargs) for row in X], dtype=float)
-        # identical failure patterns
-        np.testing.assert_array_equal(np.isnan(got), np.isnan(ref))
-        np.testing.assert_array_equal(got[:, 1] == -1.0, ref[:, 1] == -1.0)
-        fin = np.isfinite(ref).all(axis=1)
+        got_failed, ref_failed = self._failed(got), self._failed(ref)
+        self.assertFalse(
+            np.any(got_failed & ~ref_failed),
+            msg=f"{X.dtype} {kwargs}: batch-only failure",
+        )
+        for i in np.flatnonzero(got_failed):
+            self.assertTrue(_same_triplet(got[i], ref[i]), msg=f"{got[i]} != {ref[i]}")
+        fin = ~ref_failed & ~got_failed
         if np.issubdtype(X.dtype, np.integer):
             np.testing.assert_array_equal(got[fin], ref[fin])
             return
         diff = np.abs(got[fin] - ref[fin])
-        tol = self._tolerance(ref[fin], X.dtype)
-        worst = np.max(diff / tol) if diff.size else 0.0
+        ratio = diff / self._tolerance(ref[fin], X.dtype)
+        beyond = np.any(ratio > 1.0, axis=1)
+        worst = ratio.max(axis=0) if ratio.size else 0.0
         self.assertLessEqual(
-            worst, 1.0, msg=f"{X.dtype} {kwargs}: max diff/tol {worst}"
+            int(beyond.sum()),
+            max_flips,
+            msg=f"{X.dtype} {kwargs}: max diff/tol {worst}",
         )
+        for g, r in zip(got[fin][beyond], ref[fin][beyond]):
+            sig = max(r[1], g[1])
+            self.assertLessEqual(abs(g[0] - r[0]), 5.0 * sig)
+            self.assertLessEqual(max(r[1], g[1]), 2.0 * min(r[1], g[1]))
 
     def test_randomised_blocks(self):
         rng = np.random.default_rng(13)
@@ -406,7 +461,9 @@ class TestBatchEquivalence(unittest.TestCase):
         X = rng.normal(1e15, 1e13, (32, 300)).astype(np.float32)
         X[:, :3] = 3e38  # never inside the window
         self._check_block(X)
-        Y = rng.normal(0.0, 1e-30, (32, 300)).astype(np.float32)
+        # sigma 1e-15: delta**2 (1e-30) stays a normal float32 number; below
+        # ~1e-19 the reference's float32 slice sums of delta**2 underflow
+        Y = rng.normal(0.0, 1e-15, (32, 300)).astype(np.float32)
         self._check_block(Y)
 
     def test_axis_and_shape(self):
@@ -485,55 +542,111 @@ class TestBatchProperties(unittest.TestCase):
 
 
 class TestCallers(unittest.TestCase):
-    """The pipeline callers give the same results as with the per-slice reference."""
+    """``destripe_helper`` / ``background_image``: with ``vectorized_mmm`` off they
+    run the original code (external ``mmm`` per slice, nothing else); with it on
+    they agree with that to float32 rounding."""
 
     @staticmethod
-    def _reference_batch(data, axis=-1, **kwargs):
-        rows = np.moveaxis(data, axis, -1).reshape(-1, data.shape[axis])
-        res = np.array([mmm_reference(r, **kwargs) for r in rows], dtype=float)
-        shape = data.shape[:axis] + data.shape[axis + 1 :]
-        return tuple(res[:, i].reshape(shape) for i in range(3))
-
-    def _frame(self, rng, level):
-        frame = rng.normal(level, 18.0, (256, 512)).astype(np.float32)
-        frame += rng.normal(0.0, 2.0, 256)[:, None]  # stripes
+    def _frame(rng, level, shape=(256, 512)):
+        frame = rng.normal(level, 18.0, shape).astype(np.float32)
+        frame += rng.normal(0.0, 2.0, shape[0])[:, None]  # stripes
         frame[rng.random(frame.shape) < 0.04] = np.nan  # masked sources
         frame[40:43] = np.nan  # fully masked rows
         frame[100:110, 200:230] += 3000.0  # bright source
         return frame
 
-    def test_destripe_helper_matches_reference(self):
-        from vircampype.tools import imagetools
+    def test_flag_off_is_the_original_path(self):
+        self.assertIs(imagetools.mmm, mmm_reference)
+        frame = self._frame(np.random.default_rng(25), 1000.0)
+        with (
+            mock.patch.object(imagetools, "mmm", wraps=imagetools.mmm) as ext,
+            mock.patch.object(imagetools, "mmm_batch") as batch,
+            mock.patch.object(imagetools, "mmm_fast") as fast,
+        ):
+            destripe_helper(frame, smooth=True)
+            self.assertEqual(ext.call_count, frame.shape[0])
+            background_image(frame, 64, 3)
+            self.assertEqual(ext.call_count, frame.shape[0] + frame.size // 64**2)
+            batch.assert_not_called()
+            fast.assert_not_called()
 
+    def test_flag_on_uses_batch_or_fast_scalar(self):
+        frame = self._frame(np.random.default_rng(25), 1000.0, shape=(512, 1024))
+        with (
+            mock.patch.object(imagetools, "mmm") as ext,
+            mock.patch.object(
+                imagetools, "mmm_batch", wraps=imagetools.mmm_batch
+            ) as batch,
+            mock.patch.object(
+                imagetools, "mmm_fast", wraps=imagetools.mmm_fast
+            ) as fast,
+        ):
+            destripe_helper(frame, smooth=True, vectorized_mmm=True)
+            background_image(frame, 64, 3, vectorized_mmm=True)
+            self.assertEqual(batch.call_count, 2)
+            fast.assert_not_called()
+            # 256-px tiles are sort-bound: views + fast scalar, no tile matrix
+            background_image(frame, 256, 3, vectorized_mmm=True)
+            self.assertEqual(batch.call_count, 2)
+            self.assertEqual(fast.call_count, frame.size // 256**2)
+            ext.assert_not_called()
+
+    def test_destripe_helper_flag_on_matches_flag_off(self):
         rng = np.random.default_rng(25)
         for level in (0.0, 4000.0):
             frame = self._frame(rng, level)
-            new = destripe_helper(frame, smooth=True)
-            original = imagetools.mmm_batch
-            try:
-                imagetools.mmm_batch = self._reference_batch
-                old = destripe_helper(frame, smooth=True)
-            finally:
-                imagetools.mmm_batch = original
-            self.assertTrue(np.all(np.isfinite(new)))
-            np.testing.assert_allclose(new, old, atol=2e-3 * (1 + level / 4000.0))
+            off = destripe_helper(frame, smooth=True)
+            on = destripe_helper(frame, smooth=True, vectorized_mmm=True)
+            self.assertTrue(np.all(np.isfinite(on)))
+            np.testing.assert_allclose(on, off, atol=2e-3 * (1 + level / 4000.0))
 
-    def test_background_image_matches_reference(self):
-        from vircampype.tools import imagetools
-
+    def test_background_image_flag_on_matches_flag_off(self):
         rng = np.random.default_rng(26)
         for level in (0.0, 4000.0):
-            frame = self._frame(rng, level)
-            bg_new, std_new = background_image(frame, 64, 3)
-            original = imagetools.mmm_batch
-            try:
-                imagetools.mmm_batch = self._reference_batch
-                bg_old, std_old = background_image(frame, 64, 3)
-            finally:
-                imagetools.mmm_batch = original
-            self.assertEqual(bg_new.shape, frame.shape)
-            np.testing.assert_allclose(bg_new, bg_old, atol=2e-3 * (1 + level / 4000.0))
-            np.testing.assert_allclose(std_new, std_old, atol=1e-4)
+            for mesh in (64, 256):
+                frame = self._frame(rng, level, shape=(512, 1024))
+                bg_off, std_off = background_image(frame, mesh, 3)
+                bg_on, std_on = background_image(frame, mesh, 3, vectorized_mmm=True)
+                self.assertEqual(bg_on.shape, frame.shape)
+                np.testing.assert_allclose(
+                    bg_on, bg_off, atol=2e-3 * (1 + level / 4000.0)
+                )
+                np.testing.assert_allclose(std_on, std_off, atol=1e-4)
+
+    def test_destripe_helper_flag_on_never_fails_where_flag_off_succeeds(self):
+        # codex reproducer: sigma of a few float32 ulps at 100 ADU; the batch core
+        # alone ran to mxiter here, the flag-off path converged
+        o = np.array(
+            [
+                -94,
+                52,
+                36,
+                -46,
+                30,
+                7,
+                -53,
+                69,
+                45,
+                -91,
+                -77,
+                -81,
+                -97,
+                -45,
+                82,
+                -54,
+                -4,
+                93,
+                -99,
+                -94,
+            ]
+        )
+        row = (np.float32(100) + o * np.spacing(np.float32(100))).astype(np.float32)
+        frame = np.full((16, 2048), np.nan, dtype=np.float32)
+        frame[:, : row.size] = row
+        off = destripe_helper(frame, smooth=False)
+        on = destripe_helper(frame, smooth=False, vectorized_mmm=True)
+        self.assertTrue(np.all(np.isfinite(on)))
+        np.testing.assert_allclose(on, off, atol=1e-6)
 
 
 class TestValidation(unittest.TestCase):
@@ -573,6 +686,110 @@ class TestValidation(unittest.TestCase):
         vals = np.array([np.nan, 5.5, np.nan])  # row 1 holds 4..7
         res = _row_searchsorted(s, np.arange(3), n, vals, np.ones(3, dtype=bool))
         np.testing.assert_array_equal(res, [4, 2, 4])
+
+
+class TestBatchNeverFailsWhereScalarSucceeds(unittest.TestCase):
+    """Failed batch slices are recomputed with the scalar ``mmm`` (codex finding:
+    float64 sums can keep a window moving to mxiter at float32 resolution)."""
+
+    def test_codex_reproducer_sigma_of_a_few_ulps(self):
+        o = np.array(
+            [
+                -94,
+                52,
+                36,
+                -46,
+                30,
+                7,
+                -53,
+                69,
+                45,
+                -91,
+                -77,
+                -81,
+                -97,
+                -45,
+                82,
+                -54,
+                -4,
+                93,
+                -99,
+                -94,
+            ]
+        )
+        x = (np.float32(100) + o * np.spacing(np.float32(100))).astype(np.float32)
+        ref = mmm(x, minsky=10)
+        self.assertTrue(np.isfinite(ref[1]))
+        got = np.stack(mmm_batch(np.tile(x, (16, 1)), axis=1, minsky=10, mxiter=500), 1)
+        tol = TestBatchEquivalence._tolerance(np.tile(ref, (16, 1)), np.float32)
+        self.assertTrue(np.all(np.isfinite(got)))
+        self.assertTrue(np.all(np.abs(got - ref) <= tol))
+
+    def test_codex_reproducer_high_level_tiny_sigma(self):
+        rng = np.random.default_rng(6133)
+        x = rng.normal(10000, 0.1, (64, 25)).astype(np.float32)[31]
+        ref = mmm(x, minsky=20, mxiter=3)
+        self.assertTrue(np.isfinite(ref[1]))
+        got = np.stack(mmm_batch(np.tile(x, (16, 1)), axis=1, minsky=20, mxiter=3), 1)
+        self.assertTrue(np.all(np.isfinite(got)))
+        tol = TestBatchEquivalence._tolerance(np.tile(ref, (16, 1)), np.float32)
+        self.assertTrue(np.all(np.abs(got - ref) <= tol))
+
+    def test_near_quantisation_blocks(self):
+        """Data quantised at the dtype resolution: no batch-only failures, and
+        agreement within the component tolerances wherever both succeed."""
+        rng = np.random.default_rng(30)
+        check = TestBatchEquivalence()
+        cases = [
+            (np.float32, 100.0, 1e-5),
+            (np.float32, 100.0, 1e-4),
+            (np.float32, 10000.0, 0.1),
+            (np.float32, 10000.0, 1.0),
+            (np.float32, 30000.0, 0.3),
+            (np.float64, 1e8, 5e-7),
+            (np.float64, 1e8, 1e-6),
+            (np.float64, 1e12, 1e-3),
+        ]
+        for dtype, level, sigma in cases:
+            for n in (25, 200, 2048):
+                X = rng.normal(level, sigma, (64, n)).astype(dtype)
+                for mxiter in (2, 3, 50):
+                    # data quantised at ~1 % of sigma: a float32-vs-float64
+                    # decision at a cut may differ for a row or two per block
+                    check._check_block(X, max_flips=2, minsky=10, mxiter=mxiter)
+
+
+class TestDispatch(unittest.TestCase):
+    def test_batch_is_vectorised(self):
+        self.assertTrue(batch_is_vectorised(1024, 64**2))
+        self.assertTrue(batch_is_vectorised(256, 128**2))
+        self.assertTrue(batch_is_vectorised(2048, 2048))
+        self.assertFalse(batch_is_vectorised(64, 256**2))  # sort-bound tiles
+        self.assertFalse(batch_is_vectorised(4, 2048))  # too few slices
+
+    def test_sparse_slices_go_to_the_scalar_path(self):
+        # cost model: 20 finite of 16384 -> scalar; dense 16384 -> batch;
+        # 2048-element rows -> always batch
+        np.testing.assert_array_equal(
+            _scalar_cheaper(np.array([20, 16000]), 16384), [True, False]
+        )
+        np.testing.assert_array_equal(
+            _scalar_cheaper(np.array([2, 2048]), 2048), [False, False]
+        )
+
+    def test_sparse_and_dense_rows_mixed(self):
+        rng = np.random.default_rng(31)
+        X = rng.normal(4000.0, 18.0, (64, 16384)).astype(np.float32)
+        X[::2, 20:] = np.nan  # every other tile has 20 finite values
+        X[1, :] = np.nan
+        TestBatchEquivalence()._check_block(X, minsky=10)
+        # the sparse rows are computed by the scalar path: exact
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            got = np.stack(mmm_batch(X, axis=1, minsky=10), 1)
+            ref = np.array([mmm(r, minsky=10) for r in X[::2]], dtype=float)
+        for g, r in zip(got[::2], ref):
+            self.assertTrue(_same_triplet(g, r))
 
 
 if __name__ == "__main__":

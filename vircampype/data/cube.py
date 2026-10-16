@@ -1041,7 +1041,7 @@ class ImageCube(object):
         # Destripe in parallel (loky: one 16 MB plane of numpy work per task)
         with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
             mp = parallel(
-                delayed(destripe_helper)(a, b, c)
+                delayed(destripe_helper)(a, b, c, self.setup.vectorized_mmm)
                 for a, b, c in zip(self.cube, masks, repeat(smooth))
             )
 
@@ -1442,7 +1442,7 @@ class ImageCube(object):
             # loky: Python-heavy repeated mmm() calls per mesh tile
             with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
                 mp = parallel(
-                    delayed(background_image)(a, b, c)
+                    delayed(background_image)(a, b, c, self.setup.vectorized_mmm)
                     for a, b, c in zip(
                         self.cube, repeat(mesh_size), repeat(mesh_filtersize)
                     )
