@@ -1,4 +1,11 @@
-# vircampype
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/icon/vircampype-icon-dark.png">
+    <img src="assets/icon/vircampype-icon-light.png" alt="vircampype icon" width="160">
+  </picture>
+</p>
+
+<h1 align="center">vircampype</h1>
 
 `vircampype` is a Python data reduction pipeline for infrared imaging data obtained with the [VIRCAM](https://www.eso.org/sci/facilities/paranal/instruments/vircam.html) instrument on ESO's VISTA telescope. It was originally developed for the [VISIONS public survey](http://visions.univie.ac.at) and covers the full reduction chain from raw calibration frames through science-ready co-added images and photometric source catalogs.
 
