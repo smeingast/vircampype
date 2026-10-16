@@ -96,7 +96,8 @@ class TestScalarExactEquivalence(unittest.TestCase):
             ref = mmm_reference(x, **kwargs)
             new = mmm(x, **kwargs)
         self.assertTrue(
-            _same_triplet(ref, new), msg=f"{x.dtype} n={x.size} {kwargs}: {ref} != {new}"
+            _same_triplet(ref, new),
+            msg=f"{x.dtype} n={x.size} {kwargs}: {ref} != {new}",
         )
         self.assertEqual([type(v) for v in ref], [type(v) for v in new])
 
@@ -331,7 +332,9 @@ class TestBatchEquivalence(unittest.TestCase):
         diff = np.abs(got[fin] - ref[fin])
         tol = self._tolerance(ref[fin], X.dtype)
         worst = np.max(diff / tol) if diff.size else 0.0
-        self.assertLessEqual(worst, 1.0, msg=f"{X.dtype} {kwargs}: max diff/tol {worst}")
+        self.assertLessEqual(
+            worst, 1.0, msg=f"{X.dtype} {kwargs}: max diff/tol {worst}"
+        )
 
     def test_randomised_blocks(self):
         rng = np.random.default_rng(13)
@@ -345,7 +348,10 @@ class TestBatchEquivalence(unittest.TestCase):
                     {"readnoise": 0.5},
                 ):
                     X = np.stack(
-                        [_vector(rng, n, str(rng.choice(KINDS)), dtype) for _ in range(64)]
+                        [
+                            _vector(rng, n, str(rng.choice(KINDS)), dtype)
+                            for _ in range(64)
+                        ]
                     )
                     self._check_block(X, **kwargs)
 
@@ -528,6 +534,37 @@ class TestCallers(unittest.TestCase):
             self.assertEqual(bg_new.shape, frame.shape)
             np.testing.assert_allclose(bg_new, bg_old, atol=2e-3 * (1 + level / 4000.0))
             np.testing.assert_allclose(std_new, std_old, atol=1e-4)
+
+
+class TestValidation(unittest.TestCase):
+    def test_batch_rejects_bad_arguments(self):
+        rng = np.random.default_rng(27)
+        X = rng.normal(100.0, 5.0, (20, 100))
+        with self.assertRaises(ValueError):
+            mmm_batch(X, minsky=0)
+        with self.assertRaises(TypeError):
+            mmm_batch(X.astype(complex))
+        with self.assertRaises(np.exceptions.AxisError):
+            mmm_batch(X, axis=2)
+        with self.assertRaises(np.exceptions.AxisError):
+            mmm_batch(X, axis=-3)
+
+    def test_highbad_with_nan_false_and_nonfinite_raises_clearly(self):
+        rng = np.random.default_rng(28)
+        x = rng.normal(100.0, 5.0, 60)
+        x[3] = np.nan
+        with self.assertRaisesRegex(ValueError, "highbad"):
+            mmm(x, highbad=200.0, nan=False)
+        X = np.tile(x, (20, 1))
+        with self.assertRaisesRegex(ValueError, "highbad"):
+            mmm_batch(X, highbad=200.0, nan=False)
+
+    def test_row_searchsorted_nan_query_sorts_last(self):
+        s = np.sort(np.arange(12.0).reshape(3, 4), axis=1)
+        n = np.full(3, 4)
+        vals = np.array([np.nan, 5.5, np.nan])  # row 1 holds 4..7
+        res = _row_searchsorted(s, np.arange(3), n, vals, np.ones(3, dtype=bool))
+        np.testing.assert_array_equal(res, [4, 2, 4])
 
 
 if __name__ == "__main__":

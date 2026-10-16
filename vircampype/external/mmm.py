@@ -22,10 +22,18 @@ Differences from the reference that are intentional:
 * ``nan=False`` with an input of more than one dimension ravels the input (the
   reference silently produced nonsense on 2-D input in that mode).
 * ``nan=False`` with non-finite values present is delegated to the reference
-  verbatim, because its window stepping then depends on NaN comparisons.
+  verbatim, because its window stepping then depends on NaN comparisons
+  (combined with ``highbad`` this raises a ValueError instead of the reference's
+  obscure indexing error).
+* ``mmm_batch`` requires ``minsky >= 1`` and a real (float, integer or bool)
+  dtype; the scalar ``mmm`` follows the reference outside that domain.
+
+Inherited from the original: ``highbad=0.0`` and ``readnoise=0.0`` count as
+"not set" (they are tested for truth).
 """
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_index
 
 from vircampype.external.mmm_reference import mmm_reference
 
@@ -144,6 +152,10 @@ def mmm(
     else:
         sky_vector = sky_vector.ravel()
         if sky_vector.dtype.kind == "f" and not np.isfinite(sky_vector).all():
+            if highbad:
+                raise ValueError(
+                    "highbad is not supported with nan=False and non-finite values"
+                )
             return mmm_reference(
                 sky_vector,
                 highbad=highbad,
@@ -373,7 +385,10 @@ def _row_searchsorted(s, rows, n, values, strict):
             return lo
         mid = (lo + hi) >> 1
         v = s[rows, np.minimum(mid, last)]
-        go_right = np.where(strict, v < values, v <= values) & active
+        # NaN queries sort after everything, as in np.searchsorted
+        go_right = (
+            np.where(strict, v < values, v <= values) | np.isnan(values)
+        ) & active
         lo = np.where(go_right, mid + 1, lo)
         hi = np.where(active & ~go_right, mid, hi)
 
@@ -423,6 +438,10 @@ def _mmm_rows(x, highbad, readnoise, mxiter, minsky, nan):
             else:
                 # The reference's stepping depends on NaN comparisons here: run
                 # it verbatim on the affected rows and the batch on the others.
+                if highbad:
+                    raise ValueError(
+                        "highbad is not supported with nan=False and non-finite values"
+                    )
                 bad = ~finite.all(axis=1)
                 for i in np.flatnonzero(bad):
                     out_mod[i], out_sig[i], out_skew[i] = mmm_reference(
@@ -717,15 +736,24 @@ def mmm_batch(
     Returns
     -------
     skymod, sigma, skew : np.ndarray
-        float64 arrays of shape ``data.shape`` without ``axis``, holding exactly
-        what ``mmm`` returns for the corresponding slice (failure codes included).
-        Results agree with the scalar ``mmm`` to float rounding (the running
-        sums are kept in float64 throughout).
+        float64 arrays of shape ``data.shape`` without ``axis``, holding what
+        ``mmm`` returns for the corresponding slice, failure codes included.
+        Integer and float64 input agree with ``mmm`` to float64 rounding. For
+        float32 input the batch keeps its running sums in float64 where the
+        reference sums float32 slices, so results differ by float32 rounding
+        (a few 1e-7 of the sky level), and a sample lying within that rounding
+        of a cut can be classified differently; such decisions follow the
+        float64 result and are rare (none seen on real rows or tiles, ~1e-4
+        of adversarial fuzz rows with tiny sigma at high levels).
     """
     data = np.asarray(data)
     if data.ndim == 0:
         raise ValueError("mmm_batch needs at least a 1-D input")
-    axis = data.ndim + axis if axis < 0 else axis
+    if data.dtype.kind not in "fiub":
+        raise TypeError(f"mmm_batch does not support dtype {data.dtype}")
+    if minsky < 1:
+        raise ValueError("mmm_batch needs minsky >= 1")
+    axis = normalize_axis_index(axis, data.ndim)
     out_shape = data.shape[:axis] + data.shape[axis + 1 :]
     nrows, ncols = int(np.prod(out_shape, dtype=np.int64)), data.shape[axis]
     rows = np.moveaxis(data, axis, -1).reshape(nrows, ncols)

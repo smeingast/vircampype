@@ -1038,7 +1038,7 @@ class ImageCube(object):
         if masks is None:
             masks = np.full_like(self.cube, False, dtype=bool)
 
-        # Destripe in parallel (loky: Python-heavy iterative mmm() per row)
+        # Destripe in parallel (loky: one 16 MB plane of numpy work per task)
         with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
             mp = parallel(
                 delayed(destripe_helper)(a, b, c)
