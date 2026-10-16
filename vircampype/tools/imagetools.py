@@ -26,7 +26,7 @@ from skimage.draw import disk
 from skimage.filters import sobel
 from sklearn.neighbors import NearestNeighbors
 
-from vircampype.external.mmm import mmm
+from vircampype.external.mmm import mmm_batch
 from vircampype.tools.mathtools import *
 
 __all__ = [
@@ -350,21 +350,22 @@ def background_image(image, mesh_size, mesh_filtersize=3):
             f"Image dimensions {image.shape} must be multiple of backsize mesh size ({mesh_size})"
         )
 
-    # Tile image
-    tiles = [
-        image[x : x + mesh_size, y : y + mesh_size]
-        for x in range(0, image.shape[0], mesh_size)
-        for y in range(0, image.shape[1], mesh_size)
-    ]
+    # Tile image: one row per mesh tile, tiles in row-major order
+    n_tiles_y, n_tiles_x = image.shape[0] // mesh_size, image.shape[1] // mesh_size
+    tiles = (
+        image.reshape(n_tiles_y, mesh_size, n_tiles_x, mesh_size)
+        .swapaxes(1, 2)
+        .reshape(n_tiles_y * n_tiles_x, mesh_size * mesh_size)
+    )
 
-    # Estimate background for each tile
-    bg, bg_std, _ = list(zip(*[mmm(t) for t in tiles]))
+    # Estimate background for all tiles at once (vectorised MMM)
+    bg, bg_std, _ = mmm_batch(tiles, axis=1)
+    del tiles
 
     # Scale back to 2D array
-    n_tiles_x, n_tiles_y = image.shape[1] // mesh_size, image.shape[0] // mesh_size
     bg, bg_std = (
-        np.array(bg).reshape(n_tiles_y, n_tiles_x),
-        np.array(bg_std).reshape(n_tiles_y, n_tiles_x),
+        bg.reshape(n_tiles_y, n_tiles_x),
+        bg_std.reshape(n_tiles_y, n_tiles_x),
     )
 
     # Interpolate NaN values in grid
@@ -736,10 +737,8 @@ def destripe_helper(array, mask=None, smooth=False):
         if mask is not None:
             array_copy[mask > 0] = np.nan
 
-        # Compute sky mode and sigma in each row
-        row_stats = [mmm(v, minsky=10) for v in array_copy]
-        med_destripe = np.array([s[0] for s in row_stats], dtype=float)
-        sig_destripe = np.array([s[1] for s in row_stats], dtype=float)
+        # Compute sky mode and sigma in each row (vectorised MMM over rows)
+        med_destripe, sig_destripe, _ = mmm_batch(array_copy, axis=1, minsky=10)
 
         # Reject only rows where the row statistic failed
         bad_rows = ~(np.isfinite(sig_destripe) & (sig_destripe > 0))
