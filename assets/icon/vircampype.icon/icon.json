@@ -62,7 +62,7 @@
         {
           "name": "slate",
           "image-name": "cells-slate.svg",
-          "glass": true,
+          "glass": false,
           "fill-specializations": [
             {
               "value": {
@@ -86,7 +86,7 @@
         {
           "name": "warm",
           "image-name": "cells-warm.svg",
-          "glass": true
+          "glass": false
         }
       ],
       "shadow": {
