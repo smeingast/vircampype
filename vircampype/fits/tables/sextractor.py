@@ -36,6 +36,33 @@ from vircampype.tools.systemtools import *
 from vircampype.tools.tabletools import *
 
 
+def _sample_statistics_grid(
+    xx: np.ndarray,
+    yy: np.ndarray,
+    mjdeff: np.ndarray,
+    exptime: np.ndarray,
+    nimg: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Sample the statistics images at the nearest pixel of each source.
+
+    ``xx``/``yy`` are 0-based pixel coordinates on the statistics grid; all three
+    images must be on that grid. Sources off the grid or without coverage
+    (``nimg < 1``) are bad: NaN MJD, zero EXPTIME and NIMG. Coverage is judged on
+    the statistics grid only; holes below its pixel scale are left to SExtractor
+    FLAGS_WEIGHT. Returns (mjdeff, exptime, nimg, off_grid, bad).
+    """
+    ix = np.floor(np.asarray(xx) + 0.5).astype(int)
+    iy = np.floor(np.asarray(yy) + 0.5).astype(int)
+    off = (ix < 0) | (ix >= nimg.shape[1]) | (iy < 0) | (iy >= nimg.shape[0])
+    ix[off], iy[off] = 0, 0
+    mjdeff_s = mjdeff[iy, ix].astype(float)
+    exptime_s = exptime[iy, ix].astype(float)
+    nimg_s = nimg[iy, ix].astype(float)
+    bad = off | ~(nimg_s >= 1)
+    mjdeff_s[bad], exptime_s[bad], nimg_s[bad] = np.nan, 0.0, 0.0
+    return mjdeff_s, exptime_s, nimg_s, off, bad
+
+
 def _strip_flxscale_from_ahead(path_ahead: str) -> None:
     """Remove SCAMP's FLXSCALE=0 cards (SOLVE_PHOTOM N): SWarp's default
     FSCALE_KEYWORD is FLXSCALE and would multiply images by zero."""
@@ -1751,9 +1778,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             path_nimg = self.paths_full[idx_file].replace(
                 ".full.fits.ctab", ".nimg.fits"
             )
-            path_weight = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".weight.fits"
-            )
 
             # Per-tile flat-SCAMP floor scalar (mas, mas, correlation): the value
             # the self-calibration shrinks toward / returns where Gaia is too sparse.
@@ -1761,9 +1785,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
 
             # Check if files are available
             missing = [
-                p
-                for p in (path_mjd, path_exptime, path_nimg, path_weight)
-                if not os.path.isfile(p)
+                p for p in (path_mjd, path_exptime, path_nimg) if not os.path.isfile(p)
             ]
             if missing:
                 raise PipelineFileNotFoundError(
@@ -1795,55 +1817,31 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats)
-                    weight = fits.getdata(path_weight, idx_hdu_stats)
                 except IndexError:
                     mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
                     exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
                     nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
-                    weight = fits.getdata(path_weight, idx_hdu_stats + 1)
-
-                # Renormalize weight
-                weight /= np.median(weight)
 
                 # Obtain wcs for statistics images (they all have the same projection)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", FITSFixedWarning)
                     wcs_stats = WCS(header=image_mjdeff.headers_data[0][idx_hdu_stats])
 
-                # Convert to X/Y
+                # Convert to X/Y and sample; bad = off-grid or no coverage
                 xx, yy = wcs_stats.wcs_world2pix(
                     table_hdu[self.key_ra], table_hdu[self.key_dec], 0
                 )
-                xx_image, yy_image = (
-                    np.floor(xx + 0.5).astype(int),
-                    np.floor(yy + 0.5).astype(int),
-                )
-
-                # Mark bad data
-                bad = (
-                    (xx_image >= mjdeff.shape[1])
-                    | (xx_image < 0)
-                    | (yy_image >= mjdeff.shape[0])
-                    | (yy_image < 0)
+                mjdeff_sources, exptime_sources, nimg_sources, off, bad = (
+                    _sample_statistics_grid(xx, yy, mjdeff, exptime, nimg)
                 )
 
                 # Guard: no more than 5% of sources may fall outside the edges
-                if sum(bad) / len(bad) > 0.05:
+                if sum(off) / len(off) > 0.05:
                     raise ValueError(
-                        f"Too many sources are close to the image edge ({sum(bad)}/{len(bad)}). "
+                        f"Too many sources are close to the image edge ({sum(off)}/{len(off)}). "
                         f"Please check for issues. (file: {self.paths_full[idx_file]}, TableHDU: {idx_hdu_self})"
                     )
 
-                # Reset bad coordinates to 0/0
-                xx_image[bad], yy_image[bad] = 0, 0
-
-                # Get values for each source from data arrays
-                mjdeff_sources, exptime_sources, nimg_sources = (
-                    mjdeff[yy_image, xx_image],
-                    exptime[yy_image, xx_image],
-                    nimg[yy_image, xx_image],
-                )
-                weight_sources = weight[yy_image, xx_image]
                 # Guard against OOM: the self-calibrated floor runs in a single
                 # in-memory pass, so peak RAM scales with the source count; fail loud
                 # before the large allocation.
@@ -1864,12 +1862,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 astrms_sources1 = np.full(n_src, astrms1_flat, dtype=float)
                 astrms_sources2 = np.full(n_src, astrms2_flat, dtype=float)
                 astrms_corr_sources = np.full(n_src, astrms_corr_flat, dtype=float)
-                # Mark bad: off-image (above) OR on a dead/no-coverage pixel.
-                bad |= weight_sources < 0.0001
-                mjdeff_sources[bad], exptime_sources[bad] = np.nan, 0.0
                 astrms_sources1[bad], astrms_sources2[bad] = np.nan, np.nan
                 astrms_corr_sources[bad] = np.nan
-                nimg_sources[bad] = 0
 
                 # Self-calibrate the astrometric floor on the coadded tile vs
                 # epoch-warped Gaia, overwriting the flat-SCAMP scalar. Any failure
