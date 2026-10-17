@@ -863,6 +863,8 @@ class Pipeline:
 
     def _coadd_statistics_tile_numpy(self, mjd_ref: float) -> None:
         """Tile statistics maps without SWarp (same output, see tools/statscoadd.py)."""
+        import vircampype
+        from vircampype.tools.astromatic import SwarpSetup
         from vircampype.tools.messaging import print_header, print_message
         from vircampype.tools.statscoadd import (
             STATISTICS_MODES,
@@ -883,7 +885,9 @@ class Pipeline:
         images = {m: self.resampled_statistics(mode=m) for m in STATISTICS_MODES}
         paths_values = {m: images[m].paths_full for m in STATISTICS_MODES}
         paths_weight = [p.replace(".nimg.", ".weight.") for p in paths_values["nimg"]]
-        header = images["nimg"].statistics_grid_header()
+        if not all(os.path.isfile(p) for p in paths_weight):
+            raise PipelineValueError("Not all statistics images have weights")
+        swarp_preset = read_yml(SwarpSetup(setup=self.setup).preset_coadd)
 
         # Write to local temp, then move into place
         tmpdir = make_system_tempdir(base_dir=self.setup.local_cache_dir)
@@ -895,14 +899,22 @@ class Pipeline:
             coadd_statistics_maps(
                 paths_weight=paths_weight,
                 paths_values=paths_values,
-                header_out=header,
                 paths_out=paths_tmp,
                 mjd_ref=mjd_ref,
+                swarp_preset=swarp_preset,
+                software=("vircampype", vircampype.__version__),
                 mem_max=self.setup.statistics_coadd_mem_max,
                 n_threads=self.setup.n_jobs,
             )
-            for k, p in paths_final.items():
-                move_file(paths_tmp[k], p)
+            try:
+                for k, p in paths_final.items():
+                    move_file(paths_tmp[k], p)
+            except Exception:
+                # All nine or none: a partial set would be skipped on rerun
+                for p in paths_final.values():
+                    if os.path.isfile(p):
+                        os.remove(p)
+                raise
         finally:
             remove_directory(tmpdir)
         log.info(f"Written tile statistics: {list(paths_final.values())}")
