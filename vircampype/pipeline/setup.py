@@ -350,6 +350,12 @@ class Setup:
     image_statistics_resize_factor: int | float = (
         0.25  # Downsample factor for statistics images
     )
+    statistics_coadd: Literal["numpy", "swarp"] = (
+        "numpy"  # Tile statistics coadd: numpy (same output as SWarp, fast) or SWarp
+    )
+    statistics_coadd_mem_max: int = (
+        2048  # RAM budget (MB) of the numpy statistics coadd
+    )
 
     # Sextractor
     sex_back_size: int = 64  # SExtractor background mesh size

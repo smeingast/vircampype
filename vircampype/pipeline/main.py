@@ -861,22 +861,86 @@ class Pipeline:
             )
         return 3_600_000 * max(v1), 3_600_000 * max(v2), 0.0
 
+    def _coadd_statistics_tile_numpy(self, mjd_ref: float) -> None:
+        """Tile statistics maps without SWarp (same output, see tools/statscoadd.py)."""
+        from vircampype.tools.messaging import print_header, print_message
+        from vircampype.tools.statscoadd import (
+            STATISTICS_MODES,
+            coadd_statistics_maps,
+            statistics_output_paths,
+        )
+
+        print_header(header="TILE STATISTICS", silent=self.setup.silent)
+        log = logging.getLogger(__name__)
+        tstart = time.time()
+        paths_final = statistics_output_paths(self.setup.path_coadd)
+        if not self.setup.overwrite and all(
+            os.path.isfile(p) for p in paths_final.values()
+        ):
+            log.info("Tile statistics already exist, skipping")
+            return
+
+        images = {m: self.resampled_statistics(mode=m) for m in STATISTICS_MODES}
+        paths_values = {m: images[m].paths_full for m in STATISTICS_MODES}
+        paths_weight = [p.replace(".nimg.", ".weight.") for p in paths_values["nimg"]]
+        header = images["nimg"].statistics_grid_header()
+
+        # Write to local temp, then move into place
+        tmpdir = make_system_tempdir(base_dir=self.setup.local_cache_dir)
+        try:
+            paths_tmp = {
+                k: os.path.join(tmpdir, os.path.basename(p))
+                for k, p in paths_final.items()
+            }
+            coadd_statistics_maps(
+                paths_weight=paths_weight,
+                paths_values=paths_values,
+                header_out=header,
+                paths_out=paths_tmp,
+                mjd_ref=mjd_ref,
+                mem_max=self.setup.statistics_coadd_mem_max,
+                n_threads=self.setup.n_jobs,
+            )
+            for k, p in paths_final.items():
+                move_file(paths_tmp[k], p)
+        finally:
+            remove_directory(tmpdir)
+        log.info(f"Written tile statistics: {list(paths_final.values())}")
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+
     @pipeline_step("statistics_tile", message="TILE STATISTICS")
     def build_statistics_tile(self):
         """Coadd statistics images for the tile and build statistics tables."""
         # Check MJDREF before coadding, so a mixed set fails before writing
         mjd_ref = self._statistics_mjd_ref()
-        for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
-            images = self.resampled_statistics(mode=mode)
-            images.coadd_statistics_tile(mode=mode)
-        # Combine MJD data
-        combine_mjd_images(
-            path_file_a=self._path_statistics_tile(mode="mjd.int"),
-            path_file_b=self._path_statistics_tile(mode="mjd.frac"),
-            path_file_out=self._path_statistics_tile(mode="mjd.eff"),
-            offset=mjd_ref,
-            overwrite=True,
-        )
+        use_swarp = self.setup.statistics_coadd == "swarp"
+        if not use_swarp:
+            from vircampype.tools.statscoadd import StatisticsCoaddUnsupported
+
+            try:
+                self._coadd_statistics_tile_numpy(mjd_ref=mjd_ref)
+            except StatisticsCoaddUnsupported as e:
+                logging.getLogger(__name__).warning(
+                    f"numpy statistics coadd not applicable ({e}); using SWarp"
+                )
+                use_swarp = True
+        if use_swarp:
+            for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
+                images = self.resampled_statistics(mode=mode)
+                images.coadd_statistics_tile(mode=mode)
+            # Combine MJD data
+            combine_mjd_images(
+                path_file_a=self._path_statistics_tile(mode="mjd.int"),
+                path_file_b=self._path_statistics_tile(mode="mjd.frac"),
+                path_file_out=self._path_statistics_tile(mode="mjd.eff"),
+                offset=mjd_ref,
+                overwrite=True,
+            )
 
         self.sources_tile_cal.build_statistics_tables(
             astrms_fallback=self._astrms_flat_scalar()

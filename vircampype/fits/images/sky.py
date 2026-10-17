@@ -3394,6 +3394,46 @@ class SkyImagesResampled(SkyImagesProcessed):
             logger=log,
         )
 
+    def statistics_grid_header(self) -> fits.Header:
+        """Output grid of the tile statistics coadd, from a SWarp HEADER_ONLY run.
+
+        Same inputs and configuration as ``coadd_statistics_tile``, so the grid is
+        SWarp's own. ``SATURATE`` is set to the preset default, as in a full run
+        where the inputs carry no saturation keyword.
+        """
+        paths_weight = [p.replace(".nimg.", ".weight.") for p in self.paths_full]
+        if np.sum([os.path.isfile(w) for w in paths_weight]) != self.n_files:
+            raise ValueError("Not all images have weights")
+        sws = SwarpSetup(setup=self.setup)
+        cache_base = self.setup.local_cache_dir or tempfile.gettempdir()
+        tmpdir = tempfile.mkdtemp(prefix="swarp_header_", dir=cache_base)
+        try:
+            path_images = os.path.join(tmpdir, "images.lis")
+            path_weights = os.path.join(tmpdir, "weights.lis")
+            with open(path_images, "w") as f1, open(path_weights, "w") as f2:
+                f1.write("\n".join(self.paths_full))
+                f2.write("\n".join(paths_weight))
+            ss = yml2config(
+                path_yml=sws.preset_coadd,
+                weight_image=f"@{path_weights}",
+                imageout_name=os.path.join(tmpdir, "grid.fits"),
+                weightout_name=os.path.join(tmpdir, "grid.weight.fits"),
+                combine_type="SUM",
+                header_only="Y",
+                nthreads=self.setup.n_jobs_swarp,
+                skip=["weight_thresh", "weight_suffix"],
+                vmem_dir=tmpdir,
+            )
+            cmd = f"{sws.bin} @{path_images} -c {sws.default_config} {ss}"
+            run_command_shell(cmd=cmd, silent=True, raise_on_error=True)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")  # header-only file: data truncated
+                header = fits.getheader(os.path.join(tmpdir, "grid.fits"))
+        finally:
+            remove_directory(tmpdir)
+        header["SATURATE"] = float(read_yml(sws.preset_coadd)["SATLEV_DEFAULT"])
+        return header
+
 
 class Stacks(SkyImages):
     """Coadded images per offset position (one per jitter set)."""
