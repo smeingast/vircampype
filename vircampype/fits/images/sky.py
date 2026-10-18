@@ -3157,9 +3157,10 @@ class SkyImagesResampled(SkyImagesProcessed):
 
         One value per detector HDU of each per-pawprint statistics weight image, from
         the pawprint's SCAMP catalogue and ``.ahead`` (``stellar_window_variances``);
-        detectors are matched by chip number. Files that already carry it are skipped
-        unless overwrite is set. Needs the tile's processing folder: mosaics read the
-        values through their statistics symlinks.
+        detectors are matched by chip number. Files that already carry it are skipped,
+        also with overwrite (a rebuilt statistics file has no WINVAR; a mosaic's
+        symlinked tile files keep theirs). Needs the tile's processing folder: mosaics
+        read the values through their statistics symlinks.
         """
         from vircampype.tools.winposmap import KEY_CHIP, stellar_window_variances
 
@@ -3168,7 +3169,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             path_w = folder + self.basenames[idx_file].replace(".fits", ".weight.fits")
             with fits.open(path_w) as h:
                 done = all("WINVAR" in h[k].header for k in range(1, len(h)))
-            if done and not self.setup.overwrite:
+            if done:
                 continue
             name = self.basenames[idx_file].split(".proc.final")[0]
             base = f"{self.setup.folders['processed_final']}{name}.proc.final"
