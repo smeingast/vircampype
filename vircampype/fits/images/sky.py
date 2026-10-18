@@ -565,6 +565,28 @@ class SkyImages(FitsImages):
         # Return Table instance
         return cls(setup=self.setup, file_paths=self.paths_source_tables(preset=preset))
 
+    def _winpos_sigmap_option(self, idx_file) -> str:
+        """SExtractor option for the WIN window cap of a class_star run ("" = none).
+
+        With ``sex_winpos_cap`` the tile's full catalogue is extracted with the map
+        ``<coadd>.winsig.map.fits`` (``Pipeline._build_winsig_map``). The class-star
+        catalogue of the tile must use the same map, so that its WIN positions equal
+        the full catalogue's (``build_public_catalog`` matches them within 0.1 px).
+        Stacks are extracted without the cap and get no map. Raises if the map is
+        missing (``photometry_tile`` writes it and runs first).
+        """
+        if not self.setup.sex_winpos_cap:
+            return ""
+        if self.paths_full[idx_file] != self.setup.path_coadd:
+            return ""
+        path_map = self.setup.path_coadd.replace(".fits", ".winsig.map.fits")
+        if not os.path.isfile(path_map):
+            raise PipelineFileNotFoundError(
+                f"Window cap: {path_map} not found (photometry_tile writes it; the "
+                "tile classification needs the same map as the full catalogue)"
+            )
+        return f" -WINPOS_SIGMAP {path_map}"
+
     def build_class_star_library(self):
         """Train and apply a star/galaxy classifier from PSF and aperture photometry."""
         # Fetch log
@@ -651,6 +673,8 @@ class SkyImages(FitsImages):
                     f"class_star command is not for file {idx_file}"
                 )
             cmd += f" -SEEING_FWHM {fwhm_str}"
+            # Same WIN window cap as the full catalogue (WIN positions must match)
+            cmd += self._winpos_sigmap_option(idx_file)
 
             # Extract catalog path from command and run
             catalog_path = cmd.split("-CATALOG_NAME ")[1].split(" ")[0]
