@@ -212,6 +212,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `illumination_correction_mode` | `variable` | IC mode: `variable` or `constant` |
 | `source_mask_method` | `noisechisel` | Source masking: `noisechisel` or `built-in` |
 | `resampling_kernel` | `lanczos3` | SWarp resampling kernel |
+| `statistics_coadd` | `numpy` | Tile statistics maps (nimg, exptime, MJD): `numpy` builds them without SWarp, bit-identical to SWarp 2.41.6 and with bounded RAM (`statistics_coadd_mem_max`, MB, default 2048); inputs it cannot reproduce fall back to SWarp. `swarp` always uses SWarp |
 | `photometric_error_correlated_noise` | `true` | Inflate the public-catalog aperture-magnitude errors for correlated noise: `MAGERR = sqrt(kappa(D)^2 MAGERR_APER^2 + floor^2)`, `kappa(D)^2 = c^2 kappa_resamp(D)^2 + beta pi min(D, dmax)^2/4`, with `kappa_resamp` the noise correlation of the SWarp kernel (computed from `resampling_kernel` and the coadd/`native_pixel_scale` ratio). `false` reproduces the uninflated errors exactly |
 | `photometric_error_noise_scale` | `1.0` | Per-pixel noise calibration `c` of the inflation (empirical, from repeat measurements) |
 | `photometric_error_background_beta` | `0.0084` | Coherent-background term `beta` of the inflation (calibrated on VISIONS H repeats) |
