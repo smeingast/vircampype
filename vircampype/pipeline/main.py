@@ -11,7 +11,10 @@ from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.logsetup import configure_logging, get_logger
 from vircampype.pipeline.setup import Setup
 from vircampype.pipeline.status import PipelineStatus
-from vircampype.tools.astromatic import verify_sextractor_multi_seeing
+from vircampype.tools.astromatic import (
+    verify_sextractor_multi_seeing,
+    verify_sextractor_winpos_cap,
+)
 from vircampype.tools.completeness import qc_completeness_tile
 from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 from vircampype.tools.fitstools import (
@@ -139,6 +142,9 @@ class Pipeline:
             self.log.info("Verifying SExtractor multi-seeing support")
             verify_sextractor_multi_seeing(setup=self.setup)
             self.log.info("SExtractor multi-seeing support verified")
+        if self.setup.sex_winpos_cap:
+            verify_sextractor_winpos_cap(setup=self.setup)
+            self.log.info("SExtractor window-cap support verified")
 
     # =========================================================================== #
     def __str__(self):
@@ -987,8 +993,79 @@ class Pipeline:
     @pipeline_step("photometry_tile", message="TILE PHOTOMETRY")
     def photometry_tile(self):
         """Extract and photometrically calibrate the tile source catalog."""
-        self.tile.sextractor(preset="full")
+        if self.setup.sex_winpos_cap:
+            self._photometry_tile_winpos_cap()
+        else:
+            self.tile.sextractor(preset="full")
         self.sources_tile_full.calibrate_photometry()
+
+    def _photometry_tile_winpos_cap(self) -> None:
+        """Tile full catalogue with the WIN window capped at the local stellar size.
+
+        The map is rebuilt for every new catalogue and recorded in the catalogue
+        header (``WINPSMAP``); an existing catalogue without that record was made
+        without the cap and must be rebuilt.
+        """
+        from astropy.io import fits
+
+        path_cat = self.tile.paths_source_tables(preset="full")[0]
+        if os.path.isfile(path_cat) and not self.setup.overwrite:
+            if "WINPSMAP" not in fits.getheader(path_cat, 0):
+                raise PipelineValueError(
+                    f"{path_cat} was built without the window cap (sex_winpos_cap); "
+                    "remove it (and the products derived from it) or set overwrite",
+                    logger=self.log,
+                )
+            return
+        path_map = self._build_winpos_sigmap()
+        self.tile.sextractor(preset="full", winpos_sigmap=[path_map])
+        with fits.open(path_cat, mode="update") as hdul:
+            hdul[0].header["WINPSMAP"] = (
+                os.path.basename(path_map),
+                "WIN window capped at the local stellar size",
+            )
+
+    def _build_winpos_sigmap(self) -> str:
+        """SExtractor map of the local stellar window sigma for the tile (WIN cap).
+
+        Coadds the per-pawprint ``psfvar`` statistics (squared stellar window sigma per
+        detector) with the statistics weights, then writes the ``WINPOS_SIGMAP`` file
+        next to the coadd. Returns its path.
+        """
+        from astropy.io import fits
+
+        from vircampype.tools.statscoadd import coadd_psf_sigma_map
+        from vircampype.tools.winposmap import write_winpos_sigmap
+
+        log = logging.getLogger(__name__)
+        path_sig = self.setup.path_coadd.replace(".fits", ".winsig.fits")
+        path_map = self.setup.path_coadd.replace(".fits", ".winpos.sigmap.fits")
+        paths_psfvar = self._paths_resampled_statistics(mode="psfvar")
+        paths_weight = self._paths_resampled_statistics(mode="weight")
+        if not all(os.path.isfile(p) for p in paths_psfvar):
+            # Statistics built before the cap was enabled: add the psfvar images
+            self.resampled.build_statistics()
+        missing = [p for p in paths_psfvar + paths_weight if not os.path.isfile(p)]
+        if missing:
+            raise PipelineValueError(
+                f"Window cap: {len(missing)} statistics images missing (e.g. "
+                f"{missing[0]}); rebuild the statistics with sex_winpos_cap",
+                logger=log,
+            )
+        coadd_psf_sigma_map(
+            paths_weight=paths_weight,
+            paths_psfvar=paths_psfvar,
+            path_out=path_sig,
+            mem_max=self.setup.statistics_coadd_mem_max,
+            n_threads=self.setup.n_jobs,
+        )
+        write_winpos_sigmap(
+            path_sigma_arcsec=path_sig,
+            header_image=fits.getheader(self.setup.path_coadd),
+            path_out=path_map,
+        )
+        log.info(f"Window-cap map written: {path_map}")
+        return path_map
 
     @pipeline_step("photerr_internal", message="INTERNAL PHOTOMETRIC ERROR")
     def photerr_internal(self):

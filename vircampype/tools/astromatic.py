@@ -13,6 +13,7 @@ __all__ = [
     "read_aheaders",
     "write_aheaders",
     "verify_sextractor_multi_seeing",
+    "verify_sextractor_winpos_cap",
     "SextractorSetup",
     "SwarpSetup",
     "ScampSetup",
@@ -123,6 +124,29 @@ def write_aheaders(headers: Iterable, path: str):
     # Write to disk
     with open(path, "w") as file:
         file.write(ss)
+
+
+def verify_sextractor_winpos_cap(setup):
+    """Verify that the SExtractor binary knows WINPOS_SIGMAP (window-cap patch).
+
+    Raises PipelineError if ``sex -dd`` does not list the parameter.
+    """
+    import subprocess
+
+    from vircampype.pipeline.errors import PipelineError
+
+    sxs = SextractorSetup(setup=setup)
+    try:
+        out = subprocess.run(
+            [sxs.bin, "-dd"], capture_output=True, text=True, check=False
+        ).stdout
+    except OSError as e:
+        raise PipelineError(f"Cannot run SExtractor '{sxs.bin}': {e}") from e
+    if "WINPOS_SIGMAP" not in out:
+        raise PipelineError(
+            f"SExtractor '{sxs.bin}' has no WINPOS_SIGMAP (sex_winpos_cap needs the "
+            "window-cap build)"
+        )
 
 
 def verify_sextractor_multi_seeing(setup):

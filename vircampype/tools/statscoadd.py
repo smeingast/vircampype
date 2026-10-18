@@ -35,6 +35,7 @@ from astropy.io import fits
 __all__ = [
     "STATISTICS_MODES",
     "StatisticsCoaddUnsupported",
+    "coadd_psf_sigma_map",
     "coadd_statistics_maps",
     "statistics_output_paths",
 ]
@@ -535,6 +536,92 @@ def _coadd_strip(inputs, s0, s1, nx, writers, mjd_ref, pool, n_threads):
         np.divide(np.float32(1), v, out=w_out, where=v < _BIG)
         for mode in modes:
             writers[f"{mode}.weight"].write_rows(s0, w_out)
+
+
+def coadd_psf_sigma_map(
+    paths_weight: list[str],
+    paths_psfvar: list[str],
+    path_out: str,
+    mem_max: float = 2048,
+    n_threads: int = 8,
+) -> fits.Header:
+    """Coadd per-pawprint stellar window variances into a local window-sigma map.
+
+    Each per-pawprint ``psfvar`` image holds one constant per detector: the squared
+    stellar window sigma (arcsec^2), or 0 where it could not be measured. The map is
+    the inverse-variance WEIGHTED mean of the valid (> 0) variances on the statistics
+    grid (same placement as ``coadd_statistics_maps``), square-rooted: the local
+    stellar window sigma of the coadd in arcsec. Pixels without a valid input are 0.
+
+    Returns
+    -------
+    fits.Header
+        Header of the written map (statistics-grid WCS).
+    """
+    if len(paths_psfvar) != len(paths_weight):
+        raise ValueError("psfvar: number of images differs from the weights")
+    with ThreadPoolExecutor(max_workers=n_threads) as pool:
+        per_file = pool.map(
+            lambda i: _scan_pawprint(paths_weight[i], {"psfvar": paths_psfvar[i]}),
+            range(len(paths_weight)),
+        )
+        inputs = [rec for recs in per_file for rec in recs]
+    if not inputs:
+        raise ValueError("No statistics images")
+    crpix, naxis = _place(inputs)
+    ny, nx = naxis[2], naxis[1]
+    hdr = _output_header(
+        inputs,
+        crpix,
+        naxis,
+        {
+            "RESAMPLING_TYPE": "NEAREST",
+            "CENTER_TYPE": "ALL",
+            "PIXELSCALE_TYPE": "MEDIAN",
+        },
+        "WEIGHTED",
+        0.0,
+        ("vircampype", ""),
+    )
+    hdr["BUNIT"] = ("arcsec", "Local stellar window sigma (WEIGHTED, sqrt)")
+    writer = _FitsWriter(path_out, hdr, "f4")
+
+    bytes_px = 8 * 3 + 4 * (n_threads + 1)
+    h_strip = max(1, min(ny, int(mem_max * 2**20) // (nx * bytes_px)))
+    for s0 in range(0, ny, h_strip):
+        s1 = min(ny, s0 + h_strip)
+        shape = (s1 - s0, nx)
+        s_inv, s_val = np.zeros(shape), np.zeros(shape)
+        for rec in inputs:
+            if (
+                rec.y0 >= s1
+                or rec.y0 + rec.ny <= s0
+                or rec.x0 >= nx
+                or rec.x0 + rec.nx <= 0
+            ):
+                continue
+            val = np.float64(rec.values["psfvar"])
+            if not (val > 0 and np.isfinite(val)):
+                continue  # no stellar size for this detector: does not vote
+            with open(rec.path_weight, "rb") as fh:
+                w = _read_rows(
+                    rec, max(s0, rec.y0) - rec.y0, min(s1, rec.y0 + rec.ny) - rec.y0, fh
+                )
+            ya, xa = max(s0, rec.y0), max(0, rec.x0)
+            yb, xb = ya + w.shape[0], min(nx, rec.x0 + rec.nx)
+            w = w[:, xa - rec.x0 : xb - rec.x0]
+            sl = (slice(ya - s0, yb - s0), slice(xa, xb))
+            with np.errstate(divide="ignore", over="ignore"):
+                var = np.where(w > 0, np.float32(1) / w, _BIG)
+            valid = var < _BIG
+            inv = np.where(valid, 1.0 / np.where(valid, var, 1).astype(np.float64), 0.0)
+            s_inv[sl] += inv
+            s_val[sl] += inv * val
+        out = np.zeros(shape, np.float32)
+        cov = s_inv > 0
+        out[cov] = np.sqrt(s_val[cov] / s_inv[cov])
+        writer.write_rows(s0, out)
+    return hdr
 
 
 def statistics_output_paths(path_coadd: str) -> dict[str, str]:

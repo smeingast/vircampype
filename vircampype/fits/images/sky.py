@@ -2,6 +2,7 @@ import gc
 import glob
 import logging
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -3007,6 +3008,12 @@ class SkyImagesResampled(SkyImagesProcessed):
             folder_statistics + bn.replace(".fits", ".weight.fits")
             for bn in self.basenames
         ]
+        # Squared stellar window sigma per detector (arcsec^2) for the WIN window cap
+        winpos_cap = self.setup.sex_winpos_cap
+        paths_psfvar = [
+            folder_statistics + bn.replace(".fits", ".psfvar.fits")
+            for bn in self.basenames
+        ]
 
         # Loop over files
         for idx_file in range(self.n_files):
@@ -3017,13 +3024,18 @@ class SkyImagesResampled(SkyImagesProcessed):
             includes BITPIX=-64.
             """
 
-            # Check if the file is already there and skip if it is
-            if (
-                check_file_exists(
-                    file_path=paths_weight[idx_file], silent=self.setup.silent
+            # Check if the files are already there and skip if they are; with the
+            # window cap, a missing psfvar image is added to existing statistics
+            need_main = self.setup.overwrite or not check_file_exists(
+                file_path=paths_weight[idx_file], silent=self.setup.silent
+            )
+            need_psf = winpos_cap and (
+                self.setup.overwrite
+                or not check_file_exists(
+                    file_path=paths_psfvar[idx_file], silent=self.setup.silent
                 )
-                and not self.setup.overwrite
-            ):
+            )
+            if not need_main and not need_psf:
                 continue
 
             # Print processing info
@@ -3051,6 +3063,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                 hdus=[fits.PrimaryHDU(header=hdr_prime.copy())]
             )
             hdul_weights = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            hdul_psfvar = fits.HDUList(hdus=[fits.PrimaryHDU(header=hdr_prime.copy())])
+            if need_psf:
+                psfvar = self._stellar_window_variances(idx_file=idx_file)
 
             # Loop over extensions
             for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
@@ -3067,6 +3082,16 @@ class SkyImagesResampled(SkyImagesProcessed):
 
                 # Get shape
                 shape = wcs_resized.pixel_shape[::-1]
+
+                if need_psf:
+                    hdul_psfvar.append(
+                        fits.ImageHDU(
+                            data=np.full(shape, psfvar[idx_hdu], dtype=np.float32),
+                            header=wcs_resized.to_header(),
+                        )
+                    )
+                if not need_main:
+                    continue
 
                 # Create image statistics arrays
                 arr_nimg = np.full(shape, fill_value=1, dtype=np.uint16)
@@ -3123,13 +3148,17 @@ class SkyImagesResampled(SkyImagesProcessed):
 
             # Write all statistics to local temp, then move them into place
             tmpdir_stats = make_system_tempdir(base_dir=self.setup.local_cache_dir)
-            stats_map = [
-                (hdul_nimg, paths_nimg[idx_file]),
-                (hdul_exptime, paths_exp[idx_file]),
-                (hdul_mjd_frac, paths_mjd_frac[idx_file]),
-                (hdul_mjd_int, paths_mjd_int[idx_file]),
-                (hdul_weights, paths_weight[idx_file]),
-            ]
+            stats_map = []
+            if need_main:
+                stats_map += [
+                    (hdul_nimg, paths_nimg[idx_file]),
+                    (hdul_exptime, paths_exp[idx_file]),
+                    (hdul_mjd_frac, paths_mjd_frac[idx_file]),
+                    (hdul_mjd_int, paths_mjd_int[idx_file]),
+                    (hdul_weights, paths_weight[idx_file]),
+                ]
+            if need_psf:
+                stats_map.append((hdul_psfvar, paths_psfvar[idx_file]))
             try:
                 for hdul, final_path in stats_map:
                     tmp_path = tmpdir_stats + os.path.basename(final_path)
@@ -3147,6 +3176,53 @@ class SkyImagesResampled(SkyImagesProcessed):
             end="\n",
             logger=log,
         )
+
+    def _stellar_window_variances(self, idx_file: int) -> list[float]:
+        """Squared stellar window sigma (arcsec^2) per detector of one resampled frame.
+
+        Measured in the pawprint's SCAMP catalogue (native frame) and converted with the
+        local pixel scale of its SCAMP solution (``.ahead``); detectors are matched by
+        ``ESO DET CHIP NO``. A detector without enough stars gets 0 (no cap).
+        """
+        from vircampype.tools.astromatic import read_aheaders, sextractor2imagehdr
+        from vircampype.tools.winposmap import pixel_scale_arcsec, stellar_window_sigma
+
+        name = os.path.basename(self.paths_full[idx_file]).split(".proc.final")[0]
+        base = f"{self.setup.folders['processed_final']}{name}.proc.final"
+        path_cat, path_ahead = f"{base}.scamp.fits.tab", f"{base}.ahead"
+        for path in (path_cat, path_ahead):
+            if not os.path.isfile(path):
+                raise PipelineFileNotFoundError(
+                    f"Window cap needs {path} (SCAMP catalogue and solution of the "
+                    "pawprint); not available for this frame"
+                )
+        key_chip = "HIERARCH ESO DET CHIP NO"
+        imheads = sextractor2imagehdr(path_cat)
+        aheads = read_aheaders(path_ahead)
+        if len(imheads) != len(aheads):
+            raise PipelineValueError(f"{path_cat}: detectors differ from {path_ahead}")
+        sigma = {}
+        with fits.open(path_cat, memmap=True) as hc:
+            for k, (ih, ah) in enumerate(zip(imheads, aheads)):
+                chip = int(ih[key_chip])
+                # SCAMP writes the .ahead in catalogue order; check where it says so
+                m = re.search(r"CHIP(\d+)$", str(ah.get("EXTNAME", "")))
+                if m and int(m.group(1)) != chip:
+                    raise PipelineValueError(
+                        f"{path_ahead}: extension {k + 1} is {ah['EXTNAME']}, the "
+                        f"catalogue has chip {chip}"
+                    )
+                s_px = stellar_window_sigma(hc[2 + 2 * k].data)
+                h = ah.copy()
+                h["NAXIS1"], h["NAXIS2"] = ih["NAXIS1"], ih["NAXIS2"]
+                sigma[chip] = s_px * pixel_scale_arcsec(h)
+        # A detector without a stellar size gets no cap (0)
+        out = []
+        for idx_hdu in range(len(self.iter_data_hdu[idx_file])):
+            chip = int(self.headers_data[idx_file][idx_hdu][key_chip])
+            v = sigma.get(chip, np.nan)
+            out.append(float(v**2) if np.isfinite(v) else 0.0)
+        return out
 
     def coadd_statistics_stacks(self, mode):
         """DEAD CODE: only called by build_statistics_stacks, which is unused.
