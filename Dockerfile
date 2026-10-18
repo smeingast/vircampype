@@ -15,7 +15,8 @@ WORKDIR /root
 
 # Build all C tools in one layer, then clean sources and strip binaries
 RUN git clone -b feature/multi-seeing-class-star https://github.com/smeingast/sextractor.git && \
-    cd sextractor && ./autogen.sh && ./configure --enable-openblas && make -j"$(nproc)" && make install && \
+    cd sextractor && git checkout 5cb35ce4ff49a0aab3c46c8d7682cd197d8ee7f7 && \
+    ./autogen.sh && ./configure --enable-openblas && make -j"$(nproc)" && make install && \
     cd /root && git clone https://github.com/astromatic/scamp.git && \
     cd scamp && ./autogen.sh && ./configure --enable-openblas --enable-plplot && make -j"$(nproc)" && make install && \
     cd /root && git clone https://github.com/astromatic/psfex.git && \

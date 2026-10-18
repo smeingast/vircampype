@@ -40,14 +40,14 @@ The following tools must be installed and available in `PATH`:
 
 | Tool | Purpose |
 |---|---|
-| [SExtractor](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) | Source extraction (requires multi-seeing CLASS_STAR fork) |
+| [SExtractor](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) | Source extraction (requires the vircampype fork: multi-seeing CLASS_STAR, `WINPOS_SIGMAP` window cap) |
 | [SCAMP](https://github.com/astromatic/scamp) | Astrometric calibration |
 | [SWarp](https://github.com/astromatic/swarp) | Image resampling and coaddition |
 | [PSFEx](https://github.com/astromatic/psfex) | PSF modelling (completeness testing) |
 | [SkyMaker](https://github.com/astromatic/skymaker) | Artificial image generation (completeness testing) |
 | [GNU Astro / noisechisel](https://www.gnu.org/software/gnuastro/) | Source mask generation |
 
-**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work when star/galaxy classification is enabled (`source_classification: true`). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The Docker image includes the correct build.
+**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work when star/galaxy classification is enabled (`source_classification: true`). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The same fork (commit `5cb35ce`, pinned in the Dockerfile) adds the `WINPOS_SIGMAP` parameter used by `sex_winpos_cap`; with that option on, the pipeline checks for it at startup as well. The Docker image includes the correct build.
 
 ---
 
@@ -173,7 +173,7 @@ Processes raw science frames through to final co-added products:
 8. **Resampling (SWarp)** — resamples exposures to a common grid
 9. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile
 10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
-11. **Source catalogs** — SExtractor source extraction on stacks and tile
+11. **Source catalogs** — SExtractor source extraction on stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
 12. **QC plots** — astrometric and photometric diagnostic plots
 13. **QC summary table** — aggregates key metrics from stacks and tile into `qc/qc_summary.ecsv`
 14. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
@@ -225,6 +225,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `local_cache_dir` | `null` | Local directory for disposable temp (header cache, SWarp swap, completeness sub-tiles). Default `null` uses the system temp dir for caches/swap and `path_pype/<name>/temp` for completeness |
 | `source_classification` | `false` | Run star/galaxy classification (requires multi-seeing SExtractor fork) |
+| `sex_winpos_cap` | `false` | Cap SExtractor's windowed-centroid (WIN) window at the local stellar size in the tile catalogue (requires the fork's `WINPOS_SIGMAP`). SExtractor's window has `sigma = 2 FLUX_RADIUS / 2.35`, so extended sources get wide windows that pick up epoch-dependent PSF asymmetry and a spurious proper motion (CrA galaxies: +0.6 mas/yr); with the cap each window is `min(own, local stellar sigma)`, which removes the galaxy PM while stars move by ≤ 0.6 mas. Products: `WINVAR` (stellar window sigma², arcsec², 0 = unknown) in the detector HDUs of the per-pawprint statistics weights (written at tile level from the SCAMP catalogue and `.ahead`; mosaics read it through their statistics symlinks), `<tile>.winsig.fits` (sigma map, arcsec) and `<tile>.winsig.map.fits` (the SExtractor map, pixels) next to the coadd, and `WINPSMAP` in the tile catalogue header. Enabling it on an existing reduction: reset the `photometry_tile` status and remove the tile `full` catalogue and everything derived from it (a catalogue made with the other setting raises); tiles need `WINVAR` before their mosaics |
 | `classification_n_seeing` | `32` | Number of SEEING_FWHM grid points for classification |
 | `classification_seeing_step_warn` | `0.05` | Warn if classification FWHM step exceeds this value (arcsec) |
 | `mask_bright_galaxies` | `true` | Mask bright galaxies from de Vaucouleurs (1991) |
@@ -246,7 +247,7 @@ path_pype/
     │   ├── final/                  # Final-calibrated pawprint images
     │   ├── illumcorr/              # Illumination correction maps
     │   ├── resampled/              # Resampled pawprint images
-    │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd)
+    │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd; WINVAR headers with sex_winpos_cap)
     ├── products/
     │   ├── stacks/                 # Per-offset stack images and catalogs
     │   ├── tile/                   # Final co-added tile image and catalog
