@@ -126,11 +126,12 @@ def _scan_pawprint(path_weight, paths_values):
         for k in range(1, len(hw)):
             h = hw[k].header
             if (
-                h["BITPIX"] != -32
+                isinstance(hw[k], fits.CompImageHDU)
+                or h["BITPIX"] != -32
                 or h["NAXIS"] != 2
                 or h.get("BSCALE", 1.0) != 1.0
                 or h.get("BZERO", 0.0) != 0.0
-            ):  # weights are read as raw float32
+            ):  # weights are read as raw, uncompressed float32
                 raise StatisticsCoaddUnsupported(f"{path_weight}[{k}]: not 2D float32")
             records.append(
                 _Input(
