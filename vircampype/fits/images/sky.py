@@ -405,11 +405,12 @@ class SkyImages(FitsImages):
         )
         tstart = time.time()
 
-        # Check for existing files and collect indices of tables to create
+        # Check for existing files and collect indices of tables to create;
+        # returned commands cover every file, in file order
         path_tables_clean = []
         indices_to_process = []
         for idx, pt in enumerate(self.paths_source_tables(preset=preset)):
-            if not self.setup.overwrite and check_file_exists(
+            if not (return_cmds or self.setup.overwrite) and check_file_exists(
                 file_path=pt, silent=silent
             ):
                 continue
@@ -643,6 +644,12 @@ class SkyImages(FitsImages):
                 return_cmds=True,
                 silent=True,
             )[idx_file]
+            # Image argument (optionally "detection,measurement") must be this file
+            image_arg = cmd.split(" -STARNNW_NAME ")[0].rsplit(" ", 1)[-1]
+            if image_arg.split(",")[-1] != self.paths_full[idx_file]:
+                raise PipelineValueError(
+                    f"class_star command is not for file {idx_file}"
+                )
             cmd += f" -SEEING_FWHM {fwhm_str}"
 
             # Extract catalog path from command and run
