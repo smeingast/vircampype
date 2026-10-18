@@ -359,12 +359,12 @@ class Setup:
 
     # Sextractor
     sex_back_size: int = 64  # SExtractor background mesh size
-    sex_winpos_cap: bool = (
-        False  # Cap WIN windows at the local stellar size (patched SExtractor)
-    )
     sex_back_filtersize: int = 3  # SExtractor background filter size
     sex_fwhm_detect_thresh: int | float = (
         50  # Detection threshold (sigma) for FWHM preset
+    )
+    sex_winpos_cap: bool = (
+        False  # Cap WIN windows at the local stellar size (SExtractor WINPOS_SIGMAP)
     )
     sex_detection_image_path: str | None = (
         None  # Path to external SExtractor detection image

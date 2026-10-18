@@ -8,12 +8,15 @@ patched SExtractor (``WINPOS_SIGMAP``) caps the window at a map of the local ste
 window sigma, so point sources keep their own window and extended sources are held at
 the local PSF size.
 
-The map comes from the statistics machinery: ``build_statistics`` writes, per pawprint
-and detector, the squared stellar window sigma measured in the pawprint's SCAMP
-catalogue (``psfvar``); ``statscoadd.coadd_psf_sigma_map`` combines these with the
+The map comes from the statistics machinery: each detector HDU of the per-pawprint
+statistics weights carries ``WINVAR``, the squared stellar window sigma measured in the
+pawprint's SCAMP catalogue (``stellar_window_variances``); mosaics reach it through their
+statistics symlinks. ``statscoadd.coadd_window_sigma_map`` combines these with the
 statistics weights; ``write_winpos_sigmap`` converts the result into the map read by
 SExtractor (coarse grid with a linear pixel relation to the image, sigma in pixels).
 """
+
+import re
 
 import numpy as np
 from astropy.io import fits
@@ -22,8 +25,11 @@ from astropy.wcs import WCS
 __all__ = [
     "pixel_scale_arcsec",
     "stellar_window_sigma",
+    "stellar_window_variances",
     "write_winpos_sigmap",
 ]
+
+KEY_CHIP = "HIERARCH ESO DET CHIP NO"
 
 _FWHM_TO_SIGMA = 2.0 / 2.35  # SExtractor winpos.c: sig = hl_radius * 2.0 / 2.35
 
@@ -75,9 +81,9 @@ def pixel_scale_arcsec(
         h["CTYPE1"], h["CTYPE2"] = "RA---TPV", "DEC--TPV"
     w = WCS(h, relax=True)
     if x is None:
-        x = (h.get("NAXIS1", h.get("IMAGEW", 2048)) - 1) / 2
+        x = (h["NAXIS1"] - 1) / 2
     if y is None:
-        y = (h.get("NAXIS2", h.get("IMAGEH", 2048)) - 1) / 2
+        y = (h["NAXIS2"] - 1) / 2
     px = np.array([[x, y], [x + 1, y], [x, y + 1]], float)
     ra, dec = w.all_pix2world(px[:, 0], px[:, 1], 0)
     cosd = np.cos(np.deg2rad(dec[0]))
@@ -85,6 +91,33 @@ def pixel_scale_arcsec(
     vx = np.array([dra[1] * cosd, dec[1] - dec[0]])
     vy = np.array([dra[2] * cosd, dec[2] - dec[0]])
     return float(np.sqrt(abs(vx[0] * vy[1] - vx[1] * vy[0])) * 3600.0)
+
+
+def stellar_window_variances(path_cat: str, path_ahead: str) -> dict[int, float]:
+    """Squared stellar window sigma (arcsec^2) per detector chip of one pawprint.
+
+    Measured in the pawprint's SCAMP catalogue (native frame, ``stellar_window_sigma``)
+    and converted with the local pixel scale of its SCAMP solution (``.ahead``). The
+    ``.ahead`` is in catalogue order; where its EXTNAME names a chip, it must match.
+    0 for a detector without enough stars (no cap there).
+    """
+    from vircampype.tools.astromatic import read_aheaders, sextractor2imagehdr
+
+    imheads, aheads = sextractor2imagehdr(path_cat), read_aheaders(path_ahead)
+    if len(imheads) != len(aheads):
+        raise ValueError(f"{path_cat}: detectors differ from {path_ahead}")
+    out = {}
+    with fits.open(path_cat, memmap=True) as hc:
+        for k, (ih, ah) in enumerate(zip(imheads, aheads)):
+            chip = int(ih[KEY_CHIP])
+            m = re.search(r"CHIP(\d+)$", str(ah.get("EXTNAME", "")))
+            if m and int(m.group(1)) != chip:
+                raise ValueError(f"{path_ahead}: extension {k + 1} is not chip {chip}")
+            h = ah.copy()
+            h["NAXIS1"], h["NAXIS2"] = ih["NAXIS1"], ih["NAXIS2"]
+            sig = stellar_window_sigma(hc[2 + 2 * k].data) * pixel_scale_arcsec(h)
+            out[chip] = float(sig**2) if np.isfinite(sig) else 0.0
+    return out
 
 
 def write_winpos_sigmap(

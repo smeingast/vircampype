@@ -992,79 +992,76 @@ class Pipeline:
 
     @pipeline_step("photometry_tile", message="TILE PHOTOMETRY")
     def photometry_tile(self):
-        """Extract and photometrically calibrate the tile source catalog."""
-        if self.setup.sex_winpos_cap:
-            self._photometry_tile_winpos_cap()
-        else:
-            self.tile.sextractor(preset="full")
-        self.sources_tile_full.calibrate_photometry()
+        """Extract and photometrically calibrate the tile source catalog.
 
-    def _photometry_tile_winpos_cap(self) -> None:
-        """Tile full catalogue with the WIN window capped at the local stellar size.
-
-        The map is rebuilt for every new catalogue and recorded in the catalogue
-        header (``WINPSMAP``); an existing catalogue without that record was made
-        without the cap and must be rebuilt.
+        With ``sex_winpos_cap`` the WIN window is capped at the local stellar size
+        (``WINPOS_SIGMAP``); the catalogue records the map (``WINPSMAP``). An existing
+        catalogue made with the other setting raises: remove it (and the products
+        derived from it) or set overwrite.
         """
         from astropy.io import fits
 
         path_cat = self.tile.paths_source_tables(preset="full")[0]
-        if os.path.isfile(path_cat) and not self.setup.overwrite:
-            if "WINPSMAP" not in fits.getheader(path_cat, 0):
+        reuse = os.path.isfile(path_cat) and not self.setup.overwrite
+        if reuse:
+            capped = "WINPSMAP" in fits.getheader(path_cat, 0)
+            if capped != self.setup.sex_winpos_cap:
                 raise PipelineValueError(
-                    f"{path_cat} was built without the window cap (sex_winpos_cap); "
-                    "remove it (and the products derived from it) or set overwrite",
+                    f"{path_cat} was built {'with' if capped else 'without'} the window "
+                    f"cap, sex_winpos_cap is {self.setup.sex_winpos_cap}; remove it (and "
+                    "the products derived from it) or set overwrite",
                     logger=self.log,
                 )
-            return
-        path_map = self._build_winpos_sigmap()
-        self.tile.sextractor(preset="full", winpos_sigmap=[path_map])
-        with fits.open(path_cat, mode="update") as hdul:
-            hdul[0].header["WINPSMAP"] = (
-                os.path.basename(path_map),
-                "WIN window capped at the local stellar size",
-            )
+        if self.setup.sex_winpos_cap and not reuse:
+            path_map = self._build_winsig_map()
+            self.tile.sextractor(preset="full", winpos_sigmap=[path_map])
+            with fits.open(path_cat, mode="update") as hdul:
+                hdul[0].header["WINPSMAP"] = (
+                    os.path.basename(path_map),
+                    "WIN window capped at the local stellar size",
+                )
+        else:
+            self.tile.sextractor(preset="full")
+        self.sources_tile_full.calibrate_photometry()
 
-    def _build_winpos_sigmap(self) -> str:
+    def _build_winsig_map(self) -> str:
         """SExtractor map of the local stellar window sigma for the tile (WIN cap).
 
-        Coadds the per-pawprint ``psfvar`` statistics (squared stellar window sigma per
-        detector) with the statistics weights, then writes the ``WINPOS_SIGMAP`` file
-        next to the coadd. Returns its path.
+        Coadds the per-detector ``WINVAR`` of the per-pawprint statistics weights (added
+        where missing) and writes the ``WINPOS_SIGMAP`` file next to the coadd.
         """
         from astropy.io import fits
 
-        from vircampype.tools.statscoadd import coadd_psf_sigma_map
+        from vircampype.tools.statscoadd import (
+            StatisticsCoaddUnsupported,
+            coadd_window_sigma_map,
+        )
         from vircampype.tools.winposmap import write_winpos_sigmap
 
-        log = logging.getLogger(__name__)
         path_sig = self.setup.path_coadd.replace(".fits", ".winsig.fits")
-        path_map = self.setup.path_coadd.replace(".fits", ".winpos.sigmap.fits")
-        paths_psfvar = self._paths_resampled_statistics(mode="psfvar")
+        path_map = self.setup.path_coadd.replace(".fits", ".winsig.map.fits")
         paths_weight = self._paths_resampled_statistics(mode="weight")
-        if not all(os.path.isfile(p) for p in paths_psfvar):
-            # Statistics built before the cap was enabled: add the psfvar images
-            self.resampled.build_statistics()
-        missing = [p for p in paths_psfvar + paths_weight if not os.path.isfile(p)]
-        if missing:
-            raise PipelineValueError(
-                f"Window cap: {len(missing)} statistics images missing (e.g. "
-                f"{missing[0]}); rebuild the statistics with sex_winpos_cap",
-                logger=log,
+        self.resampled.write_window_variances()  # skips files that have it
+        try:
+            n_valid = coadd_window_sigma_map(
+                paths_weight=paths_weight,
+                path_out=path_sig,
+                mem_max=self.setup.statistics_coadd_mem_max,
             )
-        coadd_psf_sigma_map(
-            paths_weight=paths_weight,
-            paths_psfvar=paths_psfvar,
-            path_out=path_sig,
-            mem_max=self.setup.statistics_coadd_mem_max,
-            n_threads=self.setup.n_jobs,
-        )
+        except StatisticsCoaddUnsupported as e:
+            raise PipelineValueError(
+                f"Window cap needs numpy-coaddable statistics: {e}", logger=self.log
+            ) from e
+        if n_valid == 0:
+            raise PipelineValueError(
+                "Window cap: no stellar window size for any detector", logger=self.log
+            )
         write_winpos_sigmap(
             path_sigma_arcsec=path_sig,
             header_image=fits.getheader(self.setup.path_coadd),
             path_out=path_map,
         )
-        log.info(f"Window-cap map written: {path_map}")
+        self.log.info(f"Window-cap map written: {path_map}")
         return path_map
 
     @pipeline_step("photerr_internal", message="INTERNAL PHOTOMETRIC ERROR")

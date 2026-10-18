@@ -9,10 +9,11 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 
-from vircampype.tools.statscoadd import coadd_psf_sigma_map
+from vircampype.tools.statscoadd import coadd_window_sigma_map
 from vircampype.tools.winposmap import (
     pixel_scale_arcsec,
     stellar_window_sigma,
+    stellar_window_variances,
     write_winpos_sigmap,
 )
 
@@ -105,18 +106,16 @@ class TestSigmaMap(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def _pawprint(self, name, dets):
-        """dets: list of (crpix1, crpix2, shape, weight value, psfvar value)."""
-        hw, hv = [fits.PrimaryHDU()], [fits.PrimaryHDU()]
+        """Statistics weights; dets: list of (crpix1, crpix2, shape, weight, WINVAR)."""
+        hdus = [fits.PrimaryHDU()]
         for c1, c2, shape, w, v in dets:
             h = _stats_header(c1, c2)
-            hw.append(fits.ImageHDU(np.full(shape, w, np.float32), header=h))
-            hv.append(fits.ImageHDU(np.full(shape, v, np.float32), header=h))
-        pw, pv = (
-            os.path.join(self.tmp, f"{name}.{k}.fits") for k in ("weight", "psfvar")
-        )
-        fits.HDUList(hw).writeto(pw)
-        fits.HDUList(hv).writeto(pv)
-        return pw, pv
+            if v is not None:
+                h["WINVAR"] = v
+            hdus.append(fits.ImageHDU(np.full(shape, w, np.float32), header=h))
+        path = os.path.join(self.tmp, f"{name}.weight.fits")
+        fits.HDUList(hdus).writeto(path)
+        return path
 
     def test_weighted_mean_of_variances(self):
         a, b = 0.40, 0.60  # arcsec
@@ -124,28 +123,93 @@ class TestSigmaMap(unittest.TestCase):
         p2 = self._pawprint("p2", [(10.0, 10.0, (10, 10), 3.0, b**2)])
         p3 = self._pawprint(
             "p3", [(10.0, 10.0, (10, 10), 5.0, 0.0)]
-        )  # no size: no vote
+        )  # unknown: no vote
+        p4 = self._pawprint(
+            "p4", [(10.0, 10.0, (10, 10), 5.0, None)]
+        )  # absent: no vote
         out = os.path.join(self.tmp, "sig.fits")
-        coadd_psf_sigma_map(
-            [p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], out, n_threads=1
+        n = coadd_window_sigma_map([p1, p2, p3, p4], out)
+        self.assertEqual(n, 100)
+        np.testing.assert_allclose(
+            fits.getdata(out), np.sqrt((a**2 + 3 * b**2) / 4), rtol=1e-6
         )
-        sig = fits.getdata(out)
-        expected = np.sqrt((1 * a**2 + 3 * b**2) / 4)
-        np.testing.assert_allclose(sig, expected, rtol=1e-6)
 
     def test_uncovered_is_zero_and_strips_agree(self):
         p1 = self._pawprint("p1", [(20.0, 10.0, (10, 10), 1.0, 0.25)])
         p2 = self._pawprint("p2", [(5.0, 10.0, (10, 10), 0.0, 0.36)])  # zero weight
         out1, out2 = (os.path.join(self.tmp, f"s{i}.fits") for i in (1, 2))
-        coadd_psf_sigma_map([p1[0], p2[0]], [p1[1], p2[1]], out1, n_threads=1)
-        coadd_psf_sigma_map(
-            [p1[0], p2[0]], [p1[1], p2[1]], out2, mem_max=1e-4, n_threads=1
-        )
+        coadd_window_sigma_map([p1, p2], out1)
+        coadd_window_sigma_map([p1, p2], out2, mem_max=1e-4)
         s1, s2 = fits.getdata(out1), fits.getdata(out2)
         np.testing.assert_array_equal(s1, s2)
         self.assertEqual(s1.shape, (10, 25))
         np.testing.assert_allclose(s1[:, :10], 0.5)
         self.assertTrue(np.all(s1[:, 10:] == 0))
+
+
+def _ldac(path, chips, rng):
+    """SCAMP-like catalogue: per chip an LDAC_IMHEAD (image header) and LDAC_OBJECTS."""
+    hdus = [fits.PrimaryHDU()]
+    for chip, fr in chips:
+        h = _tan_header(0.34)
+        h["HIERARCH ESO DET CHIP NO"] = chip
+        txt = h.tostring(endcard=False, padding=False)
+        col = fits.Column(
+            name="Field Header Card", array=np.array([txt]), format=f"{len(txt)}A"
+        )
+        ih = fits.BinTableHDU.from_columns([col])
+        ih.header["EXTNAME"] = "LDAC_IMHEAD"
+        ih.header["TDIM1"] = f"(80, {len(txt) // 80})"
+        ob = fits.BinTableHDU(_objects(rng, fr_star=fr))
+        ob.header["EXTNAME"] = "LDAC_OBJECTS"
+        hdus += [ih, ob]
+    fits.HDUList(hdus).writeto(path)
+
+
+def _ahead(path, chips, extname=True):
+    with open(path, "w") as f:
+        for chip, _ in chips:
+            h = _tan_header(0.34)
+            for k in ("NAXIS", "NAXIS1", "NAXIS2"):
+                del h[k]
+            if extname:
+                h["EXTNAME"] = f"DET1.CHIP{chip}"
+            f.write(h.tostring(sep="\n", endcard=True, padding=False) + "\n")
+
+
+class TestStellarWindowVariances(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def test_per_chip_in_arcsec(self):
+        chips = [(1, 1.5), (2, 1.8)]
+        pc, pa = os.path.join(self.tmp, "c.tab"), os.path.join(self.tmp, "c.ahead")
+        _ldac(pc, chips, np.random.default_rng(1))
+        _ahead(pa, chips)
+        var = stellar_window_variances(pc, pa)
+        for chip, fr in chips:
+            self.assertAlmostEqual(
+                var[chip], (fr * 2 / 2.35 * 0.34) ** 2, delta=0.01 * var[chip]
+            )
+
+    def test_chip_order_mismatch_raises(self):
+        pc, pa = os.path.join(self.tmp, "c.tab"), os.path.join(self.tmp, "c.ahead")
+        _ldac(pc, [(1, 1.5), (2, 1.8)], np.random.default_rng(2))
+        _ahead(pa, [(2, 1.8), (1, 1.5)])
+        with self.assertRaises(ValueError):
+            stellar_window_variances(pc, pa)
+
+    def test_too_few_stars_is_zero(self):
+        pc, pa = os.path.join(self.tmp, "c.tab"), os.path.join(self.tmp, "c.ahead")
+        chips = [(1, 1.5)]
+        _ldac(pc, chips, np.random.default_rng(3))
+        with fits.open(pc, mode="update") as h:
+            h[2].data["SNR_WIN"][:] = 5.0  # nothing bright
+        _ahead(pa, chips)
+        self.assertEqual(stellar_window_variances(pc, pa), {1: 0.0})
 
 
 class TestWriteSigmap(unittest.TestCase):
