@@ -3808,12 +3808,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                         log.error(msg)
                         raise ValueError(msg)
 
-                    # Filter the full and cs tables based on the good matches
-                    log.info("Applying match indices")
-                    tables_file[tidx] = tables_file[tidx][good_matches]
-                    tables_class_file[tidx] = tables_class_file[tidx][good_indices]
-
-                    # Interpolate source classification
+                    # Interpolate source classification; unmatched sources are
+                    # kept with NaN (-> CFLG 256) instead of being dropped
                     log.info("Interpolating source classification")
                     interpolate_classification(
                         tables_file[tidx], tables_class_file[tidx]

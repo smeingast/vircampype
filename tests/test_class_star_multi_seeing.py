@@ -94,6 +94,25 @@ class TestClassStarInterpolationCompat(unittest.TestCase):
         self.assertTrue(np.all(cs_interp[~np.isnan(cs_interp)] <= 1.0))
         self.assertTrue(np.all(cs_interp[~np.isnan(cs_interp)] >= 0.0))
 
+    def test_unmatched_source_kept_as_nan(self):
+        """A source without a classification counterpart stays, with NaN."""
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        path, fwhm_range, _, x, y = _make_ldac_catalog(200, 32, out_dir=tmpdir.name)
+        classification_table = _split_class_star(path, fwhm_range)
+
+        source_table = Table()
+        source_table["XWIN_IMAGE"] = np.append(x, x[0] + 5.0)
+        source_table["YWIN_IMAGE"] = np.append(y, y[0])
+        source_table["FWHM_WORLD_INTERP"] = np.full(len(x) + 1, 1.0 / 3600.0)
+
+        result = interpolate_classification(source_table, classification_table)
+        cs_interp = np.array(result["CLASS_STAR_INTERP"])
+
+        self.assertEqual(len(cs_interp), len(x) + 1)
+        self.assertTrue(np.isnan(cs_interp[-1]))
+        self.assertFalse(np.any(np.isnan(cs_interp[:-1])))
+
 
 if __name__ == "__main__":
     unittest.main()
