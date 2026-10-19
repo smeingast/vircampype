@@ -10,7 +10,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.stats import sigma_clip, sigma_clipped_stats
-from astropy.table import Table
+from astropy.table import Column, Table
 from astropy.table import hstack as thstack
 from astropy.table import vstack as tvstack
 from astropy.time import Time
@@ -70,6 +70,49 @@ def _strip_flxscale_from_ahead(path_ahead: str) -> None:
     for hdr in headers:
         hdr.remove("FLXSCALE", ignore_missing=True, remove_all=True)
     write_aheaders(headers, path_ahead)
+
+
+def _neighbor_chunks(
+    data_clean: Column,
+    err_clean: np.ndarray,
+    nn_idx_chunks: list[np.ndarray],
+    nn_dis_chunks: list[np.ndarray],
+    kernel_std_pix: float,
+):
+    """
+    Neighbour data, weights and distances of one table chunk at a time.
+
+    The data and the weights are gathered per chunk from the clean-table rows of the
+    chunk's neighbour indices. Each chunk is element- and type-identical to gathering
+    them for all sources at once and splitting, without the full-size N x 100 (x 16)
+    temporaries (about 9 kB per source; 64 GB for a mosaic with 5.5 M sources).
+
+    Parameters
+    ----------
+    data_clean : Column
+        Clean-table column to interpolate (1-D, or 2-D for MAG_APER_COR).
+    err_clean : np.ndarray
+        MAGERR_AUTO of the clean table.
+    nn_idx_chunks : list[np.ndarray]
+        Nearest-neighbour index matrix, split at the table chunk boundaries.
+    nn_dis_chunks : list[np.ndarray]
+        Nearest-neighbour distance matrix, split at the same boundaries.
+    kernel_std_pix : float
+        Gaussian kernel width in pixels.
+
+    Yields
+    ------
+    tuple[Column, np.ndarray, np.ndarray]
+        Neighbour data (n, 100[, 16]), weights (n, 100) and distances (n, 100).
+    """
+    for idx, dis in zip(nn_idx_chunks, nn_dis_chunks):
+        # Distance kernel times the neighbours' S/N (1/MAGERR rather than
+        # 1/MAGERR**2 so that the few brightest stars do not dominate)
+        err = err_clean[idx]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            weights = np.exp(-0.5 * (dis / kernel_std_pix) ** 2) / err
+        weights[(err <= 0) | ~np.isfinite(weights)] = 0
+        yield data_clean[idx], weights, dis
 
 
 class SextractorCatalogs(SourceCatalogs):
@@ -949,35 +992,25 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     f"({kernel_std_pix / 3 / 60:.2f} arcmin, "
                     f"k={self.setup.phot_interp_kernel_k})"
                 )
-                log.info("Computing weights for nearest neighbors")
-                # Distance kernel times the neighbours' S/N (1/MAGERR rather than
-                # 1/MAGERR**2 so that the few brightest stars do not dominate)
-                nn_err = np.asarray(table_clean["MAGERR_AUTO"])[nn_idx]
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    nn_weights = np.exp(-0.5 * (nn_dis / kernel_std_pix) ** 2) / nn_err
-                nn_weights[(nn_err <= 0) | ~np.isfinite(nn_weights)] = 0
-
-                # Split matrices at same indices as table
-                nn_dis_chunks = np.split(nn_dis, np.cumsum(len_table_chunks)[:-1])
-                nn_weights_chunks = np.split(
-                    nn_weights, np.cumsum(len_table_chunks)[:-1]
-                )
+                # Split the neighbour matrices at the same indices as the table; the
+                # neighbour data and weights are built per chunk (bounded memory)
+                err_clean = np.asarray(table_clean["MAGERR_AUTO"])
+                split_at = np.cumsum(len_table_chunks)[:-1]
+                nn_dis_chunks = np.split(nn_dis, split_at)
+                nn_idx_chunks = np.split(nn_idx, split_at)
 
                 # Interpolate values in loop
                 for par in ["MAG_APER_COR", "ELLIPTICITY", "FWHM_WORLD"]:
                     log.info(f"Interpolating {par} values")
 
-                    # Grab data for nearest neighbors
-                    nn_data = table_clean[par][nn_idx]
-                    nn_data_chunks = np.split(nn_data, np.cumsum(len_table_chunks)[:-1])
-
                     vals, vals_std, n_sources, max_dists = [], [], [], []
-                    for data, weights, dis in zip(
-                        nn_data_chunks, nn_weights_chunks, nn_dis_chunks
+                    for data, weights, dis in _neighbor_chunks(
+                        data_clean=table_clean[par],
+                        err_clean=err_clean,
+                        nn_idx_chunks=nn_idx_chunks,
+                        nn_dis_chunks=nn_dis_chunks,
+                        kernel_std_pix=kernel_std_pix,
                     ):
-                        # Copy: chunks are views into the shared nn_weights, reused
-                        # per par; don't let one par's zeroing leak into the next.
-                        weights = weights.copy()
                         # Replicate weights to third dimension if required
                         if data.ndim == 3:
                             weights = np.repeat(
