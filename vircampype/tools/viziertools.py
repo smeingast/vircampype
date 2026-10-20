@@ -52,7 +52,13 @@ def _query_vizier_first_table(
     """
     log = logging.getLogger(__name__)
     try:
-        result = v.query_region(skycoord, radius=radius * Unit("deg"), catalog=catalog)
+        # cache=False: astroquery's cache is never purged, grows by up to ~1 GB
+        # per tile cone, and also stores empty answers from a CDS outage, so
+        # retries within its one-week timeout fail instantly on the cached
+        # empty result. Results persist as MASTER-* catalogs anyway.
+        result = v.query_region(
+            skycoord, radius=radius * Unit("deg"), catalog=catalog, cache=False
+        )
     except Exception as e:
         raise PipelineValueError(
             f"{name} Vizier query failed (catalog '{catalog}', "

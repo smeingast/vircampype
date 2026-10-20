@@ -21,8 +21,8 @@ class FakeVizier:
         self.exc = exc
         self.calls = []
 
-    def query_region(self, skycoord, radius=None, catalog=None):
-        self.calls.append({"radius": radius, "catalog": catalog})
+    def query_region(self, skycoord, radius=None, catalog=None, cache=True):
+        self.calls.append({"radius": radius, "catalog": catalog, "cache": cache})
         if self.exc is not None:
             raise self.exc
         return self.result
@@ -37,6 +37,7 @@ class TestQueryVizierFirstTable(unittest.TestCase):
         )
         self.assertIs(out, table)
         self.assertEqual(fake.calls[0]["catalog"], "I/355/gaiadr3")
+        self.assertIs(fake.calls[0]["cache"], False)
 
     def test_empty_result_raises_pipeline_error(self):
         for result in ([], None):
