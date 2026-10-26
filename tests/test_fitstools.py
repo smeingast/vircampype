@@ -300,10 +300,12 @@ class TestAssembleTileMef(unittest.TestCase):
 
     def _assert_m1b_findings_only(self) -> None:
         findings = check_product(self.path_out, "SCIENCE.IMAGE", final=False)
-        self.assertEqual(len(findings), 7, findings)
-        for finding in findings:
-            self.assertTrue(finding.startswith("tiny.fits[1]"), finding)
-        self.assertEqual({f.split()[-1] for f in findings}, set(self.M1B_CARDS))
+        self.assertEqual(len(findings), 8, findings)
+        # ELLIPTIC is also required in the primary (ESO validator, batch 23808)
+        primary = [f for f in findings if f.startswith("tiny.fits[0]")]
+        self.assertEqual(primary, ["tiny.fits[0]: missing ELLIPTIC"])
+        sci = [f for f in findings if f.startswith("tiny.fits[1]")]
+        self.assertEqual({f.split()[-1] for f in sci}, set(self.M1B_CARDS))
 
     def _assert_blanks(self, hdul: fits.HDUList) -> None:
         for hdu in hdul:

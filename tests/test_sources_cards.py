@@ -64,6 +64,7 @@ class TestSourcesCards(unittest.TestCase):
             for key in PHOTOMETRY:
                 del hdul["SCI"].header[key]
             del hdul[0].header["FLUXCAL"]
+            del hdul[0].header["ELLIPTIC"]
 
     def _write_catalog(self, n: int = 60):
         primary = fits.PrimaryHDU()
@@ -88,13 +89,15 @@ class TestSourcesCards(unittest.TestCase):
         catalogs = PhotometricCalibratedSextractorCatalogs(
             setup=self.setup, file_paths=[self.path_ctab]
         )
-        catalogs.write_photometric_cards(self._tile())
+        catalogs.write_photometric_cards(self._tile(), elliptic_primary=True)
 
         with fits.open(self.path_tile) as hdul:
             sci, conf = hdul["SCI"].header, hdul["CONF"].header
             for key in PHOTOMETRY:
                 self.assertIn(key, sci)
                 self.assertNotIn(key, conf)
+            self.assertEqual(hdul[0].header["ELLIPTIC"], sci["ELLIPTIC"])
+            self.assertNotIn("PHOTZP", hdul[0].header)
             self.assertEqual(sci["PHOTSYS"], "VEGA")
             zps = 25.0 + 0.01 * np.arange(len(self.setup.apertures))
             self.assertEqual(sci["PHOTZP"], round(float(np.mean(zps)), 4))

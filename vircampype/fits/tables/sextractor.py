@@ -1639,7 +1639,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             file_paths=file_paths, setup=setup
         )
 
-    def write_photometric_cards(self, images) -> None:
+    def write_photometric_cards(self, images, elliptic_primary: bool = False) -> None:
         """
         Write the Phase 3 photometric cards into the images these catalogs were
         extracted from (tile SCI or every stack detector).
@@ -1652,6 +1652,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         ----------
         images : SkyImages
             Images matching these catalogs file by file.
+        elliptic_primary : bool, optional
+            Also write ELLIPTIC to the primary (single-image tile, SCIENCE.IMAGE):
+            ESO's validator requires it there (batch 23808). Default False.
 
         Raises
         ------
@@ -1686,11 +1689,15 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     f"PHOTZP={values['PHOTZP']}, ABMAGLIM={values['ABMAGLIM']}, "
                     f"PSF_FWHM={values['PSF_FWHM']}"
                 )
-            set_cards(
-                images.paths_full[idx],
-                [("FLUXCAL", "ABSOLUTE", "Flux calibration")],
-                hdu=0,
-            )
+            primary = [("FLUXCAL", "ABSOLUTE", "Flux calibration")]
+            if elliptic_primary:
+                if len(hdus_img) != 1:
+                    raise PipelineValueError(
+                        f"ELLIPTIC in the primary needs a single data HDU, "
+                        f"{images.paths_full[idx]} has {len(hdus_img)}"
+                    )
+                primary += [card for card in cards if card[0] == "ELLIPTIC"]
+            set_cards(images.paths_full[idx], primary, hdu=0)
 
     def _merged_table(self, clean=True):
         # Import

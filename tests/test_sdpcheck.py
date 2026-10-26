@@ -112,6 +112,7 @@ def make_products(
         extra.append(fits.BinTableHDU.from_columns([column], name="PHASE3PROVENANCE"))
     else:
         primary.update(_prov(RAW_FILES))
+    primary["ELLIPTIC"] = PHOTOMETRY["ELLIPTIC"]
     if final:
         primary["PRODCATG"] = "SCIENCE.IMAGE"
         primary["ASSON1"] = os.path.basename(paths["expmap"])
@@ -237,8 +238,10 @@ def _header(*cards: dict) -> fits.Header:
 
 
 def _write(path: str, hdus: list, final: bool) -> None:
-    """Write with 36 trailing blank cards per HDU; checksums only for final files."""
+    """Write with 36 trailing blank cards per HDU; DATE and checksums only if final."""
     hdul = fits.HDUList(hdus)
+    if final:
+        hdul[0].header["DATE"] = "2026-10-26T12:00:00"
     hdul.update_extend()  # EXTEND first, so that it does not take a blank card
     for hdu in hdul:
         for _ in range(36):
@@ -376,13 +379,14 @@ class TestSdpCheck(unittest.TestCase):
     def test_unfinalized_fail_with_final_true(self):
         paths = make_products(os.path.join(self.tmp, "unfinal_fail"), final=False)
         self.assertEqual(
-            check_product(paths["tile"]), ["tiny.fits[0]: missing PRODCATG"]
+            check_product(paths["tile"]),
+            ["tiny.fits[0]: missing PRODCATG", "tiny.fits[0]: missing DATE"],
         )
         problems = check_product(paths["tile"], "SCIENCE.IMAGE")
-        for keyword in ("PRODCATG", "ASSON1", "CHECKSUM", "DATASUM"):
+        for keyword in ("PRODCATG", "DATE", "ASSON1", "CHECKSUM", "DATASUM"):
             self.assertFinding(problems, keyword)
         problems = check_product(paths["sources"], "SCIENCE.SRCTBL")
-        for keyword in ("PRODCATG", "CHECKSUM"):
+        for keyword in ("PRODCATG", "DATE", "CHECKSUM"):
             self.assertFinding(problems, keyword)
         self.assertFinding(check_product(paths["tile"], "SCIENCE.CUBE"), "unknown")
 
@@ -425,6 +429,9 @@ class TestSdpCheck(unittest.TestCase):
             ("CD1_1A", set_card(1, "CD1_1A", 1.0)),
             ("only allowed with TELESCOP", set_card(0, "TELESC1", "ESO-VISTA")),
             ("TELESC1 = 5 is not a string", multi_with_number),
+            ("missing DATE", delete_card(0, "DATE")),
+            ("missing ELLIPTIC", delete_card(0, "ELLIPTIC")),
+            ("ELLIPTIC", set_card(0, "ELLIPTIC", 0.07)),  # differs from SCI
         ]
         for keyword, edit in cases:
             with self.subTest(keyword):

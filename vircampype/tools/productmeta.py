@@ -10,6 +10,7 @@ in every HDU of the file); the finalizer writes PRODCATG, ASSONi and the missing
 checksums last.
 """
 
+import datetime
 import logging
 import math
 import numbers
@@ -212,13 +213,15 @@ def finalize_products(pipeline) -> None:
 
 
 def finalize_files(products: list[tuple[str, str, tuple[str, ...]]]) -> None:
-    """Check, then seal products with PRODCATG, ASSONi and checksums, then check again.
+    """Check, then seal products with identity cards and checksums, then check again.
 
     ``products`` holds (path, PRODCATG, ASSONi basenames) in batch order (images before
     their source lists). Nothing is written unless every file passes ``sdpcheck`` with
     ``final=False`` and every HDU has header space for its checksums. Existing checksums
     are trusted; ``set_cards`` removes them in every HDU of the file it edits, so after
-    the identity cards each HDU gets fresh ones. Running it again is harmless.
+    the identity cards each HDU gets fresh ones. DATE (UTC, the time of sealing) goes
+    into every primary: ESO's validator requires it for the science categories.
+    Running it again is harmless (it refreshes DATE).
 
     Raises PipelineError with all findings when a check fails, and PipelineValueError
     when an HDU lacks the blank cards for its new cards.
@@ -237,11 +240,13 @@ def finalize_files(products: list[tuple[str, str, tuple[str, ...]]]) -> None:
     # grows and the data move.
     identity = {}
     short = []
+    date = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S")
     for path, prodcatg, asson in products:
         cards = [("PRODCATG", prodcatg, "Data product category")]
         cards += [
             (f"ASSON{i}", name, "Associated file") for i, name in enumerate(asson, 1)
         ]
+        cards += [("DATE", date, "Date the file was written (UTC)")]
         for card in cards:
             _check_card(*card)
         identity[path] = cards

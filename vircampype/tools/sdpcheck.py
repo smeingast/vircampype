@@ -100,7 +100,7 @@ def check_product(
 
     ``prodcatg`` defaults to the primary PRODCATG. ``final=False`` (requires
     ``prodcatg``, else PipelineValueError) skips what the finalizer writes: PRODCATG,
-    ASSONi with its cross-file checks, and CHECKSUM/DATASUM.
+    DATE, ASSONi with its cross-file checks, and CHECKSUM/DATASUM.
     """
     if not final and prodcatg is None:
         raise PipelineValueError("check_product: prodcatg is required with final=False")
@@ -122,6 +122,8 @@ def check_product(
                     f"{name}[0]: PRODCATG = {primary['PRODCATG']!r}, "
                     f"expected {category!r}"
                 )
+            # Not in Table 8, but ESO's validator requires it (batch 23808)
+            problems += _require(primary, ("DATE",), f"{name}[0]")
         if category is None:
             return problems
 
@@ -371,6 +373,10 @@ def _check_image_mef(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
     problems += _require_numbers(sci, ("MJD-OBS",), where_sci)
     problems += _check_wcs(sci, where_sci)
     problems += _check_photometry(sci, where_sci)
+
+    # ESO's validator requires ELLIPTIC in the primary of the tile (batch 23808)
+    problems += _require_numbers(primary, ("ELLIPTIC",), where)
+    problems += _compare(primary, sci, ("ELLIPTIC",), where, "SCI")
 
     problems += _expect(conf, "HDUCLAS2", ("CONF",), where_conf)
     problems += _expect(conf, "SCIDATA", ("SCI",), where_conf)

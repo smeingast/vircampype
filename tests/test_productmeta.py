@@ -374,7 +374,7 @@ class TestFinalizeFiles(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def assertSealed(self, paths: dict, offsets: dict):
-        """PRODCATG, ASSON1, valid checksums in every HDU, clean checks, same offsets."""
+        """PRODCATG, ASSON1, DATE, valid checksums in every HDU, clean checks, offsets."""
         files = file_list(paths)
         for path, prodcatg, asson in product_list(paths):
             with warnings.catch_warnings():
@@ -384,6 +384,9 @@ class TestFinalizeFiles(unittest.TestCase):
                     self.assertEqual(primary["PRODCATG"], prodcatg)
                     self.assertEqual(primary.get("ASSON1"), asson[0] if asson else None)
                     self.assertNotIn("ASSON2", primary)
+                    self.assertRegex(
+                        primary["DATE"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$"
+                    )
                     for hdu in hdul:
                         self.assertIn("CHECKSUM", hdu.header)
                         self.assertIn("DATASUM", hdu.header)
