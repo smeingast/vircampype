@@ -20,6 +20,7 @@ from vircampype.tools.fitstools import (
     make_card,
     make_cards,
     make_gaia_refcat,
+    make_mef_image,
     mjd2dateobs,
     read_fits_headers,
     tile_fits,
@@ -219,6 +220,28 @@ class TestAddKeyPrimaryHDU(unittest.TestCase):
                 self.assertEqual(hdul[0].header["MYKEY"], 99)
         finally:
             os.remove(path)
+
+
+class TestMakeMefImage(unittest.TestCase):
+    def test_make_mef_image_n_blank(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for i in range(2):
+                path = os.path.join(tmp, f"in{i}.fits")
+                fits.writeto(path, np.full((4, 4), float(i), dtype=np.float32))
+                paths.append(path)
+            for n_blank in (0, 36):
+                out = os.path.join(tmp, f"out{n_blank}.fits")
+                make_mef_image(paths, out, n_blank=n_blank)
+                with fits.open(out) as hdul:
+                    self.assertEqual(len(hdul), 3)
+                    for hdu in hdul:
+                        n = 0
+                        for card in reversed(list(hdu.header.cards)):
+                            if card.keyword != "" or str(card.value).strip():
+                                break
+                            n += 1
+                        self.assertEqual(n, n_blank, hdu.name)
 
 
 class TestAssembleTileMef(unittest.TestCase):

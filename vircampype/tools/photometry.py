@@ -1,11 +1,16 @@
 import logging
+import math
 import warnings
 from functools import lru_cache
 
 import numpy as np
 from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.units import Unit
+from astropy.wcs import WCS, FITSFixedWarning
+from astropy.wcs.utils import proj_plane_pixel_scales
 from scipy.stats import sem
+
+from vircampype.pipeline.errors import PipelineValueError
 
 __all__ = [
     "get_zeropoint",
@@ -15,6 +20,9 @@ __all__ = [
     "aperture_error_inflation",
     "limiting_magnitude",
     "saturation_magnitude",
+    "psf_summary",
+    "saturation_magnitude_peak",
+    "photometric_cards",
     "reference_bright_limit",
 ]
 
@@ -539,6 +547,156 @@ def saturation_magnitude(table, header=None):
     # that SExtractor did not flag do not set the limit
     mags = np.sort(mags[np.isfinite(mags)])
     return float(mags[9]) if len(mags) >= 10 else np.nan
+
+
+def psf_summary(table) -> tuple[float, float]:
+    """
+    PSF FWHM and ellipticity from the clean, bright point sources of a catalog.
+
+    Both values are 3-sigma-clipped means over the sources selected by
+    ``_bright_point_sources`` (CLASS_STAR > 0.8, FLAGS = 0, SNR_WIN > 50).
+
+    Parameters
+    ----------
+    table : fits.FITS_rec | Table
+        SExtractor catalog (needs CLASS_STAR, FLAGS, SNR_WIN, FWHM_IMAGE,
+        FWHM_WORLD, ELLIPTICITY).
+
+    Returns
+    -------
+    tuple[float, float]
+        FWHM (arcsec) and ellipticity (1 - B/A); NaNs with fewer than 5 sources.
+
+    """
+    mask = _bright_point_sources(table)
+    if np.sum(mask) < 5:
+        return np.nan, np.nan
+    fwhm = sigma_clipped_stats(table["FWHM_WORLD"][mask] * 3600, sigma=3, maxiters=5)
+    ellip = sigma_clipped_stats(table["ELLIPTICITY"][mask], sigma=3, maxiters=5)
+    return float(fwhm[0]), float(ellip[0])
+
+
+def saturation_magnitude_peak(saturate: float, fwhm_pix: float, zp: float) -> float:
+    """
+    Magnitude of a point source whose central pixel reaches the saturation level.
+
+    The PSF is a pixel-integrated Gaussian; the central pixel then holds the
+    fraction ``erf(1 / (2 sqrt(2) sigma))**2`` of the total flux.
+
+    Parameters
+    ----------
+    saturate : float
+        Saturation level (ADU).
+    fwhm_pix : float
+        PSF FWHM in pixels.
+    zp : float
+        Zero point (Vega mag).
+
+    Returns
+    -------
+    float
+        Saturation magnitude (Vega), NaN if saturate or fwhm_pix is not positive.
+
+    """
+    if not (saturate > 0 and fwhm_pix > 0):
+        return np.nan
+    sigma = fwhm_pix / (2 * math.sqrt(2 * math.log(2)))
+    f = math.erf(1 / (2 * math.sqrt(2) * sigma)) ** 2
+    return float(zp - 2.5 * math.log10(saturate / f))
+
+
+def photometric_cards(
+    table, catalog_header, image_header, setup, passband
+) -> list[tuple[str, object, str]]:
+    """
+    The seven Phase 3 photometric cards of one image HDU.
+
+    PHOTZP is the mean aperture-matched zero point (the same the completeness
+    analysis uses). PHOTZPER combines the median per-aperture ZP error, the ZP
+    scatter over the apertures and the internal error floor in quadrature.
+    ABMAGLIM is the aperture-depth estimator of ``limiting_magnitude`` converted
+    to AB (Vega + 0.91/1.39/1.85 for J/H/Ks). ABMAGSAT is the AB magnitude of a
+    point source whose central pixel saturates. PSF_FWHM and ELLIPTIC come from
+    ``psf_summary``.
+
+    Parameters
+    ----------
+    table : fits.FITS_rec | Table
+        Calibrated SExtractor catalog of the image HDU.
+    catalog_header : fits.Header
+        Catalog extension header with the ``HIERARCH PYPE ZP ...`` keywords.
+    image_header : fits.Header
+        Image HDU header with BACKSIG, SATURATE and the WCS.
+    setup : Setup
+        Pipeline setup (apertures, error-model constants).
+    passband : str
+        Passband ('J', 'H' or 'Ks').
+
+    Returns
+    -------
+    list[tuple[str, object, str]]
+        (keyword, value, comment) of PHOTZP, PHOTZPER, PHOTSYS, ABMAGLIM,
+        ABMAGSAT, PSF_FWHM and ELLIPTIC.
+
+    Raises
+    ------
+    PipelineValueError
+        If a zero-point keyword is missing or a card cannot be determined.
+
+    """
+    zps, zperrs = [], []
+    for i in range(len(setup.apertures)):
+        for key, values in (
+            (f"HIERARCH PYPE ZP MAG_APER_MATCHED {i}", zps),
+            (f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {i}", zperrs),
+        ):
+            if key not in catalog_header:
+                raise PipelineValueError(f"Catalog header lacks '{key}'")
+            values.append(float(catalog_header[key]))
+    photzp = float(np.mean(zps))
+    photzper = math.sqrt(
+        np.median(zperrs) ** 2 + np.std(zps) ** 2 + setup.photometric_error_floor**2
+    )
+    fwhm, ellip = psf_summary(table)
+    maglim = limiting_magnitude(
+        table, catalog_header, backsig=float(image_header["BACKSIG"]), setup=setup
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FITSFixedWarning)
+        pixel_scale = float(np.mean(proj_plane_pixel_scales(WCS(image_header)))) * 3600
+    magsat = saturation_magnitude_peak(
+        float(image_header["SATURATE"]), fwhm / pixel_scale, photzp
+    )
+
+    no_stars = "fewer than 5 clean bright point sources"
+    for card, value, reason in (
+        ("PHOTZP", photzp, "non-finite zero points"),
+        ("PHOTZPER", photzper, "non-finite zero-point errors"),
+        ("PSF_FWHM", fwhm, no_stars),
+        ("ELLIPTIC", ellip, no_stars),
+        ("ABMAGLIM", maglim, "no limiting magnitude"),
+        ("ABMAGSAT", magsat, no_stars),
+    ):
+        if not np.isfinite(value):
+            raise PipelineValueError(f"Cannot determine {card}: {reason}")
+
+    return [
+        ("PHOTZP", round(photzp, 4), "Photometric zero point (Vega mag)"),
+        ("PHOTZPER", round(photzper, 4), "Uncertainty of PHOTZP (mag)"),
+        ("PHOTSYS", "VEGA", "Photometric system"),
+        (
+            "ABMAGLIM",
+            round(float(vega2ab(maglim, passband)), 3),
+            "5sig pt-src AB, aper 1.35 FWHM, apcor",
+        ),
+        (
+            "ABMAGSAT",
+            round(float(vega2ab(magsat, passband)), 3),
+            "Saturation limit, AB magnitude (point source)",
+        ),
+        ("PSF_FWHM", round(fwhm, 3), "Spatial resolution, FWHM (arcsec)"),
+        ("ELLIPTIC", round(ellip, 3), "Mean ellipticity 1-B/A"),
+    ]
 
 
 def reference_bright_limit(

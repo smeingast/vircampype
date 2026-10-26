@@ -20,7 +20,6 @@ from vircampype.tools.messaging import (
     print_message,
 )
 from vircampype.tools.miscellaneous import *
-from vircampype.tools.photometry import limiting_magnitude, saturation_magnitude
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
     move_file,
@@ -259,6 +258,7 @@ def make_mef_image(
     write_extname: bool = True,
     overwrite: bool = False,
     cache_dir: str | None = None,
+    n_blank: int = 0,
 ) -> None:
     """
     Combine multiple single-extension FITS images into one MEF file.
@@ -284,6 +284,10 @@ def make_mef_image(
     cache_dir : str, optional
         Directory for the temporary intermediate file. If ``None``,
         the system temp directory is used.
+    n_blank : int, optional
+        Number of blank cards appended to the header of every HDU, the
+        reserved header block of Phase 3 products (36), so that later card
+        edits and checksums never move the data. Default is 0.
 
     Raises
     ------
@@ -315,6 +319,10 @@ def make_mef_image(
             if write_extname:
                 hdr.set("EXTNAME", value=f"HDU{pidx + 1:>02d}", after="BITPIX")
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
+
+    for hdu in hdulist:
+        for _ in range(n_blank):
+            hdu.header.append(fits.Card(), end=True)
 
     # Write via local temp to avoid many small NAS writes
     path_temp = make_path_system_tempfile(suffix=".fits", base_dir=cache_dir)
@@ -1047,26 +1055,24 @@ def combine_mjd_images(
 
 def build_qc_summary_row(
     image_path: str,
-    catalog_path: str,
     product_type: str,
     filter_keyword: str,
-    setup,
 ) -> dict:
     """Extract QC metrics for a single product (stack or tile).
+
+    All values are read from the image headers: the Phase 3 photometric cards
+    of every data HDU (``PHOTZP``, ``PHOTZPER``, ``PSF_FWHM``, ``ELLIPTIC``,
+    ``ABMAGLIM``, ``ABMAGSAT``) and the completeness cards of the first data
+    HDU (``COMP90MD``, ``COMP50MD``).
 
     Parameters
     ----------
     image_path : str
         Path to the stack or tile FITS image.
-    catalog_path : str
-        Path to the photometrically calibrated catalog (.ctab).
     product_type : str
         Either ``"stack"`` or ``"tile"``.
     filter_keyword : str
         FITS keyword for the filter name (e.g. ``"HIERARCH ESO INS FILT1 NAME"``).
-    setup : Setup
-        Pipeline setup (apertures and error-model constants for the limiting
-        magnitude).
 
     Returns
     -------
@@ -1075,104 +1081,60 @@ def build_qc_summary_row(
 
     """
 
-    with fits.open(image_path) as hdul_img:
-        phdr = hdul_img[0].header
+    keys = ("PHOTZP", "PHOTZPER", "PSF_FWHM", "ELLIPTIC", "ABMAGLIM", "ABMAGSAT")
+    values = {key: [] for key in keys}
+
+    with fits.open(image_path) as hdul:
+        phdr = hdul[0].header
         name = os.path.basename(image_path)
         filt = phdr.get(filter_keyword, "")
         ncombine = phdr.get("NCOMBINE", 0)
         astirms = phdr.get("ASTIRMS", np.nan)
         astrrms = phdr.get("ASTRRMS", np.nan)
-        backsigs = [h.header["BACKSIG"] for h in hdul_img if "BACKSIG" in h.header]
-        backsig = float(np.nanmedian(backsigs)) if backsigs else np.nan
 
-    with fits.open(catalog_path) as hdul_cat:
-        # Determine data extensions (skip primary if multi-extension)
-        n_hdu = len(hdul_cat)
-        ext_range = range(1, n_hdu) if n_hdu > 1 else range(0, 1)
+        # Data HDUs: image extensions without the weight and provenance HDUs
+        hdrs = [
+            h.header
+            for h in hdul[1:]
+            if isinstance(h, fits.ImageHDU)
+            and h.header["NAXIS"] == 2
+            and h.header.get("EXTNAME", "") not in ("CONF", "PHASE3PROVENANCE")
+        ]
+        for hdr in hdrs:
+            for key in keys:
+                if key in hdr:
+                    values[key].append(float(hdr[key]))
+        comp90 = float(hdrs[0].get("COMP90MD", np.nan)) if hdrs else np.nan
+        comp50 = float(hdrs[0].get("COMP50MD", np.nan)) if hdrs else np.nan
 
-        # Collect values across extensions
-        zp_values = []
-        zp_err_values = []
-        fwhm_all = []
-        ellip_all = []
-        maglim_all = []
-        magsat_all = []
+    def _median(key: str) -> float:
+        return float(np.nanmedian(values[key])) if values[key] else np.nan
 
-        for ext in ext_range:
-            hdr = hdul_cat[ext].header
-            data = hdul_cat[ext].data
+    photzp_scatter = (
+        float(np.nanstd(values["PHOTZP"]))
+        if product_type == "stack" and values["PHOTZP"]
+        else np.nan
+    )
 
-            # Zero points from extension headers
-            try:
-                zp_values.append(hdr["HIERARCH PYPE ZP MAG_AUTO"])
-            except KeyError:
-                pass
-            try:
-                zp_err_values.append(hdr["HIERARCH PYPE ZP ERR MAG_AUTO"])
-            except KeyError:
-                pass
-
-            # Catalog columns
-            if data is not None:
-                try:
-                    fwhm_all.append(data["FWHM_WORLD_INTERP"])
-                except KeyError:
-                    pass
-                try:
-                    ellip_all.append(data["ELLIPTICITY_INTERP"])
-                except KeyError:
-                    pass
-                maglim_all.append(
-                    limiting_magnitude(
-                        table=data, catalog_header=hdr, backsig=backsig, setup=setup
-                    )
-                )
-                magsat_all.append(saturation_magnitude(table=data, header=hdr))
-
-    # Aggregate ZP
-    zp_arr = np.array(zp_values) if zp_values else np.array([np.nan])
-    zp_err_arr = np.array(zp_err_values) if zp_err_values else np.array([np.nan])
-    zp_auto = float(np.nanmedian(zp_arr))
-    zp_auto_err = float(np.nanmedian(zp_err_arr))
-    zp_auto_scatter = float(np.nanstd(zp_arr)) if product_type == "stack" else np.nan
-
-    # Aggregate PSF
-    if fwhm_all:
-        psf_fwhm = float(np.nanmean(np.concatenate(fwhm_all)) * 3600)
-    else:
-        psf_fwhm = np.nan
-
-    if ellip_all:
-        ellipticity = float(np.nanmean(np.concatenate(ellip_all)))
-    else:
-        ellipticity = np.nan
-
-    # Limiting and saturation magnitudes (same definitions as the Phase 3 headers)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        maglim = float(np.nanmedian(maglim_all)) if maglim_all else np.nan
-        mag_saturation = float(np.nanmin(magsat_all)) if magsat_all else np.nan
+    def _round(value: float, digits: int) -> float:
+        return round(value, digits) if not np.isnan(value) else np.nan
 
     return {
         "name": name,
         "type": product_type,
         "filter": filt,
         "n_combined": ncombine,
-        "zp_auto": round(zp_auto, 4),
-        "zp_auto_err": round(zp_auto_err, 4),
-        "zp_auto_scatter": round(zp_auto_scatter, 4)
-        if not np.isnan(zp_auto_scatter)
-        else np.nan,
-        "astirms": round(astirms, 3) if not np.isnan(astirms) else np.nan,
-        "astrrms": round(astrrms, 3) if not np.isnan(astrrms) else np.nan,
-        "psf_fwhm": round(psf_fwhm, 3) if not np.isnan(psf_fwhm) else np.nan,
-        "ellipticity": round(ellipticity, 3) if not np.isnan(ellipticity) else np.nan,
-        "maglim": round(maglim, 3) if not np.isnan(maglim) else np.nan,
-        "mag_saturation": round(mag_saturation, 3)
-        if not np.isnan(mag_saturation)
-        else np.nan,
-        "comp90": np.nan,
-        "comp50": np.nan,
+        "photzp": _round(_median("PHOTZP"), 4),
+        "photzper": _round(_median("PHOTZPER"), 4),
+        "photzp_scatter": _round(photzp_scatter, 4),
+        "astirms": _round(astirms, 3),
+        "astrrms": _round(astrrms, 3),
+        "psf_fwhm": _round(_median("PSF_FWHM"), 3),
+        "ellipticity": _round(_median("ELLIPTIC"), 3),
+        "abmaglim": _round(_median("ABMAGLIM"), 3),
+        "abmagsat": _round(_median("ABMAGSAT"), 3),
+        "comp90": _round(comp90, 3),
+        "comp50": _round(comp50, 3),
     }
 
 
@@ -1393,9 +1355,7 @@ def tile_fits(
 def build_qc_summary(
     setup,
     stacks=None,
-    stacks_catalogs=None,
     tile=None,
-    tile_catalog=None,
 ) -> str | None:
     """Build a QC summary table aggregating key metrics from stacks and tile.
 
@@ -1405,12 +1365,8 @@ def build_qc_summary(
         Pipeline Setup instance.
     stacks
         Stack images (FitsImages), or None.
-    stacks_catalogs
-        Calibrated stack catalogs, or None.
     tile
         Tile image (FitsImages), or None.
-    tile_catalog
-        Calibrated tile catalog, or None.
 
     Returns
     -------
@@ -1443,20 +1399,16 @@ def build_qc_summary(
         print_elapsed(tstart, logger=log)
         return path_out
 
-    kw = {
-        "filter_keyword": setup.keywords.filter_name,
-        "setup": setup,
-    }
+    kw = {"filter_keyword": setup.keywords.filter_name}
     rows = []
 
     # Collect rows from stacks
-    if stacks is not None and stacks_catalogs is not None:
+    if stacks is not None:
         for idx in range(len(stacks)):
             try:
                 rows.append(
                     build_qc_summary_row(
                         image_path=stacks.paths_full[idx],
-                        catalog_path=stacks_catalogs.paths_full[idx],
                         product_type="stack",
                         **kw,
                     )
@@ -1465,31 +1417,17 @@ def build_qc_summary(
                 log.warning(f"QC summary: skipping stack {idx}: {e}")
 
     # Collect row from tile
-    if tile is not None and tile_catalog is not None:
+    if tile is not None:
         try:
             rows.append(
                 build_qc_summary_row(
                     image_path=tile.paths_full[0],
-                    catalog_path=tile_catalog.paths_full[0],
                     product_type="tile",
                     **kw,
                 )
             )
         except Exception as e:
             log.warning(f"QC summary: skipping tile: {e}")
-
-    # Add completeness metrics to the tile row (if available)
-    comp_path = os.path.join(
-        setup.folders["qc_completeness"], "completeness_results.fits"
-    )
-    if os.path.isfile(comp_path):
-        from vircampype.tools.completeness import load_completeness_results
-
-        _, tile_summary = load_completeness_results(comp_path)
-        for row in rows:
-            if row["type"] == "tile":
-                row["comp90"] = round(tile_summary["comp90"], 3)
-                row["comp50"] = round(tile_summary["comp50"], 3)
 
     if not rows:
         print_message(

@@ -2514,6 +2514,9 @@ class SkyImagesResampled(SkyImagesProcessed):
             cpkw_data = files.read_from_data_headers(keywords=cpkw)
             cpkw_dict = dict(zip(cpkw, cpkw_data))
 
+            # Total integration time of the stack
+            exptime_stack = float(sum(files.texptime))
+
             # Loop over extensions — write SWarp intermediates to local temp
             tmpdir_stacks = make_system_tempdir(base_dir=self.setup.local_cache_dir)
             paths_temp_stacks, paths_temp_weights = [], []
@@ -2581,7 +2584,9 @@ class SkyImagesResampled(SkyImagesProcessed):
                     stack_data = hdul[0].data
                     backmod, backsig, backskew = mmm(stack_data[stack_data != 0])
                     hdul[0].header.set(
-                        "BACKMOD", value=np.round(backmod, 3), comment="Background mode"
+                        "BACKMODE",
+                        value=np.round(backmod, 3),
+                        comment="Background mode",
                     )
                     hdul[0].header.set(
                         "BACKSIG",
@@ -2609,91 +2614,119 @@ class SkyImagesResampled(SkyImagesProcessed):
                         value=mjd2dateobs(hdul[0].header["MJD-OBS"]),
                         before="MJD-OBS",
                     )
+                    hdul[0].header.set("BUNIT", value="adu", comment="Pixel unit")
+                    hdul[0].header.set(
+                        "EXPTIME",
+                        value=exptime_stack,
+                        comment="Total integration time (s)",
+                    )
+                    # SWarp's host and run stamps
+                    for key in ("ORIGIN", "DATE", "AUTHOR"):
+                        hdul[0].header.remove(key, ignore_missing=True)
 
                     hdul.flush()
 
-            # Grab primary header of first input image
-            prhdr_first, prhdr_last = (
-                files.headers_primary[idx_first],
-                files.headers_primary[idx_last],
+            # Primary header: observation block, stack centre, astrometric RMS
+            primary = fits.Header()
+            for key, value, comment in obs_cards(files.headers_primary, self.setup):
+                primary.set(key, value, comment)
+
+            # Barycentre of the detector centres
+            ras, decs = [], []
+            for path in paths_temp_stacks:
+                hdr = fits.getheader(path)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", FITSFixedWarning)
+                    ra, dec = WCS(hdr).all_pix2world(
+                        0.5 * hdr["NAXIS1"] + 0.5, 0.5 * hdr["NAXIS2"] + 0.5, 1
+                    )
+                ras.append(float(ra))
+                decs.append(float(dec))
+            centre = centroid_sphere(SkyCoord(ras, decs, unit="deg"))
+            primary.set(
+                "RA",
+                float(centre.ra.deg),
+                "Barycentre of the detector centres, RA (deg)",
+            )
+            primary.set(
+                "DEC",
+                float(centre.dec.deg),
+                "Barycentre of the detector centres, Dec (deg)",
+            )
+            hdr_first = fits.getheader(paths_temp_stacks[0])
+            for key in ("EQUINOX", "RADESYS"):
+                primary.set(key, hdr_first[key], hdr_first.comments[key])
+            primary.set("EXPTIME", exptime_stack, "Total integration time (s)")
+            primary.set(
+                "EXPTMETH", "STACK", "EXPTIME is the sum of the stacked exposures"
             )
 
-            # Start with new clean header for stack output
-            prhdr_stk = fits.Header()
-            prhdr_stk.set(
-                self.setup.keywords.object, prhdr_first[self.setup.keywords.object]
-            )
-            prhdr_stk.set(
-                self.setup.keywords.date_mjd, prhdr_first[self.setup.keywords.date_mjd]
-            )
-            mjdend = (
-                prhdr_last[self.setup.keywords.date_mjd]
-                + (
-                    prhdr_last[self.setup.keywords.dit]
-                    * prhdr_last[self.setup.keywords.ndit]
+            # Internal and external astrometric RMS over all detectors and files
+            astirms = (
+                np.sqrt(
+                    np.mean(np.array(cpkw_dict["ASTIRMS1"]) ** 2)
+                    + np.mean(np.array(cpkw_dict["ASTIRMS2"]) ** 2)
                 )
-                / 86400.0
+                * 3_600_000
             )
-            prhdr_stk.set("MJD-END", mjdend)
-            prhdr_stk.set(
-                self.setup.keywords.date_ut, prhdr_first[self.setup.keywords.date_ut]
+            astrrms = (
+                np.sqrt(
+                    np.mean(np.array(cpkw_dict["ASTRRMS1"]) ** 2)
+                    + np.mean(np.array(cpkw_dict["ASTRRMS2"]) ** 2)
+                )
+                * 3_600_000
             )
-            prhdr_stk.set(self.setup.keywords.dit, prhdr_first[self.setup.keywords.dit])
-            prhdr_stk.set(
-                self.setup.keywords.ndit, prhdr_first[self.setup.keywords.ndit]
-            )
-            prhdr_stk.set(
-                self.setup.keywords.filter_name,
-                prhdr_first[self.setup.keywords.filter_name],
-            )
-            prhdr_stk.set("NJITTER", prhdr_first["NJITTER"])
-            prhdr_stk.set("NOFFSETS", prhdr_first["NOFFSETS"])
-            prhdr_stk.set("NUSTEP", prhdr_first["NUSTEP"])
-            prhdr_stk.set("NCOMBINE", len(files))
-            prhdr_stk.set(
-                "HIERARCH ESO OBS PROG ID", prhdr_first["HIERARCH ESO OBS PROG ID"]
-            )
-            prhdr_stk.set("HIERARCH ESO OBS ID", prhdr_first["HIERARCH ESO OBS ID"])
-            prhdr_stk.set("HIERARCH ESO DPR TECH", prhdr_first["HIERARCH ESO DPR TECH"])
-            arcnames = files.read_from_prime_headers(keywords=["ARCFILE"])[0]
-            for idx in range(len(arcnames)):
-                prhdr_stk.set(f"HIERARCH PYPE ARCNAME {idx:02d}", arcnames[idx])
-
-            # Also add estimate of internal and external astrometric RMS
-            astirms1_mean = np.mean(list(zip(*cpkw_dict["ASTIRMS1"]))[0])
-            astirms2_mean = np.mean(list(zip(*cpkw_dict["ASTIRMS2"]))[0])
-            astrrms1_mean = np.mean(list(zip(*cpkw_dict["ASTRRMS1"]))[0])
-            astrrms2_mean = np.mean(list(zip(*cpkw_dict["ASTRRMS2"]))[0])
-            astirms = np.sqrt(astirms1_mean**2 + astirms2_mean**2) * 3_600_000
-            astrrms = np.sqrt(astrrms1_mean**2 + astrrms2_mean**2) * 3_600_000
-            prhdr_stk.set(
+            primary.set(
                 "ASTIRMS",
-                value=np.round(astirms, 2),
-                comment="Internal astr. dispersion RMS (mas)",
+                round(float(astirms), 2),
+                "Internal astr. dispersion RMS (mas)",
             )
-            prhdr_stk.set(
+            primary.set(
                 "ASTRRMS",
-                value=np.round(astrrms, 2),
-                comment="External astr. dispersion RMS (mas)",
-            )
-            log.info(
-                f"Stack {idx_split + 1}/{len(split)}: ASTIRMS={astirms:.1f} mas, ASTRRMS={astrrms:.1f} mas"
+                round(float(astrrms), 2),
+                "External astr. dispersion RMS (mas)",
             )
 
-            # Construct MEF from individual detectors
+            # Provenance: PROVi cards (make_mef_image carries no provenance extension)
+            arcfiles = files.read_from_prime_headers(keywords=["ARCFILE"])[0]
+            cards, prov_hdu = prov_cards(arcfiles)
+            if prov_hdu is not None:
+                raise PipelineValueError(
+                    f"Stack {path_stack} has {len(arcfiles)} inputs; "
+                    f"at most 9999 fit into PROVi cards"
+                )
+            for key, value, comment in cards:
+                primary.set(key, value, comment)
+            log.info(
+                f"Stack {idx_split + 1}/{len(split)}: "
+                f"NCOMBINE={primary['NCOMBINE']}, "
+                f"RA/DEC={primary['RA']:.5f}/{primary['DEC']:.5f} deg, "
+                f"ASTIRMS={astirms:.1f} mas, ASTRRMS={astrrms:.1f} mas, "
+                f"{len(cards)} PROV entries"
+            )
+
+            # The weight's primary carries only the target and filter
+            weight_primary = fits.Header()
+            for key in ("OBJECT", "FILTER", "HIERARCH ESO INS FILT1 NAME"):
+                weight_primary.set(key, primary[key], primary.comments[key])
+
+            # Construct MEF from individual detectors, one reserved header block
+            # of 36 blank cards per HDU (Phase 3 cards are added in place later)
             make_mef_image(
                 paths_input=sorted(paths_temp_stacks),
                 overwrite=self.setup.overwrite,
                 path_output=path_stack,
-                primeheader=prhdr_stk,
+                primeheader=primary,
                 cache_dir=self.setup.local_cache_dir,
+                n_blank=36,
             )
             make_mef_image(
                 paths_input=sorted(paths_temp_weights),
                 overwrite=self.setup.overwrite,
                 path_output=path_weight,
-                primeheader=prhdr_stk,
+                primeheader=weight_primary,
                 cache_dir=self.setup.local_cache_dir,
+                n_blank=36,
             )
             # Remove intermediate temp directory
             remove_directory(tmpdir_stacks)

@@ -1,4 +1,5 @@
 import logging
+import re
 import warnings
 from typing import Callable, Generator
 
@@ -7,18 +8,11 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.table import QTable, Table
-from astropy.table import vstack as table_vstack
 from astropy.table.column import MaskedColumn
-from astropy.time import Time
 from astropy.units import Unit
-from astropy.wcs import WCS, FITSFixedWarning
 from sklearn.neighbors import NearestNeighbors
 
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.tools.mathtools import (
-    convert_position_error,
-    find_neighbors_within_distance,
-)
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import remove_file, run_command_shell, which
 
@@ -28,31 +22,148 @@ __all__ = [
     "interpolate_classification",
     "remove_duplicates_wcs",
     "fill_masked_columns",
-    "fits_column_kwargs",
     "centroid_covariance_radec_mas2",
     "estimate_astrms_floor",
-    "convert2public",
+    "SOURCE_COLUMNS",
+    "detections_to_sources",
+    "source_list_hdu",
+    "write_source_list",
     "scamp_xml_radec_correlation",
     "scamp_xml_reference_rms_highsn",
-    "merge_with_2mass",
     "sextractor_nanify_bad_values",
     "split_table",
 ]
 
-# Table column formats
-fits_column_kwargs = dict(
-    mag=dict(disp="F8.4", unit="mag"),
-    coo=dict(format="1D", disp="F11.7", unit="deg"),
-    errminmaj=dict(format="1E", disp="F6.2", unit="mas"),
-    errpa=dict(format="1E", disp="F6.2", unit="deg"),
-    mjd=dict(format="1D", disp="F11.5"),
-    exp=dict(format="1E", disp="F6.1", unit="s"),
-    ell=dict(format="1E", disp="F6.2"),
-    fwhm=dict(format="1E", disp="F6.2", unit="arcsec"),
-    cls=dict(format="1E", disp="F6.3"),
-    sflg=dict(format="1I", disp="I3"),
-    cflg=dict(format="1L"),
-    qflg=dict(format="2A"),
+# Columns of the T4 source list (SCIENCE.SRCTBL): (name, tform, unit, ucd, comment,
+# disp); "{band}" in a UCD is replaced through UCD_BAND (plan §3.3)
+SOURCE_COLUMNS = (
+    (
+        "ID",
+        "20A",
+        "",
+        "meta.id;meta.main",
+        "VISIONS source ID from RA/Dec (deg, 6 decimals)",
+        None,
+    ),
+    (
+        "RA_ICRS",
+        "D",
+        "deg",
+        "pos.eq.ra;meta.main",
+        "Right ascension, ICRS, at the observed epoch (see MJD)",
+        "F11.7",
+    ),
+    (
+        "DEC_ICRS",
+        "D",
+        "deg",
+        "pos.eq.dec;meta.main",
+        "Declination, ICRS, at the observed epoch (see MJD)",
+        "F11.7",
+    ),
+    (
+        "ERRMAJ",
+        "E",
+        "mas",
+        "phys.angSize.smajAxis;pos.errorEllipse",
+        "Semi-major axis of total position error",
+        "F6.2",
+    ),
+    (
+        "ERRMIN",
+        "E",
+        "mas",
+        "phys.angSize.sminAxis;pos.errorEllipse",
+        "Semi-minor axis of total position error",
+        "F6.2",
+    ),
+    (
+        "ERRPA",
+        "E",
+        "deg",
+        "pos.posAng;pos.errorEllipse",
+        "Position angle of the error ellipse (E of N)",
+        "F6.2",
+    ),
+    (
+        "RAERR",
+        "E",
+        "mas",
+        "stat.error;pos.eq.ra",
+        "RA (times cos Dec) uncertainty",
+        "F6.2",
+    ),
+    ("DECERR", "E", "mas", "stat.error;pos.eq.dec", "Dec uncertainty", "F6.2"),
+    ("RADECCORR", "E", "", "stat.correlation", "RA/Dec error correlation", "F6.3"),
+    (
+        "MAG",
+        "E",
+        "mag",
+        "phot.mag;em.IR.{band}",
+        "Aperture magnitude corrected to total (point source, Vega)",
+        "F8.4",
+    ),
+    (
+        "MAGERR",
+        "E",
+        "mag",
+        "stat.error;phot.mag;em.IR.{band}",
+        "Error of MAG",
+        "F8.4",
+    ),
+    (
+        "APERTURE",
+        "E",
+        "pix",
+        "phys.angSize;instr.pixel",
+        "Diameter of the selected aperture",
+        "F6.2",
+    ),
+    ("MJD", "D", "d", "time.epoch", "Effective epoch of the measurement", "F11.5"),
+    (
+        "EXPTIME",
+        "E",
+        "s",
+        "time.duration;obs.exposure",
+        "Exposure time at the source position",
+        "F6.1",
+    ),
+    ("FWHM", "E", "arcsec", "phys.angSize;src", "Source FWHM", "F6.2"),
+    ("ELLIPTICITY", "E", "", "src.ellipticity", "1 - BWIN/AWIN", "F6.2"),
+    ("CLS", "E", "", "src.class.starGalaxy", "Seeing-matched CLASS_STAR", "F6.3"),
+    ("SFLG", "I", "", "meta.code", "SExtractor FLAGS", "I3"),
+    ("CFLG", "L", "", "meta.code", "Unusable measurement (see CFLG_REASON)", None),
+    ("CFLG_REASON", "K", "", "meta.code", "Reason bitmask of CFLG", None),
+    ("QFLG", "1A", "", "meta.code.qual", "Quality grade A-D, X = unusable", None),
+    ("SURVEY", "10A", "", "meta.dataset", "Survey of the observations", None),
+)
+
+# UCD band of the MAG/MAGERR columns, keyed by passband.upper(); em.IR.Ks is not in
+# the UCD vocabulary
+UCD_BAND = {"J": "J", "H": "H", "KS": "K"}
+
+# Primary cards of the source list copied from the tile primary (plan §2.4)
+SOURCES_PRIMARY_KEYS = (
+    "ORIGIN",
+    "TELESCOP",
+    "INSTRUME",
+    "FILTER",
+    "HIERARCH ESO INS FILT1 NAME",
+    "OBJECT",
+    "RA",
+    "DEC",
+    "EQUINOX",
+    "RADESYS",
+    "EXPTIME",
+    "TEXPTIME",
+    "MJD-OBS",
+    "MJD-END",
+    "PROG_ID",
+    "NCOMBINE",
+    "OBSTECH",
+    "PROCSOFT",
+    "REFERENC",
+    "SKYSQDEG",
 )
 
 
@@ -566,7 +677,7 @@ def scamp_xml_radec_correlation(path_xml: str) -> float:
     Estimate the effective high-S/N RA/Dec astrometric correlation from a
     ``scamp.xml`` file and return the coefficient to apply to the combined per-axis
     systematic floor (``ASTRMS1``, ``ASTRMS2``) when assembling the source position
-    covariance in :func:`convert2public`.
+    covariance in :func:`detections_to_sources`.
 
     WARNING / SCAMP BUG WORKAROUND (2026-06)
     ----------------------------------------
@@ -596,7 +707,7 @@ def scamp_xml_radec_correlation(path_xml: str) -> float:
     per-source *mean* residuals (averaged over exposures), whereas this per-field value
     correlates per-*detection* residuals; they differ (e.g. 0.26 vs 0.50 on the bad tile)
     and which one is appropriate depends on aligning the correlation with the per-pawprint
-    floor sigmas (``ASTRMS1/2``) actually used on the diagonal in :func:`convert2public`.
+    floor sigmas (``ASTRMS1/2``) actually used on the diagonal in :func:`detections_to_sources`.
 
     Parameters
     ----------
@@ -634,7 +745,7 @@ def scamp_xml_radec_correlation(path_xml: str) -> float:
     if not np.isfinite(r_eff):
         return 0.0
     # Bounded by construction (weighted mean of values restricted to [-1, 1]); no clip,
-    # consistent with the fail-loud guard in convert2public.
+    # consistent with the fail-loud guard in detections_to_sources.
     return r_eff
 
 
@@ -642,7 +753,7 @@ def scamp_xml_reference_rms_highsn(path_xml: str) -> tuple[float, float] | None:
     """
     Read the per-axis **high-S/N external** astrometric RMS of the **combined image**
     from a ``scamp.xml`` file, for use as the per-source astrometric systematic floor
-    (``ASTRMS1``, ``ASTRMS2``) in :func:`convert2public`.
+    (``ASTRMS1``, ``ASTRMS2``) in :func:`detections_to_sources`.
 
     The per-detector header keyword ``ASTRRMS1/2`` is the *full-sample, per-detection*
     external RMS (residuals of all matched calibrators vs the astrometric reference). It
@@ -715,7 +826,7 @@ def centroid_covariance_radec_mas2(
     convention) before use.
 
     This is the single source of truth for the centroid covariance: the same
-    term is added to the per-source position errors in :func:`convert2public`
+    term is added to the per-source position errors in :func:`detections_to_sources`
     and subtracted from the residual variance when self-calibrating the
     astrometric floor (:func:`estimate_astrms_floor`), so the two can never
     drift apart.
@@ -853,25 +964,29 @@ def estimate_astrms_floor(
     return floor_alpha, floor_delta, corr, n_used
 
 
-def convert2public(
-    input_table: Table,
+def detections_to_sources(
+    table: Table,
     photerr_internal: float,
     apertures: list,
     mag_saturation: float,
     survey_name: str,
     magerr_scale: np.ndarray | None = None,
-):
+) -> QTable:
     """
-    Convert the internal pipeline source catalog to a public-release format.
+    Convert the pipeline detections of a tile to the source-list format.
 
-    Merges VISIONS science sources with 2MASS bright-star replacements,
-    computes total position errors, quality flags (``CFLG``, ``QFLG``), and
-    assembles the final ``QTable`` with standardised column names and units.
+    Every row is a pipeline detection: the function computes total position
+    errors, the quality flags (``CFLG``, ``CFLG_REASON``, ``QFLG``) and assembles
+    a ``QTable`` with the columns of ``SOURCE_COLUMNS``. Bright (saturated) stars
+    stay in the list, flagged unusable with reason 1; 2MASS rows for them are
+    added by the VISIONS fold, not here. Rows with unphysical errors or
+    measurements are removed. The IDs are checked for uniqueness.
 
     Parameters
     ----------
-    input_table : Table
-        Merged source table as produced by :func:`merge_with_2mass`.
+    table : Table
+        Source table of the tile (SExtractor columns plus the statistics and
+        classification columns).
     photerr_internal : float
         Internal photometric error floor (mag) added in quadrature to the
         aperture magnitude errors.
@@ -880,7 +995,7 @@ def convert2public(
     mag_saturation : float
         Bright-star saturation limit (mag, Vega).
     survey_name : str
-        Name of the main survey (e.g. ``"VISIONS"``).
+        Survey name written into the ``SURVEY`` column (e.g. ``"VISIONS"``).
     magerr_scale : np.ndarray | None, optional
         Per-aperture multiplicative inflation of ``MAGERR_APER`` (one factor per
         entry of ``apertures``) for correlated noise, applied before the floor:
@@ -892,30 +1007,36 @@ def convert2public(
     Returns
     -------
     QTable
-        Public-format source catalog with standardised columns and units.
+        Source list with the columns of ``SOURCE_COLUMNS`` and their units.
+
+    Raises
+    ------
+    PipelineValueError
+        If ``ASTRMS_CORR`` is outside [-1, 1], ``magerr_scale`` has the wrong
+        length, or two sources share an ID.
     """
     # Fill masked columns with NaN
-    input_table = fill_masked_columns(table=input_table, fill_value=np.nan)
+    table = fill_masked_columns(table=table, fill_value=np.nan)
 
     # Grab all columns
-    data_ra = input_table["ALPHAWIN_SKY"].value
-    data_dec = input_table["DELTAWIN_SKY"].value
-    data_flux_aper = input_table["FLUX_APER"]
-    data_flux_auto = input_table["FLUX_AUTO"]
-    # data_mag_aper = input_table["MAG_APER"].value
-    data_magerr_aper = input_table["MAGERR_APER"].value
-    data_mag_aper_matched = input_table["MAG_APER_MATCHED"].value
-    data_mag_aper_matched_cal = input_table["MAG_APER_MATCHED_CAL"].value
+    data_ra = table["ALPHAWIN_SKY"].value
+    data_dec = table["DELTAWIN_SKY"].value
+    data_flux_aper = table["FLUX_APER"]
+    data_flux_auto = table["FLUX_AUTO"]
+    # data_mag_aper = table["MAG_APER"].value
+    data_magerr_aper = table["MAGERR_APER"].value
+    data_mag_aper_matched = table["MAG_APER_MATCHED"].value
+    data_mag_aper_matched_cal = table["MAG_APER_MATCHED_CAL"].value
     # data_mag_aper_matched_cal_zpc = table["MAG_APER_MATCHED_CAL_ZPC_INTERP"].value
-    data_erra = input_table["ERRAWIN_WORLD"].value
-    data_errb = input_table["ERRBWIN_WORLD"].value
-    errpa_raw = input_table["ERRTHETAWIN_SKY"].value
-    astrms1 = input_table["ASTRMS1"].value
-    astrms2 = input_table["ASTRMS2"].value
+    data_erra = table["ERRAWIN_WORLD"].value
+    data_errb = table["ERRBWIN_WORLD"].value
+    errpa_raw = table["ERRTHETAWIN_SKY"].value
+    astrms1 = table["ASTRMS1"].value
+    astrms2 = table["ASTRMS2"].value
     # Per-source RA/Dec correlation (ASTRMS_CORR, from build_statistics_tables);
     # older catalogs lack it, so fall back to 0 (diagonal-only).
     try:
-        astrms_corr = input_table["ASTRMS_CORR"].value
+        astrms_corr = table["ASTRMS_CORR"].value
     except KeyError:
         astrms_corr = np.zeros_like(astrms1)
     # A correlation coefficient must lie in [-1, 1]. Fail loud rather than silently
@@ -933,41 +1054,22 @@ def convert2public(
         # Pass the logger so the error is written to the pipeline log file, not
         # just surfaced as a traceback / Pushover notification.
         raise PipelineValueError(msg, logger=logging.getLogger(__name__))
-    data_exptime = input_table["EXPTIME"].value
-    data_mjd = input_table["MJDEFF"].value
-    data_nimg = input_table["NIMG"]
-    data_fwhm = input_table["FWHM_WORLD"].value
-    data_awin = input_table["AWIN_WORLD"].value
-    data_bwin = input_table["BWIN_WORLD"].value
+    data_exptime = table["EXPTIME"].value
+    data_mjd = table["MJDEFF"].value
+    data_nimg = table["NIMG"]
+    data_fwhm = table["FWHM_WORLD"].value
+    data_awin = table["AWIN_WORLD"].value
+    data_bwin = table["BWIN_WORLD"].value
     data_ellipticity = 1 - data_bwin / data_awin
-    data_sflg = input_table["FLAGS"]
-    data_snr_win = input_table["SNR_WIN"]
-    data_flags_weight = input_table["FLAGS_WEIGHT"]
-    data_background = input_table["BACKGROUND"]
-    data_survey = input_table["SURVEY"]
-    data_isoarea_image = input_table["ISOAREA_IMAGE"]
+    data_sflg = table["FLAGS"]
+    data_snr_win = table["SNR_WIN"]
+    data_flags_weight = table["FLAGS_WEIGHT"]
+    data_background = table["BACKGROUND"]
+    data_isoarea_image = table["ISOAREA_IMAGE"]
     try:
-        data_cls = input_table["CLASS_STAR_INTERP"]
+        data_cls = table["CLASS_STAR_INTERP"]
     except KeyError:
         data_cls = np.full_like(data_exptime, fill_value=1.0)
-    data_mag_2mass = input_table["MAG_2MASS"]
-    data_magerr_2mass = input_table["MAGERR_2MASS"]
-    data_errmaj_2mass = input_table["ERRMAJ_2MASS"]
-    data_errmin_2mass = input_table["ERRMIN_2MASS"]
-    data_errpa_2mass = input_table["ERRPA_2MASS"]
-    data_mjd_2mass = input_table["MJD_2MASS"]
-    data_qflg_2mass = input_table["QFLG_2MASS"]
-
-    # Convert 2MASS ERRMAJ/ERRMIN/ERRPA to ra/dec error and correlation coeff
-    # errMaj/errMin from 2MASS (VizieR II/246) are in arcsec; convert to mas
-    data_ra_error_2mass, data_dec_error_2mass, data_ra_dec_corr_2mass = (
-        convert_position_error(
-            errmaj=data_errmaj_2mass * 1000,
-            errmin=data_errmin_2mass * 1000,
-            errpa=data_errpa_2mass,
-            degrees=True,
-        )
-    )
 
     # Build SExtractor error ellipse covariance matrix in RA/Dec frame (mas^2).
     # Shared with the astrometric-floor self-calibration so the subtracted term
@@ -1001,10 +1103,6 @@ def convert2public(
     data_dec_error = np.sqrt(cov_dec)
     data_ra_dec_corr = cov_radec / (data_ra_error * data_dec_error)
 
-    # Get indices for 2MASS and VISIONS entries
-    idx_survey = np.where(data_survey == survey_name)[0]
-    idx_2mass = np.where(data_survey == "2MASS")[0]
-
     # Read and clean aperture magnitudes, add internal photometric error
     mag_aper = data_mag_aper_matched_cal  # (+ data_mag_aper_matched_cal_zpc)
     if magerr_scale is None:
@@ -1032,13 +1130,13 @@ def convert2public(
         .kneighbors(rr)
     )
     idx_best = idx_aper[:, 0]
-    mag_best = mag_aper.copy()[np.arange(len(input_table)), idx_best]
-    magerr_best = magerr_aper.copy()[np.arange(len(input_table)), idx_best]
+    mag_best = mag_aper.copy()[np.arange(len(table)), idx_best]
+    magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
     aper_best = np.array(apertures)[idx_best]
 
     # Bad saturation
-    cflg = np.full(len(input_table), fill_value=False, dtype=bool)
-    cflg_reason = np.full(len(input_table), fill_value=0, dtype=int)
+    cflg = np.full(len(table), fill_value=False, dtype=bool)
+    cflg_reason = np.full(len(table), fill_value=0, dtype=int)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
         fil_magaper = np.nanmin(mag_aper, axis=1) < mag_saturation
@@ -1130,52 +1228,30 @@ def convert2public(
     cflg_reason[fil_neb] += 1024
 
     # Construct quality flag (fatal SExtractor flags are part of CFLG)
-    qflg = np.full(len(input_table), fill_value="X", dtype=str)
+    qflg = np.full(len(table), fill_value="X", dtype=str)
     qflg[~cflg] = "D"
     qflg[(magerr_best < 0.21714) & ~cflg] = "C"
     qflg[(magerr_best < 0.15510) & ~cflg] = "B"
     qflg[(magerr_best < 0.10857) & ~cflg] = "A"
 
-    # Copy values from merged 2MASS columns
-    mag_best[idx_2mass] = data_mag_2mass[idx_2mass]
-    magerr_best[idx_2mass] = data_magerr_2mass[idx_2mass]
-    data_cls[idx_2mass] = 1.0
-    data_erra_tot[idx_2mass] = data_errmaj_2mass[idx_2mass] * 1000  # arcsec → mas
-    data_errb_tot[idx_2mass] = data_errmin_2mass[idx_2mass] * 1000  # arcsec → mas
-    data_errpa[idx_2mass] = data_errpa_2mass[idx_2mass]
-    data_ra_error[idx_2mass] = data_ra_error_2mass[idx_2mass]
-    data_dec_error[idx_2mass] = data_dec_error_2mass[idx_2mass]
-    data_ra_dec_corr[idx_2mass] = data_ra_dec_corr_2mass[idx_2mass]
-    data_mjd[idx_2mass] = data_mjd_2mass[idx_2mass]
-    aper_best[idx_2mass] = np.nan
-    data_sflg[idx_2mass] = 0
-    # 2MASS rows: placeholder NIMG/CLS/... must not leave reasons; bright stars whose
-    # 2MASS entry failed the quality purge (QFLG_2MASS "X") are unusable (2048)
-    failed_2mass = np.asarray(data_qflg_2mass)[idx_2mass] == "X"
-    cflg[idx_2mass] = failed_2mass
-    cflg_reason[idx_2mass] = np.where(failed_2mass, 2048, 0)
-    qflg[idx_2mass] = data_qflg_2mass[idx_2mass]
-
-    # Final cleaning of VISIONS sources to kick out useless rows
-    idx_keep_survey = np.where(
-        (data_erra_tot[idx_survey] > 0.0)
-        & (data_erra_tot[idx_survey] < 1000)
-        & (data_errb_tot[idx_survey] > 0.0)
-        & (data_errb_tot[idx_survey] < 1000)
-        & (data_errpa[idx_survey] >= 0.0)
-        & (mag_best[idx_survey] > 0.0)
-        & (mag_best[idx_survey] < 50.0)
-        & (magerr_best[idx_survey] > 0.0)
-        & (magerr_best[idx_survey] < 50.0)
-        & (data_mjd[idx_survey] > 0.0)
-        & (data_exptime[idx_survey] > 0.0)
-        & (data_fwhm[idx_survey] > 0.0)
-        & (data_ellipticity[idx_survey] >= 0.0)
+    # Final cleaning to kick out useless rows
+    idx_final = np.where(
+        (data_erra_tot > 0.0)
+        & (data_erra_tot < 1000)
+        & (data_errb_tot > 0.0)
+        & (data_errb_tot < 1000)
+        & (data_errpa >= 0.0)
+        & (mag_best > 0.0)
+        & (mag_best < 50.0)
+        & (magerr_best > 0.0)
+        & (magerr_best < 50.0)
+        & (data_mjd > 0.0)
+        & (data_exptime > 0.0)
+        & (data_fwhm > 0.0)
+        & (data_ellipticity >= 0.0)
     )[0]
 
     # Apply final index
-    idx_survey = idx_survey[idx_keep_survey]
-    idx_final = np.concatenate([idx_survey, idx_2mass])
     data_ra, data_dec = data_ra[idx_final], data_dec[idx_final]
     aper_best = aper_best[idx_final]
     mag_best, magerr_best = mag_best[idx_final], magerr_best[idx_final]
@@ -1194,15 +1270,24 @@ def convert2public(
     data_fwhm = data_fwhm[idx_final]
     data_ellipticity = data_ellipticity[idx_final]
     data_cls = data_cls[idx_final]
-    data_survey = data_survey[idx_final]
 
     # Instantiate SkyCoords
     skycoord = SkyCoord(ra=data_ra, dec=data_dec, frame="icrs", unit="deg")
 
+    # Source IDs must be unique
+    ids = skycoord2visionsid(skycoord=skycoord)
+    if len(set(ids)) != len(ids):
+        unique, counts = np.unique(ids, return_counts=True)
+        duplicates = [str(i) for i in unique[counts > 1]]
+        raise PipelineValueError(
+            f"{len(duplicates)} duplicated source ID(s), e.g. {duplicates[:5]}",
+            logger=logging.getLogger(__name__),
+        )
+
     # Create table
     output_table = QTable(
         data=[
-            skycoord2visionsid(skycoord=skycoord),
+            ids,
             data_ra.astype(np.float64) * Unit("deg"),
             data_dec.astype(np.float64) * Unit("deg"),
             erra_tot.astype(np.float32) * Unit("mas"),
@@ -1223,12 +1308,12 @@ def convert2public(
             cflg,
             cflg_reason,
             qflg,
-            data_survey,
+            np.full(len(data_ra), survey_name, dtype="U10"),
         ],
         names=[
             "ID",
-            "RA",
-            "DEC",
+            "RA_ICRS",
+            "DEC_ICRS",
             "ERRMAJ",
             "ERRMIN",
             "ERRPA",
@@ -1252,8 +1337,8 @@ def convert2public(
     )
 
     # Assert units
-    assert output_table["RA"].unit == Unit("deg")
-    assert output_table["DEC"].unit == Unit("deg")
+    assert output_table["RA_ICRS"].unit == Unit("deg")
+    assert output_table["DEC_ICRS"].unit == Unit("deg")
     assert output_table["ERRMAJ"].unit == Unit("mas")
     assert output_table["ERRMIN"].unit == Unit("mas")
     assert output_table["ERRPA"].unit == Unit("deg")
@@ -1269,279 +1354,128 @@ def convert2public(
     return output_table
 
 
-# TODO: This new version requires a lot of ram...
-def merge_with_2mass(
-    table: Table,
-    weight_image: np.ndarray,
-    weight_header: fits.Header,
-    table_2mass: Table,
-    table_2mass_clean: Table,
-    mag_limit: float,
-    key_ra: str,
-    key_dec: str,
-    key_mag_2mass: str,
-    key_ra_2mass: str,
-    key_dec_2mass: str,
-    survey_name: str,
-):
+def source_list_hdu(sources: QTable, passband: str) -> fits.BinTableHDU:
     """
-    Merge a pipeline source table with 2MASS bright-star replacements.
-
-    Removes pipeline detections near 2MASS stars brighter than *mag_limit* and
-    inserts the corresponding 2MASS catalogue entries, so that the output
-    table has reliable photometry across the full dynamic range.
+    Build the binary table of a source list from ``SOURCE_COLUMNS``.
 
     Parameters
     ----------
-    table : Table
-        Pipeline source catalog. Modified in place (rows near bright stars
-        are removed).
-    weight_image : np.ndarray
-        Weight map array used to verify that 2MASS sources fall in observed
-        regions.
-    weight_header : fits.Header
-        FITS header of the weight image (provides the WCS).
-    table_2mass : Table
-        Full 2MASS reference table for the field.
-    table_2mass_clean : Table
-        Cleaned 2MASS table from which replacement sources are drawn.
-    mag_limit : float
-        2MASS magnitude threshold below which sources are considered bright
-        and trigger cleaning.
-    key_ra : str
-        Column name for right ascension in *table*.
-    key_dec : str
-        Column name for declination in *table*.
-    key_mag_2mass : str
-        Magnitude column name in the 2MASS tables.
-    key_ra_2mass : str
-        RA column name in the 2MASS tables.
-    key_dec_2mass : str
-        Dec column name in the 2MASS tables.
-    survey_name : str
-        Survey identifier string written into the ``SURVEY`` column.
+    sources : QTable
+        Output of :func:`detections_to_sources`.
+    passband : str
+        Passband of the tile (J, H or Ks); sets the band of the MAG/MAGERR UCDs.
 
     Returns
     -------
-    Table
-        Combined table with pipeline and 2MASS sources.
+    fits.BinTableHDU
+        Table with EXTNAME ``HDU01`` and TUNIT/TUCD/TCOMM (and TDISP where
+        defined) for every column.
+
+    Raises
+    ------
+    PipelineValueError
+        If the passband has no UCD band.
     """
-    # Read data columns
-    skycoord = SkyCoord(table[key_ra], table[key_dec], unit="deg", frame="icrs")
-
-    # Read 2MASS coordinates
-    skycoord_2mass = SkyCoord(
-        table_2mass[key_ra_2mass], table_2mass[key_dec_2mass], unit="deg", frame="icrs"
-    )
-    skycoord_2mass_clean = SkyCoord(
-        table_2mass_clean[key_ra_2mass],
-        table_2mass_clean[key_dec_2mass],
-        unit="deg",
-        frame="icrs",
-    )
-
-    # Read 2MASS magnitudes
-    mag_2mass = table_2mass[key_mag_2mass]
-
-    # Bright sources: purely by magnitude. The saturation flag (FLAGS & 4) does
-    # not trigger the replacement; it stays visible in SFLG (not fatal for QFLG).
-    # 2MASS upper limits ('U') and non-detections ('X') in this band are not
-    # measurements and do not define bright stars (QFLG_PB = per-band ph_qual).
-    is_measured = np.full(len(table_2mass), fill_value=True)
-    if "QFLG_PB" in table_2mass.colnames:
-        is_measured = ~np.isin(np.asarray(table_2mass["QFLG_PB"]), ["U", "X"])
-    idx_2mass_bright = np.where((mag_2mass < mag_limit) & is_measured)[0]
-
-    # Extract bright and saturated sources
-    skycoord_2mass_bright = skycoord_2mass[idx_2mass_bright]
-    mag_2mass_bright = mag_2mass[idx_2mass_bright]
-
-    # Read WCS properties of weight
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=FITSFixedWarning)
-        wcs_weight = WCS(weight_header)
-
-    # Normalize weight
-    weight_image_norm = weight_image / np.nanmean(weight_image)
-
-    def _mean_weight_cross(ra_deg, dec_deg):
-        """Mean normalised weight over the pixel and its 4 neighbours (in bounds)."""
-        xw, yw = wcs_weight.wcs_world2pix(ra_deg, dec_deg, 0)
-        xi, yi = np.rint(xw).astype(int), np.rint(yw).astype(int)
-        ny, nx = weight_image_norm.shape
-        total = np.zeros(len(xi), dtype=float)
-        count = np.zeros(len(xi), dtype=int)
-        for dx, dy in zip([0, -1, 0, 1, 0], [0, 0, -1, 0, 1]):
-            x, y = xi + dx, yi + dy
-            ok = (x >= 0) & (y >= 0) & (x < nx) & (y < ny)
-            total[ok] += weight_image_norm[y[ok], x[ok]]
-            count[ok] += 1
-        return np.where(count > 0, total / np.maximum(count, 1), 0.0)
-
-    # Keep only those from 2MASS that are within footprint
-    keep_bright = wcs_weight.footprint_contains(skycoord_2mass_bright)
-    idx_2mass_bright = idx_2mass_bright[keep_bright]
-    skycoord_2mass_bright = skycoord_2mass_bright[keep_bright]
-    mag_2mass_bright = mag_2mass_bright[keep_bright]
-
-    # Define 2MASS cleaning radus
-    x_values = np.array([-10, 5.00, 6.70, 8.70, 9.20, 10.5, 12, 14, 99])
-    y_values = np.array([50, 20, 10, 6, 5, 4, 2, 1, 0])
-    cleaning_radius = np.interp(mag_2mass_bright, x_values, y_values) * Unit("arcsec")
-
-    # Precompute neighbors
-    nindices_bright, ndistances_bright = find_neighbors_within_distance(
-        coords1=skycoord_2mass_bright,
-        coords2=skycoord,
-        distance_limit_arcmin=np.max(cleaning_radius.to_value(Unit("arcmin"))),
-        compute_distances=True,
-    )
-    nindices_clean, ndistances_clean = find_neighbors_within_distance(
-        coords1=skycoord_2mass_bright,
-        coords2=skycoord_2mass_clean,
-        distance_limit_arcmin=np.max(cleaning_radius.to_value(Unit("arcmin"))),
-        compute_distances=True,
-    )
-
-    # Find all sources around the bright targets in the photometric reference catalog
-    idx_self_near_bright, idx_2mass_near_bright = [], []
-    for cr, nib, ndb, nic, ndc in zip(
-        cleaning_radius,
-        nindices_bright,
-        ndistances_bright,  # type: ignore[arg-type]  # non-None: compute_distances=True
-        nindices_clean,
-        ndistances_clean,  # type: ignore[arg-type]  # non-None: compute_distances=True
-    ):
-        # Convert current indices and distances to arrays
-        nib = np.array(nib, dtype=int)
-        ndb = np.array(ndb, dtype=float)
-        nic = np.array(nic, dtype=int)
-        ndc = np.array(ndc, dtype=float)
-
-        # Find all sources in source catalog that are near the current bright source
-        idx_temp_bright = nib[ndb < cr.to_value("arcmin")]
-
-        if len(idx_temp_bright) > 0:
-            idx_self_near_bright.extend(idx_temp_bright)
-
-        # Find all clean sources in the clean table that are within the cleaning radius
-        idx_temp_clean = nic[ndc < cr.to_value("arcmin")]
-
-        # Keep only those within footprint
-        keep = wcs_weight.footprint_contains(skycoord_2mass_clean[idx_temp_clean])
-        idx_temp_clean = idx_temp_clean[keep]
-
-        # Keep only those with non-0 weights
-        weight_temp = _mean_weight_cross(
-            skycoord_2mass_clean.ra.degree[idx_temp_clean],
-            skycoord_2mass_clean.dec.degree[idx_temp_clean],
-        )
-        idx_temp_clean = idx_temp_clean[weight_temp > 0.0001]
-        if len(idx_temp_clean) > 0:
-            idx_2mass_near_bright.extend(idx_temp_clean)
-
-    # Only keep unique sources
-    idx_self_near_bright = np.unique(idx_self_near_bright).astype(int)
-    idx_2mass_near_bright = np.unique(idx_2mass_near_bright).astype(int)
-
-    # Bright stars whose own 2MASS entry fails the quality purge are not in the
-    # clean replacement set; their survey detections are removed above, so without
-    # a row they would vanish from the catalogue. Add them as their own 2MASS row,
-    # flagged unusable (QFLG_2MASS "X"; convert2public sets CFLG and reason 2048).
-    if len(idx_2mass_bright) > 0 and len(skycoord_2mass_clean) > 0:
-        _, sep_clean, _ = skycoord_2mass_bright.match_to_catalog_sky(
-            skycoord_2mass_clean
-        )
-        in_clean = sep_clean.arcsec < 0.1
-    else:
-        in_clean = np.zeros(len(idx_2mass_bright), dtype=bool)
-    idx_2mass_failed = idx_2mass_bright[~in_clean]
-    if len(idx_2mass_failed) > 0:
-        weight_failed = _mean_weight_cross(
-            skycoord_2mass.ra.degree[idx_2mass_failed],
-            skycoord_2mass.dec.degree[idx_2mass_failed],
-        )
-        idx_2mass_failed = idx_2mass_failed[weight_failed > 0.0001]
-    idx_2mass_failed = np.asarray(idx_2mass_failed, dtype=int)
-
-    def _replacement(col):
-        """Column values of the replacement rows: clean neighbours, then failed stars."""
-        return np.concatenate(
-            [
-                np.asarray(table_2mass_clean[col])[idx_2mass_near_bright],
-                np.asarray(table_2mass[col])[idx_2mass_failed],
-            ]
+    try:
+        band = UCD_BAND[passband.upper()]
+    except KeyError:
+        raise PipelineValueError(
+            f"No UCD band for passband '{passband}'",
+            logger=logging.getLogger(__name__),
         )
 
-    n_replacement = len(idx_2mass_near_bright) + len(idx_2mass_failed)
+    dtypes = {"D": np.float64, "E": np.float32, "I": np.int16, "K": np.int64}
+    dtypes |= {"L": bool, "A": str}
+    columns = []
+    for name, tform, _, _, _, _ in SOURCE_COLUMNS:
+        values = np.asarray(getattr(sources[name], "value", sources[name]))
+        array = values.astype(dtypes[tform[-1]])
+        columns.append(fits.Column(name=name, format=tform, array=array))
+    hdu = fits.BinTableHDU.from_columns(columns, name="HDU01")
 
-    # Remove bad sources from self
-    table.remove_rows(idx_self_near_bright)  # noqa
+    for index, (_, _, unit, ucd, comment, disp) in enumerate(SOURCE_COLUMNS, 1):
+        hdu.header[f"TUNIT{index}"] = unit
+        hdu.header[f"TUCD{index}"] = ucd.replace("{band}", band)
+        hdu.header[f"TCOMM{index}"] = comment
+        if disp is not None:
+            hdu.header[f"TDISP{index}"] = disp
+    return hdu
 
-    # Add new cols to original catalog
-    kw_nan_f32 = dict(fill_value=np.nan, dtype=np.float32)
-    kw_nan_f64 = dict(fill_value=np.nan, dtype=np.float64)
-    max_string_length = 10
-    table.add_column(
-        np.full(len(table), fill_value=survey_name, dtype=f"U{max_string_length}"),
-        name="SURVEY",
-    )
-    table.add_column(np.full(len(table), fill_value=""), name="QFLG_2MASS")
-    table.add_column(np.full(len(table), **kw_nan_f32), name="MAG_2MASS")
-    table.add_column(np.full(len(table), **kw_nan_f32), name="MAGERR_2MASS")
-    table.add_column(np.full(len(table), **kw_nan_f32), name="ERRMAJ_2MASS")
-    table.add_column(np.full(len(table), **kw_nan_f32), name="ERRMIN_2MASS")
-    table.add_column(np.full(len(table), **kw_nan_f32), name="ERRPA_2MASS")
-    table.add_column(np.full(len(table), **kw_nan_f64), name="MJD_2MASS")
 
-    # Create new catalog with sources from 2MASS
-    table_new = Table()
-    for cc in table.itercols():
-        # Determine shape of array
-        shape = list(table[cc.name].shape)
-        shape[0] = n_replacement
+def write_source_list(
+    sources: QTable,
+    path_out: str,
+    tile_name: str,
+    tile_primary: fits.Header,
+    tile_sci: fits.Header,
+    passband: str,
+    primary_cards=(),
+    table_cards=(),
+) -> None:
+    """
+    Write a source list in the SCIENCE.SRCTBL layout (plan §2.4).
 
-        if cc.dtype.kind == "f":
-            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=np.nan)
-        elif cc.dtype.kind == "i":
-            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=0)
-        elif cc.dtype.kind in "SU":
-            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value="")
-        elif cc.dtype.kind == "b":
-            table_new[cc.name] = np.full(shape, dtype=cc.dtype, fill_value=False)
-        else:
-            raise ValueError(f"dtype '{cc.dtype.char}' not supported")
+    The primary HDU is empty and carries the observation block copied from the
+    tile primary (``SOURCES_PRIMARY_KEYS`` and the indexed TELESCi/INSTRi/
+    FILTERi/PROGIDi/OBIDi), ``PROV1`` = the tile file name and ``primary_cards``.
+    The table (:func:`source_list_hdu`) carries the photometric cards copied
+    from the tile SCI header and ``table_cards``. Both headers end with 36 blank
+    cards, reserved for PRODCATG and the checksums of the finalizer.
 
-    # Fill table
-    table_new["SURVEY"] = "2MASS"
-    table_new["QFLG_2MASS"] = np.concatenate(
-        [
-            np.asarray(table_2mass_clean["QFLG_PB"])[idx_2mass_near_bright],
-            np.full(len(idx_2mass_failed), fill_value="X"),
-        ]
-    )
-    table_new[key_ra] = np.concatenate(
-        [
-            skycoord_2mass_clean.ra.degree[idx_2mass_near_bright],
-            skycoord_2mass.ra.degree[idx_2mass_failed],
-        ]
-    )
-    table_new[key_dec] = np.concatenate(
-        [
-            skycoord_2mass_clean.dec.degree[idx_2mass_near_bright],
-            skycoord_2mass.dec.degree[idx_2mass_failed],
-        ]
-    )
-    table_new["MAG_2MASS"] = _replacement(key_mag_2mass)
-    table_new["MAGERR_2MASS"] = _replacement(f"e_{key_mag_2mass}")
-    table_new["ERRMAJ_2MASS"] = _replacement("errMaj")
-    table_new["ERRMIN_2MASS"] = _replacement("errMin")
-    table_new["ERRPA_2MASS"] = _replacement("errPA")
-    mjd2mass = Time(_replacement("JD"), format="jd").mjd
-    table_new["MJD_2MASS"] = mjd2mass * Unit("d")
+    Parameters
+    ----------
+    sources : QTable
+        Output of :func:`detections_to_sources`.
+    path_out : str
+        Output path; must not exist (callers write to a temporary path).
+    tile_name : str
+        File name of the tile, written to PROV1.
+    tile_primary : fits.Header
+        Primary header of the tile.
+    tile_sci : fits.Header
+        SCI header of the tile.
+    passband : str
+        Passband of the tile (J, H or Ks).
+    primary_cards : iterable of tuple, optional
+        Additional ``(key, value, comment)`` cards for the primary header.
+    table_cards : iterable of tuple, optional
+        Additional ``(key, value, comment)`` cards for the table header.
 
-    # Stack tables and return
-    return table_vstack(tables=[table, table_new])
+    Raises
+    ------
+    PipelineValueError
+        If a photometric card is missing in the SCI header or the passband has
+        no UCD band.
+    """
+    primary = fits.Header()
+    for key in SOURCES_PRIMARY_KEYS:
+        if key in tile_primary:
+            primary.set(key, tile_primary[key], tile_primary.comments[key])
+    for key in tile_primary:
+        if re.fullmatch(r"(TELESC|INSTR|FILTER|PROGID|OBID)\d+", key):
+            primary.set(key, tile_primary[key], tile_primary.comments[key])
+    primary.set("PROV1", tile_name, "Originating image")
+    for key, value, comment in primary_cards:
+        primary.set(key, value, comment)
+
+    table = source_list_hdu(sources, passband)
+    phot_keys = ("PHOTSYS", "PHOTZP", "PHOTZPER", "ABMAGLIM", "ABMAGSAT")
+    for key in phot_keys + ("PSF_FWHM", "ELLIPTIC"):
+        if key not in tile_sci:
+            raise PipelineValueError(
+                f"{key} missing in the SCI header of {tile_name}",
+                logger=logging.getLogger(__name__),
+            )
+        table.header.set(key, tile_sci[key], tile_sci.comments[key])
+    for key, value, comment in table_cards:
+        table.header.set(key, value, comment)
+
+    hdul = fits.HDUList([fits.PrimaryHDU(header=primary), table])
+    hdul.update_extend()
+    for hdu in hdul:
+        for _ in range(36):
+            hdu.header.append(fits.Card(), end=True)
+    hdul.writeto(path_out)
 
 
 def sextractor_nanify_bad_values(table: Table) -> None:

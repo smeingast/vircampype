@@ -60,9 +60,6 @@ class Setup:
     calibrate_pawprints: bool = False  # Run photometric calibration on pawprints
     build_stacks: bool = False  # Build stacked images per offset position
     build_tile: bool = True  # Build the final coadded tile
-    build_tile_only: bool = False  # Skip pawprint processing, build tile only
-    build_public_catalog: bool = False  # Build public source catalog
-    source_classification: bool = False  # Run star/galaxy classification
     classification_n_seeing: int = 32  # Number of SEEING_FWHM grid points
     classification_seeing_step_warn: float = 0.05  # Warn if step exceeds this (arcsec)
     archive: bool = False  # Archive processed data
@@ -764,6 +761,18 @@ class Setup:
         "compress_phase3": (
             "'compress_phase3' was removed: delivered products are never "
             "compressed. Drop it."
+        ),
+        "build_tile_only": (
+            "'build_tile_only' was removed: every tile gets the full product chain "
+            "(photometry, QC, statistics, classification, source list). Drop it."
+        ),
+        "build_public_catalog": (
+            "'build_public_catalog' was removed: the source list "
+            "<name>.sources.fits is built for every tile. Drop it."
+        ),
+        "source_classification": (
+            "'source_classification' was removed: star/galaxy classification always "
+            "runs for the tile (requires the multi-seeing SExtractor fork). Drop it."
         ),
     }
 

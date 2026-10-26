@@ -3,20 +3,25 @@ import tempfile
 import unittest
 
 import numpy as np
+from astropy.io import fits
+from astropy.io.votable.ucd import check_ucd
 from astropy.table import Table
 from astropy.table.column import MaskedColumn
 
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.tabletools import (
+    SOURCE_COLUMNS,
     centroid_covariance_radec_mas2,
-    convert2public,
+    detections_to_sources,
     estimate_astrms_floor,
     fill_masked_columns,
     scamp_xml_radec_correlation,
     scamp_xml_reference_rms_highsn,
     sextractor_nanify_bad_values,
+    source_list_hdu,
     split_table,
     table2bintablehdu,
+    write_source_list,
 )
 
 
@@ -479,7 +484,7 @@ if __name__ == "__main__":
 
 
 def _public_input_table(n: int = 400, seed: int = 3) -> Table:
-    """Minimal synthetic merged table (VISIONS + a few 2MASS rows) for convert2public."""
+    """Minimal synthetic detection table for detections_to_sources."""
     rng = np.random.default_rng(seed)
     apertures = [3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
     na = len(apertures)
@@ -490,8 +495,6 @@ def _public_input_table(n: int = 400, seed: int = 3) -> Table:
         np.array(apertures) / 3.0
     )[None, :]
     flux = 10 ** (-0.4 * (mag_cal - 25.0))
-    survey = np.array(["VISIONS"] * n, dtype="U7")
-    survey[:10] = "2MASS"
     t = Table()
     t["ALPHAWIN_SKY"] = rng.uniform(280.0, 281.0, n)
     t["DELTAWIN_SKY"] = rng.uniform(-37.0, -36.0, n)
@@ -515,21 +518,13 @@ def _public_input_table(n: int = 400, seed: int = 3) -> Table:
     t["SNR_WIN"] = np.full(n, 50.0)
     t["FLAGS_WEIGHT"] = np.zeros(n, dtype=np.int16)
     t["BACKGROUND"] = np.zeros(n)
-    t["SURVEY"] = survey
     t["ISOAREA_IMAGE"] = rng.uniform(5.0, 40.0, n)
     t["CLASS_STAR_INTERP"] = np.full(n, 0.9)
-    t["MAG_2MASS"] = np.full(n, 10.0)
-    t["MAGERR_2MASS"] = np.full(n, 0.02)
-    t["ERRMAJ_2MASS"] = np.full(n, 0.06)
-    t["ERRMIN_2MASS"] = np.full(n, 0.06)
-    t["ERRPA_2MASS"] = np.full(n, 10.0)
-    t["MJD_2MASS"] = np.full(n, 51000.0)
-    t["QFLG_2MASS"] = np.array(["A"] * n)
     return t, apertures
 
 
-class TestConvert2PublicMagerrScale(unittest.TestCase):
-    """Correlated-noise MAGERR inflation in the public-catalog conversion."""
+class TestDetectionsToSourcesMagerrScale(unittest.TestCase):
+    """Correlated-noise MAGERR inflation in the source-list conversion."""
 
     @staticmethod
     def _run(scale=None):
@@ -537,7 +532,7 @@ class TestConvert2PublicMagerrScale(unittest.TestCase):
         return (
             t,
             apertures,
-            convert2public(
+            detections_to_sources(
                 t.copy(),
                 photerr_internal=0.01,
                 apertures=apertures,
@@ -550,16 +545,15 @@ class TestConvert2PublicMagerrScale(unittest.TestCase):
     def test_none_matches_legacy_formula(self):
         # magerr_scale=None must reproduce the uninflated legacy error exactly.
         t, apertures, out = self._run(None)
-        vis = np.asarray(out["SURVEY"]) == "VISIONS"
-        ap = np.asarray(out["APERTURE"].value)[vis]
+        ap = np.asarray(out["APERTURE"].value)
         idx = np.searchsorted(apertures, ap)
         # Map each output row back to its input row through the (unique) RA.
         ra_in = np.asarray(t["ALPHAWIN_SKY"])
-        row = np.searchsorted(np.sort(ra_in), np.asarray(out["RA"].value)[vis])
+        row = np.searchsorted(np.sort(ra_in), np.asarray(out["RA_ICRS"].value))
         row = np.argsort(ra_in)[row]
         legacy = np.sqrt(np.asarray(t["MAGERR_APER"])[row, idx] ** 2 + 0.01**2)
         np.testing.assert_array_equal(
-            np.asarray(out["MAGERR"].value)[vis], legacy.astype(np.float32)
+            np.asarray(out["MAGERR"].value), legacy.astype(np.float32)
         )
 
     def test_unit_scale_matches_none(self):
@@ -578,16 +572,11 @@ class TestConvert2PublicMagerrScale(unittest.TestCase):
         _, apertures, ref = self._run(None)
         kappa = np.linspace(1.0, 1.3, len(apertures))
         _, _, out = self._run(kappa)
-        vis = np.asarray(out["SURVEY"]) == "VISIONS"
-        idx = np.searchsorted(apertures, np.asarray(out["APERTURE"].value)[vis])
-        e0 = np.asarray(ref["MAGERR"].value, dtype=float)[vis]
-        e1 = np.asarray(out["MAGERR"].value, dtype=float)[vis]
+        idx = np.searchsorted(apertures, np.asarray(out["APERTURE"].value))
+        e0 = np.asarray(ref["MAGERR"].value, dtype=float)
+        e1 = np.asarray(out["MAGERR"].value, dtype=float)
         expected = np.sqrt(kappa[idx] ** 2 * (e0**2 - 0.01**2) + 0.01**2)
         np.testing.assert_allclose(e1, expected, rtol=2e-6, atol=2e-7)
-        # 2MASS rows keep their own errors
-        np.testing.assert_array_equal(
-            np.asarray(out["MAGERR"])[~vis], np.asarray(ref["MAGERR"])[~vis]
-        )
         # larger errors can only demote the quality flag (A -> B ...)
         order = {"A": 0, "B": 1, "C": 2, "D": 3, "X": 4}
         q0 = np.array([order[q] for q in np.asarray(ref["QFLG"])])
@@ -599,14 +588,14 @@ class TestConvert2PublicMagerrScale(unittest.TestCase):
             self._run(np.ones(3))
 
 
-class TestConvert2PublicFlags(unittest.TestCase):
-    """CFLG/QFLG semantics of the public catalogue."""
+class TestDetectionsToSourcesFlags(unittest.TestCase):
+    """CFLG/QFLG semantics of the source list."""
 
     @staticmethod
     def _run(modify):
         t, apertures = _public_input_table()
         modify(t)
-        out = convert2public(
+        out = detections_to_sources(
             t.copy(),
             photerr_internal=0.01,
             apertures=apertures,
@@ -615,7 +604,7 @@ class TestConvert2PublicFlags(unittest.TestCase):
         )
         # map output rows back to input rows through the (unique) RA
         ra_in = np.asarray(t["ALPHAWIN_SKY"])
-        ra_out = np.asarray(out["RA"].value)
+        ra_out = np.asarray(out["RA_ICRS"].value)
         row = {r: i for i, r in enumerate(ra_in)}
         return t, out, {row[r]: j for j, r in enumerate(ra_out) if r in row}
 
@@ -623,6 +612,7 @@ class TestConvert2PublicFlags(unittest.TestCase):
         def mod(t):
             t["FLAGS"][20:30] = 4  # saturated
             t["FLAGS"][30:40] = 7  # saturated + neighbours + deblended
+
         t, out, m = self._run(mod)
         for i in range(20, 40):
             j = m[i]
@@ -635,6 +625,7 @@ class TestConvert2PublicFlags(unittest.TestCase):
         def mod(t):
             for k, f in enumerate((8, 12, 16, 32, 64, 128)):
                 t["FLAGS"][20 + k] = f
+
         _, out, m = self._run(mod)
         for k in range(6):
             j = m[20 + k]
@@ -646,126 +637,110 @@ class TestConvert2PublicFlags(unittest.TestCase):
         def mod(t):
             t["SNR_WIN"][20] = np.nan
             t["FLUX_AUTO"][21] = np.nan
+
         _, out, m = self._run(mod)
         self.assertTrue(int(out["CFLG_REASON"][m[20]]) & 4)
         self.assertTrue(int(out["CFLG_REASON"][m[21]]) & 2)
         self.assertEqual(out["QFLG"][m[20]], "X")
         self.assertEqual(out["QFLG"][m[21]], "X")
 
-    def test_failed_2mass_row_is_x(self):
+    def test_keeps_bright_detections(self):
         def mod(t):
-            t["QFLG_2MASS"][0] = "X"
+            t["MAG_APER_MATCHED_CAL"][20] = 9.0  # brighter than mag_saturation
+
         _, out, m = self._run(mod)
-        j = m[0]
-        self.assertEqual(out["SURVEY"][j], "2MASS")
+        self.assertIn(20, m)
+        j = m[20]
         self.assertTrue(bool(out["CFLG"][j]))
-        self.assertEqual(int(out["CFLG_REASON"][j]), 2048)
+        self.assertTrue(int(out["CFLG_REASON"][j]) & 1)
         self.assertEqual(out["QFLG"][j], "X")
-        # the other 2MASS rows stay clean
-        is2m = np.asarray(out["SURVEY"]) == "2MASS"
-        self.assertEqual(int(np.asarray(out["CFLG"])[is2m].sum()), 1)
 
-    def test_2mass_rows_have_no_reason(self):
+    def test_duplicate_ids_raise(self):
+        def mod(t):
+            t["ALPHAWIN_SKY"][21] = t["ALPHAWIN_SKY"][20]
+            t["DELTAWIN_SKY"][21] = t["DELTAWIN_SKY"][20]
+
+        with self.assertRaises(PipelineValueError):
+            self._run(mod)
+
+    def test_columns_and_dtypes(self):
         _, out, _ = self._run(lambda t: None)
-        is2m = np.asarray(out["SURVEY"]) == "2MASS"
-        self.assertGreater(int(is2m.sum()), 0)
-        np.testing.assert_array_equal(np.asarray(out["CFLG_REASON"])[is2m], 0)
-        self.assertFalse(np.any(np.asarray(out["CFLG"])[is2m]))
+        self.assertEqual(out.colnames, [c[0] for c in SOURCE_COLUMNS])
+        self.assertTrue(np.all(np.asarray(out["SURVEY"]) == "VISIONS"))
+        qflg = np.asarray(out["QFLG"])
+        self.assertEqual(qflg.dtype.kind, "U")
+        self.assertEqual(qflg.dtype.itemsize, 4)  # one character
 
 
-class TestMergeWith2massBrightStars(unittest.TestCase):
-    """Bright 2MASS stars that fail the quality purge must not vanish."""
+def _sources():
+    t, apertures = _public_input_table()
+    return detections_to_sources(
+        t,
+        photerr_internal=0.01,
+        apertures=apertures,
+        mag_saturation=11.0,
+        survey_name="VISIONS",
+    )
 
-    @staticmethod
-    def _setup():
-        from astropy.io import fits as _fits
-        from astropy.wcs import WCS as _WCS
 
-        from vircampype.tools.tabletools import merge_with_2mass
+class TestSourceList(unittest.TestCase):
+    """Binary table and file layout of the T4 source list."""
 
-        n = 200
-        hdr = _fits.Header()
-        hdr.update(
-            NAXIS=2, NAXIS1=n, NAXIS2=n, CTYPE1="RA---TAN", CTYPE2="DEC--TAN",
-            CRVAL1=280.0, CRVAL2=-37.0, CRPIX1=n / 2, CRPIX2=n / 2,
-            CD1_1=-1 / 3600, CD1_2=0.0, CD2_1=0.0, CD2_2=1 / 3600,
-        )
-        weight = np.ones((n, n), dtype=np.float32)
-        w = _WCS(hdr)
-        # 2MASS: 0 = bright, passes purge; 1 = bright, fails purge; 2 = faint, clean
-        # 3 = bright, fails purge, outside the covered area (zero weight)
-        weight[:, 180:] = 0.0
-        ra, dec = w.wcs_pix2world([50, 120, 60, 190], [50, 120, 60, 100], 0)
-        t2 = Table()
-        t2["RAJ2000"], t2["DEJ2000"] = ra, dec
-        t2["Hmag"] = np.array([9.0, 9.5, 14.0, 9.2])
-        t2["e_Hmag"] = np.array([0.02, np.nan, 0.05, 0.03])
-        t2["errMaj"] = np.full(4, 0.06)
-        t2["errMin"] = np.full(4, 0.06)
-        t2["errPA"] = np.full(4, 10.0)
-        t2["JD"] = np.full(4, 2451000.5)
-        t2["QFLG_PB"] = np.array(["A", "E", "A", "U"])
-        clean = t2[[0, 2]]
-        # survey detections: one on each bright star, one far away
-        sra, sdec = w.wcs_pix2world([50, 120, 20], [50, 120, 20], 0)
-        ts = Table()
-        ts["ALPHAWIN_SKY"], ts["DELTAWIN_SKY"] = sra, sdec
-        ts["FLUX_AUTO"] = np.ones(3, dtype=np.float32)
-        out = merge_with_2mass(
-            table=ts, weight_image=weight, weight_header=hdr, table_2mass=t2,
-            table_2mass_clean=clean, mag_limit=12.0, key_ra="ALPHAWIN_SKY",
-            key_dec="DELTAWIN_SKY", key_mag_2mass="Hmag", key_ra_2mass="RAJ2000",
-            key_dec_2mass="DEJ2000", survey_name="VISIONS",
-        )
-        return out, t2
+    def test_table_header(self):
+        header = source_list_hdu(_sources(), "Ks").header
+        self.assertEqual(header["TFIELDS"], len(SOURCE_COLUMNS))
+        self.assertEqual(list(header.keys())[7], "TFIELDS")
+        self.assertEqual(header["EXTNAME"], "HDU01")
+        for index, (name, tform, unit, _, comment, _) in enumerate(SOURCE_COLUMNS, 1):
+            self.assertEqual(header[f"TTYPE{index}"], name)
+            self.assertEqual(header[f"TFORM{index}"], tform)
+            self.assertEqual(header[f"TUNIT{index}"], unit)
+            self.assertEqual(header[f"TCOMM{index}"], comment)
+            self.assertTrue(
+                check_ucd(header[f"TUCD{index}"], check_controlled_vocabulary=True),
+                header[f"TUCD{index}"],
+            )
+        names = [c[0] for c in SOURCE_COLUMNS]
+        self.assertEqual(header[f"TUCD{names.index('MAG') + 1}"], "phot.mag;em.IR.K")
+        for key in header:
+            self.assertFalse(key.startswith(("TZERO", "TSCAL")), key)
 
-    def test_failed_bright_star_added_as_x(self):
-        out, _ = self._setup()
-        survey = np.asarray(out["SURVEY"])
-        self.assertEqual(int((survey == "VISIONS").sum()), 1)  # only the far source
-        is2m = survey == "2MASS"
-        q = list(np.asarray(out["QFLG_2MASS"])[is2m])
-        # clean bright star replaced by itself, failed one added as X,
-        # failed star in the zero-weight area not added
-        self.assertEqual(sorted(q), ["A", "X"])
-        mag = np.asarray(out["MAG_2MASS"])[is2m]
-        self.assertAlmostEqual(float(mag[np.array(q) == "X"][0]), 9.5, places=5)
-        self.assertAlmostEqual(float(mag[np.array(q) == "A"][0]), 9.0, places=5)
+    def test_unknown_passband_raises(self):
+        with self.assertRaises(PipelineValueError):
+            source_list_hdu(_sources(), "Y")
 
-    def test_upper_limit_does_not_clean(self):
-        # a 2MASS 'U' entry (upper limit) brighter than the limit must neither
-        # remove survey detections nor be added as a row
-        from astropy.io import fits as _fits
-        from astropy.wcs import WCS as _WCS
+    def test_write_source_list_is_compliant(self):
+        from tests.test_sdpcheck import make_products
+        from vircampype.tools.sdpcheck import check_product
 
-        from vircampype.tools.tabletools import merge_with_2mass
-
-        n = 100
-        hdr = _fits.Header()
-        hdr.update(
-            NAXIS=2, NAXIS1=n, NAXIS2=n, CTYPE1="RA---TAN", CTYPE2="DEC--TAN",
-            CRVAL1=280.0, CRVAL2=-37.0, CRPIX1=n / 2, CRPIX2=n / 2,
-            CD1_1=-1 / 3600, CD1_2=0.0, CD2_1=0.0, CD2_2=1 / 3600,
-        )
-        w = _WCS(hdr)
-        ra, dec = w.wcs_pix2world([30, 0.3], [30, 50], 0)  # 2nd: just inside the edge
-        t2 = Table()
-        t2["RAJ2000"], t2["DEJ2000"] = ra, dec
-        t2["Hmag"] = np.array([9.0, 9.0])
-        t2["e_Hmag"] = np.array([np.nan, 0.02])
-        for c, v in (("errMaj", 0.06), ("errMin", 0.06), ("errPA", 0.0), ("JD", 2451000.5)):
-            t2[c] = np.full(2, v)
-        t2["QFLG_PB"] = np.array(["U", "E"])
-        ts = Table()
-        ts["ALPHAWIN_SKY"], ts["DELTAWIN_SKY"] = w.wcs_pix2world([30, 70], [30, 70], 0)
-        ts["FLUX_AUTO"] = np.ones(2, dtype=np.float32)
-        out = merge_with_2mass(
-            table=ts, weight_image=np.ones((n, n), dtype=np.float32), weight_header=hdr,
-            table_2mass=t2, table_2mass_clean=t2[np.array([], dtype=int)], mag_limit=12.0,
-            key_ra="ALPHAWIN_SKY", key_dec="DELTAWIN_SKY", key_mag_2mass="Hmag",
-            key_ra_2mass="RAJ2000", key_dec_2mass="DEJ2000", survey_name="VISIONS",
-        )
-        survey = np.asarray(out["SURVEY"])
-        self.assertEqual(int((survey == "VISIONS").sum()), 2)  # nothing removed by U
-        # the failed 'E' star at the edge is added once, as X
-        self.assertEqual(list(np.asarray(out["QFLG_2MASS"])[survey == "2MASS"]), ["X"])
+        with tempfile.TemporaryDirectory() as folder:
+            paths = make_products(folder, final=False)
+            os.remove(paths["sources"])
+            path = os.path.join(folder, "tiny.sources.fits")
+            tile_sci = fits.getheader(paths["tile"], "SCI")
+            write_source_list(
+                _sources(),
+                path,
+                tile_name=os.path.basename(paths["tile"]),
+                tile_primary=fits.getheader(paths["tile"], 0),
+                tile_sci=tile_sci,
+                passband="H",
+                primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
+                table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],
+            )
+            self.assertEqual(check_product(path, "SCIENCE.SRCTBL", final=False), [])
+            with fits.open(path) as hdul:
+                primary, table = hdul[0].header, hdul[1].header
+                for key in ("OBJECT", "RA", "DEC", "EXPTIME", "NCOMBINE"):
+                    self.assertIn(key, primary)
+                for key in ("EQUINOX", "RADESYS", "PROV1", "PHOTIERR"):
+                    self.assertIn(key, primary)
+                self.assertNotIn("HIERARCH ESO INS FILT1 NAME", primary)
+                self.assertEqual(primary["PROV1"], "tiny.fits")
+                for header in (primary, table):
+                    cards = list(header.cards)
+                    tail = [c for c in cards[-37:] if c.keyword == ""]
+                    self.assertEqual(len(tail), 36)
+                    self.assertNotEqual(cards[-37].keyword, "")
+                self.assertEqual(table["PHOTZP"], tile_sci["PHOTZP"])
+                self.assertIn("REFMAGLO", table)

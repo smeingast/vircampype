@@ -21,7 +21,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction
-- **Catalog building**: per-pawprint and per-tile source catalogs, public output with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
+- **Catalog building**: per-pawprint and per-tile source catalogs and a Phase 3 source list per tile (`<name>.sources.fits`) with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
 - **Completeness testing**: artificial star injection/recovery via SkyMaker and PSFEx to measure detection completeness as a function of magnitude
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
@@ -47,7 +47,7 @@ The following tools must be installed and available in `PATH`:
 | [SkyMaker](https://github.com/astromatic/skymaker) | Artificial image generation (completeness testing) |
 | [GNU Astro / noisechisel](https://www.gnu.org/software/gnuastro/) | Source mask generation |
 
-**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work when star/galaxy classification is enabled (`source_classification: true`). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The same fork (commit `5cb35ce`, pinned in the Dockerfile) adds the `WINPOS_SIGMAP` parameter used by `sex_winpos_cap`; with that option on, the pipeline checks for it at startup as well. The Docker image includes the correct build.
+**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work whenever a tile is built (classification always runs for the tile). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The same fork (commit `5cb35ce`, pinned in the Dockerfile) adds the `WINPOS_SIGMAP` parameter used by `sex_winpos_cap`; with that option on, the pipeline checks for it at startup as well. The Docker image includes the correct build.
 
 ---
 
@@ -100,7 +100,6 @@ qc_plots: true
 
 build_tile: true
 build_stacks: false
-build_public_catalog: false
 ```
 
 A separate setup file is needed for calibration data (the pipeline detects calibration runs when `name` contains `calibration`):
@@ -174,9 +173,10 @@ Processes raw science frames through to final co-added products:
 10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
 11. **Source catalogs** — SExtractor source extraction on stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
 12. **QC plots** — astrometric and photometric diagnostic plots
-13. **QC summary table** — aggregates key metrics from stacks and tile into `qc/qc_summary.ecsv`
+13. **QC summary table** — aggregates the Phase 3 header values of stacks and tile (`photzp`, `photzper`, `photzp_scatter` (std of the per-detector PHOTZP of a stack), `psf_fwhm`, `ellipticity`, `abmaglim`, `abmagsat`, `comp90`, `comp50`) into `qc/qc_summary.ecsv`
 14. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
-15. **Public catalog** — public source catalog from the tile
+15. **Source list** — `<name>.sources.fits` (ESO SCIENCE.SRCTBL) from the tile catalog, statistics and classification
+16. **Finalization** — Phase 3 check (`sdpcheck`), then PRODCATG, associations and checksums on every product (tile, exposure map, source list, stacks and weights)
 
 ---
 
@@ -195,9 +195,8 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
-| `build_tile` | `true` | Build final co-added tile |
+| `build_tile` | `true` | Build the final co-added tile with its exposure map, catalogs, classification and source list |
 | `reference` | `2023A&A...673A..59M` | Publication written to the REFERENC keyword (ADS bibcode or `doi:...`); default: the vircampype pipeline paper (VISIONS II) |
-| `build_public_catalog` | `false` | Build public source catalog |
 | `build_completeness` | `false` | Run completeness analysis on tile |
 | `bpm_noise_mask` | `true` | Add pixels with excess temporal noise (from pairs of linearity darks) to the master bad pixel mask |
 | `bpm_noise_threshold` | `5` | Noise threshold for the bad pixel mask, in units of the readout-channel median noise |
@@ -212,7 +211,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `source_mask_method` | `noisechisel` | Source masking: `noisechisel` or `built-in` |
 | `resampling_kernel` | `lanczos3` | SWarp resampling kernel |
 | `statistics_coadd` | `numpy` | Tile statistics maps (nimg, exptime, MJD): `numpy` builds them without SWarp, bit-identical to SWarp 2.41.6 and with bounded RAM (`statistics_coadd_mem_max`, MB, default 2048); inputs it cannot reproduce fall back to SWarp. `swarp` always uses SWarp |
-| `photometric_error_correlated_noise` | `true` | Inflate the public-catalog aperture-magnitude errors for correlated noise: `MAGERR = sqrt(kappa(D)^2 MAGERR_APER^2 + floor^2)`, `kappa(D)^2 = c^2 kappa_resamp(D)^2 + beta pi min(D, dmax)^2/4`, with `kappa_resamp` the noise correlation of the SWarp kernel (computed from `resampling_kernel` and the coadd/`native_pixel_scale` ratio). `false` reproduces the uninflated errors exactly |
+| `photometric_error_correlated_noise` | `true` | Inflate the source-list aperture-magnitude errors for correlated noise: `MAGERR = sqrt(kappa(D)^2 MAGERR_APER^2 + floor^2)`, `kappa(D)^2 = c^2 kappa_resamp(D)^2 + beta pi min(D, dmax)^2/4`, with `kappa_resamp` the noise correlation of the SWarp kernel (computed from `resampling_kernel` and the coadd/`native_pixel_scale` ratio). `false` reproduces the uninflated errors exactly |
 | `photometric_error_noise_scale` | `1.0` | Per-pixel noise calibration `c` of the inflation (empirical, from repeat measurements) |
 | `photometric_error_background_beta` | `0.0084` | Coherent-background term `beta` of the inflation (calibrated on VISIONS H repeats) |
 | `photometric_error_background_dmax` | `8.0` | Aperture diameter (px) beyond which the `beta` term is held constant (largest calibrated aperture) |
@@ -220,10 +219,9 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `local_gaia_catalog` | `null` | Path to local Gaia FITS catalog (skip Vizier download) |
 | `local_2mass_catalog` | `null` | Path to local 2MASS FITS catalog (skip Vizier download) |
 | `reference_mag_lo` / `reference_mag_hi` | `null` | Bright and faint 2MASS magnitude limits for the reference stars (band defaults if unset) |
-| `reference_mag_lo_auto` | `true` | Move the bright limit brighter where the data show no saturation or non-linearity: the offset to 2MASS of point sources in the first calibrated products is checked in 0.25 mag bins and the limit stops 0.25 mag before a 20 mmag departure (at most 2.25 mag brighter, never fainter than `reference_mag_lo`). Used for the zero points, the public-catalogue 2MASS replacement (decided by magnitude alone; `FLAGS & 4`, the saturation bit, does not trigger it and is informational only: it stays in `SFLG` but does not make `CFLG`/`QFLG` X), `MAGSAT` and QC (the illumination correction runs earlier and keeps the setup limit); stored in `temp/reference_mag_lo.json` and the catalogue headers (`PYPE REFMAG LO`) |
+| `reference_mag_lo_auto` | `true` | Move the bright limit brighter where the data show no saturation or non-linearity: the offset to 2MASS of point sources in the first calibrated products is checked in 0.25 mag bins and the limit stops 0.25 mag before a 20 mmag departure (at most 2.25 mag brighter, never fainter than `reference_mag_lo`). Used for the zero points, the source list (`REFMAGLO`; the VISIONS release replaces brighter stars with 2MASS by magnitude alone; `FLAGS & 4`, the saturation bit, stays in `SFLG` but does not make `CFLG`/`QFLG` X), `MAGSAT` and QC (the illumination correction runs earlier and keeps the setup limit); stored in `temp/reference_mag_lo.json` and the catalogue headers (`PYPE REFMAG LO`) |
 | `scamp_cache_dir` | `null` | Directory for caching SCAMP `.ahead` header files |
 | `local_cache_dir` | `null` | Local directory for disposable temp (header cache, SWarp swap, completeness sub-tiles). Default `null` uses the system temp dir for caches/swap and `path_pype/<name>/temp` for completeness |
-| `source_classification` | `false` | Run star/galaxy classification (requires multi-seeing SExtractor fork) |
 | `sex_winpos_cap` | `false` | Cap SExtractor's windowed-centroid (WIN) window at the local stellar size in the tile catalogue (requires the fork's `WINPOS_SIGMAP`). SExtractor's window has `sigma = 2 FLUX_RADIUS / 2.35`, so extended sources get wide windows that pick up epoch-dependent PSF asymmetry and a spurious proper motion (CrA galaxies: +0.6 mas/yr); with the cap each window is `min(own, local stellar sigma)`, which removes the galaxy PM while stars move by ≤ 0.6 mas. Products: `WINVAR` (stellar window sigma², arcsec², 0 = unknown) in the detector HDUs of the per-pawprint statistics weights (written at tile level from the SCAMP catalogue and `.ahead`; mosaics read it through their statistics symlinks), `<tile>.winsig.fits` (sigma map, arcsec) and `<tile>.winsig.map.fits` (the SExtractor map, pixels) next to the coadd, and `WINPSMAP` in the tile catalogue header; the tile's class-star run uses the same map, so its WIN positions match the full catalogue. Enabling it on an existing reduction: reset the `photometry_tile` status and remove the tile `full` catalogue and everything derived from it (a catalogue made with the other setting raises); tiles need `WINVAR` before their mosaics |
 | `classification_n_seeing` | `32` | Number of SEEING_FWHM grid points for classification |
 | `classification_seeing_step_warn` | `0.05` | Warn if classification FWHM step exceeds this value (arcsec) |
@@ -249,7 +247,7 @@ path_pype/
     │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd; WINVAR headers with sex_winpos_cap)
     ├── products/
     │   ├── stacks/                 # Per-offset stack images and catalogs
-    │   └── tile/                   # Final co-added tile (MEF: SCI, CONF), exposure map and catalogs
+    │   └── tile/                   # Final co-added tile (MEF: SCI, CONF), exposure map, source list and catalogs
     ├── qc/                         # Quality control plots
     │   ├── astrometry/
     │   ├── photometry/
@@ -272,11 +270,11 @@ needed and are safe to delete between runs.
 
 ---
 
-## Public catalogue flags
+## Source list flags
 
-`*.full.fits.ptab` (built when `build_public_catalog` is set) carries three flag columns:
+`<name>.sources.fits` (built for every tile) carries three flag columns:
 
-- `SFLG`: SExtractor `FLAGS` unchanged (0 for 2MASS rows). Bits 1 (neighbours), 2 (deblended) and 4 (saturated
+- `SFLG`: SExtractor `FLAGS` unchanged. Bits 1 (neighbours), 2 (deblended) and 4 (saturated
   pixel) are informational; bits 8-128 (truncated, corrupted data, memory overflow) are fatal (`CFLG_REASON` 16).
   For the most precise photometry/astrometry use `SFLG == 0` (or `SFLG & 1 == 0` if deblended sources are fine).
 - `CFLG` (bool) is True if any `CFLG_REASON` bit is set; `CFLG_REASON` (sum of bits):
@@ -294,11 +292,10 @@ needed and are safe to delete between runs.
   | 256 | no source classification (`CLASS_STAR_INTERP` NaN) |
   | 512 | growth-curve outlier: more concentrated than point sources of the same magnitude (3 px vs 4 px aperture-matched magnitude) |
   | 1024 | nebula: high local background relative to the 3 px flux, growth 3->4 px >= 0.2 mag, non-stellar |
-  | 2048 | 2MASS row of a bright star whose 2MASS entry fails the quality purge (MAGERR may be NaN) |
 
 - `QFLG`: A/B/C/D for `MAGERR` < 0.10857 / 0.15510 / 0.21714 / otherwise (S/N 10/7/5, as 2MASS) when `CFLG` is
-  False; X when `CFLG` is True. 2MASS rows (`SURVEY` = "2MASS") replace survey detections around stars brighter
-  than the bright limit; they carry the 2MASS `ph_qual` letter (A-D) of the band, or X (bit 2048).
+  False; X when `CFLG` is True. 2MASS rows for bright stars are added by the VISIONS release fold, not by the
+  pipeline.
 
 ## Logging
 

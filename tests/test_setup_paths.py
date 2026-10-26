@@ -151,6 +151,15 @@ class TestObsoleteKeys(unittest.TestCase):
         self.assertEqual(setup.name, "TestSetup")
 
 
+DEPRECATED = dict(
+    build_phase3=False,
+    compress_phase3=True,
+    build_tile_only=True,
+    build_public_catalog=True,
+    source_classification=True,
+)
+
+
 class TestDeprecatedKeys(unittest.TestCase):
     """Deprecated keys are dropped with a warning, not rejected."""
 
@@ -174,29 +183,32 @@ class TestDeprecatedKeys(unittest.TestCase):
         return path
 
     def _assert_warned_once_per_key(self, ctx):
-        for key in ("build_phase3", "compress_phase3"):
+        for key in DEPRECATED:
             hits = [m for m in ctx.output if f"'{key}' was removed" in m]
             self.assertEqual(len(hits), 1, key)
 
     def test_yaml_branch_warns_and_drops(self):
-        path = self._write_yml(
-            {**self.params, "build_phase3": False, "compress_phase3": True}
-        )
+        path = self._write_yml({**self.params, **DEPRECATED})
         with self.assertLogs("vircampype.pipeline.setup", "WARNING") as ctx:
             setup = Setup.load_pipeline_setup(path)
         self._assert_warned_once_per_key(ctx)
-        self.assertNotIn("build_phase3", setup.to_dict)
-        self.assertNotIn("compress_phase3", setup.to_dict)
+        for key in DEPRECATED:
+            self.assertNotIn(key, setup.to_dict)
 
     def test_dict_branch_warns_drops_and_keeps_input(self):
-        params = {**self.params, "build_phase3": False, "compress_phase3": True}
+        params = {**self.params, **DEPRECATED}
         before = dict(params)
         with self.assertLogs("vircampype.pipeline.setup", "WARNING") as ctx:
             setup = Setup.load_pipeline_setup(params)
         self._assert_warned_once_per_key(ctx)
         self.assertEqual(params, before)
-        self.assertNotIn("build_phase3", setup.to_dict)
-        self.assertNotIn("compress_phase3", setup.to_dict)
+        for key in DEPRECATED:
+            self.assertNotIn(key, setup.to_dict)
+
+    def test_removed_keys_are_not_attributes(self):
+        setup = make_test_setup(self._tmp.name)
+        for key in ("build_tile_only", "build_public_catalog", "source_classification"):
+            self.assertFalse(hasattr(setup, key), key)
 
     def test_build_phase3_true_raises(self):
         with self.assertRaises(PipelineValueError):

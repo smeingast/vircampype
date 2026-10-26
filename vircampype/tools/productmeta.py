@@ -38,7 +38,10 @@ def _unique_or_multi(
 
 
 def obs_cards(headers: list[fits.Header], setup) -> list[Card]:
-    """Observation block of a product, derived from the raw primary headers."""
+    """Observation block of a product, derived from the raw primary headers.
+
+    OBJECT is the pipeline run name (``setup.name``), not the raw OB target name.
+    """
     if not headers:
         raise PipelineValueError("obs_cards needs at least one raw header")
     kw = setup.keywords
@@ -47,7 +50,6 @@ def obs_cards(headers: list[fits.Header], setup) -> list[Card]:
         return [str(h[key]).strip() for h in headers]
 
     filters = strings(kw.filter_name)
-    targets = strings("HIERARCH ESO OBS TARG NAME")
     techs = sorted(set(strings("HIERARCH ESO DPR TECH")))
     if len(techs) > 1:
         raise PipelineValueError(f"Mixed observation techniques (DPR TECH): {techs}")
@@ -61,8 +63,7 @@ def obs_cards(headers: list[fits.Header], setup) -> list[Card]:
     cards += _unique_or_multi("FILTER", "FILTER", filters, "Filter name")
     if len(set(filters)) == 1:
         cards.append(("HIERARCH ESO INS FILT1 NAME", filters[0], "Filter name"))
-    obj = targets[0] if len(set(targets)) == 1 else setup.name
-    cards.append(("OBJECT", obj, "Target designation"))
+    cards.append(("OBJECT", setup.name, "Target designation"))
     cards.append(("MJD-OBS", min(mjd), "Start of observations (days)"))
     mjd_end = max(m + t / 86400 for m, t in zip(mjd, exptimes))
     cards.append(("MJD-END", mjd_end, "End of observations (days)"))

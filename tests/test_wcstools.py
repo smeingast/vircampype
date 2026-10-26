@@ -1,11 +1,14 @@
 import unittest
 
+import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.time import Time
 
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.wcstools import (
+    astrometric_residual_rms,
     header2wcs,
     header_reset_wcs,
     integer_wcs_offset,
@@ -213,6 +216,85 @@ class TestSkycoord2Header(unittest.TestCase):
         with self.assertRaises(PipelineValueError) as ctx:
             integer_wcs_offset(ref, cand)
         self.assertIn("CD2_2", str(ctx.exception))
+
+
+class TestAstrometricResidualRms(unittest.TestCase):
+    def _setup(self, dec0=20.0):
+        rng = np.random.default_rng(42)
+        ra = 10.0 + 0.01 * (np.arange(200) % 20) / np.cos(np.radians(dec0))
+        dec = dec0 + 0.01 * (np.arange(200) // 20)
+        ref = SkyCoord(ra, dec, unit="deg")
+        dra = rng.normal(0, 20, 200) * u.mas
+        ddec = rng.normal(0, 30, 200) * u.mas
+        cat = ref.spherical_offsets_by(dra, ddec)
+        mask = np.arange(200) % 2 == 0
+        return ref, cat, mask
+
+    @staticmethod
+    def _displace(ref, idx, arcsec):
+        return ref[idx].spherical_offsets_by(arcsec * u.arcsec, 0 * u.arcsec)
+
+    def _check(self, dec0):
+        ref, cat, mask = self._setup(dec0)
+        res = astrometric_residual_rms(cat, ref, mask)
+        self.assertIsNotNone(res)
+        self.assertAlmostEqual(res[0] * 3.6e6 / 20, 1.0, delta=0.15)
+        self.assertAlmostEqual(res[1] * 3.6e6 / 30, 1.0, delta=0.15)
+        return ref, cat, mask, res
+
+    def test_rms(self):
+        self._check(20.0)
+
+    def test_common_offset_is_systematic(self):
+        # CRDER is the random error (ESO SDP: CSYER holds the systematic part),
+        # so a uniform 100 mas shift of the catalog leaves it unchanged
+        ref, cat, mask, res = self._check(20.0)
+        shifted = cat.spherical_offsets_by(100 * u.mas, 0 * u.mas)
+        res2 = astrometric_residual_rms(shifted, ref, mask)
+        for a, b in zip(res, res2):
+            self.assertAlmostEqual(a * 3.6e6, b * 3.6e6, delta=1.0)
+
+    def test_rms_high_dec(self):
+        self._check(60.0)
+
+    def test_reference_with_obstime(self):
+        ref, cat, mask, res = self._check(20.0)
+        ref_t = SkyCoord(ref.ra, ref.dec, obstime=Time(2016.0, format="jyear"))
+        self.assertEqual(astrometric_residual_rms(cat, ref_t, mask), res)
+
+    def test_outliers_do_not_change_result(self):
+        ref, cat, mask, res = self._check(20.0)
+        far = self._displace(ref, np.arange(0, 10, 2), 2.0)
+        near = self._displace(ref, np.arange(10, 16, 2), 0.4)  # inside max_sep
+        cat2 = SkyCoord(
+            np.concatenate([cat.ra.deg, far.ra.deg, near.ra.deg]),
+            np.concatenate([cat.dec.deg, far.dec.deg, near.dec.deg]),
+            unit="deg",
+        )
+        mask2 = np.concatenate([mask, np.ones(8, dtype=bool)])
+        res2 = astrometric_residual_rms(cat2, ref, mask2)
+        self.assertIsNotNone(res2)
+        for a, b in zip(res, res2):
+            self.assertAlmostEqual(a * 3.6e6, b * 3.6e6, delta=2.0)
+
+    def test_too_few_sources(self):
+        ref, cat, _ = self._setup()
+        mask = np.zeros(200, dtype=bool)
+        mask[:5] = True
+        self.assertIsNone(astrometric_residual_rms(cat, ref, mask))
+
+    def test_max_sep(self):
+        ref, cat, _ = self._setup()
+        far = self._displace(ref, np.arange(20), 2.0)
+        mask = np.zeros(220, dtype=bool)
+        mask[200:] = True
+        cat2 = SkyCoord(
+            np.concatenate([cat.ra.deg, far.ra.deg]),
+            np.concatenate([cat.dec.deg, far.dec.deg]),
+            unit="deg",
+        )
+        self.assertIsNone(astrometric_residual_rms(cat2, ref, mask))
+        self.assertIsNotNone(astrometric_residual_rms(cat2, ref, mask, max_sep=3.0))
 
 
 if __name__ == "__main__":

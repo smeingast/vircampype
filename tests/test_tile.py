@@ -69,5 +69,32 @@ class TestTile(unittest.TestCase):
         self.assertEqual(stacks.paths_sextractor, stacks.paths_full)
 
 
+class TestStacksLayout(unittest.TestCase):
+    """The S1 stack MEF (16 extensions) and its S2 weight next to it."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.setup = make_test_setup(self._tmp.name, build_stacks=True)
+        self.paths = make_products(
+            folder=self.setup.folders["stacks"],
+            name=self.setup.name,
+            n_stacks=1,
+            final=False,
+        )
+        self.stacks = Stacks(setup=self.setup, file_paths=self.paths["stacks"])
+
+    def test_iter_data_hdu(self):
+        self.assertEqual(self.stacks.iter_data_hdu, [range(1, 17)])
+
+    def test_sextractor_paths(self):
+        self.assertEqual(self.stacks.paths_sextractor, self.stacks.paths_full)
+        self.assertEqual(self.stacks.paths_sextractor_weights, self.paths["weights"])
+
+    def test_master_weight_is_stack_weight(self):
+        weight = self.stacks.get_master_weight_global()
+        self.assertEqual(weight.paths_full, self.paths["weights"])
+
+
 if __name__ == "__main__":
     unittest.main()

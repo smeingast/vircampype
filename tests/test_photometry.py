@@ -1,17 +1,24 @@
+import math
 import unittest
 
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.stats import sigma_clipped_stats
 from astropy.units import Unit
 
+from tests.test_sdpcheck import WCS
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.photometry import (
     aperture_error_inflation,
     get_default_extinction,
     get_zeropoint,
     limiting_magnitude,
+    photometric_cards,
+    psf_summary,
     resampling_noise_correlation,
     saturation_magnitude,
+    saturation_magnitude_peak,
     vega2ab,
 )
 
@@ -104,6 +111,121 @@ class TestLimitingAndSaturationMagnitude(unittest.TestCase):
             float(table["MAG_AUTO_CAL"][10]),
             places=6,
         )
+
+
+class _CardsSetup(_FakeSetup):
+    photometric_error_floor = 0.01
+
+
+def _make_cards_catalog(n=100):
+    t = _make_catalog(n=n)
+    rng = np.random.default_rng(5)
+    t["FWHM_WORLD"] = t["FWHM_IMAGE"] / 3 / 3600
+    t["ELLIPTICITY"] = 0.05 + rng.normal(0, 0.005, n)
+    # One clean star with a wild ellipticity must be clipped
+    t["ELLIPTICITY"][5] = 0.9
+    return t
+
+
+def _cards_headers():
+    catalog_header = fits.Header()
+    for i, zp in enumerate([24.0, 24.44, 24.65, 24.77, 24.84, 24.89]):
+        catalog_header[f"HIERARCH PYPE ZP MAG_APER {i}"] = zp
+        catalog_header[f"HIERARCH PYPE ZP MAG_APER_MATCHED {i}"] = 25.0 + 0.01 * i
+        catalog_header[f"HIERARCH PYPE ZP ERR MAG_APER_MATCHED {i}"] = 0.02
+    image_header = fits.Header(WCS)
+    image_header["BACKSIG"] = 5.0
+    image_header["SATURATE"] = 30000.0
+    return catalog_header, image_header
+
+
+class TestPhotometricCards(unittest.TestCase):
+    def test_cards(self):
+        setup = _CardsSetup()
+        table = _make_cards_catalog()
+        catalog_header, image_header = _cards_headers()
+        cards = photometric_cards(table, catalog_header, image_header, setup, "H")
+        self.assertEqual(
+            [c[0] for c in cards],
+            [
+                "PHOTZP",
+                "PHOTZPER",
+                "PHOTSYS",
+                "ABMAGLIM",
+                "ABMAGSAT",
+                "PSF_FWHM",
+                "ELLIPTIC",
+            ],
+        )
+        values = {key: value for key, value, _ in cards}
+        for key, value in values.items():
+            self.assertIsInstance(value, str if key == "PHOTSYS" else float)
+        self.assertEqual(values["PHOTSYS"], "VEGA")
+
+        zps = 25.0 + 0.01 * np.arange(6)
+        self.assertEqual(values["PHOTZP"], round(float(np.mean(zps)), 4))
+        self.assertEqual(
+            values["PHOTZPER"],
+            round(math.sqrt(0.02**2 + float(np.std(zps)) ** 2 + 0.01**2), 4),
+        )
+
+        mask = (table["FLAGS"] == 0) & (table["CLASS_STAR"] > 0.8)
+        fwhm_pix = sigma_clipped_stats(table["FWHM_IMAGE"][mask], sigma=3, maxiters=5)[
+            0
+        ]
+        self.assertAlmostEqual(values["PSF_FWHM"], fwhm_pix / 3, delta=0.01)
+        # Unclipped, the 0.9 outlier would shift the mean to ~0.059
+        self.assertAlmostEqual(values["ELLIPTIC"], 0.05, delta=0.003)
+
+        maglim = limiting_magnitude(table, catalog_header, 5.0, setup)
+        self.assertEqual(values["ABMAGLIM"], round(float(vega2ab(maglim, "H")), 3))
+
+        fwhm_arcsec = psf_summary(table)[0]
+        sigma = fwhm_arcsec / (1 / 3) / 2.3548
+        frac = math.erf(1 / (2 * math.sqrt(2) * sigma)) ** 2
+        magsat = float(np.mean(zps)) - 2.5 * math.log10(30000.0 / frac)
+        self.assertAlmostEqual(values["ABMAGSAT"], magsat + 1.39, delta=1e-3)
+        self.assertLess(values["ABMAGSAT"], values["ABMAGLIM"])
+
+    def test_too_few_stars(self):
+        table = _make_cards_catalog()
+        table["CLASS_STAR"][5:] = 0.1
+        # Row 0 is flagged, so only rows 1-4 are clean point sources
+        self.assertTrue(np.all(np.isnan(psf_summary(table))))
+        catalog_header, image_header = _cards_headers()
+        with self.assertRaises(PipelineValueError):
+            photometric_cards(table, catalog_header, image_header, _CardsSetup(), "H")
+
+    def test_missing_zero_point_raises(self):
+        catalog_header, image_header = _cards_headers()
+        del catalog_header["HIERARCH PYPE ZP MAG_APER_MATCHED 3"]
+        with self.assertRaisesRegex(PipelineValueError, "MAG_APER_MATCHED 3"):
+            photometric_cards(
+                _make_cards_catalog(),
+                catalog_header,
+                image_header,
+                _CardsSetup(),
+                "H",
+            )
+
+    def test_saturation_magnitude_peak(self):
+        expected = 25 - 2.5 * math.log10(
+            30000 / math.erf(1 / (2 * math.sqrt(2) * 2.4 / 2.3548)) ** 2
+        )
+        self.assertAlmostEqual(
+            saturation_magnitude_peak(30000, 2.4, 25.0), expected, delta=1e-3
+        )
+        self.assertAlmostEqual(
+            saturation_magnitude_peak(30000, 2.4, 25.0),
+            25 - 2.5 * math.log10(30000 / 0.14159),
+            delta=1e-3,
+        )
+        self.assertLess(
+            saturation_magnitude_peak(30000, 4.8, 25.0),
+            saturation_magnitude_peak(30000, 2.4, 25.0),
+        )
+        self.assertTrue(np.isnan(saturation_magnitude_peak(0.0, 2.4, 25.0)))
+        self.assertTrue(np.isnan(saturation_magnitude_peak(30000, 0.0, 25.0)))
 
 
 class TestVega2AB(unittest.TestCase):

@@ -31,9 +31,12 @@ from vircampype.tools.messaging import *
 from vircampype.tools.messaging import message_qc_astrometry
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.photometry import *
+from vircampype.tools.photometry import _bright_point_sources
 from vircampype.tools.plottools import *
+from vircampype.tools.productmeta import set_cards
 from vircampype.tools.systemtools import *
 from vircampype.tools.tabletools import *
+from vircampype.tools.wcstools import astrometric_residual_rms
 
 
 def _sample_statistics_grid(
@@ -1164,6 +1167,63 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             logger=log,
         )
 
+    def write_crder(self, images) -> None:
+        """
+        Write CRDER1/CRDER2 into the images these catalogs were extracted from.
+
+        CRDER1/2 are the 3-sigma-clipped RMS of the per-axis residuals of the clean
+        point sources with S/N > 50 against the Gaia reference, propagated to the
+        mean epoch of the catalogs (D9). An HDU with fewer than 10 matches gets no
+        cards and a warning.
+
+        Parameters
+        ----------
+        images : SkyImages
+            Images matching these catalogs file by file (tile: SCI; stacks: every
+            detector).
+
+        Raises
+        ------
+        PipelineValueError
+            If an image and its catalog have a different number of data HDUs.
+        """
+        log = logging.getLogger(__name__)
+
+        # Gaia reference at the epoch of the data
+        sc_master_raw = self.get_master_astrometry().skycoord[0][0]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            reference = sc_master_raw.apply_space_motion(new_obstime=self.time_obs_mean)
+
+        for idx, path in enumerate(self.paths_full):
+            hdus_img = list(images.iter_data_hdu[idx])
+            hdus_cat = list(self.iter_data_hdu[idx])
+            if len(hdus_img) != len(hdus_cat):
+                raise PipelineValueError(
+                    f"{images.paths_full[idx]} has {len(hdus_img)} data HDUs, "
+                    f"{path} has {len(hdus_cat)}"
+                )
+            for hdu_img, hdu_cat in zip(hdus_img, hdus_cat):
+                table = Table.read(path, hdu=hdu_cat)
+                skycoord = SkyCoord(table[self.key_ra], table[self.key_dec], unit="deg")
+                mask = _bright_point_sources(table)
+                rms = astrometric_residual_rms(skycoord, reference, mask)
+                if rms is None:
+                    log.warning(
+                        f"CRDER: fewer than 10 matched bright point sources in "
+                        f"{path} [HDU {hdu_img}]; cards omitted"
+                    )
+                    continue
+                cards = [
+                    ("CRDER1", rms[0], "Random error in RA (deg)"),
+                    ("CRDER2", rms[1], "Random error in Dec (deg)"),
+                ]
+                set_cards(images.paths_full[idx], cards, hdu=hdu_img)
+                log.info(
+                    f"CRDER {images.paths_full[idx]} [HDU {hdu_img}]: "
+                    f"{rms[0] * 3.6e6:.1f} / {rms[1] * 3.6e6:.1f} mas"
+                )
+
     def plot_qc_astrometry_1d(self, axis_size=5):
         # Import
         import matplotlib.pyplot as plt
@@ -1578,6 +1638,59 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         super(PhotometricCalibratedSextractorCatalogs, self).__init__(
             file_paths=file_paths, setup=setup
         )
+
+    def write_photometric_cards(self, images) -> None:
+        """
+        Write the Phase 3 photometric cards into the images these catalogs were
+        extracted from (tile SCI or every stack detector).
+
+        Every data HDU of an image gets PHOTZP, PHOTZPER, PHOTSYS, ABMAGLIM,
+        ABMAGSAT, PSF_FWHM and ELLIPTIC from ``photometric_cards`` on the matching
+        catalog HDU; the image primary gets FLUXCAL = 'ABSOLUTE'.
+
+        Parameters
+        ----------
+        images : SkyImages
+            Images matching these catalogs file by file.
+
+        Raises
+        ------
+        PipelineValueError
+            If an image and its catalog have a different number of data HDUs, or a
+            card cannot be determined.
+        """
+        log = logging.getLogger(__name__)
+
+        for idx, path in enumerate(self.paths_full):
+            hdus_img = list(images.iter_data_hdu[idx])
+            hdus_cat = list(self.iter_data_hdu[idx])
+            if len(hdus_img) != len(hdus_cat):
+                raise PipelineValueError(
+                    f"{images.paths_full[idx]} has {len(hdus_img)} data HDUs, "
+                    f"{path} has {len(hdus_cat)}"
+                )
+            for k, (hdu_img, hdu_cat) in enumerate(zip(hdus_img, hdus_cat)):
+                table = Table.read(path, hdu=hdu_cat)
+                hdr_cat = fits.getheader(path, hdu_cat)
+                cards = photometric_cards(
+                    table,
+                    hdr_cat,
+                    images.headers_data[idx][k],
+                    self.setup,
+                    self.passband[idx],
+                )
+                set_cards(images.paths_full[idx], cards, hdu=hdu_img)
+                values = {key: value for key, value, _ in cards}
+                log.info(
+                    f"Photometric cards {images.paths_full[idx]} [HDU {hdu_img}]: "
+                    f"PHOTZP={values['PHOTZP']}, ABMAGLIM={values['ABMAGLIM']}, "
+                    f"PSF_FWHM={values['PSF_FWHM']}"
+                )
+            set_cards(
+                images.paths_full[idx],
+                [("FLUXCAL", "ABSOLUTE", "Flux calibration")],
+                hdu=0,
+            )
 
     def _merged_table(self, clean=True):
         # Import
@@ -2055,7 +2168,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         dr_delta[valid] = (sc_valid.dec.deg - gaia.dec.deg) * 3_600_000
 
         # Per-source centroid covariance (mas^2) -- the SAME formula re-added in
-        # convert2public, so the subtracted and added terms cannot drift.
+        # detections_to_sources, so the subtracted and added terms cannot drift.
         cov_ra, cov_dec, cov_radec = centroid_covariance_radec_mas2(
             np.asarray(table_hdu["ERRAWIN_WORLD"], dtype=float),
             np.asarray(table_hdu["ERRBWIN_WORLD"], dtype=float),
@@ -2199,7 +2312,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                         )
 
         # Re-apply the pre-existing bad-source NaN mask so downstream NaN handling
-        # in convert2public is unchanged.
+        # in detections_to_sources is unchanged.
         new1[bad] = np.nan
         new2[bad] = np.nan
         new_corr[bad] = np.nan
@@ -3617,7 +3730,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         """Per-aperture MAGERR inflation for the public catalog of one coadd.
 
         The resampling ratio is the coadd pixel scale (from ``header``, the
-        tile/mosaic weight header) over ``setup.native_pixel_scale``.
+        tile SCI header) over ``setup.native_pixel_scale``.
 
         Returns
         -------
@@ -3639,6 +3752,26 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         return factor, scale_ratio
 
     def build_public_catalog(self, photerr_internal: float):
+        """
+        Write the source list ``<name>.sources.fits`` (SCIENCE.SRCTBL) of each tile.
+
+        The list holds the pipeline detections only (D12); 2MASS rows for bright
+        stars are added by the VISIONS fold. The source table is joined with the
+        statistics table and the interpolated classification, converted with
+        ``detections_to_sources`` and written with ``write_source_list`` through a
+        local temporary file. Only headers of the tile are read, no image data.
+
+        Parameters
+        ----------
+        photerr_internal : float
+            Internal photometric error floor (mag), written to PHOTIERR.
+
+        Raises
+        ------
+        PipelineValueError
+            If tiles, statistics or classification tables are missing, a tile
+            catalog has more than one data HDU, or the tables do not match.
+        """
         # Fetch log
         log = logging.getLogger(__name__)
 
@@ -3646,53 +3779,37 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         print_header(header="PUBLIC CATALOG", silent=self.setup.silent)
         tstart = time.time()
 
-        # Load master photometry catalog
+        # Master photometry (passband translation and bright limit only)
         master_phot = self.get_master_photometry()
 
-        # Find classification tables
+        # Find tile images, statistics and classification tables
+        paths_tiles = [x.replace(".full.fits.ctab", ".fits") for x in self.paths_full]
+        paths_stats = [f"{p}.stats" for p in self.paths_full]
         paths_cls = [
             x.replace(".full.", ".cs.").replace(".ctab", ".tab")
             for x in self.paths_full
         ]
+        for paths, kind in (
+            (paths_tiles, "Tile images"),
+            (paths_stats, "Statistics tables"),
+            (paths_cls, "Classification tables"),
+        ):
+            if self.n_files != np.sum([os.path.exists(p) for p in paths]):
+                raise PipelineValueError(f"{kind} not found", logger=log)
 
-        # Check if classification tables exist
-        if self.setup.source_classification:
-            if self.n_files != np.sum([os.path.exists(p) for p in paths_cls]):
-                raise ValueError("Classifiation tables not found")
-
-        # Instantiate classification tables
-        tables_class = None
-        if self.setup.source_classification:
-            tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
-
-        # Find tile images (the weight is the CONF extension). This function is
-        # replaced by detections_to_sources in the next milestone.
-        paths_tiles = [x.replace(".full.fits.ctab", ".fits") for x in self.paths_full]
-
-        # Check if tile images exist
-        if self.n_files != np.sum([os.path.exists(p) for p in paths_tiles]):
-            raise ValueError("Tile images not found")
-
-        # Find stats tables
-        paths_stats = [f"{p}.stats" for p in self.paths_full]
-
-        # Check if stats tables exist
-        if self.n_files != np.sum([os.path.exists(p) for p in paths_stats]):
-            raise ValueError("Statistics tables not found")
-
-        # Instantiate statistics tables
+        # Instantiate statistics and classification tables
         statstables = SextractorCatalogs(file_paths=paths_stats, setup=self.setup)
+        tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
 
-        # Loop over self and merge
+        # Loop over files
         for idx_file in range(self.n_files):
             # Log current filename
             log.info(f"Processing file: {self.paths_full[idx_file]}")
 
             # Create output path
-            path_out = self.paths_full[idx_file].replace(".ctab", ".ptab")
-            if path_out == self.paths_full[idx_file]:
-                raise ValueError("Can't set name of public catalog")
-            log.info(f"Creating public catalog: {path_out}")
+            path_tile = paths_tiles[idx_file]
+            path_out = path_tile.replace(".fits", ".sources.fits")
+            log.info(f"Creating source list: {path_out}")
 
             # Check if the file is already there and skip if it is
             if (
@@ -3716,237 +3833,169 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             passband_2mass = master_phot.translate_passband(passband)
             log.info(f"Passband input: {passband}; passband 2MASS: {passband_2mass}")
 
-            # Load current table in HDUList
-            with fits.open(self.paths_full[idx_file]) as hdulist_in:
-                filter_name = hdulist_in[0].header[self.setup.keywords.filter_name]
-            log.info("Opened current file")
+            # Tile headers (no image data)
+            tile_primary = fits.getheader(path_tile, 0)
+            sci = fits.getheader(path_tile, "SCI")
 
-            # Load source tables in current file
+            # Load source, statistics and classification tables
             tables_file = self.file2table(file_index=idx_file)
-            log.info(f"Loaded {len(tables_file)} input tables")
-            cnoise_ratio: list[float] = []  # out/in pixel scale per extension
-
-            # Load stats tables
-            tables_stats = statstables.file2table(file_index=idx_file)
-            log.info(f"Loaded {len(tables_stats)} stats tables")
-
-            # Load classification tables if set
-            tables_class_file = None
-            if self.setup.source_classification:
-                tables_class_file = tables_class.file2table(file_index=idx_file)
-                log.info(f"Loaded {len(tables_class_file)} classification tables")
-
-            # Read master table
-            table_2mass = master_phot.file2table(file_index=idx_file)[0]
-            log.info(f"Loaded 2MASS table with {len(table_2mass)} sources")
-            table_2mass["QFLG_PB"] = master_phot.qflags(passband=passband_2mass)[0][0]
-
-            # Fill masked columns with NaNs
-            table_2mass = fill_masked_columns(table_2mass, fill_value=np.nan)
-
-            # Clean master table
-            allowed_qflags, allowed_cflags = "ABCD", "0cd"
-            log.info(
-                f"Cleaning master table with qflags: {allowed_qflags}, "
-                f"cflags: {allowed_cflags}"
+            if len(tables_file) != 1:
+                raise PipelineValueError(
+                    f"{self.paths_full[idx_file]} has {len(tables_file)} data HDUs; "
+                    f"a source list is one table",
+                    logger=log,
+                )
+            table = tables_file[0]
+            table_stats = statstables.file2table(file_index=idx_file)[0]
+            table_class = tables_class.file2table(file_index=idx_file)[0]
+            hdr_cat = fits.getheader(
+                self.paths_full[idx_file], self.iter_data_hdu[idx_file][0]
             )
-            keep_master = master_phot.get_purge_index(
-                passband=passband_2mass,
-                allowed_qflags=allowed_qflags,
-                allowed_cflags=allowed_cflags,
+            len_table_full = len(table)
+            len_table_stats = len(table_stats)
+            len_table_cls = len(table_class)
+            log.info(f"Source table length: {len_table_full}")
+            log.info(f"Stats table length: {len_table_stats}")
+            log.info(f"Classification table length: {len_table_cls}")
+
+            # Stats and source table need to have same length
+            if len_table_full != len_table_stats:
+                raise PipelineValueError(
+                    f"Source ({len_table_full}) and stats ({len_table_stats}) "
+                    f"table do not have same length.",
+                    logger=log,
+                )
+
+            # Stack source and stats tables
+            table = thstack([table, table_stats], join_type="exact")
+            log.info("Stacked source and stats tables")
+
+            # Length of source and classification table must be equal within 0.5%
+            if np.abs(len_table_full / len_table_cls - 1) > 0.005:
+                raise PipelineValueError(
+                    f"Source ({len_table_full}) and classification "
+                    f"({len_table_cls}) tables do not have similar length.",
+                    logger=log,
+                )
+
+            # If the check passes, make a match
+            log.info("Matching classification and source table")
+            xy_cs = np.column_stack(
+                (table_class["XWIN_IMAGE"], table_class["YWIN_IMAGE"])
             )
-            table_2mass_clean = table_2mass.copy()[keep_master]
-            log.info(f"Cleaned master table; sources left: {len(table_2mass_clean)}")
+            xy_full = np.column_stack((table["XWIN_IMAGE"], table["YWIN_IMAGE"]))
+            nbrs = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(xy_cs)
+            distances, indices = nbrs.kneighbors(xy_full)
+            distances, indices = distances.ravel(), indices.ravel()
 
-            # Work in each extension
-            for tidx in range(len(tables_file)):
-                # Determine lengths
-                len_table_full = len(tables_file[tidx])
-                len_table_stats = len(tables_stats[tidx])
+            # Apply a distance threshold to filter matches
+            distance_threshold = 0.1
+            log.info(f"Applying distance threshold of {distance_threshold}")
+            len_table_final = int(np.sum(distances < distance_threshold))
+            log.info(f"Good matches: {len_table_final}")
 
-                # Log current extension
-                log.info(f"Working on extension {tidx + 1}")
-                log.info(f"Source table length: {len_table_full}")
-                log.info(f"Stats table length: {len_table_stats}")
-
-                # Stats and source table need to have same length
-                if len_table_full != len_table_stats:
-                    msg = (
-                        f"Source ({len_table_full}) and stats ({len_table_stats}) "
-                        f"table do not have same length."
-                    )
-                    log.error(msg)
-                    raise ValueError(msg)
-
-                # Stack source and stats tables
-                tables_file[tidx] = thstack(
-                    [tables_file[tidx], tables_stats[tidx]], join_type="exact"
-                )
-                log.info("Stacked source and stats tables")
-
-                # Length of source and classification table must be equal within 0.1%
-                if self.setup.source_classification:
-                    len_table_cls = len(tables_class_file[tidx])
-
-                    # Check length of the source and classification table
-                    log.info("Checking classification table length")
-                    log.info(f"Length of source table: {len_table_full}")
-                    log.info(f"Length of classification table: {len_table_cls}")
-                    if np.abs(len_table_full / len_table_cls - 1) > 0.005:
-                        msg = (
-                            f"Source ({len_table_full}) and classification "
-                            f"({len_table_cls}) tables do not have similar length."
-                        )
-                        log.error(msg)
-                        raise ValueError(msg)
-
-                    # If the check passes, make a match
-                    log.info("Matching classification and source table")
-                    x_full = tables_file[tidx]["XWIN_IMAGE"]
-                    y_full = tables_file[tidx]["YWIN_IMAGE"]
-                    x_cs = tables_class_file[tidx]["XWIN_IMAGE"]
-                    y_cs = tables_class_file[tidx]["YWIN_IMAGE"]
-                    xy_cs = np.column_stack((x_cs, y_cs))
-                    xy_full = np.column_stack((x_full, y_full))
-                    nbrs = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(xy_cs)
-                    distances, indices = nbrs.kneighbors(xy_full)
-                    distances, indices = distances.ravel(), indices.ravel()
-
-                    # Apply a distance threshold to filter matches
-                    distance_threshold = 0.1  # Adjust this threshold based on your data
-                    log.info(f"Applying distance threshold of {distance_threshold}")
-                    good_matches = distances < distance_threshold
-                    good_indices = indices[good_matches]
-                    len_table_final = len(good_indices)
-                    log.info(f"Good matches: {len_table_final}")
-
-                    # New table length must be similar to the original table length
-                    log.info("Checking final table length")
-                    log.info(f"Length of source table: {len_table_full}")
-                    log.info(f"Length of matched table: {len_table_final}")
-                    if np.abs(len_table_full / len_table_final - 1) > 0.005:
-                        msg = (
-                            f"Matching of source and classification table failed. "
-                            f"New table length ({len_table_final}) is not similar "
-                            f"the original table length ({len_table_full})."
-                        )
-                        log.error(msg)
-                        raise ValueError(msg)
-
-                    # Interpolate source classification; unmatched sources are
-                    # kept with NaN (-> CFLG 256) instead of being dropped
-                    log.info("Interpolating source classification")
-                    interpolate_classification(
-                        tables_file[tidx], tables_class_file[tidx]
-                    )
-
-                # Read weight
-                log.info("Reading weight")
-                weight_data, weight_hdr = fits.getdata(
-                    paths_tiles[idx_file], "CONF", header=True
+            # New table length must be similar to the original table length
+            if np.abs(len_table_full / len_table_final - 1) > 0.005:
+                raise PipelineValueError(
+                    f"Matching of source and classification table failed. "
+                    f"New table length ({len_table_final}) is not similar "
+                    f"the original table length ({len_table_full}).",
+                    logger=log,
                 )
 
-                # Merge with 2MASS
-                # TODO: Add logging here and check speed improvements
-                log.info("Merging with 2MASS")
-                tables_file[tidx] = merge_with_2mass(
-                    table=tables_file[tidx],
-                    table_2mass=table_2mass,
-                    table_2mass_clean=table_2mass_clean,
-                    mag_limit=master_phot.mag_lim_lo(passband=passband_2mass),
-                    weight_image=weight_data,
-                    weight_header=weight_hdr,
-                    key_ra="ALPHAWIN_SKY",
-                    key_dec="DELTAWIN_SKY",
-                    key_ra_2mass="RAJ2000",
-                    key_dec_2mass="DEJ2000",
-                    key_mag_2mass=passband_2mass,
-                    survey_name=self.setup.survey_name,
-                )
+            # Interpolate source classification; unmatched sources are kept with
+            # NaN (-> CFLG 256) instead of being dropped
+            log.info("Interpolating source classification")
+            interpolate_classification(table, table_class)
 
-                # Correlated-noise inflation of the aperture errors (per aperture)
-                magerr_scale = None
-                if self.setup.photometric_error_correlated_noise:
-                    magerr_scale, scale_ratio = self._public_magerr_scale(weight_hdr)
-                    cnoise_ratio.append(scale_ratio)
-                    log.info(
-                        f"Correlated-noise MAGERR inflation "
-                        f"({self.setup.resampling_kernel}, scale ratio "
-                        f"{scale_ratio:.4f}, c={self.setup.photometric_error_noise_scale}, "
-                        f"beta={self.setup.photometric_error_background_beta}): "
-                        f"{np.array2string(magerr_scale, precision=3)}"
-                    )
-
-                # Convert to public format
-                log.info("Converting to public format")
-                log.info(f"Length before conversion: {len(tables_file[tidx])}")
-                tables_file[tidx] = convert2public(
-                    tables_file[tidx],
-                    photerr_internal=photerr_internal,
-                    apertures=self.setup.apertures,
-                    mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
-                    survey_name=self.setup.survey_name,
-                    magerr_scale=magerr_scale,
-                )
-                log.info(f"Length after conversion: {len(tables_file[tidx])}")
-
-            # Create primary header
-            log.info("Creating primary header")
-            phdr = fits.Header()
-            add_float_to_header(
-                header=phdr,
-                key="PHOTIERR",
-                value=photerr_internal,
-                comment="Internal photometric error (mag)",
-                decimals=4,
-            )
-            phdr["FILTER"] = filter_name
+            # Correlated-noise inflation of the aperture errors (per aperture); the
+            # SCI header carries the WCS of the tile
+            magerr_scale, scale_ratio = None, None
             if self.setup.photometric_error_correlated_noise:
-                phdr["PHOTCNK"] = (
-                    self.setup.resampling_kernel,
-                    "MAGERR correlated-noise: resampling kernel",
-                )
-                add_float_to_header(
-                    header=phdr,
-                    key="PHOTCNR",
-                    value=float(np.mean(cnoise_ratio)),
-                    comment="MAGERR correlated-noise: out/in pixel scale",
-                    decimals=4,
-                )
-                add_float_to_header(
-                    header=phdr,
-                    key="PHOTCNC",
-                    value=self.setup.photometric_error_noise_scale,
-                    comment="MAGERR correlated-noise: noise scale c",
-                    decimals=4,
-                )
-                add_float_to_header(
-                    header=phdr,
-                    key="PHOTCNB",
-                    value=self.setup.photometric_error_background_beta,
-                    comment="MAGERR correlated-noise: background beta",
-                    decimals=5,
-                )
-                add_float_to_header(
-                    header=phdr,
-                    key="PHOTCND",
-                    value=self.setup.photometric_error_background_dmax,
-                    comment="MAGERR correlated-noise: beta cap diameter (px)",
-                    decimals=2,
+                magerr_scale, scale_ratio = self._public_magerr_scale(sci)
+                log.info(
+                    f"Correlated-noise MAGERR inflation "
+                    f"({self.setup.resampling_kernel}, scale ratio "
+                    f"{scale_ratio:.4f}, c={self.setup.photometric_error_noise_scale}, "
+                    f"beta={self.setup.photometric_error_background_beta}): "
+                    f"{np.array2string(magerr_scale, precision=3)}"
                 )
 
-            # Create output file
-            log.info("Creating TableHDU")
-            hdulist_out = fits.HDUList(hdus=[fits.PrimaryHDU(header=phdr)])
-            for tc in tables_file:
-                hdulist_out.append(table2bintablehdu(tc))
+            # Convert to the source-list format
+            log.info(f"Length before conversion: {len(table)}")
+            sources = detections_to_sources(
+                table,
+                photerr_internal=photerr_internal,
+                apertures=self.setup.apertures,
+                mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
+                survey_name=self.setup.survey_name,
+                magerr_scale=magerr_scale,
+            )
+            log.info(f"Length after conversion: {len(sources)}")
 
-            # Write to new output file
-            log.info("Writing to disk")
-            hdulist_out.writeto(path_out, overwrite=self.setup.overwrite)
+            # Primary cards of the error model
+            primary_cards = [
+                (
+                    "PHOTIERR",
+                    round(float(photerr_internal), 4),
+                    "Internal photometric error (mag)",
+                )
+            ]
+            if self.setup.photometric_error_correlated_noise:
+                primary_cards += [
+                    (
+                        "PHOTCNK",
+                        self.setup.resampling_kernel,
+                        "MAGERR correlated-noise: resampling kernel",
+                    ),
+                    (
+                        "PHOTCNR",
+                        round(float(scale_ratio), 4),
+                        "MAGERR correlated-noise: out/in pixel scale",
+                    ),
+                    (
+                        "PHOTCNC",
+                        round(float(self.setup.photometric_error_noise_scale), 4),
+                        "MAGERR correlated-noise: noise scale c",
+                    ),
+                    (
+                        "PHOTCNB",
+                        round(float(self.setup.photometric_error_background_beta), 5),
+                        "MAGERR correlated-noise: background beta",
+                    ),
+                    (
+                        "PHOTCND",
+                        round(float(self.setup.photometric_error_background_dmax), 2),
+                        "MAGERR correlated-noise: beta cap diameter (px)",
+                    ),
+                ]
+            table_cards = [
+                (
+                    "REFMAGLO",
+                    round(float(hdr_cat["HIERARCH PYPE REFMAG LO"]), 3),
+                    "2MASS bright limit of the calibration (mag)",
+                )
+            ]
 
-            # Close original file
-            hdulist_out.close()
+            # Write via a local temporary file and move into place
+            path_tmp = make_path_system_tempfile(
+                prefix="sources_", suffix=".fits", base_dir=self.setup.local_cache_dir
+            )
+            try:
+                write_source_list(
+                    sources,
+                    path_tmp,
+                    os.path.basename(path_tile),
+                    tile_primary,
+                    sci,
+                    passband,
+                    primary_cards,
+                    table_cards,
+                )
+                move_file(path_tmp, path_out)
+            finally:
+                remove_file(path_tmp)
+            log.info(f"Written {len(sources)} sources to {path_out}")
 
         # Print time
         elapsed = time.time() - tstart

@@ -136,9 +136,9 @@ class Pipeline:
             f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
         )
 
-        # Verify SExtractor supports multi-seeing if classification is enabled
-        if self.setup.source_classification:
-            self.log.info("Verifying SExtractor multi-seeing support")
+        # Verify SExtractor supports multi-seeing (classification runs for every tile)
+        if self.setup.build_tile:
+            self.log.info("Verifying SExtractor multi-seeing support for the tile")
             verify_sextractor_multi_seeing(setup=self.setup)
             self.log.info("SExtractor multi-seeing support verified")
         if self.setup.sex_winpos_cap:
@@ -1024,9 +1024,14 @@ class Pipeline:
 
     @pipeline_step("photometry_stacks", message="STACKS PHOTOMETRY")
     def photometry_stacks(self):
-        """Extract and photometrically calibrate stack source catalogs."""
+        """Extract and photometrically calibrate stack source catalogs.
+
+        Writes PHOTZP, PHOTZPER, PHOTSYS, ABMAGLIM, ABMAGSAT, PSF_FWHM and ELLIPTIC
+        into every stack extension and FLUXCAL into the stack primaries.
+        """
         self.stacks.sextractor(preset="full")
         self.sources_stacks_full.calibrate_photometry()
+        self.sources_stacks_cal.write_photometric_cards(self.stacks)
 
     @pipeline_step("photometry_tile", message="TILE PHOTOMETRY")
     def photometry_tile(self):
@@ -1035,7 +1040,8 @@ class Pipeline:
         With ``sex_winpos_cap`` the WIN window is capped at the local stellar size
         (``WINPOS_SIGMAP``); the catalogue records the map (``WINPSMAP``). An existing
         catalogue made with the other setting raises: remove it (and the products
-        derived from it) or set overwrite.
+        derived from it) or set overwrite. Writes PHOTZP, PHOTZPER, PHOTSYS, ABMAGLIM,
+        ABMAGSAT, PSF_FWHM and ELLIPTIC into the tile SCI and FLUXCAL into its primary.
         """
         from astropy.io import fits
 
@@ -1061,6 +1067,7 @@ class Pipeline:
         else:
             self.tile.sextractor(preset="full")
         self.sources_tile_full.calibrate_photometry()
+        self.sources_tile_cal.write_photometric_cards(self.tile)
 
     def _build_winsig_map(self) -> str:
         """SExtractor map of the local stellar window sigma for the tile (WIN cap).
@@ -1125,9 +1132,10 @@ class Pipeline:
 
     @pipeline_step("qc_astrometry_stacks", message="STACKS QC ASTROMETRY")
     def qc_astrometry_stacks(self):
-        """Generate QC plots for stack astrometric residuals."""
+        """Generate QC plots for stack astrometric residuals and write CRDER1/2."""
         self.sources_stacks_cal.plot_qc_astrometry_1d()
         self.sources_stacks_cal.plot_qc_astrometry_2d()
+        self.sources_stacks_cal.write_crder(self.stacks)
 
     @pipeline_step("qc_psf_stacks", message="STACKS QC PSF")
     def qc_psf_stacks(self):
@@ -1138,9 +1146,10 @@ class Pipeline:
 
     @pipeline_step("qc_astrometry_tile", message="TILE QC ASTROMETRY")
     def qc_astrometry_tile(self):
-        """Generate QC plots for tile astrometric residuals."""
+        """Generate QC plots for tile astrometric residuals and write CRDER1/2."""
         self.sources_tile_cal.plot_qc_astrometry_1d()
         self.sources_tile_cal.plot_qc_astrometry_2d()
+        self.sources_tile_cal.write_crder(self.tile)
 
     @pipeline_step("qc_psf_tile", message="TILE QC PSF")
     def qc_psf_tile(self):
@@ -1171,11 +1180,10 @@ class Pipeline:
                 print_stage_skip("QC SUMMARY TABLE")
             return
 
-        stacks = catalogs = tile = tile_cat = None
+        stacks = tile = None
         if self.setup.build_stacks:
             try:
                 stacks = self.stacks
-                catalogs = self.sources_stacks_cal
             except Exception as e:
                 logging.getLogger(__name__).warning(
                     f"QC summary: stacks unavailable ({e}); section skipped"
@@ -1183,21 +1191,25 @@ class Pipeline:
         if self.setup.build_tile:
             try:
                 tile = self.tile
-                tile_cat = self.sources_tile_cal
             except Exception as e:
                 logging.getLogger(__name__).warning(
                     f"QC summary: tile unavailable ({e}); section skipped"
                 )
 
-        result = build_qc_summary(
-            setup=self.setup,
-            stacks=stacks,
-            stacks_catalogs=catalogs,
-            tile=tile,
-            tile_catalog=tile_cat,
-        )
+        result = build_qc_summary(setup=self.setup, stacks=stacks, tile=tile)
         if result is not None:
             self.update_status(qc_summary=True)
+
+    def finalize_products(self):
+        """Check and seal every Phase 3 product (PRODCATG, ASSONi, checksums).
+
+        Not a status step: it is idempotent and runs at the end of every run, after the
+        last header edit.
+        """
+        from vircampype.tools.productmeta import finalize_products
+
+        logging.getLogger(__name__).info("Finalizing Phase 3 products")
+        finalize_products(self)
 
     # =========================================================================== #
     @pipeline_step("public_catalog", message="PUBLIC CATALOG")
@@ -1239,12 +1251,22 @@ class Pipeline:
 
     @pipeline_step("archive", message="ARCHIVING")
     def archive(self):
-        """Run a shallow clean and compress all remaining FITS images."""
+        """Run a shallow clean and compress all remaining FITS images.
+
+        Delivered products (primary header with PRODCATG) are never compressed.
+        """
+        from astropy.io import fits
+
         self.shallow_clean()
 
-        # Find all remaining FITS files (recursive)
+        # Find all remaining FITS files (recursive), except the products
         fits_files = sorted(
             glob.glob(self.setup.folders["object"] + "/**/*.fits", recursive=True)
+        )
+        n_all = len(fits_files)
+        fits_files = [f for f in fits_files if "PRODCATG" not in fits.getheader(f, 0)]
+        logging.getLogger(__name__).info(
+            f"Archive: {n_all - len(fits_files)} product files left uncompressed"
         )
 
         if fits_files:
@@ -1351,27 +1373,26 @@ class Pipeline:
             self.qc_astrometry_stacks()
             self.qc_psf_stacks()
 
-        # Build and calibrate tile
+        # Build and calibrate tile, then its source list (photometry writes PHOTZP into
+        # the SCI header before the completeness run reads it)
         if self.setup.build_tile:
             self.build_tile()
             self.exposure_map_tile()
-            if self.setup.build_tile_only:
-                return
             self.photometry_tile()
             self.qc_photometry_tile()
             self.qc_astrometry_tile()
             self.qc_psf_tile()
             if self.setup.build_completeness:
                 self.qc_completeness_tile()
+            self.build_statistics_tile()
+            self.classification_tile()
+            self.build_public_catalog()
 
         # Build QC summary table
         self.build_qc_summary()
 
-        if self.setup.build_public_catalog:
-            self.build_statistics_tile()
-            if self.setup.source_classification:
-                self.classification_tile()
-            self.build_public_catalog()
+        # Phase 3 check and identity cards of every product, after the last header edit
+        self.finalize_products()
 
         if self.setup.archive:
             self.archive()

@@ -115,6 +115,20 @@ class TestGenerateStarList(unittest.TestCase):
         self.assertEqual(stars.shape, (0, 3))
         self.assertFalse(os.path.isfile(self.out_path))
 
+    def test_seed_reproducible(self):
+        kw = dict(
+            out_path=self.out_path,
+            image_shape=(200, 200),
+            n_stars=50,
+            mag_range=(17.0, 20.0),
+        )
+        a = _generate_star_list(seed=[1, 2, 0], **kw)
+        b = _generate_star_list(seed=[1, 2, 0], **kw)
+        c = _generate_star_list(seed=[1, 2, 1], **kw)
+        self.assertTrue(np.array_equal(a, b))
+        self.assertFalse(np.array_equal(a, c))
+        self.assertEqual(_generate_star_list(seed=None, **kw).shape, (50, 3))
+
 
 class TestComputeTileEdges(unittest.TestCase):
     def test_exact_partition(self):

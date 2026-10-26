@@ -68,7 +68,7 @@ class TestObsCards(unittest.TestCase):
             "INSTRUME": "VIRCAM",
             "FILTER": "Ks",
             "HIERARCH ESO INS FILT1 NAME": "Ks",
-            "OBJECT": "CrA_deep_1",
+            "OBJECT": setup.name,
             "MJD-OBS": 60000.0,
             "MJD-END": 60000.02 + 60.0 / 86400,
             "TEXPTIME": 180.0,
@@ -98,6 +98,11 @@ class TestObsCards(unittest.TestCase):
         self.assertEqual(
             as_dict(obs_cards(headers, setup))["REFERENC"], "2025A&A...000A...1M"
         )
+
+        # The raw OB target name is not needed: OBJECT is the run name
+        for header in headers:
+            del header["HIERARCH ESO OBS TARG NAME"]
+        self.assertEqual(as_dict(obs_cards(headers, setup))["OBJECT"], setup.name)
 
     def test_obs_cards_multi(self):
         setup = make_test_setup(self._tmp.name)

@@ -25,7 +25,6 @@ from vircampype.tools.systemtools import (
     yml2config,
 )
 
-
 log = logging.getLogger(__name__)
 
 __all__ = [
@@ -107,6 +106,7 @@ def _generate_star_list(
     mag_range: tuple[float, float],
     border: int = 30,
     valid_mask: np.ndarray | None = None,
+    seed: int | list[int] | None = None,
 ) -> np.ndarray:
     """
     Write a SkyMaker-format star list with random pixel positions and
@@ -127,6 +127,9 @@ def _generate_star_list(
     valid_mask : np.ndarray or None
         Boolean mask (True = valid pixel). Stars are only placed where
         the mask is True. If None, the full image area is used.
+    seed : int, list[int] or None
+        Seed for the random number generator. If None, the draw is not
+        reproducible.
 
     Returns
     -------
@@ -136,7 +139,7 @@ def _generate_star_list(
 
     """
     ny, nx = image_shape
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed)
 
     if valid_mask is not None:
         # Apply border to mask
@@ -382,7 +385,8 @@ def measure_completeness(
 
     The tile is subdivided into a grid of sub-regions whose size is set by
     ``setup.completeness_resolution_arcmin``.  Each sub-region produces its
-    own completeness curve.
+    own completeness curve.  The star lists are deterministic per sub-tile
+    and iteration, so COMP50/COMP90 are reproducible between runs.
 
     Parameters
     ----------
@@ -551,7 +555,8 @@ def measure_completeness(
     # all_completeness[si][sj] is a list of per-iteration completeness arrays
     all_completeness = [[[] for _ in range(n_sub_y)] for _ in range(n_sub_x)]
 
-    for _ in range(iterations):
+    grid_i, grid_j = tile_info.get("grid_index", (0, 0))
+    for iteration in range(iterations):
         # 1. Generate random star list
         stars = _generate_star_list(
             out_path=starlist_path,
@@ -559,6 +564,7 @@ def measure_completeness(
             n_stars=n_stars,
             mag_range=mag_range,
             valid_mask=valid_mask,
+            seed=[grid_i, grid_j, iteration],
         )
 
         if len(stars) == 0:
@@ -663,8 +669,7 @@ def measure_completeness(
                     all_completeness[si][sj].append(comp)
 
     # Compute the coarse tile grid_index offset for this tile
-    tile_gi = tile_info.get("grid_index", (0, 0))
-    tile_i0, tile_j0 = tile_gi
+    tile_i0, tile_j0 = grid_i, grid_j
 
     # Build results for each sub-region
     sub_results = []
@@ -1590,24 +1595,15 @@ def qc_completeness_tile(image_path: str, setup) -> None:
     # The tile is a MEF: SCI holds the image, CONF the weight
     weight_path = image_path
 
-    # Zero point for the injected (unit-sum PSF) stars: the tile catalogue's
-    # aperture-matched ZP (= Phase 3 PHOTZP). The image header carries no ZP.
-    zp = setup.target_zp
-    path_cat = image_path.replace(".fits", ".full.fits.ctab")
-    try:
-        hdr_cat = fits.getheader(path_cat, 2)
-        zps = [
-            hdr_cat[f"HIERARCH PYPE ZP MAG_APER_MATCHED {idx}"]
-            for idx in range(len(setup.apertures))
-        ]
-        if not np.isfinite(np.mean(zps)):
-            raise ValueError(f"non-finite ZP {zps}")
-        zp = float(np.mean(zps))
-    except Exception as e:
+    # Zero point for the injected (unit-sum PSF) stars: the Phase 3 PHOTZP of
+    # the tile, written to SCI by the photometry step.
+    zp = fits.getheader(image_path, "SCI").get("PHOTZP")
+    if zp is None:
         logging.getLogger(__name__).warning(
-            f"Completeness: no ZP from {path_cat} ({e}); "
+            f"Completeness: no PHOTZP in {image_path} [SCI]; "
             f"using target_zp = {setup.target_zp}"
         )
+        zp = setup.target_zp
 
     results = run_completeness(
         image_path=image_path,

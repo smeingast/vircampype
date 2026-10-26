@@ -5,6 +5,7 @@ import numpy as np
 from astropy import wcs
 from astropy.coordinates import ICRS, AltAz, EarthLocation, Galactic, SkyCoord
 from astropy.io import fits
+from astropy.stats import sigma_clip
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, wcs_to_celestial_frame
 
@@ -19,6 +20,7 @@ __all__ = [
     "skycoord2header",
     "resize_header",
     "integer_wcs_offset",
+    "astrometric_residual_rms",
     "pixelscale_from_header",
     "rotationangle_from_header",
     "get_airmass_from_header",
@@ -402,6 +404,57 @@ def resize_header(header, factor):
 
     # Return new header
     return header_out
+
+
+def astrometric_residual_rms(
+    skycoord: SkyCoord,
+    reference: SkyCoord,
+    mask: np.ndarray,
+    max_sep: float = 0.5,
+    min_sources: int = 10,
+) -> tuple[float, float] | None:
+    """
+    Random astrometric error per axis of a catalog against a reference (CRDER1/2).
+
+    Parameters
+    ----------
+    skycoord : SkyCoord
+        Catalog coordinates (all rows).
+    reference : SkyCoord
+        Reference coordinates at the epoch of the catalog.
+    mask : np.ndarray
+        Boolean mask of the clean bright point sources in ``skycoord``.
+    max_sep : float, optional
+        Maximum match separation in arcsec.
+    min_sources : int, optional
+        Minimum number of matches required.
+
+    Returns
+    -------
+    tuple[float, float] | None
+        3-sigma-clipped RMS of the matched on-sky offsets (RA * cos(Dec), Dec) in
+        degrees, the unit of CRDERi. None if fewer than ``min_sources`` sources match
+        within ``max_sep`` arcsec.
+
+    """
+    # Compare plain ICRS positions: an epoch-propagated reference carries an obstime,
+    # which spherical_offsets_to rejects against catalog coordinates without one
+    sc = skycoord[np.asarray(mask, dtype=bool)]
+    if len(sc) == 0:
+        return None
+    sc = SkyCoord(ra=sc.ra, dec=sc.dec, frame="icrs")
+    reference = SkyCoord(ra=reference.ra, dec=reference.dec, frame="icrs")
+    idx, sep, _ = sc.match_to_catalog_sky(reference)
+    ok = sep.arcsec <= max_sep
+    if np.sum(ok) < min_sources:
+        return None
+    offsets = sc[ok].spherical_offsets_to(reference[idx[ok]])
+    rms = []
+    for values in offsets:
+        x = sigma_clip(values.deg, sigma=3, maxiters=5, masked=False)
+        x = x[np.isfinite(x)]
+        rms.append(float(np.std(x)))  # random part: scatter about the mean offset
+    return rms[0], rms[1]
 
 
 def pixelscale_from_header(header: fits.Header) -> float:
