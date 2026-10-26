@@ -496,7 +496,7 @@ def limiting_magnitude(table, catalog_header, backsig, setup, nsigma: float = 5.
         stars = _bright_point_sources(table)
         if np.sum(stars) < 5:
             return np.nan
-        fwhm = float(np.nanmedian(table["FWHM_IMAGE"][stars]))
+        fwhm = float(np.nanmedian(np.ma.filled(table["FWHM_IMAGE"][stars], np.nan)))
         apertures = np.asarray(setup.apertures, dtype=float)
         idx = int(np.argmin(np.abs(apertures - 1.35 * fwhm)))
         zp = float(catalog_header[f"HIERARCH PYPE ZP MAG_APER {idx}"])
