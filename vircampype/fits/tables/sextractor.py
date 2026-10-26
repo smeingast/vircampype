@@ -582,17 +582,29 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         f"IC mode must be either 'variable' or 'constant', "
                         f"not {self.setup.illumination_correction_mode}"
                     )
-                zp_all = get_zeropoint(
-                    skycoord1=SkyCoord(tab[self.key_ra], tab[self.key_dec], unit="deg"),
-                    mag1=tab["MAG_AUTO"],
-                    magerr1=tab["MAGERR_AUTO"],
-                    skycoord2=skycoord_master,
-                    mag2=mag_master,
-                    magerr2=magerr_master,
-                    # IC runs before the data-driven bright limit exists
-                    mag_limits_ref=master_phot.mag_lim_setup(passband=passband),
-                    method=method,
-                )
+                try:
+                    zp_all = get_zeropoint(
+                        skycoord1=SkyCoord(
+                            tab[self.key_ra], tab[self.key_dec], unit="deg"
+                        ),
+                        mag1=tab["MAG_AUTO"],
+                        magerr1=tab["MAGERR_AUTO"],
+                        skycoord2=skycoord_master,
+                        mag2=mag_master,
+                        magerr2=magerr_master,
+                        # IC runs before the data-driven bright limit exists
+                        mag_limits_ref=master_phot.mag_lim_setup(passband=passband),
+                        method=method,
+                    )
+                except ValueError as e:
+                    # Name the frame(s), so a bad (e.g. trailed) exposure can be
+                    # moved out of the raw data by hand
+                    raise PipelineValueError(
+                        f"Illumination correction failed for detector {idx_hdr + 1} "
+                        f"of {', '.join(files.basenames)} ({len(tab)} clean sources): "
+                        f"{e} Check the frame for trailing or bad seeing.",
+                        logger=log,
+                    ) from e
 
                 # Compute illumination correction
                 if self.setup.illumination_correction_mode == "variable":
