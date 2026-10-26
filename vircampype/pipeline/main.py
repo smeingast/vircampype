@@ -4,6 +4,8 @@ import json
 import logging
 import math
 import os.path
+import resource
+import sys
 import time
 
 from vircampype.fits.images.common import FitsImages
@@ -23,6 +25,12 @@ from vircampype.tools.fitstools import (
 )
 from vircampype.tools.messaging import print_end, print_stage_skip, print_start
 from vircampype.tools.systemtools import *
+
+
+def _max_rss_gb() -> float:
+    """Peak resident set size of this process in GB (bytes on macOS, kB elsewhere)."""
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return rss / (2**30 if sys.platform == "darwin" else 2**20)
 
 
 def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
@@ -58,9 +66,13 @@ def pipeline_step(status_attr: str, *, message: str, guard: str | None = None):
                     print_stage_skip(message)
                 return
             log.info(f"START {message}")
+            t0 = time.monotonic()
             method(self, *args, **kwargs)
             self.update_status(**{status_attr: True})
-            log.info(f"DONE {message} (status {status_attr} set)")
+            log.info(
+                f"DONE {message} ({time.monotonic() - t0:.0f} s, "
+                f"process max RSS so far {_max_rss_gb():.1f} GB incl. mmap; status {status_attr} set)"
+            )
 
         return wrapper
 

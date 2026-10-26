@@ -399,7 +399,7 @@ class Setup:
     pushover_api_token: str | None = None  # Pushover API token
 
     # Miscellaneous
-    survey_name: str = "VISIONS"  # Survey name for FITS headers
+    survey_name: str = "VISIONS"  # Survey name: SURVEY column of the source list and the setup record (not a product header card)
     reference: str = "2023A&A...673A..59M"  # REFERENC: VISIONS II, pipeline paper
     fix_vircam_headers: bool = True  # Apply VIRCAM-specific header corrections
 

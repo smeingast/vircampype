@@ -108,6 +108,12 @@ class TestSetupToDictPaths(unittest.TestCase):
         for key in ("pushover_user_key", "pushover_api_token", "folders", "path_pype"):
             self.assertNotIn(key, d)
 
+    def test_survey_name_reaches_record(self):
+        s = make_test_setup(self._tmp.name, survey_name="VHS")
+        self.assertEqual(s.to_dict["survey_name"], "VHS")
+        with open(s.write_sidecar()) as f:
+            self.assertIn("survey_name: VHS", f.read())
+
 
 class TestObsoleteKeys(unittest.TestCase):
     """A config that still sets a removed key fails loud with guidance

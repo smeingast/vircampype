@@ -746,3 +746,50 @@ class TestSourceList(unittest.TestCase):
                 tile_primary = fits.getheader(paths["tile"], 0)
                 self.assertEqual(primary["ELLIPTIC"], tile_primary["ELLIPTIC"])
                 self.assertIn("REFMAGLO", table)
+
+
+class TestSurveyNameReach(unittest.TestCase):
+    """A VHS survey_name reaches the SURVEY column of the source list."""
+
+    @staticmethod
+    def _vhs_sources():
+        t, apertures = _public_input_table()
+        return detections_to_sources(
+            t,
+            photerr_internal=0.01,
+            apertures=apertures,
+            mag_saturation=11.0,
+            survey_name="VHS",
+        )
+
+    def test_converter(self):
+        out = self._vhs_sources()
+        self.assertTrue(np.all(np.asarray(out["SURVEY"]) == "VHS"))
+
+    def test_hdu(self):
+        hdu = source_list_hdu(self._vhs_sources(), "Ks")
+        index = [c[0] for c in SOURCE_COLUMNS].index("SURVEY") + 1
+        self.assertEqual(hdu.header[f"TFORM{index}"], "10A")
+        self.assertTrue(np.all(np.char.strip(hdu.data["SURVEY"]) == "VHS"))
+
+    def test_written_file(self):
+        from tests.test_sdpcheck import make_products
+        from vircampype.tools.sdpcheck import check_product
+
+        with tempfile.TemporaryDirectory() as folder:
+            paths = make_products(folder, final=False)
+            os.remove(paths["sources"])
+            path = os.path.join(folder, "tiny.sources.fits")
+            write_source_list(
+                self._vhs_sources(),
+                path,
+                tile_name=os.path.basename(paths["tile"]),
+                tile_primary=fits.getheader(paths["tile"], 0),
+                tile_sci=fits.getheader(paths["tile"], "SCI"),
+                passband="H",
+                primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
+                table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],
+            )
+            survey = np.asarray(Table.read(path, hdu=1)["SURVEY"])
+            self.assertTrue(np.all(np.char.strip(survey.astype(str)) == "VHS"))
+            self.assertEqual(check_product(path, "SCIENCE.SRCTBL", final=False), [])
