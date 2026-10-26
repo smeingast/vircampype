@@ -39,6 +39,7 @@ __all__ = [
     "copy_keywords",
     "add_key_primary_hdu",
     "make_mef_image",
+    "assemble_tile_mef",
     "merge_headers",
     "add_float_to_header",
     "add_str_to_header",
@@ -322,6 +323,91 @@ def make_mef_image(
         move_file(path_temp, path_output)
     finally:
         remove_file(path_temp)
+
+
+# Phase 3 class cards shared by the SCI and CONF extensions of the tile
+_TILE_HDUCLASS = (
+    ("HDUCLASS", "ESO", "Class name"),
+    ("HDUDOC", "SDP", "ESO Science Data Products standard"),
+    ("HDUVERS", "SDP version 8", "Version of the standard"),
+    ("HDUCLAS1", "IMAGE", "Data type"),
+)
+
+
+def assemble_tile_mef(
+    path_image: str,
+    path_weight: str,
+    path_out: str,
+    primary: fits.Header,
+    sci_cards: list[tuple[str, object, str]] = (),
+    extra_hdus: list = (),
+) -> None:
+    """
+    Assemble the MEF tile from SWarp's coadd image and weight.
+
+    The tile has an empty primary HDU carrying *primary*, a SCI extension with
+    SWarp's image and a CONF extension with SWarp's weight, linked by the
+    reciprocal pointers CONFDATA and SCIDATA, followed by *extra_hdus* (e.g. a
+    PHASE3PROVENANCE table). Every HDU gets one reserved block of 36 blank cards so
+    that later card edits never move the data. From SWarp's headers, ORIGIN, DATE
+    and AUTHOR (host and run stamps) and EXPTIME (the primary carries the
+    exposure-map median) are dropped; the weight also loses GAIN and SATURATE,
+    which SWarp writes as zeros. Both inputs stay memory-mapped, so the arrays are
+    copied bitwise without an in-memory copy.
+
+    Parameters
+    ----------
+    path_image : str
+        Path to SWarp's coadd image.
+    path_weight : str
+        Path to SWarp's coadd weight.
+    path_out : str
+        Output path; must not exist.
+    primary : fits.Header
+        Header of the primary HDU.
+    sci_cards : list[tuple[str, object, str]], optional
+        Additional ``(key, value, comment)`` cards for the SCI header.
+    extra_hdus : list, optional
+        HDUs appended after CONF.
+    """
+    with (
+        fits.open(path_image, memmap=True, do_not_scale_image_data=True) as image,
+        fits.open(path_weight, memmap=True, do_not_scale_image_data=True) as weight,
+    ):
+        sci = image[0].header.copy()
+        for key in ("ORIGIN", "DATE", "AUTHOR", "EXPTIME"):
+            sci.remove(key, ignore_missing=True)
+        sci.set("EXTNAME", "SCI", "Extension name")
+        for key, value, comment in _TILE_HDUCLASS:
+            sci.set(key, value, comment)
+        sci.set("HDUCLAS2", "DATA", "Science data")
+        sci.set("CONFDATA", "CONF", "Confidence map extension")
+        sci.set("BUNIT", "adu", "Physical unit of the data")
+        for key, value, comment in sci_cards:
+            sci.set(key, value, comment)
+
+        conf = weight[0].header.copy()
+        for key in ("ORIGIN", "DATE", "AUTHOR", "EXPTIME", "GAIN", "SATURATE"):
+            conf.remove(key, ignore_missing=True)
+        conf.set("EXTNAME", "CONF", "Extension name")
+        for key, value, comment in _TILE_HDUCLASS:
+            conf.set(key, value, comment)
+        conf.set("HDUCLAS2", "CONF", "Confidence map")
+        conf.set("SCIDATA", "SCI", "Science data extension")
+
+        hdul = fits.HDUList(
+            [
+                fits.PrimaryHDU(header=primary),
+                fits.ImageHDU(data=image[0].data, header=sci),
+                fits.ImageHDU(data=weight[0].data, header=conf),
+                *extra_hdus,
+            ]
+        )
+        hdul.update_extend()  # EXTEND first, so that it does not take a blank card
+        for hdu in hdul:
+            for _ in range(36):
+                hdu.header.append(fits.Card(), end=True)
+        hdul.writeto(path_out)
 
 
 def merge_headers(path_1: str, path_2: str, primary_only: bool = False) -> None:
@@ -1129,6 +1215,8 @@ def tile_fits(
     weight_path: str | None = None,
     prefix: str = "tile",
     overwrite: bool = True,
+    image_hdu: int | str = 0,
+    weight_hdu: int | str = 0,
 ) -> tuple[list[dict], int]:
     """
     Tile a FITS image (and optional weight) into sub-images of a given angular size.
@@ -1151,6 +1239,10 @@ def tile_fits(
         Filename prefix for the output tiles.
     overwrite : bool
         Overwrite existing tile files.
+    image_hdu : int or str
+        Index or EXTNAME of the image HDU (e.g. ``"SCI"`` of the MEF tile).
+    weight_hdu : int or str
+        Index or EXTNAME of the weight HDU (e.g. ``"CONF"`` of the MEF tile).
 
     Returns
     -------
@@ -1172,8 +1264,8 @@ def tile_fits(
     )
 
     with fits.open(image_path, memmap=True) as hdul:
-        data = hdul[0].data
-        header = hdul[0].header
+        data = hdul[image_hdu].data
+        header = hdul[image_hdu].header
 
         if data is None or data.ndim != 2:
             raise ValueError(f"Expected 2D image, got {image_path}")
@@ -1189,7 +1281,7 @@ def tile_fits(
         weight_data = None
         if weight_path is not None:
             whdul = fits.open(weight_path, memmap=True)
-            weight_data = whdul[0].data
+            weight_data = whdul[weight_hdu].data
 
         tiles = []
         n_written = 0

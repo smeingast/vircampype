@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
+import yaml
 from astropy.io import fits
 from joblib import cpu_count
 from regions import Regions
@@ -501,7 +502,6 @@ class Setup:
 
         # Specific file paths
         self.path_coadd = f"{self.folders['tile']}{self.name}.fits"
-        self.path_coadd_weight = self.path_coadd.replace(".fits", ".weight.fits")
         self.path_coadd_header = self.path_coadd.replace(".fits", ".ahead")
         self.path_coadd_expmap = self.path_coadd.replace(".fits", ".expmap.fits")
         self.path_coadd_sources = self.path_coadd.replace(".fits", ".sources.fits")
@@ -908,7 +908,10 @@ class Setup:
 
         # Drop machine-local *location* roots entirely (output/scratch/cache/
         # master dirs are worker-box specific and carry no provenance value).
+        # Credentials are dropped too: they are never written to headers or files.
         for key in (
+            "pushover_user_key",
+            "pushover_api_token",
             "path_data",
             "path_pype",
             "local_cache_dir",
@@ -930,6 +933,13 @@ class Setup:
 
         # Return
         return dd
+
+    def write_sidecar(self) -> str:
+        """Write the setup record of a run (replaces the former PYPE SETUP header cards)."""
+        path = f"{self.folders['qc']}{self.name}.setup.yml"
+        with open(path, "w") as stream:
+            yaml.safe_dump(self.to_dict, stream, sort_keys=False)
+        return path
 
     def add_setup_to_header(self, header: fits.Header) -> None:
         """

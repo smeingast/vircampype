@@ -11,6 +11,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
+from astropy.wcs import WCS, FITSFixedWarning
 from joblib import Parallel, delayed
 from scipy.ndimage.morphology import binary_closing
 from skimage.draw import disk
@@ -29,6 +30,7 @@ from vircampype.tools.messaging import *
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.photometry import get_default_extinction
 from vircampype.tools.plottools import *
+from vircampype.tools.productmeta import obs_cards, prov_cards
 from vircampype.tools.systemtools import *
 from vircampype.tools.tabletools import *
 from vircampype.tools.viziertools import *
@@ -365,6 +367,16 @@ class SkyImages(FitsImages):
             for x in self.paths_full
         ]
 
+    @property
+    def paths_sextractor(self):
+        """Image arguments of SExtractor runs (the plain files)."""
+        return self.paths_full
+
+    @property
+    def paths_sextractor_weights(self):
+        """Weight images of SExtractor runs (the global master weights)."""
+        return self.get_master_weight_global().paths_full
+
     def sextractor(
         self,
         preset="scamp",
@@ -476,10 +488,10 @@ class SkyImages(FitsImages):
         ]
 
         # Construct commands for source extraction
-        master_weight_paths = self.get_master_weight_global().paths_full
+        master_weight_paths = self.paths_sextractor_weights
         cmds = [
             (
-                f"{sxs.bin} -c {sxs.default_config} {self.paths_full[i]} "
+                f"{sxs.bin} -c {sxs.default_config} {self.paths_sextractor[i]} "
                 f"-STARNNW_NAME {sxs.default_nnw} "
                 f"-CATALOG_NAME {catalog} "
                 f"-WEIGHT_IMAGE {master_weight_paths[i]} {ss}"
@@ -499,8 +511,8 @@ class SkyImages(FitsImages):
             # Add detection image to sextractor command
             for cmd_idx, i in enumerate(indices_to_process):
                 cmds[cmd_idx] = cmds[cmd_idx].replace(
-                    self.paths_full[i],
-                    f"{self.setup.sex_detection_image_path},{self.paths_full[i]}",
+                    self.paths_sextractor[i],
+                    f"{self.setup.sex_detection_image_path},{self.paths_sextractor[i]}",
                 )
 
         # Add kwargs to commands
@@ -668,7 +680,7 @@ class SkyImages(FitsImages):
             )[idx_file]
             # Image argument (optionally "detection,measurement") must be this file
             image_arg = cmd.split(" -STARNNW_NAME ")[0].rsplit(" ", 1)[-1]
-            if image_arg.split(",")[-1] != self.paths_full[idx_file]:
+            if image_arg.split(",")[-1] != self.paths_sextractor[idx_file]:
                 raise PipelineValueError(
                     f"class_star command is not for file {idx_file}"
                 )
@@ -2286,11 +2298,15 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
         # Load Swarp setup
         sws = SwarpSetup(setup=self.setup)
 
-        # Read YML and override defaults
+        # Make system temp directory for resampling
+        path_resampled_dir = make_system_tempdir(base_dir=self.setup.local_cache_dir)
+
+        # Read YML and override defaults; with COMBINE N SWarp writes neither output,
+        # but it reads the grid from <imageout>.ahead
         ss = yml2config(
             path_yml=sws.preset_resampling,
             imageout_name=self.setup.path_coadd,
-            weightout_name=self.setup.path_coadd_weight,
+            weightout_name=f"{path_resampled_dir}coadd.weight.fits",
             nthreads=self.setup.n_jobs_swarp,
             resample_suffix=sws.resample_suffix,
             resampling_type=self.setup.resampling_kernel.upper(),
@@ -2299,9 +2315,6 @@ class SkyImagesProcessedScience(SkyImagesProcessed):
             fscale_keyword="FSCLSTCK",
             skip=["weight_image", "weight_thresh", "resample_dir"],
         )
-
-        # Make system temp directory for resampling
-        path_resampled_dir = make_system_tempdir(base_dir=self.setup.local_cache_dir)
 
         # Construct commands for resampling
         cmds = [
@@ -2897,37 +2910,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             log.info(f"Internal astr. dispersion RMS: {astirms:.2f} mas")
             log.info(f"External astr. dispersion RMS: {astrrms:.2f} mas")
 
-            # Copy/add primary header entries
-            with (
-                fits.open(path_coadd_tmp, mode="update") as hdul_tile,
-                fits.open(self.paths_full[0], mode="readonly") as hdu_paw0,
-            ):
-                hdul_tile[0].header.set(
-                    keyword=self.setup.keywords.object,
-                    value=hdu_paw0[0].header[self.setup.keywords.object],
-                )
-                hdul_tile[0].header.set(
-                    keyword=self.setup.keywords.filter_name,
-                    value=hdu_paw0[0].header[self.setup.keywords.filter_name],
-                )
-                hdul_tile[0].header.set(
-                    keyword="NCOMBINE",
-                    value=len(self),
-                    comment="Number of combined images",
-                )
-                hdul_tile[0].header.set(
-                    keyword="ASTIRMS",
-                    value=round(float(astirms), 2),
-                    comment="Internal astr. dispersion RMS (mas)",
-                )
-                hdul_tile[0].header.set(
-                    keyword="ASTRRMS",
-                    value=round(float(astrrms), 2),
-                    comment="External astr. dispersion RMS (mas)",
-                )
-
-                # Load coadd
-                coadd = hdul_tile[0].data
+            # Background statistics from SWarp's image (read-only memmap)
+            sci_header = fits.getheader(path_coadd_tmp)
+            with fits.open(path_coadd_tmp, memmap=True) as hdul_coadd:
+                coadd = hdul_coadd[0].data
 
                 # Use a max of 50_000_000 pixels for sky calculation and exclude
                 # uncovered pixels (SWarp writes exactly 0 there)
@@ -2938,37 +2924,72 @@ class SkyImagesResampled(SkyImagesProcessed):
                 else:
                     coadd_sub = coadd.ravel()
                 backmod, backsig, backskew = mmm(coadd_sub[coadd_sub != 0])
-                log.info(f"Background mode: {backmod:.3f}")
-                log.info(f"Background sigma: {backsig:.3f}")
-                log.info(f"Background skew: {backskew:.3f}")
+                del coadd, coadd_sub
+            log.info(f"Background mode: {backmod:.3f}")
+            log.info(f"Background sigma: {backsig:.3f}")
+            log.info(f"Background skew: {backskew:.3f}")
 
-                # Put background info into header
-                hdul_tile[0].header.set(
-                    "BACKMODE", value=np.round(backmod, 3), comment="Background mode"
+            # Primary header: observation block, image centre, astrometric RMS
+            primary = fits.Header()
+            for key, value, comment in obs_cards(self.headers_primary, self.setup):
+                primary.set(key, value, comment)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", FITSFixedWarning)
+                ra, dec = WCS(sci_header).all_pix2world(
+                    0.5 * sci_header["NAXIS1"] + 0.5,
+                    0.5 * sci_header["NAXIS2"] + 0.5,
+                    1,
                 )
-                hdul_tile[0].header.set(
-                    "BACKSIG", value=np.round(backsig, 3), comment="Background sigma"
-                )
-                hdul_tile[0].header.set(
-                    "BACKSKEW", value=np.round(backskew, 3), comment="Background skew"
-                )
+            primary.set("RA", float(ra), "Image centre, RA (deg)")
+            primary.set("DEC", float(dec), "Image centre, Dec (deg)")
+            for key in ("EQUINOX", "RADESYS"):
+                primary.set(key, sci_header[key], sci_header.comments[key])
+            primary.set(
+                "ASTIRMS",
+                round(float(astirms), 2),
+                "Internal astr. dispersion RMS (mas)",
+            )
+            primary.set(
+                "ASTRRMS",
+                round(float(astrrms), 2),
+                "External astr. dispersion RMS (mas)",
+            )
 
-                # Add setup to header
-                self.setup.add_setup_to_header(header=hdul_tile[0].header)
+            # Provenance: PROVi cards, or PROVXTN and a provenance extension
+            arcfiles = self.read_from_prime_headers(keywords=["ARCFILE"])[0]
+            cards, prov_hdu = prov_cards(arcfiles)
+            for key, value, comment in cards:
+                primary.set(key, value, comment)
+            extra = [prov_hdu] if prov_hdu is not None else []
+            log.info(
+                f"Provenance: {len(arcfiles)} raw files "
+                f"({'PHASE3PROVENANCE extension' if extra else 'PROVi cards'})"
+            )
 
-                # Add archive names of input
-                arcnames = self.read_from_prime_headers(keywords=["ARCFILE"])[0]
-                for idx in range(len(arcnames)):
-                    hdul_tile[0].header.set(
-                        f"HIERARCH PYPE ARCNAME {idx:04d}", arcnames[idx]
-                    )
+            # Assemble the MEF tile (primary, SCI, CONF) on the local disk
+            tmef = time.time()
+            path_mef_tmp = make_path_system_tempfile(
+                prefix="tile_", suffix=".fits", base_dir=self.setup.local_cache_dir
+            )
+            assemble_tile_mef(
+                path_coadd_tmp,
+                path_weight_tmp,
+                path_mef_tmp,
+                primary,
+                sci_cards=[
+                    ("BACKMODE", round(float(backmod), 3), "Background mode"),
+                    ("BACKSIG", round(float(backsig), 3), "Background sigma"),
+                    ("BACKSKEW", round(float(backskew), 3), "Background skew"),
+                ],
+                extra_hdus=extra,
+            )
+            log.info(f"MEF tile assembled in {time.time() - tmef:.1f}s")
+            remove_file(path_coadd_tmp)
+            remove_file(path_weight_tmp)
 
-                # Flush to disk
-                hdul_tile.flush()
-
-            # Move temporary files to final location
-            shutil.move(path_coadd_tmp, self.setup.path_coadd)
-            shutil.move(path_weight_tmp, self.setup.path_coadd_weight)
+            # Move the tile to its final location; the setup record goes to qc/
+            shutil.move(path_mef_tmp, self.setup.path_coadd)
+            self.setup.write_sidecar()
 
             # Remove swap dir
             shutil.rmtree(swap_dir, ignore_errors=True)
@@ -3480,6 +3501,27 @@ class Tile(SkyImages):
 
     def __init__(self, setup, file_paths=None):
         super(Tile, self).__init__(setup=setup, file_paths=file_paths)
+
+    @property
+    def iter_data_hdu(self):
+        """The SCI extension of the MEF tile (empty primary, SCI, CONF)."""
+        for path, hdrs in zip(self.paths_full, self.headers):
+            if not (len(hdrs) >= 3 and hdrs[1].get("EXTNAME") == "SCI"):
+                raise PipelineValueError(
+                    f"{path} is not a v3.0 MEF tile (SCI, CONF): reset the run from "
+                    "'tile'"
+                )
+        return [range(1, 2) for _ in self.headers]
+
+    @property
+    def paths_sextractor(self):
+        """SCI extension of the tile in SExtractor's ``file.fits[n]`` syntax."""
+        return [f"{p}[1]" for p in self.paths_full]
+
+    @property
+    def paths_sextractor_weights(self):
+        """CONF extension of the tile (its weight) in SExtractor's syntax."""
+        return [f"{p}[2]" for p in self.paths_full]
 
 
 class MasterSky(MasterImages):

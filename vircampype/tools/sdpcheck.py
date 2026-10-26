@@ -24,6 +24,8 @@ __all__ = [
     "check_family",
     "check_product",
     "main",
+    "median_from_counts",
+    "scan_expmap",
 ]
 
 # Sybase IQ reserved words, forbidden as column names (SDP standard App. B, §12.2.3)
@@ -414,7 +416,7 @@ def _check_expmap(path: str, hdul: fits.HDUList) -> list[str]:
     problems += _check_wcs(header, where)
     data = hdul[1].data
     if data is not None and data.ndim == 2:
-        not_finite, negative, _ = _scan_expmap(data)
+        not_finite, negative, _ = scan_expmap(data)
         if not_finite:
             problems.append(f"{where}: EXPMAP contains NaN or Inf (void pixels are 0)")
         if negative:
@@ -422,7 +424,7 @@ def _check_expmap(path: str, hdul: fits.HDUList) -> list[str]:
     return problems
 
 
-def _scan_expmap(data: np.ndarray) -> tuple[bool, bool, dict]:
+def scan_expmap(data: np.ndarray) -> tuple[bool, bool, dict]:
     """
     One pass over an EXPMAP in 1024-row memmap chunks: (has NaN/Inf, has negative
     values, counts of the positive values). Exposure maps hold few distinct values.
@@ -439,25 +441,30 @@ def _scan_expmap(data: np.ndarray) -> tuple[bool, bool, dict]:
     return not_finite, negative, counts
 
 
-def _check_exptime(primary: fits.Header, expmap: str, where: str) -> list[str]:
-    """EXPTIME = exact median of the nonzero EXPMAP pixels, within 1 % (§4.3.1)."""
-    with fits.open(expmap, memmap=True) as hdul:
-        data = hdul["EXPMAP"].data
-        if data is None or data.ndim != 2:
-            return []  # reported by the EXPMAP check
-        counts = _scan_expmap(data)[2]
-    if not counts:
-        return [f"{where}: the EXPMAP has no covered (nonzero) pixels"]
-    # Exact median from the sorted value counts: the mean of the elements at the
-    # 0-based positions (total - 1) // 2 and total // 2
+def median_from_counts(counts: dict) -> float:
+    """
+    Exact median of the values whose counts are given: mean of the elements at 0-based
+    positions (total - 1) // 2 and total // 2.
+    """
     total, seen, lower = sum(counts.values()), 0, None
     for value in sorted(counts):
         seen += counts[value]
         if lower is None and seen > (total - 1) // 2:
             lower = value
         if seen > total // 2:
-            median = (lower + value) / 2
-            break
+            return (lower + value) / 2
+
+
+def _check_exptime(primary: fits.Header, expmap: str, where: str) -> list[str]:
+    """EXPTIME = exact median of the nonzero EXPMAP pixels, within 1 % (§4.3.1)."""
+    with fits.open(expmap, memmap=True) as hdul:
+        data = hdul["EXPMAP"].data
+        if data is None or data.ndim != 2:
+            return []  # reported by the EXPMAP check
+        counts = scan_expmap(data)[2]
+    if not counts:
+        return [f"{where}: the EXPMAP has no covered (nonzero) pixels"]
+    median = median_from_counts(counts)
     exptime = primary.get("EXPTIME")
     if _is_number(exptime) and abs(exptime - median) > 0.01 * median:
         return [f"{where}: EXPTIME = {exptime}, EXPMAP median {median:g} (> 1 %)"]

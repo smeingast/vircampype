@@ -9,13 +9,18 @@ import unittest
 import warnings
 
 import numpy as np
+from astropy.io import fits
 
+from tests.test_sdpcheck import make_products
 from vircampype.tools.completeness import (
     _fit_completeness,
     _generate_star_list,
     _logistic,
+    build_completeness_image,
+    completeness_cards,
 )
 from vircampype.tools.fitstools import _compute_tile_edges
+from vircampype.tools.productmeta import set_cards
 
 
 class TestLogistic(unittest.TestCase):
@@ -123,6 +128,79 @@ class TestComputeTileEdges(unittest.TestCase):
             self.assertEqual(edges[-1][1], n)
             for (_, e1), (s2, _) in zip(edges[:-1], edges[1:]):
                 self.assertEqual(e1, s2)
+
+
+class TestCompletenessCards(unittest.TestCase):
+    def test_completeness_cards(self):
+        results = [
+            {"comp90": 18.0, "comp50": np.nan},
+            {"comp90": 18.5, "comp50": np.nan},
+            {"comp90": np.nan, "comp50": np.nan},
+        ]
+        cards = completeness_cards(results)
+        self.assertEqual(
+            [(k, v) for k, v, _ in cards],
+            [("COMP90MD", 18.25), ("COMP90MN", 18.0), ("COMP90MX", 18.5)],
+        )
+        results = [{"comp90": 18.0, "comp50": 19.0}, {"comp90": 18.5, "comp50": 20.0}]
+        cards = completeness_cards(results)
+        self.assertEqual(len(cards), 6)
+        for key, _, _ in cards:
+            self.assertEqual(len(key), 8)
+            self.assertEqual(key, key.upper())
+        self.assertEqual(dict((k, v) for k, v, _ in cards)["COMP50MX"], 20.0)
+
+    def test_build_completeness_image_mef_weight(self):
+        hdr = fits.Header(
+            {
+                "CTYPE1": "RA---TAN",
+                "CTYPE2": "DEC--TAN",
+                "CRPIX1": 4.5,
+                "CRPIX2": 4.5,
+                "CRVAL1": 10.0,
+                "CRVAL2": 20.0,
+                "CD1_1": -1e-4,
+                "CD1_2": 0.0,
+                "CD2_1": 0.0,
+                "CD2_2": 1e-4,
+            }
+        )
+        conf = np.ones((8, 8), dtype=np.float32)
+        conf[0] = 0
+        with tempfile.TemporaryDirectory() as tmp:
+            wpath = os.path.join(tmp, "tile.fits")
+            out = os.path.join(tmp, "comp.fits")
+            fits.HDUList(
+                [
+                    fits.PrimaryHDU(),
+                    fits.ImageHDU(np.full((8, 8), 5, dtype=np.float32), name="SCI"),
+                    fits.ImageHDU(conf, name="CONF"),
+                ]
+            ).writeto(wpath)
+            build_completeness_image(
+                [{"grid_index": (0, 0), "comp90": 18.0}],
+                hdr,
+                (8, 8),
+                out,
+                resize_factor=1.0,
+                weight_path=wpath,
+                weight_hdu="CONF",
+            )
+            image = fits.getdata(out)
+        self.assertTrue(np.all(np.isnan(image[0])))
+        self.assertTrue(np.all(image[1:] == 18.0))
+
+    def test_set_cards_on_sci(self):
+        results = [{"comp90": 18.0, "comp50": 19.0}]
+        with tempfile.TemporaryDirectory() as tmp:
+            tile = make_products(tmp, final=False)["tile"]
+            with fits.open(tile) as hdul:
+                datloc = hdul.fileinfo(1)["datLoc"]
+            set_cards(tile, completeness_cards(results), hdu="SCI")
+            with fits.open(tile) as hdul:
+                self.assertEqual(hdul[1].header["COMP90MD"], 18.0)
+                self.assertNotIn("COMP90MD", hdul[0].header)
+                self.assertEqual(hdul.fileinfo(1)["datLoc"], datloc)
 
 
 if __name__ == "__main__":

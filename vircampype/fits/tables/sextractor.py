@@ -3647,8 +3647,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         tstart = time.time()
 
         # Load master photometry catalog
-        from vircampype.fits.images.common import FitsImages
-
         master_phot = self.get_master_photometry()
 
         # Find classification tables
@@ -3667,14 +3665,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         if self.setup.source_classification:
             tables_class = SourceCatalogs(setup=self.setup, file_paths=paths_cls)
 
-        # Find weight images
-        paths_weights = [
-            x.replace(".full.fits.ctab", ".weight.fits") for x in self.paths_full
-        ]
+        # Find tile images (the weight is the CONF extension). This function is
+        # replaced by detections_to_sources in the next milestone.
+        paths_tiles = [x.replace(".full.fits.ctab", ".fits") for x in self.paths_full]
 
-        # Check if weight images exist
-        if self.n_files != np.sum([os.path.exists(p) for p in paths_weights]):
-            raise ValueError("Weight images not found")
+        # Check if tile images exist
+        if self.n_files != np.sum([os.path.exists(p) for p in paths_tiles]):
+            raise ValueError("Tile images not found")
 
         # Find stats tables
         paths_stats = [f"{p}.stats" for p in self.paths_full]
@@ -3682,9 +3679,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Check if stats tables exist
         if self.n_files != np.sum([os.path.exists(p) for p in paths_stats]):
             raise ValueError("Statistics tables not found")
-
-        # Instantiate weights
-        weightimages = FitsImages(file_paths=paths_weights, setup=self.setup)
 
         # Instantiate statistics tables
         statstables = SextractorCatalogs(file_paths=paths_stats, setup=self.setup)
@@ -3765,9 +3759,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             log.info(f"Cleaned master table; sources left: {len(table_2mass_clean)}")
 
             # Work in each extension
-            for tidx, widx in zip(
-                range(len(tables_file)), weightimages.iter_data_hdu[idx_file]
-            ):
+            for tidx in range(len(tables_file)):
                 # Determine lengths
                 len_table_full = len(tables_file[tidx])
                 len_table_stats = len(tables_stats[tidx])
@@ -3851,7 +3843,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Read weight
                 log.info("Reading weight")
                 weight_data, weight_hdr = fits.getdata(
-                    paths_weights[idx_file], widx, header=True
+                    paths_tiles[idx_file], "CONF", header=True
                 )
 
                 # Merge with 2MASS

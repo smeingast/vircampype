@@ -17,12 +17,16 @@ from scipy.spatial import cKDTree
 
 from vircampype.tools.astromatic import PSFExSetup, SextractorSetup, SkymakerSetup
 from vircampype.tools.messaging import message_calibration, print_message
+from vircampype.tools.productmeta import Card, set_cards
 from vircampype.tools.systemtools import (
     read_yml,
     run_command_shell,
     run_commands_shell_parallel,
     yml2config,
 )
+
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "build_completeness_image",
@@ -706,6 +710,8 @@ def run_completeness(
     tiles_dir: str,
     psf_dir: str,
     zp: float | None = None,
+    image_hdu: int | str = 0,
+    weight_hdu: int | str = 0,
 ) -> list[dict]:
     """
     Run the full completeness analysis on a tile image.
@@ -725,6 +731,10 @@ def run_completeness(
         Output directory for sub-tile images and weights.
     psf_dir : str
         Output directory for PSF catalogs and models.
+    image_hdu : int or str
+        Index or EXTNAME of the image HDU (``"SCI"`` for the MEF tile).
+    weight_hdu : int or str
+        Index or EXTNAME of the weight HDU (``"CONF"`` for the MEF tile).
 
     Returns
     -------
@@ -744,6 +754,8 @@ def run_completeness(
         weight_path=weight_path,
         prefix="comp_tile",
         overwrite=False,
+        image_hdu=image_hdu,
+        weight_hdu=weight_hdu,
     )
 
     n_sub = len(tile_infos)
@@ -1155,6 +1167,7 @@ def build_completeness_image(
     out_path: str,
     resize_factor: float = 0.25,
     weight_path: str | None = None,
+    weight_hdu: int | str = 0,
 ) -> None:
     """
     Write a FITS completeness image at a reduced resolution.
@@ -1178,6 +1191,8 @@ def build_completeness_image(
         Output size relative to the parent tile (default 0.25).
     weight_path : str or None
         Path to the weight image.  Zero-weight pixels are masked as NaN.
+    weight_hdu : int or str
+        Index or EXTNAME of the weight HDU in *weight_path*.
 
     """
     if not results:
@@ -1219,7 +1234,7 @@ def build_completeness_image(
     # Mask zero-weight pixels
     if weight_path is not None:
         with fits.open(weight_path, memmap=True) as whdul:
-            weight_full = whdul[0].data
+            weight_full = whdul[weight_hdu].data
         # Downsample weight by block-averaging
         from skimage.measure import block_reduce
 
@@ -1511,6 +1526,31 @@ def load_completeness_results(path: str) -> tuple[list[dict], dict]:
     return results, tile_summary
 
 
+def completeness_cards(results: list[dict]) -> list[Card]:
+    """Median, min and max of comp90 and comp50 as eight-character cards.
+
+    A group (90% or 50%) without any finite value yields no cards.
+    """
+    cards = []
+    for level in (90, 50):
+        values = [r[f"comp{level}"] for r in results if np.isfinite(r[f"comp{level}"])]
+        if not values:
+            continue
+        for suffix, func, label in (
+            ("MD", np.median, "Median"),
+            ("MN", np.min, "Min"),
+            ("MX", np.max, "Max"),
+        ):
+            cards.append(
+                (
+                    f"COMP{level}{suffix}",
+                    round(float(func(values)), 3),
+                    f"{label} {level}% completeness (mag)",
+                )
+            )
+    return cards
+
+
 def qc_completeness_tile(image_path: str, setup) -> None:
     """Run completeness analysis on a tile and generate all QC products.
 
@@ -1547,11 +1587,8 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         )
         return
 
-    # Determine weight path (if available)
-    weight_path = None
-    weight_glob = image_path.replace(".fits", ".weight.fits")
-    if os.path.isfile(weight_glob):
-        weight_path = weight_glob
+    # The tile is a MEF: SCI holds the image, CONF the weight
+    weight_path = image_path
 
     # Zero point for the injected (unit-sum PSF) stars: the tile catalogue's
     # aperture-matched ZP (= Phase 3 PHOTZP). The image header carries no ZP.
@@ -1579,6 +1616,8 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         tiles_dir=setup.folders["temp_completeness_tiles"],
         psf_dir=setup.folders["temp_completeness_psf"],
         zp=zp,
+        image_hdu="SCI",
+        weight_hdu="CONF",
     )
 
     if results:
@@ -1607,8 +1646,8 @@ def qc_completeness_tile(image_path: str, setup) -> None:
 
         # Write completeness FITS image
         with fits.open(image_path) as hdul:
-            tile_header = hdul[0].header
-            tile_shape = (hdul[0].data.shape[0], hdul[0].data.shape[1])
+            tile_header = hdul["SCI"].header
+            tile_shape = (hdul["SCI"].data.shape[0], hdul["SCI"].data.shape[1])
         build_completeness_image(
             results=results,
             tile_header=tile_header,
@@ -1616,6 +1655,7 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             out_path=os.path.join(qc_dir, "completeness.fits"),
             resize_factor=setup.image_statistics_resize_factor,
             weight_path=weight_path,
+            weight_hdu="CONF",
         )
 
         # Save results table
@@ -1629,41 +1669,17 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
         comp50_values = [r["comp50"] for r in results if np.isfinite(r["comp50"])]
 
-        with fits.open(image_path, mode="update") as hdul:
-            if comp90_values:
-                comp90_med = float(np.median(comp90_values))
-                comp90_min = float(np.min(comp90_values))
-                comp90_max = float(np.max(comp90_values))
-                hdul[0].header["HIERARCH PYPE COMP90 MED"] = (
-                    round(comp90_med, 3),
-                    "Median 90% completeness (mag)",
-                )
-                hdul[0].header["HIERARCH PYPE COMP90 MIN"] = (
-                    round(comp90_min, 3),
-                    "Min 90% completeness (mag)",
-                )
-                hdul[0].header["HIERARCH PYPE COMP90 MAX"] = (
-                    round(comp90_max, 3),
-                    "Max 90% completeness (mag)",
-                )
-            if comp50_values:
-                comp50_med = float(np.median(comp50_values))
-                comp50_min = float(np.min(comp50_values))
-                comp50_max = float(np.max(comp50_values))
-                hdul[0].header["HIERARCH PYPE COMP50 MED"] = (
-                    round(comp50_med, 3),
-                    "Median 50% completeness (mag)",
-                )
-                hdul[0].header["HIERARCH PYPE COMP50 MIN"] = (
-                    round(comp50_min, 3),
-                    "Min 50% completeness (mag)",
-                )
-                hdul[0].header["HIERARCH PYPE COMP50 MAX"] = (
-                    round(comp50_max, 3),
-                    "Max 50% completeness (mag)",
-                )
+        set_cards(image_path, completeness_cards(results), hdu="SCI")
 
-        log = logging.getLogger(__name__)
+        comp90_med, comp90_min, comp90_max = (
+            f(comp90_values) if comp90_values else np.nan
+            for f in (np.median, np.min, np.max)
+        )
+        comp50_med, comp50_min, comp50_max = (
+            f(comp50_values) if comp50_values else np.nan
+            for f in (np.median, np.min, np.max)
+        )
+
         if comp90_values:
             msg90 = (
                 f"Completeness 90%: median={comp90_med:.2f} "

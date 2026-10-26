@@ -777,6 +777,45 @@ class Pipeline:
         """Coadd all resampled images into a single deep tile."""
         self.resampled.build_tile()
 
+    @pipeline_step("exposure_map", message="EXPOSURE MAP")
+    def exposure_map_tile(self):
+        """Exact exposure map of the tile; EXPTIME, EXPTMETH and SKYSQDEG in its primary header."""
+        from astropy.io import fits
+
+        from vircampype.tools.expmap import build_exposure_map
+        from vircampype.tools.productmeta import set_cards
+
+        tile = self.tile
+        header = tile.headers_data[0][0]
+        primary = fits.Header(
+            {key: tile.headers_primary[0][key] for key in ("OBJECT", "FILTER")}
+        )
+        resampled = self.resampled
+        exptime, area = build_exposure_map(
+            paths_weights=resampled.get_master_weight_global().paths_full,
+            exptimes=resampled.texptime,
+            header=header,
+            primary=primary,
+            path_out=self.setup.path_coadd_expmap,
+            cache_dir=self.setup.local_cache_dir,
+        )
+        set_cards(
+            self.setup.path_coadd,
+            [
+                (
+                    "EXPTIME",
+                    float(exptime),
+                    "Median exposure time of covered pixels (s)",
+                ),
+                ("EXPTMETH", "EXPMAP", "EXPTIME is the median of the exposure map"),
+                ("SKYSQDEG", round(area, 6), "Covered sky area (deg2)"),
+            ],
+        )
+        self.log.info(
+            f"Exposure map: EXPTIME={exptime:.1f} s, SKYSQDEG={area:.6f} deg2, "
+            f"written to {self.setup.path_coadd_expmap}"
+        )
+
     # =========================================================================== #
     # Statistics
     @pipeline_step("statistics_resampled", message="IMAGE STATISTICS")
@@ -1029,8 +1068,6 @@ class Pipeline:
         Coadds the per-detector ``WINVAR`` of the per-pawprint statistics weights (added
         where missing) and writes the ``WINPOS_SIGMAP`` file next to the coadd.
         """
-        from astropy.io import fits
-
         from vircampype.tools.statscoadd import (
             StatisticsCoaddUnsupported,
             coadd_window_sigma_map,
@@ -1057,7 +1094,7 @@ class Pipeline:
             )
         write_winpos_sigmap(
             path_sigma_arcsec=path_sig,
-            header_image=fits.getheader(self.setup.path_coadd),
+            header_image=self.tile.headers_data[0][0],
             path_out=path_map,
         )
         self.log.info(f"Window-cap map written: {path_map}")
@@ -1317,6 +1354,7 @@ class Pipeline:
         # Build and calibrate tile
         if self.setup.build_tile:
             self.build_tile()
+            self.exposure_map_tile()
             if self.setup.build_tile_only:
                 return
             self.photometry_tile()

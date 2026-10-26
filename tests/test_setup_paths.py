@@ -85,6 +85,29 @@ class TestSetupToDictPaths(unittest.TestCase):
             any(isinstance(v, str) and os.path.isabs(v) for v in d.values())
         )
 
+    def test_credentials_dropped(self):
+        s = make_test_setup(
+            self._tmp.name, pushover_user_key="u", pushover_api_token="t"
+        )
+        d = s.to_dict
+        self.assertNotIn("pushover_user_key", d)
+        self.assertNotIn("pushover_api_token", d)
+
+    def test_write_sidecar(self):
+        s = make_test_setup(
+            self._tmp.name, pushover_user_key="u", pushover_api_token="t"
+        )
+        path = s.write_sidecar()
+        self.assertEqual(path, s.folders["qc"] + "TestSetup.setup.yml")
+        self.assertTrue(os.path.isfile(path))
+        with open(path) as f:
+            d = yaml.safe_load(f)
+        self.assertIsInstance(d, dict)
+        self.assertEqual(d["name"], "TestSetup")
+        self.assertIn("reference", d)
+        for key in ("pushover_user_key", "pushover_api_token", "folders", "path_pype"):
+            self.assertNotIn(key, d)
+
 
 class TestObsoleteKeys(unittest.TestCase):
     """A config that still sets a removed key fails loud with guidance
@@ -189,6 +212,7 @@ class TestDeprecatedKeys(unittest.TestCase):
         tile = setup.folders["tile"]
         self.assertEqual(setup.path_coadd_expmap, f"{tile}TestSetup.expmap.fits")
         self.assertEqual(setup.path_coadd_sources, f"{tile}TestSetup.sources.fits")
+        self.assertFalse(hasattr(setup, "path_coadd_weight"))
 
     def test_no_phase3_folder(self):
         setup = make_test_setup(self._tmp.name)

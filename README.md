@@ -170,7 +170,7 @@ Processes raw science frames through to final co-added products:
 6. **Photometry (2MASS)** — photometric zero-point calibration, with a data-driven bright limit for the reference stars
 7. **Illumination correction** — variable or constant illumination correction map
 8. **Resampling (SWarp)** — resamples exposures to a common grid
-9. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile
+9. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile (MEF: `SCI` image and `CONF` weight) with its exact exposure map `<name>.expmap.fits`
 10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
 11. **Source catalogs** — SExtractor source extraction on stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
 12. **QC plots** — astrometric and photometric diagnostic plots
@@ -249,7 +249,7 @@ path_pype/
     │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd; WINVAR headers with sex_winpos_cap)
     ├── products/
     │   ├── stacks/                 # Per-offset stack images and catalogs
-    │   └── tile/                   # Final co-added tile image and catalog
+    │   └── tile/                   # Final co-added tile (MEF: SCI, CONF), exposure map and catalogs
     ├── qc/                         # Quality control plots
     │   ├── astrometry/
     │   ├── photometry/
