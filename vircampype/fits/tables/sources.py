@@ -106,6 +106,10 @@ class SourceCatalogs(FitsTables):
 
 
 class MasterPhotometry(SourceCatalogs):
+    # Small reference table, often on the NAS: read it into memory, so that a
+    # network hiccup raises a read error instead of a SIGBUS in a mapped page
+    memmap = False
+
     def __init__(self, setup, file_paths=None, **kwargs):
         super(MasterPhotometry, self).__init__(
             file_paths=file_paths, setup=setup, **kwargs
@@ -388,6 +392,10 @@ class MasterPhotometry2Mass(MasterPhotometry):
 
 
 class MasterAstrometry(SourceCatalogs):
+    # Small reference table, often on the NAS: read it into memory, so that a
+    # network hiccup raises a read error instead of a SIGBUS in a mapped page
+    memmap = False
+
     def __init__(self, setup, file_paths=None, **kwargs):
         super(MasterAstrometry, self).__init__(
             file_paths=file_paths, setup=setup, **kwargs

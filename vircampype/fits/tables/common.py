@@ -8,6 +8,9 @@ from vircampype.fits.common import FitsFiles
 
 
 class FitsTables(FitsFiles):
+    # None: astropy's default (memory-mapped); small reference tables set False
+    memmap: bool | None = None
+
     def __init__(self, setup, file_paths=None):
         """
         Class for Fits tables based on FitsFiles. Contains specific methods and
@@ -182,7 +185,7 @@ class FitsTables(FitsFiles):
                 data_files.append([np.array(c) for c in cache[key]])
                 continue
             data_hdus = []
-            with fits.open(file) as f:
+            with fits.open(file, memmap=self.memmap) as f:
                 for hdu in dhus:
                     data_hdus.append(f[hdu].data[column_name])
             cache[key] = data_hdus
@@ -207,7 +210,7 @@ class FitsTables(FitsFiles):
             List of arrays for given column.
 
         """
-        with fits.open(self.paths_full[idx_file]) as f:
+        with fits.open(self.paths_full[idx_file], memmap=self.memmap) as f:
             columns = []
             for hdu in self.iter_data_hdu[idx_file]:
                 columns.append(f[hdu].data[column_name])
@@ -230,7 +233,7 @@ class FitsTables(FitsFiles):
             column_name2[hdu1, ...], ...]
 
         """
-        with fits.open(self.paths_full[idx_file]) as f:
+        with fits.open(self.paths_full[idx_file], memmap=self.memmap) as f:
             # Read file
             data_hdus = [f[hdu].data for hdu in self.iter_data_hdu[idx_file]]
 
