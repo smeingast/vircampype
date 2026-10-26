@@ -402,6 +402,19 @@ class Pipeline:
         return images
 
     @property
+    def pawprints(self):
+        from vircampype.fits.images.sky import Pawprints
+
+        paths = self.resampled.paths_pawprints
+        missing = [p for p in paths if not os.path.isfile(p)]
+        if missing:
+            raise PipelineValueError(
+                f"{len(missing)} pawprint products missing (run build_pawprints), "
+                f"e.g. {missing[0]}"
+            )
+        return Pawprints(file_paths=paths, setup=self.setup)
+
+    @property
     def tile(self):
         from vircampype.fits.images.sky import Tile
 
@@ -772,6 +785,17 @@ class Pipeline:
         """Coadd resampled images per offset position into stacks."""
         self.resampled.build_stacks()
 
+    @pipeline_step("pawprints", message="PAWPRINTS")
+    def build_pawprints(self):
+        """Single-exposure pawprint products from the resampled pawprints.
+
+        One SCIENCE.MEFIMAGE + weight per raw exposure, with PHOTZP, PHOTZPER, PHOTSYS,
+        ABMAGLIM, ABMAGSAT, PSF_FWHM and ELLIPTIC in every detector extension and
+        FLUXCAL in the primary from the pawprint catalogs.
+        """
+        self.resampled.build_pawprints()
+        self.sources_resampled_cal.write_photometric_cards(self.pawprints)
+
     @pipeline_step("tile", message="TILE")
     def build_tile(self):
         """Coadd all resampled images into a single deep tile."""
@@ -1138,6 +1162,11 @@ class Pipeline:
         self.sources_stacks_cal.plot_qc_astrometry_2d()
         self.sources_stacks_cal.write_crder(self.stacks)
 
+    @pipeline_step("qc_astrometry_pawprints", message="PAWPRINTS QC ASTROMETRY")
+    def qc_astrometry_pawprints(self):
+        """Write CRDER1/2 into every pawprint product detector."""
+        self.sources_resampled_cal.write_crder(self.pawprints)
+
     @pipeline_step("qc_psf_stacks", message="STACKS QC PSF")
     def qc_psf_stacks(self):
         """Generate QC plots for stack PSF FWHM."""
@@ -1170,7 +1199,7 @@ class Pipeline:
     # =========================================================================== #
     # QC summary
     def build_qc_summary(self):
-        """Build a QC summary table aggregating key metrics from stacks and tile."""
+        """Build the QC summary table from stacks, tile and pawprints."""
 
         if self.status.qc_summary:
             # Routine checkpoint skip: INFO + console line, not a warning.
@@ -1181,7 +1210,7 @@ class Pipeline:
                 print_stage_skip("QC SUMMARY TABLE")
             return
 
-        stacks = tile = None
+        stacks = tile = pawprints = None
         if self.setup.build_stacks:
             try:
                 stacks = self.stacks
@@ -1196,8 +1225,17 @@ class Pipeline:
                 logging.getLogger(__name__).warning(
                     f"QC summary: tile unavailable ({e}); section skipped"
                 )
+        if self.setup.build_pawprints:
+            try:
+                pawprints = self.pawprints
+            except Exception as e:
+                logging.getLogger(__name__).warning(
+                    f"QC summary: pawprints unavailable ({e}); section skipped"
+                )
 
-        result = build_qc_summary(setup=self.setup, stacks=stacks, tile=tile)
+        result = build_qc_summary(
+            setup=self.setup, stacks=stacks, tile=tile, pawprints=pawprints
+        )
         if result is not None:
             self.update_status(qc_summary=True)
 
@@ -1361,9 +1399,12 @@ class Pipeline:
         # Build statistics (required for mosaics/deep stacks, not for phase 3)
         self.build_statistics_resampled()
 
-        # Calibrate pawprints and determine internal photometric error
-        if self.setup.calibrate_pawprints:
+        # Single-exposure pawprint products: catalogs, files with their photometric cards,
+        # CRDER
+        if self.setup.build_pawprints:
             self.photometry_pawprints()
+            self.build_pawprints()
+            self.qc_astrometry_pawprints()
         # self.photerr_internal()
 
         # Build and calibrate stacks

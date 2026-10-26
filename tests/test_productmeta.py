@@ -369,6 +369,28 @@ class TestExpectedProducts(unittest.TestCase):
         self.assertEqual(products, tile + stack_products)
         self.assertEqual(products[3][2], ("TestSetup_01.stack.weight.fits",))
 
+        setup = make_test_setup(self._tmp.name, build_stacks=True, build_pawprints=True)
+        pawprints = [
+            f"{setup.folders['pawprints']}TestSetup_{i:02d}.pawprint.fits"
+            for i in (1, 2)
+        ]
+        pipeline = types.SimpleNamespace(
+            setup=setup,
+            stacks=types.SimpleNamespace(paths_full=stacks),
+            pawprints=types.SimpleNamespace(paths_full=pawprints),
+        )
+        pawprint_products = []
+        for pawprint in pawprints:
+            weight = pawprint.replace(".pawprint.fits", ".pawprint.weight.fits")
+            pawprint_products += [
+                (pawprint, "SCIENCE.MEFIMAGE", (os.path.basename(weight),)),
+                (weight, "ANCILLARY.WEIGHTMAP", ()),
+            ]
+        products = expected_products(pipeline)
+        self.assertEqual(len(products), 11)
+        self.assertEqual(products, tile + stack_products + pawprint_products)
+        self.assertEqual(products[7][2], ("TestSetup_01.pawprint.weight.fits",))
+
 
 class TestFinalizeFiles(unittest.TestCase):
     def setUp(self):

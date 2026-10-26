@@ -20,7 +20,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Astrometry**: SCAMP-based astrometric calibration against Gaia, with proper motion propagation and optional header caching
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
-- **Coaddition**: SWarp-based resampling, stacking, and tile construction
+- **Coaddition**: SWarp-based resampling, stacking, and tile construction; optional single-exposure pawprint products
 - **Catalog building**: per-pawprint and per-tile source catalogs and a Phase 3 source list per tile (`<name>.sources.fits`) with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
 - **Completeness testing**: artificial star injection/recovery via SkyMaker and PSFEx to measure detection completeness as a function of magnitude
 - **QC plots**: astrometric and photometric quality control diagnostic plots
@@ -169,14 +169,15 @@ Processes raw science frames through to final co-added products:
 6. **Photometry (2MASS)** — photometric zero-point calibration, with a data-driven bright limit for the reference stars
 7. **Illumination correction** — variable or constant illumination correction map
 8. **Resampling (SWarp)** — resamples exposures to a common grid
-9. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile (MEF: `SCI` image and `CONF` weight) with its exact exposure map `<name>.expmap.fits`
-10. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
-11. **Source catalogs** — SExtractor source extraction on stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
-12. **QC plots** — astrometric and photometric diagnostic plots
-13. **QC summary table** — aggregates the Phase 3 header values of stacks and tile (`photzp`, `photzper`, `photzp_scatter` (std of the per-detector PHOTZP of a stack), `psf_fwhm`, `ellipticity`, `abmaglim`, `abmagsat`, `comp90`, `comp50`) into `qc/qc_summary.ecsv`
-14. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
-15. **Source list** — `<name>.sources.fits` (ESO SCIENCE.SRCTBL) from the tile catalog, statistics and classification
-16. **Finalization** — Phase 3 check (`sdpcheck`), then PRODCATG, associations and checksums on every product (tile, exposure map, source list, stacks and weights)
+9. **Pawprints** — optional single-exposure products from the resampled pawprints (`build_pawprints`): one MEF with 16 detector extensions per raw exposure plus its weight map, `products/pawprints/<name>_NN.pawprint.fits`
+10. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile (MEF: `SCI` image and `CONF` weight) with its exact exposure map `<name>.expmap.fits`
+11. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
+12. **Source catalogs** — SExtractor source extraction on pawprints (optional), stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
+13. **QC plots** — astrometric and photometric diagnostic plots
+14. **QC summary table** — aggregates the Phase 3 header values of pawprints, stacks and tile (`photzp`, `photzper`, `photzp_scatter` (std of the per-detector PHOTZP of a stack or pawprint), `psf_fwhm`, `ellipticity`, `abmaglim`, `abmagsat`, `comp90`, `comp50`) into `qc/qc_summary.ecsv`
+15. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
+16. **Source list** — `<name>.sources.fits` (ESO SCIENCE.SRCTBL) from the tile catalog, statistics and classification
+17. **Finalization** — Phase 3 check (`sdpcheck`), then PRODCATG, associations and checksums on every product (tile, exposure map, source list, stacks, pawprints and their weights)
 
 ---
 
@@ -195,6 +196,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
+| `build_pawprints` | `false` | Build one single-exposure pawprint product per raw exposure (`products/pawprints/<name>_NN.pawprint.fits`, ESO SCIENCE.MEFIMAGE, with its weight map) from the resampled pawprints, including their catalogs and photometry. Enabling it on an existing run: reset the status from `pawprints` (`PipelineStatus.reset_from("pawprints")`), which also rebuilds the QC summary and re-runs the finalizer |
 | `build_tile` | `true` | Build the final co-added tile with its exposure map, catalogs, classification and source list |
 | `reference` | `2023A&A...673A..59M` | Publication written to the REFERENC keyword (ADS bibcode or `doi:...`); default: the vircampype pipeline paper (VISIONS II) |
 | `build_completeness` | `false` | Run completeness analysis on tile |
@@ -246,6 +248,7 @@ path_pype/
     │   ├── resampled/              # Resampled pawprint images
     │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd; WINVAR headers with sex_winpos_cap)
     ├── products/
+    │   ├── pawprints/              # Single-exposure pawprint products (optional)
     │   ├── stacks/                 # Per-offset stack images and catalogs
     │   └── tile/                   # Final co-added tile (MEF: SCI, CONF), exposure map, source list and catalogs
     ├── qc/                         # Quality control plots

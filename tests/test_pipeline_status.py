@@ -5,6 +5,7 @@ import unittest
 from tempfile import NamedTemporaryFile
 
 from vircampype.pipeline.status import (
+    _PAWPRINT_STEPS,
     _SCIENCE_PREFIX,
     _STACK_STEPS,
     _TAIL,
@@ -67,7 +68,7 @@ class TestPipelineStatus(unittest.TestCase):
             "master_twilight_flat",
             "master_weight_global",
         }
-        groups = _SCIENCE_PREFIX + _STACK_STEPS + _TILE_STEPS + _TAIL
+        groups = _SCIENCE_PREFIX + _PAWPRINT_STEPS + _STACK_STEPS + _TILE_STEPS + _TAIL
         self.assertEqual(len(groups), len(set(groups)))
         self.assertEqual(set(groups) | calib, set(PipelineStatus().dict))
 
@@ -96,9 +97,29 @@ class TestPipelineStatus(unittest.TestCase):
         status = self._all_true()
         status.reset_from("resampled")
         expected = {"resampled", "statistics_resampled", "photometry_pawprints"}
-        expected |= {"photerr_internal"} | set(_STACK_STEPS) | set(_TILE_STEPS)
+        expected |= (
+            {"photerr_internal"}
+            | set(_PAWPRINT_STEPS)
+            | set(_STACK_STEPS)
+            | set(_TILE_STEPS)
+        )
         expected |= set(_TAIL)
         self.assertEqual(self._false_names(status), expected)
+
+    def test_reset_from_pawprint_branch(self):
+        status = self._all_true()
+        status.reset_from("qc_astrometry_pawprints")
+        self.assertEqual(
+            self._false_names(status),
+            {"qc_astrometry_pawprints", "qc_summary", "archive"},
+        )
+        status = self._all_true()
+        status.reset_from("pawprints")
+        self.assertEqual(self._false_names(status), set(_PAWPRINT_STEPS) | set(_TAIL))
+        status = self._all_true()
+        status.reset_from("stacks")
+        self.assertTrue(status.pawprints)
+        self.assertTrue(status.qc_astrometry_pawprints)
 
     def test_reset_from_stack_branch(self):
         status = self._all_true()

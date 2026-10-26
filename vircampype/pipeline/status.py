@@ -21,6 +21,7 @@ _SCIENCE_PREFIX = (
     "photometry_pawprints",
     "photerr_internal",
 )
+_PAWPRINT_STEPS = ("pawprints", "qc_astrometry_pawprints")
 _STACK_STEPS = (
     "stacks",
     "statistics_stacks",
@@ -92,6 +93,10 @@ class PipelineStatus:
         Status of Photometry Pawprints, defaults to False.
     photerr_internal : bool
         Status of Photometry Error Internal, defaults to False.
+    pawprints : bool
+        Status of the single-exposure pawprint products, defaults to False.
+    qc_astrometry_pawprints : bool
+        Status of the pawprint CRDER cards, defaults to False.
     stacks : bool
         Status of Stacks, defaults to False.
     statistics_stacks : bool
@@ -140,6 +145,8 @@ class PipelineStatus:
     statistics_resampled: bool = False
     photometry_pawprints: bool = False
     photerr_internal: bool = False
+    pawprints: bool = False
+    qc_astrometry_pawprints: bool = False
     stacks: bool = False
     statistics_stacks: bool = False
     classification_stacks: bool = False
@@ -192,8 +199,8 @@ class PipelineStatus:
     def reset_from(self, step: str) -> None:
         """
         Clears `step` and everything that depends on it (later steps of its
-        group plus the tail; a prefix step also clears the stack and tile
-        branches). Does not save; callers save.
+        group plus the tail; a prefix step also clears the pawprint, stack
+        and tile branches). Does not save; callers save.
 
         Raises
         ------
@@ -203,14 +210,20 @@ class PipelineStatus:
         """
         if self.archive:
             raise ValueError("Cannot reset an archived run: unarchive first")
-        for group in (_SCIENCE_PREFIX, _STACK_STEPS, _TILE_STEPS, _TAIL):
+        for group in (
+            _SCIENCE_PREFIX,
+            _PAWPRINT_STEPS,
+            _STACK_STEPS,
+            _TILE_STEPS,
+            _TAIL,
+        ):
             if step in group:
                 break
         else:
             raise ValueError(f"Unknown pipeline step '{step}'")
         names = group[group.index(step) :] + _TAIL
         if group is _SCIENCE_PREFIX:
-            names += _STACK_STEPS + _TILE_STEPS
+            names += _PAWPRINT_STEPS + _STACK_STEPS + _TILE_STEPS
         for name in names:
             setattr(self, name, False)
 

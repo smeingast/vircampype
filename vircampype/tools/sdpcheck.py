@@ -3,6 +3,8 @@
 The only validation authority of v3.0: one explicit check per product shape (T1 MEF
 tile, T3 exposure map, T4 source list, S1 stack, S2 weight), plus batch and catalog
 family checks. Findings are strings ``"<file>[<hdu>]: <problem>"``; [] means compliant.
+Every image has as many provenance entries as NCOMBINE, and NCOMBINE = 1 means
+EXPTIME = TEXPTIME (single exposures).
 
     python -m vircampype.tools.sdpcheck [--family] file.fits ...
 """
@@ -347,6 +349,7 @@ def _check_image_mef(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
     problems += _check_observation(primary, where)
     problems += _expect(primary, "FLUXCAL", ("ABSOLUTE",), where)
     problems += _check_prov(hdul, where)
+    problems += _check_ncombine(hdul, where)
 
     extnames = [hdu.name for hdu in hdul[1:]]
     layout = extnames[:2] == ["SCI", "CONF"] and extnames[2:] in (
@@ -540,6 +543,7 @@ def _check_mefimage(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
     problems += _check_observation(primary, where)
     problems += _expect(primary, "FLUXCAL", ("ABSOLUTE",), where)
     problems += _check_prov(hdul, where)
+    problems += _check_ncombine(hdul, where)
     problems += _forbid(primary, _hduclass_keys(primary), where)
 
     images = [hdu for hdu in hdul[1:] if hdu.name != "PHASE3PROVENANCE"]
@@ -774,6 +778,29 @@ def _check_prov(hdul: fits.HDUList, where: str, origfile: bool = False) -> list[
         if not origfile and ".fits" in value:
             problems.append(
                 f"{where}: {label} = {value!r}: a raw ARCFILE reference has no .fits"
+            )
+    return problems
+
+
+def _check_ncombine(hdul: fits.HDUList, where: str) -> list[str]:
+    """Provenance entries equal NCOMBINE; a single exposure has EXPTIME = TEXPTIME."""
+    primary = hdul[0].header
+    ncombine = primary.get("NCOMBINE")
+    if not _is_number(ncombine):  # reported by _check_observation
+        return []
+    problems = []
+    entries = _prov_entries(hdul)
+    if entries and len(entries) != ncombine:
+        problems.append(
+            f"{where}: NCOMBINE = {ncombine}, {len(entries)} provenance entries"
+        )
+    if ncombine == 1:
+        exptime = primary.get("EXPTIME")
+        texptime = primary.get("TEXPTIME")
+        if _is_number(exptime) and _is_number(texptime) and exptime != texptime:
+            problems.append(
+                f"{where}: NCOMBINE = 1 but EXPTIME = {exptime} "
+                f"differs from TEXPTIME = {texptime}"
             )
     return problems
 

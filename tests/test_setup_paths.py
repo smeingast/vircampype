@@ -157,6 +157,7 @@ DEPRECATED = dict(
     build_tile_only=True,
     build_public_catalog=True,
     source_classification=True,
+    calibrate_pawprints=True,
 )
 
 
@@ -207,7 +208,12 @@ class TestDeprecatedKeys(unittest.TestCase):
 
     def test_removed_keys_are_not_attributes(self):
         setup = make_test_setup(self._tmp.name)
-        for key in ("build_tile_only", "build_public_catalog", "source_classification"):
+        for key in (
+            "build_tile_only",
+            "build_public_catalog",
+            "source_classification",
+            "calibrate_pawprints",
+        ):
             self.assertFalse(hasattr(setup, key), key)
 
     def test_build_phase3_true_raises(self):
@@ -232,6 +238,28 @@ class TestDeprecatedKeys(unittest.TestCase):
         self.assertFalse(
             os.path.exists(os.path.join(setup.folders["object"], "products", "phase3"))
         )
+
+
+class TestPawprintsFlag(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_default_off(self):
+        setup = make_test_setup(self._tmp.name)
+        self.assertFalse(setup.build_pawprints)
+        self.assertEqual(
+            setup.folders["pawprints"],
+            f"{setup.folders['object']}products/pawprints/",
+        )
+        self.assertFalse(os.path.isdir(setup.folders["pawprints"]))
+
+    def test_flag_creates_folder(self):
+        setup = make_test_setup(self._tmp.name, build_pawprints=True)
+        self.assertTrue(os.path.isdir(setup.folders["pawprints"]))
+        self.assertFalse(os.path.isdir(setup.folders["stacks"]))
+        self.assertTrue(setup.to_dict["build_pawprints"])
+        self.assertNotIn("calibrate_pawprints", setup.to_dict)
 
 
 class TestAstrmsSelfCalibrateDefaults(unittest.TestCase):

@@ -427,6 +427,7 @@ class TestSdpCheck(unittest.TestCase):
             ("not distinct", set_card(0, "OBID2", 1234567)),
             ("not a string", set_card(0, "OBJECT", 5)),
             ("not an integer", set_card(0, "NCOMBINE", 2.0)),
+            ("provenance entries", set_card(0, "NCOMBINE", 3)),
             ("CD1_1A", set_card(1, "CD1_1A", 1.0)),
             ("only allowed with TELESCOP", set_card(0, "TELESC1", "ESO-VISTA")),
             ("TELESC1 = 5 is not a string", multi_with_number),
@@ -547,6 +548,24 @@ class TestSdpCheck(unittest.TestCase):
         self.assertFinding(check_product(paths["stacks"][0]), "without PROVXTN")
         paths = self.mutated("stacks", two_provenance_tables)
         self.assertFinding(check_product(paths["stacks"][0]), "max one")
+
+        def single_exposure(hdul):
+            hdul[0].header["NCOMBINE"] = 1
+            del hdul[0].header["PROV2"]
+
+        def single_exposure_wrong_exptime(hdul):
+            single_exposure(hdul)
+            hdul[0].header["EXPTIME"] = 30.0
+
+        paths = self.mutated("stacks", set_card(0, "NCOMBINE", 3))
+        self.assertFinding(check_product(paths["stacks"][0]), "provenance entries")
+        paths = self.mutated("stacks", single_exposure)
+        self.assertEqual(check_product(paths["stacks"][0]), [])
+        paths = self.mutated("stacks", single_exposure_wrong_exptime)
+        self.assertFinding(check_product(paths["stacks"][0]), "differs from TEXPTIME")
+        folder = tempfile.mkdtemp(dir=self.tmp)
+        paths = make_products(folder, prov_extension=True)
+        self.assertEqual(check_product(paths["tile"]), [])
 
     def test_weight(self):
         def drop_last(hdul):

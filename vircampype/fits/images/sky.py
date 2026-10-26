@@ -2430,6 +2430,70 @@ def _swarp_progress_kwargs(setup, paths: list[str]) -> dict:
     return {"progress_paths": paths, "progress_total_bytes": total}
 
 
+def _write_pawprint(
+    path_in: str,
+    path_out: str,
+    primary: fits.Header,
+    exptime: float | None,
+    cache_dir: str | None,
+) -> None:
+    """
+    Copy a resampled pawprint MEF into a pawprint product MEF with a new primary.
+
+    Every extension keeps its data and header, minus SWarp's host and run stamps
+    (ORIGIN, DATE, AUTHOR), SWarp's ORIGFILE (the tile name) and the stale
+    CHECKSUM/DATASUM merged in from the processed frame (the finalizer trusts
+    existing checksums). Image extensions (``exptime`` given) get BACKMODE,
+    BACKSIG, BACKSKEW from ``mmm`` on the nonzero pixels, BUNIT and EXPTIME;
+    weight extensions (``exptime`` None) get nothing. Every HDU ends with one
+    reserved block of 36 blank cards (Phase 3 cards are added in place later).
+    The input is opened with memmap, so one extension is in memory at a time; the
+    output is written via a local temp file and moved into place.
+
+    Parameters
+    ----------
+    path_in : str
+        Resampled pawprint (image or weight), not modified.
+    path_out : str
+        Product path; an existing file is overwritten.
+    primary : fits.Header
+        Primary header of the product.
+    exptime : float | None
+        Integration time of the exposure for image extensions, None for weights.
+    cache_dir : str | None
+        Directory for the temporary file; None uses the system temp directory.
+    """
+    hdul = fits.HDUList([fits.PrimaryHDU(header=primary)])
+    with fits.open(path_in, memmap=True) as hdul_in:
+        for hdu in hdul_in[1:]:
+            hdr = hdu.header.copy()
+            for key in ("ORIGIN", "DATE", "AUTHOR", "ORIGFILE", "CHECKSUM", "DATASUM"):
+                hdr.remove(key, ignore_missing=True)
+            if exptime is not None:
+                # Exclude uncovered pixels (SWarp writes exactly 0 there)
+                data = hdu.data
+                backmod, backsig, backskew = mmm(data[data != 0])
+                hdr.set("BACKMODE", round(float(backmod), 3), "Background mode")
+                hdr.set("BACKSIG", round(float(backsig), 3), "Background sigma")
+                hdr.set("BACKSKEW", round(float(backskew), 3), "Background skew")
+                hdr.set("BUNIT", "adu", "Pixel unit")
+                hdr.set("EXPTIME", exptime, "Total integration time (s)")
+            hdul.append(fits.ImageHDU(data=hdu.data, header=hdr))
+
+        hdul.update_extend()
+        for hdu in hdul:
+            for _ in range(36):
+                hdu.header.append(fits.Card(), end=True)
+
+        # Write via local temp to avoid many small NAS writes
+        path_tmp = make_path_system_tempfile(suffix=".fits", base_dir=cache_dir)
+        try:
+            hdul.writeto(path_tmp, overwrite=True)
+            move_file(path_tmp, path_out)
+        finally:
+            remove_file(path_tmp)
+
+
 class SkyImagesResampled(SkyImagesProcessed):
     """Resampled pawprint images on the common tile grid."""
 
@@ -2730,6 +2794,162 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             # Remove intermediate temp directory
             remove_directory(tmpdir_stacks)
+
+        # Print time
+        elapsed = time.time() - tstart
+        print_message(
+            message=f"\n-> Elapsed time: {elapsed:.2f}s",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+
+    @property
+    def paths_pawprints(self) -> list[str]:
+        """
+        Pawprint product paths, one per file in file order.
+
+        The file order is chronological (the raw names are timestamps); the index
+        is zero-padded to a width that is constant within the run, so string order
+        equals time order.
+        """
+        width = max(2, len(str(self.n_files)))
+        return [
+            f"{self.setup.folders['pawprints']}{self.setup.name}_{i:0{width}d}"
+            f".pawprint.fits"
+            for i in range(1, self.n_files + 1)
+        ]
+
+    def build_pawprints(self):
+        """
+        Write one SCIENCE.MEFIMAGE and one ANCILLARY.WEIGHTMAP per resampled exposure.
+
+        The resampled inputs are not modified. A pair is skipped only when both
+        files exist (and overwrite is off); an incomplete pair from an interrupted
+        run is rebuilt.
+        """
+        # Processing info
+        print_header(
+            header="CREATING PAWPRINTS", silent=self.setup.silent, left=None, right=None
+        )
+        log = logging.getLogger(__name__)
+        log.info(f"Building pawprints from {self.n_files} resampled files")
+        tstart = time.time()
+
+        # Product names must fit the 68-character limit of string cards (ASSON1)
+        paths = self.paths_pawprints
+        names = [os.path.basename(p.replace(".fits", ".weight.fits")) for p in paths]
+        too_long = [n for n in names if len(n) > 68]
+        if too_long:
+            raise PipelineValueError(
+                f"{len(too_long)} pawprint weight names exceed 68 characters, "
+                f"e.g. {too_long[:3]}"
+            )
+
+        for idx, path_out in enumerate(paths):
+            path_weight = path_out.replace(".fits", ".weight.fits")
+
+            # Skip only complete pairs; an incomplete pair is rebuilt
+            if (
+                check_file_exists(file_path=path_out, silent=self.setup.silent)
+                and check_file_exists(file_path=path_weight, silent=self.setup.silent)
+                and not self.setup.overwrite
+            ):
+                continue
+
+            message_calibration(
+                n_current=idx + 1,
+                n_total=self.n_files,
+                name=path_out,
+                d_current=None,
+                d_total=None,
+                silent=self.setup.silent,
+            )
+
+            raw = self.headers_primary[idx]
+            exts = self.headers_data[idx]
+            exptime = float(self.texptime[idx])
+
+            # Primary header: observation block, jitter indices
+            primary = fits.Header()
+            for key, value, comment in obs_cards([raw], self.setup):
+                primary.set(key, value, comment)
+            for key, comment in (
+                ("OFFSET_I", "Offset position index"),
+                ("JITTER_I", "Jitter position index"),
+            ):
+                if key in raw:
+                    primary.set(key, raw[key], comment)
+
+            # Barycentre of the detector centres
+            ras, decs = [], []
+            for hdr in exts:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", FITSFixedWarning)
+                    ra, dec = WCS(hdr).all_pix2world(
+                        0.5 * hdr["NAXIS1"] + 0.5, 0.5 * hdr["NAXIS2"] + 0.5, 1
+                    )
+                ras.append(float(ra))
+                decs.append(float(dec))
+            centre = centroid_sphere(SkyCoord(ras, decs, unit="deg"))
+            primary.set(
+                "RA",
+                float(centre.ra.deg),
+                "Barycentre of the detector centres, RA (deg)",
+            )
+            primary.set(
+                "DEC",
+                float(centre.dec.deg),
+                "Barycentre of the detector centres, Dec (deg)",
+            )
+            for key in ("EQUINOX", "RADESYS"):
+                primary.set(key, exts[0][key], exts[0].comments[key])
+            primary.set("EXPTIME", exptime, "Total integration time (s)")
+            primary.set(
+                "EXPTMETH", "SINGLE", "EXPTIME is DIT*NDIT of the single exposure"
+            )
+
+            # Internal and external astrometric RMS over all detectors
+            for key, comment in (
+                ("ASTIRMS", "Internal astr. dispersion RMS (mas)"),
+                ("ASTRRMS", "External astr. dispersion RMS (mas)"),
+            ):
+                a1 = np.array([h[f"{key}1"] for h in exts])
+                a2 = np.array([h[f"{key}2"] for h in exts])
+                rms = np.sqrt(np.mean(a1**2) + np.mean(a2**2)) * 3_600_000
+                primary.set(key, round(float(rms), 2), comment)
+
+            # Provenance: the raw file of this exposure
+            cards, prov_hdu = prov_cards([raw["ARCFILE"]])
+            assert prov_hdu is None
+            for key, value, comment in cards:
+                primary.set(key, value, comment)
+
+            # The weight's primary carries only the target and filter
+            weight_primary = fits.Header()
+            for key in ("OBJECT", "FILTER", "HIERARCH ESO INS FILT1 NAME"):
+                weight_primary.set(key, primary[key], primary.comments[key])
+
+            _write_pawprint(
+                self.paths_full[idx],
+                path_out,
+                primary,
+                exptime=exptime,
+                cache_dir=self.setup.local_cache_dir,
+            )
+            _write_pawprint(
+                self.paths_full[idx].replace(".fits", ".weight.fits"),
+                path_weight,
+                weight_primary,
+                exptime=None,
+                cache_dir=self.setup.local_cache_dir,
+            )
+            log.info(
+                f"Pawprint {os.path.basename(path_out)}: PROV1={primary['PROV1']}, "
+                f"RA/DEC={primary['RA']:.5f}/{primary['DEC']:.5f} deg, "
+                f"ASTIRMS={primary['ASTIRMS']:.1f} mas, "
+                f"ASTRRMS={primary['ASTRRMS']:.1f} mas, EXPTIME={exptime} s"
+            )
 
         # Print time
         elapsed = time.time() - tstart
@@ -3527,6 +3747,13 @@ class Stacks(SkyImages):
 
     def __init__(self, setup, file_paths=None):
         super(Stacks, self).__init__(setup=setup, file_paths=file_paths)
+
+
+class Pawprints(SkyImages):
+    """Single-exposure pawprint products, one MEF per raw exposure."""
+
+    def __init__(self, setup, file_paths=None):
+        super(Pawprints, self).__init__(setup=setup, file_paths=file_paths)
 
 
 class Tile(SkyImages):

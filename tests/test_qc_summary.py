@@ -1,11 +1,14 @@
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 from astropy.io import fits
+from astropy.table import Table
 
-from vircampype.tools.fitstools import build_qc_summary_row
+from tests.test_cube import make_test_setup
+from vircampype.tools.fitstools import build_qc_summary, build_qc_summary_row
 
 FILTER_KW = "HIERARCH ESO INS FILT1 NAME"
 
@@ -125,6 +128,55 @@ class TestBuildQcSummaryRowTile(unittest.TestCase):
     def test_completeness(self):
         self.assertEqual(self.row["comp90"], 18.1)
         self.assertEqual(self.row["comp50"], 19.2)
+
+
+class TestBuildQcSummaryRowPawprint(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        path = os.path.join(self._tmp.name, "test_01.pawprint.fits")
+        _make_image(path, n_ext=16, ncombine=1)
+        self.row = build_qc_summary_row(path, "pawprint", FILTER_KW)
+        self.zp = [_photometric_cards(i)["PHOTZP"] for i in range(16)]
+
+    def test_type_and_ncombine(self):
+        self.assertEqual(self.row["type"], "pawprint")
+        self.assertEqual(self.row["n_combined"], 1)
+
+    def test_photzp(self):
+        self.assertEqual(self.row["photzp"], round(float(np.nanmedian(self.zp)), 4))
+        self.assertEqual(
+            self.row["photzp_scatter"], round(float(np.nanstd(self.zp)), 4)
+        )
+
+    def test_completeness_nan(self):
+        self.assertTrue(np.isnan(self.row["comp90"]))
+
+
+class TestBuildQcSummary(unittest.TestCase):
+    def test_rows_and_rewrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            setup = make_test_setup(tmp)
+            paths = {}
+            for name in ("s1.stack", "t.tile", "p1.pawprint", "p2.pawprint"):
+                paths[name] = os.path.join(tmp, f"{name}.fits")
+            _make_image(paths["s1.stack"], n_ext=3)
+            _make_image(paths["t.tile"], tile=True)
+            _make_image(paths["p1.pawprint"], n_ext=16, ncombine=1)
+            _make_image(paths["p2.pawprint"], n_ext=16, ncombine=1)
+            stacks = SimpleNamespace(paths_full=[paths["s1.stack"]])
+            tile = SimpleNamespace(paths_full=[paths["t.tile"]])
+            pawprints = SimpleNamespace(
+                paths_full=[paths["p1.pawprint"], paths["p2.pawprint"]]
+            )
+            out = build_qc_summary(setup, stacks=stacks, tile=tile, pawprints=pawprints)
+            table = Table.read(out, format="ascii.ecsv")
+            self.assertEqual(
+                list(table["type"]), ["stack", "tile", "pawprint", "pawprint"]
+            )
+            self.assertEqual(list(table["n_combined"][2:]), [1, 1])
+            out = build_qc_summary(setup, stacks=stacks, tile=tile)
+            self.assertEqual(len(Table.read(out, format="ascii.ecsv")), 2)
 
 
 class TestBuildQcSummaryRowMissingKeys(unittest.TestCase):

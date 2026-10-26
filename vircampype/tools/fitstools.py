@@ -13,12 +13,7 @@ from astropy.table import Table
 from astropy.time import Time
 
 from vircampype.pipeline.misc import *
-from vircampype.tools.messaging import (
-    check_file_exists,
-    print_elapsed,
-    print_header,
-    print_message,
-)
+from vircampype.tools.messaging import print_header, print_message
 from vircampype.tools.miscellaneous import *
 from vircampype.tools.systemtools import (
     make_path_system_tempfile,
@@ -1058,7 +1053,7 @@ def build_qc_summary_row(
     product_type: str,
     filter_keyword: str,
 ) -> dict:
-    """Extract QC metrics for a single product (stack or tile).
+    """Extract QC metrics for a single product (stack, tile or pawprint).
 
     All values are read from the image headers: the Phase 3 photometric cards
     of every data HDU (``PHOTZP``, ``PHOTZPER``, ``PSF_FWHM``, ``ELLIPTIC``,
@@ -1070,7 +1065,7 @@ def build_qc_summary_row(
     image_path : str
         Path to the stack or tile FITS image.
     product_type : str
-        Either ``"stack"`` or ``"tile"``.
+        ``"stack"``, ``"tile"`` or ``"pawprint"``.
     filter_keyword : str
         FITS keyword for the filter name (e.g. ``"HIERARCH ESO INS FILT1 NAME"``).
 
@@ -1112,7 +1107,7 @@ def build_qc_summary_row(
 
     photzp_scatter = (
         float(np.nanstd(values["PHOTZP"]))
-        if product_type == "stack" and values["PHOTZP"]
+        if product_type in ("stack", "pawprint") and values["PHOTZP"]
         else np.nan
     )
 
@@ -1356,8 +1351,12 @@ def build_qc_summary(
     setup,
     stacks=None,
     tile=None,
+    pawprints=None,
 ) -> str | None:
-    """Build a QC summary table aggregating key metrics from stacks and tile.
+    """Build a QC summary table aggregating key metrics from stacks, tile and pawprints.
+
+    The summary is rebuilt on every call and the file is overwritten; the pipeline
+    status ``qc_summary`` decides whether this function is called.
 
     Parameters
     ----------
@@ -1367,6 +1366,8 @@ def build_qc_summary(
         Stack images (FitsImages), or None.
     tile
         Tile image (FitsImages), or None.
+    pawprints
+        Pawprint product images (FitsImages), or None.
 
     Returns
     -------
@@ -1384,27 +1385,13 @@ def build_qc_summary(
     log = logging.getLogger(__name__)
     tstart = time.time()
 
-    # Skip if the summary already exists
     path_out = os.path.join(setup.folders["qc"], "qc_summary.ecsv")
-    if (
-        check_file_exists(file_path=path_out, silent=setup.silent)
-        and not setup.overwrite
-    ):
-        # Routine checkpoint skip: info-grade, not a warning.
-        print_message(
-            message=f"{os.path.basename(path_out)} already exists, skipping",
-            end=None,
-            logger=log,
-        )
-        print_elapsed(tstart, logger=log)
-        return path_out
-
     kw = {"filter_keyword": setup.keywords.filter_name}
     rows = []
 
     # Collect rows from stacks
     if stacks is not None:
-        for idx in range(len(stacks)):
+        for idx in range(len(stacks.paths_full)):
             try:
                 rows.append(
                     build_qc_summary_row(
@@ -1428,6 +1415,20 @@ def build_qc_summary(
             )
         except Exception as e:
             log.warning(f"QC summary: skipping tile: {e}")
+
+    # Collect rows from pawprints
+    if pawprints is not None:
+        for idx in range(len(pawprints.paths_full)):
+            try:
+                rows.append(
+                    build_qc_summary_row(
+                        image_path=pawprints.paths_full[idx],
+                        product_type="pawprint",
+                        **kw,
+                    )
+                )
+            except Exception as e:
+                log.warning(f"QC summary: skipping pawprint {idx}: {e}")
 
     if not rows:
         print_message(

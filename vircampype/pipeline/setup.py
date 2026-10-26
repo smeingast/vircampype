@@ -57,7 +57,7 @@ class Setup:
     )
 
     # What to process
-    calibrate_pawprints: bool = False  # Run photometric calibration on pawprints
+    build_pawprints: bool = False  # Single-exposure pawprint products (MEFIMAGE + weight per exposure, with their photometry)
     build_stacks: bool = False  # Build stacked images per offset position
     build_tile: bool = True  # Build the final coadded tile
     classification_n_seeing: int = 32  # Number of SEEING_FWHM grid points
@@ -774,6 +774,10 @@ class Setup:
             "'source_classification' was removed: star/galaxy classification always "
             "runs for the tile (requires the multi-seeing SExtractor fork). Drop it."
         ),
+        "calibrate_pawprints": (
+            "'calibrate_pawprints' was removed: the pawprint photometry runs as part "
+            "of the single-exposure pawprint products (build_pawprints). Drop it."
+        ),
     }
 
     @classmethod
@@ -831,6 +835,7 @@ class Setup:
         self.folders["temp_completeness_psf"] = f"{_completeness_temp}completeness/psf/"
         self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
+        self.folders["pawprints"] = f"{self.folders['object']}products/pawprints/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
 
     def __create_folder_tree(self):
@@ -875,6 +880,8 @@ class Setup:
         # Create folder for stacks if set
         if self.build_stacks:
             folders_object += [self.folders["stacks"]]
+        if self.build_pawprints:
+            folders_object += [self.folders["pawprints"]]
 
         # Generate common paths
         for path in folders_common:
