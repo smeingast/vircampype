@@ -289,9 +289,6 @@ class Setup:
     additional_source_masks: str | SourceMasks | None = (
         None  # Path to additional DS9 region masks
     )
-    source_mask_method: Literal["noisechisel", "built-in"] = (
-        "noisechisel"  # Source detection method for masking
-    )
     source_masks_n_min: int = 5  # Min frames required to build source masks
     source_mask_closing: bool = True  # Apply morphological closing to source masks
     source_masks_closing_size: int = 5  # Kernel size for mask morphological closing
@@ -303,26 +300,16 @@ class Setup:
     min_valid_pixel_fraction: float = (
         0.2  # Min fraction of finite pixels before raising error
     )
-    # Noisechisel setup for source masks
-    noisechisel_qthresh: float = 0.9  # Quantile threshold for noisechisel detection
-    noisechisel_erode: int = 2  # Erosion size for noisechisel segmentation
-    noisechisel_detgrowquant: float = 1.0  # Detection growth quantile for noisechisel
-    noisechisel_tilesize: str = (
-        "32,32"  # Tile size for noisechisel background estimation
-    )
-    noisechisel_meanmedqdiff: float = (
-        0.05  # Mean-median quantile diff threshold for noisechisel
-    )
-    # Built-in setup for source masks
+    # Source detection for the masks
     mask_sources_thresh: int | float = (
-        3  # Detection threshold (sigma) for built-in source masking
+        3  # Compact-source threshold (sigma, 1 px smoothed)
     )
-    mask_sources_min_area: int | float = 3  # Min source area (px) for built-in masking
-    mask_sources_max_area: int | float = (
-        250000  # Max source area (px) for built-in masking
+    mask_extended_thresh: int | float = (
+        3  # Extended-emission threshold (sigma, 8x8 bins)
     )
-    mask_bright_sources: bool = True  # Mask saturated/bright sources in built-in mode
-    mask_sources_dilate: bool = True  # Dilate source masks in built-in mode
+    source_mask_max_fraction: float = (
+        0.75  # Above this masked fraction a plane keeps only its compact mask
+    )
 
     # Sky
     sky_n_min: int = 5  # Min number of frames for sky construction
@@ -400,7 +387,6 @@ class Setup:
     bin_swarp: str = "swarp"  # SWarp binary name
     bin_psfex: str = "psfex"  # PSFEx binary name
     bin_skymaker: str = "sky"  # SkyMaker binary name
-    bin_noisechisel: str = "astnoisechisel"  # Gnuastro noisechisel binary name
     bin_stilts: str = "stilts"  # STILTS binary name
 
     # Notifications
@@ -773,6 +759,50 @@ class Setup:
         "source_classification": (
             "'source_classification' was removed: star/galaxy classification always "
             "runs for the tile (requires the multi-seeing SExtractor fork). Drop it."
+        ),
+        "source_mask_method": (
+            "'source_mask_method' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "noisechisel_qthresh": (
+            "'noisechisel_qthresh' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "noisechisel_erode": (
+            "'noisechisel_erode' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "noisechisel_detgrowquant": (
+            "'noisechisel_detgrowquant' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "noisechisel_tilesize": (
+            "'noisechisel_tilesize' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "noisechisel_meanmedqdiff": (
+            "'noisechisel_meanmedqdiff' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "bin_noisechisel": (
+            "'bin_noisechisel' was removed: NoiseChisel (Gnuastro) was "
+            "replaced by the internal source mask in v3.0. Drop it."
+        ),
+        "mask_sources_min_area": (
+            "'mask_sources_min_area' was removed: the v3.0 source mask has no such "
+            "option (fixed at 5 px). Drop it."
+        ),
+        "mask_sources_max_area": (
+            "'mask_sources_max_area' was removed: the v3.0 source mask has no such "
+            "option (no upper limit). Drop it."
+        ),
+        "mask_bright_sources": (
+            "'mask_bright_sources' was removed: the v3.0 source mask has no such "
+            "option (bright sources always get a halo disk). Drop it."
+        ),
+        "mask_sources_dilate": (
+            "'mask_sources_dilate' was removed: the v3.0 source mask has no such "
+            "option (compact sources always grow by 2 px). Drop it."
         ),
     }
 

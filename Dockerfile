@@ -25,10 +25,7 @@ RUN git clone -b feature/multi-seeing-class-star https://github.com/smeingast/se
     cd skymaker && ./autogen.sh && CFLAGS="-O2 -std=gnu17" ./configure && make -j"$(nproc)" && make install && \
     cd /root && git clone https://github.com/astromatic/swarp.git && \
     cd swarp && ./autogen.sh && ./configure && make -j"$(nproc)" && make install && \
-    cd /root && wget -q https://ftp.halifax.rwth-aachen.de/gnu/gnuastro/gnuastro-0.24.tar.gz && \
-    tar xfz gnuastro-0.24.tar.gz && rm gnuastro-0.24.tar.gz && \
-    cd gnuastro-0.24 && CPPFLAGS="-I/usr/include/cfitsio" ./configure && make -j"$(nproc)" && make install && \
-    cd /root && rm -rf sextractor scamp psfex skymaker swarp gnuastro-0.24 && \
+    cd /root && rm -rf sextractor scamp psfex skymaker swarp && \
     find /usr/local/bin -type f -executable -exec strip {} + 2>/dev/null; \
     find /usr/local/lib -name '*.so*' -exec strip --strip-unneeded {} + 2>/dev/null; \
     ldconfig

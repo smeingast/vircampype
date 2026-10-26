@@ -24,7 +24,7 @@ from vircampype.miscellaneous.sourcemasks import SourceMasks
 from vircampype.pipeline.errors import *
 from vircampype.tools.astromatic import SextractorSetup, SwarpSetup
 from vircampype.tools.fitstools import *
-from vircampype.tools.imagetools import upscale_image
+from vircampype.tools.imagetools import always_masked_fraction, upscale_image
 from vircampype.tools.mathtools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.miscellaneous import *
@@ -1195,18 +1195,11 @@ class SkyImagesProcessed(SkyImages):
             print_elapsed(tstart, logger=log)
             return
 
-        use_noisechisel = self.setup.source_mask_method.lower() == "noisechisel"
         detectors = self.iter_data_hdu[0]
         n_detectors = len(detectors)
 
-        # ---- Phase 1: Preprocess all detectors ----
         # Per-detector mask results held in memory for direct assembly
         detector_masks: list[np.ndarray | None] = [None] * n_detectors
-        # Per-detector state for noisechisel batching (Phase 2/3)
-        nc_batch: list[tuple[list[str], str, list[str], ImageCube] | None] = [
-            None
-        ] * n_detectors
-        all_cmds: list[str] = []
 
         for idx_d, d in enumerate(detectors):
             # Print processing info
@@ -1293,79 +1286,42 @@ class SkyImagesProcessed(SkyImages):
             if self.setup.source_masks_destripe:
                 cube_raw_temp.destripe(masks=mask_additional)
 
-            # Source detection — branch on method
-            if use_noisechisel:
-                # Prepare noisechisel commands but don't run yet
-                cmds, path_input, paths_output = cube_raw_temp.prepare_noisechisel()
-                nc_batch[idx_d] = (cmds, path_input, paths_output, mask_additional)
-                all_cmds.extend(cmds)
+            # Source detection (BPM pixels are NaN in the detection input)
+            cube_raw_temp.apply_masks(bpm=bpm)
+            mask_sources = cube_raw_temp.build_source_masks()
+
+            if self.setup.source_mask_closing:
+                for pidx, plane in enumerate(mask_sources):
+                    mask_sources.cube[pidx] = binary_closing(
+                        plane,
+                        structure=footprint_rectangle(
+                            (
+                                self.setup.source_masks_closing_size,
+                                self.setup.source_masks_closing_size,
+                            )
+                        ),
+                        iterations=self.setup.source_masks_closing_iter,
+                    )
+
+            # QC: detections fixed on the detector (or nebulosity filling it)
+            frac_always = always_masked_fraction(
+                mask_sources.cube, bpm=bpm.cube.any(axis=0)
+            )
+            msg = (
+                f"Detector {d}: {100 * frac_always:.2f} % of the pixels are masked "
+                f"in >= 80 % of the frames"
+            )
+            if frac_always > 0.01:
+                log.warning(msg)
             else:
-                # Built-in detection runs in-process — finish this detector now
-                mask_sources = cube_raw_temp.build_source_masks()
+                log.info(msg)
 
-                if self.setup.source_mask_closing:
-                    for pidx, plane in enumerate(mask_sources):
-                        mask_sources.cube[pidx] = binary_closing(
-                            plane,
-                            structure=footprint_rectangle(
-                                (
-                                    self.setup.source_masks_closing_size,
-                                    self.setup.source_masks_closing_size,
-                                )
-                            ),
-                            iterations=self.setup.source_masks_closing_iter,
-                        )
-
-                mask_sources += mask_additional
-                detector_masks[idx_d] = mask_sources.cube.astype(np.uint8)
+            mask_sources += mask_additional
+            detector_masks[idx_d] = mask_sources.cube.astype(np.uint8)
 
             # Free heavy float32 cubes
             del cube_masked, cube_raw_temp, cube_raw
             gc.collect()
-
-        # ---- Phase 2: Run ALL noisechisel commands at once ----
-        if use_noisechisel and all_cmds:
-            log.info(
-                f"Running {len(all_cmds)} noisechisel commands across all detectors"
-            )
-            # silent=True captures the commands and their output into the file
-            # log at DEBUG (the commands run with -q, so nothing is lost from
-            # the terminal) and enables the batch progress bar.
-            run_commands_shell_parallel(
-                cmds=all_cmds,
-                silent=True,
-                n_jobs=self.setup.n_jobs,
-                label="NoiseChisel",
-            )
-
-        # ---- Phase 3: Collect noisechisel results and post-process ----
-        if use_noisechisel:
-            for idx_d, (d, entry) in enumerate(zip(detectors, nc_batch)):
-                if entry is None:
-                    continue
-
-                cmds, path_input, paths_output, mask_additional = entry
-                log.info(f"Collecting noisechisel results for detector {d}")
-
-                mask_sources = ImageCube.collect_noisechisel_results(
-                    paths_output, path_input, self.setup
-                )
-
-                if self.setup.source_mask_closing:
-                    for pidx, plane in enumerate(mask_sources):
-                        mask_sources.cube[pidx] = binary_closing(
-                            plane,
-                            structure=footprint_rectangle(
-                                (
-                                    self.setup.source_masks_closing_size,
-                                    self.setup.source_masks_closing_size,
-                                )
-                            ),
-                            iterations=self.setup.source_masks_closing_iter,
-                        )
-
-                mask_sources += mask_additional
-                detector_masks[idx_d] = mask_sources.cube.astype(np.uint8)
 
         # ---- Write final output files directly ----
         for idx_file, outpath in enumerate(outpaths):

@@ -1,6 +1,6 @@
 import itertools
 import warnings
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import numpy as np
 from astropy import wcs
@@ -17,12 +17,10 @@ from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
 from astropy.stats import sigma_clipped_stats
 from astropy.wcs.utils import wcs_to_celestial_frame
+from scipy import ndimage as ndi
 from scipy.interpolate import SmoothBivariateSpline, UnivariateSpline
 from scipy.ndimage import binary_closing, generate_binary_structure, median_filter
 from scipy.stats import binned_statistic_2d
-from skimage import measure as skmeasure
-from skimage import morphology as skmorphology
-from skimage.draw import disk
 from skimage.filters import sobel
 from sklearn.neighbors import NearestNeighbors
 
@@ -39,6 +37,7 @@ __all__ = [
     "grid_value_2d_nn",
     "destripe_helper",
     "source_mask",
+    "always_masked_fraction",
     "get_edge_skycoord_weight",
     "coordinate_array",
     "tile_image",
@@ -771,123 +770,154 @@ def destripe_helper(array, mask=None, smooth=False):
         return med_destripe - np.nanmedian(med_destripe)
 
 
+def _clipped_stats(values: np.ndarray, n_iter: int = 5, kappa: float = 3.0):
+    """Iterative kappa-sigma clipped median and MAD-based sigma of finite values."""
+    v = values[np.isfinite(values)]
+    if v.size == 0:
+        return np.nan, np.nan
+    med, sig = np.median(v), 1.4826 * np.median(np.abs(v - np.median(v)))
+    for _ in range(n_iter):
+        vv = v[np.abs(v - med) < kappa * sig]
+        if vv.size == 0:  # zero scatter: keep the last estimate
+            break
+        med, sig = np.median(vv), 1.4826 * np.median(np.abs(vv - np.median(vv)))
+    return med, sig
+
+
+def _drop_small(mask: np.ndarray, n_min: int):
+    """Remove connected components smaller than n_min; also return labels and areas."""
+    labels, n = ndi.label(mask)
+    if n == 0:
+        return mask, labels, np.zeros(1, int)
+    area = np.bincount(labels.ravel())
+    area[0] = 0
+    return (area >= n_min)[labels], labels, area
+
+
 def source_mask(
     image: np.ndarray,
-    kappa: Union[int, float],
-    min_area: int = 3,
-    max_area: int = 100000,
-    mask_bright_sources: bool = True,
-    dilate: bool = True,
-):
+    kappa_compact: float = 3.0,
+    kappa_extended: float = 3.0,
+    max_fraction: float = 0.75,
+) -> np.ndarray:
     """
-    Create source mask from input images based on thresholding
+    Boolean source mask of one detector plane for the sky build.
+
+    1. One global level and noise per plane (clipped median / MAD; no local
+       background mesh, so extended emission is not absorbed into the background).
+    2. Compact sources: the 1 px Gaussian-smoothed plane above level +
+       kappa_compact sigma, components >= 5 px, grown by 2 px. Components >= 50 px
+       also get a disk of radius 1.5 r_eq + 3 (saturated stars, halos).
+    3. Extended emission: 8x8 block medians (compact sources excluded), 3x3
+       smoothed, minus a robustly fitted plane (absorbs sky gradients), above
+       kappa_extended sigma_b (bin-to-bin noise from the high-pass residual),
+       components >= 6 bins, grown by 1 bin.
+    4. Union. If more than max_fraction of the plane is masked, only the compact
+       mask without the halo disks is returned (keeps sky in crowded planes).
 
     Parameters
     ----------
     image : np.ndarray
-        Input image.
-    kappa : float, int
-        Threshold in background sigmas
-    min_area : int, optional
-        Minimum area of sources in pixels.
-    max_area : int, optional
-        Maximum area of sources in pixels.
-    mask_bright_sources : bool, optional
-        Whether additional circular patches should be drawn on bright sources.
-    dilate : bool, optional
-        Whether to dilate the mask.
+        2D image; NaN marks bad pixels (never detected).
+    kappa_compact : float, optional
+        Detection threshold of the compact sources (sigma of the smoothed plane).
+    kappa_extended : float, optional
+        Detection threshold of the extended emission (sigma of the binned plane).
+    max_fraction : float, optional
+        Maximum masked fraction before falling back to the compact mask.
 
     Returns
     -------
     np.ndarray
-        Source mask.
+        Boolean source mask.
 
     """
+    bs = 8  # bin size of the extended component
+    x = np.asarray(image, dtype=np.float32)
+    ny, nx = x.shape
+    bad = ~np.isfinite(x)
+    lvl, _ = _clipped_stats(x[::4, ::4])
+    if not np.isfinite(lvl):  # no valid pixels: nothing to detect
+        return np.zeros(x.shape, dtype=bool)
+    xf = np.where(bad, lvl, x)
 
-    # Make empty label image
-    image_labels = np.full_like(image, dtype=np.uint8, fill_value=0)
+    # Compact sources on the 1 px smoothed plane
+    xs = ndi.gaussian_filter(xf, 1.0)
+    _, sig_s = _clipped_stats(xs[::4, ::4])
+    sig_s = sig_s if sig_s > 0 else np.inf  # flat plane: no compact detections
+    core, labels, area = _drop_small((xs > lvl + kappa_compact * sig_s) & ~bad, 5)
+    mask_compact = ndi.binary_dilation(core, iterations=2)
+    mask = mask_compact.copy()
 
-    # Create background map
-    bg, bgstd = background_image(image=image, mesh_size=128, mesh_filtersize=3)
+    # Halo disks (radius 1.5 r_eq + 3) for components >= 50 px
+    big = np.where(area >= 50)[0]
+    if len(big):
+        cy, cx = np.array(ndi.center_of_mass(core, labels, big)).T
+        rr = 1.5 * np.sqrt(area[big] / np.pi) + 3
+        yy, xx = np.ogrid[:ny, :nx]
+        for y0, x0, r in zip(cy, cx, rr):
+            y1, y2 = int(max(y0 - r, 0)), int(min(y0 + r + 1, ny))
+            x1, x2 = int(max(x0 - r, 0)), int(min(x0 + r + 1, nx))
+            sub = (yy[y1:y2] - y0) ** 2 + (xx[:, x1:x2] - x0) ** 2 <= r * r
+            mask[y1:y2, x1:x2] |= sub
 
-    # Threshold source map
-    sources = image > bg + kappa * bgstd
+    # Extended emission on 8x8 block medians (compact sources and bad pixels excluded)
+    nyb, nxb = ny // bs, nx // bs
+    xb = np.where(core | bad, np.nan, x)[: nyb * bs, : nxb * bs]
+    xb = xb.reshape(nyb, bs, nxb, bs).swapaxes(1, 2).reshape(nyb, nxb, -1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN blocks
+        xb = np.nanmedian(xb, axis=2)
+    xb = np.where(np.isfinite(xb), xb, lvl)
+    xbs = ndi.uniform_filter(xb, 3)
+    _, sig_b = _clipped_stats(xbs - ndi.median_filter(xbs, 7))
+    sig_b = sig_b if sig_b > 0 else np.inf  # flat binned plane: no extended part
 
-    # Label regions
-    labels, n_labels = skmeasure.label(sources, return_num=True)
+    # Robust plane fit (absorbs residual sky gradients, not compact nebulae)
+    yb, xbi = np.mgrid[:nyb, :nxb] / nyb - 0.5
+    amat = np.array([np.ones_like(yb).ravel(), xbi.ravel(), yb.ravel()]).T
+    use = np.ones(amat.shape[0], bool)
+    for _ in range(6):
+        coeff = np.linalg.lstsq(amat[use], xbs.ravel()[use], rcond=None)[0]
+        res = xbs.ravel() - amat @ coeff
+        use = (res < kappa_extended * sig_b) & (res > -3 * sig_b)
+    ext, _, _ = _drop_small((res > kappa_extended * sig_b).reshape(xbs.shape), 6)
+    ext = ndi.binary_dilation(ext, iterations=1)
+    ext = np.kron(ext, np.ones((bs, bs), bool))
+    mask[: ext.shape[0], : ext.shape[1]] |= ext
 
-    # If no significant region, return
-    if n_labels < 1:
-        return image_labels
+    # Cap: a confusion-limited plane keeps only its compact mask
+    if mask.mean() > max_fraction:
+        return mask_compact
+    return mask
 
-    # Generate regionprops
-    regionprops = skmeasure.regionprops(labels)
 
-    # Measure size of regions
-    sizes = np.array([r.area for r in regionprops])
+def always_masked_fraction(
+    masks: np.ndarray, bpm: np.ndarray | None = None, frac: float = 0.8
+) -> float:
+    """
+    Fraction of pixels masked in at least frac of the frames (QC of fixed features).
 
-    # Get index of large labels
-    if mask_bright_sources:
-        idx_large_all = [
-            i for i, x in enumerate((sizes > 200) & (sizes < max_area)) if x
-        ]
-    else:
-        idx_large_all = []
+    Parameters
+    ----------
+    masks : np.ndarray
+        Boolean source masks of one detector, shape (n_frames, ny, nx).
+    bpm : np.ndarray, optional
+        Boolean bad pixel mask (ny, nx); its pixels are not counted.
+    frac : float, optional
+        Minimum fraction of frames.
 
-    # Empty list to store masks
-    mask_large = np.full_like(image, dtype=np.uint16, fill_value=0)
+    Returns
+    -------
+    float
+        Fraction of all plane pixels that are masked in >= frac of the frames.
 
-    # Create large region circular masks
-    if len(idx_large_all) > 0:
-        # Loop over large sources
-        for idx_large in idx_large_all:
-            # Skip if eccentricity is too large (e.g. bad rows or columns)
-            if regionprops[idx_large].eccentricity > 0.8:
-                continue
-
-            # Grab current size and coordinates
-            csize = sizes[idx_large]
-
-            # Approximate radius of circular mask with radius (and add 20%)
-            crad = 1.2 * np.sqrt(csize / np.pi)
-
-            # Determine centroid
-            centroid = regionprops[idx_large].centroid
-
-            # Construct mask for current source
-            aa, bb = disk(
-                centroid, np.ceil(2 * crad).astype(int), shape=mask_large.shape
-            )
-            mask_large[aa, bb] = 1
-
-    # Find those sources outside the given thresholds and set to 0
-    bad_sources = (
-        (sizes < min_area) | (sizes > max_area)
-        if max_area is not None
-        else sizes < min_area
-    )
-    assert isinstance(bad_sources, np.ndarray)
-
-    # Only if there are bad sources
-    if np.sum(bad_sources) > 0:
-        labels[bad_sources[labels - 1]] = 0  # labels starts with 1
-
-    # Set background to 0, sources to 1 and convert to 8bit unsigned integer
-    labels[labels > 0], labels[labels < 0] = 1, 0
-    labels = labels.astype(bool)
-
-    # Dilate the mask
-    if dilate:
-        labels = skmorphology.binary_dilation(skmorphology.binary_closing(labels))
-
-    # Apply mask
-    image_labels[labels] = 1
-
-    # Apply large region mask
-    image_labels[mask_large > 0] = 1
-
-    # Return mask
-    return image_labels
+    """
+    n_masked = masks.sum(axis=0, dtype=np.uint16)
+    always = n_masked >= np.ceil(frac * len(masks))
+    if bpm is not None:
+        always &= ~bpm
+    return float(always.mean())
 
 
 def get_edge_skycoord_weight(weight_img: np.ndarray, weight_wcs: wcs.WCS) -> SkyCoord:
