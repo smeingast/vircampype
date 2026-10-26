@@ -1,4 +1,3 @@
-import os
 import warnings
 from itertools import repeat
 from typing import List, Union
@@ -1141,7 +1140,7 @@ class ImageCube(object):
 
     def build_source_masks(self):
         """
-        Create a source mask for current cube
+        Create a source mask for each plane of the cube (NaN = bad pixel).
 
         Returns
         -------
@@ -1150,117 +1149,19 @@ class ImageCube(object):
 
         """
 
-        # Build mask for each plane in parallel (loky: Python-heavy regionprops loops)
+        # Build mask for each plane in parallel
         with Parallel(n_jobs=self.setup.n_jobs, prefer="processes") as parallel:
             mp = parallel(
-                delayed(source_mask)(a, b, c, d, e, f)
-                for a, b, c, d, e, f in zip(
+                delayed(source_mask)(a, b, c, d)
+                for a, b, c, d in zip(
                     self.cube,
                     repeat(self.setup.mask_sources_thresh),
-                    repeat(self.setup.mask_sources_min_area),
-                    repeat(self.setup.mask_sources_max_area),
-                    repeat(self.setup.mask_bright_sources),
-                    repeat(self.setup.mask_sources_dilate),
+                    repeat(self.setup.mask_extended_thresh),
+                    repeat(self.setup.source_mask_max_fraction),
                 )
             )
 
-        return ImageCube(cube=np.array(mp).astype(bool), setup=self.setup)
-
-    def prepare_noisechisel(self) -> tuple[list[str], str, list[str]]:
-        """Write cube to temp MEF and build noisechisel commands.
-
-        Returns
-        -------
-        tuple[list[str], str, list[str]]
-            (cmds, path_input, paths_output) — command strings, path to the
-            temporary input MEF, and paths to the expected output files.
-            Does NOT run the commands.
-
-        """
-        # Write cube to temp file on disk
-        path_input = make_path_system_tempfile(
-            suffix=".fits", base_dir=self.setup.local_cache_dir
-        )
-        self.write_mef(path=path_input, overwrite=True, dtype=np.float32)
-
-        # Create temp paths for noisechisel output
-        paths_output = [
-            path_input.replace(".fits", f"_{i:02d}.fits")
-            for i in range(1, len(self) + 1)
-        ]
-
-        # Build NoiseChisel commands
-        cmds = [
-            (
-                f"{which(self.setup.bin_noisechisel)} {path_input} "
-                f"--hdu {i} "
-                f"-o {pto} "
-                f"-N 1 "
-                f"-q --rawoutput --cleangrowndet "
-                f"--qthresh {self.setup.noisechisel_qthresh} "
-                f"--erode {self.setup.noisechisel_erode} "
-                f"--detgrowquant {self.setup.noisechisel_detgrowquant} "
-                f"--tilesize={self.setup.noisechisel_tilesize} "
-                f"--meanmedqdiff {self.setup.noisechisel_meanmedqdiff}"
-            )
-            for i, pto in zip(range(1, len(self) + 1), paths_output)
-        ]
-
-        return cmds, path_input, paths_output
-
-    @staticmethod
-    def collect_noisechisel_results(
-        paths_output: list[str], path_input: str, setup: "Setup"
-    ) -> "ImageCube":
-        """Read noisechisel output files and return boolean mask cube.
-
-        Parameters
-        ----------
-        paths_output : list[str]
-            Paths to noisechisel output FITS files.
-        path_input : str
-            Path to the temporary input MEF (will be deleted).
-        setup : Setup
-            Pipeline setup instance.
-
-        Returns
-        -------
-        ImageCube
-            Boolean source masks.
-
-        """
-        masks = np.array(
-            [
-                fits.getdata(filename=path, ext=1).astype(np.float32)
-                for path in paths_output
-            ]
-        )
-
-        # Replace NaNs with 1
-        masks[np.isnan(masks)] = 1
-
-        # Delete temp files
-        os.remove(path_input)
-        for path in paths_output:
-            os.remove(path)
-
-        return ImageCube(cube=masks.astype(bool), setup=setup)
-
-    def build_source_masks_noisechisel(self) -> "ImageCube":
-        """Run noisechisel on the cube and return boolean source masks.
-
-        Convenience wrapper around prepare_noisechisel +
-        run_commands_shell_parallel + collect_noisechisel_results.
-
-        Returns
-        -------
-        ImageCube
-            Noisechisel masks.
-
-        """
-        cmds, path_input, paths_output = self.prepare_noisechisel()
-        run_commands_shell_parallel(cmds=cmds, silent=False, n_jobs=self.setup.n_jobs)
-        return self.collect_noisechisel_results(paths_output, path_input, self.setup)
+        return ImageCube(cube=np.array(mp, dtype=bool), setup=self.setup)
 
     # =========================================================================== #
     # Properties

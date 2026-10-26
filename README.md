@@ -16,7 +16,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 ## Features
 
 - **Calibration pipeline**: bad pixel masks, per-channel linearity correction, dark subtraction, flat-fielding, gain tables
-- **Science pipeline**: sky subtraction, source masking (via noisechisel or built-in methods), destriping, background subtraction, NaN interpolation
+- **Science pipeline**: sky subtraction, source masking (stars, halos and extended emission), destriping, background subtraction, NaN interpolation
 - **Astrometry**: SCAMP-based astrometric calibration against Gaia, with proper motion propagation and optional header caching
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
@@ -45,7 +45,6 @@ The following tools must be installed and available in `PATH`:
 | [SWarp](https://github.com/astromatic/swarp) | Image resampling and coaddition |
 | [PSFEx](https://github.com/astromatic/psfex) | PSF modelling (completeness testing) |
 | [SkyMaker](https://github.com/astromatic/skymaker) | Artificial image generation (completeness testing) |
-| [GNU Astro / noisechisel](https://www.gnu.org/software/gnuastro/) | Source mask generation |
 
 **Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work whenever a tile is built (classification always runs for the tile). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The same fork (commit `5cb35ce`, pinned in the Dockerfile) adds the `WINPOS_SIGMAP` parameter used by `sex_winpos_cap`; with that option on, the pipeline checks for it at startup as well. The Docker image includes the correct build.
 
@@ -162,7 +161,7 @@ Processes a set of raw calibration frames and produces master calibration files:
 Processes raw science frames through to final co-added products:
 
 1. **Basic raw processing** — linearity correction, dark subtraction, flat-fielding
-2. **Source masking** — builds per-exposure source masks (noisechisel or built-in)
+2. **Source masking** — builds per-exposure source masks: per detector plane, compact sources (1 px smoothed, > 3 sigma, halo disks for bright stars) plus extended emission (8x8 block medians minus a fitted plane, > 3 sigma), with BPM pixels excluded; 2MASS stars, bright galaxies and region masks are added
 3. **Master sky** — constructs sky frames from a sliding window of exposures
 4. **Final raw processing** — sky subtraction, destriping, background subtraction, NaN interpolation
 5. **Astrometry (SCAMP)** — astrometric calibration against Gaia DR3
@@ -196,7 +195,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
-| `build_pawprints` | `false` | Build one single-exposure pawprint product per raw exposure (`products/pawprints/<name>_NN.pawprint.fits`, ESO SCIENCE.MEFIMAGE, with its weight map) from the resampled pawprints, including their catalogs and photometry. Enabling it on an existing run: reset the status from `pawprints` (`PipelineStatus.reset_from("pawprints")`), which also rebuilds the QC summary and re-runs the finalizer |
+| `build_pawprints` | `false` | Build one single-exposure pawprint product per raw exposure (`products/pawprints/<name>_NN.pawprint.fits`, ESO SCIENCE.MEFIMAGE, with its weight map) from the resampled pawprints. The pawprint catalogs and their photometric calibration (formerly `calibrate_pawprints`, now deprecated) run if and only if this is set. Enabling it on an existing run: reset the status from `pawprints` (`PipelineStatus.reset_from("pawprints")`), which also rebuilds the QC summary and re-runs the finalizer |
 | `build_tile` | `true` | Build the final co-added tile with its exposure map, catalogs, classification and source list |
 | `reference` | `2023A&A...673A..59M` | Publication written to the REFERENC keyword (ADS bibcode or `doi:...`); default: the vircampype pipeline paper (VISIONS II) |
 | `build_completeness` | `false` | Run completeness analysis on tile |
@@ -210,7 +209,9 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `scamp_mode` | `loose` | SCAMP mode: `loose` or `fix_focalplane` |
 | `astrms_self_build_map` | `true` | The bright-star astrometric position-error floor is self-measured on the co-added tile vs epoch-warped Gaia (replacing the over-estimated flat SCAMP `ASTRMSH` floor, ~2–2.5× too large at the bright end); sparse/cloud fields fall back to the SCAMP floor automatically. This knob toggles the spatial floor map — an edge-preserving fixed-size-cell (`astrms_self_cell_arcmin`, ~one detector) grid smoothed by a 3×3 median, which keeps the per-detector/per-tile floor steps a smooth surface would blur (`false` = a single scalar floor per tile). Advanced `astrms_self_*` knobs tune the clean sample, cell map, and fallback |
 | `illumination_correction_mode` | `variable` | IC mode: `variable` or `constant` |
-| `source_mask_method` | `noisechisel` | Source masking: `noisechisel` or `built-in` |
+| `mask_sources_thresh` | `3` | Source-mask threshold (sigma) for compact sources on the 1 px smoothed plane |
+| `mask_extended_thresh` | `3` | Source-mask threshold (sigma) for extended emission on 8x8 block medians |
+| `source_mask_max_fraction` | `0.75` | If a plane is more masked than this, it keeps only its compact-source mask (crowded fields) |
 | `resampling_kernel` | `lanczos3` | SWarp resampling kernel |
 | `statistics_coadd` | `numpy` | Tile statistics maps (nimg, exptime, MJD): `numpy` builds them without SWarp, bit-identical to SWarp 2.41.6 and with bounded RAM (`statistics_coadd_mem_max`, MB, default 2048); inputs it cannot reproduce fall back to SWarp. `swarp` always uses SWarp |
 | `photometric_error_correlated_noise` | `true` | Inflate the source-list aperture-magnitude errors for correlated noise: `MAGERR = sqrt(kappa(D)^2 MAGERR_APER^2 + floor^2)`, `kappa(D)^2 = c^2 kappa_resamp(D)^2 + beta pi min(D, dmax)^2/4`, with `kappa_resamp` the noise correlation of the SWarp kernel (computed from `resampling_kernel` and the coadd/`native_pixel_scale` ratio). `false` reproduces the uninflated errors exactly |
