@@ -1,7 +1,7 @@
 """Fast MMM sky estimator (IDL Astronomy Users Library / DAOPHOT), scalar and batched.
 
 The reference is the D. Jones port in ``vircampype.external.mmm`` (unchanged).
-Experimental until v2.8: the pipeline uses this module only when the setup option
+Experimental (off until validated on real data): the pipeline uses this module only when the setup option
 ``vectorized_mmm`` is on (``destripe_helper`` rows, ``background_image`` tiles).
 
 ``mmm`` performs the same operations on the same data in the same dtypes as the

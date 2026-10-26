@@ -204,7 +204,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `linearity_fit_fraction` | `0.85` | Fit the per-channel linearity only on levels below this fraction of the detector saturation level |
 | `saturation_override` | `null` | Per-detector saturation levels in ADU that replace the preset (`set_saturation_levels`), e.g. `{10: 22000, 12: 20000}`. Used by the linearity fit cap, twilight masks, gain and the science `SATURATE` keyword (capped below the linearity turnover at short DIT) |
 | `destripe` | `true` | Apply destriping correction |
-| `vectorized_mmm` | `false` | Experimental: estimate the per-row (destriping) and per-mesh-tile (background model) sky with the vectorised MMM implementation (`tools/mmmtools.py`) instead of the original per-slice port; same results to float32 rounding, 2–3× faster per plane. Default on from v2.8 |
+| `vectorized_mmm` | `false` | Experimental: estimate the per-row (destriping) and per-mesh-tile (background model) sky with the vectorised MMM implementation (`tools/mmmtools.py`) instead of the original per-slice port; same results to float32 rounding, 2–3× faster per plane. Off until validated on real data |
 | `subtract_background` | `true` | Subtract 2D background model |
 | `flat_type` | `twilight` | Flat field type: `twilight` or `sky` |
 | `scamp_mode` | `loose` | SCAMP mode: `loose` or `fix_focalplane` |

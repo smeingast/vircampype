@@ -84,7 +84,7 @@ class Setup:
     vectorized_mmm: bool = (
         False  # Experimental: vectorised MMM for destriping rows and background
         # mesh tiles (tools/mmmtools.py); results equal to float32 rounding,
-        # 2-3x faster per plane. Default on from v2.8.
+        # 2-3x faster per plane. Off until validated on real data.
     )
     interpolate_nan_kernel_sigma: float = (
         1.0  # Gaussian kernel sigma (px) for NaN interpolation
