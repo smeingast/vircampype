@@ -484,7 +484,8 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
     where = f"{name}[0]"
     problems = _check_no_data(primary, where)
     problems += _check_observation(primary, where)
-    problems += _require_numbers(primary, ("EQUINOX",), where)
+    # ELLIPTIC as often as in the tile, primary and table (ESO validator, batch 23808)
+    problems += _require_numbers(primary, ("EQUINOX", "ELLIPTIC"), where)
     problems += _forbid(primary, _indexed_keys(primary, "ASSON"), where)
     problems += _check_prov(hdul, where, origfile=True)
     if _indexed_keys(primary, "PROV") != ["PROV1"]:
@@ -514,6 +515,7 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
             prefixes = (*_MULTI.values(), "OBID")
             indexed = [k for p in prefixes for k in _indexed_keys(headers[0], p)]
             keys = _OBS_STRINGS + _OBS_FLOATS + ("NCOMBINE", "EQUINOX", "RADESYS")
+            keys += ("ELLIPTIC",)
             label = f"{tile} primary"
             problems += _compare(
                 primary, headers[0], keys + tuple(indexed), where, label
@@ -645,6 +647,10 @@ def _check_observation(header: fits.Header, where: str) -> list[str]:
         problems.append(f"{where}: RADESYS = 'FK5' requires EQUINOX = 2000.0")
     if "TIMESYS" in header:
         problems += _expect(header, "TIMESYS", ("UTC", "TAI"), where)
+    # ESO's validator compares TELESCOP with the archived raw value (batch 23808)
+    for key in ("TELESCOP", *_indexed_keys(header, "TELESC")):
+        if header.get(key) == "VISTA":
+            problems.append(f"{where}: {key} = 'VISTA', expected 'ESO-VISTA'")
 
     exptime = header.get("EXPTIME")
     if _is_number(exptime) and exptime <= 0:

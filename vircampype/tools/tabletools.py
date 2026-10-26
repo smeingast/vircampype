@@ -164,6 +164,8 @@ SOURCES_PRIMARY_KEYS = (
     "PROCSOFT",
     "REFERENC",
     "SKYSQDEG",
+    # ESO's validator wants as many ELLIPTIC values as the tile has (primary + SCI)
+    "ELLIPTIC",
 )
 
 

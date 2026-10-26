@@ -26,6 +26,9 @@ log = logging.getLogger(__name__)
 
 Card = tuple[str, object, str]  # (keyword, value, comment)
 
+# Raw TELESCOP values ESO's validator rejects, and the archive value (batch 23808)
+ESO_TELESCOPES = {"VISTA": "ESO-VISTA"}
+
 
 def _unique_or_multi(
     key: str, index_key: str, values: list, comment: str
@@ -58,8 +61,11 @@ def obs_cards(headers: list[fits.Header], setup) -> list[Card]:
     exptimes = [float(h[kw.dit]) * int(h[kw.ndit]) for h in headers]
     ob_ids = sorted({int(h["HIERARCH ESO OBS ID"]) for h in headers})
 
+    # Older raw headers say 'VISTA'; ESO's archive (and its validator) use 'ESO-VISTA'
+    telescopes = [ESO_TELESCOPES.get(t, t) for t in strings("TELESCOP")]
+
     cards = [("ORIGIN", "ESO-PARANAL", "European Southern Observatory")]
-    cards += _unique_or_multi("TELESCOP", "TELESC", strings("TELESCOP"), "Telescope")
+    cards += _unique_or_multi("TELESCOP", "TELESC", telescopes, "Telescope")
     cards += _unique_or_multi("INSTRUME", "INSTR", strings("INSTRUME"), "Instrument")
     cards += _unique_or_multi("FILTER", "FILTER", filters, "Filter name")
     if len(set(filters)) == 1:

@@ -64,7 +64,7 @@ class TestObsCards(unittest.TestCase):
         cards = obs_cards(headers, setup)
         expected = {
             "ORIGIN": "ESO-PARANAL",
-            "TELESCOP": "VISTA",
+            "TELESCOP": "ESO-VISTA",  # raw VISTA mapped to the archive value
             "INSTRUME": "VIRCAM",
             "FILTER": "Ks",
             "HIERARCH ESO INS FILT1 NAME": "Ks",
@@ -125,7 +125,9 @@ class TestObsCards(unittest.TestCase):
         self.assertEqual(values["NDIT"], 6)
         self.assertEqual(values["OBJECT"], setup.name)
         self.assertEqual(values["TELESCOP"], "MULTI")
-        self.assertEqual((values["TELESC1"], values["TELESC2"]), ("VISTA", "VISTA2"))
+        self.assertEqual(
+            (values["TELESC1"], values["TELESC2"]), ("ESO-VISTA", "VISTA2")
+        )
         self.assertEqual(values["INSTRUME"], "VIRCAM")
         self.assertEqual(values["TEXPTIME"], 150.0)
         self.assertAlmostEqual(values["MJD-END"], 60001.0 + 60.0 / 86400, places=10)

@@ -743,4 +743,6 @@ class TestSourceList(unittest.TestCase):
                     self.assertEqual(len(tail), 36)
                     self.assertNotEqual(cards[-37].keyword, "")
                 self.assertEqual(table["PHOTZP"], tile_sci["PHOTZP"])
+                tile_primary = fits.getheader(paths["tile"], 0)
+                self.assertEqual(primary["ELLIPTIC"], tile_primary["ELLIPTIC"])
                 self.assertIn("REFMAGLO", table)
