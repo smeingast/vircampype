@@ -1,8 +1,16 @@
+import dataclasses
 import os
+import pickle
 import unittest
 from tempfile import NamedTemporaryFile
 
-from vircampype.pipeline.status import PipelineStatus
+from vircampype.pipeline.status import (
+    _SCIENCE_PREFIX,
+    _STACK_STEPS,
+    _TAIL,
+    _TILE_STEPS,
+    PipelineStatus,
+)
 
 
 class TestPipelineStatus(unittest.TestCase):
@@ -39,6 +47,98 @@ class TestPipelineStatus(unittest.TestCase):
 
         # Delete temporary file
         os.remove(f.name)
+
+    def _all_true(self):
+        status = PipelineStatus()
+        for field in dataclasses.fields(status):
+            setattr(status, field.name, True)
+        status.archive = False
+        return status
+
+    def _false_names(self, status):
+        return {k for k, v in status.dict.items() if not v}
+
+    def test_field_coverage(self):
+        calib = {
+            "master_bpm",
+            "master_linearity",
+            "master_dark",
+            "master_gain",
+            "master_twilight_flat",
+            "master_weight_global",
+        }
+        groups = _SCIENCE_PREFIX + _STACK_STEPS + _TILE_STEPS + _TAIL
+        self.assertEqual(len(groups), len(set(groups)))
+        self.assertEqual(set(groups) | calib, set(PipelineStatus().dict))
+
+    def test_load_drops_phase3(self):
+        with NamedTemporaryFile(delete=False) as f:
+            pickle.dump({"phase3": True, "master_bpm": True}, f)
+        try:
+            status = PipelineStatus()
+            with self.assertLogs("vircampype.pipeline.status", "WARNING"):
+                status.load(f.name)
+            self.assertNotIn("phase3", status.dict)
+            self.assertTrue(status.master_bpm)
+        finally:
+            os.remove(f.name)
+
+    def test_load_unknown_key_raises(self):
+        with NamedTemporaryFile(delete=False) as f:
+            pickle.dump({"bogus": True}, f)
+        try:
+            with self.assertRaises(ValueError):
+                PipelineStatus().load(f.name)
+        finally:
+            os.remove(f.name)
+
+    def test_reset_from_prefix(self):
+        status = self._all_true()
+        status.reset_from("resampled")
+        expected = {"resampled", "statistics_resampled", "photometry_pawprints"}
+        expected |= {"photerr_internal"} | set(_STACK_STEPS) | set(_TILE_STEPS)
+        expected |= set(_TAIL)
+        self.assertEqual(self._false_names(status), expected)
+
+    def test_reset_from_stack_branch(self):
+        status = self._all_true()
+        status.reset_from("photometry_stacks")
+        self.assertEqual(
+            self._false_names(status),
+            {
+                "photometry_stacks",
+                "qc_photometry_stacks",
+                "qc_astrometry_stacks",
+                "qc_psf_stacks",
+                "qc_summary",
+                "archive",
+            },
+        )
+
+    def test_reset_from_tile_branch(self):
+        status = self._all_true()
+        status.reset_from("tile")
+        self.assertEqual(self._false_names(status), set(_TILE_STEPS) | set(_TAIL))
+        self.assertFalse(status.exposure_map)
+        self.assertFalse(status.public_catalog)
+
+    def test_reset_from_tail(self):
+        status = self._all_true()
+        status.reset_from("qc_summary")
+        self.assertEqual(self._false_names(status), {"qc_summary", "archive"})
+
+    def test_reset_from_archive_guard(self):
+        status = self._all_true()
+        status.archive = True
+        with self.assertRaises(ValueError):
+            status.reset_from("tile")
+        self.assertEqual(self._false_names(status), set())
+
+    def test_reset_from_unknown_step(self):
+        with self.assertRaises(ValueError):
+            self._all_true().reset_from("master_bpm")
+        with self.assertRaises(ValueError):
+            self._all_true().reset_from("nonsense")
 
 
 if __name__ == "__main__":

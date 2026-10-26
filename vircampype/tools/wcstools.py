@@ -1,4 +1,5 @@
 import logging
+import math
 
 import numpy as np
 from astropy import wcs
@@ -7,6 +8,7 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points, wcs_to_celestial_frame
 
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.mathtools import *
 
 log = logging.getLogger(__name__)
@@ -16,11 +18,64 @@ __all__ = [
     "header2wcs",
     "skycoord2header",
     "resize_header",
+    "integer_wcs_offset",
     "pixelscale_from_header",
     "rotationangle_from_header",
     "get_airmass_from_header",
     "find_optimal_rotation",
 ]
+
+
+def integer_wcs_offset(
+    reference: fits.Header, candidate: fits.Header
+) -> tuple[int, int]:
+    """
+    Offset of a candidate grid in a reference grid, if both share the same WCS and
+    differ only by an integer number of pixels.
+
+    Parameters
+    ----------
+    reference : astropy.io.fits.Header
+        Header of the reference grid.
+    candidate : astropy.io.fits.Header
+        Header of the candidate grid.
+
+    Returns
+    -------
+    tuple[int, int]
+        0-based column and row of the candidate's pixel (1, 1) in the reference grid.
+
+    Raises
+    ------
+    PipelineValueError
+        If projection, units, CRVAL or CD differ, or the CRPIX offset is not integral.
+
+    """
+    required = ["CTYPE1", "CTYPE2", "CRVAL1", "CRVAL2", "CRPIX1", "CRPIX2"]
+    required += ["CD1_1", "CD1_2", "CD2_1", "CD2_2"]
+    for key in required:
+        if key not in reference or key not in candidate:
+            raise PipelineValueError(f"{key} missing in reference or candidate header")
+    for key in ["CTYPE1", "CTYPE2"]:
+        if str(reference[key]) != str(candidate[key]):
+            raise PipelineValueError(
+                f"{key} differs: {reference[key]} {candidate[key]}"
+            )
+    for key in ["CUNIT1", "CUNIT2"]:
+        if str(reference.get(key, "deg")) != str(candidate.get(key, "deg")):
+            raise PipelineValueError(f"{key} differs")
+    for key in ["CRVAL1", "CRVAL2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"]:
+        if not math.isclose(reference[key], candidate[key], rel_tol=1e-12, abs_tol=0.0):
+            raise PipelineValueError(
+                f"{key} differs: {reference[key]} {candidate[key]}"
+            )
+    offsets = []
+    for key in ["CRPIX1", "CRPIX2"]:
+        d = reference[key] - candidate[key]
+        if abs(d - round(d)) > 1e-6:
+            raise PipelineValueError(f"{key} offset is not an integer: {d}")
+        offsets.append(round(d))
+    return offsets[0], offsets[1]
 
 
 def header_reset_wcs(header: fits.Header) -> fits.Header:

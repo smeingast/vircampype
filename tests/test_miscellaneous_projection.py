@@ -49,6 +49,19 @@ class TestProjection(unittest.TestCase):
         self.assertNotEqual(self.header["NAXIS1"], new_header["NAXIS1"])
         self.assertNotEqual(self.header["NAXIS2"], new_header["NAXIS2"])
 
+    def test_subheader_margin_even(self):
+        header = self.header.copy()
+        header["CD1_1"], header["CD2_2"] = -1 / 3600, 1 / 3600
+        projection = Projection(header)
+        skycoord = SkyCoord(ra=[10, 10.01], dec=[20, 20.01], unit="deg")
+        # int(0.05 / 60 / (1 / 3600)) = 3, made even -> 4
+        old = projection.subheader_from_skycoord(skycoord, enlarge=0)
+        new = projection.subheader_from_skycoord(skycoord, enlarge=0.05)
+        for axis in "12":
+            shift = new[f"CRPIX{axis}"] - old[f"CRPIX{axis}"]
+            self.assertAlmostEqual(shift, round(shift), places=9)
+            self.assertEqual(new[f"NAXIS{axis}"] - old[f"NAXIS{axis}"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,7 +16,6 @@ from vircampype.tools.astromatic import (
     verify_sextractor_winpos_cap,
 )
 from vircampype.tools.completeness import qc_completeness_tile
-from vircampype.tools.esotools import build_phase3_stacks, build_phase3_tile
 from vircampype.tools.fitstools import (
     build_qc_summary,
     combine_mjd_images,
@@ -1164,45 +1163,6 @@ class Pipeline:
             self.update_status(qc_summary=True)
 
     # =========================================================================== #
-    # Phase 3
-    @property
-    def _paths_phase3(self):
-        return sorted(glob.glob(f"{self.setup.folders['phase3']}*.fits"))
-
-    @property
-    def _paths_phase3_images(self):
-        return [x for x in self._paths_phase3 if "sources" not in x]
-
-    @property
-    def _paths_phase3_catalogs(self):
-        return [x for x in self._paths_phase3 if "sources" in x]
-
-    def compress_phase3_images(self):
-        # Maximum of three parallel jobs
-        n_jobs = 3 if self.setup.n_jobs > 3 else self.setup.n_jobs
-
-        # Compress files
-        compress_images(
-            self._paths_phase3_images,
-            q=self.setup.fpack_quantization_factor,
-            n_jobs=n_jobs,
-        )
-
-    @pipeline_step("phase3", message="PHASE 3")
-    def build_phase3(self):
-        """Build ESO Phase 3 compliant image and catalog products."""
-        if self.setup.build_stacks:
-            build_phase3_stacks(
-                stacks_images=self.stacks,
-                stacks_catalogs=self.sources_stacks_cal,
-            )
-        if self.setup.build_tile:
-            build_phase3_tile(
-                tile_image=self.tile,
-                tile_catalog=self.sources_tile_cal,
-                pawprint_images=self.resampled,
-            )
-
     @pipeline_step("public_catalog", message="PUBLIC CATALOG")
     def build_public_catalog(self):
         """Build the public release source catalog from the tile."""
@@ -1368,10 +1328,6 @@ class Pipeline:
 
         # Build QC summary table
         self.build_qc_summary()
-
-        # Phase 3
-        if self.setup.build_phase3:
-            self.build_phase3()
 
         if self.setup.build_public_catalog:
             self.build_statistics_tile()

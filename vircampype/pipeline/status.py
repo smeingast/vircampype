@@ -1,5 +1,48 @@
 import dataclasses
+import logging
 import pickle
+
+log = logging.getLogger(__name__)
+
+# Order follows Pipeline.process_science and must be kept in sync with it
+_SCIENCE_PREFIX = (
+    "processed_raw_basic",
+    "master_photometry",
+    "master_astrometry",
+    "master_source_mask",
+    "master_sky",
+    "processed_raw_final",
+    "master_weight_image",
+    "tile_header",
+    "astrometry",
+    "illumcorr",
+    "resampled",
+    "statistics_resampled",
+    "photometry_pawprints",
+    "photerr_internal",
+)
+_STACK_STEPS = (
+    "stacks",
+    "statistics_stacks",
+    "classification_stacks",
+    "photometry_stacks",
+    "qc_photometry_stacks",
+    "qc_astrometry_stacks",
+    "qc_psf_stacks",
+)
+_TILE_STEPS = (
+    "tile",
+    "exposure_map",
+    "photometry_tile",
+    "qc_photometry_tile",
+    "qc_astrometry_tile",
+    "qc_psf_tile",
+    "qc_completeness_tile",
+    "statistics_tile",
+    "classification_tile",
+    "public_catalog",
+)
+_TAIL = ("qc_summary", "archive")
 
 
 @dataclasses.dataclass
@@ -61,6 +104,8 @@ class PipelineStatus:
         Status of Quality Control Photometry Stacks, defaults to False.
     qc_astrometry_stacks : bool
         Status of Quality Control Astrometry Stacks, defaults to False.
+    exposure_map : bool
+        Status of Exposure Map, defaults to False.
 
     Methods
     -------
@@ -103,6 +148,7 @@ class PipelineStatus:
     qc_astrometry_stacks: bool = False
     qc_psf_stacks: bool = False
     tile: bool = False
+    exposure_map: bool = False
     statistics_tile: bool = False
     classification_tile: bool = False
     photometry_tile: bool = False
@@ -111,7 +157,6 @@ class PipelineStatus:
     qc_psf_tile: bool = False
     qc_completeness_tile: bool = False
     qc_summary: bool = False
-    phase3: bool = False
     public_catalog: bool = False
     archive: bool = False
 
@@ -144,6 +189,31 @@ class PipelineStatus:
         for field in dataclasses.fields(self):
             setattr(self, field.name, False)
 
+    def reset_from(self, step: str) -> None:
+        """
+        Clears `step` and everything that depends on it (later steps of its
+        group plus the tail; a prefix step also clears the stack and tile
+        branches). Does not save; callers save.
+
+        Raises
+        ------
+        ValueError
+            If the run is archived or `step` is unknown.
+
+        """
+        if self.archive:
+            raise ValueError("Cannot reset an archived run: unarchive first")
+        for group in (_SCIENCE_PREFIX, _STACK_STEPS, _TILE_STEPS, _TAIL):
+            if step in group:
+                break
+        else:
+            raise ValueError(f"Unknown pipeline step '{step}'")
+        names = group[group.index(step) :] + _TAIL
+        if group is _SCIENCE_PREFIX:
+            names += _STACK_STEPS + _TILE_STEPS
+        for name in names:
+            setattr(self, name, False)
+
     def save(self, path: str):
         """
         Saves the current instance's status dictionary to a file.
@@ -174,7 +244,10 @@ class PipelineStatus:
         """
         with open(path, "rb") as f:
             status = pickle.load(f)
-            self.update(**status)
+        if "phase3" in status:
+            log.warning("Dropping removed pipeline status key 'phase3'")
+            del status["phase3"]
+        self.update(**status)
 
     @property
     def dict(self) -> dict:

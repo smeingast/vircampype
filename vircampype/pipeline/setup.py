@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -11,6 +12,8 @@ from vircampype.miscellaneous.projection import Projection
 from vircampype.miscellaneous.sourcemasks import *
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.systemtools import *
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -57,15 +60,13 @@ class Setup:
     build_stacks: bool = False  # Build stacked images per offset position
     build_tile: bool = True  # Build the final coadded tile
     build_tile_only: bool = False  # Skip pawprint processing, build tile only
-    build_phase3: bool = False  # Create ESO Phase 3 compliant products
     build_public_catalog: bool = False  # Build public source catalog
     source_classification: bool = False  # Run star/galaxy classification
     classification_n_seeing: int = 32  # Number of SEEING_FWHM grid points
     classification_seeing_step_warn: float = 0.05  # Warn if step exceeds this (arcsec)
     archive: bool = False  # Archive processed data
 
-    # Phase 3
-    compress_phase3: bool = True  # Fpack-compress Phase 3 images
+    # Archiving
     fpack_quantization_factor: int = (
         16  # Fpack quantization factor (lower = less lossy)
     )
@@ -410,6 +411,7 @@ class Setup:
 
     # Miscellaneous
     survey_name: str = "VISIONS"  # Survey name for FITS headers
+    reference: str = "2023A&A...673A..59M"  # REFERENC: VISIONS II, pipeline paper
     fix_vircam_headers: bool = True  # Apply VIRCAM-specific header corrections
 
     # Folders
@@ -501,6 +503,8 @@ class Setup:
         self.path_coadd = f"{self.folders['tile']}{self.name}.fits"
         self.path_coadd_weight = self.path_coadd.replace(".fits", ".weight.fits")
         self.path_coadd_header = self.path_coadd.replace(".fits", ".ahead")
+        self.path_coadd_expmap = self.path_coadd.replace(".fits", ".expmap.fits")
+        self.path_coadd_sources = self.path_coadd.replace(".fits", ".sources.fits")
 
         # Other
         self.__set_projection()
@@ -713,6 +717,7 @@ class Setup:
         if isinstance(setup, str):
             params = {**read_yml(path_yml=setup), **kwargs}
             cls._reject_obsolete_keys(params)
+            cls._drop_deprecated_keys(params)
             return cls(**params)
 
         # If given as Setup instance, just return it again
@@ -720,8 +725,10 @@ class Setup:
             return setup
 
         elif isinstance(setup, dict):
-            cls._reject_obsolete_keys(setup)
-            return cls(**setup)
+            params = dict(setup)
+            cls._reject_obsolete_keys(params)
+            cls._drop_deprecated_keys(params)
+            return cls(**params)
 
         # If something else was provided
         else:
@@ -747,6 +754,31 @@ class Setup:
             "minimum is now 'astrms_self_cell_min_n'."
         ),
     }
+
+    # Setup keys that are still accepted but ignored (with a warning)
+    _deprecated_keys: ClassVar[dict[str, str]] = {
+        "build_phase3": (
+            "'build_phase3' was removed: every product the standard recipes write "
+            "is Phase 3 compliant since v3.0. Drop it."
+        ),
+        "compress_phase3": (
+            "'compress_phase3' was removed: delivered products are never "
+            "compressed. Drop it."
+        ),
+    }
+
+    @classmethod
+    def _drop_deprecated_keys(cls, params: dict) -> None:
+        for key, hint in cls._deprecated_keys.items():
+            if key not in params:
+                continue
+            if key == "build_phase3" and params[key]:
+                raise PipelineValueError(
+                    "'build_phase3: true' is not supported: the separate Phase 3 "
+                    "path was removed in v3.0; the standard products are compliant"
+                )
+            log.warning(f"Deprecated setup parameter ignored: {hint}")
+            del params[key]
 
     @classmethod
     def _reject_obsolete_keys(cls, params: dict) -> None:
@@ -791,7 +823,6 @@ class Setup:
         self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
-        self.folders["phase3"] = f"{self.folders['object']}products/phase3/"
 
     def __create_folder_tree(self):
         """Creates the folder tree for the pipeline"""
@@ -835,10 +866,6 @@ class Setup:
         # Create folder for stacks if set
         if self.build_stacks:
             folders_object += [self.folders["stacks"]]
-
-        # Create folder for phase3 if set
-        if self.build_phase3:
-            folders_object += [self.folders["phase3"]]
 
         # Generate common paths
         for path in folders_common:

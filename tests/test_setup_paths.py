@@ -5,6 +5,8 @@ import os
 import tempfile
 import unittest
 
+import yaml
+
 from tests.test_cube import make_test_setup
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.pipeline.setup import Setup
@@ -124,6 +126,76 @@ class TestObsoleteKeys(unittest.TestCase):
     def test_clean_config_still_loads(self):
         setup = Setup.load_pipeline_setup(self._base_params())
         self.assertEqual(setup.name, "TestSetup")
+
+
+class TestDeprecatedKeys(unittest.TestCase):
+    """Deprecated keys are dropped with a warning, not rejected."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        path_data = os.path.join(self._tmp.name, "data")
+        os.makedirs(path_data, exist_ok=True)
+        self.params = dict(
+            name="TestSetup",
+            path_data=path_data,
+            path_pype=os.path.join(self._tmp.name, "pype"),
+            path_master_common=os.path.join(self._tmp.name, "master"),
+            n_jobs=1,
+        )
+
+    def _write_yml(self, params: dict) -> str:
+        path = os.path.join(self._tmp.name, "setup.yml")
+        with open(path, "w") as f:
+            yaml.safe_dump(params, f)
+        return path
+
+    def _assert_warned_once_per_key(self, ctx):
+        for key in ("build_phase3", "compress_phase3"):
+            hits = [m for m in ctx.output if f"'{key}' was removed" in m]
+            self.assertEqual(len(hits), 1, key)
+
+    def test_yaml_branch_warns_and_drops(self):
+        path = self._write_yml(
+            {**self.params, "build_phase3": False, "compress_phase3": True}
+        )
+        with self.assertLogs("vircampype.pipeline.setup", "WARNING") as ctx:
+            setup = Setup.load_pipeline_setup(path)
+        self._assert_warned_once_per_key(ctx)
+        self.assertNotIn("build_phase3", setup.to_dict)
+        self.assertNotIn("compress_phase3", setup.to_dict)
+
+    def test_dict_branch_warns_drops_and_keeps_input(self):
+        params = {**self.params, "build_phase3": False, "compress_phase3": True}
+        before = dict(params)
+        with self.assertLogs("vircampype.pipeline.setup", "WARNING") as ctx:
+            setup = Setup.load_pipeline_setup(params)
+        self._assert_warned_once_per_key(ctx)
+        self.assertEqual(params, before)
+        self.assertNotIn("build_phase3", setup.to_dict)
+        self.assertNotIn("compress_phase3", setup.to_dict)
+
+    def test_build_phase3_true_raises(self):
+        with self.assertRaises(PipelineValueError):
+            Setup.load_pipeline_setup({**self.params, "build_phase3": True})
+
+    def test_path_scratch_still_raises(self):
+        with self.assertRaises(PipelineValueError):
+            Setup.load_pipeline_setup({**self.params, "path_scratch": "/scratch"})
+
+    def test_reference_and_product_paths(self):
+        setup = make_test_setup(self._tmp.name)
+        self.assertEqual(setup.reference, "2023A&A...673A..59M")
+        tile = setup.folders["tile"]
+        self.assertEqual(setup.path_coadd_expmap, f"{tile}TestSetup.expmap.fits")
+        self.assertEqual(setup.path_coadd_sources, f"{tile}TestSetup.sources.fits")
+
+    def test_no_phase3_folder(self):
+        setup = make_test_setup(self._tmp.name)
+        self.assertNotIn("phase3", setup.folders)
+        self.assertFalse(
+            os.path.exists(os.path.join(setup.folders["object"], "products", "phase3"))
+        )
 
 
 class TestAstrmsSelfCalibrateDefaults(unittest.TestCase):

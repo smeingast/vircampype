@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.wcs import WCS
+
 from vircampype.tools.wcstools import *
 
 __all__ = ["Projection"]
@@ -71,6 +72,8 @@ class Projection:
 
         # Compute extra margin in pixels
         margin = int(enlarge / 60 / self.pixelscale)
+        # An odd margin shifts the grid by half a pixel; keep it on integer offsets
+        margin += margin % 2
 
         # Compute NAXIS
         naxis1 = (np.ceil((x.max()) - np.floor(x.min())) + margin).astype(int)

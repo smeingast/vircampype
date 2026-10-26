@@ -4,9 +4,11 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.wcstools import (
     header2wcs,
     header_reset_wcs,
+    integer_wcs_offset,
     pixelscale_from_header,
     resize_header,
     rotationangle_from_header,
@@ -175,6 +177,42 @@ class TestSkycoord2Header(unittest.TestCase):
         hdr = skycoord2header(sc, cdelt=1 / 3600, round_crval=True)
         self.assertAlmostEqual(hdr["CRVAL1"], 10.12, places=2)
         self.assertAlmostEqual(hdr["CRVAL2"], 20.65, places=2)
+
+    def test_integer_wcs_offset_returns_offsets(self):
+        ref = _make_tan_header()
+        cand = ref.copy()
+        self.assertEqual(integer_wcs_offset(ref, cand), (0, 0))
+        cand["CRPIX1"] = ref["CRPIX1"] - 7
+        cand["CRPIX2"] = ref["CRPIX2"] - 3
+        self.assertEqual(integer_wcs_offset(ref, cand), (7, 3))
+
+    def test_integer_wcs_offset_rejects_half_pixel(self):
+        ref = _make_tan_header()
+        cand = ref.copy()
+        cand["CRPIX1"] = ref["CRPIX1"] - 7.5
+        with self.assertRaises(PipelineValueError):
+            integer_wcs_offset(ref, cand)
+
+    def test_integer_wcs_offset_rejects_wcs_differences(self):
+        ref = _make_tan_header()
+        for key, value in [
+            ("CD1_1", ref["CD1_1"] * 1.001),
+            ("CRVAL1", ref["CRVAL1"] + 1e-6),
+            ("CTYPE1", "RA---ZEA"),
+        ]:
+            cand = ref.copy()
+            cand[key] = value
+            with self.assertRaises(PipelineValueError, msg=key) as ctx:
+                integer_wcs_offset(ref, cand)
+            self.assertIn(key, str(ctx.exception))
+
+    def test_integer_wcs_offset_rejects_missing_key(self):
+        ref = _make_tan_header()
+        cand = ref.copy()
+        del cand["CD2_2"]
+        with self.assertRaises(PipelineValueError) as ctx:
+            integer_wcs_offset(ref, cand)
+        self.assertIn("CD2_2", str(ctx.exception))
 
 
 if __name__ == "__main__":

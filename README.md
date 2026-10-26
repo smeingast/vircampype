@@ -21,7 +21,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction
-- **Catalog building**: per-pawprint and per-tile source catalogs, public ESO Phase 3-compliant output with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
+- **Catalog building**: per-pawprint and per-tile source catalogs, public output with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
 - **Completeness testing**: artificial star injection/recovery via SkyMaker and PSFEx to measure detection completeness as a function of magnitude
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
@@ -100,7 +100,6 @@ qc_plots: true
 
 build_tile: true
 build_stacks: false
-build_phase3: false
 build_public_catalog: false
 ```
 
@@ -177,7 +176,7 @@ Processes raw science frames through to final co-added products:
 12. **QC plots** — astrometric and photometric diagnostic plots
 13. **QC summary table** — aggregates key metrics from stacks and tile into `qc/qc_summary.ecsv`
 14. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
-15. **Phase 3 / Public catalog** — ESO Phase 3-compliant output and public source catalog
+15. **Public catalog** — public source catalog from the tile
 
 ---
 
@@ -197,7 +196,7 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `qc_plots` | `true` | Generate QC diagnostic plots |
 | `build_stacks` | `false` | Build per-offset stacks |
 | `build_tile` | `true` | Build final co-added tile |
-| `build_phase3` | `false` | Build ESO Phase 3 products |
+| `reference` | `2023A&A...673A..59M` | Publication written to the REFERENC keyword (ADS bibcode or `doi:...`); default: the vircampype pipeline paper (VISIONS II) |
 | `build_public_catalog` | `false` | Build public source catalog |
 | `build_completeness` | `false` | Run completeness analysis on tile |
 | `bpm_noise_mask` | `true` | Add pixels with excess temporal noise (from pairs of linearity darks) to the master bad pixel mask |
@@ -250,8 +249,7 @@ path_pype/
     │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd; WINVAR headers with sex_winpos_cap)
     ├── products/
     │   ├── stacks/                 # Per-offset stack images and catalogs
-    │   ├── tile/                   # Final co-added tile image and catalog
-    │   └── phase3/                 # ESO Phase 3-compliant products
+    │   └── tile/                   # Final co-added tile image and catalog
     ├── qc/                         # Quality control plots
     │   ├── astrometry/
     │   ├── photometry/
