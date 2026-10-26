@@ -26,6 +26,9 @@ from sklearn.neighbors import NearestNeighbors
 
 from vircampype.external.mmm import mmm
 from vircampype.tools.mathtools import *
+from vircampype.tools.mmmtools import batch_is_vectorised
+from vircampype.tools.mmmtools import mmm as mmm_fast
+from vircampype.tools.mmmtools import mmm_batch
 
 __all__ = [
     "interpolate_image",
@@ -306,7 +309,7 @@ def merge_chopped(arrays, locations, axis=0, overlap=0):
     return merged
 
 
-def background_image(image, mesh_size, mesh_filtersize=3):
+def background_image(image, mesh_size, mesh_filtersize=3, vectorized_mmm=False):
     """
     Estimate a 2-D background map and its standard deviation.
 
@@ -323,6 +326,10 @@ def background_image(image, mesh_size, mesh_filtersize=3):
         Side length of each background mesh tile in pixels.
     mesh_filtersize : int, optional
         Size of the median filter applied to the mesh grid. Default is 3.
+    vectorized_mmm : bool, optional
+        Estimate all tiles at once with the vectorised MMM
+        (``vircampype.tools.mmmtools``); results equal to float32 rounding.
+        Default False (original per-tile estimator).
 
     Returns
     -------
@@ -349,21 +356,32 @@ def background_image(image, mesh_size, mesh_filtersize=3):
             f"Image dimensions {image.shape} must be multiple of backsize mesh size ({mesh_size})"
         )
 
-    # Tile image
-    tiles = [
-        image[x : x + mesh_size, y : y + mesh_size]
-        for x in range(0, image.shape[0], mesh_size)
-        for y in range(0, image.shape[1], mesh_size)
-    ]
-
-    # Estimate background for each tile
-    bg, bg_std, _ = list(zip(*[mmm(t) for t in tiles]))
+    n_tiles_y, n_tiles_x = image.shape[0] // mesh_size, image.shape[1] // mesh_size
+    if vectorized_mmm and batch_is_vectorised(n_tiles_y * n_tiles_x, mesh_size**2):
+        # One row per mesh tile (row-major tile order), all tiles in one call
+        tiles = (
+            image.reshape(n_tiles_y, mesh_size, n_tiles_x, mesh_size)
+            .swapaxes(1, 2)
+            .reshape(n_tiles_y * n_tiles_x, mesh_size * mesh_size)
+        )
+        bg, bg_std, _ = mmm_batch(tiles, axis=1)
+        del tiles
+    else:
+        # Tile image (views) and estimate the background tile by tile. Large
+        # tiles are sort-bound, so the batch would fall back to this anyway.
+        tiles = [
+            image[x : x + mesh_size, y : y + mesh_size]
+            for x in range(0, image.shape[0], mesh_size)
+            for y in range(0, image.shape[1], mesh_size)
+        ]
+        estimator = mmm_fast if vectorized_mmm else mmm
+        bg, bg_std, _ = list(zip(*[estimator(t) for t in tiles]))
+        bg, bg_std = np.array(bg), np.array(bg_std)
 
     # Scale back to 2D array
-    n_tiles_x, n_tiles_y = image.shape[1] // mesh_size, image.shape[0] // mesh_size
     bg, bg_std = (
-        np.array(bg).reshape(n_tiles_y, n_tiles_x),
-        np.array(bg_std).reshape(n_tiles_y, n_tiles_x),
+        bg.reshape(n_tiles_y, n_tiles_x),
+        bg_std.reshape(n_tiles_y, n_tiles_x),
     )
 
     # Interpolate NaN values in grid
@@ -701,7 +719,7 @@ def grid_value_2d_nn(
     )
 
 
-def destripe_helper(array, mask=None, smooth=False):
+def destripe_helper(array, mask=None, smooth=False, vectorized_mmm=False):
     """
     Destripe helper for parallelisation.
 
@@ -710,6 +728,10 @@ def destripe_helper(array, mask=None, smooth=False):
     array : np.ndarray
     mask : np.ndarray, optional
     smooth : bool, optional
+    vectorized_mmm : bool, optional
+        Estimate all row statistics at once with the vectorised MMM
+        (``vircampype.tools.mmmtools``); results equal to float32 rounding.
+        Default False (original per-row estimator).
 
     Returns
     -------
@@ -736,9 +758,12 @@ def destripe_helper(array, mask=None, smooth=False):
             array_copy[mask > 0] = np.nan
 
         # Compute sky mode and sigma in each row
-        row_stats = [mmm(v, minsky=10) for v in array_copy]
-        med_destripe = np.array([s[0] for s in row_stats], dtype=float)
-        sig_destripe = np.array([s[1] for s in row_stats], dtype=float)
+        if vectorized_mmm:
+            med_destripe, sig_destripe, _ = mmm_batch(array_copy, axis=1, minsky=10)
+        else:
+            row_stats = [mmm(v, minsky=10) for v in array_copy]
+            med_destripe = np.array([s[0] for s in row_stats], dtype=float)
+            sig_destripe = np.array([s[1] for s in row_stats], dtype=float)
 
         # Reject only rows where the row statistic failed
         bad_rows = ~(np.isfinite(sig_destripe) & (sig_destripe > 0))
