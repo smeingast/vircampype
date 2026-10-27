@@ -21,7 +21,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Photometry**: 2MASS-based photometric calibration with illumination correction
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction; optional single-exposure pawprint products
-- **Catalog building**: per-pawprint and per-tile source catalogs and a Phase 3 source list per tile (`<name>.sources.fits`) with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
+- **Catalog building**: source catalogs and a Phase 3 source list (`<product>.sources.fits`, one table per detector for stacks and pawprints) for every tile, stack and pawprint product, with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
 - **Completeness testing**: artificial star injection/recovery via SkyMaker and PSFEx to measure detection completeness as a function of magnitude
 - **QC plots**: astrometric and photometric quality control diagnostic plots
 - **Parallel processing**: parallel execution via joblib (threads or processes depending on the operation)
@@ -175,8 +175,8 @@ Processes raw science frames through to final co-added products:
 13. **QC plots** — astrometric and photometric diagnostic plots
 14. **QC summary table** — aggregates the Phase 3 header values of pawprints, stacks and tile (`photzp`, `photzper`, `photzp_scatter` (std of the per-detector PHOTZP of a stack or pawprint), `psf_fwhm`, `ellipticity`, `abmaglim`, `abmagsat`, `comp90`, `comp50`) into `qc/qc_summary.ecsv`
 15. **Completeness** — artificial star injection/recovery to measure detection completeness per sub-tile (optional, via `build_completeness`)
-16. **Source list** — `<name>.sources.fits` (ESO SCIENCE.SRCTBL) from the tile catalog, statistics and classification
-17. **Finalization** — Phase 3 check (`sdpcheck`), then PRODCATG, associations and checksums on every product (tile, exposure map, source list, stacks, pawprints and their weights)
+16. **Source lists** — `<product>.sources.fits` (ESO SCIENCE.SRCTBL) for the tile, every stack and every pawprint product (optional tiers), from the catalog, statistics and classification of each; one table per data array (1 for the tile, 16 for stacks and pawprints)
+17. **Finalization** — Phase 3 check (`sdpcheck`), then PRODCATG, associations and checksums on every product (tile, stacks and pawprints with their weights, exposure map and source lists)
 
 ---
 
@@ -194,8 +194,8 @@ All parameters below are set in the YAML setup file. Default values are used whe
 | `n_jobs` | `-2` | Parallel workers: `0` = all physical cores, `-1` = all minus 1, `-2` = all minus 2, `>0` = exact count (capped at physical cores) |
 | `overwrite` | `false` | Overwrite existing output files |
 | `qc_plots` | `true` | Generate QC diagnostic plots |
-| `build_stacks` | `false` | Build per-offset stacks |
-| `build_pawprints` | `false` | Build one single-exposure pawprint product per raw exposure (`products/pawprints/<name>_NN.pawprint.fits`, ESO SCIENCE.MEFIMAGE, with its weight map) from the resampled pawprints. The pawprint catalogs and their photometric calibration (formerly `calibrate_pawprints`, now deprecated) run if and only if this is set. Enabling it on an existing run: reset the status from `pawprints` (`PipelineStatus.reset_from("pawprints")`), which also rebuilds the QC summary and re-runs the finalizer |
+| `build_stacks` | `false` | Build per-offset stacks (ESO SCIENCE.MEFIMAGE) with their weights, statistics, classification and source lists |
+| `build_pawprints` | `false` | Build one single-exposure pawprint product per raw exposure (`products/pawprints/<name>_NN.pawprint.fits`, ESO SCIENCE.MEFIMAGE, with its weight map and source list) from the resampled pawprints. The pawprint catalogs, their photometric calibration (formerly `calibrate_pawprints`, now deprecated), statistics and classification run if and only if this is set. Enabling it on an existing run: reset the status from `pawprints` (`PipelineStatus.reset_from("pawprints")`), which also rebuilds the QC summary and re-runs the finalizer |
 | `build_tile` | `true` | Build the final co-added tile with its exposure map, catalogs, classification and source list |
 | `reference` | `2023A&A...673A..59M` | Publication written to the REFERENC keyword (ADS bibcode or `doi:...`); default: the vircampype pipeline paper (VISIONS II) |
 | `build_completeness` | `false` | Run completeness analysis on tile |
@@ -250,8 +250,8 @@ path_pype/
     │   ├── resampled/              # Resampled pawprint images
     │   └── statistics/             # Statistics images (exptime, nimg, astrms, astrms_corr, mjd; WINVAR headers with sex_winpos_cap)
     ├── products/
-    │   ├── pawprints/              # Single-exposure pawprint products (optional)
-    │   ├── stacks/                 # Per-offset stack images and catalogs
+    │   ├── pawprints/              # Single-exposure pawprint products and source lists (optional)
+    │   ├── stacks/                 # Per-offset stacks, weights, source lists and catalogs
     │   └── tile/                   # Final co-added tile, its weight and exposure map, source list and catalogs
     ├── qc/                         # Quality control plots
     │   ├── astrometry/
@@ -277,7 +277,7 @@ needed and are safe to delete between runs.
 
 ## Source list flags
 
-`<name>.sources.fits` (built for every tile) carries three flag columns:
+Every source list (`<product>.sources.fits`) carries three flag columns:
 
 - `SFLG`: SExtractor `FLAGS` unchanged. Bits 1 (neighbours), 2 (deblended) and 4 (saturated
   pixel) are informational; bits 8-128 (truncated, corrupted data, memory overflow) are fatal (`CFLG_REASON` 16).
