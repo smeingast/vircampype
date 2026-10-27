@@ -1218,7 +1218,9 @@ class Pipeline:
         """Generate QC plots for tile astrometric residuals and write CRDER1/2."""
         self.sources_tile_cal.plot_qc_astrometry_1d()
         self.sources_tile_cal.plot_qc_astrometry_2d()
-        self.sources_tile_cal.write_crder(self.tile)
+        # The tile (or mosaic) positions average all exposures: their mean epoch
+        mjd = sum(self.resampled.mjd) / self.resampled.n_files
+        self.sources_tile_cal.write_crder(self.tile, mjd=[mjd])
 
     @pipeline_step("qc_psf_tile", message="TILE QC PSF")
     def qc_psf_tile(self):

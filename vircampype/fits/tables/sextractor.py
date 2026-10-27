@@ -1179,13 +1179,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             logger=log,
         )
 
-    def write_crder(self, images) -> None:
+    def write_crder(self, images, mjd: list[float] | None = None) -> None:
         """
         Write CRDER1/CRDER2 into the images these catalogs were extracted from.
 
         CRDER1/2 are the 3-sigma-clipped RMS of the per-axis residuals of the clean
         point sources with S/N > 50 against the Gaia reference, propagated to the
-        mean epoch of the catalogs (D9). An HDU with fewer than 10 matches gets no
+        epoch of each catalog (D9). An HDU with fewer than 10 matches gets no
         cards and a warning.
 
         Parameters
@@ -1193,6 +1193,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         images : SkyImages
             Images matching these catalogs file by file (tile: its image; stacks: every
             detector).
+        mjd : list[float] | None, optional
+            Epoch of each catalog; default its MJD-OBS (the first exposure). A coadd
+            spanning many epochs passes the mean MJD of its exposures.
 
         Raises
         ------
@@ -1203,11 +1206,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         sc_master_raw = self.get_master_astrometry().skycoord[0][0]
         for idx, path in enumerate(self.paths_full):
-            # Gaia reference at the epoch of this file (pawprints may span years)
+            # Gaia reference at the epoch of this catalog
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 reference = sc_master_raw.apply_space_motion(
-                    new_obstime=Time(self.mjd[idx], format="mjd")
+                    new_obstime=Time((mjd or self.mjd)[idx], format="mjd")
                 )
             hdus_img = list(images.iter_data_hdu[idx])
             hdus_cat = list(self.iter_data_hdu[idx])
