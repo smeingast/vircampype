@@ -46,22 +46,39 @@ def _sample_statistics_grid(
     exptime: np.ndarray,
     nimg: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Sample the statistics images at the nearest pixel of each source.
+    """Sample the statistics images at the nearest covered pixel of each source.
 
     ``xx``/``yy`` are 0-based pixel coordinates on the statistics grid; all three
-    images must be on that grid. Sources off the grid or without coverage
-    (``nimg < 1``) are bad: NaN MJD, zero EXPTIME and NIMG. Coverage is judged on
-    the statistics grid only; holes below its pixel scale are left to SExtractor
-    FLAGS_WEIGHT. Returns (mjdeff, exptime, nimg, off_grid, bad).
+    images must be on that grid. The coarse grid can cut a coverage edge short by up
+    to a pixel, so a source whose nearest pixel is uncovered (``nimg < 1``) or just
+    off the grid takes the nearest covered pixel within one pixel. Sources without
+    one are bad: NaN MJD, zero EXPTIME and NIMG. Holes below the grid's pixel scale
+    are left to SExtractor FLAGS_WEIGHT. Returns (mjdeff, exptime, nimg, off_grid,
+    bad), off_grid for the nearest pixel.
     """
-    ix = np.floor(np.asarray(xx) + 0.5).astype(int)
-    iy = np.floor(np.asarray(yy) + 0.5).astype(int)
-    off = (ix < 0) | (ix >= nimg.shape[1]) | (iy < 0) | (iy >= nimg.shape[0])
-    ix[off], iy[off] = 0, 0
-    mjdeff_s = mjdeff[iy, ix].astype(float)
-    exptime_s = exptime[iy, ix].astype(float)
-    nimg_s = nimg[iy, ix].astype(float)
-    bad = off | ~(nimg_s >= 1)
+    xx, yy = np.asarray(xx, dtype=float), np.asarray(yy, dtype=float)
+    ny, nx = nimg.shape
+    ix = np.floor(xx + 0.5).astype(int)
+    iy = np.floor(yy + 0.5).astype(int)
+    off = (ix < 0) | (ix >= nx) | (iy < 0) | (iy >= ny)
+
+    # Nearest covered pixel of the 3x3 neighbourhood (the centre wins if covered)
+    best = np.full(xx.shape, np.inf)
+    px, py = np.zeros_like(ix), np.zeros_like(iy)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            cx, cy = ix + dx, iy + dy
+            inside = (cx >= 0) & (cx < nx) & (cy >= 0) & (cy < ny)
+            covered = np.zeros(xx.shape, dtype=bool)
+            covered[inside] = nimg[cy[inside], cx[inside]] >= 1
+            dist = (cx - xx) ** 2 + (cy - yy) ** 2
+            take = covered & (dist < best)
+            best[take], px[take], py[take] = dist[take], cx[take], cy[take]
+    bad = ~np.isfinite(best)
+
+    mjdeff_s = mjdeff[py, px].astype(float)
+    exptime_s = exptime[py, px].astype(float)
+    nimg_s = nimg[py, px].astype(float)
     mjdeff_s[bad], exptime_s[bad], nimg_s[bad] = np.nan, 0.0, 0.0
     return mjdeff_s, exptime_s, nimg_s, off, bad
 
