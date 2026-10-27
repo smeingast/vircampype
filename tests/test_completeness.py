@@ -12,13 +12,10 @@ import numpy as np
 from astropy.io import fits
 
 from tests.test_sdpcheck import make_products
-from vircampype.tools.completeness import (
-    _fit_completeness,
-    _generate_star_list,
-    _logistic,
-    build_completeness_image,
-    completeness_cards,
-)
+from vircampype.tools.completeness import (_fit_completeness,
+                                           _generate_star_list, _logistic,
+                                           build_completeness_image,
+                                           completeness_cards)
 from vircampype.tools.fitstools import _compute_tile_edges
 from vircampype.tools.productmeta import set_cards
 
@@ -182,15 +179,9 @@ class TestCompletenessCards(unittest.TestCase):
         conf = np.ones((8, 8), dtype=np.float32)
         conf[0] = 0
         with tempfile.TemporaryDirectory() as tmp:
-            wpath = os.path.join(tmp, "tile.fits")
+            wpath = os.path.join(tmp, "tile.weight.fits")
             out = os.path.join(tmp, "comp.fits")
-            fits.HDUList(
-                [
-                    fits.PrimaryHDU(),
-                    fits.ImageHDU(np.full((8, 8), 5, dtype=np.float32), name="SCI"),
-                    fits.ImageHDU(conf, name="CONF"),
-                ]
-            ).writeto(wpath)
+            fits.writeto(wpath, conf)
             build_completeness_image(
                 [{"grid_index": (0, 0), "comp90": 18.0}],
                 hdr,
@@ -198,23 +189,21 @@ class TestCompletenessCards(unittest.TestCase):
                 out,
                 resize_factor=1.0,
                 weight_path=wpath,
-                weight_hdu="CONF",
             )
             image = fits.getdata(out)
         self.assertTrue(np.all(np.isnan(image[0])))
         self.assertTrue(np.all(image[1:] == 18.0))
 
-    def test_set_cards_on_sci(self):
+    def test_set_cards_on_image(self):
         results = [{"comp90": 18.0, "comp50": 19.0}]
         with tempfile.TemporaryDirectory() as tmp:
             tile = make_products(tmp, final=False)["tile"]
             with fits.open(tile) as hdul:
-                datloc = hdul.fileinfo(1)["datLoc"]
-            set_cards(tile, completeness_cards(results), hdu="SCI")
+                datloc = hdul.fileinfo(0)["datLoc"]
+            set_cards(tile, completeness_cards(results), hdu=0)
             with fits.open(tile) as hdul:
-                self.assertEqual(hdul[1].header["COMP90MD"], 18.0)
-                self.assertNotIn("COMP90MD", hdul[0].header)
-                self.assertEqual(hdul.fileinfo(1)["datLoc"], datloc)
+                self.assertEqual(hdul[0].header["COMP90MD"], 18.0)
+                self.assertEqual(hdul.fileinfo(0)["datLoc"], datloc)
 
 
 if __name__ == "__main__":

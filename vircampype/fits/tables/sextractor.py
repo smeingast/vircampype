@@ -1191,7 +1191,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         Parameters
         ----------
         images : SkyImages
-            Images matching these catalogs file by file (tile: SCI; stacks: every
+            Images matching these catalogs file by file (tile: its image; stacks: every
             detector).
 
         Raises
@@ -1651,10 +1651,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             file_paths=file_paths, setup=setup
         )
 
-    def write_photometric_cards(self, images, elliptic_primary: bool = False) -> None:
+    def write_photometric_cards(self, images) -> None:
         """
         Write the Phase 3 photometric cards into the images these catalogs were
-        extracted from (tile SCI or every stack detector).
+        extracted from (tile image or every stack detector).
 
         Every data HDU of an image gets PHOTZP, PHOTZPER, PHOTSYS, ABMAGLIM,
         ABMAGSAT, PSF_FWHM and ELLIPTIC from ``photometric_cards`` on the matching
@@ -1664,9 +1664,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         ----------
         images : SkyImages
             Images matching these catalogs file by file.
-        elliptic_primary : bool, optional
-            Also write ELLIPTIC to the primary (single-image tile, SCIENCE.IMAGE):
-            ESO's validator requires it there (batch 23808). Default False.
 
         Raises
         ------
@@ -1702,13 +1699,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     f"PSF_FWHM={values['PSF_FWHM']}"
                 )
             primary = [("FLUXCAL", "ABSOLUTE", "Flux calibration")]
-            if elliptic_primary:
-                if len(hdus_img) != 1:
-                    raise PipelineValueError(
-                        f"ELLIPTIC in the primary needs a single data HDU, "
-                        f"{images.paths_full[idx]} has {len(hdus_img)}"
-                    )
-                primary += [card for card in cards if card[0] == "ELLIPTIC"]
             set_cards(images.paths_full[idx], primary, hdu=0)
 
     def _merged_table(self, clean=True):
@@ -3749,7 +3739,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         """Per-aperture MAGERR inflation for the public catalog of one coadd.
 
         The resampling ratio is the coadd pixel scale (from ``header``, the
-        tile SCI header) over ``setup.native_pixel_scale``.
+        tile image header) over ``setup.native_pixel_scale``.
 
         Returns
         -------
@@ -3852,9 +3842,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             passband_2mass = master_phot.translate_passband(passband)
             log.info(f"Passband input: {passband}; passband 2MASS: {passband_2mass}")
 
-            # Tile headers (no image data)
-            tile_primary = fits.getheader(path_tile, 0)
-            sci = fits.getheader(path_tile, "SCI")
+            # Tile image header (no image data)
+            tile_header = fits.getheader(path_tile, 0)
 
             # Load source, statistics and classification tables
             tables_file = self.file2table(file_index=idx_file)
@@ -3928,10 +3917,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             interpolate_classification(table, table_class)
 
             # Correlated-noise inflation of the aperture errors (per aperture); the
-            # SCI header carries the WCS of the tile
+            # The tile image header carries the WCS of the tile
             magerr_scale, scale_ratio = None, None
             if self.setup.photometric_error_correlated_noise:
-                magerr_scale, scale_ratio = self._public_magerr_scale(sci)
+                magerr_scale, scale_ratio = self._public_magerr_scale(tile_header)
                 log.info(
                     f"Correlated-noise MAGERR inflation "
                     f"({self.setup.resampling_kernel}, scale ratio "
@@ -4005,8 +3994,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     sources,
                     path_tmp,
                     os.path.basename(path_tile),
-                    tile_primary,
-                    sci,
+                    tile_header,
                     passband,
                     primary_cards,
                     table_cards,

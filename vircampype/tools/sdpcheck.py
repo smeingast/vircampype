@@ -1,8 +1,8 @@
 """ESO Phase 3 (SDP standard v8) checks for the vircampype products.
 
-The only validation authority of v3.0: one explicit check per product shape (T1 MEF
-tile, T3 exposure map, T4 source list, S1 stack, S2 weight, and the VISIONS region
-catalogue SCIENCE.CATALOG), plus batch and catalog family checks. Findings are strings ``"<file>[<hdu>]: <problem>"``; [] means compliant.
+The only validation authority of v3.0: one explicit check per product shape (T1 tile
+image, T2 tile weight, T3 exposure map, T4 source list, S1 stack, S2 stack weight, and
+the VISIONS region catalogue SCIENCE.CATALOG), plus batch and catalog family checks. Findings are strings ``"<file>[<hdu>]: <problem>"``; [] means compliant.
 Every image has as many provenance entries as NCOMBINE, and NCOMBINE = 1 means
 EXPTIME = TEXPTIME (single exposures).
 
@@ -84,13 +84,12 @@ _PHOT_KEYS = ("PHOTSYS",) + _PHOT_NUMBERS
 _WCS_STRINGS = ("CTYPE1", "CTYPE2")
 _WCS_NUMBERS = ("CRVAL1", "CRVAL2", "CRPIX1", "CRPIX2")
 _WCS_NUMBERS += ("CD1_1", "CD1_2", "CD2_1", "CD2_2")
-# Pixel grid: CONF and EXPMAP must equal SCI here
-_GRID_KEYS = ("NAXIS1", "NAXIS2", "CUNIT1", "CUNIT2") + _WCS_STRINGS + _WCS_NUMBERS
+# Pixel grid: weights and exposure map must equal their image here
+_GRID_KEYS = ("NAXIS1", "NAXIS2", "CUNIT1", "CUNIT2", "RADESYS", "EQUINOX")
+_GRID_KEYS += _WCS_STRINGS + _WCS_NUMBERS
 # Other WCS conventions and alternate WCS sets (suffix A-Z) are not allowed (§5.4)
 _WCS_FORBIDDEN = r"(PC\d+_\d+|PC\d{6}|CDELT\d+|CROTA\d+)[A-Z]?"
 _WCS_FORBIDDEN += r"|(CD\d+_\d+|CRVAL\d+|CRPIX\d+|CTYPE\d+|CUNIT\d+)[A-Z]"
-_HDUCLASS = {"HDUCLASS": "ESO", "HDUDOC": "SDP"}
-_HDUCLASS |= {"HDUVERS": "SDP version 8", "HDUCLAS1": "IMAGE"}
 _MAX_STRING = 68
 # Tolerance for TEXPTIME <= (MJD-END - MJD-OBS) * 86400: MJD values written with
 # 8 decimals are rounded to 0.43 ms each
@@ -134,7 +133,7 @@ def check_product(
             return problems
 
         if category == "SCIENCE.IMAGE":
-            problems += _check_image_mef(path, hdul, final)
+            problems += _check_image(path, hdul, final)
         elif category == "ANCILLARY.EXPMAP":
             problems += _check_expmap(path, hdul)
         elif category == "SCIENCE.SRCTBL":
@@ -378,96 +377,66 @@ def main(argv: list[str] | None = None) -> int:
 
 
 # Product shapes
-def _check_image_mef(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
-    """T1 SCIENCE.IMAGE in MEF format: empty primary, SCI, CONF (§6.2.1.2, §2.1)."""
+def _check_image(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
+    """T1 SCIENCE.IMAGE: image in the primary, associated weight and exposure map
+    (§6.2.1.1, §2.1); an optional PHASE3PROVENANCE extension."""
     name = os.path.basename(path)
     primary = hdul[0].header
     where = f"{name}[0]"
-    problems = _check_no_data(primary, where)
-    problems += _check_observation(primary, where)
+    extnames = [hdu.name for hdu in hdul[1:]]
+    if not _is_image(primary) or extnames not in ([], ["PHASE3PROVENANCE"]):
+        return [
+            (
+                f"{name}: expected 2-D data in the primary (NAXIS = 2) and at most a "
+                f"PHASE3PROVENANCE extension, found NAXIS = {primary.get('NAXIS')} and "
+                f"extensions {extnames}"
+            )
+        ]
+    problems = _check_observation(primary, where)
     problems += _expect(primary, "FLUXCAL", ("ABSOLUTE",), where)
     problems += _check_prov(hdul, where)
     problems += _check_ncombine(hdul, where)
-
-    extnames = [hdu.name for hdu in hdul[1:]]
-    layout = extnames[:2] == ["SCI", "CONF"] and extnames[2:] in (
-        [],
-        ["PHASE3PROVENANCE"],
-    )
-    if not layout or any(type(hdu) is not fits.ImageHDU for hdu in hdul[1:3]):
-        problems.append(
-            f"{name}: extensions {extnames}, expected image extensions SCI and CONF "
-            "(and optionally PHASE3PROVENANCE)"
-        )
-        return problems
-
-    sci, conf = hdul[1].header, hdul[2].header
-    where_sci, where_conf = f"{name}[1]", f"{name}[2]"
-    for key, value in _HDUCLASS.items():
-        problems += _expect(sci, key, (value,), where_sci)
-        problems += _expect(conf, key, (value,), where_conf)
-
-    problems += _expect(sci, "HDUCLAS2", ("DATA",), where_sci)
-    problems += _expect(sci, "CONFDATA", ("CONF",), where_sci)
-    problems += _forbid(sci, ("SCIDATA",), where_sci)
-    problems += _require(sci, ("BUNIT",), where_sci)
-    problems += _require_numbers(sci, ("MJD-OBS",), where_sci)
-    problems += _check_wcs(sci, where_sci)
-    problems += _check_photometry(sci, where_sci)
-
-    # ESO's validator requires ELLIPTIC in the primary of the tile (batch 23808)
-    problems += _require_numbers(primary, ("ELLIPTIC",), where)
-    problems += _compare(primary, sci, ("ELLIPTIC",), where, "SCI")
-
-    problems += _expect(conf, "HDUCLAS2", ("CONF",), where_conf)
-    problems += _expect(conf, "SCIDATA", ("SCI",), where_conf)
-    problems += _forbid(conf, ("CONFDATA",), where_conf)
-    problems += _compare(conf, sci, _GRID_KEYS, where_conf, "SCI")
+    problems += _forbid(primary, _hduclass_keys(primary), where)
+    problems += _require(primary, ("BUNIT",), where)
+    problems += _check_wcs(primary, where)
+    problems += _check_photometry(primary, where)
 
     if final:
-        found, headers = _associated(path, primary, "ANCILLARY.EXPMAP", where)
+        prodcatgs = ("ANCILLARY.WEIGHTMAP", "ANCILLARY.EXPMAP")
+        found, associated = _associated(path, primary, prodcatgs, where)
         problems += found
-        if headers is not None:
-            expmaps = [
-                header for header in headers[1:] if header.get("EXTNAME") == "EXPMAP"
-            ]
-            if not expmaps:
-                problems.append(f"{where}: ASSON1 {primary['ASSON1']!r} has no EXPMAP")
-            else:
-                label = f"{where}: ASSON1 {primary['ASSON1']} EXPMAP"
-                problems += _compare(expmaps[0], sci, _GRID_KEYS, label, "SCI")
-                expmap = os.path.join(os.path.dirname(path), primary["ASSON1"])
-                problems += _check_exptime(primary, expmap, where)
+        if associated is not None:
+            for key, headers in zip(("ASSON1", "ASSON2"), associated):
+                label = f"{where}: {key} {primary[key]}"
+                problems += _compare(headers[0], primary, _GRID_KEYS, label, name)
+            expmap = os.path.join(os.path.dirname(path), primary["ASSON2"])
+            problems += _check_exptime(primary, expmap, where)
     return problems
 
 
 def _check_expmap(path: str, hdul: fits.HDUList) -> list[str]:
-    """T3 ANCILLARY.EXPMAP: empty primary and one EXPMAP extension (§4.3.1, §2.3)."""
+    """T3 ANCILLARY.EXPMAP: exposure map in the primary, as its image (§4.3.1, §2.3)."""
     name = os.path.basename(path)
-    primary = hdul[0].header
+    header = hdul[0].header
     where = f"{name}[0]"
-    problems = _check_no_data(primary, where)
-    problems += _require(primary, ("OBJECT", "FILTER"), where)
-    problems += _forbid(primary, _indexed_keys(primary, "ASSON"), where)
-
-    extnames = [hdu.name for hdu in hdul[1:]]
-    if extnames != ["EXPMAP"] or type(hdul[1]) is not fits.ImageHDU:
-        problems.append(f"{name}: extensions {extnames}, expected one image EXPMAP")
-        return problems
-
-    header = hdul[1].header
-    where = f"{name}[1]"
+    if not _is_image(header) or len(hdul) != 1:
+        return [
+            (
+                f"{name}: expected one HDU with 2-D data (NAXIS = 2), found "
+                f"NAXIS = {header.get('NAXIS')} and {len(hdul) - 1} extensions"
+            )
+        ]
+    problems = _require(header, ("OBJECT", "FILTER"), where)
+    problems += _forbid(header, _indexed_keys(header, "ASSON"), where)
     problems += _expect(header, "BUNIT", ("s",), where)
     problems += _expect(header, "BITPIX", (16, -32), where)
     problems += _forbid(header, ("BLANK",), where)
     problems += _check_wcs(header, where)
-    data = hdul[1].data
-    if data is not None and data.ndim == 2:
-        not_finite, negative, _ = scan_expmap(data)
-        if not_finite:
-            problems.append(f"{where}: EXPMAP contains NaN or Inf (void pixels are 0)")
-        if negative:
-            problems.append(f"{where}: EXPMAP contains negative values")
+    not_finite, negative, _ = scan_expmap(hdul[0].data)
+    if not_finite:
+        problems.append(f"{where}: EXPMAP contains NaN or Inf (void pixels are 0)")
+    if negative:
+        problems.append(f"{where}: EXPMAP contains negative values")
     return problems
 
 
@@ -505,7 +474,7 @@ def median_from_counts(counts: dict) -> float:
 def _check_exptime(primary: fits.Header, expmap: str, where: str) -> list[str]:
     """EXPTIME = exact median of the nonzero EXPMAP pixels, within 1 % (§4.3.1)."""
     with fits.open(expmap, memmap=True) as hdul:
-        data = hdul["EXPMAP"].data
+        data = hdul[0].data
         if data is None or data.ndim != 2:
             return []  # reported by the EXPMAP check
         counts = scan_expmap(data)[2]
@@ -561,14 +530,10 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
             problems += _compare(
                 primary, headers[0], keys + tuple(indexed), where, label
             )
-            scis = [header for header in headers[1:] if header.get("EXTNAME") == "SCI"]
-            if not scis:
-                problems.append(f"{where}: PROV1 file {tile!r} has no SCI extension")
-            else:
-                label = f"{tile} SCI"
-                problems += _compare(
-                    table.header, scis[0], _PHOT_KEYS, where_table, label
-                )
+            label = f"{tile} primary"
+            problems += _compare(
+                table.header, headers[0], _PHOT_KEYS, where_table, label
+            )
     return problems
 
 
@@ -673,9 +638,10 @@ def _check_mefimage(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
         problems += _check_photometry(header, where_ext, unmeasured_psf=True)
 
     if final:
-        found, headers = _associated(path, primary, "ANCILLARY.WEIGHTMAP", where)
+        found, associated = _associated(path, primary, ("ANCILLARY.WEIGHTMAP",), where)
         problems += found
-        if headers is not None:
+        if associated is not None:
+            headers = associated[0]
             weight = primary["ASSON1"]
             if len(headers) - 1 != len(images):
                 problems.append(
@@ -685,21 +651,31 @@ def _check_mefimage(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
             else:
                 for index, hdu in enumerate(images, start=1):
                     label = f"{where}: ASSON1 {weight}[{index}]"
-                    keys = ("NAXIS1", "NAXIS2")
-                    problems += _compare(headers[index], hdu.header, keys, label, name)
+                    problems += _compare(
+                        headers[index], hdu.header, _GRID_KEYS, label, name
+                    )
     return problems
 
 
 def _check_weightmap(path: str, hdul: fits.HDUList) -> list[str]:
-    """S2 ANCILLARY.WEIGHTMAP: empty primary and 16 extensions (§4.3.4, §2.3)."""
+    """Weight map (§4.3.4, §2.3): T2 tile weight in the primary, or S2 stack weight
+    with an empty primary and 16 extensions; BUNIT on every data HDU."""
     name = os.path.basename(path)
     primary = hdul[0].header
     where = f"{name}[0]"
-    problems = _check_no_data(primary, where)
-    problems += _require(primary, ("OBJECT", "FILTER"), where)
+    problems = _require(primary, ("OBJECT", "FILTER"), where)
     problems += _forbid(primary, _indexed_keys(primary, "ASSON"), where)
+    if _is_image(primary):
+        if len(hdul) != 1:
+            problems.append(f"{name}: {len(hdul) - 1} extensions, expected none")
+        problems += _require(primary, ("BUNIT",), where)
+        problems += _check_wcs(primary, where)
+        return problems
 
+    problems += _check_no_data(primary, where)
     problems += _check_detectors(name, hdul[1:])
+    for index, hdu in enumerate(hdul[1:], start=1):
+        problems += _require(hdu.header, ("BUNIT",), f"{name}[{index}]")
     return problems
 
 
@@ -1077,6 +1053,12 @@ def _compare(
     return problems
 
 
+def _is_image(header: fits.Header) -> bool:
+    """The HDU holds 2-D data (NAXIS = 2, NAXIS1/2 > 0)."""
+    shape = [header.get(key) for key in ("NAXIS1", "NAXIS2")]
+    return header.get("NAXIS") == 2 and all(_is_number(n) and n > 0 for n in shape)
+
+
 def _check_no_data(header: fits.Header, where: str) -> list[str]:
     """The primary HDU of every product carries no data."""
     if header.get("NAXIS", 0) != 0:
@@ -1087,25 +1069,34 @@ def _check_no_data(header: fits.Header, where: str) -> list[str]:
 
 
 def _associated(
-    path: str, header: fits.Header, prodcatg: str, where: str
-) -> tuple[list[str], list[fits.Header] | None]:
+    path: str, header: fits.Header, prodcatgs: tuple[str, ...], where: str
+) -> tuple[list[str], list[list[fits.Header]] | None]:
     """
-    Check that the primary names exactly one association (ASSON1) and that this file
-    exists next to ``path`` with the given PRODCATG. Returns the findings and the
-    headers of the associated file (None if it is unusable).
+    Check that the primary names exactly the associations ASSON1..n, one per entry of
+    ``prodcatgs``, and that each file exists next to ``path`` with that PRODCATG.
+    Returns the findings and the headers of each associated file (None if any is
+    unusable).
     """
     keys = _indexed_keys(header, "ASSON")
-    if keys != ["ASSON1"]:
+    expected = [f"ASSON{i}" for i in range(1, len(prodcatgs) + 1)]
+    if keys != expected:
         found = ", ".join(keys) or "none"
-        return [f"{where}: associations {found}, expected exactly ASSON1"], None
-    asson = header["ASSON1"]
-    headers = _read_headers(os.path.join(os.path.dirname(path), str(asson)))
-    if headers is None:
-        return [f"{where}: ASSON1 file {asson!r} not found next to this file"], None
-    if headers[0].get("PRODCATG") != prodcatg:
-        found = headers[0].get("PRODCATG")
-        return [f"{where}: ASSON1 {asson!r} is {found!r}, expected {prodcatg!r}"], None
-    return [], headers
+        return [f"{where}: associations {found}, expected {', '.join(expected)}"], None
+    problems, associated = [], []
+    for key, prodcatg in zip(keys, prodcatgs):
+        asson = header[key]
+        headers = _read_headers(os.path.join(os.path.dirname(path), str(asson)))
+        if headers is None:
+            problems.append(
+                f"{where}: {key} file {asson!r} not found next to this file"
+            )
+        elif headers[0].get("PRODCATG") != prodcatg:
+            found = headers[0].get("PRODCATG")
+            problems.append(
+                f"{where}: {key} {asson!r} is {found!r}, expected {prodcatg!r}"
+            )
+        associated.append(headers)
+    return problems, None if problems else associated
 
 
 def _read_headers(path: str) -> list[fits.Header] | None:

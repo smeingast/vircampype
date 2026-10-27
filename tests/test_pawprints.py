@@ -22,7 +22,8 @@ from tests.test_productmeta import raw_header
 from tests.test_sdpcheck import PHOTOMETRY, WCS
 from tests.test_sources_cards import _catalog_table
 from vircampype.fits.images.sky import Pawprints, SkyImagesResampled
-from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
+from vircampype.fits.tables.sextractor import \
+    PhotometricCalibratedSextractorCatalogs
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.mathtools import centroid_sphere
 from vircampype.tools.productmeta import finalize_files, set_cards
@@ -229,7 +230,7 @@ class TestBuildPawprints(unittest.TestCase):
                 self.assertTrue(np.array_equal(hdul[k].data, hdul_in[k].data))
                 for key in STAMPS:
                     self.assertNotIn(key, hdul[k].header)
-                self.assertNotIn("BUNIT", hdul[k].header)
+                self.assertEqual(hdul[k].header["BUNIT"], "adu**(-2)")
 
     def test_inputs_unchanged(self):
         with fits.open(self.input) as hdul:

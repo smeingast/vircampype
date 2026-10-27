@@ -13,7 +13,6 @@ from vircampype.tools.fitstools import (
     add_int_to_header,
     add_key_primary_hdu,
     add_str_to_header,
-    assemble_tile_mef,
     check_card_value,
     combine_mjd_images,
     delete_keyword_from_header,
@@ -24,6 +23,7 @@ from vircampype.tools.fitstools import (
     mjd2dateobs,
     read_fits_headers,
     tile_fits,
+    write_tile_pair,
 )
 from vircampype.tools.sdpcheck import check_product
 
@@ -232,7 +232,11 @@ class TestMakeMefImage(unittest.TestCase):
                 paths.append(path)
             for n_blank in (0, 36):
                 out = os.path.join(tmp, f"out{n_blank}.fits")
-                make_mef_image(paths, out, n_blank=n_blank)
+                make_mef_image(
+                    paths, out, n_blank=n_blank, extension_cards=[("BUNIT", "s", "")]
+                )
+                self.assertEqual(fits.getval(out, "BUNIT", 2), "s")
+                self.assertNotIn("BUNIT", fits.getheader(out, 0))
                 with fits.open(out) as hdul:
                     self.assertEqual(len(hdul), 3)
                     for hdu in hdul:
@@ -244,8 +248,8 @@ class TestMakeMefImage(unittest.TestCase):
                         self.assertEqual(n, n_blank, hdu.name)
 
 
-class TestAssembleTileMef(unittest.TestCase):
-    """MEF tile from tiny SWarp-like image and weight files."""
+class TestWriteTilePair(unittest.TestCase):
+    """Tile image and weight from tiny SWarp-like image and weight files."""
 
     M1B_CARDS = (
         "PHOTZP",
@@ -269,6 +273,7 @@ class TestAssembleTileMef(unittest.TestCase):
         header["DATE"] = "2026-10-26T12:00:00"
         header["AUTHOR"] = "stefan"
         header["SOFTNAME"] = "SWarp"
+        header["COMMENT"] = "Propagated FITS keywords"
         rng = np.random.default_rng(1)
         self.image = rng.normal(0, 1, (8, 8)).astype(np.float32)
         self.weight = rng.uniform(0, 2, (8, 8)).astype(np.float32)
@@ -280,32 +285,34 @@ class TestAssembleTileMef(unittest.TestCase):
             weight_header[key] = 0.0
         fits.writeto(self.path_weight, self.weight, header=weight_header)
         self.path_out = os.path.join(self._tmp.name, "tiny.fits")
-        self.sci_cards = [("BACKMODE", 1.234, "Background mode")]
+        self.path_out_weight = os.path.join(self._tmp.name, "tiny.weight.fits")
+        self.image_cards = [("BACKMODE", 1.234, "Background mode")]
 
     def _bytes(self) -> tuple[bytes, bytes]:
         with open(self.path_image, "rb") as f1, open(self.path_weight, "rb") as f2:
             return f1.read(), f2.read()
 
-    def _assemble(self, primary: fits.Header, extra_hdus: list = ()) -> None:
+    def _write(self, primary: fits.Header, extra_hdus: list = ()) -> None:
         before = self._bytes()
-        assemble_tile_mef(
+        write_tile_pair(
             self.path_image,
             self.path_weight,
             self.path_out,
+            self.path_out_weight,
             primary,
-            sci_cards=self.sci_cards,
+            image_cards=self.image_cards,
             extra_hdus=extra_hdus,
         )
         self.assertEqual(self._bytes(), before)
 
     def _assert_m1b_findings_only(self) -> None:
         findings = check_product(self.path_out, "SCIENCE.IMAGE", final=False)
-        self.assertEqual(len(findings), 8, findings)
-        # ELLIPTIC is also required in the primary (ESO validator, batch 23808)
-        primary = [f for f in findings if f.startswith("tiny.fits[0]")]
-        self.assertEqual(primary, ["tiny.fits[0]: missing ELLIPTIC"])
-        sci = [f for f in findings if f.startswith("tiny.fits[1]")]
-        self.assertEqual({f.split()[-1] for f in sci}, set(self.M1B_CARDS))
+        self.assertEqual(
+            {f.split()[-1] for f in findings}, set(self.M1B_CARDS), findings
+        )
+        self.assertEqual(
+            check_product(self.path_out_weight, "ANCILLARY.WEIGHTMAP", final=False), []
+        )
 
     def _assert_blanks(self, hdul: fits.HDUList) -> None:
         for hdu in hdul:
@@ -320,40 +327,40 @@ class TestAssembleTileMef(unittest.TestCase):
     def test_layout(self):
         primary = _observation(fluxcal=True)
         primary.update(_prov(RAW_FILES))
-        self._assemble(primary)
-        with fits.open(self.path_out) as hdul:
-            self.assertEqual([h.name for h in hdul], ["PRIMARY", "SCI", "CONF"])
-            p, sci, conf = (h.header for h in hdul)
-            self.assertEqual(p["NAXIS"], 0)
-            self.assertIs(p["EXTEND"], True)
-            self.assertEqual(hdul[1].data.dtype.name, "float32")
-            self.assertEqual(hdul[2].data.dtype.name, "float32")
-            self.assertTrue(np.array_equal(hdul[1].data, self.image))
-            self.assertTrue(np.array_equal(hdul[2].data, self.weight))
+        self._write(primary)
+        with fits.open(self.path_out) as hdul, fits.open(self.path_out_weight) as hdulw:
+            self.assertEqual(len(hdul), 1)
+            self.assertEqual(len(hdulw), 1)
+            image, weight = hdul[0].header, hdulw[0].header
+            self.assertEqual(hdul[0].data.dtype.name, "float32")
+            self.assertEqual(hdulw[0].data.dtype.name, "float32")
+            self.assertTrue(np.array_equal(hdul[0].data, self.image))
+            self.assertTrue(np.array_equal(hdulw[0].data, self.weight))
 
-            for header, clas2 in ((sci, "DATA"), (conf, "CONF")):
-                self.assertEqual(header["HDUCLASS"], "ESO")
-                self.assertEqual(header["HDUDOC"], "SDP")
-                self.assertEqual(header["HDUVERS"], "SDP version 8")
-                self.assertEqual(header["HDUCLAS1"], "IMAGE")
-                self.assertEqual(header["HDUCLAS2"], clas2)
+            # Observation block first, then SWarp's cards; primary values win
+            keys = list(image.keys())
+            self.assertLess(keys.index("PROV2"), keys.index("CTYPE1"))
+            self.assertEqual(image["MJD-OBS"], primary["MJD-OBS"])
+            self.assertEqual(image["EXPTIME"], primary["EXPTIME"])
+            for header in (image, weight):
                 for key in ("CTYPE1", "CRVAL1", "CRPIX2", "CD1_1", "CD2_2"):
                     self.assertEqual(header[key], WCS[key])
-                for key in ("ORIGIN", "DATE", "AUTHOR", "EXPTIME"):
+                for key in ("DATE", "AUTHOR", "EXTNAME", "HDUCLASS", "COMMENT"):
                     self.assertNotIn(key, header)
                 self.assertEqual(header["SOFTNAME"], "SWarp")
-            self.assertEqual(sci["CONFDATA"], "CONF")
-            self.assertEqual(sci["BUNIT"], "adu")
-            self.assertEqual(sci["GAIN"], 12.5)
-            self.assertEqual(sci["SATURATE"], 30000.0)
-            self.assertEqual(sci["MJD-OBS"], 58569.37)
-            self.assertEqual(sci["BACKMODE"], 1.234)
-            self.assertNotIn("SCIDATA", sci)
-            self.assertEqual(conf["SCIDATA"], "SCI")
-            for key in ("GAIN", "SATURATE", "CONFDATA", "BACKMODE"):
-                self.assertNotIn(key, conf)
-            self.assertNotIn("BACKMODE", p)
+                self.assertEqual(header["OBJECT"], "TINY")
+                self.assertEqual(header["FILTER"], "H")
+            self.assertEqual(image["ORIGIN"], "ESO-PARANAL")  # not SWarp's host
+            self.assertNotIn("ORIGIN", weight)
+            self.assertEqual(image["BUNIT"], "adu")
+            self.assertEqual(image["GAIN"], 12.5)
+            self.assertEqual(image["SATURATE"], 30000.0)
+            self.assertEqual(image["BACKMODE"], 1.234)
+            self.assertEqual(weight["BUNIT"], "adu**(-2)")
+            for key in ("GAIN", "SATURATE", "BACKMODE", "EXPTIME", "MJD-OBS", "PROV1"):
+                self.assertNotIn(key, weight)
             self._assert_blanks(hdul)
+            self._assert_blanks(hdulw)
         self._assert_m1b_findings_only()
 
     def test_provenance_extension(self):
@@ -361,19 +368,18 @@ class TestAssembleTileMef(unittest.TestCase):
         primary["PROVXTN"] = True
         column = fits.Column(name="PROV", format="68A", array=RAW_FILES)
         table = fits.BinTableHDU.from_columns([column], name="PHASE3PROVENANCE")
-        self._assemble(primary, extra_hdus=[table])
+        self._write(primary, extra_hdus=[table])
         with fits.open(self.path_out) as hdul:
-            self.assertEqual(
-                [h.name for h in hdul], ["PRIMARY", "SCI", "CONF", "PHASE3PROVENANCE"]
-            )
+            self.assertEqual([h.name for h in hdul], ["PRIMARY", "PHASE3PROVENANCE"])
+            self.assertIs(hdul[0].header["EXTEND"], True)
             self._assert_blanks(hdul)
         self._assert_m1b_findings_only()
 
     def test_no_overwrite(self):
         primary = _observation(fluxcal=True)
-        self._assemble(primary)
+        self._write(primary)
         with self.assertRaises(OSError):
-            self._assemble(primary)
+            self._write(primary)
 
 
 class TestTileFits(unittest.TestCase):
@@ -583,12 +589,17 @@ class TestTileFits(unittest.TestCase):
         self.assertTrue(os.path.isfile(tiles2[0]["image"]))
 
     def test_mef_hdu_parameters(self):
-        """A MEF tile is cut from its SCI/CONF extensions like single-HDU files."""
+        """A MEF is cut from its named extensions like single-HDU files."""
         os.makedirs(self.out_dir)
         mef_path = os.path.join(self.out_dir, "mef.fits")
-        assemble_tile_mef(
-            self.img_path, self.wgt_path, mef_path, _observation(fluxcal=True)
-        )
+        with fits.open(self.img_path) as img, fits.open(self.wgt_path) as wgt:
+            fits.HDUList(
+                [
+                    fits.PrimaryHDU(),
+                    fits.ImageHDU(img[0].data, img[0].header, name="SCI"),
+                    fits.ImageHDU(wgt[0].data, wgt[0].header, name="CONF"),
+                ]
+            ).writeto(mef_path)
         common = dict(tile_size_arcmin=5.0, pixel_scale_arcsec=self.pixel_scale)
         tiles_single, _ = tile_fits(
             self.img_path,

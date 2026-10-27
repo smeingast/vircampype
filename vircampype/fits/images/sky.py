@@ -2434,6 +2434,8 @@ def _write_pawprint(
                 hdr.set("BACKSKEW", round(float(backskew), 3), "Background skew")
                 hdr.set("BUNIT", "adu", "Pixel unit")
                 hdr.set("EXPTIME", exptime, "Total integration time (s)")
+            else:
+                hdr.set("BUNIT", *WEIGHT_BUNIT)
             hdul.append(fits.ImageHDU(data=hdu.data, header=hdr))
 
         hdul.update_extend()
@@ -2747,6 +2749,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 primeheader=weight_primary,
                 cache_dir=self.setup.local_cache_dir,
                 n_blank=36,
+                extension_cards=[("BUNIT", *WEIGHT_BUNIT)],
             )
             # Remove intermediate temp directory
             remove_directory(tmpdir_stacks)
@@ -3009,9 +3012,10 @@ class SkyImagesResampled(SkyImagesProcessed):
         tstart = time.time()
         log.info(f"Creating tile with {len(self)} images")
 
-        # Run Swarp
+        # Run Swarp (the weight is moved first, so a tile image implies its weight)
         if not (
             check_file_exists(file_path=self.setup.path_coadd, silent=self.setup.silent)
+            and os.path.isfile(self.setup.path_coadd_weight)
             and not self.setup.overwrite
         ):
             # Load Swarp setup
@@ -3175,29 +3179,36 @@ class SkyImagesResampled(SkyImagesProcessed):
                 f"({'PHASE3PROVENANCE extension' if extra else 'PROVi cards'})"
             )
 
-            # Assemble the MEF tile (primary, SCI, CONF) on the local disk
-            tmef = time.time()
-            path_mef_tmp = make_path_system_tempfile(
+            # Write the tile image and weight on the local disk
+            tpair = time.time()
+            path_image_out_tmp = make_path_system_tempfile(
                 prefix="tile_", suffix=".fits", base_dir=self.setup.local_cache_dir
             )
-            assemble_tile_mef(
+            path_weight_out_tmp = make_path_system_tempfile(
+                prefix="tile_weight_",
+                suffix=".fits",
+                base_dir=self.setup.local_cache_dir,
+            )
+            write_tile_pair(
                 path_coadd_tmp,
                 path_weight_tmp,
-                path_mef_tmp,
+                path_image_out_tmp,
+                path_weight_out_tmp,
                 primary,
-                sci_cards=[
+                image_cards=[
                     ("BACKMODE", round(float(backmod), 3), "Background mode"),
                     ("BACKSIG", round(float(backsig), 3), "Background sigma"),
                     ("BACKSKEW", round(float(backskew), 3), "Background skew"),
                 ],
                 extra_hdus=extra,
             )
-            log.info(f"MEF tile assembled in {time.time() - tmef:.1f}s")
+            log.info(f"Tile image and weight written in {time.time() - tpair:.1f}s")
             remove_file(path_coadd_tmp)
             remove_file(path_weight_tmp)
 
-            # Move the tile to its final location; the setup record goes to qc/
-            shutil.move(path_mef_tmp, self.setup.path_coadd)
+            # Move the weight, then the image; the setup record goes to qc/
+            shutil.move(path_weight_out_tmp, self.setup.path_coadd_weight)
+            shutil.move(path_image_out_tmp, self.setup.path_coadd)
             self.setup.write_sidecar()
 
             # Remove swap dir
@@ -3720,24 +3731,29 @@ class Tile(SkyImages):
 
     @property
     def iter_data_hdu(self):
-        """The SCI extension of the MEF tile (empty primary, SCI, CONF)."""
+        """The primary of the tile image (a PHASE3PROVENANCE extension may follow)."""
         for path, hdrs in zip(self.paths_full, self.headers):
-            if not (len(hdrs) >= 3 and hdrs[1].get("EXTNAME") == "SCI"):
+            if hdrs[0].get("NAXIS") != 2:
                 raise PipelineValueError(
-                    f"{path} is not a v3.0 MEF tile (SCI, CONF): reset the run from "
-                    "'tile'"
+                    f"{path} has no image in the primary (v3.0 MEF tile?): reset the "
+                    "run from 'tile'"
                 )
-        return [range(1, 2) for _ in self.headers]
+        return [range(0, 1) for _ in self.headers]
+
+    @property
+    def paths_weights(self):
+        """The weight file of each tile image (``<name>.weight.fits``)."""
+        return [p.removesuffix(".fits") + ".weight.fits" for p in self.paths_full]
 
     @property
     def paths_sextractor(self):
-        """SCI extension of the tile in SExtractor's ``file.fits[n]`` syntax."""
-        return [f"{p}[1]" for p in self.paths_full]
+        """The tile image, its primary in SExtractor's ``file.fits[n]`` syntax."""
+        return [f"{p}[0]" for p in self.paths_full]
 
     @property
     def paths_sextractor_weights(self):
-        """CONF extension of the tile (its weight) in SExtractor's syntax."""
-        return [f"{p}[2]" for p in self.paths_full]
+        """The weight file of each tile image."""
+        return self.paths_weights
 
 
 class MasterSky(MasterImages):

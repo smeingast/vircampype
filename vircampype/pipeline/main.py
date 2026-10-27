@@ -1077,8 +1077,7 @@ class Pipeline:
         (``WINPOS_SIGMAP``); the catalogue records the map (``WINPSMAP``). An existing
         catalogue made with the other setting raises: remove it (and the products
         derived from it) or set overwrite. Writes PHOTZP, PHOTZPER, PHOTSYS, ABMAGLIM,
-        ABMAGSAT, PSF_FWHM and ELLIPTIC into the tile SCI and FLUXCAL and ELLIPTIC into
-        its primary.
+        ABMAGSAT, PSF_FWHM, ELLIPTIC and FLUXCAL into the tile image.
         """
         from astropy.io import fits
 
@@ -1104,7 +1103,7 @@ class Pipeline:
         else:
             self.tile.sextractor(preset="full")
         self.sources_tile_full.calibrate_photometry()
-        self.sources_tile_cal.write_photometric_cards(self.tile, elliptic_primary=True)
+        self.sources_tile_cal.write_photometric_cards(self.tile)
 
     def _build_winsig_map(self) -> str:
         """SExtractor map of the local stellar window sigma for the tile (WIN cap).
@@ -1428,7 +1427,7 @@ class Pipeline:
             self.qc_psf_stacks()
 
         # Build and calibrate tile, then its source list (photometry writes PHOTZP into
-        # the SCI header before the completeness run reads it)
+        # the tile image before the completeness run reads it)
         if self.setup.build_tile:
             self.build_tile()
             self.exposure_map_tile()

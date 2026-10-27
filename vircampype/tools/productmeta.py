@@ -195,15 +195,17 @@ def set_cards(
 def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
     """Products the setup delivers: (path, PRODCATG, ASSONi basenames), batch order.
 
-    Order: tile, exposure map, source list, stacks and their weights, pawprints and
-    their weights.
+    Order: tile, its weight and exposure map, source list, stacks and their weights,
+    pawprints and their weights.
     """
     setup = pipeline.setup
     products = []
     if setup.build_tile:
-        expmap = setup.path_coadd_expmap
+        weight, expmap = setup.path_coadd_weight, setup.path_coadd_expmap
+        asson = (os.path.basename(weight), os.path.basename(expmap))
         products += [
-            (setup.path_coadd, "SCIENCE.IMAGE", (os.path.basename(expmap),)),
+            (setup.path_coadd, "SCIENCE.IMAGE", asson),
+            (weight, "ANCILLARY.WEIGHTMAP", ()),
             (expmap, "ANCILLARY.EXPMAP", ()),
             (setup.path_coadd_sources, "SCIENCE.SRCTBL", ()),
         ]

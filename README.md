@@ -169,7 +169,7 @@ Processes raw science frames through to final co-added products:
 7. **Illumination correction** — variable or constant illumination correction map
 8. **Resampling (SWarp)** — resamples exposures to a common grid
 9. **Pawprints** — optional single-exposure products from the resampled pawprints (`build_pawprints`): one MEF with 16 detector extensions per raw exposure plus its weight map, `products/pawprints/<name>_NN.pawprint.fits`
-10. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile (MEF: `SCI` image and `CONF` weight) with its exact exposure map `<name>.expmap.fits`
+10. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile `<name>.fits` with its weight `<name>.weight.fits` and exact exposure map `<name>.expmap.fits`
 11. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
 12. **Source catalogs** — SExtractor source extraction on pawprints (optional), stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
 13. **QC plots** — astrometric and photometric diagnostic plots
@@ -252,7 +252,7 @@ path_pype/
     ├── products/
     │   ├── pawprints/              # Single-exposure pawprint products (optional)
     │   ├── stacks/                 # Per-offset stack images and catalogs
-    │   └── tile/                   # Final co-added tile (MEF: SCI, CONF), exposure map, source list and catalogs
+    │   └── tile/                   # Final co-added tile, its weight and exposure map, source list and catalogs
     ├── qc/                         # Quality control plots
     │   ├── astrometry/
     │   ├── photometry/

@@ -11,13 +11,8 @@ import vircampype
 from tests.test_cube import make_test_setup
 from tests.test_sdpcheck import make_products
 from vircampype.pipeline.errors import PipelineError, PipelineValueError
-from vircampype.tools.productmeta import (
-    expected_products,
-    finalize_files,
-    obs_cards,
-    prov_cards,
-    set_cards,
-)
+from vircampype.tools.productmeta import (expected_products, finalize_files,
+                                          obs_cards, prov_cards, set_cards)
 from vircampype.tools.sdpcheck import check_batch, check_product
 
 
@@ -298,6 +293,7 @@ class TestSetCards(unittest.TestCase):
 
 CATEGORY = {
     "tile": "SCIENCE.IMAGE",
+    "tile_weight": "ANCILLARY.WEIGHTMAP",
     "expmap": "ANCILLARY.EXPMAP",
     "sources": "SCIENCE.SRCTBL",
     "stacks": "SCIENCE.MEFIMAGE",
@@ -307,8 +303,10 @@ CATEGORY = {
 
 def product_list(paths: dict) -> list[tuple[str, str, tuple[str, ...]]]:
     """The finalizer input for a make_products set, in batch order."""
+    asson = tuple(os.path.basename(paths[key]) for key in ("tile_weight", "expmap"))
     products = [
-        (paths["tile"], CATEGORY["tile"], (os.path.basename(paths["expmap"]),)),
+        (paths["tile"], CATEGORY["tile"], asson),
+        (paths["tile_weight"], CATEGORY["tile_weight"], ()),
         (paths["expmap"], CATEGORY["expmap"], ()),
         (paths["sources"], CATEGORY["sources"], ()),
     ]
@@ -340,10 +338,13 @@ class TestExpectedProducts(unittest.TestCase):
         setup = make_test_setup(self._tmp.name, build_stacks=False)
         tile = expected_products(types.SimpleNamespace(setup=setup))
         expmap = setup.path_coadd.replace(".fits", ".expmap.fits")
+        weight = setup.path_coadd.replace(".fits", ".weight.fits")
+        asson = (os.path.basename(weight), os.path.basename(expmap))
         self.assertEqual(
             tile,
             [
-                (setup.path_coadd, "SCIENCE.IMAGE", (os.path.basename(expmap),)),
+                (setup.path_coadd, "SCIENCE.IMAGE", asson),
+                (weight, "ANCILLARY.WEIGHTMAP", ()),
                 (expmap, "ANCILLARY.EXPMAP", ()),
                 (setup.path_coadd_sources, "SCIENCE.SRCTBL", ()),
             ],
@@ -365,9 +366,9 @@ class TestExpectedProducts(unittest.TestCase):
                 (weight, "ANCILLARY.WEIGHTMAP", ()),
             ]
         products = expected_products(pipeline)
-        self.assertEqual(len(products), 7)
+        self.assertEqual(len(products), 8)
         self.assertEqual(products, tile + stack_products)
-        self.assertEqual(products[3][2], ("TestSetup_01.stack.weight.fits",))
+        self.assertEqual(products[4][2], ("TestSetup_01.stack.weight.fits",))
 
         setup = make_test_setup(self._tmp.name, build_stacks=True, build_pawprints=True)
         pawprints = [
@@ -387,9 +388,9 @@ class TestExpectedProducts(unittest.TestCase):
                 (weight, "ANCILLARY.WEIGHTMAP", ()),
             ]
         products = expected_products(pipeline)
-        self.assertEqual(len(products), 11)
+        self.assertEqual(len(products), 12)
         self.assertEqual(products, tile + stack_products + pawprint_products)
-        self.assertEqual(products[7][2], ("TestSetup_01.pawprint.weight.fits",))
+        self.assertEqual(products[8][2], ("TestSetup_01.pawprint.weight.fits",))
 
 
 class TestFinalizeFiles(unittest.TestCase):
@@ -398,7 +399,7 @@ class TestFinalizeFiles(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
 
     def assertSealed(self, paths: dict, offsets: dict):
-        """PRODCATG, ASSON1, DATE, valid checksums in every HDU, clean checks, offsets."""
+        """PRODCATG, ASSONi, DATE, valid checksums in every HDU, clean checks, offsets."""
         files = file_list(paths)
         for path, prodcatg, asson in product_list(paths):
             with warnings.catch_warnings():
@@ -406,8 +407,11 @@ class TestFinalizeFiles(unittest.TestCase):
                 with fits.open(path, checksum=True) as hdul:
                     primary = hdul[0].header
                     self.assertEqual(primary["PRODCATG"], prodcatg)
-                    self.assertEqual(primary.get("ASSON1"), asson[0] if asson else None)
-                    self.assertNotIn("ASSON2", primary)
+                    found = tuple(
+                        primary[f"ASSON{i}"] for i in range(1, len(asson) + 1)
+                    )
+                    self.assertEqual(found, asson)
+                    self.assertNotIn(f"ASSON{len(asson) + 1}", primary)
                     self.assertRegex(
                         primary["DATE"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$"
                     )
@@ -423,7 +427,7 @@ class TestFinalizeFiles(unittest.TestCase):
         offsets = data_offsets(file_list(paths))
         with self.assertLogs("vircampype.tools.productmeta", "INFO") as logs:
             finalize_files(product_list(paths))
-        self.assertEqual(len(logs.records), 7)
+        self.assertEqual(len(logs.records), 8)
         self.assertSealed(paths, offsets)
 
     def test_finalize_files_prov_extension(self):
@@ -479,8 +483,8 @@ class TestFinalizeFiles(unittest.TestCase):
     def test_finalize_files_refuses_bad_identity_card(self):
         paths = make_products(self._tmp.name, n_stacks=2, final=False)
         products = product_list(paths)
-        stack, prodcatg, _ = products[5]
-        products[5] = (stack, prodcatg, ("tiny_02.stack.weight\u00e9.fits",))
+        stack, prodcatg, _ = products[6]
+        products[6] = (stack, prodcatg, ("tiny_02.stack.weight\u00e9.fits",))
         before = self.file_bytes(paths)
         with self.assertRaises(PipelineValueError) as context:
             finalize_files(products)
@@ -489,8 +493,8 @@ class TestFinalizeFiles(unittest.TestCase):
 
     def test_finalize_files_refuses_exhausted_reserve(self):
         paths = make_products(self._tmp.name, final=False)
-        with fits.open(paths["tile"], mode="update") as hdul:
-            header = hdul["CONF"].header
+        with fits.open(paths["weights"][0], mode="update") as hdul:
+            header = hdul[2].header
             while header.cards[-1].is_blank:
                 del header[-1]
         before = self.file_bytes(paths)

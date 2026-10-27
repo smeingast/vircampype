@@ -1,4 +1,5 @@
-"""The tile is a MEF (empty primary, SCI, CONF): Tile reads SCI, SExtractor gets [1]/[2]."""
+"""The tile image is in the primary, its weight in <name>.weight.fits: Tile reads the
+primary, SExtractor gets [0] and the weight file."""
 
 import os
 import sys
@@ -30,17 +31,30 @@ class TestTile(unittest.TestCase):
         self.assertEqual(os.path.abspath(paths["tile"]), os.path.abspath(self.path))
         return Tile(setup=self.setup, file_paths=self.path)
 
-    def test_tile_reads_sci_only(self):
+    def test_tile_reads_primary(self):
         tile = self._make_tile()
-        self.assertEqual(tile.iter_data_hdu, [range(1, 2)])
+        self.assertEqual(tile.iter_data_hdu, [range(0, 1)])
         self.assertEqual(tile.n_data_hdu, [1])
-        self.assertEqual(tile.headers_data[0][0]["EXTNAME"], "SCI")
+        self.assertEqual(tile.headers_data[0][0]["BUNIT"], "adu")
         self.assertEqual(tile.headers_primary[0]["OBJECT"], "TINY")
+
+    def test_tile_with_provenance_extension(self):
+        paths = make_products(
+            folder=self.setup.folders["tile"],
+            name=self.setup.name,
+            final=False,
+            prov_extension=True,
+        )
+        tile = Tile(setup=self.setup, file_paths=paths["tile"])
+        self.assertEqual(tile.iter_data_hdu, [range(0, 1)])
+        self.assertEqual(tile.headers_data[0][0]["BUNIT"], "adu")
 
     def test_tile_sextractor_paths(self):
         tile = self._make_tile()
-        self.assertEqual(tile.paths_sextractor, [self.path + "[1]"])
-        self.assertEqual(tile.paths_sextractor_weights, [self.path + "[2]"])
+        weight = self.path.removesuffix(".fits") + ".weight.fits"
+        self.assertEqual(tile.paths_sextractor, [self.path + "[0]"])
+        self.assertEqual(tile.paths_sextractor_weights, [weight])
+        self.assertEqual(weight, self.setup.path_coadd_weight)
 
     def test_tile_sextractor_command(self):
         tile = self._make_tile()
@@ -51,13 +65,18 @@ class TestTile(unittest.TestCase):
             return_value=sys.executable,
         ):
             cmd = tile.sextractor(preset="full", return_cmds=True, silent=True)[0]
-        self.assertIn(f" {self.path}[1] ", cmd)
-        self.assertIn(f"-WEIGHT_IMAGE {self.path}[2] ", cmd)
-        self.assertNotIn(f"{self.path} ", cmd)
+        self.assertIn(f" {self.path}[0] ", cmd)
+        self.assertIn(f"-WEIGHT_IMAGE {self.setup.path_coadd_weight} ", cmd)
 
-    def test_old_tile_fails_loud(self):
+    def test_mef_tile_fails_loud(self):
         os.makedirs(self.setup.folders["tile"], exist_ok=True)
-        fits.writeto(self.path, np.ones((8, 8), np.float32))
+        fits.HDUList(
+            [
+                fits.PrimaryHDU(),
+                fits.ImageHDU(np.ones((8, 8), np.float32), name="SCI"),
+                fits.ImageHDU(np.ones((8, 8), np.float32), name="CONF"),
+            ]
+        ).writeto(self.path)
         tile = Tile(setup=self.setup, file_paths=self.path)
         with self.assertRaises(PipelineValueError) as ctx:
             tile.iter_data_hdu

@@ -33,7 +33,6 @@ __all__ = [
     "copy_keywords",
     "add_key_primary_hdu",
     "make_mef_image",
-    "assemble_tile_mef",
     "merge_headers",
     "add_float_to_header",
     "add_str_to_header",
@@ -49,6 +48,8 @@ __all__ = [
     "fits2ldac",
     "read_fits_headers",
     "tile_fits",
+    "write_tile_pair",
+    "WEIGHT_BUNIT",
 ]
 
 
@@ -254,6 +255,7 @@ def make_mef_image(
     overwrite: bool = False,
     cache_dir: str | None = None,
     n_blank: int = 0,
+    extension_cards: list[tuple[str, object, str]] = (),
 ) -> None:
     """
     Combine multiple single-extension FITS images into one MEF file.
@@ -283,6 +285,8 @@ def make_mef_image(
         Number of blank cards appended to the header of every HDU, the
         reserved header block of Phase 3 products (36), so that later card
         edits and checksums never move the data. Default is 0.
+    extension_cards : list[tuple[str, object, str]], optional
+        ``(key, value, comment)`` cards set in every extension (e.g. BUNIT).
 
     Raises
     ------
@@ -313,6 +317,8 @@ def make_mef_image(
             hdr = file[0].header.copy()
             if write_extname:
                 hdr.set("EXTNAME", value=f"HDU{pidx + 1:>02d}", after="BITPIX")
+            for key, value, comment in extension_cards:
+                hdr.set(key, value, comment)
             hdulist.append(fits.ImageHDU(data=file[0].data + const, header=hdr))
 
     for hdu in hdulist:
@@ -328,35 +334,38 @@ def make_mef_image(
         remove_file(path_temp)
 
 
-# Phase 3 class cards shared by the SCI and CONF extensions of the tile
-_TILE_HDUCLASS = (
-    ("HDUCLASS", "ESO", "Class name"),
-    ("HDUDOC", "SDP", "ESO Science Data Products standard"),
-    ("HDUVERS", "SDP version 8", "Version of the standard"),
-    ("HDUCLAS1", "IMAGE", "Data type"),
-)
+# Unit of SWarp's coadd weight: inverse variance of the image (adu)
+WEIGHT_BUNIT = ("adu**(-2)", "Inverse variance of the image")
+
+# SWarp's host and run stamps, its comment section titles, and cards that the
+# observation block of the image carries (EXPTIME is the exposure-map median, MJD-OBS
+# the first exposure)
+_SWARP_DROP = ("ORIGIN", "DATE", "AUTHOR", "COMMENT", "HISTORY", "EXPTIME", "MJD-OBS")
+_STRUCTURE_KEYS = ("SIMPLE", "BITPIX", "NAXIS", "NAXIS1", "NAXIS2", "EXTEND")
 
 
-def assemble_tile_mef(
+def write_tile_pair(
     path_image: str,
     path_weight: str,
-    path_out: str,
+    path_image_out: str,
+    path_weight_out: str,
     primary: fits.Header,
-    sci_cards: list[tuple[str, object, str]] = (),
+    image_cards: list[tuple[str, object, str]] = (),
     extra_hdus: list = (),
 ) -> None:
     """
-    Assemble the MEF tile from SWarp's coadd image and weight.
+    Write the tile image and its weight from SWarp's coadd image and weight.
 
-    The tile has an empty primary HDU carrying *primary*, a SCI extension with
-    SWarp's image and a CONF extension with SWarp's weight, linked by the
-    reciprocal pointers CONFDATA and SCIDATA, followed by *extra_hdus* (e.g. a
-    PHASE3PROVENANCE table). Every HDU gets one reserved block of 36 blank cards so
-    that later card edits never move the data. From SWarp's headers, ORIGIN, DATE
-    and AUTHOR (host and run stamps) and EXPTIME (the primary carries the
-    exposure-map median) are dropped; the weight also loses GAIN and SATURATE,
-    which SWarp writes as zeros. Both inputs stay memory-mapped, so the arrays are
-    copied bitwise without an in-memory copy.
+    The image goes to the primary HDU of *path_image_out*: the cards of *primary*
+    (observation block, provenance) first, then SWarp's WCS and software cards,
+    BUNIT and *image_cards*, followed by *extra_hdus* (e.g. a PHASE3PROVENANCE
+    table). The weight goes to the primary of *path_weight_out* with SWarp's
+    header, OBJECT and FILTER of the image and BUNIT (inverse variance). SWarp's
+    ORIGIN, DATE, AUTHOR, COMMENT/HISTORY, EXPTIME and MJD-OBS are dropped (the
+    weight also loses GAIN and SATURATE, which SWarp writes as zeros). Every HDU
+    gets one reserved block of 36 blank cards so that later card edits never move
+    the data. Both inputs stay memory-mapped and unscaled, so the arrays are copied
+    bitwise.
 
     Parameters
     ----------
@@ -364,53 +373,59 @@ def assemble_tile_mef(
         Path to SWarp's coadd image.
     path_weight : str
         Path to SWarp's coadd weight.
-    path_out : str
-        Output path; must not exist.
+    path_image_out : str
+        Output path of the image; must not exist.
+    path_weight_out : str
+        Output path of the weight; must not exist.
     primary : fits.Header
-        Header of the primary HDU.
-    sci_cards : list[tuple[str, object, str]], optional
-        Additional ``(key, value, comment)`` cards for the SCI header.
+        Observation and provenance cards of the image.
+    image_cards : list[tuple[str, object, str]], optional
+        Additional ``(key, value, comment)`` cards for the image header.
     extra_hdus : list, optional
-        HDUs appended after CONF.
+        HDUs appended after the image.
     """
     with (
         fits.open(path_image, memmap=True, do_not_scale_image_data=True) as image,
         fits.open(path_weight, memmap=True, do_not_scale_image_data=True) as weight,
     ):
-        sci = image[0].header.copy()
-        for key in ("ORIGIN", "DATE", "AUTHOR", "EXPTIME"):
-            sci.remove(key, ignore_missing=True)
-        sci.set("EXTNAME", "SCI", "Extension name")
-        for key, value, comment in _TILE_HDUCLASS:
-            sci.set(key, value, comment)
-        sci.set("HDUCLAS2", "DATA", "Science data")
-        sci.set("CONFDATA", "CONF", "Confidence map extension")
-        sci.set("BUNIT", "adu", "Physical unit of the data")
-        for key, value, comment in sci_cards:
-            sci.set(key, value, comment)
-
-        conf = weight[0].header.copy()
-        for key in ("ORIGIN", "DATE", "AUTHOR", "EXPTIME", "GAIN", "SATURATE"):
-            conf.remove(key, ignore_missing=True)
-        conf.set("EXTNAME", "CONF", "Extension name")
-        for key, value, comment in _TILE_HDUCLASS:
-            conf.set(key, value, comment)
-        conf.set("HDUCLAS2", "CONF", "Confidence map")
-        conf.set("SCIDATA", "SCI", "Science data extension")
-
-        hdul = fits.HDUList(
-            [
-                fits.PrimaryHDU(header=primary),
-                fits.ImageHDU(data=image[0].data, header=sci),
-                fits.ImageHDU(data=weight[0].data, header=conf),
-                *extra_hdus,
-            ]
+        header = fits.Header()
+        for card in primary.cards:
+            header.set(card.keyword, card.value, card.comment)
+        for card in image[0].header.cards:
+            key = card.keyword
+            if (
+                card.is_blank
+                or key in (*_SWARP_DROP, *_STRUCTURE_KEYS)
+                or key in header
+            ):
+                continue
+            header.append(card)
+        header.set("BUNIT", "adu", "Physical unit of the data")
+        for key, value, comment in image_cards:
+            header.set(key, value, comment)
+        hdul_image = fits.HDUList(
+            [fits.PrimaryHDU(data=image[0].data, header=header), *extra_hdus]
         )
-        hdul.update_extend()  # EXTEND first, so that it does not take a blank card
-        for hdu in hdul:
-            for _ in range(36):
-                hdu.header.append(fits.Card(), end=True)
-        hdul.writeto(path_out)
+
+        header_weight = weight[0].header.copy()
+        for key in (*_SWARP_DROP, "GAIN", "SATURATE"):
+            header_weight.remove(key, ignore_missing=True, remove_all=True)
+        for key in ("OBJECT", "FILTER"):
+            header_weight.set(key, primary[key], primary.comments[key])
+        header_weight.set("BUNIT", *WEIGHT_BUNIT)
+        hdul_weight = fits.HDUList(
+            [fits.PrimaryHDU(data=weight[0].data, header=header_weight)]
+        )
+
+        for hdul, path in (
+            (hdul_image, path_image_out),
+            (hdul_weight, path_weight_out),
+        ):
+            hdul.update_extend()  # EXTEND first, so that it does not take a blank card
+            for hdu in hdul:
+                for _ in range(36):
+                    hdu.header.append(fits.Card(), end=True)
+            hdul.writeto(path)
 
 
 def merge_headers(path_1: str, path_2: str, primary_only: bool = False) -> None:
@@ -1087,14 +1102,15 @@ def build_qc_summary_row(
         astirms = phdr.get("ASTIRMS", np.nan)
         astrrms = phdr.get("ASTRRMS", np.nan)
 
-        # Data HDUs: image extensions without the weight and provenance HDUs
-        hdrs = [
-            h.header
-            for h in hdul[1:]
-            if isinstance(h, fits.ImageHDU)
-            and h.header["NAXIS"] == 2
-            and h.header.get("EXTNAME", "") not in ("CONF", "PHASE3PROVENANCE")
-        ]
+        # Data HDUs: the primary of a tile image, else the image extensions
+        if phdr.get("NAXIS") == 2:
+            hdrs = [phdr]
+        else:
+            hdrs = [
+                h.header
+                for h in hdul[1:]
+                if isinstance(h, fits.ImageHDU) and h.header["NAXIS"] == 2
+            ]
         for hdr in hdrs:
             for key in keys:
                 if key in hdr:
@@ -1197,9 +1213,9 @@ def tile_fits(
     overwrite : bool
         Overwrite existing tile files.
     image_hdu : int or str
-        Index or EXTNAME of the image HDU (e.g. ``"SCI"`` of the MEF tile).
+        Index or EXTNAME of the image HDU (default: the primary).
     weight_hdu : int or str
-        Index or EXTNAME of the weight HDU (e.g. ``"CONF"`` of the MEF tile).
+        Index or EXTNAME of the weight HDU (default: the primary).
 
     Returns
     -------

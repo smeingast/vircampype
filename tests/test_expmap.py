@@ -10,7 +10,8 @@ from astropy.io import fits
 
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.expmap import build_exposure_map
-from vircampype.tools.sdpcheck import check_product, median_from_counts, scan_expmap
+from vircampype.tools.sdpcheck import (check_product, median_from_counts,
+                                       scan_expmap)
 
 NX, NY = 24, 20
 CD = 1e-4
@@ -94,8 +95,8 @@ class TestBuildExposureMap(unittest.TestCase):
         median, area = self._build(paths, exptimes)
         ref = _reference(paths, exptimes, np.int16)
         with fits.open(self.path_out) as hdul:
-            self.assertEqual(hdul[1].header["BITPIX"], 16)
-            data = hdul[1].data
+            self.assertEqual(hdul[0].header["BITPIX"], 16)
+            data = hdul[0].data
             self.assertTrue(np.array_equal(data, ref))
         self.assertEqual(ref[NY - 1, NX - 1], 6)  # far edge reached
         self.assertEqual(ref[8, 10], 0)  # zero-weight corner, no overlap
@@ -110,15 +111,15 @@ class TestBuildExposureMap(unittest.TestCase):
         median, _ = self._build(paths, exptimes)
         ref = _reference(paths, exptimes, np.float32)
         with fits.open(self.path_out) as hdul:
-            self.assertEqual(hdul[1].header["BITPIX"], -32)
-            self.assertTrue(np.array_equal(hdul[1].data, ref))
+            self.assertEqual(hdul[0].header["BITPIX"], -32)
+            self.assertTrue(np.array_equal(hdul[0].data, ref))
         self.assertEqual(median, np.median(ref[ref > 0]))
 
         self._build(paths, [20000.0, 20000.0, 6.0])
         with fits.open(self.path_out) as hdul:
-            self.assertEqual(hdul[1].header["BITPIX"], -32)
+            self.assertEqual(hdul[0].header["BITPIX"], -32)
             ref = _reference(paths, [20000.0, 20000.0, 6.0], np.float32)
-            self.assertTrue(np.array_equal(hdul[1].data, ref))
+            self.assertTrue(np.array_equal(hdul[0].data, ref))
 
     def test_rejects_half_pixel(self):
         paths = _write_weights(self.tmp, shift=0.5)
@@ -131,7 +132,7 @@ class TestBuildExposureMap(unittest.TestCase):
         # Detectors hanging over the grid edges are clipped, as SWarp does
         paths = _write_weights(self.tmp, offsets=[[(-3, -2), (19, 17)]])
         self._build(paths, [6])
-        data = fits.getdata(self.path_out, "EXPMAP")
+        data = fits.getdata(self.path_out, 0)
         ref = np.zeros((NY, NX), dtype=np.int16)
         ref[0:3, 0:3] = 6  # (-3, -2): 5x6 block, in-grid part rows 0-2, cols 0-2
         ref[17:20, 19:24] = 6  # (19, 17): in-grid part rows 17-19, cols 19-23
@@ -149,19 +150,16 @@ class TestBuildExposureMap(unittest.TestCase):
         problems = check_product(self.path_out, "ANCILLARY.EXPMAP", final=False)
         self.assertEqual(problems, [])
         with fits.open(self.path_out) as hdul:
-            primary, extension = hdul[0].header, hdul[1].header
-            self.assertEqual(primary["OBJECT"], "TINY")
-            self.assertEqual(primary["FILTER"], "H")
-            self.assertIs(primary["EXTEND"], True)
-            self.assertEqual(extension["EXTNAME"], "EXPMAP")
-            self.assertEqual(extension["BUNIT"], "s")
+            self.assertEqual(len(hdul), 1)
+            header = hdul[0].header
+            self.assertEqual(header["OBJECT"], "TINY")
+            self.assertEqual(header["FILTER"], "H")
+            self.assertEqual(header["BUNIT"], "s")
             for key, value in TILE.items():
-                self.assertEqual(extension[key], value)
-            for hdr in (primary, extension):
-                cards = list(hdr.cards)
-                self.assertTrue(all(c.keyword == "" for c in cards[-36:]))
-            size = len(primary.tostring()) + len(extension.tostring())
-            self.assertEqual(hdul.fileinfo(1)["datLoc"], size)
+                self.assertEqual(header[key], value)
+            cards = list(header.cards)
+            self.assertTrue(all(c.keyword == "" for c in cards[-36:]))
+            self.assertEqual(hdul.fileinfo(0)["datLoc"], len(header.tostring()))
 
 
 class TestPublicScanHelpers(unittest.TestCase):

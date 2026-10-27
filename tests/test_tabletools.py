@@ -9,20 +9,16 @@ from astropy.table import Table
 from astropy.table.column import MaskedColumn
 
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.tools.tabletools import (
-    SOURCE_COLUMNS,
-    centroid_covariance_radec_mas2,
-    detections_to_sources,
-    estimate_astrms_floor,
-    fill_masked_columns,
-    scamp_xml_radec_correlation,
-    scamp_xml_reference_rms_highsn,
-    sextractor_nanify_bad_values,
-    source_list_hdu,
-    split_table,
-    table2bintablehdu,
-    write_source_list,
-)
+from vircampype.tools.tabletools import (SOURCE_COLUMNS,
+                                         centroid_covariance_radec_mas2,
+                                         detections_to_sources,
+                                         estimate_astrms_floor,
+                                         fill_masked_columns,
+                                         scamp_xml_radec_correlation,
+                                         scamp_xml_reference_rms_highsn,
+                                         sextractor_nanify_bad_values,
+                                         source_list_hdu, split_table,
+                                         table2bintablehdu, write_source_list)
 
 
 class TestSextractorNanifyBadValues(unittest.TestCase):
@@ -717,13 +713,12 @@ class TestSourceList(unittest.TestCase):
             paths = make_products(folder, final=False)
             os.remove(paths["sources"])
             path = os.path.join(folder, "tiny.sources.fits")
-            tile_sci = fits.getheader(paths["tile"], "SCI")
+            tile_header = fits.getheader(paths["tile"], 0)
             write_source_list(
                 _sources(),
                 path,
                 tile_name=os.path.basename(paths["tile"]),
-                tile_primary=fits.getheader(paths["tile"], 0),
-                tile_sci=tile_sci,
+                tile_header=tile_header,
                 passband="H",
                 primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
                 table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],
@@ -742,9 +737,10 @@ class TestSourceList(unittest.TestCase):
                     tail = [c for c in cards[-37:] if c.keyword == ""]
                     self.assertEqual(len(tail), 36)
                     self.assertNotEqual(cards[-37].keyword, "")
-                self.assertEqual(table["PHOTZP"], tile_sci["PHOTZP"])
-                tile_primary = fits.getheader(paths["tile"], 0)
-                self.assertEqual(primary["ELLIPTIC"], tile_primary["ELLIPTIC"])
+                self.assertEqual(table["PHOTZP"], tile_header["PHOTZP"])
+                self.assertEqual(primary["ELLIPTIC"], tile_header["ELLIPTIC"])
+                for key in ("BUNIT", "CTYPE1", "PHOTZP"):  # image cards stay out
+                    self.assertNotIn(key, primary)
                 self.assertIn("REFMAGLO", table)
 
 
@@ -784,8 +780,7 @@ class TestSurveyNameReach(unittest.TestCase):
                 self._vhs_sources(),
                 path,
                 tile_name=os.path.basename(paths["tile"]),
-                tile_primary=fits.getheader(paths["tile"], 0),
-                tile_sci=fits.getheader(paths["tile"], "SCI"),
+                tile_header=fits.getheader(paths["tile"], 0),
                 passband="H",
                 primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
                 table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],

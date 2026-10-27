@@ -44,7 +44,7 @@ def _photometric_cards(i):
 
 
 def _make_image(path, n_ext=3, tile=False, ncombine=10, filt="Ks"):
-    """Write a stack-like MEF, or with ``tile=True`` a SCI + CONF tile."""
+    """Write a stack-like MEF, or with ``tile=True`` a tile image in the primary."""
     phdr = fits.Header()
     phdr["NCOMBINE"] = ncombine
     phdr["ASTIRMS"] = 0.045
@@ -52,11 +52,10 @@ def _make_image(path, n_ext=3, tile=False, ncombine=10, filt="Ks"):
     phdr[FILTER_KW] = filt
     hdus = [fits.PrimaryHDU(header=phdr)]
     if tile:
-        sci = fits.ImageHDU(data=np.zeros((4, 4)), name="SCI")
-        sci.header.update(_photometric_cards(0))
-        sci.header["COMP90MD"] = 18.1
-        sci.header["COMP50MD"] = 19.2
-        hdus += [sci, fits.ImageHDU(data=np.zeros((4, 4)), name="CONF")]
+        phdr.update(_photometric_cards(0))
+        phdr["COMP90MD"] = 18.1
+        phdr["COMP50MD"] = 19.2
+        hdus = [fits.PrimaryHDU(data=np.zeros((4, 4)), header=phdr)]
     else:
         for i in range(n_ext):
             hdu = fits.ImageHDU(data=np.zeros((4, 4)), name=f"HDU{i + 1:02d}")

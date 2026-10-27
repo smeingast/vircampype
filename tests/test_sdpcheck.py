@@ -1,7 +1,8 @@
 """Phase 3 checker (vircampype/tools/sdpcheck.py) on a tiny compliant product set.
 
-``make_products`` writes a minimal compliant fixture for the planned v3.0 layouts of the
-five product shapes (tile, exposure map, source list, stacks and their weights). Each
+``make_products`` writes a minimal compliant fixture for the v3.0 layouts of the six
+product shapes (tile image, its weight and exposure map, source list, stacks and their
+weights). Each
 negative test copies the good set, changes one thing and expects a finding that names
 the broken rule.
 """
@@ -49,14 +50,9 @@ PHOTOMETRY = {
     "PSF_FWHM": 0.81,
     "ELLIPTIC": 0.05,
 }
-HDUCLASS = {
-    "HDUCLASS": "ESO",
-    "HDUDOC": "SDP",
-    "HDUVERS": "SDP version 8",
-    "HDUCLAS1": "IMAGE",
-}
 CATEGORIES = {
     "tile": "SCIENCE.IMAGE",
+    "tile_weight": "ANCILLARY.WEIGHTMAP",
     "expmap": "ANCILLARY.EXPMAP",
     "sources": "SCIENCE.SRCTBL",
     "stacks": "SCIENCE.MEFIMAGE",
@@ -77,19 +73,22 @@ def make_products(
 
     It follows the plan's layouts (§1.1-2.4) with tiny 8x8 arrays; it is not a copy of
     the recipes' output. Every HDU gets 36 trailing blank cards (the reserved header
-    block). With ``final`` the files carry PRODCATG, ASSON1 (tile -> exposure map,
-    stack -> weight) and CHECKSUM/DATASUM, as after ``finalize_products``; without,
+    block). With ``final`` the files carry PRODCATG, ASSONi (tile -> weight and
+    exposure map, stack -> weight) and CHECKSUM/DATASUM, as after
+    ``finalize_products``; without,
     they stop before finalization. ``prov_extension`` moves the tile's provenance into
     a PHASE3PROVENANCE extension (PROVXTN = T).
 
     Returns
     -------
     dict
-        ``{"tile", "expmap", "sources": path, "stacks", "weights": [paths]}``.
+        ``{"tile", "tile_weight", "expmap", "sources": path, "stacks",
+        "weights": [paths]}``.
     """
     os.makedirs(folder, exist_ok=True)
     paths = {
         "tile": os.path.join(folder, f"{name}.fits"),
+        "tile_weight": os.path.join(folder, f"{name}.weight.fits"),
         "expmap": os.path.join(folder, f"{name}.expmap.fits"),
         "sources": os.path.join(folder, f"{name}.sources.fits"),
         "stacks": [
@@ -103,7 +102,7 @@ def make_products(
     }
     ones = np.ones(SHAPE, dtype=np.float32)
 
-    # T1 tile: empty primary, SCI, CONF
+    # T1 tile image in the primary
     primary = _observation(fluxcal=True)
     extra = []
     if prov_extension:
@@ -112,37 +111,24 @@ def make_products(
         extra.append(fits.BinTableHDU.from_columns([column], name="PHASE3PROVENANCE"))
     else:
         primary.update(_prov(RAW_FILES))
-    primary["ELLIPTIC"] = PHOTOMETRY["ELLIPTIC"]
+    primary.update(_header({"BUNIT": "adu"}, WCS, PHOTOMETRY))
     if final:
         primary["PRODCATG"] = "SCIENCE.IMAGE"
-        primary["ASSON1"] = os.path.basename(paths["expmap"])
-    sci = _header(
-        {"EXTNAME": "SCI"},
-        HDUCLASS,
-        {"HDUCLAS2": "DATA", "CONFDATA": "CONF", "BUNIT": "adu", "MJD-OBS": MJD_OBS},
-        WCS,
-        PHOTOMETRY,
-    )
-    conf = _header(
-        {"EXTNAME": "CONF"}, HDUCLASS, {"HDUCLAS2": "CONF", "SCIDATA": "SCI"}, WCS
-    )
-    hdus = [
-        fits.PrimaryHDU(header=primary),
-        fits.ImageHDU(ones, header=sci),
-        fits.ImageHDU(ones, header=conf),
-    ]
-    _write(paths["tile"], hdus + extra, final)
+        primary["ASSON1"] = os.path.basename(paths["tile_weight"])
+        primary["ASSON2"] = os.path.basename(paths["expmap"])
+    _write(paths["tile"], [fits.PrimaryHDU(ones, header=primary)] + extra, final)
 
-    # T3 exposure map on the SCI grid
-    primary = _header({"OBJECT": "TINY", "FILTER": "H"})
-    if final:
-        primary["PRODCATG"] = "ANCILLARY.EXPMAP"
-    expmap = _header({"EXTNAME": "EXPMAP", "BUNIT": "s"}, WCS)
-    data = np.full(SHAPE, 60, dtype=np.int16)
-    hdus = [fits.PrimaryHDU(header=primary), fits.ImageHDU(data, header=expmap)]
-    _write(paths["expmap"], hdus, final)
+    # T2 tile weight and T3 exposure map on the grid of the image
+    for key, category, cards, data in (
+        ("tile_weight", "ANCILLARY.WEIGHTMAP", {"BUNIT": "adu**(-2)"}, ones),
+        ("expmap", "ANCILLARY.EXPMAP", {"BUNIT": "s"}, np.full(SHAPE, 60, np.int16)),
+    ):
+        header = _header({"OBJECT": "TINY", "FILTER": "H"}, cards, WCS)
+        if final:
+            header["PRODCATG"] = category
+        _write(paths[key], [fits.PrimaryHDU(data, header=header)], final)
 
-    # T4 source list: PROV1 = tile, photometry copied from SCI
+    # T4 source list: PROV1 = tile, photometry copied from the tile image
     primary = _observation(fluxcal=False)
     primary["PROV1"] = os.path.basename(paths["tile"])
     primary["ELLIPTIC"] = PHOTOMETRY["ELLIPTIC"]
@@ -187,7 +173,7 @@ def make_products(
             primary["PRODCATG"] = "ANCILLARY.WEIGHTMAP"
         hdus = [fits.PrimaryHDU(header=primary)]
         for chip in range(1, 17):
-            header = _header({"EXTNAME": f"HDU{chip:02d}"}, WCS)
+            header = _header({"EXTNAME": f"HDU{chip:02d}", "BUNIT": "adu**(-2)"}, WCS)
             hdus.append(fits.ImageHDU(ones, header=header))
         _write(weight, hdus, final)
     return paths
@@ -267,7 +253,7 @@ def delete_card(index: int, key: str):
 
 def ordered(paths: dict) -> list[str]:
     """Product files in submission order: images before their source list."""
-    singles = [paths["tile"], paths["expmap"], paths["sources"]]
+    singles = [paths["tile"], paths["tile_weight"], paths["expmap"], paths["sources"]]
     return singles + paths["stacks"] + paths["weights"]
 
 
@@ -448,7 +434,7 @@ class TestSdpCheck(unittest.TestCase):
             ["tiny.fits[0]: missing PRODCATG", "tiny.fits[0]: missing DATE"],
         )
         problems = check_product(paths["tile"], "SCIENCE.IMAGE")
-        for keyword in ("PRODCATG", "DATE", "ASSON1", "CHECKSUM", "DATASUM"):
+        for keyword in ("PRODCATG", "DATE", "ASSON1, ASSON2", "CHECKSUM", "DATASUM"):
             self.assertFinding(problems, keyword)
         problems = check_product(paths["sources"], "SCIENCE.SRCTBL")
         for keyword in ("PRODCATG", "DATE", "CHECKSUM"):
@@ -456,11 +442,8 @@ class TestSdpCheck(unittest.TestCase):
         self.assertFinding(check_product(paths["tile"], "SCIENCE.CUBE"), "unknown")
 
     def test_tile(self):
-        def data_in_primary(hdul):
-            hdul[0] = fits.PrimaryHDU(np.zeros(SHAPE), header=hdul[0].header)
-
-        def conf_wider(hdul):
-            hdul[2].data = np.ones((8, 9), dtype=np.float32)
+        def empty_primary(hdul):
+            hdul[0] = fits.PrimaryHDU(header=hdul[0].header)
 
         def multi_with_number(hdul):
             hdul[0].header["TELESCOP"] = "MULTI"
@@ -470,18 +453,27 @@ class TestSdpCheck(unittest.TestCase):
             hdul[0].header["RADESYS"] = "FK5"
             del hdul[0].header["EQUINOX"]
 
+        def extra_image(hdul):
+            hdul.append(fits.ImageHDU(np.ones(SHAPE, dtype=np.float32)))
+
         cases = [
-            ("NAXIS = 2", data_in_primary),
-            ("HDUCLAS2", delete_card(1, "HDUCLAS2")),
-            ("SCIDATA", set_card(1, "SCIDATA", "SCI")),
-            ("NAXIS1", conf_wider),
-            ("PSF_FWHM", set_card(1, "PSF_FWHM", -1.0)),
-            ("PC1_1", set_card(1, "PC1_1", 1.0)),
+            ("NAXIS = 0", empty_primary),
+            ("extensions ['']", extra_image),
+            ("HDUCLAS2", set_card(0, "HDUCLAS2", "DATA")),
+            ("BUNIT", delete_card(0, "BUNIT")),
+            ("PSF_FWHM", set_card(0, "PSF_FWHM", -1.0)),
+            ("PC1_1", set_card(0, "PC1_1", 1.0)),
             ("RA_ERR", set_card(0, "RA_ERR", 0.1)),
             ("TEXPTIME", set_card(0, "TEXPTIME", 1000.0)),
             ("FLUXCAL", set_card(0, "FLUXCAL", "UNCALIBRATED")),
             ("PROV1", set_card(0, "PROV1", RAW_FILES[0] + ".fits[1]")),
-            ("ASSON2", set_card(0, "ASSON2", "tiny.sources.fits")),
+            ("ASSON3", set_card(0, "ASSON3", "tiny.sources.fits")),
+            ("ASSON1, ASSON2", delete_card(0, "ASSON1")),
+            (
+                "expected 'ANCILLARY.WEIGHTMAP'",
+                set_card(0, "ASSON1", "tiny.expmap.fits"),
+            ),
+            ("not found", set_card(0, "ASSON2", "other.expmap.fits")),
             ("OBJECT", set_card(0, "OBJECT", "X" * 69)),
             ("EXPTIME", set_card(0, "EXPTIME", 90.0)),  # vs the EXPMAP median
             ("requires EQUINOX", fk5_without_equinox),
@@ -492,18 +484,35 @@ class TestSdpCheck(unittest.TestCase):
             ("not a string", set_card(0, "OBJECT", 5)),
             ("not an integer", set_card(0, "NCOMBINE", 2.0)),
             ("provenance entries", set_card(0, "NCOMBINE", 3)),
-            ("CD1_1A", set_card(1, "CD1_1A", 1.0)),
+            ("CD1_1A", set_card(0, "CD1_1A", 1.0)),
             ("only allowed with TELESCOP", set_card(0, "TELESC1", "ESO-VISTA")),
             ("TELESC1 = 5 is not a string", multi_with_number),
             ("missing DATE", delete_card(0, "DATE")),
             ("missing ELLIPTIC", delete_card(0, "ELLIPTIC")),
-            ("ELLIPTIC", set_card(0, "ELLIPTIC", 0.07)),  # differs from SCI
             ("expected 'ESO-VISTA'", set_card(0, "TELESCOP", "VISTA")),
         ]
         for keyword, edit in cases:
             with self.subTest(keyword):
                 paths = self.mutated("tile", edit)
                 self.assertFinding(check_product(paths["tile"]), keyword)
+
+    def test_tile_weight(self):
+        def wider(hdul):
+            hdul[0].data = np.ones((8, 9), dtype=np.float32)
+
+        def extension(hdul):
+            hdul.append(fits.ImageHDU(np.ones(SHAPE, dtype=np.float32)))
+
+        paths = self.mutated("tile_weight", wider)
+        self.assertFinding(check_product(paths["tile"]), "NAXIS1")
+        paths = self.mutated("tile_weight", set_card(0, "CRVAL2", -37.5))
+        self.assertFinding(check_product(paths["tile"]), "CRVAL2")
+        paths = self.mutated("tile_weight", delete_card(0, "BUNIT"))
+        self.assertFinding(check_product(paths["tile_weight"]), "missing BUNIT")
+        paths = self.mutated("tile_weight", set_card(0, "ASSON1", "tiny.fits"))
+        self.assertFinding(check_product(paths["tile_weight"]), "ASSON1")
+        paths = self.mutated("tile_weight", extension)
+        self.assertFinding(check_product(paths["tile_weight"]), "expected none")
 
     def test_file_name_length(self):
         long_name = os.path.join(self.tmp, "x" * 64 + ".fits")  # 69 characters
@@ -512,14 +521,14 @@ class TestSdpCheck(unittest.TestCase):
 
     def test_expmap(self):
         def nan_pixel(hdul):
-            hdul[1].data = np.full(SHAPE, 60, dtype=np.float32)
-            hdul[1].data[0, 0] = np.nan
+            hdul[0].data = np.full(SHAPE, 60, dtype=np.float32)
+            hdul[0].data[0, 0] = np.nan
 
         def negative_pixel(hdul):
-            hdul[1].data[0, 0] = -1
+            hdul[0].data[0, 0] = -1
 
         def stripe(hdul):  # every-8th-pixel sample median 30, exact median 60
-            hdul[1].data[0, :] = 30
+            hdul[0].data[0, :] = 30
 
         paths = self.mutated("expmap", stripe)
         self.assertEqual(check_product(paths["tile"]), [])
@@ -528,12 +537,18 @@ class TestSdpCheck(unittest.TestCase):
         self.assertFinding(check_product(paths["expmap"]), "NaN")
         paths = self.mutated("expmap", negative_pixel)
         self.assertFinding(check_product(paths["expmap"]), "negative")
-        paths = self.mutated("expmap", set_card(1, "BUNIT", "adu"))
+        paths = self.mutated("expmap", set_card(0, "BUNIT", "adu"))
         self.assertFinding(check_product(paths["expmap"]), "BUNIT")
         paths = self.mutated("expmap", set_card(0, "ASSON1", "tiny.fits"))
         self.assertFinding(check_product(paths["expmap"]), "ASSON1")
-        paths = self.mutated("expmap", set_card(1, "CRVAL1", 280.5))
+        paths = self.mutated("expmap", set_card(0, "CRVAL1", 280.5))
         self.assertFinding(check_product(paths["tile"]), "CRVAL1")
+
+        def extension(hdul):
+            hdul.append(fits.ImageHDU(np.ones(SHAPE, dtype=np.float32)))
+
+        paths = self.mutated("expmap", extension)
+        self.assertFinding(check_product(paths["expmap"]), "1 extensions")
 
     def test_sources(self):
         def move_tfields(hdul):
@@ -638,6 +653,12 @@ class TestSdpCheck(unittest.TestCase):
         paths = self.mutated("weights", drop_last)
         self.assertFinding(check_product(paths["weights"][0]), "15 extensions")
         self.assertFinding(check_product(paths["stacks"][0]), "has 15 extensions")
+        paths = self.mutated("weights", delete_card(7, "BUNIT"))
+        self.assertFinding(check_product(paths["weights"][0]), "[7]: missing BUNIT")
+        paths = self.mutated("weights", set_card(3, "CRPIX1", 5.5))
+        self.assertFinding(check_product(paths["stacks"][0]), "CRPIX1")
+        paths = self.mutated("weights", set_card(3, "RADESYS", "FK5"))
+        self.assertFinding(check_product(paths["stacks"][0]), "RADESYS")
 
     def test_check_batch(self):
         files = ordered(self.paths)
@@ -648,11 +669,12 @@ class TestSdpCheck(unittest.TestCase):
         self.assertFinding(check_batch(files + [duplicate]), "duplicate")
 
         without_expmap = [path for path in files if path != self.paths["expmap"]]
-        self.assertFinding(check_batch(without_expmap), "ASSON1 'tiny.expmap.fits'")
+        self.assertFinding(check_batch(without_expmap), "ASSON2 'tiny.expmap.fits'")
 
         sources_first = [
             self.paths["sources"],
             self.paths["tile"],
+            self.paths["tile_weight"],
             self.paths["expmap"],
         ]
         sources_first += self.paths["stacks"] + self.paths["weights"]
@@ -666,7 +688,7 @@ class TestSdpCheck(unittest.TestCase):
             self.assertEqual(main(ordered(self.paths)), 0)
         self.assertEqual(out.getvalue(), "")
 
-        files = ordered(self.mutated("tile", set_card(1, "PSF_FWHM", -1.0)))
+        files = ordered(self.mutated("tile", set_card(0, "PSF_FWHM", -1.0)))
         expected = [problem for path in files for problem in check_product(path)]
         expected += check_batch(files)
         with redirect_stdout(io.StringIO()) as out:

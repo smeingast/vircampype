@@ -737,9 +737,9 @@ def run_completeness(
     psf_dir : str
         Output directory for PSF catalogs and models.
     image_hdu : int or str
-        Index or EXTNAME of the image HDU (``"SCI"`` for the MEF tile).
+        Index or EXTNAME of the image HDU (default: the primary).
     weight_hdu : int or str
-        Index or EXTNAME of the weight HDU (``"CONF"`` for the MEF tile).
+        Index or EXTNAME of the weight HDU (default: the primary).
 
     Returns
     -------
@@ -1592,15 +1592,15 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         )
         return
 
-    # The tile is a MEF: SCI holds the image, CONF the weight
-    weight_path = image_path
+    # The tile image and its weight file (both in the primary)
+    weight_path = image_path.removesuffix(".fits") + ".weight.fits"
 
     # Zero point for the injected (unit-sum PSF) stars: the Phase 3 PHOTZP of
-    # the tile, written to SCI by the photometry step.
-    zp = fits.getheader(image_path, "SCI").get("PHOTZP")
+    # the tile, written by the photometry step.
+    zp = fits.getheader(image_path, 0).get("PHOTZP")
     if zp is None:
         logging.getLogger(__name__).warning(
-            f"Completeness: no PHOTZP in {image_path} [SCI]; "
+            f"Completeness: no PHOTZP in {image_path}; "
             f"using target_zp = {setup.target_zp}"
         )
         zp = setup.target_zp
@@ -1612,8 +1612,6 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         tiles_dir=setup.folders["temp_completeness_tiles"],
         psf_dir=setup.folders["temp_completeness_psf"],
         zp=zp,
-        image_hdu="SCI",
-        weight_hdu="CONF",
     )
 
     if results:
@@ -1642,8 +1640,8 @@ def qc_completeness_tile(image_path: str, setup) -> None:
 
         # Write completeness FITS image
         with fits.open(image_path) as hdul:
-            tile_header = hdul["SCI"].header
-            tile_shape = (hdul["SCI"].data.shape[0], hdul["SCI"].data.shape[1])
+            tile_header = hdul[0].header
+            tile_shape = (hdul[0].data.shape[0], hdul[0].data.shape[1])
         build_completeness_image(
             results=results,
             tile_header=tile_header,
@@ -1651,7 +1649,6 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             out_path=os.path.join(qc_dir, "completeness.fits"),
             resize_factor=setup.image_statistics_resize_factor,
             weight_path=weight_path,
-            weight_hdu="CONF",
         )
 
         # Save results table
@@ -1665,7 +1662,7 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         comp90_values = [r["comp90"] for r in results if np.isfinite(r["comp90"])]
         comp50_values = [r["comp50"] for r in results if np.isfinite(r["comp50"])]
 
-        set_cards(image_path, completeness_cards(results), hdu="SCI")
+        set_cards(image_path, completeness_cards(results), hdu=0)
 
         comp90_med, comp90_min, comp90_max = (
             f(comp90_values) if comp90_values else np.nan

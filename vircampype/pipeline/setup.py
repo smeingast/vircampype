@@ -491,6 +491,7 @@ class Setup:
         # Specific file paths
         self.path_coadd = f"{self.folders['tile']}{self.name}.fits"
         self.path_coadd_header = self.path_coadd.replace(".fits", ".ahead")
+        self.path_coadd_weight = self.path_coadd.replace(".fits", ".weight.fits")
         self.path_coadd_expmap = self.path_coadd.replace(".fits", ".expmap.fits")
         self.path_coadd_sources = self.path_coadd.replace(".fits", ".sources.fits")
 

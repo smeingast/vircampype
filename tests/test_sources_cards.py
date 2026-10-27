@@ -17,8 +17,7 @@ from tests.test_sdpcheck import PHOTOMETRY, make_products
 from vircampype.fits.images.sky import Tile
 from vircampype.fits.tables.sextractor import (
     AstrometricCalibratedSextractorCatalogs,
-    PhotometricCalibratedSextractorCatalogs,
-)
+    PhotometricCalibratedSextractorCatalogs)
 from vircampype.tools.sdpcheck import check_product
 
 LOGGER = "vircampype.fits.tables.sextractor"
@@ -59,12 +58,12 @@ class TestSourcesCards(unittest.TestCase):
 
         # Tile before the photometry step: BACKSIG/SATURATE, no photometric cards
         with fits.open(self.path_tile, mode="update") as hdul:
-            hdul["SCI"].header["BACKSIG"] = 5.0
-            hdul["SCI"].header["SATURATE"] = 30000.0
+            header = hdul[0].header
+            header["BACKSIG"] = 5.0
+            header["SATURATE"] = 30000.0
             for key in PHOTOMETRY:
-                del hdul["SCI"].header[key]
-            del hdul[0].header["FLUXCAL"]
-            del hdul[0].header["ELLIPTIC"]
+                del header[key]
+            del header["FLUXCAL"]
 
     def _write_catalog(self, n: int = 60):
         primary = fits.PrimaryHDU()
@@ -82,29 +81,26 @@ class TestSourcesCards(unittest.TestCase):
     def _tile(self) -> Tile:
         return Tile(setup=self.setup, file_paths=self.path_tile)
 
-    def test_photometric_cards_on_sci(self):
+    def test_photometric_cards_on_image(self):
         with fits.open(self.path_tile) as hdul:
-            dat_loc = hdul.fileinfo(1)["datLoc"]
+            dat_loc = hdul.fileinfo(0)["datLoc"]
 
         catalogs = PhotometricCalibratedSextractorCatalogs(
             setup=self.setup, file_paths=[self.path_ctab]
         )
-        catalogs.write_photometric_cards(self._tile(), elliptic_primary=True)
+        catalogs.write_photometric_cards(self._tile())
 
         with fits.open(self.path_tile) as hdul:
-            sci, conf = hdul["SCI"].header, hdul["CONF"].header
+            header = hdul[0].header
             for key in PHOTOMETRY:
-                self.assertIn(key, sci)
-                self.assertNotIn(key, conf)
-            self.assertEqual(hdul[0].header["ELLIPTIC"], sci["ELLIPTIC"])
-            self.assertNotIn("PHOTZP", hdul[0].header)
-            self.assertEqual(sci["PHOTSYS"], "VEGA")
+                self.assertIn(key, header)
+            self.assertNotIn("PHOTZP", fits.getheader(self.setup.path_coadd_weight))
+            self.assertEqual(header["PHOTSYS"], "VEGA")
             zps = 25.0 + 0.01 * np.arange(len(self.setup.apertures))
-            self.assertEqual(sci["PHOTZP"], round(float(np.mean(zps)), 4))
-            self.assertAlmostEqual(sci["PSF_FWHM"], 0.8, delta=0.01)
-            self.assertEqual(hdul[0].header["FLUXCAL"], "ABSOLUTE")
-            self.assertNotIn("FLUXCAL", sci)
-            self.assertEqual(hdul.fileinfo(1)["datLoc"], dat_loc)
+            self.assertEqual(header["PHOTZP"], round(float(np.mean(zps)), 4))
+            self.assertAlmostEqual(header["PSF_FWHM"], 0.8, delta=0.01)
+            self.assertEqual(header["FLUXCAL"], "ABSOLUTE")
+            self.assertEqual(hdul.fileinfo(0)["datLoc"], dat_loc)
         self.assertEqual(
             check_product(self.path_tile, "SCIENCE.IMAGE", final=False), []
         )
@@ -142,12 +138,12 @@ class TestSourcesCards(unittest.TestCase):
         ):
             catalogs.write_crder(self._tile())
 
-    def test_crder_on_sci(self):
+    def test_crder_on_image(self):
         self._crder()
-        sci = fits.getheader(self.path_tile, "SCI")
-        self.assertAlmostEqual(sci["CRDER1"] * 3.6e6, 20.0, delta=3.0)
-        self.assertAlmostEqual(sci["CRDER2"] * 3.6e6, 30.0, delta=4.5)
-        self.assertNotIn("CRDER1", fits.getheader(self.path_tile, "CONF"))
+        header = fits.getheader(self.path_tile, 0)
+        self.assertAlmostEqual(header["CRDER1"] * 3.6e6, 20.0, delta=3.0)
+        self.assertAlmostEqual(header["CRDER2"] * 3.6e6, 30.0, delta=4.5)
+        self.assertNotIn("CRDER1", fits.getheader(self.setup.path_coadd_weight))
 
     def test_crder_omitted_with_few_sources(self):
         self._write_catalog(n=5)
@@ -155,9 +151,9 @@ class TestSourcesCards(unittest.TestCase):
             self._crder()
         self.assertEqual(len(logs.records), 1)
         self.assertIn("CRDER", logs.output[0])
-        sci = fits.getheader(self.path_tile, "SCI")
-        self.assertNotIn("CRDER1", sci)
-        self.assertNotIn("CRDER2", sci)
+        header = fits.getheader(self.path_tile, 0)
+        self.assertNotIn("CRDER1", header)
+        self.assertNotIn("CRDER2", header)
 
     def test_build_public_catalog_source(self):
         source = inspect.getsource(

@@ -164,7 +164,7 @@ SOURCES_PRIMARY_KEYS = (
     "PROCSOFT",
     "REFERENC",
     "SKYSQDEG",
-    # ESO's validator wants as many ELLIPTIC values as the tile has (primary + SCI)
+    # ESO's validator wants ELLIPTIC in the source-list primary, too (batch 23808)
     "ELLIPTIC",
 )
 
@@ -1408,8 +1408,7 @@ def write_source_list(
     sources: QTable,
     path_out: str,
     tile_name: str,
-    tile_primary: fits.Header,
-    tile_sci: fits.Header,
+    tile_header: fits.Header,
     passband: str,
     primary_cards=(),
     table_cards=(),
@@ -1418,10 +1417,10 @@ def write_source_list(
     Write a source list in the SCIENCE.SRCTBL layout (plan §2.4).
 
     The primary HDU is empty and carries the observation block copied from the
-    tile primary (``SOURCES_PRIMARY_KEYS`` and the indexed TELESCi/INSTRi/
+    tile image header (``SOURCES_PRIMARY_KEYS`` and the indexed TELESCi/INSTRi/
     FILTERi/PROGIDi/OBIDi), ``PROV1`` = the tile file name and ``primary_cards``.
     The table (:func:`source_list_hdu`) carries the photometric cards copied
-    from the tile SCI header and ``table_cards``. Both headers end with 36 blank
+    from the tile image header and ``table_cards``. Both headers end with 36 blank
     cards, reserved for PRODCATG and the checksums of the finalizer.
 
     Parameters
@@ -1432,10 +1431,8 @@ def write_source_list(
         Output path; must not exist (callers write to a temporary path).
     tile_name : str
         File name of the tile, written to PROV1.
-    tile_primary : fits.Header
-        Primary header of the tile.
-    tile_sci : fits.Header
-        SCI header of the tile.
+    tile_header : fits.Header
+        Header of the tile image (its primary).
     passband : str
         Passband of the tile (J, H or Ks).
     primary_cards : iterable of tuple, optional
@@ -1446,16 +1443,16 @@ def write_source_list(
     Raises
     ------
     PipelineValueError
-        If a photometric card is missing in the SCI header or the passband has
+        If a photometric card is missing in the tile header or the passband has
         no UCD band.
     """
     primary = fits.Header()
     for key in SOURCES_PRIMARY_KEYS:
-        if key in tile_primary:
-            primary.set(key, tile_primary[key], tile_primary.comments[key])
-    for key in tile_primary:
+        if key in tile_header:
+            primary.set(key, tile_header[key], tile_header.comments[key])
+    for key in tile_header:
         if re.fullmatch(r"(TELESC|INSTR|FILTER|PROGID|OBID)\d+", key):
-            primary.set(key, tile_primary[key], tile_primary.comments[key])
+            primary.set(key, tile_header[key], tile_header.comments[key])
     primary.set("PROV1", tile_name, "Originating image")
     for key, value, comment in primary_cards:
         primary.set(key, value, comment)
@@ -1463,12 +1460,12 @@ def write_source_list(
     table = source_list_hdu(sources, passband)
     phot_keys = ("PHOTSYS", "PHOTZP", "PHOTZPER", "ABMAGLIM", "ABMAGSAT")
     for key in phot_keys + ("PSF_FWHM", "ELLIPTIC"):
-        if key not in tile_sci:
+        if key not in tile_header:
             raise PipelineValueError(
-                f"{key} missing in the SCI header of {tile_name}",
+                f"{key} missing in the header of {tile_name}",
                 logger=logging.getLogger(__name__),
             )
-        table.header.set(key, tile_sci[key], tile_sci.comments[key])
+        table.header.set(key, tile_header[key], tile_header.comments[key])
     for key, value, comment in table_cards:
         table.header.set(key, value, comment)
 

@@ -236,7 +236,7 @@ class TestDeprecatedKeys(unittest.TestCase):
         tile = setup.folders["tile"]
         self.assertEqual(setup.path_coadd_expmap, f"{tile}TestSetup.expmap.fits")
         self.assertEqual(setup.path_coadd_sources, f"{tile}TestSetup.sources.fits")
-        self.assertFalse(hasattr(setup, "path_coadd_weight"))
+        self.assertEqual(setup.path_coadd_weight, f"{tile}TestSetup.weight.fits")
 
     def test_no_phase3_folder(self):
         setup = make_test_setup(self._tmp.name)

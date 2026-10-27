@@ -46,9 +46,9 @@ def build_exposure_map(
     exptimes : list[float]
         DIT·NDIT of each pawprint in seconds.
     header : astropy.io.fits.Header
-        SCI header of the tile (grid and WCS).
+        Header of the tile image (grid and WCS).
     primary : astropy.io.fits.Header
-        Primary header of the exposure map (OBJECT, FILTER).
+        Cards of the exposure map header (OBJECT, FILTER).
     path_out : str
         Output path of the exposure map.
     cache_dir : str, optional
@@ -71,21 +71,17 @@ def build_exposure_map(
     dtype = np.int16 if integral and sum(exptimes) <= 32767 else np.float32
     nx, ny = header["NAXIS1"], header["NAXIS2"]
 
-    # Headers: empty primary + EXPMAP extension on the SCI grid
-    extension = fits.ImageHDU(data=np.zeros((1, 1), dtype)).header
-    extension["NAXIS1"], extension["NAXIS2"] = nx, ny
-    extension["EXTNAME"] = "EXPMAP"
-    extension["BUNIT"] = ("s", "Exposure time")
+    # One primary HDU on the grid of the tile image, as the image itself (§4.3.1)
+    hdr = fits.PrimaryHDU(data=np.zeros((1, 1), dtype)).header
+    hdr["NAXIS1"], hdr["NAXIS2"] = nx, ny
+    for card in primary.cards:
+        hdr.set(card.keyword, card.value, card.comment)
+    hdr["BUNIT"] = ("s", "Exposure time")
     for key in _WCS_KEYS:
         if key in header:
-            extension[key] = (header[key], header.comments[key])
-    # EXTEND by hand: update_extend() only acts on a list with extensions, and the
-    # update-mode close would otherwise insert it into one of the blank cards
-    primary = fits.PrimaryHDU(header=primary.copy()).header
-    primary.insert("NAXIS", ("EXTEND", True), after=True)
-    for hdr in (primary, extension):
-        for _ in range(36):
-            hdr.append(fits.Card(), end=True)
+            hdr[key] = (header[key], header.comments[key])
+    for _ in range(36):
+        hdr.append(fits.Card(), end=True)
 
     # Create the file without allocating its data (sparse zero block)
     path_tmp = make_path_system_tempfile(
@@ -93,13 +89,12 @@ def build_exposure_map(
     )
     try:
         with open(path_tmp, "wb") as f:
-            f.write(primary.tostring().encode("ascii"))
-            f.write(extension.tostring().encode("ascii"))
+            f.write(hdr.tostring().encode("ascii"))
             nbytes = nx * ny * np.dtype(dtype).itemsize
             f.truncate(f.tell() + ((nbytes + 2879) // 2880) * 2880)
 
         with fits.open(path_tmp, mode="update", memmap=True) as hdul:
-            data = hdul[1].data
+            data = hdul[0].data
             for path, exptime in zip(paths_weights, exptimes, strict=True):
                 value = int(exptime) if dtype is np.int16 else np.float32(exptime)
                 with fits.open(path, memmap=True) as weights:
