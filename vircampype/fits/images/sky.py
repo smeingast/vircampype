@@ -3202,7 +3202,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             remove_file(path_coadd_tmp)
             remove_file(path_weight_tmp)
 
-            # Move the weight, then the image; the setup record goes to qc/
+            # Old image out, then the new weight, then the new image: an interrupted
+            # replacement never leaves a resumable pair of old image and new weight;
+            # the setup record goes to qc/
+            remove_file(self.setup.path_coadd)
             shutil.move(path_weight_out_tmp, self.setup.path_coadd_weight)
             shutil.move(path_image_out_tmp, self.setup.path_coadd)
             self.setup.write_sidecar()
