@@ -209,21 +209,19 @@ def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
             (expmap, "ANCILLARY.EXPMAP", ()),
             (setup.path_coadd_sources, "SCIENCE.SRCTBL", ()),
         ]
-    for flag, attr, sources in (
-        (setup.build_stacks, "stacks", True),
-        (setup.build_pawprints, "pawprints", True),
+    for flag, attr in (
+        (setup.build_stacks, "stacks"),
+        (setup.build_pawprints, "pawprints"),
     ):
         if not flag:
             continue
         for path in getattr(pipeline, attr).paths_full:
-            weight = path.removesuffix(".fits") + ".weight.fits"
+            base = path.removesuffix(".fits")
             products += [
-                (path, "SCIENCE.MEFIMAGE", (os.path.basename(weight),)),
-                (weight, "ANCILLARY.WEIGHTMAP", ()),
+                (path, "SCIENCE.MEFIMAGE", (os.path.basename(f"{base}.weight.fits"),)),
+                (f"{base}.weight.fits", "ANCILLARY.WEIGHTMAP", ()),
+                (f"{base}.sources.fits", "SCIENCE.SRCTBL", ()),
             ]
-            if sources:
-                path_sources = path.removesuffix(".fits") + ".sources.fits"
-                products.append((path_sources, "SCIENCE.SRCTBL", ()))
     return products
 
 
@@ -237,9 +235,9 @@ def finalize_files(products: list[tuple[str, str, tuple[str, ...]]]) -> None:
 
     ``products`` holds (path, PRODCATG, ASSONi basenames) in batch order (images before
     their source lists). Nothing is written unless every file passes ``sdpcheck`` with
-    ``final=False`` and every HDU has header space for its checksums. Existing checksums
-    are trusted; ``set_cards`` removes them in every HDU of the file it edits, so after
-    the identity cards each HDU gets fresh ones. DATE (UTC, the time of sealing) goes
+    ``final=False`` and every HDU has header space for its checksums. ``set_cards``
+    removes the checksums in every HDU of the file it edits, so after the identity
+    cards each HDU gets fresh ones. DATE (UTC, the time of sealing) goes
     into every primary: ESO's validator requires it for the science categories.
     Running it again is harmless (it refreshes DATE).
 
@@ -294,13 +292,12 @@ def finalize_files(products: list[tuple[str, str, tuple[str, ...]]]) -> None:
             "Not enough header space for identity and checksums:\n" + "\n".join(short)
         )
 
-    # Identity, then checksums for every HDU that lacks them
+    # Identity (set_cards drops the checksums of every HDU), then fresh checksums
     for path, _, _ in products:
         set_cards(path, identity[path], hdu=0)
         with fits.open(path, mode="update") as hdul:
             for hdu in hdul:
-                if "CHECKSUM" not in hdu.header or "DATASUM" not in hdu.header:
-                    hdu.add_checksum()
+                hdu.add_checksum()
 
     # Pass 2: sealed products and their batch
     paths = [path for path, _, _ in products]

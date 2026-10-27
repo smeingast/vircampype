@@ -1201,13 +1201,14 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         """
         log = logging.getLogger(__name__)
 
-        # Gaia reference at the epoch of the data
         sc_master_raw = self.get_master_astrometry().skycoord[0][0]
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            reference = sc_master_raw.apply_space_motion(new_obstime=self.time_obs_mean)
-
         for idx, path in enumerate(self.paths_full):
+            # Gaia reference at the epoch of this file (pawprints may span years)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                reference = sc_master_raw.apply_space_motion(
+                    new_obstime=Time(self.mjd[idx], format="mjd")
+                )
             hdus_img = list(images.iter_data_hdu[idx])
             hdus_cat = list(self.iter_data_hdu[idx])
             if len(hdus_img) != len(hdus_cat):

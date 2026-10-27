@@ -130,12 +130,7 @@ class TestSourcesCards(unittest.TestCase):
         cls = AstrometricCalibratedSextractorCatalogs
         with (
             patch.object(cls, "get_master_astrometry", return_value=master),
-            patch.object(
-                cls,
-                "time_obs_mean",
-                new_callable=PropertyMock,
-                return_value=Time(60000.0, format="mjd"),
-            ),
+            patch.object(cls, "mjd", new_callable=PropertyMock, return_value=[60000.0]),
         ):
             catalogs.write_crder(self._tile())
 
