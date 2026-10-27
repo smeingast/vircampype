@@ -40,8 +40,9 @@ def build_exposure_map(
     Parameters
     ----------
     paths_weights : list[str]
-        Weight MEFs of the resampled pawprints. Every image extension is a sub-raster
-        of the tile grid (same CRVAL/CD/CTYPE, integer CRPIX offset).
+        Weight MEFs of the resampled pawprints. Every image extension lies on the
+        tile grid (same CRVAL/CD/CTYPE, integer CRPIX offset); parts hanging over
+        the grid edge are clipped, as SWarp does.
     exptimes : list[float]
         DIT·NDIT of each pawprint in seconds.
     header : astropy.io.fits.Header
@@ -61,7 +62,8 @@ def build_exposure_map(
     Raises
     ------
     PipelineValueError
-        If an extension is not an integer sub-raster of the grid, or nothing is covered.
+        If an extension is off the integer grid or entirely outside it, or nothing
+        is covered.
 
     """
     # int16 iff every value a pixel can reach is an integer within the int16 range
@@ -106,13 +108,18 @@ def build_exposure_map(
                             continue
                         x0, y0 = integer_wcs_offset(header, hdu.header)
                         nyy, nxx = hdu.data.shape
-                        if x0 < 0 or y0 < 0 or x0 + nxx > nx or y0 + nyy > ny:
+                        # Clip to the grid, as SWarp does for overhanging detectors
+                        xa, ya = max(x0, 0), max(y0, 0)
+                        xb, yb = min(x0 + nxx, nx), min(y0 + nyy, ny)
+                        if xa >= xb or ya >= yb:
                             raise PipelineValueError(
-                                f"{os.path.basename(path)}[{idx}] lies outside the "
-                                f"tile grid (offset x0={x0}, y0={y0})"
+                                f"{os.path.basename(path)}[{idx}] lies entirely outside "
+                                f"the tile grid (offset x0={x0}, y0={y0})"
                             )
-                        view = data[y0 : y0 + nyy, x0 : x0 + nxx]
-                        view[hdu.data > 0] += value
+                        view = data[ya:yb, xa:xb]
+                        view[hdu.data[ya - y0 : yb - y0, xa - x0 : xb - x0] > 0] += (
+                            value
+                        )
                 log.debug(f"Exposure map: added {os.path.basename(path)} ({exptime} s)")
 
             # Strip pass: median and covered area

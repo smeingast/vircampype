@@ -127,8 +127,18 @@ class TestBuildExposureMap(unittest.TestCase):
         self.assertFalse(os.path.exists(self.path_out))
         self.assertEqual(os.listdir(self.cache), [])
 
+    def test_clips_overhanging_detectors(self):
+        # Detectors hanging over the grid edges are clipped, as SWarp does
+        paths = _write_weights(self.tmp, offsets=[[(-3, -2), (19, 17)]])
+        self._build(paths, [6])
+        data = fits.getdata(self.path_out, "EXPMAP")
+        ref = np.zeros((NY, NX), dtype=np.int16)
+        ref[0:3, 0:3] = 6  # (-3, -2): 5x6 block, in-grid part rows 0-2, cols 0-2
+        ref[17:20, 19:24] = 6  # (19, 17): in-grid part rows 17-19, cols 19-23
+        np.testing.assert_array_equal(data, ref)
+
     def test_rejects_outside_grid(self):
-        paths = _write_weights(self.tmp, offsets=[[(0, 0), (19, 15)]])
+        paths = _write_weights(self.tmp, offsets=[[(0, 0), (30, 25)]])
         with self.assertRaises(PipelineValueError):
             self._build(paths, [6])
         self.assertFalse(os.path.exists(self.path_out))
