@@ -2423,8 +2423,8 @@ def _write_pawprint(
     with fits.open(path_in, memmap=True) as hdul_in:
         for hdu in hdul_in[1:]:
             hdr = hdu.header.copy()
-            for key in ("ORIGIN", "DATE", "AUTHOR", "ORIGFILE", "CHECKSUM", "DATASUM"):
-                hdr.remove(key, ignore_missing=True)
+            for key in (*SWARP_CARDS, "ORIGFILE", "CHECKSUM", "DATASUM"):
+                hdr.remove(key, ignore_missing=True, remove_all=True)
             if exptime is not None:
                 # Exclude uncovered pixels (SWarp writes exactly 0 there)
                 data = hdu.data
@@ -2642,10 +2642,6 @@ class SkyImagesResampled(SkyImagesProcessed):
                         value=exptime_stack,
                         comment="Total integration time (s)",
                     )
-                    # SWarp's host and run stamps
-                    for key in ("ORIGIN", "DATE", "AUTHOR"):
-                        hdul[0].header.remove(key, ignore_missing=True)
-
                     hdul.flush()
 
             # Primary header: observation block, stack centre, astrometric RMS

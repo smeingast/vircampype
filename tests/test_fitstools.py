@@ -247,6 +247,23 @@ class TestMakeMefImage(unittest.TestCase):
                             n += 1
                         self.assertEqual(n, n_blank, hdu.name)
 
+    def test_make_mef_image_drops_swarp_cards(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            header = fits.Header()
+            header["SOFTNAME"] = "SWarp"
+            header["COMMENT"] = ""
+            header["COMMENT"] = " Axis-dependent SWarp parameters"
+            header["RESAMPT1"] = "LANCZOS3"
+            header["FLASCALE"] = 0.98
+            path = os.path.join(tmp, "in.fits")
+            fits.writeto(path, np.zeros((4, 4), dtype=np.float32), header)
+            out = os.path.join(tmp, "out.fits")
+            make_mef_image([path], out)
+            header = fits.getheader(out, 1)
+            for key in ("SOFTNAME", "COMMENT", "RESAMPT1"):
+                self.assertNotIn(key, header)
+            self.assertEqual(header["FLASCALE"], 0.98)
+
 
 class TestWriteTilePair(unittest.TestCase):
     """Tile image and weight from tiny SWarp-like image and weight files."""
@@ -273,6 +290,8 @@ class TestWriteTilePair(unittest.TestCase):
         header["DATE"] = "2026-10-26T12:00:00"
         header["AUTHOR"] = "stefan"
         header["SOFTNAME"] = "SWarp"
+        header["COMBINET"] = "CLIPPED"
+        header["RESAMPT1"] = "LANCZOS3"
         header["COMMENT"] = "Propagated FITS keywords"
         rng = np.random.default_rng(1)
         self.image = rng.normal(0, 1, (8, 8)).astype(np.float32)
@@ -347,7 +366,8 @@ class TestWriteTilePair(unittest.TestCase):
                     self.assertEqual(header[key], WCS[key])
                 for key in ("DATE", "AUTHOR", "EXTNAME", "HDUCLASS", "COMMENT"):
                     self.assertNotIn(key, header)
-                self.assertEqual(header["SOFTNAME"], "SWarp")
+                for key in ("SOFTNAME", "COMBINET", "RESAMPT1"):
+                    self.assertNotIn(key, header)  # products name only vircampype
                 self.assertEqual(header["OBJECT"], "TINY")
                 self.assertEqual(header["FILTER"], "H")
             self.assertEqual(image["ORIGIN"], "ESO-PARANAL")  # not SWarp's host

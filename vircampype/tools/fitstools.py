@@ -33,6 +33,7 @@ __all__ = [
     "copy_keywords",
     "add_key_primary_hdu",
     "make_mef_image",
+    "SWARP_CARDS",
     "merge_headers",
     "add_float_to_header",
     "add_str_to_header",
@@ -288,6 +289,10 @@ def make_mef_image(
     extension_cards : list[tuple[str, object, str]], optional
         ``(key, value, comment)`` cards set in every extension (e.g. BUNIT).
 
+    Notes
+    -----
+    The inputs are SWarp outputs: SWARP_CARDS are removed from every extension.
+
     Raises
     ------
     ValueError
@@ -315,6 +320,8 @@ def make_mef_image(
                 const = 0
 
             hdr = file[0].header.copy()
+            for key in SWARP_CARDS:
+                hdr.remove(key, ignore_missing=True, remove_all=True)
             if write_extname:
                 hdr.set("EXTNAME", value=f"HDU{pidx + 1:>02d}", after="BITPIX")
             for key, value, comment in extension_cards:
@@ -337,10 +344,16 @@ def make_mef_image(
 # Unit of SWarp's coadd weight: inverse variance of the image (adu)
 WEIGHT_BUNIT = ("adu**(-2)", "Inverse variance of the image")
 
-# SWarp's host and run stamps, its comment section titles, and cards that the
-# observation block of the image carries (EXPTIME is the exposure-map median, MJD-OBS
-# the first exposure)
-_SWARP_DROP = ("ORIGIN", "DATE", "AUTHOR", "COMMENT", "HISTORY", "EXPTIME", "MJD-OBS")
+# SWarp's software and run stamps, config parameters and comment section titles:
+# products name only vircampype (PROCSOFT)
+SWARP_CARDS = (
+    "SOFTNAME", "SOFTVERS", "SOFTDATE", "SOFTAUTH", "SOFTINST", "AUTHOR", "ORIGIN",
+    "DATE", "COMBINET", "RESAMPT1", "RESAMPT2", "CENTERT1", "CENTERT2", "PSCALET1",
+    "PSCALET2", "INTERPF", "BACKSUBF", "COMMENT", "HISTORY",
+)  # fmt: skip
+# Plus the cards that the observation block of the tile carries (EXPTIME is the
+# exposure-map median, MJD-OBS the first exposure)
+_SWARP_DROP = (*SWARP_CARDS, "EXPTIME", "MJD-OBS")
 _STRUCTURE_KEYS = ("SIMPLE", "BITPIX", "NAXIS", "NAXIS1", "NAXIS2", "EXTEND")
 
 
@@ -357,12 +370,12 @@ def write_tile_pair(
     Write the tile image and its weight from SWarp's coadd image and weight.
 
     The image goes to the primary HDU of *path_image_out*: the cards of *primary*
-    (observation block, provenance) first, then SWarp's WCS and software cards,
-    BUNIT and *image_cards*, followed by *extra_hdus* (e.g. a PHASE3PROVENANCE
-    table). The weight goes to the primary of *path_weight_out* with SWarp's
-    header, OBJECT and FILTER of the image and BUNIT (inverse variance). SWarp's
-    ORIGIN, DATE, AUTHOR, COMMENT/HISTORY, EXPTIME and MJD-OBS are dropped (the
-    weight also loses GAIN and SATURATE, which SWarp writes as zeros). Every HDU
+    (observation block, provenance) first, then SWarp's WCS cards, BUNIT and
+    *image_cards*, followed by *extra_hdus* (e.g. a PHASE3PROVENANCE table). The
+    weight goes to the primary of *path_weight_out* with SWarp's header, OBJECT and
+    FILTER of the image and BUNIT (inverse variance). SWARP_CARDS, EXPTIME and
+    MJD-OBS are dropped (the weight also loses GAIN and SATURATE, which SWarp
+    writes as zeros). Every HDU
     gets one reserved block of 36 blank cards so that later card edits never move
     the data. Both inputs stay memory-mapped and unscaled, so the arrays are copied
     bitwise.
