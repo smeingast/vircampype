@@ -391,7 +391,8 @@ def statistics_grid(
                 f"CRPIX{axis} = {crpix} is not an integer; the statistics grids of "
                 "the images would not align"
             )
-        start = -round(crpix) % binning
+        crpix = round(crpix)  # exact integer: no rounding in the integer placement
+        start = -crpix % binning
         size = -(-(naxis + start) // binning) * binning
         pads += [start, size - naxis - start]
         header_out[f"NAXIS{axis}"] = size // binning

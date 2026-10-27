@@ -135,6 +135,11 @@ class TestStatisticsGrid(unittest.TestCase):
         self.assertAlmostEqual(float(c_out[0]), float(c_in[0]), places=10)
         self.assertAlmostEqual(float(c_out[1]), float(c_in[1]), places=10)
 
+    def test_near_integer_crpix_snapped(self):
+        a, _ = statistics_grid(self._image(-27319, -31713, 100, 100), 4)
+        b, _ = statistics_grid(self._image(-27315.0000005, -31713, 100, 100), 4)
+        self.assertEqual(b["CRPIX1"] - a["CRPIX1"], -1.0)
+
     def test_invalid_input_raises(self):
         with self.assertRaises(ValueError):
             statistics_grid(self._image(10, 10, 100, 100), 3)
