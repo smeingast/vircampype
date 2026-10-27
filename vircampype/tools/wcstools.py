@@ -356,15 +356,17 @@ def statistics_grid(
     pixels on a lattice shared by all images on the same projection.
 
     Each axis is padded by ``s`` pixels before and ``e`` after the data, with
-    ``CRPIX + s`` a multiple of ``binning``. The coarse grids of images on one
-    projection (one CD, integer CRPIX) then differ by exact integer shifts, as the
+    ``floor(CRPIX) + s`` a multiple of ``binning``. The coarse grids of images on one
+    projection (one CD, CRPIX with a common phase of 0 or 0.5) then differ by exact
+    integer shifts, as the
     statistics coadd (SWarp ``RESAMPLE=N``, ``statscoadd``) assumes. Block edges
     map onto pixel edges: ``CRPIX' = (CRPIX + s - 0.5) / binning + 0.5``.
 
     Parameters
     ----------
     header : fits.Header
-        Image header with NAXISi, integer CRPIXi and a CD matrix.
+        Image header with NAXISi, CRPIXi on integers or half-integers and a CD
+        matrix.
     binning : int
         Block size in pixels; a power of two, so that the coarse CRPIX are exact
         binary fractions (no rounding in the integer placement).
@@ -378,7 +380,7 @@ def statistics_grid(
     Raises
     ------
     ValueError
-        If ``binning`` is not a power of two or a CRPIX is not an integer.
+        If ``binning`` is not a power of two or a CRPIX is not a multiple of 0.5.
     """
     if binning < 1 or binning & (binning - 1):
         raise ValueError(f"Statistics binning {binning} is not a power of two")
@@ -386,13 +388,16 @@ def statistics_grid(
     pads = []
     for axis in (1, 2):
         crpix, naxis = header[f"CRPIX{axis}"], header[f"NAXIS{axis}"]
-        if abs(crpix - round(crpix)) > 1e-6:
+        # Projections put CRPIX on integers or half-integers; all images of one
+        # projection share that phase. Snapped exactly: no rounding in the placement
+        snapped = round(2 * crpix) / 2
+        if abs(crpix - snapped) > 1e-6:
             raise ValueError(
-                f"CRPIX{axis} = {crpix} is not an integer; the statistics grids of "
-                "the images would not align"
+                f"CRPIX{axis} = {crpix} is not a multiple of 0.5; the statistics "
+                "grids of the images would not align"
             )
-        crpix = round(crpix)  # exact integer: no rounding in the integer placement
-        start = -crpix % binning
+        crpix = snapped
+        start = -math.floor(crpix) % binning
         size = -(-(naxis + start) // binning) * binning
         pads += [start, size - naxis - start]
         header_out[f"NAXIS{axis}"] = size // binning

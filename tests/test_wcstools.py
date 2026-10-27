@@ -140,11 +140,25 @@ class TestStatisticsGrid(unittest.TestCase):
         b, _ = statistics_grid(self._image(-27315.0000005, -31713, 100, 100), 4)
         self.assertEqual(b["CRPIX1"] - a["CRPIX1"], 1.0)
 
+    def test_half_integer_crpix(self):
+        # Projections with CRPIX on half-integers (CrA control): same guarantees
+        a, (s1, _, s2, _) = statistics_grid(self._image(4553.5, 6660.5, 2377, 2388), 4)
+        b, _ = statistics_grid(self._image(4590.5, 6702.5, 2340, 2347), 4)
+        for axis in (1, 2):
+            shift = a[f"CRPIX{axis}"] - b[f"CRPIX{axis}"]
+            self.assertEqual(shift, round(shift))
+        hdr = self._image(4553.5, 6660.5, 2377, 2388)
+        w_in, w_out = header2wcs(hdr), header2wcs(a)
+        c_out = w_out.all_pix2world(1.0, 1.0, 1)
+        c_in = w_in.all_pix2world(2.5 - s1, 2.5 - s2, 1)
+        self.assertAlmostEqual(float(c_out[0]), float(c_in[0]), places=10)
+        self.assertAlmostEqual(float(c_out[1]), float(c_in[1]), places=10)
+
     def test_invalid_input_raises(self):
         with self.assertRaises(ValueError):
             statistics_grid(self._image(10, 10, 100, 100), 3)
         with self.assertRaises(ValueError):
-            statistics_grid(self._image(10.5, 10, 100, 100), 4)
+            statistics_grid(self._image(10.3, 10, 100, 100), 4)
 
 
 class TestHeaderResetWCS(unittest.TestCase):
