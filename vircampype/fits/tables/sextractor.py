@@ -1954,13 +1954,17 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             hdul_in = fits.open(self.paths_full[idx_file], mode="readonly")
             hdul_out = hdul_in.copy()
 
-            # Loop over extensions
-            # TODO: Can this be replace with image_mjdeff.iter_data_hdu[0]?
-            # enumerate gives idx_hdu_position (0-based loop position) used to
-            # index self.skycoord/self.image_headers, which are keyed by HDU-loop
-            # position, NOT by the raw FITS HDU number idx_hdu_self.
+            # Catalog and statistics data HDUs pair up by position (the detector);
+            # idx_hdu_position also indexes self.skycoord/self.image_headers
+            if len(self.iter_data_hdu[idx_file]) != image_mjdeff.n_data_hdu[0]:
+                raise PipelineValueError(
+                    f"{self.paths_full[idx_file]} has "
+                    f"{len(self.iter_data_hdu[idx_file])} data HDUs, {path_mjd} has "
+                    f"{image_mjdeff.n_data_hdu[0]}",
+                    logger=log,
+                )
             for idx_hdu_position, (idx_hdu_self, idx_hdu_stats) in enumerate(
-                zip(self.iter_data_hdu[idx_file], range(image_mjdeff.n_data_hdu[0]))
+                zip(self.iter_data_hdu[idx_file], image_mjdeff.iter_data_hdu[0])
             ):
                 # Read table
                 table_hdu = self.filehdu2table(
@@ -1968,19 +1972,16 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 )
 
                 # Read stats
-                try:
-                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
-                    exptime = fits.getdata(path_exptime, idx_hdu_stats)
-                    nimg = fits.getdata(path_nimg, idx_hdu_stats)
-                except IndexError:
-                    mjdeff = fits.getdata(path_mjd, idx_hdu_stats + 1)
-                    exptime = fits.getdata(path_exptime, idx_hdu_stats + 1)
-                    nimg = fits.getdata(path_nimg, idx_hdu_stats + 1)
+                mjdeff = fits.getdata(path_mjd, idx_hdu_stats)
+                exptime = fits.getdata(path_exptime, idx_hdu_stats)
+                nimg = fits.getdata(path_nimg, idx_hdu_stats)
 
                 # Obtain wcs for statistics images (they all have the same projection)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", FITSFixedWarning)
-                    wcs_stats = WCS(header=image_mjdeff.headers_data[0][idx_hdu_stats])
+                    wcs_stats = WCS(
+                        header=image_mjdeff.headers_data[0][idx_hdu_position]
+                    )
 
                 # Convert to X/Y and sample; bad = off-grid or no coverage
                 xx, yy = wcs_stats.wcs_world2pix(
