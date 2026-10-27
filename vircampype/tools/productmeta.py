@@ -195,8 +195,8 @@ def set_cards(
 def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
     """Products the setup delivers: (path, PRODCATG, ASSONi basenames), batch order.
 
-    Order: tile, its weight and exposure map, source list, stacks with their weights
-    and source lists, pawprints and their weights.
+    Order: tile, its weight and exposure map, source list, then every stack and
+    pawprint with its weight and source list.
     """
     setup = pipeline.setup
     products = []
@@ -211,7 +211,7 @@ def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
         ]
     for flag, attr, sources in (
         (setup.build_stacks, "stacks", True),
-        (setup.build_pawprints, "pawprints", False),
+        (setup.build_pawprints, "pawprints", True),
     ):
         if not flag:
             continue

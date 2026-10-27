@@ -883,6 +883,30 @@ class Pipeline:
             astrms_fallback=self._astrms_flat_scalar()
         )
 
+    @pipeline_step("statistics_pawprints", message="PAWPRINTS STATISTICS")
+    def build_statistics_pawprints(self):
+        """Effective MJD map per pawprint and the pawprint statistics tables."""
+        mjd_ref = self._statistics_mjd_ref()
+        for pmi, pmf, pme in zip(
+            self._paths_resampled_statistics(mode="mjd.int"),
+            self._paths_resampled_statistics(mode="mjd.frac"),
+            self._paths_resampled_statistics(mode="mjd.eff"),
+        ):
+            combine_mjd_images(
+                path_file_a=pmi,
+                path_file_b=pmf,
+                path_file_out=pme,
+                offset=mjd_ref,
+                overwrite=True,
+            )
+        bases = [
+            p.removesuffix(".mjd.eff.fits")
+            for p in self._paths_resampled_statistics(mode="mjd.eff")
+        ]
+        self.sources_resampled_cal.build_statistics_tables(
+            astrms_fallback=self._astrms_flat_scalar(), statistics_bases=bases
+        )
+
     def _statistics_mjd_ref(self) -> float:
         """Reference MJD encoded in the per-pawprint mjd.int statistics images.
 
@@ -1043,6 +1067,11 @@ class Pipeline:
     def classification_stacks(self):
         """Run star/galaxy classification on stack catalogs."""
         self.stacks.build_class_star_library()
+
+    @pipeline_step("classification_pawprints", message="PAWPRINTS CLASSIFICATION")
+    def classification_pawprints(self):
+        """Run star/galaxy classification on the resampled pawprints."""
+        self.resampled.build_class_star_library()
 
     @pipeline_step("classification_tile", message="TILE CLASSIFICATION")
     def classification_tile(self):
@@ -1261,6 +1290,14 @@ class Pipeline:
         finalize_products(self)
 
     # =========================================================================== #
+    @pipeline_step("public_catalog_pawprints", message="PAWPRINTS SOURCE LISTS")
+    def build_public_catalog_pawprints(self):
+        """Write the source list of every pawprint product (one table per detector)."""
+        self.sources_resampled_cal.build_public_catalog(
+            photerr_internal=self.setup.photometric_error_floor,
+            paths_images=self.resampled.paths_pawprints,
+        )
+
     @pipeline_step("public_catalog_stacks", message="STACKS SOURCE LISTS")
     def build_public_catalog_stacks(self):
         """Write the source list of every stack (one table per detector)."""
@@ -1422,6 +1459,9 @@ class Pipeline:
             self.photometry_pawprints()
             self.build_pawprints()
             self.qc_astrometry_pawprints()
+            self.build_statistics_pawprints()
+            self.classification_pawprints()
+            self.build_public_catalog_pawprints()
         # self.photerr_internal()
 
         # Build and calibrate stacks

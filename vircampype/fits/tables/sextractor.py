@@ -1887,7 +1887,16 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Get median error of those
         return photerr_internal_dict
 
-    def build_statistics_tables(self, astrms_fallback):
+    def build_statistics_tables(self, astrms_fallback, statistics_bases=None):
+        """
+        Write ``<catalog>.stats``: per source MJDEFF, EXPTIME, NIMG and the
+        astrometric floor ASTRMS1/2/ASTRMS_CORR, one table per catalog table.
+
+        The statistics images are ``<base>.mjd.eff.fits``, ``<base>.exptime.fits``
+        and ``<base>.nimg.fits``; *statistics_bases* gives one base per catalog
+        (pawprints: the statistics folder), default the catalog path without
+        ``.full.fits.ctab`` (tile, stacks).
+        """
         # Import
         from vircampype.fits.images.common import FitsImages
 
@@ -1924,15 +1933,13 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             )
 
             # Find files
-            path_mjd = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".mjd.eff.fits"
-            )
-            path_exptime = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".exptime.fits"
-            )
-            path_nimg = self.paths_full[idx_file].replace(
-                ".full.fits.ctab", ".nimg.fits"
-            )
+            if statistics_bases is None:
+                base = self.paths_full[idx_file].replace(".full.fits.ctab", "")
+            else:
+                base = statistics_bases[idx_file]
+            path_mjd = f"{base}.mjd.eff.fits"
+            path_exptime = f"{base}.exptime.fits"
+            path_nimg = f"{base}.nimg.fits"
 
             # Per-tile flat-SCAMP floor scalar (mas, mas, correlation): the value
             # the self-calibration shrinks toward / returns where Gaia is too sparse.
@@ -3856,7 +3863,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         log.info(f"{label}: {len(sources)} sources after conversion")
         return sources, scale_ratio
 
-    def build_public_catalog(self, photerr_internal: float):
+    def build_public_catalog(
+        self, photerr_internal: float, paths_images: list[str] | None = None
+    ):
         """
         Write the source list ``<name>.sources.fits`` (SCIENCE.SRCTBL) of each image.
 
@@ -3871,6 +3880,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         ----------
         photerr_internal : float
             Internal photometric error floor (mag), written to PHOTIERR.
+        paths_images : list[str] | None, optional
+            Image of each catalog (pawprints: the pawprint products); default the
+            catalog path without ``.full.fits.ctab`` (tile, stacks). The source
+            list is written next to the image.
 
         Raises
         ------
@@ -3889,14 +3902,20 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         master_phot = self.get_master_photometry()
 
         # Find tile images, statistics and classification tables
-        paths_tiles = [x.replace(".full.fits.ctab", ".fits") for x in self.paths_full]
+        paths_tiles = paths_images or [
+            x.replace(".full.fits.ctab", ".fits") for x in self.paths_full
+        ]
+        if len(paths_tiles) != self.n_files:
+            raise PipelineValueError(
+                f"{len(paths_tiles)} images for {self.n_files} catalogs", logger=log
+            )
         paths_stats = [f"{p}.stats" for p in self.paths_full]
         paths_cls = [
             x.replace(".full.", ".cs.").replace(".ctab", ".tab")
             for x in self.paths_full
         ]
         for paths, kind in (
-            (paths_tiles, "Tile images"),
+            (paths_tiles, "Images"),
             (paths_stats, "Statistics tables"),
             (paths_cls, "Classification tables"),
         ):

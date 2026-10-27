@@ -392,9 +392,10 @@ class TestExpectedProducts(unittest.TestCase):
             pawprint_products += [
                 (pawprint, "SCIENCE.MEFIMAGE", (os.path.basename(weight),)),
                 (weight, "ANCILLARY.WEIGHTMAP", ()),
+                (pawprint.replace(".fits", ".sources.fits"), "SCIENCE.SRCTBL", ()),
             ]
         products = expected_products(pipeline)
-        self.assertEqual(len(products), 14)
+        self.assertEqual(len(products), 16)
         self.assertEqual(products, tile + stack_products + pawprint_products)
         self.assertEqual(products[10][2], ("TestSetup_01.pawprint.weight.fits",))
 

@@ -111,7 +111,14 @@ class TestPipelineStatus(unittest.TestCase):
         status.reset_from("qc_astrometry_pawprints")
         self.assertEqual(
             self._false_names(status),
-            {"qc_astrometry_pawprints", "qc_summary", "archive"},
+            {
+                "qc_astrometry_pawprints",
+                "statistics_pawprints",
+                "classification_pawprints",
+                "public_catalog_pawprints",
+                "qc_summary",
+                "archive",
+            },
         )
         status = self._all_true()
         status.reset_from("pawprints")

@@ -21,7 +21,13 @@ _SCIENCE_PREFIX = (
     "photometry_pawprints",
     "photerr_internal",
 )
-_PAWPRINT_STEPS = ("pawprints", "qc_astrometry_pawprints")
+_PAWPRINT_STEPS = (
+    "pawprints",
+    "qc_astrometry_pawprints",
+    "statistics_pawprints",
+    "classification_pawprints",
+    "public_catalog_pawprints",
+)
 _STACK_STEPS = (
     "stacks",
     "photometry_stacks",
@@ -148,6 +154,9 @@ class PipelineStatus:
     photerr_internal: bool = False
     pawprints: bool = False
     qc_astrometry_pawprints: bool = False
+    statistics_pawprints: bool = False
+    classification_pawprints: bool = False
+    public_catalog_pawprints: bool = False
     stacks: bool = False
     statistics_stacks: bool = False
     classification_stacks: bool = False
