@@ -339,7 +339,7 @@ class Setup:
 
     # Statistics images
     image_statistics_resize_factor: int | float = (
-        0.25  # Downsample factor for statistics images
+        0.25  # Statistics images: 1 / block size, a power of two (statistics_grid)
     )
     statistics_coadd: Literal["numpy", "swarp"] = (
         "numpy"  # Tile statistics coadd: numpy (same output as SWarp, fast) or SWarp

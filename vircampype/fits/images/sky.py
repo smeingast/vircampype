@@ -24,7 +24,7 @@ from vircampype.miscellaneous.sourcemasks import SourceMasks
 from vircampype.pipeline.errors import *
 from vircampype.tools.astromatic import SextractorSetup, SwarpSetup
 from vircampype.tools.fitstools import *
-from vircampype.tools.imagetools import always_masked_fraction, upscale_image
+from vircampype.tools.imagetools import always_masked_fraction
 from vircampype.tools.mathtools import *
 from vircampype.tools.messaging import *
 from vircampype.tools.miscellaneous import *
@@ -3272,6 +3272,15 @@ class SkyImagesResampled(SkyImagesProcessed):
             for bn in self.basenames
         ]
 
+        # Statistics grid: blocks of binning x binning pixels (statistics_grid)
+        binning = round(1 / self.setup.image_statistics_resize_factor)
+        if abs(binning * self.setup.image_statistics_resize_factor - 1) > 1e-9:
+            raise PipelineValueError(
+                f"image_statistics_resize_factor "
+                f"{self.setup.image_statistics_resize_factor} is not 1 / integer",
+                logger=log,
+            )
+
         # Loop over files
         for idx_file in range(self.n_files):
             """
@@ -3321,13 +3330,11 @@ class SkyImagesResampled(SkyImagesProcessed):
                 # Read header
                 header_original = self.headers_data[idx_file][idx_hdu]
 
-                # Resize header and convert to WCS
-                wcs_resized = header2wcs(
-                    resize_header(
-                        header=header_original,
-                        factor=self.setup.image_statistics_resize_factor,
-                    )
+                # Coarse grid shared by all images on the projection (exact blocks)
+                header_coarse, (s1, e1, s2, e2) = statistics_grid(
+                    header=header_original, binning=binning
                 )
+                wcs_resized = header2wcs(header_coarse)
 
                 # Get shape
                 shape = wcs_resized.pixel_shape[::-1]
@@ -3352,11 +3359,12 @@ class SkyImagesResampled(SkyImagesProcessed):
                     master_weights.paths_full[idx_file], idx_hdu + 1
                 )
 
-                # Resize weight
-                arr_weight = upscale_image(
-                    weight_hdu, new_size=wcs_resized.pixel_shape, method="pil"
+                # Block mean of the zero-padded weight on the coarse grid
+                weight = np.nan_to_num(weight_hdu, nan=0.0, posinf=0.0, neginf=0.0)
+                weight = np.pad(np.clip(weight, 0, None), ((s2, e2), (s1, e1)))
+                arr_weight = weight.reshape(shape[0], binning, shape[1], binning).mean(
+                    axis=(1, 3), dtype=np.float32
                 )
-                arr_weight[arr_weight < 0] = 0
 
                 # Mask arrays where weight is 0
                 # w0 = arr_weight / np.nanmedian(arr_weight) <= 0.00001

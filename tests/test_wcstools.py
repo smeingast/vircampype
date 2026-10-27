@@ -13,9 +13,9 @@ from vircampype.tools.wcstools import (
     header_reset_wcs,
     integer_wcs_offset,
     pixelscale_from_header,
-    resize_header,
     rotationangle_from_header,
     skycoord2header,
+    statistics_grid,
 )
 
 
@@ -94,52 +94,52 @@ class TestRotationAngleFromHeader(unittest.TestCase):
         self.assertAlmostEqual(abs(angle), np.pi, delta=0.01)
 
 
-class TestResizeHeader(unittest.TestCase):
-    def test_double_size(self):
-        hdr = _make_tan_header(naxis1=100, naxis2=100)
-        resized = resize_header(hdr, factor=2)
-        self.assertEqual(resized["NAXIS1"], 200)
-        self.assertEqual(resized["NAXIS2"], 200)
-        # Pixel scale should halve
-        self.assertAlmostEqual(abs(resized["CD1_1"]), abs(hdr["CD1_1"]) / 2, places=10)
+class TestStatisticsGrid(unittest.TestCase):
+    """Coarse statistics grids of images on one projection align exactly."""
 
-    def test_half_size(self):
-        hdr = _make_tan_header(naxis1=100, naxis2=100)
-        resized = resize_header(hdr, factor=0.5)
-        self.assertEqual(resized["NAXIS1"], 50)
-        self.assertEqual(resized["NAXIS2"], 50)
+    @staticmethod
+    def _image(crpix1, crpix2, naxis1, naxis2):
+        hdr = _make_tan_header(naxis1=naxis1, naxis2=naxis2)
+        hdr["CRPIX1"], hdr["CRPIX2"] = float(crpix1), float(crpix2)
+        return hdr
 
-    def test_crpix_scales(self):
-        # Edges map onto edges: CRPIX' = (CRPIX - 0.5) * f + 0.5
-        hdr = _make_tan_header(naxis1=100, naxis2=100)
-        resized = resize_header(hdr, factor=2)
-        self.assertAlmostEqual(
-            resized["CRPIX1"], (hdr["CRPIX1"] - 0.5) * 2 + 0.5, places=5
-        )
-        self.assertAlmostEqual(
-            resized["CRPIX2"], (hdr["CRPIX2"] - 0.5) * 2 + 0.5, places=5
-        )
+    def test_padding_and_header(self):
+        for crpix in (-44580, -27319, 0, 3, 1122):
+            hdr = self._image(crpix, crpix - 7, 2377, 2376)
+            out, (s1, e1, s2, e2) = statistics_grid(hdr, 4)
+            for axis, start, end in ((1, s1, e1), (2, s2, e2)):
+                self.assertEqual((hdr[f"CRPIX{axis}"] + start) % 4, 0)
+                self.assertTrue(0 <= start < 4 and 0 <= end < 4)
+                size = hdr[f"NAXIS{axis}"] + start + end
+                self.assertEqual(size % 4, 0)
+                self.assertEqual(out[f"NAXIS{axis}"], size // 4)
+            self.assertEqual(out["CD1_1"], 4 * hdr["CD1_1"])
+            self.assertEqual(out["CD2_2"], 4 * hdr["CD2_2"])
 
-    def test_image_centre_preserved(self):
-        # The sky position at the image centre must not move when resizing
-        hdr = _make_tan_header(naxis1=100, naxis2=80)
-        for factor in (2, 0.5, 0.3):
-            resized = resize_header(hdr, factor=factor)
-            w_in, w_out = header2wcs(hdr), header2wcs(resized)
-            c_in = w_in.all_pix2world(
-                hdr["NAXIS1"] / 2 + 0.5, hdr["NAXIS2"] / 2 + 0.5, 1
-            )
-            c_out = w_out.all_pix2world(
-                resized["NAXIS1"] / 2 + 0.5, resized["NAXIS2"] / 2 + 0.5, 1
-            )
-            self.assertAlmostEqual(c_in[0], c_out[0], places=8)
-            self.assertAlmostEqual(c_in[1], c_out[1], places=8)
+    def test_integer_shifts_between_images(self):
+        # Two images of one projection with integer offsets and different sizes:
+        # the coarse CRPIX differ by integers (exact integer placement)
+        a, _ = statistics_grid(self._image(-27319, -31713, 2377, 2388), 4)
+        b, _ = statistics_grid(self._image(-42695, -44580, 2340, 2347), 4)
+        for axis in (1, 2):
+            shift = a[f"CRPIX{axis}"] - b[f"CRPIX{axis}"]
+            self.assertEqual(shift, round(shift))
 
-    def test_preserves_crval(self):
-        hdr = _make_tan_header()
-        resized = resize_header(hdr, factor=3)
-        self.assertEqual(resized["CRVAL1"], hdr["CRVAL1"])
-        self.assertEqual(resized["CRVAL2"], hdr["CRVAL2"])
+    def test_blocks_where_the_wcs_says(self):
+        # The centre of coarse pixel (1, 1) is the centre of the first padded block
+        hdr = self._image(-27319, -31713, 2377, 2388)
+        out, (s1, _, s2, _) = statistics_grid(hdr, 4)
+        w_in, w_out = header2wcs(hdr), header2wcs(out)
+        c_out = w_out.all_pix2world(1.0, 1.0, 1)
+        c_in = w_in.all_pix2world(2.5 - s1, 2.5 - s2, 1)
+        self.assertAlmostEqual(float(c_out[0]), float(c_in[0]), places=10)
+        self.assertAlmostEqual(float(c_out[1]), float(c_in[1]), places=10)
+
+    def test_invalid_input_raises(self):
+        with self.assertRaises(ValueError):
+            statistics_grid(self._image(10, 10, 100, 100), 3)
+        with self.assertRaises(ValueError):
+            statistics_grid(self._image(10.5, 10, 100, 100), 4)
 
 
 class TestHeaderResetWCS(unittest.TestCase):

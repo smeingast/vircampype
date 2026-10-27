@@ -18,7 +18,7 @@ __all__ = [
     "header_reset_wcs",
     "header2wcs",
     "skycoord2header",
-    "resize_header",
+    "statistics_grid",
     "integer_wcs_offset",
     "astrometric_residual_rms",
     "pixelscale_from_header",
@@ -348,62 +348,57 @@ def skycoord2header(
     return header
 
 
-def resize_header(header, factor):
+def statistics_grid(
+    header: fits.Header, binning: int
+) -> tuple[fits.Header, tuple[int, int, int, int]]:
     """
-    Resizes WCS projection parameters to reduced (or increase) the image size.
+    Coarse statistics grid of a resampled image: blocks of ``binning`` x ``binning``
+    pixels on a lattice shared by all images on the same projection.
 
-    CD1_1 = CDELT1 * cos(CROTA2)
-    CD1_2 = -CDELT2 * sin(CROTA2)
-    CD2_1 = CDELT1 * sin(CROTA2)
-    CD2_2 = CDELT2 * cos(CROTA2)
+    Each axis is padded by ``s`` pixels before and ``e`` after the data, with
+    ``CRPIX + s`` a multiple of ``binning``. The coarse grids of images on one
+    projection (one CD, integer CRPIX) then differ by exact integer shifts, as the
+    statistics coadd (SWarp ``RESAMPLE=N``, ``statscoadd``) assumes. Block edges
+    map onto pixel edges: ``CRPIX' = (CRPIX + s - 0.5) / binning + 0.5``.
 
     Parameters
     ----------
     header : fits.Header
-        Input Image header to resize.
-    factor : int, float
-        Resizing factor (0.5 is half, 2 is twice the input size)
+        Image header with NAXISi, integer CRPIXi and a CD matrix.
+    binning : int
+        Block size in pixels; a power of two, so that the coarse CRPIX are exact
+        binary fractions (no rounding in the integer placement).
 
     Returns
     -------
-    fits.Header
-        Same as input, but WCS projection parameters rewritten to match new size.
+    tuple[fits.Header, tuple[int, int, int, int]]
+        The header with the coarse NAXIS, CD and CRPIX, and the padding
+        ``(s1, e1, s2, e2)`` in image pixels.
 
+    Raises
+    ------
+    ValueError
+        If ``binning`` is not a power of two or a CRPIX is not an integer.
     """
-
-    # Copy input header
+    if binning < 1 or binning & (binning - 1):
+        raise ValueError(f"Statistics binning {binning} is not a power of two")
     header_out = header.copy()
-
-    # Start by scaling NAXIS
-    header_out["NAXIS1"] = int(np.ceil(header["NAXIS1"] * factor))
-    header_out["NAXIS2"] = int(np.ceil(header["NAXIS2"] * factor))
-
-    # Get true scaling factors in both axes
-    tfactor1, tfactor2 = (
-        header_out["NAXIS1"] / header["NAXIS1"],
-        header_out["NAXIS2"] / header["NAXIS2"],
-    )
-
-    # Scale CD matrix
-    header_out["CD1_1"], header_out["CD1_2"] = (
-        header["CD1_1"] / tfactor1,
-        header["CD1_2"] / tfactor2,
-    )
-    header_out["CD2_1"], header_out["CD2_2"] = (
-        header["CD2_1"] / tfactor1,
-        header["CD2_2"] / tfactor2,
-    )
-
-    # Scale CRPIX (FITS pixel centres are at integers, pixel edges at half-integers;
-    # a resize maps the image edges onto each other, so the 0.5 offset must be
-    # removed before and restored after scaling)
-    header_out["CRPIX1"], header_out["CRPIX2"] = (
-        (header["CRPIX1"] - 0.5) * tfactor1 + 0.5,
-        (header["CRPIX2"] - 0.5) * tfactor2 + 0.5,
-    )
-
-    # Return new header
-    return header_out
+    pads = []
+    for axis in (1, 2):
+        crpix, naxis = header[f"CRPIX{axis}"], header[f"NAXIS{axis}"]
+        if abs(crpix - round(crpix)) > 1e-6:
+            raise ValueError(
+                f"CRPIX{axis} = {crpix} is not an integer; the statistics grids of "
+                "the images would not align"
+            )
+        start = -round(crpix) % binning
+        size = -(-(naxis + start) // binning) * binning
+        pads += [start, size - naxis - start]
+        header_out[f"NAXIS{axis}"] = size // binning
+        header_out[f"CRPIX{axis}"] = (crpix + start - 0.5) / binning + 0.5
+    for key in ("CD1_1", "CD1_2", "CD2_1", "CD2_2"):
+        header_out[key] = header[key] * binning
+    return header_out, tuple(pads)
 
 
 def astrometric_residual_rms(
