@@ -327,6 +327,70 @@ def make_family(folder: str) -> list[str]:
     return paths
 
 
+def make_catalogs(folder: str, sources: str) -> list[str]:
+    """
+    Write a compliant main catalogue and its multi-epoch table (SCIENCE.CATALOG) with
+    PROV1 = ``sources`` (a source-list file name). Returns [main, epoch].
+    """
+    os.makedirs(folder, exist_ok=True)
+    paths = [
+        os.path.join(folder, "tiny_main.fits"),
+        os.path.join(folder, "tiny_ep.fits"),
+    ]
+    primary = {
+        "PRODCATG": "SCIENCE.CATALOG",
+        "ORIGIN": "ESO-PARANAL",
+        "TELESCOP": "ESO-VISTA",
+        "INSTRUME": "VIRCAM",
+        "FILTER": "MULTI",
+        "FILTER1": "H",
+        "FILTER2": "J",
+        "MAGLIM1": 20.1,
+        "MAGLIM2": 20.9,
+        "OBJECT": "tiny",
+        "RA": 280.0,
+        "DEC": -37.0,
+        "RADESYS": "ICRS",
+        "MJD-OBS": MJD_OBS,
+        "MJD-END": MJD_END,
+        "PROG_ID": "198.C-2009(A)",
+        "OBID1": 1945300,
+        "PROCSOFT": "VISIONS release",
+        "REFERENC": "",
+        "PHOTSYS": "VEGA",
+        "SKYSQDEG": 0.5,
+        "NOESODAT": True,
+        "PROV1": sources,
+    }
+    main_columns = [
+        ("id", "K", "", "meta.id;meta.main", "Source ID", [1, 2]),
+        ("ra_icrs", "D", "deg", "pos.eq.ra;meta.main", "RA", [280.0, 280.1]),
+        ("dec_icrs", "D", "deg", "pos.eq.dec;meta.main", "Dec", [-37.0, -37.1]),
+        ("hmag", "E", "mag", "phot.mag;em.IR.H", "H magnitude", [15.0, 16.0]),
+    ]
+    epoch_columns = main_columns[:3] + [
+        ("mjd", "D", "d", "time.epoch;meta.main", "Epoch", [MJD_OBS, MJD_END]),
+    ]
+    for path, columns, extra in (
+        (paths[0], main_columns, {}),
+        (paths[1], epoch_columns, {"M_EPOCH": True}),
+    ):
+        table = fits.BinTableHDU.from_columns(
+            [fits.Column(name=c[0], format=c[1], array=c[5]) for c in columns],
+            name="PHASE3CATALOG",
+        )
+        for index, (_, _, unit, ucd, comment, _) in enumerate(columns, start=1):
+            table.header[f"TUNIT{index}"] = unit
+            table.header[f"TUCD{index}"] = ucd
+            table.header[f"TCOMM{index}"] = comment
+        if extra:
+            table.header["TXLNK1"] = "CATALOG"
+            table.header["TXRGF1"] = os.path.basename(paths[0])
+            table.header["TXCTY1"] = "id"
+        _write(path, [fits.PrimaryHDU(header=_header(primary, extra)), table], True)
+    return paths
+
+
 class TestSdpCheck(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -704,6 +768,59 @@ class TestSdpCheck(unittest.TestCase):
         self.assertFinding(check_family(paths), "not PHASE3CATALOG")
         paths = self.edit_family("family_nolist", 0, set_card(2, "EXTNAME", "X"))
         self.assertFinding(check_family(paths), "expected a PHASE3FILELIST")
+
+    def catalogs(self, name: str) -> list[str]:
+        folder = os.path.join(self.tmp, name)
+        shutil.copytree(self.good, folder)
+        sources = os.path.basename(self.paths["sources"])
+        return ordered(relocate(self.paths, folder)) + make_catalogs(folder, sources)
+
+    def edit_catalog(self, name: str, index: int, edit) -> list[str]:
+        """The good batch plus catalogues, edit(hdul) applied to catalogue index."""
+        files = self.catalogs(name)
+        path = files[len(files) - 2 + index]
+        with fits.open(path) as hdul:
+            edit(hdul)
+            hdul.writeto(path, overwrite=True, checksum=True)
+        return files
+
+    def test_catalog_passes(self):
+        files = self.catalogs("catalog_good")
+        for path in files[-2:]:
+            self.assertEqual(check_product(path), [], path)
+        self.assertEqual(check_batch(files), [])
+
+    def test_catalog_findings(self):
+        cases = [
+            (0, delete_card(0, "MAGLIM2"), "missing MAGLIM2"),
+            (0, delete_card(0, "SKYSQDEG"), "missing SKYSQDEG"),
+            (0, set_card(0, "PROV1", "VCAM.2019-03-27T08:58:58.083"), "file name"),
+            (0, set_card(1, "EXTNAME", "CATALOG"), "not PHASE3CATALOG"),
+            (0, set_card(1, "TTYPE3", "dec"), "reserved word"),
+            (0, set_card(0, "NOESODAT", False), "NOESODAT = False"),
+            (0, delete_card(0, "OBID1"), "missing OBID1"),
+            (0, set_card(0, "RADESYS", "FK5"), "requires EQUINOX"),
+            (1, set_card(1, "TUCD4", "time.epoch"), "M_EPOCH = T without"),
+            (1, set_card(1, "TXLNK1", "ARCFILE"), "expected 'CATALOG'"),
+        ]
+        for case, (index, edit, text) in enumerate(cases):
+            with self.subTest(text=text):
+                files = self.edit_catalog(f"catalog_case{case}", index, edit)
+                self.assertFinding(check_product(files[len(files) - 2 + index]), text)
+
+    def test_catalog_batch(self):
+        files = self.catalogs("catalog_batch")
+        self.assertFinding(
+            check_batch(files[:-2] + files[-1:]), "TXRGF1 'tiny_main.fits'"
+        )
+        files = self.edit_catalog("catalog_link", 1, set_card(1, "TXCTY1", "source"))
+        self.assertFinding(check_batch(files), "TXCTY1 'source' is not a column")
+        files = self.edit_catalog("catalog_tform", 1, set_card(1, "TFORM1", "J"))
+        self.assertFinding(check_batch(files), "the linked column 'id'")
+        sources = os.path.basename(self.paths["sources"])
+        self.assertFinding(
+            check_batch(files[-2:] + files[:-2]), f"PROV1 {sources!r} must be listed"
+        )
 
 
 if __name__ == "__main__":

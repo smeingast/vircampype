@@ -1,8 +1,8 @@
 """ESO Phase 3 (SDP standard v8) checks for the vircampype products.
 
 The only validation authority of v3.0: one explicit check per product shape (T1 MEF
-tile, T3 exposure map, T4 source list, S1 stack, S2 weight), plus batch and catalog
-family checks. Findings are strings ``"<file>[<hdu>]: <problem>"``; [] means compliant.
+tile, T3 exposure map, T4 source list, S1 stack, S2 weight, and the VISIONS region
+catalogue SCIENCE.CATALOG), plus batch and catalog family checks. Findings are strings ``"<file>[<hdu>]: <problem>"``; [] means compliant.
 Every image has as many provenance entries as NCOMBINE, and NCOMBINE = 1 means
 EXPTIME = TEXPTIME (single exposures).
 
@@ -74,6 +74,10 @@ _OBS_FLOATS = ("RA", "DEC", "EXPTIME", "TEXPTIME", "MJD-OBS", "MJD-END")
 # Indexed lists (TELESC1.., ...) exist iff the parent value is 'MULTI' (§5.1)
 _MULTI = {"TELESCOP": "TELESC", "INSTRUME": "INSTR", "FILTER": "FILTER"}
 _MULTI |= {"PROG_ID": "PROGID"}
+# Catalogue primary (Table 8, SCIENCE.CATALOG): REFERENC may be empty (footnote 40)
+_CATALOG_STRINGS = ("ORIGIN", "TELESCOP", "INSTRUME", "FILTER", "OBJECT", "PROG_ID")
+_CATALOG_STRINGS += ("PROCSOFT", "REFERENC", "PHOTSYS", "RADESYS")
+_CATALOG_FLOATS = ("RA", "DEC", "MJD-OBS", "MJD-END", "SKYSQDEG")
 _PHOT_NUMBERS = ("PHOTZP", "PHOTZPER", "ABMAGLIM", "ABMAGSAT", "PSF_FWHM", "ELLIPTIC")
 # Photometric cards a source list shares with its image (§9.2.1)
 _PHOT_KEYS = ("PHOTSYS",) + _PHOT_NUMBERS
@@ -139,6 +143,8 @@ def check_product(
             problems += _check_mefimage(path, hdul, final)
         elif category == "ANCILLARY.WEIGHTMAP":
             problems += _check_weightmap(path, hdul)
+        elif category == "SCIENCE.CATALOG":
+            problems += _check_catalog(path, hdul)
         else:
             problems.append(f"{name}[0]: unknown product category {category!r}")
             return problems
@@ -184,6 +190,14 @@ def check_batch(paths: list[str]) -> list[str]:
                     problems.append(
                         f"{name}[0]: {key} {primary[key]!r} is not in the batch"
                     )
+            for index, hdu in enumerate(hdul[1:], start=1):
+                for key in _indexed_keys(hdu.header, "TXRGF"):
+                    problems += _check_link(
+                        hdu.header,
+                        key.removeprefix("TXRGF"),
+                        first_path,
+                        f"{name}[{index}]",
+                    )
             for label, value in _prov_entries(hdul):
                 if not isinstance(value, str) or not value.endswith(".fits"):
                     continue
@@ -194,6 +208,30 @@ def check_batch(paths: list[str]) -> list[str]:
                         f"{name}[0]: {label} {value!r} must be listed before this file"
                     )
     return problems
+
+
+def _check_link(
+    header: fits.Header, index: str, paths: dict[str, str], where: str
+) -> list[str]:
+    """Data link of table column ``index`` (§12.3): the target file is in the batch
+    and its table has the TXCTY column with the same TFORM as the linking column."""
+    target = header[f"TXRGF{index}"]
+    if target not in paths:
+        return [f"{where}: TXRGF{index} {target!r} is not in the batch"]
+    headers = _read_headers(paths[target])
+    if headers is None or len(headers) < 2:
+        return [f"{where}: TXRGF{index} {target!r} has no table"]
+    table = headers[1]
+    names = [table.get(f"TTYPE{i}") for i in range(1, table.get("TFIELDS", 0) + 1)]
+    column = header.get(f"TXCTY{index}")
+    if column not in names:
+        return [f"{where}: TXCTY{index} {column!r} is not a column of {target!r}"]
+    tform = table[f"TFORM{names.index(column) + 1}"]
+    if header.get(f"TFORM{index}") != tform:
+        form = header.get(f"TFORM{index}")
+        linked = f"the linked column {column!r} of {target!r} is {tform!r}"
+        return [f"{where}: TFORM{index} = {form!r}, {linked}"]
+    return []
 
 
 def check_family(paths: list[str]) -> list[str]:
@@ -531,6 +569,85 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
                 problems += _compare(
                     table.header, scis[0], _PHOT_KEYS, where_table, label
                 )
+    return problems
+
+
+def _check_catalog(path: str, hdul: fits.HDUList) -> list[str]:
+    """
+    SCIENCE.CATALOG (§12.2.1, §12.4, §12.5.1, Table 8): empty primary with the catalogue
+    keywords and PROVi (source-list file names), one PHASE3CATALOG table of fewer than
+    50 million rows. MAGLIMi follow FILTERi (MULTI), else ABMAGLIM. A multi-epoch
+    catalogue (M_EPOCH = T) has a ``time.epoch;meta.main`` column, and a data link
+    (TXLNKi = 'CATALOG') names the target file and column.
+    """
+    name = os.path.basename(path)
+    primary = hdul[0].header
+    where = f"{name}[0]"
+    problems = _check_no_data(primary, where)
+    problems += _require(primary, _CATALOG_STRINGS, where)
+    problems += _require_numbers(primary, _CATALOG_FLOATS, where)
+    problems += _expect(primary, "RADESYS", ("ICRS", "FK5"), where)
+    problems += _expect(primary, "PHOTSYS", ("VEGA", "AB"), where)
+    for key in ("M_EPOCH", "NOESODAT"):
+        if key in primary and primary[key] is not True:
+            problems.append(f"{where}: {key} = {primary[key]!r}, expected T")
+    for key, prefix in _MULTI.items():
+        indexed = _indexed_keys(primary, prefix)
+        if primary.get(key) == "MULTI" and not indexed:
+            problems.append(f"{where}: {key} = 'MULTI' without {prefix}1..")
+        if primary.get(key) != "MULTI" and indexed:
+            problems.append(f"{where}: {prefix}i only allowed with {key} = 'MULTI'")
+        problems += _check_sequence(primary, prefix, where)
+    obids = _indexed_keys(primary, "OBID") or ["OBID1"]
+    problems += _require_numbers(primary, tuple(obids), where, integer=True)
+    problems += _check_sequence(primary, "OBID", where, distinct=True)
+    if "EQUINOX" in primary and primary["EQUINOX"] != 2000.0:
+        problems.append(f"{where}: EQUINOX = {primary['EQUINOX']!r}, expected 2000.0")
+    elif "EQUINOX" not in primary and primary.get("RADESYS") == "FK5":
+        problems.append(f"{where}: RADESYS = 'FK5' requires EQUINOX = 2000.0")
+    if primary.get("FILTER") == "MULTI":
+        n_filters = len(_indexed_keys(primary, "FILTER"))
+        maglim = tuple(f"MAGLIM{index}" for index in range(1, n_filters + 1))
+        problems += _require_numbers(primary, maglim, where)
+    else:
+        problems += _require_numbers(primary, ("ABMAGLIM",), where)
+    problems += _check_prov(hdul, where, origfile=True)
+
+    if len(hdul) != 2 or type(hdul[1]) is not fits.BinTableHDU:
+        problems.append(f"{name}: expected exactly one binary table extension")
+        return problems
+    table = hdul[1]
+    where_table = f"{name}[1]"
+    if table.name != "PHASE3CATALOG":
+        problems.append(f"{where_table}: EXTNAME {table.name!r}, not PHASE3CATALOG")
+    rows = table.header.get("NAXIS2", 0)
+    if not 0 < rows < 50_000_000:
+        problems.append(
+            f"{where_table}: {rows} rows, SCIENCE.CATALOG needs 1..49999999"
+        )
+    problems += _check_table(table, where_table)
+    ucds = [
+        table.header.get(f"TUCD{i}")
+        for i in range(1, table.header.get("TFIELDS", 0) + 1)
+    ]
+    if primary.get("M_EPOCH") is True and "time.epoch;meta.main" not in ucds:
+        problems.append(
+            f"{where_table}: M_EPOCH = T without a time.epoch;meta.main column"
+        )
+    for key in _indexed_keys(table.header, "TXLNK"):
+        index = key.removeprefix("TXLNK")
+        if table.header[key] != "CATALOG":
+            problems.append(
+                f"{where_table}: {key} = {table.header[key]!r}, expected 'CATALOG'"
+            )
+        problems += _require(
+            table.header, (f"TXRGF{index}", f"TXCTY{index}"), where_table
+        )
+        target = table.header.get(f"TXRGF{index}")
+        if isinstance(target, str) and not target.endswith(".fits"):
+            problems.append(
+                f"{where_table}: TXRGF{index} = {target!r} is not a file name"
+            )
     return problems
 
 
