@@ -11,8 +11,13 @@ import vircampype
 from tests.test_cube import make_test_setup
 from tests.test_sdpcheck import make_products
 from vircampype.pipeline.errors import PipelineError, PipelineValueError
-from vircampype.tools.productmeta import (expected_products, finalize_files,
-                                          obs_cards, prov_cards, set_cards)
+from vircampype.tools.productmeta import (
+    expected_products,
+    finalize_files,
+    obs_cards,
+    prov_cards,
+    set_cards,
+)
 from vircampype.tools.sdpcheck import check_batch, check_product
 
 
@@ -364,9 +369,10 @@ class TestExpectedProducts(unittest.TestCase):
             stack_products += [
                 (stack, "SCIENCE.MEFIMAGE", (os.path.basename(weight),)),
                 (weight, "ANCILLARY.WEIGHTMAP", ()),
+                (stack.replace(".fits", ".sources.fits"), "SCIENCE.SRCTBL", ()),
             ]
         products = expected_products(pipeline)
-        self.assertEqual(len(products), 8)
+        self.assertEqual(len(products), 10)
         self.assertEqual(products, tile + stack_products)
         self.assertEqual(products[4][2], ("TestSetup_01.stack.weight.fits",))
 
@@ -388,9 +394,9 @@ class TestExpectedProducts(unittest.TestCase):
                 (weight, "ANCILLARY.WEIGHTMAP", ()),
             ]
         products = expected_products(pipeline)
-        self.assertEqual(len(products), 12)
+        self.assertEqual(len(products), 14)
         self.assertEqual(products, tile + stack_products + pawprint_products)
-        self.assertEqual(products[8][2], ("TestSetup_01.pawprint.weight.fits",))
+        self.assertEqual(products[10][2], ("TestSetup_01.pawprint.weight.fits",))
 
 
 class TestFinalizeFiles(unittest.TestCase):

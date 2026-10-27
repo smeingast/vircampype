@@ -24,12 +24,13 @@ _SCIENCE_PREFIX = (
 _PAWPRINT_STEPS = ("pawprints", "qc_astrometry_pawprints")
 _STACK_STEPS = (
     "stacks",
-    "statistics_stacks",
-    "classification_stacks",
     "photometry_stacks",
     "qc_photometry_stacks",
     "qc_astrometry_stacks",
     "qc_psf_stacks",
+    "statistics_stacks",
+    "classification_stacks",
+    "public_catalog_stacks",
 )
 _TILE_STEPS = (
     "tile",
@@ -154,6 +155,7 @@ class PipelineStatus:
     qc_photometry_stacks: bool = False
     qc_astrometry_stacks: bool = False
     qc_psf_stacks: bool = False
+    public_catalog_stacks: bool = False
     tile: bool = False
     exposure_map: bool = False
     statistics_tile: bool = False

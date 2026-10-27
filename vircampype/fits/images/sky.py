@@ -3452,10 +3452,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                     )
 
     def coadd_statistics_stacks(self, mode):
-        """DEAD CODE: only called by build_statistics_stacks, which is unused.
-
-        Coadd per-pawprint statistics images into stack-level statistics.
-        """
+        """Coadd per-pawprint statistics images into stack-level statistics."""
         # Processing info
         print_header(
             header=f"STACKS STATISTICS {mode.upper()}",

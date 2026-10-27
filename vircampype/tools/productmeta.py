@@ -195,8 +195,8 @@ def set_cards(
 def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
     """Products the setup delivers: (path, PRODCATG, ASSONi basenames), batch order.
 
-    Order: tile, its weight and exposure map, source list, stacks and their weights,
-    pawprints and their weights.
+    Order: tile, its weight and exposure map, source list, stacks with their weights
+    and source lists, pawprints and their weights.
     """
     setup = pipeline.setup
     products = []
@@ -209,9 +209,9 @@ def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
             (expmap, "ANCILLARY.EXPMAP", ()),
             (setup.path_coadd_sources, "SCIENCE.SRCTBL", ()),
         ]
-    for flag, attr in (
-        (setup.build_stacks, "stacks"),
-        (setup.build_pawprints, "pawprints"),
+    for flag, attr, sources in (
+        (setup.build_stacks, "stacks", True),
+        (setup.build_pawprints, "pawprints", False),
     ):
         if not flag:
             continue
@@ -221,6 +221,9 @@ def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
                 (path, "SCIENCE.MEFIMAGE", (os.path.basename(weight),)),
                 (weight, "ANCILLARY.WEIGHTMAP", ()),
             ]
+            if sources:
+                path_sources = path.removesuffix(".fits") + ".sources.fits"
+                products.append((path_sources, "SCIENCE.SRCTBL", ()))
     return products
 
 

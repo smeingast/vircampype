@@ -646,7 +646,6 @@ class Pipeline:
         return images
 
     def _paths_statistics_stacks(self, mode):
-        # DEAD CODE: only used by build_statistics_stacks (unused).
         return [p.replace(".fits", f".{mode}.fits") for p in self._paths_stacks]
 
     def _path_statistics_tile(self, mode):
@@ -861,10 +860,7 @@ class Pipeline:
 
     @pipeline_step("statistics_stacks", message="STACKS STATISTICS")
     def build_statistics_stacks(self):
-        """DEAD CODE: not called from process_science; stack statistics are unused.
-
-        Coadd statistics images for stacks and combine MJD maps.
-        """
+        """Coadd statistics images for the stacks and build their statistics tables."""
         # Check MJDREF before coadding, so a mixed set fails before writing
         mjd_ref = self._statistics_mjd_ref()
         for mode in ["mjd.int", "mjd.frac", "nimg", "exptime"]:
@@ -883,6 +879,9 @@ class Pipeline:
                 offset=mjd_ref,
                 overwrite=True,
             )
+        self.sources_stacks_cal.build_statistics_tables(
+            astrms_fallback=self._astrms_flat_scalar()
+        )
 
     def _statistics_mjd_ref(self) -> float:
         """Reference MJD encoded in the per-pawprint mjd.int statistics images.
@@ -1262,6 +1261,13 @@ class Pipeline:
         finalize_products(self)
 
     # =========================================================================== #
+    @pipeline_step("public_catalog_stacks", message="STACKS SOURCE LISTS")
+    def build_public_catalog_stacks(self):
+        """Write the source list of every stack (one table per detector)."""
+        self.sources_stacks_cal.build_public_catalog(
+            photerr_internal=self.setup.photometric_error_floor,
+        )
+
     @pipeline_step("public_catalog", message="PUBLIC CATALOG")
     def build_public_catalog(self):
         """Build the public release source catalog from the tile."""
@@ -1425,6 +1431,9 @@ class Pipeline:
             self.qc_photometry_stacks()
             self.qc_astrometry_stacks()
             self.qc_psf_stacks()
+            self.build_statistics_stacks()
+            self.classification_stacks()
+            self.build_public_catalog_stacks()
 
         # Build and calibrate tile, then its source list (photometry writes PHOTZP into
         # the tile image before the completeness run reads it)
