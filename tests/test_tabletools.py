@@ -799,6 +799,12 @@ class TestStackSourceList(unittest.TestCase):
             problems = check_product(path, "SCIENCE.SRCTBL", final=False)
             self.assertTrue(any("[3]" in p and "PHOTZP" in p for p in problems))
 
+            path, _ = self._write(os.path.join(folder, "c") + os.sep)
+            with fits.open(path, mode="update") as hdul:
+                hdul[0].header["ELLIPTIC"] = 0.05
+            problems = check_product(path, "SCIENCE.SRCTBL", final=False)
+            self.assertTrue(any("[0]" in p and "ELLIPTIC" in p for p in problems))
+
     def test_length_mismatch_raises(self):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaises(PipelineValueError):

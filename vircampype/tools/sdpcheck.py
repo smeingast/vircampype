@@ -531,8 +531,7 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
             prefixes = (*_MULTI.values(), "OBID")
             indexed = [k for p in prefixes for k in _indexed_keys(headers[0], p)]
             keys = _OBS_STRINGS + _OBS_FLOATS + ("NCOMBINE", "EQUINOX", "RADESYS")
-            if "ELLIPTIC" in headers[0]:
-                keys += ("ELLIPTIC",)
+            keys += ("ELLIPTIC",)  # in the primary only if the image primary has it
             label = f"{image} primary"
             problems += _compare(
                 primary, headers[0], keys + tuple(indexed), where, label
