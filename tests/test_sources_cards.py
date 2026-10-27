@@ -17,7 +17,8 @@ from tests.test_sdpcheck import PHOTOMETRY, make_products
 from vircampype.fits.images.sky import Tile
 from vircampype.fits.tables.sextractor import (
     AstrometricCalibratedSextractorCatalogs,
-    PhotometricCalibratedSextractorCatalogs)
+    PhotometricCalibratedSextractorCatalogs,
+)
 from vircampype.tools.sdpcheck import check_product
 
 LOGGER = "vircampype.fits.tables.sextractor"
@@ -156,9 +157,9 @@ class TestSourcesCards(unittest.TestCase):
         self.assertNotIn("CRDER2", header)
 
     def test_build_public_catalog_source(self):
-        source = inspect.getsource(
-            PhotometricCalibratedSextractorCatalogs.build_public_catalog
-        )
+        cls = PhotometricCalibratedSextractorCatalogs
+        source = inspect.getsource(cls.build_public_catalog)
+        source += inspect.getsource(cls._public_sources)
         for name in ("write_source_list", "detections_to_sources"):
             self.assertIn(name, source)
         for name in ("merge_with_2mass", '"CONF"', "source_classification", ".ptab"):

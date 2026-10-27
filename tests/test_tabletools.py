@@ -9,16 +9,20 @@ from astropy.table import Table
 from astropy.table.column import MaskedColumn
 
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.tools.tabletools import (SOURCE_COLUMNS,
-                                         centroid_covariance_radec_mas2,
-                                         detections_to_sources,
-                                         estimate_astrms_floor,
-                                         fill_masked_columns,
-                                         scamp_xml_radec_correlation,
-                                         scamp_xml_reference_rms_highsn,
-                                         sextractor_nanify_bad_values,
-                                         source_list_hdu, split_table,
-                                         table2bintablehdu, write_source_list)
+from vircampype.tools.tabletools import (
+    SOURCE_COLUMNS,
+    centroid_covariance_radec_mas2,
+    detections_to_sources,
+    estimate_astrms_floor,
+    fill_masked_columns,
+    scamp_xml_radec_correlation,
+    scamp_xml_reference_rms_highsn,
+    sextractor_nanify_bad_values,
+    source_list_hdu,
+    split_table,
+    table2bintablehdu,
+    write_source_list,
+)
 
 
 class TestSextractorNanifyBadValues(unittest.TestCase):
@@ -717,8 +721,8 @@ class TestSourceList(unittest.TestCase):
             write_source_list(
                 _sources(),
                 path,
-                tile_name=os.path.basename(paths["tile"]),
-                tile_header=tile_header,
+                image_name=os.path.basename(paths["tile"]),
+                image_header=tile_header,
                 passband="H",
                 primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
                 table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],
@@ -742,6 +746,70 @@ class TestSourceList(unittest.TestCase):
                 for key in ("BUNIT", "CTYPE1", "PHOTZP"):  # image cards stay out
                     self.assertNotIn(key, primary)
                 self.assertIn("REFMAGLO", table)
+
+
+class TestStackSourceList(unittest.TestCase):
+    """Source list of a 16-detector stack: one table per detector (ESO §9.2)."""
+
+    def _write(self, folder, n_tables=16):
+        from tests.test_sdpcheck import make_products
+
+        paths = make_products(folder, final=False)
+        stack = paths["stacks"][0]
+        with fits.open(stack) as hdul:
+            primary = hdul[0].header.copy()
+            data = [h.header.copy() for h in hdul[1:] if h.is_image]
+        path = stack.replace(".fits", ".sources.fits")
+        write_source_list(
+            [_sources()] * n_tables,
+            path,
+            image_name=os.path.basename(stack),
+            image_header=primary,
+            passband="H",
+            primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
+            table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],
+            data_headers=data[:n_tables],
+        )
+        return path, data
+
+    def test_compliant(self):
+        from vircampype.tools.sdpcheck import check_product
+
+        with tempfile.TemporaryDirectory() as folder:
+            path, data = self._write(folder)
+            self.assertEqual(check_product(path, "SCIENCE.SRCTBL", final=False), [])
+            with fits.open(path) as hdul:
+                self.assertEqual(len(hdul), 17)
+                for index, (hdu, header) in enumerate(zip(hdul[1:], data), 1):
+                    self.assertEqual(hdu.name, f"HDU{index:02d}")
+                    self.assertEqual(hdu.header["PHOTZP"], header["PHOTZP"])
+                    self.assertEqual(hdu.header["REFMAGLO"], 11.5)
+
+    def test_table_count_and_cards_checked(self):
+        from vircampype.tools.sdpcheck import check_product
+
+        with tempfile.TemporaryDirectory() as folder:
+            path, _ = self._write(folder, n_tables=15)
+            problems = check_product(path, "SCIENCE.SRCTBL", final=False)
+            self.assertTrue(any("15 tables for 16 data arrays" in p for p in problems))
+
+            path, _ = self._write(os.path.join(folder, "b") + os.sep)
+            with fits.open(path, mode="update") as hdul:
+                hdul[3].header["PHOTZP"] += 0.1
+            problems = check_product(path, "SCIENCE.SRCTBL", final=False)
+            self.assertTrue(any("[3]" in p and "PHOTZP" in p for p in problems))
+
+    def test_length_mismatch_raises(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(PipelineValueError):
+                write_source_list(
+                    [_sources()] * 2,
+                    os.path.join(folder, "x.sources.fits"),
+                    image_name="x.fits",
+                    image_header=fits.Header(),
+                    passband="H",
+                    data_headers=[fits.Header()],
+                )
 
 
 class TestSurveyNameReach(unittest.TestCase):
@@ -779,8 +847,8 @@ class TestSurveyNameReach(unittest.TestCase):
             write_source_list(
                 self._vhs_sources(),
                 path,
-                tile_name=os.path.basename(paths["tile"]),
-                tile_header=fits.getheader(paths["tile"], 0),
+                image_name=os.path.basename(paths["tile"]),
+                image_header=fits.getheader(paths["tile"], 0),
                 passband="H",
                 primary_cards=[("PHOTIERR", 0.01, "Internal photometric error (mag)")],
                 table_cards=[("REFMAGLO", 11.5, "2MASS bright limit (mag)")],

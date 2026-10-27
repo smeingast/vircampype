@@ -488,52 +488,71 @@ def _check_exptime(primary: fits.Header, expmap: str, where: str) -> list[str]:
 
 
 def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
-    """T4 SCIENCE.SRCTBL: empty primary and one binary table (§9.2, §2.4, §3.3)."""
+    """
+    T4 SCIENCE.SRCTBL: empty primary and one binary table per data array of the
+    originating image (one for a tile, 16 for a pawprint or stack; §9.2, §2.4, §3.3).
+    """
     name = os.path.basename(path)
     primary = hdul[0].header
     where = f"{name}[0]"
+    tables = hdul[1:]
     problems = _check_no_data(primary, where)
     problems += _check_observation(primary, where)
-    # ELLIPTIC as often as in the tile, primary and table (ESO validator, batch 23808)
-    problems += _require_numbers(primary, ("EQUINOX", "ELLIPTIC"), where)
+    problems += _require_numbers(primary, ("EQUINOX",), where)
+    if len(tables) == 1:
+        # ELLIPTIC as often as in the tile, primary and table (ESO validator, 23808)
+        problems += _require_numbers(primary, ("ELLIPTIC",), where)
     problems += _forbid(primary, _indexed_keys(primary, "ASSON"), where)
     problems += _check_prov(hdul, where, origfile=True)
     if _indexed_keys(primary, "PROV") != ["PROV1"]:
         problems.append(
-            f"{where}: provenance must be exactly PROV1 (the tile file name)"
+            f"{where}: provenance must be exactly PROV1 (the image file name)"
         )
 
-    if len(hdul) != 2 or type(hdul[1]) is not fits.BinTableHDU:
-        problems.append(f"{name}: expected exactly one binary table extension")
+    if not tables or any(type(t) is not fits.BinTableHDU for t in tables):
+        problems.append(f"{name}: expected binary table extensions only")
         return problems
-    table = hdul[1]
-    where_table = f"{name}[1]"
-    problems += _require(table.header, ("EXTNAME",), where_table)
-    problems += _check_photometry(table.header, where_table)
-    problems += _check_table(table, where_table)
+    for index, table in enumerate(tables, 1):
+        where_table = f"{name}[{index}]"
+        problems += _require(table.header, ("EXTNAME",), where_table)
+        problems += _check_photometry(table.header, where_table)
+        problems += _check_table(table, where_table)
 
-    tile = primary.get("PROV1")
-    if isinstance(tile, str) and tile.endswith(".fits"):
-        headers = _read_headers(os.path.join(os.path.dirname(path), tile))
+    image = primary.get("PROV1")
+    if isinstance(image, str) and image.endswith(".fits"):
+        headers = _read_headers(os.path.join(os.path.dirname(path), image))
         if headers is None:
             if final:
                 problems.append(
-                    f"{where}: PROV1 file {tile!r} not found next to this file"
+                    f"{where}: PROV1 file {image!r} not found next to this file"
                 )
         else:
             # Primary cards copied from the image (§9.2.1, plan §2.4)
             prefixes = (*_MULTI.values(), "OBID")
             indexed = [k for p in prefixes for k in _indexed_keys(headers[0], p)]
             keys = _OBS_STRINGS + _OBS_FLOATS + ("NCOMBINE", "EQUINOX", "RADESYS")
-            keys += ("ELLIPTIC",)
-            label = f"{tile} primary"
+            if "ELLIPTIC" in headers[0]:
+                keys += ("ELLIPTIC",)
+            label = f"{image} primary"
             problems += _compare(
                 primary, headers[0], keys + tuple(indexed), where, label
             )
-            label = f"{tile} primary"
-            problems += _compare(
-                table.header, headers[0], _PHOT_KEYS, where_table, label
-            )
+            # Photometric cards of each table = those of its image data array
+            data = [
+                h
+                for h in headers
+                if h.get("NAXIS") == 2 and h.get("XTENSION", "IMAGE") == "IMAGE"
+            ]
+            if len(data) != len(tables):
+                problems.append(
+                    f"{name}: {len(tables)} tables for {len(data)} data arrays "
+                    f"of {image}"
+                )
+            for index, (table, header) in enumerate(zip(tables, data), 1):
+                label = f"{image} data array {index}"
+                problems += _compare(
+                    table.header, header, _PHOT_KEYS, f"{name}[{index}]", label
+                )
     return problems
 
 

@@ -1356,7 +1356,9 @@ def detections_to_sources(
     return output_table
 
 
-def source_list_hdu(sources: QTable, passband: str) -> fits.BinTableHDU:
+def source_list_hdu(
+    sources: QTable, passband: str, extname: str = "HDU01"
+) -> fits.BinTableHDU:
     """
     Build the binary table of a source list from ``SOURCE_COLUMNS``.
 
@@ -1366,11 +1368,13 @@ def source_list_hdu(sources: QTable, passband: str) -> fits.BinTableHDU:
         Output of :func:`detections_to_sources`.
     passband : str
         Passband of the tile (J, H or Ks); sets the band of the MAG/MAGERR UCDs.
+    extname : str, optional
+        EXTNAME of the table (HDU01, HDU02, ... for the data arrays of the image).
 
     Returns
     -------
     fits.BinTableHDU
-        Table with EXTNAME ``HDU01`` and TUNIT/TUCD/TCOMM (and TDISP where
+        Table with EXTNAME *extname* and TUNIT/TUCD/TCOMM (and TDISP where
         defined) for every column.
 
     Raises
@@ -1393,7 +1397,7 @@ def source_list_hdu(sources: QTable, passband: str) -> fits.BinTableHDU:
         values = np.asarray(getattr(sources[name], "value", sources[name]))
         array = values.astype(dtypes[tform[-1]])
         columns.append(fits.Column(name=name, format=tform, array=array))
-    hdu = fits.BinTableHDU.from_columns(columns, name="HDU01")
+    hdu = fits.BinTableHDU.from_columns(columns, name=extname)
 
     for index, (_, _, unit, ucd, comment, disp) in enumerate(SOURCE_COLUMNS, 1):
         hdu.header[f"TUNIT{index}"] = unit
@@ -1405,71 +1409,90 @@ def source_list_hdu(sources: QTable, passband: str) -> fits.BinTableHDU:
 
 
 def write_source_list(
-    sources: QTable,
+    sources: QTable | list[QTable],
     path_out: str,
-    tile_name: str,
-    tile_header: fits.Header,
+    image_name: str,
+    image_header: fits.Header,
     passband: str,
     primary_cards=(),
     table_cards=(),
+    data_headers: list[fits.Header] | None = None,
 ) -> None:
     """
-    Write a source list in the SCIENCE.SRCTBL layout (plan §2.4).
+    Write a source list in the SCIENCE.SRCTBL layout (plan §2.4, ESO §9.2).
 
     The primary HDU is empty and carries the observation block copied from the
-    tile image header (``SOURCES_PRIMARY_KEYS`` and the indexed TELESCi/INSTRi/
-    FILTERi/PROGIDi/OBIDi), ``PROV1`` = the tile file name and ``primary_cards``.
-    The table (:func:`source_list_hdu`) carries the photometric cards copied
-    from the tile image header and ``table_cards``. Both headers end with 36 blank
+    image primary (``SOURCES_PRIMARY_KEYS`` and the indexed TELESCi/INSTRi/
+    FILTERi/PROGIDi/OBIDi), ``PROV1`` = the image file name and ``primary_cards``.
+    One table (:func:`source_list_hdu`) follows per data array of the image (one
+    for a tile, 16 for a pawprint or stack), each with the photometric cards of
+    its image data header and ``table_cards``. Every header ends with 36 blank
     cards, reserved for PRODCATG and the checksums of the finalizer.
 
     Parameters
     ----------
-    sources : QTable
-        Output of :func:`detections_to_sources`.
+    sources : QTable | list[QTable]
+        Output of :func:`detections_to_sources`, one per data array.
     path_out : str
         Output path; must not exist (callers write to a temporary path).
-    tile_name : str
-        File name of the tile, written to PROV1.
-    tile_header : fits.Header
-        Header of the tile image (its primary).
+    image_name : str
+        File name of the image, written to PROV1.
+    image_header : fits.Header
+        Primary header of the image.
     passband : str
-        Passband of the tile (J, H or Ks).
+        Passband of the image (J, H or Ks).
     primary_cards : iterable of tuple, optional
         Additional ``(key, value, comment)`` cards for the primary header.
     table_cards : iterable of tuple, optional
-        Additional ``(key, value, comment)`` cards for the table header.
+        Additional ``(key, value, comment)`` cards for every table header.
+    data_headers : list[fits.Header] | None, optional
+        Image header of each data array, matching *sources*; None for an image
+        whose primary holds the data (``[image_header]``).
 
     Raises
     ------
     PipelineValueError
-        If a photometric card is missing in the tile header or the passband has
-        no UCD band.
+        If a photometric card is missing in an image data header, *sources* and
+        *data_headers* differ in length, or the passband has no UCD band.
     """
+    log = logging.getLogger(__name__)
+    if isinstance(sources, QTable):
+        sources = [sources]
+    if data_headers is None:
+        data_headers = [image_header]
+    if len(sources) != len(data_headers):
+        raise PipelineValueError(
+            f"{len(sources)} source tables for {len(data_headers)} data arrays "
+            f"of {image_name}",
+            logger=log,
+        )
+
     primary = fits.Header()
     for key in SOURCES_PRIMARY_KEYS:
-        if key in tile_header:
-            primary.set(key, tile_header[key], tile_header.comments[key])
-    for key in tile_header:
+        if key in image_header:
+            primary.set(key, image_header[key], image_header.comments[key])
+    for key in image_header:
         if re.fullmatch(r"(TELESC|INSTR|FILTER|PROGID|OBID)\d+", key):
-            primary.set(key, tile_header[key], tile_header.comments[key])
-    primary.set("PROV1", tile_name, "Originating image")
+            primary.set(key, image_header[key], image_header.comments[key])
+    primary.set("PROV1", image_name, "Originating image")
     for key, value, comment in primary_cards:
         primary.set(key, value, comment)
 
-    table = source_list_hdu(sources, passband)
+    hdul = fits.HDUList([fits.PrimaryHDU(header=primary)])
     phot_keys = ("PHOTSYS", "PHOTZP", "PHOTZPER", "ABMAGLIM", "ABMAGSAT")
-    for key in phot_keys + ("PSF_FWHM", "ELLIPTIC"):
-        if key not in tile_header:
-            raise PipelineValueError(
-                f"{key} missing in the header of {tile_name}",
-                logger=logging.getLogger(__name__),
-            )
-        table.header.set(key, tile_header[key], tile_header.comments[key])
-    for key, value, comment in table_cards:
-        table.header.set(key, value, comment)
+    for index, (table_sources, header) in enumerate(zip(sources, data_headers), 1):
+        table = source_list_hdu(table_sources, passband, extname=f"HDU{index:02d}")
+        for key in phot_keys + ("PSF_FWHM", "ELLIPTIC"):
+            if key not in header:
+                raise PipelineValueError(
+                    f"{key} missing in data header {index} of {image_name}",
+                    logger=log,
+                )
+            table.header.set(key, header[key], header.comments[key])
+        for key, value, comment in table_cards:
+            table.header.set(key, value, comment)
+        hdul.append(table)
 
-    hdul = fits.HDUList([fits.PrimaryHDU(header=primary), table])
     hdul.update_extend()
     for hdu in hdul:
         for _ in range(36):
