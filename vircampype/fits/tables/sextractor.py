@@ -539,7 +539,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             magerr_master = master_phot.mag_err(passband=passband)[0][0][mkeep]
             skycoord_master = master_phot.skycoord[0][0][mkeep]
 
-            data_headers, flx_scale, n_sources = [], [], []
+            data_headers, flx_scale, n_sources, apcors = [], [], [], []
             for idx_hdu, idx_hdr in zip(
                 files.iter_data_hdu[0], range(len(files.iter_data_hdu[0]))
             ):
@@ -572,6 +572,36 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     verbose=False,
                 )
 
+                # Aperture-corrected magnitudes: the 6 px aperture plus this detector's
+                # median 6 -> 24 px correction from its bright clean stars. MAG_AUTO
+                # loses a seeing-dependent fraction of the flux (up to ~3 % between
+                # 0.8" and 1.2" seeing), which the scaling to target_zp would keep.
+                aper = np.asarray(tab["MAG_APER"], float)
+                aper_err = np.asarray(tab["MAGERR_APER"], float)
+                valid = np.all((aper < 50) & np.isfinite(aper), axis=1)
+                valid &= np.isfinite(aper_err[:, 0]) & (aper_err[:, 0] > 0)
+                tab = tab[valid]
+                # Correction stars: bright, without neighbours or blends (FLAGS 0)
+                bright = (np.asarray(tab["SNR_WIN"]) > 50) & (
+                    np.asarray(tab["FLAGS"]) == 0
+                )
+                apcor = float(
+                    np.nanmedian(
+                        np.asarray(tab["MAG_APER"][bright, 1])
+                        - np.asarray(tab["MAG_APER"][bright, 0])
+                    )
+                )
+                if bright.sum() < 5 or not np.isfinite(apcor):
+                    raise PipelineValueError(
+                        f"No aperture correction for detector {idx_hdr + 1} of "
+                        f"{', '.join(files.basenames)} ({int(bright.sum())} bright "
+                        f"sources)",
+                        logger=log,
+                    )
+                mag_ic = np.asarray(tab["MAG_APER"][:, 0]) + apcor
+                magerr_ic = np.asarray(tab["MAGERR_APER"][:, 0])
+                apcors.append(apcor)
+
                 # Compute zero point depending on IC mode
                 if self.setup.illumination_correction_mode == "variable":
                     method = "all"
@@ -587,8 +617,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         skycoord1=SkyCoord(
                             tab[self.key_ra], tab[self.key_dec], unit="deg"
                         ),
-                        mag1=tab["MAG_AUTO"],
-                        magerr1=tab["MAGERR_AUTO"],
+                        mag1=mag_ic,
+                        magerr1=magerr_ic,
                         skycoord2=skycoord_master,
                         mag2=mag_master,
                         magerr2=magerr_master,
@@ -609,7 +639,8 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # Compute illumination correction
                 if self.setup.illumination_correction_mode == "variable":
                     # Remove all table entries without ZP entry
-                    tab, zp_all = tab[np.isfinite(zp_all)], zp_all[np.isfinite(zp_all)]
+                    good = np.isfinite(zp_all)
+                    tab, zp_all, magerr_ic = tab[good], zp_all[good], magerr_ic[good]
 
                     # Grid with NN interpolation
                     grid_zp = grid_value_2d_nn(
@@ -624,7 +655,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                         y_max=header["NAXIS2"],
                         n_nearest_neighbors=50,
                         metric="weighted",
-                        weights=1 / tab["MAGERR_AUTO"] ** 2,
+                        weights=1 / magerr_ic**2,
                     )
 
                     # Resize to original image size
@@ -684,7 +715,9 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             illumcorr = ImageCube(setup=self.setup)
 
             # Loop over extensions and construct final illumination correction
-            for idx_hdu, fscl, nn in zip(files.iter_data_hdu[0], flx_scale, n_sources):
+            for idx_hdu, fscl, nn, apcor in zip(
+                files.iter_data_hdu[0], flx_scale, n_sources, apcors
+            ):
                 # Append to output
                 illumcorr.extend(data=fscl.astype(np.float32))
 
@@ -704,6 +737,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     value=np.nanstd(fscl),  # noqa
                     decimals=4,
                     comment="Standard deviation in relative flux",
+                )
+                add_float_to_header(
+                    header=data_header,
+                    key="HIERARCH PYPE IC APCOR",
+                    value=apcor,
+                    decimals=4,
+                    comment="Aperture correction 6 -> 24 px (mag)",
                 )
 
                 # Append header

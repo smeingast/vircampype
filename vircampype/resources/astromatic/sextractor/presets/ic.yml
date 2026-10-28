@@ -48,7 +48,7 @@ DGEO_IMAGE:       dgeo.fits      # Filename for input differential geometry imag
 
 #------------------------------ Photometry -----------------------------------
 
-PHOT_APERTURES:   10 # MAG_APER aperture diameter(s) in pixels
+PHOT_APERTURES:   6,24 # MAG_APER diameters (px): 6 px (~2") measured, 24 px (~8") for the aperture correction
 PHOT_AUTOPARAMS:  2.5, 3.5       # MAG_AUTO parameters: <Kron_fact>,<min_radius>
 PHOT_PETROPARAMS: 2.0, 3.5       # MAG_PETRO parameters: <Petrosian_fact>,
                                 # <min_radius>
@@ -77,7 +77,7 @@ BACK_VALUE:       0.0            # Default background value in MANUAL mode
 BACK_SIZE:        256             # Background mesh: <size> or <width>,<height>
 BACK_FILTERSIZE:  3              # Background filter: <size> or <width>,<height>
 
-BACKPHOTO_TYPE:   LOCAL         # can be GLOBAL or LOCAL
+BACKPHOTO_TYPE:   GLOBAL        # can be GLOBAL or LOCAL (GLOBAL: the LOCAL annulus eats star wings)
 BACKPHOTO_THICK:  15             # thickness of the background LOCAL annulus
 BACK_FILTTHRESH:  0.0            # Threshold above which the background-
                                 # map filter operates
