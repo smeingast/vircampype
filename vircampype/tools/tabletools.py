@@ -162,6 +162,12 @@ SOURCES_PRIMARY_KEYS = (
     "NCOMBINE",
     "OBSTECH",
     "PROCSOFT",
+    "PROCCOMM",
+    "SETUPSHA",
+    "SEXVERS",
+    "SCAMPVER",
+    "SWARPVER",
+    "PSFEXVER",
     "REFERENC",
     "SKYSQDEG",
 )

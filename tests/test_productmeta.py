@@ -1,7 +1,9 @@
+import hashlib
 import os
 import tempfile
 import types
 import unittest
+import unittest.mock
 import warnings
 
 import numpy as np
@@ -16,7 +18,10 @@ from vircampype.tools.productmeta import (
     finalize_files,
     obs_cards,
     prov_cards,
+    provenance_cards,
     set_cards,
+    tool_version,
+    vircampype_commit,
 )
 from vircampype.tools.sdpcheck import check_batch, check_product
 
@@ -84,7 +89,9 @@ class TestObsCards(unittest.TestCase):
             "PROCSOFT": f"vircampype v{vircampype.__version__}",
             "REFERENC": "2023A&A...673A..59M",
         }
-        self.assertEqual([key for key, _, _ in cards], list(expected))
+        provenance = ["PROCCOMM", "SETUPSHA", "SEXVERS", "SCAMPVER", "SWARPVER"]
+        provenance += ["PSFEXVER"]
+        self.assertEqual([key for key, _, _ in cards], list(expected) + provenance)
         values = as_dict(cards)
         for key, value in expected.items():
             if isinstance(value, float):
@@ -103,6 +110,21 @@ class TestObsCards(unittest.TestCase):
         for header in headers:
             del header["HIERARCH ESO OBS TARG NAME"]
         self.assertEqual(as_dict(obs_cards(headers, setup))["OBJECT"], setup.name)
+
+    def test_provenance_cards(self):
+        setup = make_test_setup(self._tmp.name)
+        vircampype_commit.cache_clear()
+        with unittest.mock.patch.dict(os.environ, {"VIRCAMPYPE_COMMIT": "a" * 40}):
+            cards = as_dict(provenance_cards(setup))
+        vircampype_commit.cache_clear()
+        self.assertEqual(cards["PROCCOMM"], "a" * 12)
+        # SETUPSHA identifies the setup record written to qc/<name>.setup.yml
+        with open(setup.write_sidecar()) as stream:
+            digest = hashlib.sha256(stream.read().encode()).hexdigest()[:12]
+        self.assertEqual(cards["SETUPSHA"], digest)
+        setup_b = make_test_setup(self._tmp.name, reference="2025A&A...000A...1M")
+        self.assertNotEqual(as_dict(provenance_cards(setup_b))["SETUPSHA"], digest)
+        self.assertEqual(tool_version("no_such_binary_xyz"), "unknown")
 
     def test_obs_cards_multi(self):
         setup = make_test_setup(self._tmp.name)

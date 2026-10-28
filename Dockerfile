@@ -68,3 +68,7 @@ RUN printf '#!/usr/bin/env python\nfrom vircampype.pipeline.worker import main\n
     > /usr/bin/vircampype && chmod +x /usr/bin/vircampype
 
 WORKDIR /home
+
+# Commit of this image's vircampype (.git is not copied); products record it as PROCCOMM
+ARG VIRCAMPYPE_COMMIT=unknown
+ENV VIRCAMPYPE_COMMIT=${VIRCAMPYPE_COMMIT}

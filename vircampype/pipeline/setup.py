@@ -986,11 +986,16 @@ class Setup:
         # Return
         return dd
 
+    @property
+    def record(self) -> str:
+        """The setup record of a run (YAML of ``to_dict``, no machine-local paths)."""
+        return yaml.safe_dump(self.to_dict, sort_keys=False)
+
     def write_sidecar(self) -> str:
         """Write the setup record of a run (replaces the former PYPE SETUP header cards)."""
         path = f"{self.folders['qc']}{self.name}.setup.yml"
         with open(path, "w") as stream:
-            yaml.safe_dump(self.to_dict, stream, sort_keys=False)
+            stream.write(self.record)
         return path
 
     def add_setup_to_header(self, header: fits.Header) -> None:

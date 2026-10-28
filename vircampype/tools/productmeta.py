@@ -11,10 +11,14 @@ checksums last.
 """
 
 import datetime
+import functools
+import hashlib
 import logging
 import math
 import numbers
 import os
+import re
+import subprocess
 
 from astropy.io import fits
 
@@ -28,6 +32,44 @@ Card = tuple[str, object, str]  # (keyword, value, comment)
 
 # Raw TELESCOP values ESO's validator rejects, and the archive value (batch 23808)
 ESO_TELESCOPES = {"VISTA": "ESO-VISTA"}
+
+
+@functools.cache
+def vircampype_commit() -> str:
+    """Git commit of vircampype: VIRCAMPYPE_COMMIT (set in the Docker image by CI), else
+    the source checkout's HEAD ("-dirty" with uncommitted changes), else "unknown"."""
+    commit = os.environ.get("VIRCAMPYPE_COMMIT", "")
+    if commit:
+        return commit[:12]
+    folder = os.path.dirname(vircampype.__file__)
+    try:
+        head = subprocess.run(
+            ["git", "-C", folder, "rev-parse", "--short=12", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if head.returncode != 0:
+            return "unknown"
+        dirty = subprocess.run(
+            ["git", "-C", folder, "diff-index", "--quiet", "HEAD", "--"], timeout=30
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return head.stdout.strip() + ("-dirty" if dirty.returncode else "")
+
+
+@functools.cache
+def tool_version(binary: str) -> str:
+    """Version of an Astromatic tool from ``<binary> --version``, or "unknown"."""
+    try:
+        out = subprocess.run(
+            [binary, "--version"], capture_output=True, text=True, timeout=30
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    match = re.search(r"version\s+(\S+(?:\s+\([^)]*\))?)", out.stdout + out.stderr)
+    return match.group(1) if match else "unknown"
 
 
 def _unique_or_multi(
@@ -100,7 +142,21 @@ def obs_cards(headers: list[fits.Header], setup) -> list[Card]:
         ("PROCSOFT", f"vircampype v{vircampype.__version__}", "Reduction software")
     )
     cards.append(("REFERENC", setup.reference or "", "Bibliographic reference"))
+    cards += provenance_cards(setup)
     return cards
+
+
+def provenance_cards(setup) -> list[Card]:
+    """Software provenance: vircampype commit, setup-record hash, Astromatic versions."""
+    sha = hashlib.sha256(setup.record.encode()).hexdigest()[:12]
+    return [
+        ("PROCCOMM", vircampype_commit(), "vircampype git commit"),
+        ("SETUPSHA", sha, "SHA-256 (12) of the setup record qc/<name>.setup.yml"),
+        ("SEXVERS", tool_version(setup.bin_sex), "SExtractor version"),
+        ("SCAMPVER", tool_version(setup.bin_scamp), "SCAMP version"),
+        ("SWARPVER", tool_version(setup.bin_swarp), "SWarp version"),
+        ("PSFEXVER", tool_version(setup.bin_psfex), "PSFEx version"),
+    ]
 
 
 def prov_cards(arcfiles: list[str]) -> tuple[list[Card], fits.BinTableHDU | None]:
