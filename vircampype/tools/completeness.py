@@ -239,7 +239,7 @@ def build_psf_models(
         cat_path = os.path.join(psf_dir, cat_name)
         tile["sex_catalog"] = cat_path
 
-        if os.path.isfile(cat_path):
+        if os.path.isfile(cat_path) and not setup.overwrite:
             continue
 
         weight_arg = ""
@@ -288,7 +288,7 @@ def build_psf_models(
         psf_path = os.path.splitext(cat_path)[0] + ".psf"
         psf_paths.append(psf_path)
 
-        if os.path.isfile(psf_path):
+        if os.path.isfile(psf_path) and not setup.overwrite:
             continue
 
         cmd = (
@@ -758,7 +758,7 @@ def run_completeness(
         pixel_scale_arcsec=setup.coadd_pixel_scale,
         weight_path=weight_path,
         prefix="comp_tile",
-        overwrite=False,
+        overwrite=setup.overwrite,
         image_hdu=image_hdu,
         weight_hdu=weight_hdu,
     )
