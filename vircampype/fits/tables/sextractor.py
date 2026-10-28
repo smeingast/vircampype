@@ -3856,12 +3856,16 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             )
 
         # Convert to the source-list format
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FITSFixedWarning)
+            pixel_scale = proj_plane_pixel_scales(WCS(data_header)).mean() * 3600
         sources = detections_to_sources(
             table,
             photerr_internal=photerr_internal,
             apertures=self.setup.apertures,
             mag_saturation=mag_saturation,
             survey_name=self.setup.survey_name,
+            pixel_scale=float(pixel_scale),
             magerr_scale=magerr_scale,
         )
         log.info(f"{label}: {len(sources)} sources after conversion")

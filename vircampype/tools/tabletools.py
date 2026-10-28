@@ -970,13 +970,17 @@ def detections_to_sources(
     apertures: list,
     mag_saturation: float,
     survey_name: str,
+    pixel_scale: float,
     magerr_scale: np.ndarray | None = None,
 ) -> QTable:
     """
     Convert the pipeline detections of a tile to the source-list format.
 
     Every row is a pipeline detection: the function computes total position
-    errors, the quality flags (``CFLG``, ``CFLG_REASON``, ``QFLG``) and assembles
+    errors, the default magnitude (``MAG``: the aperture nearest the isophotal
+    diameter; for point sources, ``CLASS_STAR_INTERP >= 0.5``, at most the aperture
+    nearest twice the local seeing ``FWHM_WORLD_INTERP``, so that neighbour light
+    stays out), the quality flags (``CFLG``, ``CFLG_REASON``, ``QFLG``) and assembles
     a ``QTable`` with the columns of ``SOURCE_COLUMNS``. Bright (saturated) stars
     stay in the list, flagged unusable with reason 1; 2MASS rows for them are
     added by the VISIONS fold, not here. Rows with unphysical errors or
@@ -996,6 +1000,8 @@ def detections_to_sources(
         Bright-star saturation limit (mag, Vega).
     survey_name : str
         Survey name written into the ``SURVEY`` column (e.g. ``"VISIONS"``).
+    pixel_scale : float
+        Pixel scale of the image (arcsec), for the seeing cap of the aperture.
     magerr_scale : np.ndarray | None, optional
         Per-aperture multiplicative inflation of ``MAGERR_APER`` (one factor per
         entry of ``apertures``) for correlated noise, applied before the floor:
@@ -1130,6 +1136,17 @@ def detections_to_sources(
         .kneighbors(rr)
     )
     idx_best = idx_aper[:, 0]
+
+    # Point sources: at most the aperture nearest twice the local seeing (crowded
+    # stars otherwise collect their neighbours' light in large isophotal apertures)
+    if np.any(np.diff(apertures) <= 0):
+        raise PipelineValueError(
+            f"Apertures not ascending: {apertures}", logger=logging.getLogger(__name__)
+        )
+    seeing = 2 * np.asarray(table["FWHM_WORLD_INTERP"], float) * 3600 / pixel_scale
+    idx_cap = np.abs(aa.ravel()[None, :] - seeing[:, None]).argmin(axis=1)
+    point = (np.asarray(data_cls, float) >= 0.5) & np.isfinite(seeing)
+    idx_best = np.where(point, np.minimum(idx_best, idx_cap), idx_best)
     mag_best = mag_aper.copy()[np.arange(len(table)), idx_best]
     magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
     aper_best = np.array(apertures)[idx_best]
