@@ -1594,7 +1594,11 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             end="\n",
         )
         return
-    remove_file(results_path)  # a rerun without results must not leave old ones
+    # A rerun without results must not leave the old QC products
+    for name in ("completeness_results.fits", "completeness.fits"):
+        remove_file(os.path.join(qc_dir, name))
+    for name in ("curves", "map", "tile"):
+        remove_file(os.path.join(qc_dir, f"completeness_{name}.pdf"))
 
     # The tile image and its weight file (both in the primary)
     weight_path = image_path.removesuffix(".fits") + ".weight.fits"
