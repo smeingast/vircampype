@@ -302,6 +302,9 @@ Every source list (`<product>.sources.fits`) carries three flag columns:
   False; X when `CFLG` is True. 2MASS rows for bright stars are added by the VISIONS release fold, not by the
   pipeline.
 
+In the vicinity of bright stars, the classification (`CLS`) and the photometry of faint sources are less reliable
+(the stellar halo distorts their shapes and backgrounds); they are not flagged.
+
 ## Logging
 
 Each run writes a verbose, timestamped log to `path_pype/<name>/temp/pipeline_<timestamp>.log` at DEBUG level, including captured external-tool output, so a run is reconstructable from the file alone. The console stays minimal: a live progress bar on a terminal plus real warnings and errors (no progress codes are written when output is redirected). Set `log_retention: <N>` to keep only the newest N per-run logs, or `file_log: false` to skip the per-run file and rely on stdout (for example in a container that redirects to a node log).
