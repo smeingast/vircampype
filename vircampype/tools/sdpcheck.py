@@ -349,8 +349,12 @@ def verify_checksums(path: str) -> list[str]:
     """CHECKSUM and DATASUM of every HDU recomputed from the file (reads all data;
     for staged copies before an upload, not after sealing)."""
     name = os.path.basename(path)
+    try:  # compressed images: the cards sit on the stored binary table
+        hdul = fits.open(path, memmap=True, disable_image_compression=True)
+    except OSError as error:
+        return [f"{name}: cannot be read as FITS ({error})"]
     problems = []
-    with fits.open(path, memmap=True) as hdul:
+    with hdul:
         for index, hdu in enumerate(hdul):
             for key, verify in (
                 ("DATASUM", hdu.verify_datasum),
