@@ -8,5 +8,7 @@ SNR_WIN                  # Gaussian-weighted SNR
 ELLIPTICITY              # 1 - B_IMAGE/A_IMAGE
 MAG_AUTO                 # Kron-like elliptical aperture magnitude                   [mag]
 MAGERR_AUTO              # RMS error for AUTO magnitude                              [mag]
+MAG_APER(2)              # Fixed aperture magnitudes (6 and 24 px)                   [mag]
+MAGERR_APER(2)           # RMS error of the fixed aperture magnitudes               [mag]
 FLAGS                    # Extraction flags                                         
 FLUX_MAX                 # Peak flux above background                                [count]
