@@ -148,11 +148,10 @@ class Pipeline:
             f"Current pipeline status: {json.dumps(self.status.dict, indent=4)}"
         )
 
-        # Verify SExtractor supports multi-seeing (classification runs for every tile)
-        if self.setup.build_tile:
-            self.log.info("Verifying SExtractor multi-seeing support for the tile")
-            verify_sextractor_multi_seeing(setup=self.setup)
-            self.log.info("SExtractor multi-seeing support verified")
+        # Verify SExtractor supports multi-seeing (classification of every source list)
+        self.log.info("Verifying SExtractor multi-seeing support")
+        verify_sextractor_multi_seeing(setup=self.setup)
+        self.log.info("SExtractor multi-seeing support verified")
         if self.setup.sex_winpos_cap:
             verify_sextractor_winpos_cap(setup=self.setup)
             self.log.info("SExtractor window-cap support verified")
