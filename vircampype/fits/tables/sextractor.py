@@ -553,8 +553,18 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     silent=self.setup.silent,
                 )
 
-                # Read current HDU for all files into a single table
-                tab = tvstack(files.hdu2table(hdu_index=idx_hdu))
+                # Read current HDU for all files; nearest-neighbour distance within
+                # each exposure (repeat detections in other exposures of the group
+                # are not neighbours), then one table
+                tables = files.hdu2table(hdu_index=idx_hdu)
+                for t in tables:
+                    nn = np.full(len(t), np.inf)
+                    if len(t) > 1:
+                        xy = np.column_stack((t["XWIN_IMAGE"], t["YWIN_IMAGE"]))
+                        dist, _ = NearestNeighbors(n_neighbors=2).fit(xy).kneighbors(xy)
+                        nn = dist[:, 1]
+                    t["NNDIST_EXPOSURE"] = nn
+                tab = tvstack(tables)
                 if "MAG_APER" not in tab.colnames:
                     raise PipelineValueError(
                         f"IC catalogs without MAG_APER (built before the aperture-"
@@ -564,8 +574,6 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Read header of current extension in first file
                 header = files.image_headers[0][idx_hdr]
-                # All detections (before cleaning) for the neighbour test below
-                xy_all = np.column_stack((tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]))
 
                 # Clean table
                 tab = clean_source_table(
@@ -590,13 +598,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 valid &= np.isfinite(aper_err[:, 0]) & (aper_err[:, 0] > 0)
                 tab = tab[valid]
                 # Correction stars: bright, without blends (FLAGS 0) and without any
-                # detection inside the 24 px aperture (12 px radius)
-                xy = np.column_stack((tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]))
-                dist, _ = NearestNeighbors(n_neighbors=2).fit(xy_all).kneighbors(xy)
+                # detection of the same exposure inside the 24 px aperture (12 px)
                 bright = (
                     (np.asarray(tab["SNR_WIN"]) > 50)
                     & (np.asarray(tab["FLAGS"]) == 0)
-                    & (dist[:, 1] > 12)
+                    & (np.asarray(tab["NNDIST_EXPOSURE"]) > 12)
                 )
                 apcor = np.nan
                 if bright.sum() >= 5:
