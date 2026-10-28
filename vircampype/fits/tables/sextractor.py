@@ -1284,12 +1284,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
         sc_master_raw = self.get_master_astrometry().skycoord[0][0]
         for idx, path in enumerate(self.paths_full):
-            # Gaia reference at the epoch of this catalog
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore")
-                reference = sc_master_raw.apply_space_motion(
-                    new_obstime=Time(self.mjd[idx], format="mjd")
-                )
+            # Gaia reference at the epoch of this catalog (per source: below)
+            if not epochs_from_stats:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    reference = sc_master_raw.apply_space_motion(
+                        new_obstime=Time(self.mjd[idx], format="mjd")
+                    )
             hdus_img = list(images.iter_data_hdu[idx])
             hdus_cat = list(self.iter_data_hdu[idx])
             if len(hdus_img) != len(hdus_cat):
