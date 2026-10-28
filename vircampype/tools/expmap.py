@@ -31,6 +31,7 @@ def build_exposure_map(
     primary: fits.Header,
     path_out: str,
     cache_dir: str | None = None,
+    path_coadd_weight: str | None = None,
 ) -> tuple[float, float]:
     """
     Build the exact exposure map of a tile: the sum of DIT·NDIT over all pawprints
@@ -53,6 +54,10 @@ def build_exposure_map(
         Output path of the exposure map.
     cache_dir : str, optional
         Directory of the temporary file; the system temp directory if None.
+    path_coadd_weight : str, optional
+        Weight of the coadd (same grid). Where it is 0 (void pixels, e.g. all
+        inputs rejected in the combination) the exposure map is set to 0 (§4.3.1);
+        read in row strips, so memory stays bounded.
 
     Returns
     -------
@@ -119,6 +124,19 @@ def build_exposure_map(
                             value
                         )
                 log.debug(f"Exposure map: added {os.path.basename(path)} ({exptime} s)")
+
+            # Void pixels of the coadd have no exposure
+            if path_coadd_weight is not None:
+                with fits.open(path_coadd_weight, memmap=True) as hdul_w:
+                    weight = hdul_w[0].data
+                    if weight.shape != data.shape:
+                        raise PipelineValueError(
+                            f"{os.path.basename(path_coadd_weight)} has shape "
+                            f"{weight.shape}, the exposure map {data.shape}"
+                        )
+                    for start in range(0, ny, 1024):
+                        strip = data[start : start + 1024]
+                        strip[~(weight[start : start + 1024] > 0)] = 0
 
             # Strip pass: median and covered area
             counts = scan_expmap(data)[2]

@@ -833,6 +833,7 @@ class Pipeline:
             primary=primary,
             path_out=self.setup.path_coadd_expmap,
             cache_dir=self.setup.local_cache_dir,
+            path_coadd_weight=self.setup.path_coadd_weight,
         )
         set_cards(
             self.setup.path_coadd,

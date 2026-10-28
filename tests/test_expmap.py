@@ -78,7 +78,7 @@ class TestBuildExposureMap(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp)
 
-    def _build(self, paths, exptimes):
+    def _build(self, paths, exptimes, path_coadd_weight=None):
         return build_exposure_map(
             paths_weights=paths,
             exptimes=exptimes,
@@ -86,7 +86,23 @@ class TestBuildExposureMap(unittest.TestCase):
             primary=self.primary,
             path_out=self.path_out,
             cache_dir=self.cache,
+            path_coadd_weight=path_coadd_weight,
         )
+
+    def test_void_coadd_pixels_have_no_exposure(self):
+        # Pixels where the coadd weight is 0 get exposure 0; median and area follow
+        paths = _write_weights(self.tmp)
+        ref = _reference(paths, [6, 6, 12], np.int16)
+        weight = (ref > 0).astype(np.float32)
+        weight[0, 0] = 0  # covered by an input, void in the coadd
+        path_w = os.path.join(self.tmp, "coadd.weight.fits")
+        fits.writeto(path_w, weight)
+        median, area = self._build(paths, [6, 6, 12], path_coadd_weight=path_w)
+        ref[0, 0] = 0
+        np.testing.assert_array_equal(fits.getdata(self.path_out, 0), ref)
+        cd = abs(self.header["CD1_1"] * self.header["CD2_2"])
+        self.assertAlmostEqual(area, np.sum(ref > 0) * cd)
+        self.assertEqual(median, np.median(ref[ref > 0]))
 
     def test_exact_sums(self):
         paths = _write_weights(self.tmp)
