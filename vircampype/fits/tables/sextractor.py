@@ -558,11 +558,22 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # are not neighbours), then one table
                 tables = files.hdu2table(hdu_index=idx_hdu)
                 for t in tables:
-                    nn = np.full(len(t), np.inf)
-                    if len(t) > 1:
-                        xy = np.column_stack((t["XWIN_IMAGE"], t["YWIN_IMAGE"]))
-                        dist, _ = NearestNeighbors(n_neighbors=2).fit(xy).kneighbors(xy)
-                        nn = dist[:, 1]
+                    xy = np.column_stack(
+                        (
+                            np.ma.filled(np.asarray(t["XWIN_IMAGE"], float), np.nan),
+                            np.ma.filled(np.asarray(t["YWIN_IMAGE"], float), np.nan),
+                        )
+                    )
+                    ok = np.all(np.isfinite(xy), axis=1)
+                    nn = np.zeros(len(t))  # invalid positions: never isolated
+                    nn[ok] = np.inf
+                    if ok.sum() > 1:
+                        dist, _ = (
+                            NearestNeighbors(n_neighbors=2)
+                            .fit(xy[ok])
+                            .kneighbors(xy[ok])
+                        )
+                        nn[ok] = dist[:, 1]
                     t["NNDIST_EXPOSURE"] = nn
                 tab = tvstack(tables)
                 if "MAG_APER" not in tab.colnames:
@@ -581,12 +592,13 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     image_header=header,
                     flux_max=header["SEXSATLV"] * 0.8,
                     min_distance_to_edge=10,
-                    nndis_limit=5,
+                    nndis_limit=None,  # per exposure below, not across the group
                     min_fwhm=0.8,
                     max_fwhm=6.0,
                     max_ellipticity=0.25,
                     verbose=False,
                 )
+                tab = tab[np.asarray(tab["NNDIST_EXPOSURE"]) > 5]
 
                 # Aperture-corrected magnitudes: the 6 px aperture plus this detector's
                 # median 6 -> 24 px correction from its bright clean stars. MAG_AUTO
