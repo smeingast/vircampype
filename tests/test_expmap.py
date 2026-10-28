@@ -93,16 +93,18 @@ class TestBuildExposureMap(unittest.TestCase):
         # Pixels where the coadd weight is 0 get exposure 0; median and area follow
         paths = _write_weights(self.tmp)
         ref = _reference(paths, [6, 6, 12], np.int16)
+        before = np.median(ref[ref > 0])
         weight = (ref > 0).astype(np.float32)
-        weight[0, 0] = 0  # covered by an input, void in the coadd
+        weight[ref == before] = 0  # covered by inputs, void in the coadd
         path_w = os.path.join(self.tmp, "coadd.weight.fits")
         fits.writeto(path_w, weight)
         median, area = self._build(paths, [6, 6, 12], path_coadd_weight=path_w)
-        ref[0, 0] = 0
+        ref[ref == before] = 0
         np.testing.assert_array_equal(fits.getdata(self.path_out, 0), ref)
-        cd = abs(self.header["CD1_1"] * self.header["CD2_2"])
-        self.assertAlmostEqual(area, np.sum(ref > 0) * cd)
+        cd = self.header["CD1_1"] * self.header["CD2_2"]
+        self.assertEqual(area, float(np.sum(ref > 0) * abs(cd)))  # exact
         self.assertEqual(median, np.median(ref[ref > 0]))
+        self.assertNotEqual(median, before)  # statistics come from the masked map
 
     def test_exact_sums(self):
         paths = _write_weights(self.tmp)
