@@ -513,8 +513,9 @@ def rsync_file(src: str, dst: str) -> None:
     """
     Copy ``src`` to ``dst`` via ``rsync``, skipping the transfer if contents match.
 
-    Uses ``rsync -a --checksum`` to preserve metadata and compare files by checksum
-    (slower than size/mtime checks, but more accurate). Creates the destination
+    Uses ``rsync -rlt --checksum`` (not ``-a``: SMB shares refuse permission and owner
+    changes) and compares files by checksum (slower than size/mtime checks, but more
+    accurate). Creates the destination
     parent directory if needed.
 
     Parameters
@@ -544,7 +545,7 @@ def rsync_file(src: str, dst: str) -> None:
 
     # Use original strings to preserve trailing slashes (rsync semantics:
     # trailing slash on src means "copy contents", no slash means "copy dir")
-    cmd = ["rsync", "-a", "--checksum", "--", src, dst]
+    cmd = ["rsync", "-rlt", "--checksum", "--", src, dst]
     log.debug(f"ran: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=True)
     if result.returncode != 0:
