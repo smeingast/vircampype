@@ -555,9 +555,17 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
 
                 # Read current HDU for all files into a single table
                 tab = tvstack(files.hdu2table(hdu_index=idx_hdu))
+                if "MAG_APER" not in tab.colnames:
+                    raise PipelineValueError(
+                        f"IC catalogs without MAG_APER (built before the aperture-"
+                        f"corrected IC): remove {', '.join(files.basenames)} and rerun",
+                        logger=log,
+                    )
 
                 # Read header of current extension in first file
                 header = files.image_headers[0][idx_hdr]
+                # All detections (before cleaning) for the neighbour test below
+                xy_all = np.column_stack((tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]))
 
                 # Clean table
                 tab = clean_source_table(
@@ -581,17 +589,24 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 valid = np.all((aper < 50) & np.isfinite(aper), axis=1)
                 valid &= np.isfinite(aper_err[:, 0]) & (aper_err[:, 0] > 0)
                 tab = tab[valid]
-                # Correction stars: bright, without neighbours or blends (FLAGS 0)
-                bright = (np.asarray(tab["SNR_WIN"]) > 50) & (
-                    np.asarray(tab["FLAGS"]) == 0
+                # Correction stars: bright, without blends (FLAGS 0) and without any
+                # detection inside the 24 px aperture (12 px radius)
+                xy = np.column_stack((tab["XWIN_IMAGE"], tab["YWIN_IMAGE"]))
+                dist, _ = NearestNeighbors(n_neighbors=2).fit(xy_all).kneighbors(xy)
+                bright = (
+                    (np.asarray(tab["SNR_WIN"]) > 50)
+                    & (np.asarray(tab["FLAGS"]) == 0)
+                    & (dist[:, 1] > 12)
                 )
-                apcor = float(
-                    np.nanmedian(
-                        np.asarray(tab["MAG_APER"][bright, 1])
-                        - np.asarray(tab["MAG_APER"][bright, 0])
+                apcor = np.nan
+                if bright.sum() >= 5:
+                    apcor = float(
+                        np.median(
+                            np.asarray(tab["MAG_APER"][bright, 1])
+                            - np.asarray(tab["MAG_APER"][bright, 0])
+                        )
                     )
-                )
-                if bright.sum() < 5 or not np.isfinite(apcor):
+                if not np.isfinite(apcor):
                     raise PipelineValueError(
                         f"No aperture correction for detector {idx_hdr + 1} of "
                         f"{', '.join(files.basenames)} ({int(bright.sum())} bright "
