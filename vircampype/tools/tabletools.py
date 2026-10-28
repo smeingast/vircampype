@@ -164,8 +164,6 @@ SOURCES_PRIMARY_KEYS = (
     "PROCSOFT",
     "REFERENC",
     "SKYSQDEG",
-    # ESO's validator wants ELLIPTIC in the source-list primary, too (batch 23808)
-    "ELLIPTIC",
 )
 
 

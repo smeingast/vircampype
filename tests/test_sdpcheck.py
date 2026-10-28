@@ -131,7 +131,6 @@ def make_products(
     # T4 source list: PROV1 = tile, photometry copied from the tile image
     primary = _observation(fluxcal=False)
     primary["PROV1"] = os.path.basename(paths["tile"])
-    primary["ELLIPTIC"] = PHOTOMETRY["ELLIPTIC"]
     if final:
         primary["PRODCATG"] = "SCIENCE.SRCTBL"
     ra = np.array([279.9999, 280.0, 280.0001])
@@ -581,8 +580,7 @@ class TestSdpCheck(unittest.TestCase):
             ("missing EXTNAME", delete_card(1, "EXTNAME")),
             ("tiny.fits primary has 'TINY'", set_card(0, "OBJECT", "OTHER")),
             ("null values", nul_id),
-            ("missing ELLIPTIC", delete_card(0, "ELLIPTIC")),
-            ("primary has 0.05", set_card(0, "ELLIPTIC", 0.07)),  # vs tile primary
+            ("ELLIPTIC is not allowed", set_card(0, "ELLIPTIC", 0.05)),  # 2 vs 1
         ]
         for keyword, edit in cases:
             with self.subTest(keyword), warnings.catch_warnings():

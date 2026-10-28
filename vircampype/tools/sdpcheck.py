@@ -499,9 +499,9 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
     problems = _check_no_data(primary, where)
     problems += _check_observation(primary, where)
     problems += _require_numbers(primary, ("EQUINOX",), where)
-    if len(tables) == 1:
-        # ELLIPTIC as often as in the tile, primary and table (ESO validator, 23808)
-        problems += _require_numbers(primary, ("ELLIPTIC",), where)
+    # ELLIPTIC as often as in the image: once per data array, i.e. in the tables
+    # only (ESO validator, batch 23808)
+    problems += _forbid(primary, ("ELLIPTIC",), where)
     problems += _forbid(primary, _indexed_keys(primary, "ASSON"), where)
     problems += _check_prov(hdul, where, origfile=True)
     if _indexed_keys(primary, "PROV") != ["PROV1"]:
@@ -531,7 +531,6 @@ def _check_srctbl(path: str, hdul: fits.HDUList, final: bool) -> list[str]:
             prefixes = (*_MULTI.values(), "OBID")
             indexed = [k for p in prefixes for k in _indexed_keys(headers[0], p)]
             keys = _OBS_STRINGS + _OBS_FLOATS + ("NCOMBINE", "EQUINOX", "RADESYS")
-            keys += ("ELLIPTIC",)  # in the primary only if the image primary has it
             label = f"{image} primary"
             problems += _compare(
                 primary, headers[0], keys + tuple(indexed), where, label

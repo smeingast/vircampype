@@ -742,7 +742,8 @@ class TestSourceList(unittest.TestCase):
                     self.assertEqual(len(tail), 36)
                     self.assertNotEqual(cards[-37].keyword, "")
                 self.assertEqual(table["PHOTZP"], tile_header["PHOTZP"])
-                self.assertEqual(primary["ELLIPTIC"], tile_header["ELLIPTIC"])
+                self.assertNotIn("ELLIPTIC", primary)  # once, in the table
+                self.assertEqual(table["ELLIPTIC"], tile_header["ELLIPTIC"])
                 for key in ("BUNIT", "CTYPE1", "PHOTZP"):  # image cards stay out
                     self.assertNotIn(key, primary)
                 self.assertIn("REFMAGLO", table)
