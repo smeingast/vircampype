@@ -4,14 +4,9 @@ from typing import List, Tuple
 
 import numpy as np
 from astropy import wcs
-from astropy.convolution import (
-    Box2DKernel,
-    Gaussian1DKernel,
-    Gaussian2DKernel,
-    Kernel2D,
-    convolve,
-    interpolate_replace_nans,
-)
+from astropy.convolution import (Box2DKernel, Gaussian1DKernel,
+                                 Gaussian2DKernel, Kernel2D, convolve,
+                                 interpolate_replace_nans)
 from astropy.coordinates import SkyCoord
 from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
@@ -19,7 +14,8 @@ from astropy.stats import sigma_clipped_stats
 from astropy.wcs.utils import wcs_to_celestial_frame
 from scipy import ndimage as ndi
 from scipy.interpolate import SmoothBivariateSpline, UnivariateSpline
-from scipy.ndimage import binary_closing, generate_binary_structure, median_filter
+from scipy.ndimage import (binary_closing, generate_binary_structure,
+                           median_filter)
 from scipy.stats import binned_statistic_2d
 from skimage.filters import sobel
 from sklearn.neighbors import NearestNeighbors
@@ -868,7 +864,7 @@ def source_mask(
 
     # Compact sources on the 1 px smoothed plane
     xs = ndi.gaussian_filter(xf, 1.0)
-    _, sig_s = _clipped_stats(xs[::4, ::4])
+    _, sig_s = _clipped_stats(xs[::4, ::4][~bad[::4, ::4]])  # bad pixels: no noise
     sig_s = sig_s if sig_s > 0 else np.inf  # flat plane: no compact detections
     core, labels, area = _drop_small((xs > lvl + kappa_compact * sig_s) & ~bad, 5)
     mask_compact = ndi.binary_dilation(core, iterations=2)
@@ -893,9 +889,10 @@ def source_mask(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN blocks
         xb = np.nanmedian(xb, axis=2)
-    xb = np.where(np.isfinite(xb), xb, lvl)
+    valid_b = np.isfinite(xb)
+    xb = np.where(valid_b, xb, lvl)
     xbs = ndi.uniform_filter(xb, 3)
-    _, sig_b = _clipped_stats(xbs - ndi.median_filter(xbs, 7))
+    _, sig_b = _clipped_stats((xbs - ndi.median_filter(xbs, 7))[valid_b])
     sig_b = sig_b if sig_b > 0 else np.inf  # flat binned plane: no extended part
 
     # Robust plane fit (absorbs residual sky gradients, not compact nebulae)

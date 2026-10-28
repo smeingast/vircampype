@@ -80,6 +80,19 @@ class TestSourceMask(unittest.TestCase):
         self.assertFalse(mask[hot].any())
         self.assertLess(mask.mean(), 0.01)
 
+    def test_large_bad_region_keeps_noise(self):
+        """Bad pixels do not count as flat sky in the noise estimates: with 10,
+        30 or 50 % of the plane NaN, the valid sky is masked as on a clean plane."""
+        for fraction in (0.1, 0.3, 0.5):
+            with self.subTest(fraction=fraction):
+                k = int(N * fraction)
+                img = _noise() + _gauss(*BLOB)
+                clean = source_mask(img)
+                img[:, :k] = np.nan
+                bad = source_mask(img)
+                self.assertLess(abs(bad[:, k:].mean() - clean[:, k:].mean()), 0.005)
+                self.assertTrue(bad[BLOB[:2]])
+
     def test_cap_falls_back_to_compact_mask(self):
         full = source_mask(_field())
         capped = source_mask(_field(), max_fraction=0.01)
