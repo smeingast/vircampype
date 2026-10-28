@@ -326,8 +326,9 @@ class FlatTwilight(FlatImages):
             # Convert to array
             flux = np.array(flux)
 
-            # Determine exposure scale (discarded planes are NaN and drop out)
-            scale_exposure = np.nanmean(flux, axis=0)
+            # Exposure scale: median of the detector levels (robust to one bad
+            # detector; discarded planes are NaN and drop out)
+            scale_exposure = np.nanmedian(flux, axis=0)
 
             # Norm fluxes
             flux_normed = flux / scale_exposure
