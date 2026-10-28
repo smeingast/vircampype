@@ -1,4 +1,3 @@
-import hashlib
 import os
 import tempfile
 import types
@@ -90,8 +89,7 @@ class TestObsCards(unittest.TestCase):
             "PROCSOFT": f"vircampype v{vircampype.__version__}",
             "REFERENC": "2023A&A...673A..59M",
         }
-        provenance = ["PROCCOMM", "SETUPSHA", "SEXVERS", "SCAMPVER", "SWARPVER"]
-        provenance += ["PSFEXVER"]
+        provenance = ["PROCCOMM", "SEXVERS", "SCAMPVER", "SWARPVER", "PSFEXVER"]
         self.assertEqual([key for key, _, _ in cards], list(expected) + provenance)
         values = as_dict(cards)
         for key, value in expected.items():
@@ -119,23 +117,16 @@ class TestObsCards(unittest.TestCase):
             cards = as_dict(provenance_cards(setup))
         vircampype_commit.cache_clear()
         self.assertEqual(cards["PROCCOMM"], "a" * 12)
-        # SETUPSHA identifies the setup record written to qc/<name>.setup.yml
-        with open(setup.write_sidecar()) as stream:
-            digest = hashlib.sha256(stream.read().encode()).hexdigest()[:12]
-        self.assertEqual(cards["SETUPSHA"], digest)
-        setup_b = make_test_setup(self._tmp.name, reference="2025A&A...000A...1M")
-        self.assertNotEqual(as_dict(provenance_cards(setup_b))["SETUPSHA"], digest)
         self.assertEqual(tool_version("no_such_binary_xyz"), "unknown")
 
     def test_setup_record_written_without_tile(self):
-        # Stacks/pawprints carry SETUPSHA too: the finalizer writes the record
+        # The finalizer writes the setup record also for runs without a tile
         setup = make_test_setup(self._tmp.name, build_tile=False)
         path = f"{setup.folders['qc']}{setup.name}.setup.yml"
         self.assertFalse(os.path.exists(path))
         finalize_products(types.SimpleNamespace(setup=setup))
         with open(path) as stream:
-            digest = hashlib.sha256(stream.read().encode()).hexdigest()[:12]
-        self.assertEqual(as_dict(provenance_cards(setup))["SETUPSHA"], digest)
+            self.assertEqual(stream.read(), setup.record)
 
     def test_obs_cards_multi(self):
         setup = make_test_setup(self._tmp.name)

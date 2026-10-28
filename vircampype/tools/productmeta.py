@@ -12,7 +12,6 @@ checksums last.
 
 import datetime
 import functools
-import hashlib
 import logging
 import math
 import numbers
@@ -147,11 +146,9 @@ def obs_cards(headers: list[fits.Header], setup) -> list[Card]:
 
 
 def provenance_cards(setup) -> list[Card]:
-    """Software provenance: vircampype commit, setup-record hash, Astromatic versions."""
-    sha = hashlib.sha256(setup.record.encode()).hexdigest()[:12]
+    """Software provenance: vircampype commit and Astromatic versions."""
     return [
         ("PROCCOMM", vircampype_commit(), "vircampype git commit"),
-        ("SETUPSHA", sha, "SHA-256 (12) of the setup record qc/<name>.setup.yml"),
         ("SEXVERS", tool_version(setup.bin_sex), "SExtractor version"),
         ("SCAMPVER", tool_version(setup.bin_scamp), "SCAMP version"),
         ("SWARPVER", tool_version(setup.bin_swarp), "SWarp version"),
@@ -283,7 +280,7 @@ def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
 
 def finalize_products(pipeline) -> None:
     """Write identity and checksums to every product of the pipeline run, and the
-    setup record that SETUPSHA refers to (qc/<name>.setup.yml)."""
+    setup record of the run (qc/<name>.setup.yml)."""
     pipeline.setup.write_sidecar()
     finalize_files(expected_products(pipeline))
 

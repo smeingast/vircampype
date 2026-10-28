@@ -163,7 +163,6 @@ SOURCES_PRIMARY_KEYS = (
     "OBSTECH",
     "PROCSOFT",
     "PROCCOMM",
-    "SETUPSHA",
     "SEXVERS",
     "SCAMPVER",
     "SWARPVER",
