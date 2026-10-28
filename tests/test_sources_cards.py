@@ -106,8 +106,9 @@ class TestSourcesCards(unittest.TestCase):
             check_product(self.path_tile, "SCIENCE.IMAGE", final=False), []
         )
 
-    def _crder(self):
-        """Run write_crder against a reference offset by 20/30 mas per axis."""
+    def _crder(self, mjdeff: float | None = None):
+        """Run write_crder against a reference offset by 20/30 mas per axis; with
+        mjdeff, from a statistics table with that epoch for every source."""
         table = fits.getdata(self.path_ctab, 2)
         catalog = SkyCoord(table["ALPHAWIN_SKY"], table["DELTAWIN_SKY"], unit="deg")
         rng = np.random.default_rng(11)
@@ -132,7 +133,31 @@ class TestSourcesCards(unittest.TestCase):
             patch.object(cls, "get_master_astrometry", return_value=master),
             patch.object(cls, "mjd", new_callable=PropertyMock, return_value=[60000.0]),
         ):
-            catalogs.write_crder(self._tile())
+            if mjdeff is None:
+                catalogs.write_crder(self._tile())
+                return
+            with fits.open(self.path_ctab) as hdul:
+                n = len(hdul[2].data)
+                column = fits.Column(name="MJDEFF", format="D", array=[mjdeff] * n)
+                hdul[2] = fits.BinTableHDU.from_columns([column])
+                hdul.writeto(f"{self.path_ctab}.stats", overwrite=True)
+            catalogs.write_crder(self._tile(), epochs_from_stats=True)
+
+    def test_crder_epochs_from_stats(self):
+        self._crder(mjdeff=60000.0)
+        header = fits.getheader(self.path_tile, 0)
+        self.assertAlmostEqual(header["CRDER1"] * 3.6e6, 20.0, delta=3.0)
+        self.assertAlmostEqual(header["CRDER2"] * 3.6e6, 30.0, delta=4.5)
+
+    def test_crder_removed_when_rerun_fails(self):
+        """No epoch for any source: the rerun drops the cards of the earlier run."""
+        self._crder()
+        self.assertIn("CRDER1", fits.getheader(self.path_tile, 0))
+        with self.assertLogs(LOGGER, level="WARNING"):
+            self._crder(mjdeff=np.nan)
+        header = fits.getheader(self.path_tile, 0)
+        self.assertNotIn("CRDER1", header)
+        self.assertNotIn("CRDER2", header)
 
     def test_crder_on_image(self):
         self._crder()

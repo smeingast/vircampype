@@ -43,10 +43,10 @@ _TILE_STEPS = (
     "exposure_map",
     "photometry_tile",
     "qc_photometry_tile",
-    "qc_astrometry_tile",
     "qc_psf_tile",
     "qc_completeness_tile",
     "statistics_tile",
+    "qc_astrometry_tile",
     "classification_tile",
     "public_catalog",
 )

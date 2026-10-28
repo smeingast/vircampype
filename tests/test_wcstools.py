@@ -296,6 +296,40 @@ class TestAstrometricResidualRms(unittest.TestCase):
         for a, b in zip(res, res2):
             self.assertAlmostEqual(a * 3.6e6, b * 3.6e6, delta=2.0)
 
+    def test_epochs(self):
+        """Two regions 8 yr apart with proper motions: each source compared with the
+        reference at its own epoch gives the injected scatter, one mean epoch not."""
+        ref, cat, mask = self._setup()
+        n = len(ref)
+        epoch = Time(2016.0, format="jyear")
+        gaia = SkyCoord(
+            ra=ref.ra,
+            dec=ref.dec,
+            pm_ra_cosdec=np.full(n, 30.0) * u.mas / u.yr,
+            pm_dec=np.full(n, -20.0) * u.mas / u.yr,
+            distance=np.full(n, 1.0) * u.kpc,
+            obstime=epoch,
+        )
+        epochs = np.where(np.arange(n) < n // 2, 2012.0, 2020.0)
+        mjd = Time(epochs, format="jyear").mjd
+        moved = gaia.apply_space_motion(new_obstime=Time(mjd, format="mjd"))
+        moved = SkyCoord(ra=moved.ra, dec=moved.dec)
+        dra = cat.ra - ref.ra
+        cat_moved = SkyCoord(moved.ra + dra, moved.dec + (cat.dec - ref.dec))
+        res = astrometric_residual_rms(cat_moved, gaia, mask, epochs=mjd)
+        self.assertAlmostEqual(res[0] * 3.6e6 / 20, 1.0, delta=0.15)
+        self.assertAlmostEqual(res[1] * 3.6e6 / 30, 1.0, delta=0.15)
+        mean = gaia.apply_space_motion(new_obstime=Time(mjd.mean(), format="mjd"))
+        res_mean = astrometric_residual_rms(cat_moved, mean, mask)
+        self.assertGreater(res_mean[0] * 3.6e6, 100.0)
+        # Rows without an epoch drop out; none left -> None
+        nan = np.where(np.arange(n) < n // 2, np.nan, mjd)
+        self.assertIsNotNone(
+            astrometric_residual_rms(cat_moved, gaia, mask, epochs=nan)
+        )
+        none = np.full(n, np.nan)
+        self.assertIsNone(astrometric_residual_rms(cat_moved, gaia, mask, epochs=none))
+
     def test_too_few_sources(self):
         ref, cat, _ = self._setup()
         mask = np.zeros(200, dtype=bool)

@@ -1218,9 +1218,9 @@ class Pipeline:
         """Generate QC plots for tile astrometric residuals and write CRDER1/2."""
         self.sources_tile_cal.plot_qc_astrometry_1d()
         self.sources_tile_cal.plot_qc_astrometry_2d()
-        # The tile (or mosaic) positions average all exposures: their mean epoch
-        mjd = sum(self.resampled.mjd) / self.resampled.n_files
-        self.sources_tile_cal.write_crder(self.tile, mjd=[mjd])
+        # Tile (or mosaic) regions may come from different epochs: each source is
+        # compared with Gaia at its own epoch (MJDEFF of the statistics tables)
+        self.sources_tile_cal.write_crder(self.tile, epochs_from_stats=True)
 
     @pipeline_step("qc_psf_tile", message="TILE QC PSF")
     def qc_psf_tile(self):
@@ -1484,11 +1484,11 @@ class Pipeline:
             self.exposure_map_tile()
             self.photometry_tile()
             self.qc_photometry_tile()
-            self.qc_astrometry_tile()
             self.qc_psf_tile()
             if self.setup.build_completeness:
                 self.qc_completeness_tile()
             self.build_statistics_tile()
+            self.qc_astrometry_tile()  # needs the statistics tables (epochs)
             self.classification_tile()
             self.build_public_catalog()
 

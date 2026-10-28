@@ -1,5 +1,6 @@
 import logging
 import math
+import warnings
 
 import numpy as np
 from astropy import wcs
@@ -413,6 +414,7 @@ def astrometric_residual_rms(
     mask: np.ndarray,
     max_sep: float = 0.5,
     min_sources: int = 10,
+    epochs: np.ndarray | None = None,
 ) -> tuple[float, float] | None:
     """
     Random astrometric error per axis of a catalog against a reference (CRDER1/2).
@@ -429,6 +431,10 @@ def astrometric_residual_rms(
         Maximum match separation in arcsec.
     min_sources : int, optional
         Minimum number of matches required.
+    epochs : np.ndarray | None, optional
+        MJD of each catalog row (multi-epoch coadds: each source's MJDEFF). Then
+        ``reference`` carries proper motions and each matched reference star is
+        propagated to the epoch of its source; rows without a finite epoch drop out.
 
     Returns
     -------
@@ -440,16 +446,38 @@ def astrometric_residual_rms(
     """
     # Compare plain ICRS positions: an epoch-propagated reference carries an obstime,
     # which spherical_offsets_to rejects against catalog coordinates without one
-    sc = skycoord[np.asarray(mask, dtype=bool)]
+    mask = np.asarray(mask, dtype=bool)
+    if epochs is not None:
+        epochs = np.asarray(epochs, dtype=float)
+        mask = mask & np.isfinite(epochs)
+    sc = skycoord[mask]
     if len(sc) == 0:
         return None
     sc = SkyCoord(ra=sc.ra, dec=sc.dec, frame="icrs")
+    reference_epoch = reference
+    if epochs is not None:
+        # Match at the median epoch; stars moving more than max_sep between it and
+        # their own epoch do not match and drop out (rare; do not widen max_sep)
+        epochs = epochs[mask]
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            reference = reference.apply_space_motion(
+                new_obstime=Time(np.median(epochs), format="mjd")
+            )
     reference = SkyCoord(ra=reference.ra, dec=reference.dec, frame="icrs")
     idx, sep, _ = sc.match_to_catalog_sky(reference)
     ok = sep.arcsec <= max_sep
     if np.sum(ok) < min_sources:
         return None
-    offsets = sc[ok].spherical_offsets_to(reference[idx[ok]])
+    matched = reference[idx[ok]]
+    if epochs is not None:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            matched = reference_epoch[idx[ok]].apply_space_motion(
+                new_obstime=Time(epochs[ok], format="mjd")
+            )
+        matched = SkyCoord(ra=matched.ra, dec=matched.dec, frame="icrs")
+    offsets = sc[ok].spherical_offsets_to(matched)
     rms = []
     for values in offsets:
         x = sigma_clip(values.deg, sigma=3, maxiters=5, masked=False)

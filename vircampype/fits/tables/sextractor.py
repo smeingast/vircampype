@@ -1256,7 +1256,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             logger=log,
         )
 
-    def write_crder(self, images, mjd: list[float] | None = None) -> None:
+    def write_crder(self, images, epochs_from_stats: bool = False) -> None:
         """
         Write CRDER1/CRDER2 into the images these catalogs were extracted from.
 
@@ -1270,9 +1270,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
         images : SkyImages
             Images matching these catalogs file by file (tile: its image; stacks: every
             detector).
-        mjd : list[float] | None, optional
-            Epoch of each catalog; default its MJD-OBS (the first exposure). A coadd
-            spanning many epochs passes the mean MJD of its exposures.
+        epochs_from_stats : bool, optional
+            Default: Gaia at the epoch of each catalog (MJD-OBS). True: each source at
+            its own epoch, the MJDEFF of ``<catalog>.stats`` (tiles and
+            mosaics, whose regions may come from different epochs).
 
         Raises
         ------
@@ -1287,7 +1288,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 reference = sc_master_raw.apply_space_motion(
-                    new_obstime=Time((mjd or self.mjd)[idx], format="mjd")
+                    new_obstime=Time(self.mjd[idx], format="mjd")
                 )
             hdus_img = list(images.iter_data_hdu[idx])
             hdus_cat = list(self.iter_data_hdu[idx])
@@ -1300,12 +1301,35 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 table = Table.read(path, hdu=hdu_cat)
                 skycoord = SkyCoord(table[self.key_ra], table[self.key_dec], unit="deg")
                 mask = _bright_point_sources(table)
-                rms = astrometric_residual_rms(skycoord, reference, mask)
+                if epochs_from_stats:
+                    epochs = Table.read(f"{path}.stats", hdu=hdu_cat)["MJDEFF"]
+                    if len(epochs) != len(table):
+                        raise PipelineValueError(
+                            f"{path}.stats has {len(epochs)} rows in HDU {hdu_cat}, "
+                            f"the catalog {len(table)}: rebuild the statistics"
+                        )
+                    rms = astrometric_residual_rms(
+                        skycoord,
+                        sc_master_raw,
+                        mask,
+                        epochs=np.ma.filled(np.ma.asarray(epochs, dtype=float), np.nan),
+                    )
+                else:
+                    rms = astrometric_residual_rms(skycoord, reference, mask)
                 if rms is None:
                     log.warning(
                         f"CRDER: fewer than 10 matched bright point sources in "
                         f"{path} [HDU {hdu_img}]; cards omitted"
                     )
+                    # A rerun must not leave the cards of an earlier run behind
+                    header = fits.getheader(images.paths_full[idx], hdu_img)
+                    if "CRDER1" in header or "CRDER2" in header:
+                        set_cards(
+                            images.paths_full[idx],
+                            [],
+                            hdu=hdu_img,
+                            remove=("CRDER1", "CRDER2"),
+                        )
                     continue
                 cards = [
                     ("CRDER1", rms[0], "Random error in RA (deg)"),
