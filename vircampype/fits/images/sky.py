@@ -2885,18 +2885,21 @@ class SkyImagesResampled(SkyImagesProcessed):
             for key in ("OBJECT", "FILTER", "HIERARCH ESO INS FILT1 NAME"):
                 weight_primary.set(key, primary[key], primary.comments[key])
 
-            _write_pawprint(
-                self.paths_full[idx],
-                path_out,
-                primary,
-                exptime=exptime,
-                cache_dir=self.setup.local_cache_dir,
-            )
+            # Old image out, then the new weight, then the new image (as for the
+            # tile): an interrupted rewrite never resumes as a mixed pair
+            remove_file(path_out)
             _write_pawprint(
                 self.paths_full[idx].replace(".fits", ".weight.fits"),
                 path_weight,
                 weight_primary,
                 exptime=None,
+                cache_dir=self.setup.local_cache_dir,
+            )
+            _write_pawprint(
+                self.paths_full[idx],
+                path_out,
+                primary,
+                exptime=exptime,
                 cache_dir=self.setup.local_cache_dir,
             )
             log.info(
