@@ -2501,9 +2501,10 @@ class SkyImagesResampled(SkyImagesProcessed):
             )
             path_weight = path_stack.replace(".fits", ".weight.fits")
 
-            # Check if file already exists
+            # Skip only complete pairs; an incomplete pair is rebuilt
             if (
                 check_file_exists(file_path=path_stack, silent=self.setup.silent)
+                and check_file_exists(file_path=path_weight, silent=self.setup.silent)
                 and not self.setup.overwrite
             ):
                 continue
@@ -2729,23 +2730,26 @@ class SkyImagesResampled(SkyImagesProcessed):
                 weight_primary.set(key, primary[key], primary.comments[key])
 
             # Construct MEF from individual detectors, one reserved header block
-            # of 36 blank cards per HDU (Phase 3 cards are added in place later)
-            make_mef_image(
-                paths_input=sorted(paths_temp_stacks),
-                overwrite=self.setup.overwrite,
-                path_output=path_stack,
-                primeheader=primary,
-                cache_dir=self.setup.local_cache_dir,
-                n_blank=36,
-            )
+            # of 36 blank cards per HDU (Phase 3 cards are added in place later).
+            # Old stack out, then the new weight, then the new stack (as for the
+            # tile): an interrupted rewrite never resumes as a mixed pair
+            remove_file(path_stack)
             make_mef_image(
                 paths_input=sorted(paths_temp_weights),
-                overwrite=self.setup.overwrite,
+                overwrite=True,
                 path_output=path_weight,
                 primeheader=weight_primary,
                 cache_dir=self.setup.local_cache_dir,
                 n_blank=36,
                 extension_cards=[("BUNIT", *WEIGHT_BUNIT)],
+            )
+            make_mef_image(
+                paths_input=sorted(paths_temp_stacks),
+                overwrite=True,
+                path_output=path_stack,
+                primeheader=primary,
+                cache_dir=self.setup.local_cache_dir,
+                n_blank=36,
             )
             # Remove intermediate temp directory
             remove_directory(tmpdir_stacks)
