@@ -107,10 +107,13 @@ def build_exposure_map(
                         xa, ya = max(x0, 0), max(y0, 0)
                         xb, yb = min(x0 + nxx, nx), min(y0 + nyy, ny)
                         if xa >= xb or ya >= yb:
-                            raise PipelineValueError(
-                                f"{os.path.basename(path)}[{idx}] lies entirely outside "
-                                f"the tile grid (offset x0={x0}, y0={y0})"
+                            # Wholly outside the grid (e.g. a mosaic on a fixed
+                            # region header): contributes nothing, as in SWarp
+                            log.debug(
+                                f"Exposure map: {os.path.basename(path)}[{idx}] "
+                                f"outside the grid, skipped"
                             )
+                            continue
                         view = data[ya:yb, xa:xb]
                         view[hdu.data[ya - y0 : yb - y0, xa - x0 : xb - x0] > 0] += (
                             value

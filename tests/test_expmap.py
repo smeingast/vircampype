@@ -10,8 +10,7 @@ from astropy.io import fits
 
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.expmap import build_exposure_map
-from vircampype.tools.sdpcheck import (check_product, median_from_counts,
-                                       scan_expmap)
+from vircampype.tools.sdpcheck import check_product, median_from_counts, scan_expmap
 
 NX, NY = 24, 20
 CD = 1e-4
@@ -138,8 +137,17 @@ class TestBuildExposureMap(unittest.TestCase):
         ref[17:20, 19:24] = 6  # (19, 17): in-grid part rows 17-19, cols 19-23
         np.testing.assert_array_equal(data, ref)
 
-    def test_rejects_outside_grid(self):
+    def test_skips_detector_outside_grid(self):
+        # A detector wholly outside the grid (mosaic on a fixed region header)
+        # contributes nothing; the other detector is mapped as usual
         paths = _write_weights(self.tmp, offsets=[[(0, 0), (30, 25)]])
+        self._build(paths, [6])
+        ref = np.zeros((NY, NX), dtype=np.int16)
+        ref[: SHAPE[0], : SHAPE[1]] = 6
+        np.testing.assert_array_equal(fits.getdata(self.path_out, 0), ref)
+
+    def test_rejects_no_coverage(self):
+        paths = _write_weights(self.tmp, offsets=[[(30, 25)]])
         with self.assertRaises(PipelineValueError):
             self._build(paths, [6])
         self.assertFalse(os.path.exists(self.path_out))
