@@ -894,20 +894,23 @@ def source_mask(
         warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN blocks
         xb = np.nanmedian(xb, axis=2)
     valid_b = np.isfinite(xb)
-    xb = np.where(valid_b, xb, lvl)
-    xbs = ndi.uniform_filter(xb, 3)
+    # 3x3 block mean over valid blocks only (empty neighbourhoods: sky level)
+    nb = ndi.uniform_filter(valid_b.astype(np.float32), 3)
+    xbs = ndi.uniform_filter(np.where(valid_b, xb, 0), 3) / np.where(nb > 0, nb, 1)
+    xbs = np.where(nb > 0, xbs, lvl)
     _, sig_b = _clipped_stats((xbs - ndi.median_filter(xbs, 7))[valid_b])
     sig_b = sig_b if sig_b > 0 else np.inf  # flat binned plane: no extended part
 
     # Robust plane fit (absorbs residual sky gradients, not compact nebulae)
     yb, xbi = np.mgrid[:nyb, :nxb] / nyb - 0.5
     amat = np.array([np.ones_like(yb).ravel(), xbi.ravel(), yb.ravel()]).T
-    use = np.ones(amat.shape[0], bool)
+    use = valid_b.ravel()  # blocks without valid pixels carry no sky
     for _ in range(6):
         coeff = np.linalg.lstsq(amat[use], xbs.ravel()[use], rcond=None)[0]
         res = xbs.ravel() - amat @ coeff
-        use = (res < kappa_extended * sig_b) & (res > -3 * sig_b)
-    ext, _, _ = _drop_small((res > kappa_extended * sig_b).reshape(xbs.shape), 6)
+        use = valid_b.ravel() & (res < kappa_extended * sig_b) & (res > -3 * sig_b)
+    ext = (res > kappa_extended * sig_b).reshape(xbs.shape) & valid_b
+    ext, _, _ = _drop_small(ext, 6)
     ext = ndi.binary_dilation(ext, iterations=1)
     ext = np.kron(ext, np.ones((bs, bs), bool))
     mask[: ext.shape[0], : ext.shape[1]] |= ext
