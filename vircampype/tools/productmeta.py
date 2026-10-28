@@ -282,7 +282,9 @@ def expected_products(pipeline) -> list[tuple[str, str, tuple[str, ...]]]:
 
 
 def finalize_products(pipeline) -> None:
-    """Write identity and checksums to every product of the pipeline run."""
+    """Write identity and checksums to every product of the pipeline run, and the
+    setup record that SETUPSHA refers to (qc/<name>.setup.yml)."""
+    pipeline.setup.write_sidecar()
     finalize_files(expected_products(pipeline))
 
 

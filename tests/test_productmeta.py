@@ -16,6 +16,7 @@ from vircampype.pipeline.errors import PipelineError, PipelineValueError
 from vircampype.tools.productmeta import (
     expected_products,
     finalize_files,
+    finalize_products,
     obs_cards,
     prov_cards,
     provenance_cards,
@@ -125,6 +126,16 @@ class TestObsCards(unittest.TestCase):
         setup_b = make_test_setup(self._tmp.name, reference="2025A&A...000A...1M")
         self.assertNotEqual(as_dict(provenance_cards(setup_b))["SETUPSHA"], digest)
         self.assertEqual(tool_version("no_such_binary_xyz"), "unknown")
+
+    def test_setup_record_written_without_tile(self):
+        # Stacks/pawprints carry SETUPSHA too: the finalizer writes the record
+        setup = make_test_setup(self._tmp.name, build_tile=False)
+        path = f"{setup.folders['qc']}{setup.name}.setup.yml"
+        self.assertFalse(os.path.exists(path))
+        finalize_products(types.SimpleNamespace(setup=setup))
+        with open(path) as stream:
+            digest = hashlib.sha256(stream.read().encode()).hexdigest()[:12]
+        self.assertEqual(as_dict(provenance_cards(setup))["SETUPSHA"], digest)
 
     def test_obs_cards_multi(self):
         setup = make_test_setup(self._tmp.name)
