@@ -560,8 +560,12 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 for t in tables:
                     xy = np.column_stack(
                         (
-                            np.ma.filled(np.asarray(t["XWIN_IMAGE"], float), np.nan),
-                            np.ma.filled(np.asarray(t["YWIN_IMAGE"], float), np.nan),
+                            np.ma.filled(
+                                np.ma.asarray(t["XWIN_IMAGE"], dtype=float), np.nan
+                            ),
+                            np.ma.filled(
+                                np.ma.asarray(t["YWIN_IMAGE"], dtype=float), np.nan
+                            ),
                         )
                     )
                     ok = np.all(np.isfinite(xy), axis=1)
