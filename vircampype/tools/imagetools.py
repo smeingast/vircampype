@@ -4,9 +4,14 @@ from typing import List, Tuple
 
 import numpy as np
 from astropy import wcs
-from astropy.convolution import (Box2DKernel, Gaussian1DKernel,
-                                 Gaussian2DKernel, Kernel2D, convolve,
-                                 interpolate_replace_nans)
+from astropy.convolution import (
+    Box2DKernel,
+    Gaussian1DKernel,
+    Gaussian2DKernel,
+    Kernel2D,
+    convolve,
+    interpolate_replace_nans,
+)
 from astropy.coordinates import SkyCoord
 from astropy.modeling.functional_models import Gaussian1D
 from astropy.stats import sigma_clip as astropy_sigma_clip
@@ -14,8 +19,7 @@ from astropy.stats import sigma_clipped_stats
 from astropy.wcs.utils import wcs_to_celestial_frame
 from scipy import ndimage as ndi
 from scipy.interpolate import SmoothBivariateSpline, UnivariateSpline
-from scipy.ndimage import (binary_closing, generate_binary_structure,
-                           median_filter)
+from scipy.ndimage import binary_closing, generate_binary_structure, median_filter
 from scipy.stats import binned_statistic_2d
 from skimage.filters import sobel
 from sklearn.neighbors import NearestNeighbors
