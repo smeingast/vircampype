@@ -6,7 +6,7 @@ the VISIONS region catalogue SCIENCE.CATALOG), plus batch and catalog family che
 Every image has as many provenance entries as NCOMBINE, and NCOMBINE = 1 means
 EXPTIME = TEXPTIME (single exposures).
 
-    python -m vircampype.tools.sdpcheck [--family] file.fits ...
+    python -m vircampype.tools.sdpcheck [--family] [--verify-checksums] file.fits ...
 """
 
 import argparse
@@ -28,6 +28,7 @@ __all__ = [
     "main",
     "median_from_counts",
     "scan_expmap",
+    "verify_checksums",
 ]
 
 # Sybase IQ reserved words, forbidden as column names (SDP standard App. B, §12.2.3)
@@ -344,6 +345,22 @@ def _check_master(name: str, hdul: fits.HDUList) -> tuple[list[str], list[str] |
     return problems, [str(value).strip() for value in hdul[2].data["ORIGFILE"]]
 
 
+def verify_checksums(path: str) -> list[str]:
+    """CHECKSUM and DATASUM of every HDU recomputed from the file (reads all data;
+    for staged copies before an upload, not after sealing)."""
+    name = os.path.basename(path)
+    problems = []
+    with fits.open(path, memmap=True) as hdul:
+        for index, hdu in enumerate(hdul):
+            for key, verify in (
+                ("DATASUM", hdu.verify_datasum),
+                ("CHECKSUM", hdu.verify_checksum),
+            ):
+                if key in hdu.header and verify() != 1:
+                    problems.append(f"{name}[{index}]: {key} does not match the data")
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     """Check product files and their batch; print one finding per line."""
     parser = argparse.ArgumentParser(
@@ -360,6 +377,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="check the files as one catalog family (MCATALOG + CATALOGTILEs)",
     )
+    parser.add_argument(
+        "--verify-checksums",
+        action="store_true",
+        help="recompute CHECKSUM/DATASUM of every HDU (reads all data; use on staged "
+        "copies before an upload)",
+    )
     args = parser.parse_args(argv)
 
     if args.family:
@@ -369,6 +392,9 @@ def main(argv: list[str] | None = None) -> int:
         for path in args.files:
             problems += check_product(path)
         problems += check_batch(args.files)
+    if args.verify_checksums:
+        for path in args.files:
+            problems += verify_checksums(path)
     # check_product and check_batch both report over-long file names
     problems = list(dict.fromkeys(problems))
     for problem in problems:

@@ -19,7 +19,13 @@ import numpy as np
 from astropy.io import fits
 
 from vircampype.pipeline.errors import PipelineValueError
-from vircampype.tools.sdpcheck import check_batch, check_family, check_product, main
+from vircampype.tools.sdpcheck import (
+    check_batch,
+    check_family,
+    check_product,
+    main,
+    verify_checksums,
+)
 
 SHAPE = (8, 8)
 RAW_FILES = ["VCAM.2019-03-27T08:58:58.083", "VCAM.2019-03-27T09:00:12.456"]
@@ -439,6 +445,37 @@ class TestSdpCheck(unittest.TestCase):
         for keyword in ("PRODCATG", "DATE", "CHECKSUM"):
             self.assertFinding(problems, keyword)
         self.assertFinding(check_product(paths["tile"], "SCIENCE.CUBE"), "unknown")
+
+    def test_verify_checksums(self):
+        folder = tempfile.mkdtemp(dir=self.tmp)
+        shutil.copytree(self.good, folder, dirs_exist_ok=True)
+        paths = relocate(self.paths, folder)
+        path = paths["tile"]
+        self.assertEqual(verify_checksums(path), [])
+        with fits.open(path) as hdul:
+            info = hdul.fileinfo(0)
+        with open(path, "r+b") as f:  # one data byte and the DATE year flipped on disk
+            f.seek(info["datLoc"])
+            byte = f.read(1)
+            f.seek(info["datLoc"])
+            f.write(bytes([byte[0] ^ 1]))
+            f.seek(info["hdrLoc"])
+            header = f.read(info["datLoc"] - info["hdrLoc"])
+            at = header.index(b"DATE    = '") + 11
+            f.seek(info["hdrLoc"] + at)
+            f.write(b"3" if header[at : at + 1] != b"3" else b"4")
+        self.assertEqual(
+            verify_checksums(path),
+            [
+                "tiny.fits[0]: DATASUM does not match the data",
+                "tiny.fits[0]: CHECKSUM does not match the data",
+            ],
+        )
+        with redirect_stdout(io.StringIO()) as out:
+            # the default skips the extra read
+            self.assertEqual(main(ordered(paths)), 0)
+            self.assertEqual(main(["--verify-checksums"] + ordered(paths)), 1)
+        self.assertIn("DATASUM does not match", out.getvalue())
 
     def test_tile(self):
         def empty_primary(hdul):
