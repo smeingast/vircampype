@@ -1599,6 +1599,10 @@ def qc_completeness_tile(image_path: str, setup) -> None:
         remove_file(os.path.join(qc_dir, name))
     for name in ("curves", "map", "tile"):
         remove_file(os.path.join(qc_dir, f"completeness_{name}.pdf"))
+    # ... nor the old COMP cards on the image (a level may come out unmeasurable)
+    comp_keys = tuple(f"COMP{lvl}{s}" for lvl in (90, 50) for s in ("MD", "MN", "MX"))
+    if any(key in fits.getheader(image_path, 0) for key in comp_keys):
+        set_cards(image_path, [], hdu=0, remove=comp_keys)
 
     # The tile image and its weight file (both in the primary)
     weight_path = image_path.removesuffix(".fits") + ".weight.fits"

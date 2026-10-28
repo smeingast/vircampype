@@ -3212,9 +3212,14 @@ class SkyImagesResampled(SkyImagesProcessed):
             # Old image out, then the new weight, then the new image: an interrupted
             # replacement never leaves a resumable pair of old image and new weight;
             # the setup record goes to qc/
+            # (move_file: across filesystems rsync publishes via a temporary name)
             remove_file(self.setup.path_coadd)
-            shutil.move(path_weight_out_tmp, self.setup.path_coadd_weight)
-            shutil.move(path_image_out_tmp, self.setup.path_coadd)
+            for src, dst in (
+                (path_weight_out_tmp, self.setup.path_coadd_weight),
+                (path_image_out_tmp, self.setup.path_coadd),
+            ):
+                move_file(src, dst)
+                remove_file(src)
             self.setup.write_sidecar()
 
             # Remove swap dir

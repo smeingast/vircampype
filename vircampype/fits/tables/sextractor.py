@@ -1790,13 +1790,18 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             for k, (hdu_img, hdu_cat) in enumerate(zip(hdus_img, hdus_cat)):
                 table = Table.read(path, hdu=hdu_cat)
                 hdr_cat = fits.getheader(path, hdu_cat)
-                cards = photometric_cards(
-                    table,
-                    hdr_cat,
-                    images.headers_data[idx][k],
-                    self.setup,
-                    self.passband[idx],
-                )
+                try:
+                    cards = photometric_cards(
+                        table,
+                        hdr_cat,
+                        images.headers_data[idx][k],
+                        self.setup,
+                        self.passband[idx],
+                    )
+                except PipelineValueError as e:  # name the file (removed by hand)
+                    raise PipelineValueError(
+                        f"{images.paths_full[idx]} [HDU {hdu_img}]: {e}"
+                    ) from e
                 set_cards(images.paths_full[idx], cards, hdu=hdu_img)
                 values = {key: value for key, value, _ in cards}
                 log.info(

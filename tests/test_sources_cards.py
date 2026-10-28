@@ -19,6 +19,7 @@ from vircampype.fits.tables.sextractor import (
     AstrometricCalibratedSextractorCatalogs,
     PhotometricCalibratedSextractorCatalogs,
 )
+from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.sdpcheck import check_product
 
 LOGGER = "vircampype.fits.tables.sextractor"
@@ -105,6 +106,15 @@ class TestSourcesCards(unittest.TestCase):
         self.assertEqual(
             check_product(self.path_tile, "SCIENCE.IMAGE", final=False), []
         )
+
+    def test_photometric_cards_name_the_file(self):
+        """Too few bright stars: the error names the image and HDU to remove."""
+        self._write_catalog(n=4)
+        catalogs = PhotometricCalibratedSextractorCatalogs(
+            setup=self.setup, file_paths=[self.path_ctab]
+        )
+        with self.assertRaisesRegex(PipelineValueError, "HDU 0.*PSF_FWHM"):
+            catalogs.write_photometric_cards(self._tile())
 
     def _crder(self, mjdeff: float | None = None):
         """Run write_crder against a reference offset by 20/30 mas per axis; with
