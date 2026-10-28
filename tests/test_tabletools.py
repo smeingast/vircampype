@@ -520,7 +520,6 @@ def _public_input_table(n: int = 400, seed: int = 3) -> Table:
     t["BACKGROUND"] = np.zeros(n)
     t["ISOAREA_IMAGE"] = rng.uniform(5.0, 40.0, n)
     t["CLASS_STAR_INTERP"] = np.full(n, 0.9)
-    t["FWHM_WORLD_INTERP"] = np.full(n, 0.8 / 3600)
     return t, apertures
 
 
@@ -539,7 +538,6 @@ class TestDetectionsToSourcesMagerrScale(unittest.TestCase):
                 apertures=apertures,
                 mag_saturation=11.0,
                 survey_name="VISIONS",
-                pixel_scale=1 / 3,
                 magerr_scale=scale,
             ),
         )
@@ -603,7 +601,6 @@ class TestDetectionsToSourcesFlags(unittest.TestCase):
             apertures=apertures,
             mag_saturation=11.0,
             survey_name="VISIONS",
-            pixel_scale=1 / 3,
         )
         # map output rows back to input rows through the (unique) RA
         ra_in = np.asarray(t["ALPHAWIN_SKY"])
@@ -683,7 +680,6 @@ def _sources():
         apertures=apertures,
         mag_saturation=11.0,
         survey_name="VISIONS",
-        pixel_scale=1 / 3,
     )
 
 
@@ -751,31 +747,6 @@ class TestSourceList(unittest.TestCase):
                 for key in ("BUNIT", "CTYPE1", "PHOTZP"):  # image cards stay out
                     self.assertNotIn(key, primary)
                 self.assertIn("REFMAGLO", table)
-
-
-class TestApertureSeeingCap(unittest.TestCase):
-    """Point sources take at most the aperture nearest 2x the local seeing."""
-
-    def _apertures(self, cls):
-        t, apertures = _public_input_table()
-        t["ISOAREA_IMAGE"] = np.full(len(t), np.pi * 4.0**2)  # isophotal diameter 8 px
-        t["CLASS_STAR_INTERP"] = np.full(len(t), cls)
-        out = detections_to_sources(
-            t,
-            photerr_internal=0.01,
-            apertures=apertures,
-            mag_saturation=11.0,
-            survey_name="VISIONS",
-            pixel_scale=1 / 3,
-        )
-        return np.asarray(getattr(out["APERTURE"], "value", out["APERTURE"]))
-
-    def test_point_sources_capped(self):
-        # FWHM 0.8" = 2.4 px -> cap 4.8 px -> the 5 px aperture
-        np.testing.assert_array_equal(self._apertures(0.9), 5.0)
-
-    def test_extended_sources_keep_isophotal(self):
-        np.testing.assert_array_equal(self._apertures(0.1), 8.0)
 
 
 class TestStackSourceList(unittest.TestCase):
@@ -860,7 +831,6 @@ class TestSurveyNameReach(unittest.TestCase):
             apertures=apertures,
             mag_saturation=11.0,
             survey_name="VHS",
-            pixel_scale=1 / 3,
         )
 
     def test_converter(self):
