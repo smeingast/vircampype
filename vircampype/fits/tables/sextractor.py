@@ -576,14 +576,22 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 # median 6 -> 24 px correction from its bright clean stars. MAG_AUTO
                 # loses a seeing-dependent fraction of the flux (up to ~3 % between
                 # 0.8" and 1.2" seeing), which the scaling to target_zp would keep.
-                bright = np.asarray(tab["SNR_WIN"]) > 50
+                aper = np.asarray(tab["MAG_APER"], float)
+                aper_err = np.asarray(tab["MAGERR_APER"], float)
+                valid = np.all((aper < 50) & np.isfinite(aper), axis=1)
+                valid &= np.isfinite(aper_err[:, 0]) & (aper_err[:, 0] > 0)
+                tab = tab[valid]
+                # Correction stars: bright, without neighbours or blends (FLAGS 0)
+                bright = (np.asarray(tab["SNR_WIN"]) > 50) & (
+                    np.asarray(tab["FLAGS"]) == 0
+                )
                 apcor = float(
                     np.nanmedian(
                         np.asarray(tab["MAG_APER"][bright, 1])
                         - np.asarray(tab["MAG_APER"][bright, 0])
                     )
                 )
-                if not np.isfinite(apcor):
+                if bright.sum() < 5 or not np.isfinite(apcor):
                     raise PipelineValueError(
                         f"No aperture correction for detector {idx_hdr + 1} of "
                         f"{', '.join(files.basenames)} ({int(bright.sum())} bright "
