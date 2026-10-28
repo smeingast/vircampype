@@ -20,6 +20,7 @@ from vircampype.tools.messaging import message_calibration, print_message
 from vircampype.tools.productmeta import Card, set_cards
 from vircampype.tools.systemtools import (
     read_yml,
+    remove_file,
     run_command_shell,
     run_commands_shell_parallel,
     yml2config,
@@ -241,6 +242,7 @@ def build_psf_models(
 
         if os.path.isfile(cat_path) and not setup.overwrite:
             continue
+        remove_file(cat_path)  # a failed rebuild must not leave the old catalog
 
         weight_arg = ""
         if tile.get("weight") is not None:
@@ -290,6 +292,7 @@ def build_psf_models(
 
         if os.path.isfile(psf_path) and not setup.overwrite:
             continue
+        remove_file(psf_path)  # a failed rebuild must not leave the old model
 
         cmd = (
             f"{psfex.bin} -c {psfex.default_config} {cat_path} "
@@ -1591,6 +1594,7 @@ def qc_completeness_tile(image_path: str, setup) -> None:
             end="\n",
         )
         return
+    remove_file(results_path)  # a rerun without results must not leave old ones
 
     # The tile image and its weight file (both in the primary)
     weight_path = image_path.removesuffix(".fits") + ".weight.fits"
