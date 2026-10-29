@@ -18,7 +18,7 @@ An overview of the survey is given in [Meingast et al. 2023a](https://arxiv.org/
 - **Calibration pipeline**: bad pixel masks, per-channel linearity correction, dark subtraction, flat-fielding, gain tables
 - **Science pipeline**: sky subtraction, source masking (stars, halos and extended emission), destriping, background subtraction, NaN interpolation
 - **Astrometry**: SCAMP-based astrometric calibration against Gaia, with proper motion propagation and optional header caching
-- **Photometry**: 2MASS-based photometric calibration with illumination correction
+- **Photometry**: 2MASS-based photometric calibration with an illumination correction fitted to aperture-corrected magnitudes
 - **Local reference catalogs**: optional pre-downloaded Gaia and 2MASS catalogs to avoid online queries
 - **Coaddition**: SWarp-based resampling, stacking, and tile construction; optional single-exposure pawprint products
 - **Catalog building**: source catalogs and a Phase 3 source list (`<product>.sources.fits`, one table per detector for stacks and pawprints) for every tile, stack and pawprint product, with full RA/Dec position-error covariance (including the SCAMP cross-axis correlation)
@@ -46,7 +46,7 @@ The following tools must be installed and available in `PATH`:
 | [PSFEx](https://github.com/astromatic/psfex) | PSF modelling (completeness testing) |
 | [SkyMaker](https://github.com/astromatic/skymaker) | Artificial image generation (completeness testing) |
 
-**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work whenever a tile is built (classification always runs for the tile). The pipeline verifies this at startup and will raise an error if the installed binary lacks multi-seeing support. The same fork (commit `5cb35ce`, pinned in the Dockerfile) adds the `WINPOS_SIGMAP` parameter used by `sex_winpos_cap`; with that option on, the pipeline checks for it at startup as well. The Docker image includes the correct build.
+**Important:** This pipeline requires a [modified SExtractor build](https://github.com/smeingast/sextractor/tree/feature/multi-seeing-class-star) that supports multi-seeing CLASS_STAR output. The upstream astromatic SExtractor will **not** work (classification runs for every source list). The pipeline verifies this at every start and will raise an error if the installed binary lacks multi-seeing support. The same fork (commit `5cb35ce`, pinned in the Dockerfile) adds the `WINPOS_SIGMAP` parameter used by `sex_winpos_cap`; with that option on, the pipeline checks for it at startup as well. The Docker image includes the correct build.
 
 ---
 
@@ -166,7 +166,7 @@ Processes raw science frames through to final co-added products:
 4. **Final raw processing** — sky subtraction, destriping, background subtraction, NaN interpolation
 5. **Astrometry (SCAMP)** — astrometric calibration against Gaia DR3
 6. **Photometry (2MASS)** — photometric zero-point calibration, with a data-driven bright limit for the reference stars
-7. **Illumination correction** — variable or constant illumination correction map
+7. **Illumination correction** — variable or constant illumination correction map, fitted to aperture-corrected magnitudes (6 px aperture plus one 6 to 24 px aperture correction per exposure, `PYPE IC APCOR`)
 8. **Resampling (SWarp)** — resamples exposures to a common grid
 9. **Pawprints** — optional single-exposure products from the resampled pawprints (`build_pawprints`): one MEF with 16 detector extensions per raw exposure plus its weight map, `products/pawprints/<name>_NN.pawprint.fits`
 10. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile `<name>.fits` with its weight `<name>.weight.fits` and exact exposure map `<name>.expmap.fits`
