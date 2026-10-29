@@ -784,7 +784,8 @@ def exposure_aperture_correction(
     flux_scales: list[np.ndarray], apcors: list[float]
 ) -> tuple[list[np.ndarray], float]:
     """
-    One aperture correction per exposure: the median of the detector values.
+    One aperture correction per exposure: the median of the detector values (per IC
+    group, whose detector values pool its exposures; usually one exposure).
 
     Each detector's illumination correction was fitted with its own aperture
     correction. A per-detector value captures real PSF differences on clean fields
