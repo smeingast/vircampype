@@ -3920,9 +3920,9 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Stack source and stats tables
         table = thstack([table, table_stats], join_type="exact")
 
-        # Length of source and classification table must be similar. The limit only
-        # catches a mis-paired table (no matches at all); a few blended sources in a
-        # small pawprint detector table must not fail it (CrA VHS 1_1_14_J: 0.57 %)
+        # Length of source and classification table must be similar. The 5 % limit is
+        # meant to catch a mis-paired table; a few blended sources in a small pawprint
+        # detector table must not fail it (CrA VHS 1_1_14_J: 0.57 %)
         if np.abs(len_table_full / len_table_cls - 1) > 0.05:
             raise PipelineValueError(
                 f"{label}: source ({len_table_full}) and classification "
