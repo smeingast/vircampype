@@ -3920,8 +3920,10 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         # Stack source and stats tables
         table = thstack([table, table_stats], join_type="exact")
 
-        # Length of source and classification table must be equal within 0.5%
-        if np.abs(len_table_full / len_table_cls - 1) > 0.005:
+        # Length of source and classification table must be similar. The limit only
+        # catches a mis-paired table (no matches at all); a few blended sources in a
+        # small pawprint detector table must not fail it (CrA VHS 1_1_14_J: 0.57 %)
+        if np.abs(len_table_full / len_table_cls - 1) > 0.05:
             raise PipelineValueError(
                 f"{label}: source ({len_table_full}) and classification "
                 f"({len_table_cls}) tables do not have similar length.",
@@ -3936,8 +3938,8 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         len_table_final = int(np.sum(distances.ravel() < 0.1))
         log.info(f"{label}: {len_table_final} classification matches")
 
-        # New table length must be similar to the original table length
-        if np.abs(len_table_full / len_table_final - 1) > 0.005:
+        # At most 5 % of the sources unmatched (same limit; no matches -> error)
+        if len_table_final < 0.95 * len_table_full:
             raise PipelineValueError(
                 f"{label}: matching of source and classification table failed. "
                 f"New table length ({len_table_final}) is not similar "

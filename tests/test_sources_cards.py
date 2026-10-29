@@ -186,6 +186,37 @@ class TestSourcesCards(unittest.TestCase):
         self.assertNotIn("CRDER1", header)
         self.assertNotIn("CRDER2", header)
 
+    def test_classification_match_tolerates_a_few_offsets(self):
+        """A few blended sources off by >= 0.1 px in a small detector table pass
+        (CrA VHS 1_1_14_J: 10 of 1773); a mis-paired table still fails."""
+        from astropy.table import Table
+
+        n = 1773
+        rng = np.random.default_rng(5)
+        xy = rng.uniform(0, 2000, (n, 2))
+        table = Table({"XWIN_IMAGE": xy[:, 0], "YWIN_IMAGE": xy[:, 1]})
+        stats = Table({"NIMG": np.ones(n)})
+        cls = PhotometricCalibratedSextractorCatalogs
+        catalogs = cls(setup=self.setup, file_paths=[self.path_ctab])
+
+        class Passed(Exception):
+            pass
+
+        def run(xy_cs):
+            table_class = Table({"XWIN_IMAGE": xy_cs[:, 0], "YWIN_IMAGE": xy_cs[:, 1]})
+            target = "vircampype.fits.tables.sextractor.interpolate_classification"
+            with patch(target, side_effect=Passed):
+                catalogs._public_sources(
+                    table.copy(), stats, table_class, fits.Header(), 0.0, 10.0, "t"
+                )
+
+        few = xy.copy()
+        few[:10] += 0.5
+        with self.assertRaises(Passed):
+            run(few)
+        with self.assertRaisesRegex(PipelineValueError, "matching"):
+            run(xy + 3.0)
+
     def test_build_public_catalog_source(self):
         cls = PhotometricCalibratedSextractorCatalogs
         source = inspect.getsource(cls.build_public_catalog)
