@@ -22,8 +22,7 @@ from tests.test_productmeta import raw_header
 from tests.test_sdpcheck import PHOTOMETRY, WCS
 from tests.test_sources_cards import _catalog_table
 from vircampype.fits.images.sky import Pawprints, SkyImagesResampled
-from vircampype.fits.tables.sextractor import \
-    PhotometricCalibratedSextractorCatalogs
+from vircampype.fits.tables.sextractor import PhotometricCalibratedSextractorCatalogs
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.mathtools import centroid_sphere
 from vircampype.tools.productmeta import finalize_files, set_cards
@@ -92,13 +91,15 @@ def _write_resampled(
         hdr["DATASUM"] = "0"
         data = rng.normal(100, 5, (32, 32)).astype(np.float32)
         data[:, 0] = 0
+        # Masked region with values (a bad detector half): weight 0, no BACKSIG
+        data[:, 1:12] = rng.normal(100, 200, (32, 11))
         images.append(fits.ImageHDU(data=data, header=hdr))
 
         hdr_weight = hdr.copy()
         for key in ("BACKSIG", "CHECKSUM", "DATASUM"):
             del hdr_weight[key]
         weight = np.ones((32, 32), np.float32)
-        weight[:, 0] = 0
+        weight[:, :12] = 0
         weights.append(fits.ImageHDU(data=weight, header=hdr_weight))
 
     path = os.path.join(folder, f"VCAM_{stamp}.proc.final.ic.resamp.fits")

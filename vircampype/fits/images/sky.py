@@ -2392,6 +2392,7 @@ def _write_pawprint(
     primary: fits.Header,
     exptime: float | None,
     cache_dir: str | None,
+    path_weight: str | None = None,
 ) -> None:
     """
     Copy a resampled pawprint MEF into a pawprint product MEF with a new primary.
@@ -2400,7 +2401,7 @@ def _write_pawprint(
     (ORIGIN, DATE, AUTHOR), SWarp's ORIGFILE (the tile name) and the stale
     CHECKSUM/DATASUM merged in from the processed frame (the finalizer trusts
     existing checksums). Image extensions (``exptime`` given) get BACKMODE,
-    BACKSIG, BACKSKEW from ``mmm`` on the nonzero pixels, BUNIT and EXPTIME;
+    BACKSIG, BACKSKEW from ``mmm`` on the pixels with weight > 0, BUNIT and EXPTIME;
     weight extensions (``exptime`` None) get nothing. Every HDU ends with one
     reserved block of 36 blank cards (Phase 3 cards are added in place later).
     The input is opened with memmap, so one extension is in memory at a time; the
@@ -2418,17 +2419,23 @@ def _write_pawprint(
         Integration time of the exposure for image extensions, None for weights.
     cache_dir : str | None
         Directory for the temporary file; None uses the system temp directory.
+    path_weight : str | None, optional
+        Weight MEF of the image (required with ``exptime``): the background
+        statistics use its pixels with weight > 0 only.
     """
     hdul = fits.HDUList([fits.PrimaryHDU(header=primary)])
     with fits.open(path_in, memmap=True) as hdul_in:
-        for hdu in hdul_in[1:]:
+        hdul_w = fits.open(path_weight, memmap=True) if exptime is not None else None
+        for idx, hdu in enumerate(hdul_in[1:], start=1):
             hdr = hdu.header.copy()
             for key in (*SWARP_CARDS, "ORIGFILE", "CHECKSUM", "DATASUM"):
                 hdr.remove(key, ignore_missing=True, remove_all=True)
             if exptime is not None:
-                # Exclude uncovered pixels (SWarp writes exactly 0 there)
+                # Only pixels with weight: masked detector regions (e.g. a bad
+                # detector half) are resampled with values but weight 0
                 data = hdu.data
-                backmod, backsig, backskew = mmm(data[data != 0])
+                good = hdul_w[idx].data > 0
+                backmod, backsig, backskew = mmm(data[good])
                 hdr.set("BACKMODE", round(float(backmod), 3), "Background mode")
                 hdr.set("BACKSIG", round(float(backsig), 3), "Background sigma")
                 hdr.set("BACKSKEW", round(float(backskew), 3), "Background skew")
@@ -2437,6 +2444,8 @@ def _write_pawprint(
             else:
                 hdr.set("BUNIT", *WEIGHT_BUNIT)
             hdul.append(fits.ImageHDU(data=hdu.data, header=hdr))
+        if hdul_w is not None:
+            hdul_w.close()
 
         hdul.update_extend()
         for hdu in hdul:
@@ -2603,9 +2612,10 @@ class SkyImagesResampled(SkyImagesProcessed):
                     hdul[0].header.set("OSKY", value=np.round(sky, 3))
                     skysig = np.mean(list(zip(*cpkw_dict["SKYSIG"]))[idx_iter_hdu])
                     hdul[0].header.set("OSKYSIG", value=np.round(skysig, 3))
-                    # Exclude uncovered pixels (SWarp writes exactly 0 there)
+                    # Only pixels with weight (masked regions keep values)
                     stack_data = hdul[0].data
-                    backmod, backsig, backskew = mmm(stack_data[stack_data != 0])
+                    good = fits.getdata(paths_temp_weights[-1]) > 0
+                    backmod, backsig, backskew = mmm(stack_data[good])
                     hdul[0].header.set(
                         "BACKMODE",
                         value=np.round(backmod, 3),
@@ -2905,6 +2915,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                 primary,
                 exptime=exptime,
                 cache_dir=self.setup.local_cache_dir,
+                path_weight=self.paths_full[idx].replace(".fits", ".weight.fits"),
             )
             log.info(
                 f"Pawprint {os.path.basename(path_out)}: PROV1={primary['PROV1']}, "
@@ -3128,19 +3139,19 @@ class SkyImagesResampled(SkyImagesProcessed):
 
             # Background statistics from SWarp's image (read-only memmap)
             sci_header = fits.getheader(path_coadd_tmp)
-            with fits.open(path_coadd_tmp, memmap=True) as hdul_coadd:
-                coadd = hdul_coadd[0].data
+            with (
+                fits.open(path_coadd_tmp, memmap=True) as hdul_coadd,
+                fits.open(path_weight_tmp, memmap=True) as hdul_cw,
+            ):
+                coadd, cweight = hdul_coadd[0].data, hdul_cw[0].data
 
-                # Use a max of 50_000_000 pixels for sky calculation and exclude
-                # uncovered pixels (SWarp writes exactly 0 there)
-                if coadd.size > self.setup.mmm_max_pixels:
-                    coadd_sub = coadd.ravel()[
-                        :: coadd.size // self.setup.mmm_max_pixels
-                    ]
-                else:
-                    coadd_sub = coadd.ravel()
-                backmod, backsig, backskew = mmm(coadd_sub[coadd_sub != 0])
-                del coadd, coadd_sub
+                # Use a max of 50_000_000 pixels for sky calculation, only pixels
+                # with weight (masked regions may keep values)
+                step = max(coadd.size // self.setup.mmm_max_pixels, 1)
+                coadd_sub = coadd.ravel()[::step]
+                good = cweight.ravel()[::step] > 0
+                backmod, backsig, backskew = mmm(coadd_sub[good])
+                del coadd, cweight, coadd_sub, good
             log.info(f"Background mode: {backmod:.3f}")
             log.info(f"Background sigma: {backsig:.3f}")
             log.info(f"Background skew: {backskew:.3f}")
