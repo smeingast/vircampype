@@ -13,6 +13,7 @@ from scipy.stats import sem
 from vircampype.pipeline.errors import PipelineValueError
 
 __all__ = [
+    "exposure_aperture_correction",
     "get_zeropoint",
     "vega2ab",
     "get_default_extinction",
@@ -777,3 +778,33 @@ def reference_bright_limit(
 
     info.update(source="auto", limit_raw=float(edge))
     return float(min(mag_lo, edge + margin)), info
+
+
+def exposure_aperture_correction(
+    flux_scales: list[np.ndarray], apcors: list[float]
+) -> tuple[list[np.ndarray], float]:
+    """
+    One aperture correction per exposure: the median of the detector values.
+
+    Each detector's illumination correction was fitted with its own aperture
+    correction. A per-detector value captures real PSF differences on clean fields
+    but is biased by neighbour light in crowded ones (Pipe deep J: 0.12 mag between
+    detectors, imprinted on the tile), so all detectors get the exposure median.
+    A constant change d of a detector's correction moves its zero-point grid by -d,
+    i.e. its flux scale by 10**(0.4 (apcor - median)).
+
+    Parameters
+    ----------
+    flux_scales : list[np.ndarray]
+        Flux-scale maps per detector, fitted with ``apcors``.
+    apcors : list[float]
+        Aperture correction (mag) of each detector.
+
+    Returns
+    -------
+    tuple[list[np.ndarray], float]
+        The rescaled flux-scale maps and the exposure aperture correction.
+    """
+    apcor = float(np.median(apcors))
+    scales = [f * 10 ** (0.4 * (a - apcor)) for f, a in zip(flux_scales, apcors)]
+    return scales, apcor

@@ -11,6 +11,7 @@ from tests.test_sdpcheck import WCS
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.photometry import (
     aperture_error_inflation,
+    exposure_aperture_correction,
     get_default_extinction,
     get_zeropoint,
     limiting_magnitude,
@@ -275,6 +276,26 @@ class TestGetDefaultExtinction(unittest.TestCase):
 
     def test_whitespace(self):
         self.assertAlmostEqual(get_default_extinction("  J  "), 0.11)
+
+
+class TestExposureApertureCorrection(unittest.TestCase):
+    def test_detectors_share_the_exposure_median(self):
+        """Refitting a detector with the exposure median (zp = ref - mag - apcor)
+        equals rescaling its flux map; the exposure value is the median."""
+        rng = np.random.default_rng(3)
+        apcors = [-0.30, -0.40, -0.35, -0.50]
+        ref, mag = 15.0, rng.normal(14.0, 0.01, (4, 5, 5))
+        target = 25.0
+
+        def scale(apcor_used):
+            zp = ref - (mag + np.asarray(apcor_used)[:, None, None])
+            return list(10 ** ((zp - target) / 2.5))
+
+        scales, apcor = exposure_aperture_correction(scale(apcors), apcors)
+        self.assertAlmostEqual(apcor, -0.375)
+        expected = scale([apcor] * 4)
+        for got, want in zip(scales, expected):
+            np.testing.assert_allclose(got, want, rtol=1e-12)
 
 
 class TestGetZeropoint(unittest.TestCase):

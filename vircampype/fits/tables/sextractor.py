@@ -604,10 +604,11 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                 )
                 tab = tab[np.asarray(tab["NNDIST_EXPOSURE"]) > 5]
 
-                # Aperture-corrected magnitudes: the 6 px aperture plus this detector's
-                # median 6 -> 24 px correction from its bright clean stars. MAG_AUTO
-                # loses a seeing-dependent fraction of the flux (up to ~3 % between
-                # 0.8" and 1.2" seeing), which the scaling to target_zp would keep.
+                # Aperture-corrected magnitudes: the 6 px aperture plus the median
+                # 6 -> 24 px correction of this detector's bright clean stars (replaced
+                # by the exposure median after the loop). MAG_AUTO loses a seeing-
+                # dependent fraction of the flux (up to ~3 % between 0.8" and 1.2"
+                # seeing), which the scaling to target_zp would keep.
                 aper = np.asarray(tab["MAG_APER"], float)
                 aper_err = np.asarray(tab["MAGERR_APER"], float)
                 valid = np.all((aper < 50) & np.isfinite(aper), axis=1)
@@ -752,9 +753,10 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
             illumcorr = ImageCube(setup=self.setup)
 
             # Loop over extensions and construct final illumination correction
-            for idx_hdu, fscl, nn, apcor in zip(
-                files.iter_data_hdu[0], flx_scale, n_sources, apcors
-            ):
+            # One aperture correction per exposure (crowding biases the detector
+            # values)
+            flx_scale, apcor = exposure_aperture_correction(flx_scale, apcors)
+            for idx_hdu, fscl, nn in zip(files.iter_data_hdu[0], flx_scale, n_sources):
                 # Append to output
                 illumcorr.extend(data=fscl.astype(np.float32))
 
@@ -780,7 +782,7 @@ class AstrometricCalibratedSextractorCatalogs(SextractorCatalogs):
                     key="HIERARCH PYPE IC APCOR",
                     value=apcor,
                     decimals=4,
-                    comment="Aperture correction 6 -> 24 px (mag)",
+                    comment="Exposure aperture corr. 6->24 px (mag)",
                 )
 
                 # Append header
