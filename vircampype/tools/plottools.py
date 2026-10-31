@@ -240,8 +240,8 @@ def draw_phot_reference(
     ax : matplotlib.axes.Axes
         Target axes.
     x, y : np.ndarray
-        Reference magnitude and difference (reference minus catalog). Non-finite
-        values are ignored.
+        Reference magnitude and difference (reference minus catalog). Masked and
+        non-finite values are ignored.
     xlim, ylim : tuple[float, float]
         Axes limits.
     mag_range : tuple[float, float]
@@ -254,7 +254,8 @@ def draw_phot_reference(
     matplotlib.axes.Axes
         The twin axis of the KDE.
     """
-    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    x = np.ma.filled(np.ma.asarray(x, dtype=float), np.nan)
+    y = np.ma.filled(np.ma.asarray(y, dtype=float), np.nan)
     good = np.isfinite(x) & np.isfinite(y)
     x, y = x[good], y[good]
 
@@ -301,7 +302,7 @@ def draw_phot_reference(
     # KDE on a fixed scale, in the right part of the panel
     ax_kde = ax.twiny()
     ax_kde.set_xlim(-6 * PHOT_KDE_PEAK, 1.05 * PHOT_KDE_PEAK)
-    sample = y[in_range & (y >= ylim[0]) & (y <= ylim[1])]
+    sample = y[in_range]
     if len(sample) >= 2 and np.ptp(sample) > 0:
         grid = np.arange(ylim[0], ylim[1] + 0.005, 0.01)
         kde = KernelDensity(kernel="gaussian", bandwidth=PHOT_KDE_BANDWIDTH)

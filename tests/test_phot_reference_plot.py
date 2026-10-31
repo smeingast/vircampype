@@ -60,6 +60,20 @@ class TestDrawPhotReference(unittest.TestCase):
         self.assertEqual(twin.get_xlim(), (-24.0, 4.2))
         self.assertLessEqual(twin.lines[0].get_xdata().max(), 4.0)
 
+    def test_masked_values_are_ignored(self):
+        x = np.ma.array(np.full(30, 13.5), mask=np.arange(30) < 10)
+        y = np.ma.array(np.zeros(30), mask=np.arange(30) >= 25)
+        draw_phot_reference(self.ax, x, y, (10, 18), (-1, 1), (12.0, 15.5))
+        self.assertEqual(int(self._box()[2].split()[1]), 15)  # 30 - 10 - 5
+
+    def test_kde_keeps_outliers_outside_the_axes(self):
+        y = np.r_[np.zeros(100), np.full(100, 5.0)]
+        twin = draw_phot_reference(
+            self.ax, np.full(200, 13.0), y, (10, 18), (-1, 1), (12.0, 15.5)
+        )
+        # Half of the sample is outside the axes: the peak is halved
+        self.assertAlmostEqual(twin.lines[0].get_xdata().max(), 2.0, delta=0.05)
+
     def test_empty_and_constant_samples(self):
         draw_phot_reference(self.ax, [], [], (10, 18), (-1, 1), (12.0, 15.5))
         self.assertIn("nan", self._box()[1])
