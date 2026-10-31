@@ -3156,53 +3156,16 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                 # Compute difference between reference and self
                 mag_delta = mag_master_match - mag_hdu_match
 
-                # Draw ZP
-                ax.axhline(0, zorder=1, c="black", alpha=0.5)
-
-                # KDE for ZP mag interval
-                keep = (
-                    mag_master_match >= master_phot.mag_lim(passband=passband)[0]
-                ) & (mag_master_match <= master_phot.mag_lim(passband=passband)[1])
-
-                # Draw photometry for all matched sources
-                ax.scatter(
+                # Density scatter, running percentiles, reference range, KDE, numbers
+                draw_phot_reference(
+                    ax,
                     mag_master_match,
                     mag_delta,
-                    c="black",
-                    s=2,
-                    lw=0,
-                    alpha=0.4,
-                    zorder=0,
-                    rasterized=True,
+                    xlim=(10, 18),
+                    ylim=(-1, 1),
+                    mag_range=master_phot.mag_lim(passband=passband),
+                    fontsize=9 if len(ax_file) == 1 else 6,
                 )
-
-                # Draw for sources within mag limits
-                ax.scatter(
-                    mag_master_match[keep],
-                    mag_delta[keep],
-                    c="crimson",
-                    s=4,
-                    lw=0,
-                    alpha=1.0,
-                    zorder=0,
-                    rasterized=True,
-                )
-
-                # Evaluate KDE
-                kde = KernelDensity(
-                    kernel="gaussian", bandwidth=0.1, metric="euclidean"
-                )
-                kde_grid = np.arange(np.floor(-1), np.ceil(1), 0.01)
-                dens_zp = np.exp(
-                    kde.fit((mag_delta[keep]).reshape(-1, 1)).score_samples(  # noqa
-                        kde_grid.reshape(-1, 1)
-                    )
-                )
-
-                # Draw KDE
-                ax_kde = ax.twiny()
-                ax_kde.plot(dens_zp, kde_grid, lw=1, c="black", alpha=0.8)
-                ax_kde.axis("off")
 
                 # Annotate detector ID
                 ax.annotate(
@@ -3212,12 +3175,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     ha="right",
                     va="bottom",
                 )
-
-                # Set limits
-                ax.set_xlim(10, 18)
-                ylim = (-1, 1)
-                ax.set_ylim(ylim)
-                ax_kde.set_ylim(ylim)
 
                 # Modify axes
                 if (idx_hdu < self.setup.fpa_layout[1]) | (len(ax_file) == 1):
