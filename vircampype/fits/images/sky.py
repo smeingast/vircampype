@@ -476,7 +476,9 @@ class SkyImages(FitsImages):
             ss = yml2config(
                 phot_apertures=",".join([str(ap) for ap in self.setup.apertures]),
                 seeing_fwhm=2.5,
+                # FLAG_IMAGE/FLAG_TYPE come per image from the saturation map below
                 skip=["catalog_name", "weight_image", "starnnw_name"]
+                + ["flag_image", "flag_type"]
                 + list(kwargs.keys()),
                 **kwargs_yml,
             )

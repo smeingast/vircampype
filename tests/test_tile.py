@@ -78,6 +78,8 @@ class TestTile(unittest.TestCase):
         self.assertIn(f" {self.path}[0] ", cmd)
         self.assertIn(f"-WEIGHT_IMAGE {self.setup.path_coadd_weight} ", cmd)
         self.assertIn(f"-FLAG_IMAGE {path_map} -FLAG_TYPE MAX ", cmd)
+        self.assertEqual(cmd.count("-FLAG_IMAGE "), 1)  # not also from the preset
+        self.assertEqual(cmd.count("-FLAG_TYPE "), 1)
 
     def test_mef_tile_fails_loud(self):
         os.makedirs(self.setup.folders["tile"], exist_ok=True)
