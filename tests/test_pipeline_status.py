@@ -97,6 +97,7 @@ class TestPipelineStatus(unittest.TestCase):
         status = self._all_true()
         status.reset_from("resampled")
         expected = {"resampled", "statistics_resampled", "photometry_pawprints"}
+        expected |= {"saturation_maps_resampled"}
         expected |= (
             {"photerr_internal"}
             | set(_PAWPRINT_STEPS)

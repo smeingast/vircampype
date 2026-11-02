@@ -5,6 +5,7 @@ NUMBER                   # Running object number
 FLAGS                    # Extraction flags                                         
 FLAGS_WIN                # Flags for WINdowed parameters                            
 FLAGS_WEIGHT             # Weighted extraction flags                                
+IMAFLAGS_ISO             # FLAG-image flags (MAX): saturated input exposures      
 BACKGROUND               # Background at centroid position                           [count]
 THRESHOLD                # Detection threshold above background                      [count]
 SNR_WIN                  # Gaussian-weighted SNR                                    

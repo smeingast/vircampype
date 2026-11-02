@@ -13,7 +13,7 @@ from astropy.io import fits
 from tests.test_cube import make_test_setup
 from tests.test_sdpcheck import make_products
 from vircampype.fits.images.sky import Stacks, Tile
-from vircampype.pipeline.errors import PipelineValueError
+from vircampype.pipeline.errors import PipelineFileNotFoundError, PipelineValueError
 from vircampype.tools.astromatic import AstromaticSetup
 
 
@@ -58,6 +58,16 @@ class TestTile(unittest.TestCase):
 
     def test_tile_sextractor_command(self):
         tile = self._make_tile()
+        path_map = self.path.removesuffix(".fits") + ".satmap.fits"
+        with patch.object(
+            AstromaticSetup,
+            "bin",
+            new_callable=PropertyMock,
+            return_value=sys.executable,
+        ):
+            with self.assertRaisesRegex(PipelineFileNotFoundError, "Saturation map"):
+                tile.sextractor(preset="full", return_cmds=True, silent=True)
+        fits.PrimaryHDU(np.zeros((8, 8), np.uint8)).writeto(path_map)
         with patch.object(
             AstromaticSetup,
             "bin",
@@ -67,6 +77,7 @@ class TestTile(unittest.TestCase):
             cmd = tile.sextractor(preset="full", return_cmds=True, silent=True)[0]
         self.assertIn(f" {self.path}[0] ", cmd)
         self.assertIn(f"-WEIGHT_IMAGE {self.setup.path_coadd_weight} ", cmd)
+        self.assertIn(f"-FLAG_IMAGE {path_map} -FLAG_TYPE MAX ", cmd)
 
     def test_mef_tile_fails_loud(self):
         os.makedirs(self.setup.folders["tile"], exist_ok=True)

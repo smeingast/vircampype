@@ -207,7 +207,7 @@ class TestSourcesCards(unittest.TestCase):
             target = "vircampype.fits.tables.sextractor.interpolate_classification"
             with patch(target, side_effect=Passed):
                 catalogs._public_sources(
-                    table.copy(), stats, table_class, fits.Header(), 0.0, 10.0, "t"
+                    table.copy(), stats, table_class, fits.Header(), 0.0, "t"
                 )
 
         few = xy.copy()

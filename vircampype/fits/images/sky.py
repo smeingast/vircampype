@@ -377,6 +377,12 @@ class SkyImages(FitsImages):
         """Weight images of SExtractor runs (the global master weights)."""
         return self.get_master_weight_global().paths_full
 
+    @property
+    def paths_saturation_maps(self):
+        """Saturation map of each image (``<name>.satmap.fits``; FLAG_IMAGE of the
+        'full' SExtractor runs)."""
+        return [p.removesuffix(".fits") + ".satmap.fits" for p in self.paths_full]
+
     def sextractor(
         self,
         preset="scamp",
@@ -487,14 +493,25 @@ class SkyImages(FitsImages):
             for pt in path_tables_clean
         ]
 
-        # Construct commands for source extraction
+        # Construct commands for source extraction. 'full' catalogs flag saturated
+        # sources from the saturation map of each image (IMAFLAGS_ISO = the largest
+        # number of saturated input exposures under a source)
         master_weight_paths = self.paths_sextractor_weights
+        flag_args = {i: "" for i in indices_to_process}
+        if preset == "full":
+            for i in indices_to_process:
+                path_map = self.paths_saturation_maps[i]
+                if not os.path.isfile(path_map):
+                    raise PipelineFileNotFoundError(
+                        f"Saturation map not found: {path_map}", logger=log
+                    )
+                flag_args[i] = f"-FLAG_IMAGE {path_map} -FLAG_TYPE MAX "
         cmds = [
             (
                 f"{sxs.bin} -c {sxs.default_config} {self.paths_sextractor[i]} "
                 f"-STARNNW_NAME {sxs.default_nnw} "
                 f"-CATALOG_NAME {catalog} "
-                f"-WEIGHT_IMAGE {master_weight_paths[i]} {ss}"
+                f"-WEIGHT_IMAGE {master_weight_paths[i]} {flag_args[i]}{ss}"
             )
             for i, catalog in zip(indices_to_process, paths_tables_sex)
         ]
@@ -2466,6 +2483,104 @@ class SkyImagesResampled(SkyImagesProcessed):
 
     def __init__(self, setup, file_paths=None):
         super(SkyImagesResampled, self).__init__(setup=setup, file_paths=file_paths)
+
+    @property
+    def paths_saturation_maps(self):
+        """Pawprint saturation maps, next to the pawprint statistics images."""
+        return [
+            f"{self.setup.folders['statistics']}{self.names[i]}.satmap"
+            f"{self.extensions[i]}"
+            for i in range(self.n_files)
+        ]
+
+    def build_saturation_maps(self):
+        """0/1 saturation map of every resampled pawprint (``tools/satmap.py``)."""
+        from vircampype.tools.satmap import build_pawprint_saturation_map
+
+        print_header(
+            header="PAWPRINT SATURATION MAPS", silent=self.setup.silent, right=None
+        )
+        log = logging.getLogger(__name__)
+        tstart = time.time()
+        todo = [
+            i
+            for i, p in enumerate(self.paths_saturation_maps)
+            if self.setup.overwrite or not os.path.isfile(p)
+        ]
+        counts = Parallel(n_jobs=self.setup.n_jobs, prefer="threads")(
+            delayed(build_pawprint_saturation_map)(
+                self.paths_full[i],
+                self.paths_full[i].replace(".fits", ".weight.fits"),
+                self.paths_saturation_maps[i],
+                self.setup.local_cache_dir,
+            )
+            for i in todo
+        )
+        for i, n in zip(todo, counts):
+            log.info(f"Saturation map {self.basenames[i]}: {n} saturated pixels")
+        print_message(
+            message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
+            kind="okblue",
+            end="\n",
+            logger=log,
+        )
+
+    def build_saturation_maps_stacks(self):
+        """Count maps of the stacks: per stack extension, the number of pawprints of
+        its offset whose same detector is saturated in a pixel."""
+        from vircampype.tools.satmap import add_saturation_counts
+
+        print_header(
+            header="STACK SATURATION MAPS", silent=self.setup.silent, right=None
+        )
+        log = logging.getLogger(__name__)
+        maps = dict(zip(self.paths_full, self.paths_saturation_maps))
+        for files in self.split_keywords(["OFFSET_I"]):
+            oidx = files.read_from_prime_headers(keywords=["OFFSET_I"])[0][0]
+            path_stack = (
+                f"{self.setup.folders['stacks']}{self.setup.name}_{oidx:02d}.stack.fits"
+            )
+            path_out = path_stack.removesuffix(".fits") + ".satmap.fits"
+            if os.path.isfile(path_out) and not self.setup.overwrite:
+                continue
+            paths_maps = [maps[p] for p in files.paths_full]
+            out = fits.HDUList([fits.PrimaryHDU()])
+            with fits.open(path_stack, memmap=True) as hdul:
+                for idx in range(1, len(hdul)):
+                    header = hdul[idx].header
+                    counts = np.zeros((header["NAXIS2"], header["NAXIS1"]), np.uint8)
+                    add_saturation_counts(counts, header, paths_maps, hdu_index=idx)
+                    hdr = fits.ImageHDU(counts).header
+                    for key in ("CTYPE1", "CTYPE2", "CRVAL1", "CRVAL2", "CRPIX1"):
+                        hdr[key] = header[key]
+                    for key in ("CRPIX2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"):
+                        hdr[key] = header[key]
+                    out.append(fits.ImageHDU(counts, header=hdr))
+            path_tmp = make_path_system_tempfile(
+                prefix="satmap_", suffix=".fits", base_dir=self.setup.local_cache_dir
+            )
+            try:
+                out.writeto(path_tmp, overwrite=True)
+                move_file(path_tmp, path_out)
+            finally:
+                remove_file(path_tmp)
+            log.info(f"Saturation map {os.path.basename(path_out)} written")
+
+    def build_saturation_map_tile(self):
+        """Count map of the tile (or mosaic): the number of pawprints saturated in
+        each pixel, on the grid of the tile image."""
+        from vircampype.tools.satmap import build_saturation_count_map
+
+        print_header(header="TILE SATURATION MAP", silent=self.setup.silent, right=None)
+        path_out = self.setup.path_coadd.removesuffix(".fits") + ".satmap.fits"
+        if os.path.isfile(path_out) and not self.setup.overwrite:
+            return
+        build_saturation_count_map(
+            self.paths_saturation_maps,
+            fits.getheader(self.setup.path_coadd, 0),
+            path_out,
+            self.setup.local_cache_dir,
+        )
 
     def build_stacks(self):
         """Coadd resampled pawprints per offset position into stacks via SWarp."""

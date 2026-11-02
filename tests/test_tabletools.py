@@ -517,6 +517,7 @@ def _public_input_table(n: int = 400, seed: int = 3) -> Table:
     t["FLAGS"] = np.zeros(n, dtype=np.int16)
     t["SNR_WIN"] = np.full(n, 50.0)
     t["FLAGS_WEIGHT"] = np.zeros(n, dtype=np.int16)
+    t["IMAFLAGS_ISO"] = np.zeros(n, dtype=np.int16)
     t["BACKGROUND"] = np.zeros(n)
     t["ISOAREA_IMAGE"] = rng.uniform(5.0, 40.0, n)
     t["CLASS_STAR_INTERP"] = np.full(n, 0.9)
@@ -536,7 +537,6 @@ class TestDetectionsToSourcesMagerrScale(unittest.TestCase):
                 t.copy(),
                 photerr_internal=0.01,
                 apertures=apertures,
-                mag_saturation=11.0,
                 survey_name="VISIONS",
                 magerr_scale=scale,
             ),
@@ -599,7 +599,6 @@ class TestDetectionsToSourcesFlags(unittest.TestCase):
             t.copy(),
             photerr_internal=0.01,
             apertures=apertures,
-            mag_saturation=11.0,
             survey_name="VISIONS",
         )
         # map output rows back to input rows through the (unique) RA
@@ -644,9 +643,10 @@ class TestDetectionsToSourcesFlags(unittest.TestCase):
         self.assertEqual(out["QFLG"][m[20]], "X")
         self.assertEqual(out["QFLG"][m[21]], "X")
 
-    def test_keeps_bright_detections(self):
+    def test_keeps_saturated_detections(self):
         def mod(t):
-            t["MAG_APER_MATCHED_CAL"][20] = 9.0  # brighter than mag_saturation
+            t["IMAFLAGS_ISO"][20] = 2  # saturated in two input exposures
+            t["MAG_APER_MATCHED_CAL"][21] = 9.0  # bright, but not saturated
 
         _, out, m = self._run(mod)
         self.assertIn(20, m)
@@ -654,6 +654,14 @@ class TestDetectionsToSourcesFlags(unittest.TestCase):
         self.assertTrue(bool(out["CFLG"][j]))
         self.assertTrue(int(out["CFLG_REASON"][j]) & 1)
         self.assertEqual(out["QFLG"][j], "X")
+        self.assertFalse(int(out["CFLG_REASON"][m[21]]) & 1)
+
+    def test_catalog_without_saturation_map_raises(self):
+        def mod(t):
+            t.remove_column("IMAFLAGS_ISO")
+
+        with self.assertRaisesRegex(PipelineValueError, "IMAFLAGS_ISO"):
+            self._run(mod)
 
     def test_duplicate_ids_raise(self):
         def mod(t):
@@ -678,7 +686,6 @@ def _sources():
         t,
         photerr_internal=0.01,
         apertures=apertures,
-        mag_saturation=11.0,
         survey_name="VISIONS",
     )
 
@@ -829,7 +836,6 @@ class TestSurveyNameReach(unittest.TestCase):
             t,
             photerr_internal=0.01,
             apertures=apertures,
-            mag_saturation=11.0,
             survey_name="VHS",
         )
 

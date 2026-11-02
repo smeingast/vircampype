@@ -858,6 +858,21 @@ class Pipeline:
         """Compute per-pawprint statistics images (MJD, nimg, exptime)."""
         self.resampled.build_statistics()
 
+    @pipeline_step("saturation_maps_resampled", message="PAWPRINT SATURATION MAPS")
+    def build_saturation_maps_resampled(self):
+        """0/1 saturation map of every resampled pawprint (FLAG_IMAGE source)."""
+        self.resampled.build_saturation_maps()
+
+    @pipeline_step("saturation_map_stacks", message="STACK SATURATION MAPS")
+    def build_saturation_map_stacks(self):
+        """Saturation count maps of the stacks (FLAG_IMAGE of their catalogs)."""
+        self.resampled.build_saturation_maps_stacks()
+
+    @pipeline_step("saturation_map_tile", message="TILE SATURATION MAP")
+    def build_saturation_map_tile(self):
+        """Saturation count map of the tile (FLAG_IMAGE of its catalog)."""
+        self.resampled.build_saturation_map_tile()
+
     @pipeline_step("statistics_stacks", message="STACKS STATISTICS")
     def build_statistics_stacks(self):
         """Coadd statistics images for the stacks and build their statistics tables."""
@@ -1455,6 +1470,9 @@ class Pipeline:
         # Build statistics (required for mosaics/deep stacks, not for phase 3)
         self.build_statistics_resampled()
 
+        # Saturation map of every pawprint (stacks, tile and pawprints count them)
+        self.build_saturation_maps_resampled()
+
         # Single-exposure pawprint products: catalogs, files with their photometric cards,
         # CRDER
         if self.setup.build_pawprints:
@@ -1469,6 +1487,7 @@ class Pipeline:
         # Build and calibrate stacks
         if self.setup.build_stacks:
             self.build_stacks()
+            self.build_saturation_map_stacks()
             self.photometry_stacks()
             self.qc_photometry_stacks()
             self.qc_astrometry_stacks()
@@ -1481,6 +1500,7 @@ class Pipeline:
         # the tile image before the completeness run reads it)
         if self.setup.build_tile:
             self.build_tile()
+            self.build_saturation_map_tile()
             self.exposure_map_tile()
             self.photometry_tile()
             self.qc_photometry_tile()

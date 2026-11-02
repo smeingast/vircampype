@@ -973,7 +973,6 @@ def detections_to_sources(
     table: Table,
     photerr_internal: float,
     apertures: list,
-    mag_saturation: float,
     survey_name: str,
     magerr_scale: np.ndarray | None = None,
 ) -> QTable:
@@ -982,9 +981,10 @@ def detections_to_sources(
 
     Every row is a pipeline detection: the function computes total position
     errors, the quality flags (``CFLG``, ``CFLG_REASON``, ``QFLG``) and assembles
-    a ``QTable`` with the columns of ``SOURCE_COLUMNS``. Bright (saturated) stars
-    stay in the list, flagged unusable with reason 1; 2MASS rows for them are
-    added by the VISIONS fold, not here. Rows with unphysical errors or
+    a ``QTable`` with the columns of ``SOURCE_COLUMNS``. Saturated stars (at least
+    one input exposure saturated under the source, ``IMAFLAGS_ISO`` > 0 from the
+    saturation map) stay in the list, flagged unusable with reason 1; 2MASS rows for
+    bright stars are added by the VISIONS fold, not here. Rows with unphysical errors or
     measurements are removed. The IDs are checked for uniqueness.
 
     Parameters
@@ -997,8 +997,6 @@ def detections_to_sources(
         aperture magnitude errors.
     apertures : List
         List of aperture diameters (pixels) used during SExtractor photometry.
-    mag_saturation : float
-        Bright-star saturation limit (mag, Vega).
     survey_name : str
         Survey name written into the ``SURVEY`` column (e.g. ``"VISIONS"``).
     magerr_scale : np.ndarray | None, optional
@@ -1018,8 +1016,19 @@ def detections_to_sources(
     ------
     PipelineValueError
         If ``ASTRMS_CORR`` is outside [-1, 1], ``magerr_scale`` has the wrong
-        length, or two sources share an ID.
+        length, two sources share an ID, or the table has no ``IMAFLAGS_ISO``
+        (catalog made without a saturation map).
     """
+    # Saturation from the saturation map (FLAG_IMAGE); catalogs made without one
+    # must be rebuilt
+    if "IMAFLAGS_ISO" not in table.colnames:
+        raise PipelineValueError(
+            "Catalog without IMAFLAGS_ISO (made without a saturation map): "
+            "rebuild the catalog",
+            logger=logging.getLogger(__name__),
+        )
+    data_saturated = np.asarray(table["IMAFLAGS_ISO"]) > 0
+
     # Fill masked columns with NaN
     table = fill_masked_columns(table=table, fill_value=np.nan)
 
@@ -1139,14 +1148,11 @@ def detections_to_sources(
     magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
     aper_best = np.array(apertures)[idx_best]
 
-    # Bad saturation
+    # Saturated in at least one input exposure (saturation map)
     cflg = np.full(len(table), fill_value=False, dtype=bool)
     cflg_reason = np.full(len(table), fill_value=0, dtype=int)
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore")
-        fil_magaper = np.nanmin(mag_aper, axis=1) < mag_saturation
-        cflg[fil_magaper] = True
-        cflg_reason[fil_magaper] += 1
+    cflg[data_saturated] = True
+    cflg_reason[data_saturated] += 1
     # Bad flux measurement. Tests are written NaN-aware ("not good" rather than
     # "bad"): sextractor_nanify_bad_values turns values <= 0 into NaN upstream.
     fil_flux_auto = ~(np.asarray(data_flux_auto) >= 0.01)

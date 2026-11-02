@@ -3845,7 +3845,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
         table_class,
         data_header: fits.Header,
         photerr_internal: float,
-        mag_saturation: float,
         label: str,
     ):
         """
@@ -3928,7 +3927,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             table,
             photerr_internal=photerr_internal,
             apertures=self.setup.apertures,
-            mag_saturation=mag_saturation,
             survey_name=self.setup.survey_name,
             magerr_scale=magerr_scale,
         )
@@ -4067,7 +4065,6 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
                     table_class=table_class,
                     data_header=data_header,
                     photerr_internal=photerr_internal,
-                    mag_saturation=master_phot.mag_lim_lo(passband=passband_2mass),
                     label=f"{self.paths_full[idx_file]} [table {idx_hdu + 1}]",
                 )
                 sources_file.append(sources)

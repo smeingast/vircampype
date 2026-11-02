@@ -18,6 +18,7 @@ _SCIENCE_PREFIX = (
     "illumcorr",
     "resampled",
     "statistics_resampled",
+    "saturation_maps_resampled",
     "photometry_pawprints",
     "photerr_internal",
 )
@@ -30,6 +31,7 @@ _PAWPRINT_STEPS = (
 )
 _STACK_STEPS = (
     "stacks",
+    "saturation_map_stacks",
     "photometry_stacks",
     "qc_photometry_stacks",
     "qc_astrometry_stacks",
@@ -40,6 +42,7 @@ _STACK_STEPS = (
 )
 _TILE_STEPS = (
     "tile",
+    "saturation_map_tile",
     "exposure_map",
     "photometry_tile",
     "qc_photometry_tile",
@@ -96,6 +99,8 @@ class PipelineStatus:
         Status of Resampled, defaults to False.
     statistics_resampled : bool
         Status of Statistics for Resampled, defaults to False.
+    saturation_maps_resampled : bool
+        Status of the pawprint saturation maps, defaults to False.
     photometry_pawprints : bool
         Status of Photometry Pawprints, defaults to False.
     photerr_internal : bool
@@ -106,6 +111,8 @@ class PipelineStatus:
         Status of the pawprint CRDER cards, defaults to False.
     stacks : bool
         Status of Stacks, defaults to False.
+    saturation_map_stacks : bool
+        Status of the stack saturation maps, defaults to False.
     statistics_stacks : bool
         Status of Statistics Stacks, defaults to False.
     classification_stacks : bool
@@ -150,6 +157,7 @@ class PipelineStatus:
     illumcorr: bool = False
     resampled: bool = False
     statistics_resampled: bool = False
+    saturation_maps_resampled: bool = False
     photometry_pawprints: bool = False
     photerr_internal: bool = False
     pawprints: bool = False
@@ -158,6 +166,7 @@ class PipelineStatus:
     classification_pawprints: bool = False
     public_catalog_pawprints: bool = False
     stacks: bool = False
+    saturation_map_stacks: bool = False
     statistics_stacks: bool = False
     classification_stacks: bool = False
     photometry_stacks: bool = False
@@ -166,6 +175,7 @@ class PipelineStatus:
     qc_psf_stacks: bool = False
     public_catalog_stacks: bool = False
     tile: bool = False
+    saturation_map_tile: bool = False
     exposure_map: bool = False
     statistics_tile: bool = False
     classification_tile: bool = False

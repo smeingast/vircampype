@@ -171,6 +171,7 @@ Processes raw science frames through to final co-added products:
 9. **Pawprints** — optional single-exposure products from the resampled pawprints (`build_pawprints`): one MEF with 16 detector extensions per raw exposure plus its weight map, `products/pawprints/<name>_NN.pawprint.fits`
 10. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile `<name>.fits` with its weight `<name>.weight.fits` and exact exposure map `<name>.expmap.fits`
 11. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
+    - **Saturation maps** — per pawprint, a 0/1 map of pixels at or above 0.95 × their own `SATURATE` (weight > 0); per stack and tile (`<name>.satmap.fits`, uint8), the number of input exposures saturated at each pixel. The `full` SExtractor catalogs read them as `FLAG_IMAGE` (`FLAG_TYPE MAX` → `IMAFLAGS_ISO`), and a source saturated in at least one input exposure gets CFLG reason 1 (replacing the 2MASS bright-limit magnitude cut)
 12. **Source catalogs** — SExtractor source extraction on pawprints (optional), stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
 13. **QC plots** — astrometric and photometric diagnostic plots
 14. **QC summary table** — aggregates the Phase 3 header values of pawprints, stacks and tile (`photzp`, `photzper`, `photzp_scatter` (std of the per-detector PHOTZP of a stack or pawprint), `psf_fwhm`, `ellipticity`, `abmaglim`, `abmagsat`, `comp90`, `comp50`) into `qc/qc_summary.ecsv`
