@@ -2519,7 +2519,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             for i in todo
         )
         for i, n in zip(todo, counts):
-            log.info(f"Saturation map {self.basenames[i]}: {n} saturated pixels")
+            log.info(f"Saturation map {self.basenames[i]}: {n} flagged pixels")
         print_message(
             message=f"\n-> Elapsed time: {time.time() - tstart:.2f}s",
             kind="okblue",

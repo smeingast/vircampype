@@ -4,9 +4,9 @@ A coadd has one SATURATE (SWarp writes the lowest of its inputs), far below wher
 inputs saturate, and the coadd peak of a star is diluted by seeing and jitter, so no
 single level flags saturated stars correctly. Instead every resampled pawprint gets a
 0/1 map of its pixels at or above SATURATION_FRACTION x its own SATURATE (weight > 0),
-and the maps of stacks and tiles count those maps on their grid. SExtractor reads the
-count map as FLAG_IMAGE (FLAG_TYPE MAX): IMAFLAGS_ISO is the largest number of
-saturated inputs under a source.
+plus the hollow cores enclosed by them, and the maps of stacks and tiles count those
+maps on their grid. SExtractor reads the count map as FLAG_IMAGE (FLAG_TYPE MAX):
+IMAFLAGS_ISO is the largest number of saturated inputs under a source.
 """
 
 import logging
@@ -14,6 +14,7 @@ import os
 
 import numpy as np
 from astropy.io import fits
+from scipy.ndimage import binary_fill_holes
 
 from vircampype.pipeline.errors import PipelineValueError
 from vircampype.tools.systemtools import (
@@ -69,13 +70,13 @@ def build_pawprint_saturation_map(
 ) -> int:
     """
     0/1 map of one resampled pawprint: pixels at or above SATURATION_FRACTION x the
-    SATURATE of their extension, with weight > 0. One uint8 extension per detector on
-    the detector's grid.
+    SATURATE of their extension plus the pixels they enclose, with weight > 0. One uint8
+    extension per detector on the detector's grid.
 
     Returns
     -------
     int
-        Number of saturated pixels.
+        Number of flagged pixels (saturated and enclosed).
 
     Raises
     ------
@@ -104,7 +105,11 @@ def build_pawprint_saturation_map(
                     f"{os.path.basename(path_image)}[{idx}] has no SATURATE"
                 )
             level = SATURATION_FRACTION * float(hdr["SATURATE"])
-            mask = (data >= level) & (weight > 0)
+            # Correlated double sampling: the cores of the brightest stars are already
+            # saturated at the first read and fall below the level (down to negative
+            # values) inside a ring of saturated pixels. Fill the holes enclosed by the
+            # ring; masked or non-finite pixels may close a ring but are never flagged.
+            mask = binary_fill_holes(data >= level) & np.isfinite(data) & (weight > 0)
             n_sat += int(mask.sum())
             hdr_map = _map_header(hdr, mask.shape)
             hdr_map["SATLEVEL"] = (round(level, 3), "Level of a saturated pixel (ADU)")

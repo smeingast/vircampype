@@ -82,6 +82,47 @@ class TestSaturationMaps(unittest.TestCase):
             self.assertFalse(m[2].data.any())
             self.assertEqual(m[1].header["CRPIX1"], 1)
 
+    def test_hollow_core_filled(self):
+        # Ring of saturated pixels around a negative core (CDS wrap); one ring pixel and
+        # one core pixel without weight. A ring cut by the detector edge stays open.
+        path = self._pawprint("p3", [(1, 1)])
+        with fits.open(path, mode="update") as h:
+            h[1].data[1:6, 1:6] = 200.0
+            h[1].data[2:5, 2:5] = -30.0
+            h[1].data[0:3, 7:10] = 200.0
+            h[1].data[0:2, 8] = -30.0
+        with fits.open(path.replace(".fits", ".weight.fits"), mode="update") as w:
+            w[1].data[1, 3] = 0
+            w[1].data[3, 3] = 0
+        out, n = self._map(path)
+        with fits.open(out) as m:
+            sat = m[1].data
+        expected = np.zeros((8, 10), np.uint8)
+        expected[1:6, 1:6] = 1
+        expected[1, 3] = expected[3, 3] = 0
+        expected[0:3, 7:10] = 1
+        expected[0:2, 8] = 0
+        np.testing.assert_array_equal(sat, expected)
+        self.assertEqual(n, int(expected.sum()))
+
+    def test_hollow_core_open_or_nonfinite(self):
+        # A gap in the ring keeps the core open (no closing); a non-finite core pixel
+        # with weight is never flagged.
+        path = self._pawprint("p4", [(1, 1)])
+        with fits.open(path, mode="update") as h:
+            h[1].data[1:6, 1:6] = 200.0
+            h[1].data[2:5, 2:5] = -30.0
+            h[1].data[1, 3] = 50.0
+            h[1].data[2:7, 5:10] = 200.0
+            h[1].data[3:6, 6:9] = -30.0
+            h[1].data[4, 7] = np.nan
+        out, _ = self._map(path)
+        with fits.open(out) as m:
+            sat = m[1].data
+        self.assertFalse(sat[2:5, 2:5].any())
+        self.assertTrue(sat[3, 6] and sat[5, 8])
+        self.assertEqual(sat[4, 7], 0)
+
     def test_missing_saturate_raises(self):
         path = self._pawprint("p2", [(1, 1)])
         with fits.open(path, mode="update") as h:
