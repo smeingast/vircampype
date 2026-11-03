@@ -630,18 +630,58 @@ class TestDetectionsToSourcesFlags(unittest.TestCase):
             j = m[20 + k]
             self.assertTrue(bool(out["CFLG"][j]))
             self.assertEqual(out["QFLG"][j], "X")
-            self.assertTrue(int(out["CFLG_REASON"][j]) & 16)
+            self.assertEqual(int(out["CFLG_REASON"][j]), 1)
 
-    def test_nan_snr_and_flux_are_flagged(self):
+    def test_failed_measurements_share_bit_2(self):
         def mod(t):
             t["SNR_WIN"][20] = np.nan
             t["FLUX_AUTO"][21] = np.nan
+            t["CLASS_STAR_INTERP"][22] = np.nan
+            t["CLASS_STAR_INTERP"][23] = np.inf
 
         _, out, m = self._run(mod)
-        self.assertTrue(int(out["CFLG_REASON"][m[20]]) & 4)
-        self.assertTrue(int(out["CFLG_REASON"][m[21]]) & 2)
-        self.assertEqual(out["QFLG"][m[20]], "X")
-        self.assertEqual(out["QFLG"][m[21]], "X")
+        for i in range(20, 24):
+            self.assertEqual(int(out["CFLG_REASON"][m[i]]), 2)
+            self.assertEqual(out["QFLG"][m[i]], "X")
+
+    def test_zero_weight_is_bit_8(self):
+        def mod(t):
+            t["FLAGS_WEIGHT"][20] = 2
+
+        _, out, m = self._run(mod)
+        self.assertEqual(int(out["CFLG_REASON"][m[20]]), 8)
+
+    def test_sharp_and_nebula_bits(self):
+        def mod(t):
+            # all rows grow by 0.1 mag from 3 to 4 px
+            t["MAG_APER_MATCHED_CAL"][20, 0] -= 0.15  # 0.15 mag sharper -> 16
+            t["MAG_APER_MATCHED_CAL"][21, 0] -= 0.08  # within the 0.10 floor
+            t["BACKGROUND"][22] = 0.05 * t["FLUX_APER"][22, 0]
+            t["MAG_APER_MATCHED"][22, 0] += 0.2  # growth 0.3 mag
+            t["CLASS_STAR_INTERP"][22] = 0.1  # -> 32
+
+        _, out, m = self._run(mod)
+        self.assertEqual(int(out["CFLG_REASON"][m[20]]), 16)
+        self.assertEqual(int(out["CFLG_REASON"][m[21]]), 0)
+        self.assertEqual(int(out["CFLG_REASON"][m[22]]), 32)
+
+    def test_undefined_fwhm_kept_as_nan(self):
+        def mod(t):
+            t["FWHM_WORLD"][20] = 0.0
+            t["FWHM_WORLD"][21] = 0.1 / 3600  # sharp, no longer flagged
+
+        _, out, m = self._run(mod)
+        self.assertIn(20, m)
+        self.assertTrue(np.isnan(out["FWHM"][m[20]].value))
+        for i in (20, 21):
+            self.assertEqual(int(out["CFLG_REASON"][m[i]]), 0)
+
+    def test_catalog_without_classification_raises(self):
+        def mod(t):
+            t.remove_column("CLASS_STAR_INTERP")
+
+        with self.assertRaisesRegex(PipelineValueError, "CLASS_STAR_INTERP"):
+            self._run(mod)
 
     def test_keeps_saturated_detections(self):
         def mod(t):
@@ -652,9 +692,9 @@ class TestDetectionsToSourcesFlags(unittest.TestCase):
         self.assertIn(20, m)
         j = m[20]
         self.assertTrue(bool(out["CFLG"][j]))
-        self.assertTrue(int(out["CFLG_REASON"][j]) & 1)
+        self.assertEqual(int(out["CFLG_REASON"][j]), 4)
         self.assertEqual(out["QFLG"][j], "X")
-        self.assertFalse(int(out["CFLG_REASON"][m[21]]) & 1)
+        self.assertFalse(int(out["CFLG_REASON"][m[21]]) & 4)
 
     def test_catalog_without_saturation_map_raises(self):
         def mod(t):

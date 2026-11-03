@@ -3906,7 +3906,7 @@ class PhotometricCalibratedSextractorCatalogs(AstrometricCalibratedSextractorCat
             )
 
         # Interpolate source classification; unmatched sources are kept with
-        # NaN (-> CFLG 256) instead of being dropped
+        # NaN (-> CFLG_REASON 2) instead of being dropped
         interpolate_classification(table, table_class)
 
         # Correlated-noise inflation of the aperture errors (per aperture); the

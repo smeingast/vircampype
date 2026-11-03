@@ -133,7 +133,14 @@ SOURCE_COLUMNS = (
     ("CLS", "E", "", "src.class.starGalaxy", "Seeing-matched CLASS_STAR", "F6.3"),
     ("SFLG", "I", "", "meta.code", "SExtractor FLAGS", "I3"),
     ("CFLG", "L", "", "meta.code", "Unusable measurement (see CFLG_REASON)", None),
-    ("CFLG_REASON", "K", "", "meta.code", "Reason bitmask of CFLG", None),
+    (
+        "CFLG_REASON",
+        "K",
+        "",
+        "meta.code",
+        "CFLG bits: 1 sexflag 2 nomeas 4 sat 8 weight 16 sharp 32 nebula",
+        None,
+    ),
     ("QFLG", "1A", "", "meta.code.qual", "Quality grade A-D, X = unusable", None),
     ("SURVEY", "10A", "", "meta.dataset", "Survey of the observations", None),
 )
@@ -172,7 +179,7 @@ SOURCES_PRIMARY_KEYS = (
 )
 
 
-# SExtractor FLAGS bits that make a public-catalogue measurement unusable (CFLG bit 16):
+# SExtractor FLAGS bits that make a public-catalogue measurement unusable (CFLG bit 1):
 # 8 truncated, 16 aperture data corrupted, 32 isophotal data corrupted, 64/128 memory
 # overflow. 1 (neighbours), 2 (deblended) and 4 (saturated pixel) are informational.
 SFLG_FATAL = 8 | 16 | 32 | 64 | 128
@@ -983,7 +990,7 @@ def detections_to_sources(
     errors, the quality flags (``CFLG``, ``CFLG_REASON``, ``QFLG``) and assembles
     a ``QTable`` with the columns of ``SOURCE_COLUMNS``. Saturated stars (at least
     one input exposure saturated under the source, ``IMAFLAGS_ISO`` > 0 from the
-    saturation map) stay in the list, flagged unusable with reason 1; 2MASS rows for
+    saturation map) stay in the list, flagged unusable with reason 4; 2MASS rows for
     bright stars are added by the VISIONS fold, not here. Rows with unphysical errors or
     measurements are removed. The IDs are checked for uniqueness.
 
@@ -1017,7 +1024,7 @@ def detections_to_sources(
     PipelineValueError
         If ``ASTRMS_CORR`` is outside [-1, 1], ``magerr_scale`` has the wrong
         length, two sources share an ID, or the table has no ``IMAFLAGS_ISO``
-        (catalog made without a saturation map).
+        (catalog made without a saturation map) or no ``CLASS_STAR_INTERP``.
     """
     # Saturation from the saturation map (FLAG_IMAGE); catalogs made without one
     # must be rebuilt
@@ -1028,6 +1035,11 @@ def detections_to_sources(
             logger=logging.getLogger(__name__),
         )
     data_saturated = np.asarray(table["IMAFLAGS_ISO"]) > 0
+    if "CLASS_STAR_INTERP" not in table.colnames:
+        raise PipelineValueError(
+            "Catalog without CLASS_STAR_INTERP: interpolate the classification first",
+            logger=logging.getLogger(__name__),
+        )
 
     # Fill masked columns with NaN
     table = fill_masked_columns(table=table, fill_value=np.nan)
@@ -1070,8 +1082,9 @@ def detections_to_sources(
         raise PipelineValueError(msg, logger=logging.getLogger(__name__))
     data_exptime = table["EXPTIME"].value
     data_mjd = table["MJDEFF"].value
-    data_nimg = table["NIMG"]
+    # Undefined widths (<= 0) are kept as NaN, not removed or flagged
     data_fwhm = table["FWHM_WORLD"].value
+    data_fwhm = np.where(data_fwhm > 0, data_fwhm, np.nan)
     data_awin = table["AWIN_WORLD"].value
     data_bwin = table["BWIN_WORLD"].value
     data_ellipticity = 1 - data_bwin / data_awin
@@ -1080,10 +1093,7 @@ def detections_to_sources(
     data_flags_weight = table["FLAGS_WEIGHT"]
     data_background = table["BACKGROUND"]
     data_isoarea_image = table["ISOAREA_IMAGE"]
-    try:
-        data_cls = table["CLASS_STAR_INTERP"]
-    except KeyError:
-        data_cls = np.full_like(data_exptime, fill_value=1.0)
+    data_cls = np.asarray(table["CLASS_STAR_INTERP"], dtype=float)
 
     # Build SExtractor error ellipse covariance matrix in RA/Dec frame (mas^2).
     # Shared with the astrometric-floor self-calibration so the subtracted term
@@ -1148,54 +1158,32 @@ def detections_to_sources(
     magerr_best = magerr_aper.copy()[np.arange(len(table)), idx_best]
     aper_best = np.array(apertures)[idx_best]
 
-    # Saturated in at least one input exposure (saturation map)
-    cflg = np.full(len(table), fill_value=False, dtype=bool)
+    # CFLG_REASON bits, grouped by cause. Tests are written NaN-aware ("not good"
+    # rather than "bad"): sextractor_nanify_bad_values turns values <= 0 into NaN.
     cflg_reason = np.full(len(table), fill_value=0, dtype=int)
-    cflg[data_saturated] = True
-    cflg_reason[data_saturated] += 1
-    # Bad flux measurement. Tests are written NaN-aware ("not good" rather than
-    # "bad"): sextractor_nanify_bad_values turns values <= 0 into NaN upstream.
-    fil_flux_auto = ~(np.asarray(data_flux_auto) >= 0.01)
-    cflg[fil_flux_auto] = True
-    cflg_reason[fil_flux_auto] += 2
-    # Bad SNR
-    fil_snr = ~(np.asarray(data_snr_win) > 0)
-    cflg[fil_snr] = True
-    cflg_reason[fil_snr] += 4
-    # Bad number of images
-    fil_nimg = data_nimg < 1
-    cflg[fil_nimg] = True
-    cflg_reason[fil_nimg] += 8
-    # Bad sextractor flags: truncated (8), corrupted aperture/isophotal data
+    # 1: fatal SExtractor flags: truncated (8), corrupted aperture/isophotal data
     # (16, 32) and memory overflows (64, 128). Saturation (4) is not fatal: the
     # SATURATE level is conservative and those measurements are as good as
     # unsaturated ones (cross-epoch tests, v2.7.0 CrA); it stays visible in SFLG.
     # Blending (1, 2) stays visible in SFLG as well.
-    fil_sflg = (np.asarray(data_sflg).astype(np.int64) & SFLG_FATAL) > 0
-    cflg[fil_sflg] = True
-    cflg_reason[fil_sflg] += 16
-    # Bad weight flag
-    fil_flags_weight = data_flags_weight > 0
-    cflg[fil_flags_weight] = True
-    cflg_reason[fil_flags_weight] += 32
-    # Bad FWHM
-    fil_fwhm = data_fwhm * 3600 <= 0.2
-    cflg[fil_fwhm] = True
-    cflg_reason[fil_fwhm] += 64
-    # Bad MJD
-    fil_mjd = ~(np.asarray(data_mjd) > 0)
-    cflg[fil_mjd] = True
-    cflg_reason[fil_mjd] += 128
-    # Bad class star
-    fil_cls = np.isnan(data_cls)
-    cflg[fil_cls] = True  # CLASS_STAR must have worked in sextractor
-    cflg_reason[fil_cls] += 256
+    cflg_reason[(np.asarray(data_sflg).astype(np.int64) & SFLG_FATAL) > 0] |= 1
+    # 2: failed measurement (no flux, no SNR or no classification)
+    fil_nomeas = (
+        ~(np.asarray(data_flux_auto) >= 0.01)
+        | ~(np.asarray(data_snr_win) > 0)
+        | ~np.isfinite(data_cls)
+    )
+    cflg_reason[fil_nomeas] |= 2
+    # 4: saturated in at least one input exposure (saturation map)
+    cflg_reason[data_saturated] |= 4
+    # 8: zero-weight pixels in the footprint
+    cflg_reason[np.asarray(data_flags_weight) > 0] |= 8
 
-    # Growth-curve outliers (bit 512): sources MORE concentrated than point sources
-    # of the same magnitude, i.e. the aperture-matched 3 px magnitude is brighter
-    # than the 4 px one by more than 0.05 mag and 3 sigma (sharp artefacts such as
+    # 16: growth-curve outliers, sources MORE concentrated than point sources of
+    # the same magnitude, i.e. the aperture-matched 3 px magnitude is brighter
+    # than the 4 px one by more than 0.10 mag and 3 sigma (sharp artefacts such as
     # hot pixels or cosmic-ray residuals). Extended emission is caught by the
-    # nebula filter below (bit 1024), not by this test.
+    # nebula filter below (bit 32), not by this test.
     growth = data_mag_aper_matched_cal[:, 0] - data_mag_aper_matched_cal[:, 1]
     mag_min, mag_max = np.nanmin(mag_best), np.nanmax(mag_best)
     mag_range = np.arange(mag_min, mag_max + 0.25, 0.25)
@@ -1214,7 +1202,7 @@ def detections_to_sources(
             mean, median, stddev = sigma_clipped_stats(
                 growth[cidx_pnt], sigma=5, maxiters=1
             )
-            bad = (growth[cidx_all] < median - 0.05) & (
+            bad = (growth[cidx_all] < median - 0.10) & (
                 growth[cidx_all] < median - 3 * stddev
             )
 
@@ -1223,11 +1211,10 @@ def detections_to_sources(
             bad_idx.append(idx_all[cidx_all][bad])
 
     # Flag outliers
-    fil_growth = flat_list(bad_idx)
-    cflg[fil_growth] = True
-    cflg_reason[fil_growth] += 512
+    fil_growth = np.unique(np.asarray(flat_list(bad_idx), dtype=int))
+    cflg_reason[fil_growth] |= 16
 
-    # Nebula filter (bit 1024): extended emission / nebulous knots - high local
+    # 32: nebula filter, extended emission / nebulous knots - high local
     # background relative to the 3 px aperture flux, a growth from 3 to 4 px of
     # at least 0.2 mag and a non-stellar classification
     fil_neb = (
@@ -1235,8 +1222,8 @@ def detections_to_sources(
         & (data_mag_aper_matched[:, 0] - data_mag_aper_matched[:, 1] >= 0.2)
         & (data_cls < 0.5)
     )
-    cflg[fil_neb] = True
-    cflg_reason[fil_neb] += 1024
+    cflg_reason[fil_neb] |= 32
+    cflg = cflg_reason > 0
 
     # Construct quality flag (fatal SExtractor flags are part of CFLG)
     qflg = np.full(len(table), fill_value="X", dtype=str)
@@ -1258,7 +1245,6 @@ def detections_to_sources(
         & (magerr_best < 50.0)
         & (data_mjd > 0.0)
         & (data_exptime > 0.0)
-        & (data_fwhm > 0.0)
         & (data_ellipticity >= 0.0)
     )[0]
 

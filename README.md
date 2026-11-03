@@ -171,7 +171,7 @@ Processes raw science frames through to final co-added products:
 9. **Pawprints** — optional single-exposure products from the resampled pawprints (`build_pawprints`): one MEF with 16 detector extensions per raw exposure plus its weight map, `products/pawprints/<name>_NN.pawprint.fits`
 10. **Stacks / Tile** — co-adds resampled images into per-offset stacks and a final tile `<name>.fits` with its weight `<name>.weight.fits` and exact exposure map `<name>.expmap.fits`
 11. **Statistics images** — per-pixel exposure time, image count, astrometric RMS, RA/Dec astrometric correlation, and MJD maps
-    - **Saturation maps** — per pawprint, a 0/1 map of pixels at or above 0.95 × their own `SATURATE` (weight > 0); per stack and tile (`<name>.satmap.fits`, uint8), the number of input exposures saturated at each pixel. The `full` SExtractor catalogs read them as `FLAG_IMAGE` (`FLAG_TYPE MAX` → `IMAFLAGS_ISO`), and a source saturated in at least one input exposure gets CFLG reason 1 (replacing the 2MASS bright-limit magnitude cut)
+    - **Saturation maps** — per pawprint, a 0/1 map of pixels at or above 0.95 × their own `SATURATE` (weight > 0); per stack and tile (`<name>.satmap.fits`, uint8), the number of input exposures saturated at each pixel. The `full` SExtractor catalogs read them as `FLAG_IMAGE` (`FLAG_TYPE MAX` → `IMAFLAGS_ISO`), and a source saturated in at least one input exposure gets CFLG reason 4 (replacing the 2MASS bright-limit magnitude cut). Hollow cores of the brightest stars (correlated double sampling: the core is already saturated at the first read and falls below the level inside a saturated ring) are filled where the ring is closed
 12. **Source catalogs** — SExtractor source extraction on pawprints (optional), stacks and tile (optionally with the WIN window cap, `sex_winpos_cap`)
 13. **QC plots** — astrometric and photometric diagnostic plots
 14. **QC summary table** — aggregates the Phase 3 header values of pawprints, stacks and tile (`photzp`, `photzper`, `photzp_scatter` (std of the per-detector PHOTZP of a stack or pawprint), `psf_fwhm`, `ellipticity`, `abmaglim`, `abmagsat`, `comp90`, `comp50`) into `qc/qc_summary.ecsv`
@@ -281,23 +281,21 @@ needed and are safe to delete between runs.
 Every source list (`<product>.sources.fits`) carries three flag columns:
 
 - `SFLG`: SExtractor `FLAGS` unchanged. Bits 1 (neighbours), 2 (deblended) and 4 (saturated
-  pixel) are informational; bits 8-128 (truncated, corrupted data, memory overflow) are fatal (`CFLG_REASON` 16).
+  pixel) are informational; bits 8-128 (truncated, corrupted data, memory overflow) are fatal (`CFLG_REASON` 1).
   For the most precise photometry/astrometry use `SFLG == 0` (or `SFLG & 1 == 0` if deblended sources are fine).
 - `CFLG` (bool) is True if any `CFLG_REASON` bit is set; `CFLG_REASON` (sum of bits):
 
   | bit | meaning |
   |---|---|
-  | 1 | brightest aperture magnitude brighter than the bright limit (`PYPE REFMAG LO`) |
-  | 2 | `FLUX_AUTO` not >= 0.01 (incl. non-positive / NaN) |
-  | 4 | `SNR_WIN` not > 0 (incl. NaN) |
-  | 8 | `NIMG` < 1 |
-  | 16 | fatal SExtractor flag (bits 8-128) |
-  | 32 | `FLAGS_WEIGHT` > 0 (zero-weight pixels in the footprint) |
-  | 64 | `FWHM_WORLD` <= 0.2 arcsec |
-  | 128 | `MJDEFF` not > 0 (such rows are removed by the final row cut, so it never appears) |
-  | 256 | no source classification (`CLASS_STAR_INTERP` NaN) |
-  | 512 | growth-curve outlier: more concentrated than point sources of the same magnitude (3 px vs 4 px aperture-matched magnitude) |
-  | 1024 | nebula: high local background relative to the 3 px flux, growth 3->4 px >= 0.2 mag, non-stellar |
+  | 1 | fatal SExtractor flag (`SFLG` bits 8-128: truncated, corrupted aperture/isophotal data, memory overflow) |
+  | 2 | failed measurement: `FLUX_AUTO` not >= 0.01, `SNR_WIN` not > 0, or no source classification (`CLS` not finite) |
+  | 4 | saturated in at least one input exposure (saturation map, `IMAFLAGS_ISO` > 0) |
+  | 8 | zero-weight pixels in the footprint (`FLAGS_WEIGHT` > 0) |
+  | 16 | sharp: more concentrated than point sources of the same magnitude (3 px minus 4 px aperture-matched magnitude below the point-source median by more than 0.10 mag and 3 sigma, in 0.5 mag windows stepped by 0.25 mag) |
+  | 32 | nebula: local background / 3 px aperture flux > 0.02, growth from 3 to 4 px >= 0.2 mag and `CLS` < 0.5 |
+
+  Detections without coverage on the statistics images (no exposure time or epoch) and rows with undefined
+  position errors or magnitudes are not in the source list. An undefined `FWHM` is written as NaN.
 
 - `QFLG`: A/B/C/D for `MAGERR` < 0.10857 / 0.15510 / 0.21714 / otherwise (S/N 10/7/5, as 2MASS) when `CFLG` is
   False; X when `CFLG` is True. 2MASS rows for bright stars are added by the VISIONS release fold, not by the
