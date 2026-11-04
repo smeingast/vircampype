@@ -39,6 +39,9 @@ class TestPsfPresets(unittest.TestCase):
         self.assertEqual(cfg["SAMPLE_AUTOSELECT"], "N")
         self.assertEqual(cfg["SAMPLE_FWHMRANGE"], "1.5,6.0")
         self.assertEqual(cfg["BADPIXEL_FILTER"], "Y")
+        for key in ("CHECKPLOT_TYPE", "CHECKIMAGE_TYPE"):
+            self.assertEqual(cfg[key], "NONE")  # own QC plots (psfmodel.py)
+        self.assertEqual(cfg["WRITE_XML"], "N")
 
 
 if __name__ == "__main__":

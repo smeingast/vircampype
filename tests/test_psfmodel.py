@@ -140,29 +140,109 @@ class TestWriteLdac(unittest.TestCase):
                 self.assertEqual(f.read(len(text)), text.encode())
 
 
+def model_hdu(planes: np.ndarray, zero=(50.0, 40.0), scale=(100.0, 80.0)):
+    """PSF_DATA extension of a PSFEx model (degree 2 in XWIN_IMAGE, YWIN_IMAGE)."""
+    n = planes.shape[-1]
+    col = fits.Column(
+        name="PSF_MASK",
+        format=f"{planes.size}E",
+        dim=f"({n}, {n}, {len(planes)})",
+        array=[planes],
+    )
+    h = fits.BinTableHDU.from_columns([col], name="PSF_DATA")
+    cards = dict(
+        POLNAXIS=2,
+        POLNGRP=1,
+        POLNAME1="XWIN_IMAGE",
+        POLNAME2="YWIN_IMAGE",
+        POLDEG1=2,
+        POLZERO1=zero[0],
+        POLZERO2=zero[1],
+        POLSCAL1=scale[0],
+        POLSCAL2=scale[1],
+        PSF_SAMP=0.5,
+        ACCEPTED=100,
+        CHI2=1.0,
+    )
+    for k, v in cards.items():
+        h.header[k] = v
+    return h
+
+
+def gaussian(n=49, sx=1.0, sy=1.0, sampling=0.5):
+    y, x = (np.mgrid[:n, :n] - n // 2) * sampling
+    return np.exp(-(x**2) / (2 * sx**2) - y**2 / (2 * sy**2))
+
+
+class TestModelEvaluation(unittest.TestCase):
+    def test_polynomial_terms(self):
+        # plane k is the constant k + 1: model = sum_k (k + 1) * term_k
+        planes = np.stack([np.full((5, 5), k + 1.0) for k in range(6)])
+        h = model_hdu(planes)
+        stamp = pm.psf_model_at(h.header, planes, 150.0, 120.0)  # xp = 1, yp = 1
+        self.assertAlmostEqual(stamp[0, 0], sum(range(1, 7)))
+        stamp = pm.psf_model_at(h.header, planes, 250.0, 40.0)  # xp = 2, yp = 0
+        self.assertAlmostEqual(stamp[0, 0], 1 + 2 * 2 + 3 * 4)
+        stamp = pm.psf_model_at(h.header, planes, 50.0, 200.0)  # xp = 0, yp = 2
+        self.assertAlmostEqual(stamp[0, 0], 1 + 4 * 2 + 6 * 4)
+        with self.assertRaises(PipelineValueError):
+            pm.psf_model_at(h.header, planes[:5], 1.0, 1.0)
+
+    def test_ellipticity(self):
+        self.assertAlmostEqual(pm.psf_ellipticity(gaussian(), 0.5), 0.0, places=6)
+        e = pm.psf_ellipticity(gaussian(sx=1.2, sy=0.9), 0.5)
+        self.assertAlmostEqual(e, 1 - 0.9 / 1.2, delta=0.01)
+        self.assertTrue(np.isnan(pm.psf_ellipticity(np.zeros((49, 49)), 0.5)))
+
+
 class TestPlots(unittest.TestCase):
     def test_plots_are_written(self):
-        y, x = np.mgrid[:49, :49] - 24
-        stamp = np.exp(-(x**2 + y**2) / 20.0).astype("f4")
-        hdus = [fits.PrimaryHDU()]
-        for _ in range(16):
-            col = fits.Column(
-                name="PSF_MASK",
-                format="14406E",
-                dim="(49, 49, 6)",
-                array=[np.stack([stamp] * 6)],
-            )
-            h = fits.BinTableHDU.from_columns([col], name="PSF_DATA")
-            h.header["PSF_SAMP"] = 0.5
-            hdus.append(h)
-        infos = [dict(hdu=i, accepted=100, fwhm=2.5, chi2=1.0) for i in range(1, 17)]
+        stamp = gaussian(sx=1.1, sy=1.1).astype("f4")
+        planes = np.stack([stamp] + [np.zeros_like(stamp)] * 5)
+        hdus = [fits.PrimaryHDU()] + [model_hdu(planes) for _ in range(16)]
+        infos = [
+            {
+                "hdu": i,
+                "accepted": 100,
+                "fwhm": 2.6,
+                "ellipticity": 0.02,
+                "chi2": 1.0,
+                "selected": 3,
+                "detected": 5,
+                "fwhm_min": 2.2,
+                "fwhm_max": 3.0,
+                "shape": (80, 100),
+            }
+            for i in range(1, 17)
+        ]
+        rng = np.random.default_rng(2)
+        points = [
+            (rng.uniform(1, 5, 5), rng.uniform(10, 500, 5), np.arange(5) < 3)
+        ] * 16
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "T_01.stack.psf")
             fits.HDUList(hdus).writeto(path)
-            pm.plot_stack_models(path, infos, os.path.join(d, "a.png"))
-            pm.plot_stack_summary({"T_01.stack.fits": infos}, os.path.join(d, "b.png"))
-            self.assertTrue(os.path.getsize(os.path.join(d, "a.png")) > 0)
-            self.assertTrue(os.path.getsize(os.path.join(d, "b.png")) > 0)
+            weight = os.path.join(d, "T_01.stack.weight.fits")
+            fits.HDUList(
+                [fits.PrimaryHDU()]
+                + [fits.ImageHDU(np.ones((80, 100), "f4")) for _ in range(16)]
+            ).writeto(weight)
+            stars = os.path.join(d, "T_01.stack.cat")
+            cols = [
+                fits.Column(name=c, format="D", array=np.array([10.0, 50.0]))
+                for c in ("XWIN_IMAGE", "YWIN_IMAGE")
+            ]
+            table = fits.BinTableHDU.from_columns(cols)
+            fits.HDUList(
+                [fits.PrimaryHDU()] + [fits.BinTableHDU(), table] * 16
+            ).writeto(stars)
+            out = {k: os.path.join(d, f"{k}.png") for k in ("fwhm", "ellipticity")}
+            pm.plot_stack_models(path, infos, os.path.join(d, "models.png"))
+            pm.plot_stack_selection(infos, points, "T", os.path.join(d, "sel.png"))
+            pm.plot_stack_variation(path, weight, stars, infos, out, n_grid=3)
+            pm.plot_stack_summary({"T_01.stack.fits": infos}, os.path.join(d, "s.png"))
+            for name in ("models", "sel", "fwhm", "ellipticity", "s"):
+                self.assertTrue(os.path.getsize(os.path.join(d, f"{name}.png")) > 0)
 
 
 class TestSetupSwitch(unittest.TestCase):
