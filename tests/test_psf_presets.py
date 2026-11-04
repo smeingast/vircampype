@@ -26,9 +26,9 @@ class TestPsfPresets(unittest.TestCase):
             "FLUX_MAX",
             "SNR_WIN",
             "FLAGS_WEIGHT",
-            "VIGNET(25,25)",
         ):
             self.assertIn(name, params)
+        self.assertNotIn("VIGNET(25,25)", params)  # cutouts are made in psfmodel
         self.assertIn("-DEBLEND_MINCONT 0.0001", yml2config(sxs.path_yml("psf_stars")))
 
     def test_stack_psf(self):

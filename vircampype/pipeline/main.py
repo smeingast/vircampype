@@ -868,6 +868,11 @@ class Pipeline:
         """Saturation count maps of the stacks (FLAG_IMAGE of their catalogs)."""
         self.resampled.build_saturation_maps_stacks()
 
+    @pipeline_step("psf_models_stacks", message="STACK PSF MODELS")
+    def build_psf_models_stacks(self):
+        """PSFEx model of every detector stack (4.0 PSF photometry)."""
+        self.stacks.build_psf_models()
+
     @pipeline_step("saturation_map_tile", message="TILE SATURATION MAP")
     def build_saturation_map_tile(self):
         """Saturation count map of the tile (FLAG_IMAGE of its catalog)."""
@@ -1488,6 +1493,8 @@ class Pipeline:
         if self.setup.build_stacks:
             self.build_stacks()
             self.build_saturation_map_stacks()
+            if self.setup.build_psf_photometry:
+                self.build_psf_models_stacks()
             self.photometry_stacks()
             self.qc_photometry_stacks()
             self.qc_astrometry_stacks()

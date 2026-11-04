@@ -32,6 +32,7 @@ _PAWPRINT_STEPS = (
 _STACK_STEPS = (
     "stacks",
     "saturation_map_stacks",
+    "psf_models_stacks",
     "photometry_stacks",
     "qc_photometry_stacks",
     "qc_astrometry_stacks",
@@ -113,6 +114,8 @@ class PipelineStatus:
         Status of Stacks, defaults to False.
     saturation_map_stacks : bool
         Status of the stack saturation maps, defaults to False.
+    psf_models_stacks : bool
+        Status of the stack PSF models (4.0 PSF photometry), defaults to False.
     statistics_stacks : bool
         Status of Statistics Stacks, defaults to False.
     classification_stacks : bool
@@ -167,6 +170,7 @@ class PipelineStatus:
     public_catalog_pawprints: bool = False
     stacks: bool = False
     saturation_map_stacks: bool = False
+    psf_models_stacks: bool = False
     statistics_stacks: bool = False
     classification_stacks: bool = False
     photometry_stacks: bool = False

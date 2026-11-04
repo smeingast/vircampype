@@ -3865,6 +3865,14 @@ class Stacks(SkyImages):
     def __init__(self, setup, file_paths=None):
         super(Stacks, self).__init__(setup=setup, file_paths=file_paths)
 
+    def build_psf_models(self):
+        """PSFEx model of every detector stack, with its QC plots (4.0 PSF photometry;
+        see tools/psfmodel.py)."""
+        from vircampype.tools.psfmodel import build_stack_psf_models
+
+        print_header(header="STACK PSF MODELS", silent=self.setup.silent, right=None)
+        return build_stack_psf_models(paths_stacks=self.paths_full, setup=self.setup)
+
 
 class Pawprints(SkyImages):
     """Single-exposure pawprint products, one MEF per raw exposure."""

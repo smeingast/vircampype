@@ -60,6 +60,7 @@ class Setup:
     build_pawprints: bool = False  # Single-exposure pawprint products (MEFIMAGE + weight per exposure, with their photometry)
     build_stacks: bool = False  # Build stacked images per offset position
     build_tile: bool = True  # Build the final coadded tile
+    build_psf_photometry: bool = False  # PSF photometry of the tile (4.0, in development; needs build_stacks and build_tile)
     classification_n_seeing: int = 32  # Number of SEEING_FWHM grid points
     classification_seeing_step_warn: float = 0.05  # Warn if step exceeds this (arcsec)
     archive: bool = False  # Archive processed data
@@ -444,6 +445,12 @@ class Setup:
             self.n_jobs_swarp = self.n_jobs
         else:
             self.n_jobs_swarp = min(self.n_jobs_swarp, self.n_jobs)
+
+        # PSF photometry builds its models on the stacks and fits the tile
+        if self.build_psf_photometry and not (self.build_stacks and self.build_tile):
+            raise PipelineValueError(
+                "build_psf_photometry needs build_stacks and build_tile"
+            )
 
         # Validate saturation overrides (detector number 1-16 -> positive ADU)
         if self.saturation_override is not None:
@@ -870,6 +877,7 @@ class Setup:
         )
         self.folders["temp_completeness_psf"] = f"{_completeness_temp}completeness/psf/"
         self.folders["statistics"] = f"{self.folders['object']}processing/statistics/"
+        self.folders["psf"] = f"{self.folders['object']}processing/psf/"
         self.folders["stacks"] = f"{self.folders['object']}products/stacks/"
         self.folders["pawprints"] = f"{self.folders['object']}products/pawprints/"
         self.folders["tile"] = f"{self.folders['object']}products/tile/"
