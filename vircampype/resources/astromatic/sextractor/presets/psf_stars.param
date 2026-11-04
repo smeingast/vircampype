@@ -1,0 +1,19 @@
+NUMBER                   # Running object number
+X_IMAGE                  # Object position along x                                  [pixel]
+Y_IMAGE                  # Object position along y                                  [pixel]
+XWIN_IMAGE               # Windowed position estimate along x                       [pixel]
+YWIN_IMAGE               # Windowed position estimate along y                       [pixel]
+FLUX_RADIUS              # Fraction-of-light radii                                  [pixel]
+FLUX_APER                # Flux vector within fixed circular aperture(s)            [count]
+FLUXERR_APER             # RMS error vector for aperture flux(es)                   [count]
+FLUX_MAX                 # Peak flux above background                               [count]
+FLUX_AUTO                # Flux within a Kron-like elliptical aperture              [count]
+ELONGATION               # A_IMAGE/B_IMAGE
+ELLIPTICITY              # 1 - B_IMAGE/A_IMAGE
+FWHM_IMAGE               # FWHM assuming a gaussian core                            [pixel]
+ISOAREA_IMAGE            # Isophotal area above Analysis threshold                  [pixel**2]
+BACKGROUND               # Background at centroid position                          [count]
+FLAGS                    # Extraction flags
+FLAGS_WEIGHT             # Weighted extraction flags
+SNR_WIN                  # Gaussian-weighted SNR
+VIGNET(25,25)            # Pixel data around detection                              [count]
