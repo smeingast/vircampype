@@ -12,7 +12,7 @@ from astropy.io import fits
 
 from tests.test_cube import make_test_setup
 from tests.test_sdpcheck import make_products
-from vircampype.fits.images.sky import Stacks, Tile
+from vircampype.fits.images.sky import SkyImagesResampled, Stacks, Tile
 from vircampype.pipeline.errors import PipelineFileNotFoundError, PipelineValueError
 from vircampype.tools.astromatic import AstromaticSetup
 
@@ -99,6 +99,55 @@ class TestTile(unittest.TestCase):
         paths = [f"{self.setup.folders['stacks']}stack_{i}.fits" for i in (1, 2)]
         stacks = Stacks(setup=self.setup, file_paths=paths)
         self.assertEqual(stacks.paths_sextractor, stacks.paths_full)
+
+
+class TestSaturationMapPaths(unittest.TestCase):
+    """Builders and FLAG_IMAGE readers use the same map names; pawprint maps are
+    rebuilt only when missing or older than their image."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.setup = make_test_setup(self._tmp.name, build_stacks=True)
+
+    def test_map_names(self):
+        tile = Tile(setup=self.setup, file_paths=self.setup.path_coadd)
+        self.assertEqual(
+            tile.paths_saturation_maps,
+            [self.setup.path_coadd.removesuffix(".fits") + ".satmap.fits"],
+        )
+        path_stack = f"{self.setup.folders['stacks']}{self.setup.name}_01.stack.fits"
+        stacks = Stacks(setup=self.setup, file_paths=[path_stack])
+        self.assertEqual(
+            stacks.paths_saturation_maps,
+            [path_stack.removesuffix(".fits") + ".satmap.fits"],
+        )
+        path_paw = f"{self.setup.folders['resampled']}paw.proc.final.resamp.fits"
+        paw = SkyImagesResampled(setup=self.setup, file_paths=[path_paw])
+        self.assertEqual(
+            paw.paths_saturation_maps,
+            [f"{self.setup.folders['statistics']}paw.proc.final.resamp.satmap.fits"],
+        )
+
+    def test_pawprint_map_rebuilt_when_older_than_image(self):
+        os.makedirs(self.setup.folders["resampled"], exist_ok=True)
+        os.makedirs(self.setup.folders["statistics"], exist_ok=True)
+        path_paw = f"{self.setup.folders['resampled']}paw.resamp.fits"
+        fits.PrimaryHDU().writeto(path_paw)
+        paw = SkyImagesResampled(setup=self.setup, file_paths=[path_paw])
+        path_map = paw.paths_saturation_maps[0]
+        fits.PrimaryHDU().writeto(path_map)
+        t_image = os.path.getmtime(path_paw)
+        target = "vircampype.tools.satmap.build_pawprint_saturation_map"
+        for t_map, rebuilt in ((t_image - 100, True), (t_image + 100, False)):
+            os.utime(path_map, (t_map, t_map))
+            with patch(target, return_value=0) as build:
+                paw.build_saturation_maps()
+            self.assertEqual(build.called, rebuilt)
+        os.remove(path_map)
+        with patch(target, return_value=0) as build:
+            paw.build_saturation_maps()
+        self.assertTrue(build.called)
 
 
 class TestStacksLayout(unittest.TestCase):

@@ -381,7 +381,9 @@ class SkyImages(FitsImages):
     def paths_saturation_maps(self):
         """Saturation map of each image (``<name>.satmap.fits``; FLAG_IMAGE of the
         'full' SExtractor runs)."""
-        return [p.removesuffix(".fits") + ".satmap.fits" for p in self.paths_full]
+        from vircampype.tools.satmap import saturation_map_path
+
+        return [saturation_map_path(p) for p in self.paths_full]
 
     def sextractor(
         self,
@@ -2504,10 +2506,14 @@ class SkyImagesResampled(SkyImagesProcessed):
         )
         log = logging.getLogger(__name__)
         tstart = time.time()
+        # Rebuild a map that is missing or older than its image (resampled again after a
+        # reset); finished maps are kept on a resume
         todo = [
             i
             for i, p in enumerate(self.paths_saturation_maps)
-            if self.setup.overwrite or not os.path.isfile(p)
+            if self.setup.overwrite
+            or not os.path.isfile(p)
+            or os.path.getmtime(p) < os.path.getmtime(self.paths_full[i])
         ]
         counts = Parallel(n_jobs=self.setup.n_jobs, prefer="threads")(
             delayed(build_pawprint_saturation_map)(
@@ -2529,8 +2535,13 @@ class SkyImagesResampled(SkyImagesProcessed):
 
     def build_saturation_maps_stacks(self):
         """Count maps of the stacks: per stack extension, the number of pawprints of
-        its offset whose same detector is saturated in a pixel."""
-        from vircampype.tools.satmap import add_saturation_counts
+        its offset whose same detector is saturated in a pixel. Always rebuilt (cheap;
+        the stacks and pawprint maps may have changed since a previous run)."""
+        from vircampype.tools.satmap import (
+            add_saturation_counts,
+            map_header,
+            saturation_map_path,
+        )
 
         print_header(
             header="STACK SATURATION MAPS", silent=self.setup.silent, right=None
@@ -2542,9 +2553,7 @@ class SkyImagesResampled(SkyImagesProcessed):
             path_stack = (
                 f"{self.setup.folders['stacks']}{self.setup.name}_{oidx:02d}.stack.fits"
             )
-            path_out = path_stack.removesuffix(".fits") + ".satmap.fits"
-            if os.path.isfile(path_out) and not self.setup.overwrite:
-                continue
+            path_out = saturation_map_path(path_stack)
             paths_maps = [maps[p] for p in files.paths_full]
             out = fits.HDUList([fits.PrimaryHDU()])
             with fits.open(path_stack, memmap=True) as hdul:
@@ -2552,11 +2561,7 @@ class SkyImagesResampled(SkyImagesProcessed):
                     header = hdul[idx].header
                     counts = np.zeros((header["NAXIS2"], header["NAXIS1"]), np.uint8)
                     add_saturation_counts(counts, header, paths_maps, hdu_index=idx)
-                    hdr = fits.ImageHDU(counts).header
-                    for key in ("CTYPE1", "CTYPE2", "CRVAL1", "CRVAL2", "CRPIX1"):
-                        hdr[key] = header[key]
-                    for key in ("CRPIX2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"):
-                        hdr[key] = header[key]
+                    hdr = map_header(header, counts.shape)
                     out.append(fits.ImageHDU(counts, header=hdr))
             path_tmp = make_path_system_tempfile(
                 prefix="satmap_", suffix=".fits", base_dir=self.setup.local_cache_dir
@@ -2570,17 +2575,18 @@ class SkyImagesResampled(SkyImagesProcessed):
 
     def build_saturation_map_tile(self):
         """Count map of the tile (or mosaic): the number of pawprints saturated in
-        each pixel, on the grid of the tile image."""
-        from vircampype.tools.satmap import build_saturation_count_map
+        each pixel, on the grid of the tile image. Always rebuilt (cheap; the tile and
+        pawprint maps may have changed since a previous run)."""
+        from vircampype.tools.satmap import (
+            build_saturation_count_map,
+            saturation_map_path,
+        )
 
         print_header(header="TILE SATURATION MAP", silent=self.setup.silent, right=None)
-        path_out = self.setup.path_coadd.removesuffix(".fits") + ".satmap.fits"
-        if os.path.isfile(path_out) and not self.setup.overwrite:
-            return
         build_saturation_count_map(
             self.paths_saturation_maps,
             fits.getheader(self.setup.path_coadd, 0),
-            path_out,
+            saturation_map_path(self.setup.path_coadd),
             self.setup.local_cache_dir,
         )
 

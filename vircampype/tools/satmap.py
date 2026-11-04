@@ -31,6 +31,8 @@ __all__ = [
     "add_saturation_counts",
     "build_pawprint_saturation_map",
     "build_saturation_count_map",
+    "map_header",
+    "saturation_map_path",
 ]
 
 # Pixels at or above this fraction of SATURATE count as saturated: peaks of
@@ -42,7 +44,12 @@ _WCS_KEYS += ["CRPIX1", "CRPIX2", "CD1_1", "CD1_2", "CD2_1", "CD2_2"]
 _WCS_KEYS += ["EQUINOX", "RADESYS"]
 
 
-def _map_header(header: fits.Header, data_shape: tuple[int, int]) -> fits.Header:
+def saturation_map_path(path_image: str) -> str:
+    """Saturation map of a stack or tile image: ``<name>.satmap.fits`` next to it."""
+    return path_image.removesuffix(".fits") + ".satmap.fits"
+
+
+def map_header(header: fits.Header, data_shape: tuple[int, int]) -> fits.Header:
     """Header of a uint8 map on the grid of ``header``."""
     hdr = fits.ImageHDU(data=np.zeros((1, 1), np.uint8)).header
     hdr["NAXIS1"], hdr["NAXIS2"] = data_shape[1], data_shape[0]
@@ -111,7 +118,7 @@ def build_pawprint_saturation_map(
             # ring; masked or non-finite pixels may close a ring but are never flagged.
             mask = binary_fill_holes(data >= level) & np.isfinite(data) & (weight > 0)
             n_sat += int(mask.sum())
-            hdr_map = _map_header(hdr, mask.shape)
+            hdr_map = map_header(hdr, mask.shape)
             hdr_map["SATLEVEL"] = (round(level, 3), "Level of a saturated pixel (ADU)")
             out.append(fits.ImageHDU(mask.astype(np.uint8), header=hdr_map))
     _write_via_cache(out, path_out, cache_dir)
@@ -178,7 +185,7 @@ def build_saturation_count_map(
     """
     nx, ny = header["NAXIS1"], header["NAXIS2"]
     hdr = fits.PrimaryHDU(data=np.zeros((1, 1), np.uint8)).header
-    hdr_map = _map_header(header, (ny, nx))
+    hdr_map = map_header(header, (ny, nx))
     for card in hdr_map.cards:
         if card.keyword not in ("XTENSION", "PCOUNT", "GCOUNT"):
             hdr.set(card.keyword, card.value, card.comment)
